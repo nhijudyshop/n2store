@@ -12,13 +12,68 @@ const FB_GRAPH_URL = 'https://graph.facebook.com/v21.0';
 const FB_APP_ID = process.env.FB_APP_ID;
 const FB_APP_SECRET = process.env.FB_APP_SECRET;
 
-// In-memory token storage (per session, refreshed via Facebook Login)
+// Token storage — in-memory cache backed by PostgreSQL
 let fbTokenStore = {
     accessToken: null,
     expiresAt: null,
     userId: null,
     name: null
 };
+
+// DB persistence helpers
+async function saveTokenToDB(req) {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return;
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS fb_ads_tokens (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                access_token TEXT NOT NULL,
+                expires_at BIGINT,
+                user_id TEXT,
+                name TEXT,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await db.query(`
+            INSERT INTO fb_ads_tokens (id, access_token, expires_at, user_id, name, updated_at)
+            VALUES (1, $1, $2, $3, $4, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                access_token = EXCLUDED.access_token,
+                expires_at = EXCLUDED.expires_at,
+                user_id = EXCLUDED.user_id,
+                name = EXCLUDED.name,
+                updated_at = NOW()
+        `, [fbTokenStore.accessToken, fbTokenStore.expiresAt, fbTokenStore.userId, fbTokenStore.name]);
+        console.log('[FB-ADS] Token saved to database');
+    } catch (e) {
+        console.log('[FB-ADS] Could not save token to DB:', e.message);
+    }
+}
+
+async function loadTokenFromDB(req) {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return false;
+        const result = await db.query('SELECT * FROM fb_ads_tokens WHERE id = 1');
+        if (result.rows.length > 0) {
+            const row = result.rows[0];
+            if (row.access_token && row.expires_at > Date.now()) {
+                fbTokenStore = {
+                    accessToken: row.access_token,
+                    expiresAt: parseInt(row.expires_at),
+                    userId: row.user_id,
+                    name: row.name
+                };
+                console.log(`[FB-ADS] Token loaded from DB for ${fbTokenStore.name}, expires ${new Date(fbTokenStore.expiresAt).toLocaleDateString()}`);
+                return true;
+            }
+        }
+    } catch (e) {
+        // Table may not exist yet
+    }
+    return false;
+}
 
 // =====================================================
 // HELPER: Facebook API fetch
@@ -96,6 +151,9 @@ router.post('/auth/token', async (req, res) => {
             name: name || 'Unknown'
         };
 
+        // Persist to database
+        await saveTokenToDB(req);
+
         console.log(`[FB-ADS] Authenticated as ${fbTokenStore.name} (${fbTokenStore.userId}), token expires in ${Math.round((data.expires_in || 5184000) / 86400)} days`);
 
         res.json({
@@ -110,7 +168,11 @@ router.post('/auth/token', async (req, res) => {
 });
 
 // GET /api/fb-ads/auth/status — Check if authenticated
-router.get('/auth/status', (req, res) => {
+router.get('/auth/status', async (req, res) => {
+    // If memory empty, try load from DB (e.g. after server restart)
+    if (!fbTokenStore.accessToken) {
+        await loadTokenFromDB(req);
+    }
     const isAuth = !!fbTokenStore.accessToken && Date.now() < (fbTokenStore.expiresAt || 0);
     res.json({
         success: true,
@@ -121,8 +183,12 @@ router.get('/auth/status', (req, res) => {
 });
 
 // POST /api/fb-ads/auth/logout
-router.post('/auth/logout', (req, res) => {
+router.post('/auth/logout', async (req, res) => {
     fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
+    try {
+        const db = req.app.locals.chatDb;
+        if (db) await db.query('DELETE FROM fb_ads_tokens WHERE id = 1');
+    } catch (e) { /* ignore */ }
     res.json({ success: true });
 });
 
