@@ -155,34 +155,143 @@ const LiveModeModule = (function() {
         }).join('');
     }
 
+    // Map account numbers to known names
+    const KNOWN_ACCOUNTS = {};
+
+    function getAccountLabel(accountNumber, gateway) {
+        const key = accountNumber || '';
+        if (KNOWN_ACCOUNTS[key]) return KNOWN_ACCOUNTS[key];
+        if (gateway && accountNumber) return `${gateway} - ${accountNumber}`;
+        return accountNumber || gateway || '';
+    }
+
+    // Extract sender info from content field
+    function extractSenderInfo(content) {
+        if (!content) return null;
+        const info = {};
+
+        // Pattern: "NGUYEN VAN A chuyen tien" or company names
+        // Vietnamese bank content often: "<sender> chuyen tien" or "<sender> CT DEN..."
+        const ctMatch = content.match(/^(.+?)\s+(?:chuyen tien|ct den|ct di|thanh toan|gui tien|chuyen khoan)/i);
+        if (ctMatch) {
+            info.name = ctMatch[1].trim();
+        }
+
+        // Pattern: "GD TU <account>" or "TK GUI: <number>"
+        const fromAccMatch = content.match(/(?:GD TU|TK GUI|tu tk|from)\s*:?\s*([0-9]{6,19})/i);
+        if (fromAccMatch) {
+            info.fromAccount = fromAccMatch[1];
+        }
+
+        // Pattern: company/service names (all caps words at start)
+        if (!info.name) {
+            const capsMatch = content.match(/^([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)*)/);
+            if (capsMatch && capsMatch[1].length >= 3) {
+                info.name = capsMatch[1].trim();
+            }
+        }
+
+        // Pattern: phone numbers in content (10-11 digits)
+        const phoneMatch = content.match(/(?:^|\s)(0[0-9]{9,10})(?:\s|$)/);
+        if (phoneMatch) {
+            info.phone = phoneMatch[1];
+        }
+
+        return (info.name || info.fromAccount || info.phone) ? info : null;
+    }
+
     function renderDetailRow(tx) {
-        const parts = [];
+        const line1Parts = []; // Receiving account info
+        const line2Parts = []; // Sender info
+        const badgeParts = []; // Risk badges
+
+        // === LINE 1: Receiving account (TK nhận) ===
 
         // Gateway badge
         if (tx.gateway) {
-            parts.push(`<span class="detail-gateway">${escapeHtml(tx.gateway)}</span>`);
+            line1Parts.push(`<span class="detail-gateway">${escapeHtml(tx.gateway)}</span>`);
+        }
+
+        // Full account number (TK nhận)
+        if (tx.account_number) {
+            line1Parts.push(`<span class="detail-account" title="TK nhận: ${escapeHtml(tx.account_number)}"><i data-lucide="landmark"></i>${escapeHtml(tx.account_number)}</span>`);
         }
 
         // Reference code
         if (tx.reference_code) {
-            parts.push(`<span class="detail-ref" title="Mã tham chiếu">#${escapeHtml(tx.reference_code)}</span>`);
+            line1Parts.push(`<span class="detail-ref" title="Mã tham chiếu">#${escapeHtml(tx.reference_code)}</span>`);
         }
 
-        // Account number (last 4 digits)
-        if (tx.account_number) {
-            const acc = tx.account_number;
-            const masked = acc.length > 4 ? '•••' + acc.slice(-4) : acc;
-            parts.push(`<span class="detail-account" title="${escapeHtml(acc)}">${escapeHtml(masked)}</span>`);
+        // Transaction code (mã GD ngân hàng)
+        if (tx.code) {
+            line1Parts.push(`<span class="detail-code" title="Mã GD ngân hàng">${escapeHtml(tx.code)}</span>`);
         }
 
-        // Fraud risk badges
+        // Sepay ID
+        if (tx.sepay_id) {
+            line1Parts.push(`<span class="detail-sepay" title="Sepay ID">ID:${tx.sepay_id}</span>`);
+        }
+
+        // Balance after transaction
+        if (tx.accumulated) {
+            line1Parts.push(`<span class="detail-balance" title="Số dư sau GD">SD: ${formatCurrency(tx.accumulated)}</span>`);
+        }
+
+        // === LINE 2: Sender info (Bên gửi) ===
+        const sender = extractSenderInfo(tx.content);
+        if (sender) {
+            if (sender.name) {
+                line2Parts.push(`<span class="detail-sender-name" title="Nguồn/Người gửi"><i data-lucide="user"></i>${escapeHtml(sender.name)}</span>`);
+            }
+            if (sender.fromAccount) {
+                line2Parts.push(`<span class="detail-sender-account" title="TK gửi"><i data-lucide="arrow-right-left"></i>${escapeHtml(sender.fromAccount)}</span>`);
+            }
+            if (sender.phone) {
+                line2Parts.push(`<span class="detail-sender-phone" title="SĐT trong nội dung"><i data-lucide="phone"></i>${escapeHtml(sender.phone)}</span>`);
+            }
+        }
+
+        // Description (mô tả từ ngân hàng)
+        if (tx.description && tx.description !== tx.content) {
+            line2Parts.push(`<span class="detail-desc" title="Mô tả">${escapeHtml(tx.description)}</span>`);
+        }
+
+        // Sub account
+        if (tx.sub_account) {
+            line2Parts.push(`<span class="detail-sub" title="TK phụ">${escapeHtml(tx.sub_account)}</span>`);
+        }
+
+        // Extraction note (MOMO:, VCB:...)
+        if (tx.extraction_note) {
+            line2Parts.push(`<span class="detail-extraction" title="Trích xuất">${escapeHtml(tx.extraction_note)}</span>`);
+        }
+
+        // === BADGES: Risk indicators ===
         const risks = detectFraudRisks(tx);
         if (risks.length > 0) {
-            parts.push(renderFraudBadges(risks));
+            badgeParts.push(renderFraudBadges(risks));
         }
 
-        if (parts.length === 0) return '';
-        return `<div class="card-detail-row">${parts.join('')}</div>`;
+        // Build HTML
+        const hasContent = line1Parts.length > 0 || line2Parts.length > 0 || badgeParts.length > 0;
+        if (!hasContent) return '';
+
+        let html = '<div class="card-detail-block">';
+
+        if (line1Parts.length > 0) {
+            html += `<div class="card-detail-row detail-receiver">${line1Parts.join('')}</div>`;
+        }
+
+        if (line2Parts.length > 0) {
+            html += `<div class="card-detail-row detail-sender">${line2Parts.join('')}</div>`;
+        }
+
+        if (badgeParts.length > 0) {
+            html += `<div class="card-detail-row detail-risks">${badgeParts.join('')}</div>`;
+        }
+
+        html += '</div>';
+        return html;
     }
 
     // ===== BUTTON LOADING STATE =====

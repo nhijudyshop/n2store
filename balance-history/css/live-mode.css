@@ -736,42 +736,157 @@
     margin-right: 10px;
 }
 
-/* ===== DETAIL ROW - Transaction metadata & fraud indicators ===== */
+/* ===== DETAIL BLOCK - Transaction metadata & fraud indicators ===== */
+.kanban-card .card-detail-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 0 1px 61px; /* align with content (55px time + 6px gap) */
+    border-top: 1px dashed #e2e8f0;
+    margin-top: 3px;
+}
+
 .kanban-card .card-detail-row {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 0 0 61px; /* align with content (55px time + 6px gap) */
     flex-wrap: wrap;
 }
 
-.kanban-card .detail-gateway {
-    font-size: 10px;
+/* Row labels */
+.kanban-card .detail-receiver::before {
+    content: 'Nhận';
+    font-size: 9px;
     font-weight: 600;
+    color: #10b981;
+    background: #ecfdf5;
+    padding: 0 3px;
+    border-radius: 2px;
+    margin-right: 2px;
+}
+
+.kanban-card .detail-sender::before {
+    content: 'Gửi';
+    font-size: 9px;
+    font-weight: 600;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 0 3px;
+    border-radius: 2px;
+    margin-right: 2px;
+}
+
+/* Detail items - shared base */
+.kanban-card .card-detail-row > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
     padding: 1px 5px;
     border-radius: 3px;
+}
+
+.kanban-card .card-detail-row > span i,
+.kanban-card .card-detail-row > span svg {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+}
+
+/* Gateway badge */
+.kanban-card .detail-gateway {
+    font-weight: 700;
     background: #e0e7ff;
     color: #3730a3;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
-.kanban-card .detail-ref {
-    font-size: 10px;
+/* Account number (TK nhận - full) */
+.kanban-card .detail-account {
     font-family: monospace;
-    padding: 1px 5px;
-    border-radius: 3px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+/* Reference code */
+.kanban-card .detail-ref {
+    font-family: monospace;
     background: #f1f5f9;
     color: #475569;
 }
 
-.kanban-card .detail-account {
-    font-size: 10px;
+/* Transaction code */
+.kanban-card .detail-code {
     font-family: monospace;
-    padding: 1px 5px;
-    border-radius: 3px;
+    background: #faf5ff;
+    color: #7c3aed;
+    font-size: 9px;
+}
+
+/* Sepay ID */
+.kanban-card .detail-sepay {
+    font-family: monospace;
+    background: #f8fafc;
+    color: #94a3b8;
+    font-size: 9px;
+}
+
+/* Balance after transaction */
+.kanban-card .detail-balance {
+    font-family: monospace;
+    background: #fffbeb;
+    color: #b45309;
+    font-size: 9px;
+}
+
+/* Sender name */
+.kanban-card .detail-sender-name {
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+/* Sender account */
+.kanban-card .detail-sender-account {
+    font-family: monospace;
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Sender phone */
+.kanban-card .detail-sender-phone {
+    font-family: monospace;
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+/* Description */
+.kanban-card .detail-desc {
     background: #f8fafc;
     color: #64748b;
+    font-style: italic;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sub account */
+.kanban-card .detail-sub {
+    font-family: monospace;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 9px;
+}
+
+/* Extraction note */
+.kanban-card .detail-extraction {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 9px;
 }
 
 /* Fraud risk badges */
