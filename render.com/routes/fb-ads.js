@@ -345,22 +345,17 @@ router.get('/campaigns', async (req, res) => {
     }
 });
 
-// POST /api/fb-ads/campaigns — Create campaign
+// POST /api/fb-ads/campaigns — Create campaign (forwards all fields to FB)
 router.post('/campaigns', async (req, res) => {
     try {
-        const { account_id, name, objective, status, daily_budget, special_ad_categories } = req.body;
-        if (!account_id || !name || !objective) {
+        const { account_id, ...body } = req.body;
+        if (!account_id || !body.name || !body.objective) {
             return res.status(400).json({ success: false, error: 'account_id, name, objective required' });
         }
 
         const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
-        const body = {
-            name,
-            objective,
-            status: status || 'PAUSED',
-            special_ad_categories: special_ad_categories || []
-        };
-        if (daily_budget) body.daily_budget = daily_budget;
+        if (!body.status) body.status = 'PAUSED';
+        if (!body.special_ad_categories) body.special_ad_categories = [];
 
         const data = await fbFetch(`/${actId}/campaigns`, { method: 'POST', body });
         res.json({ success: true, data });
@@ -431,23 +426,14 @@ router.get('/adsets', async (req, res) => {
 // POST /api/fb-ads/adsets — Create ad set
 router.post('/adsets', async (req, res) => {
     try {
-        const { account_id, campaign_id, name, daily_budget, billing_event, optimization_goal, targeting, status, start_time, end_time } = req.body;
-        if (!account_id || !campaign_id || !name || !optimization_goal || !targeting) {
-            return res.status(400).json({ success: false, error: 'account_id, campaign_id, name, optimization_goal, targeting required' });
+        const { account_id, ...body } = req.body;
+        if (!account_id || !body.campaign_id || !body.name || !body.targeting) {
+            return res.status(400).json({ success: false, error: 'account_id, campaign_id, name, targeting required' });
         }
 
         const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
-        const body = {
-            campaign_id,
-            name,
-            optimization_goal,
-            billing_event: billing_event || 'IMPRESSIONS',
-            targeting,
-            status: status || 'PAUSED'
-        };
-        if (daily_budget) body.daily_budget = daily_budget;
-        if (start_time) body.start_time = start_time;
-        if (end_time) body.end_time = end_time;
+        if (!body.billing_event) body.billing_event = 'IMPRESSIONS';
+        if (!body.status) body.status = 'PAUSED';
 
         const data = await fbFetch(`/${actId}/adsets`, { method: 'POST', body });
         res.json({ success: true, data });
@@ -501,18 +487,13 @@ router.get('/ads', async (req, res) => {
 // POST /api/fb-ads/ads — Create ad
 router.post('/ads', async (req, res) => {
     try {
-        const { account_id, adset_id, name, creative, status } = req.body;
-        if (!account_id || !adset_id || !name || !creative) {
+        const { account_id, ...body } = req.body;
+        if (!account_id || !body.adset_id || !body.name || !body.creative) {
             return res.status(400).json({ success: false, error: 'account_id, adset_id, name, creative required' });
         }
 
         const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
-        const body = {
-            adset_id,
-            name,
-            creative,
-            status: status || 'PAUSED'
-        };
+        if (!body.status) body.status = 'PAUSED';
 
         const data = await fbFetch(`/${actId}/ads`, { method: 'POST', body });
         res.json({ success: true, data });

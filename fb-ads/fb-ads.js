@@ -532,7 +532,11 @@ const FBAds = (() => {
         const status = document.getElementById('campaignStatus').value;
         if (!name) { toast('Nhập tên chiến dịch', 'error'); return; }
         try {
-            const body = { account_id: selectedAccountId, name, objective, status };
+            const body = {
+                account_id: selectedAccountId, name, objective, status,
+                is_skadnetwork_attribution: false,
+                is_adset_budget_sharing_enabled: false
+            };
             if (budget) body.daily_budget = parseInt(budget);
             await api('/campaigns', { method: 'POST', body });
             toast('Tạo chiến dịch thành công!', 'success');
