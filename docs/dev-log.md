@@ -8,6 +8,14 @@
 
 ## 2026-04-11
 
+### [chat] Harvest global_id từ extension bypass + fix bulk send ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-extension-bridge.js`, `orders-report/js/chat/message-template-manager.js` |
+| **Harvest extension** | `sendViaExtension` + `sendViaExtensionWithAttachments`: khi extension resolve `global_id` thành công → gọi `GlobalIdHarvester.fromCustomers()` + `_saveGlobalIdToServer()`. Trước đó chỉ cache in-memory, mất khi reload. |
+| **Bulk send fixes** | (1) `_sendAsInbox`: thêm `conv.page_id === pageId` guard — `inboxMapByPSID` có thể trả cross-page conv. (2) `action: 'reply_inbox'` thay `type: 'reply_inbox'` (đúng Pancake API spec). (3) `_sendAsComment`: cùng page guard + `action: 'reply_comment'`. |
+| **Status** | ✅ Done |
+
 ### [chat] Sync customer data to Render DB khi mở chat modal ✅
 | | |
 |---|---|

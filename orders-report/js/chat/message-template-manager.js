@@ -244,8 +244,9 @@
     async function _sendAsInbox(pageId, psid, text, orderId) {
         const pdm = window.pancakeDataManager;
 
-        // First find conversation
-        const conv = pdm.inboxMapByPSID?.get(String(psid));
+        // Find conversation — guard page_id match (PSID is page-scoped)
+        let conv = pdm.inboxMapByPSID?.get(String(psid));
+        if (conv && String(conv.page_id) !== String(pageId)) conv = null;
         if (!conv) {
             throw new Error('Không tìm thấy cuộc hội thoại INBOX');
         }
@@ -254,10 +255,10 @@
             // Try Pancake API first
             await pdm.sendMessage(pageId, conv.id, {
                 message: text,
-                type: 'reply_inbox'
+                action: 'reply_inbox'
             });
         } catch (apiErr) {
-            // Fallback to extension if 24h error
+            // Fallback to extension if available
             if (window.sendViaExtension && window.pancakeExtension?.connected) {
                 const convData = window.buildConvData ? window.buildConvData(pageId, psid) : { pageId, psid };
                 await window.sendViaExtension(text, convData);
@@ -270,15 +271,16 @@
     async function _sendAsComment(pageId, psid, text, orderId) {
         const pdm = window.pancakeDataManager;
 
-        // Find COMMENT conversation
-        const conv = pdm.commentMapByPSID?.get(String(psid));
+        // Find COMMENT conversation — guard page_id match
+        let conv = pdm.commentMapByPSID?.get(String(psid));
+        if (conv && String(conv.page_id) !== String(pageId)) conv = null;
         if (!conv) {
             throw new Error('Không tìm thấy cuộc hội thoại COMMENT');
         }
 
         await pdm.sendMessage(pageId, conv.id, {
             message: text,
-            type: 'reply_comment'
+            action: 'reply_comment'
         });
     }
 

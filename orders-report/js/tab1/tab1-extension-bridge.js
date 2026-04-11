@@ -205,7 +205,7 @@ async function sendViaExtension(text, conv) {
         throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
     }
 
-    // Cache for next time (in-memory + server)
+    // Cache for next time (in-memory + server + harvester)
     window._globalIdCache[cacheKey] = globalUserId;
     if (conv.pageId && psid) {
         // Fire-and-forget — không block send flow
@@ -213,6 +213,14 @@ async function sendViaExtension(text, conv) {
             conv.pageId, psid, globalUserId,
             cacheKey, custName, fbThreadId
         );
+        // Also push to GlobalIdHarvester for cross-session persistence
+        try {
+            window.GlobalIdHarvester?.fromCustomers(conv.pageId, [{
+                fb_id: psid,
+                global_id: globalUserId,
+                name: custName,
+            }], { conversationId: conv.conversationId || conv.id, threadId: fbThreadId });
+        } catch (_) {}
     }
 
     // ===== Send REPLY_INBOX_PHOTO (exact same payload as inbox-chat.js) =====
@@ -477,6 +485,16 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
         throw new Error('Không tìm được Global Facebook ID');
     }
     window._globalIdCache[cacheKey] = globalUserId;
+
+    // Save to server + harvest (same as sendViaExtension)
+    if (conv.pageId && psid) {
+        _saveGlobalIdToServer(conv.pageId, psid, globalUserId, cacheKey, conv.customerName, fbThreadId);
+        try {
+            window.GlobalIdHarvester?.fromCustomers(conv.pageId, [{
+                fb_id: psid, global_id: globalUserId, name: conv.customerName,
+            }], { conversationId: conv.conversationId || conv.id, threadId: fbThreadId });
+        } catch (_) {}
+    }
 
     // Send REPLY_INBOX_PHOTO with attachments
     const sendTaskId = Date.now();
