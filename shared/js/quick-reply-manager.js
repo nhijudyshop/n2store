@@ -520,10 +520,13 @@ class QuickReplyManager {
         if (reply.imageUrl || reply.contentId) {
             this.closeModal();
             this.sendQuickReplyWithImage(reply);
+            if (!reply.shortcut) this._autoAssignChuaPhanHoi();
             return;
         }
 
         this.insertToInput(reply.message);
+        // Auto-assign tag for CHỐT ĐƠN (shortcut rỗng) from modal
+        if (!reply.shortcut) this._autoAssignChuaPhanHoi();
     }
 
     insertToInput(message) {
@@ -798,6 +801,7 @@ class QuickReplyManager {
             input.value = '';
             input.style.height = 'auto';
             this.sendQuickReplyWithImage(reply);
+            if (!reply.shortcut) this._autoAssignChuaPhanHoi();
             return;
         }
 
@@ -817,6 +821,30 @@ class QuickReplyManager {
         if (window.sendMessage) {
             setTimeout(() => window.sendMessage(), 50);
         }
+
+        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" only for CHỐT ĐƠN template (shortcut rỗng = "/")
+        if (!reply.shortcut) {
+            this._autoAssignChuaPhanHoi();
+        }
+    }
+
+    /**
+     * Auto-assign category 2 / CHUA_PHAN_HOI if order has no tag yet.
+     * Same as clicking the clock button (Đơn chưa phản hồi) in Tag XL column.
+     */
+    _autoAssignChuaPhanHoi() {
+        const orderCode = window.currentChatOrderData?.Code;
+        if (!orderCode) return;
+        if (!window._ptagQuickAssign) return;
+
+        const existing = window.ProcessingTagState?.getOrderData?.(String(orderCode));
+        if (existing && existing.category != null) {
+            console.log('[QUICK-REPLY] order', orderCode, 'already has category', existing.category, '— skip auto-tag');
+            return;
+        }
+
+        console.log('[QUICK-REPLY] auto-assign CHUA_PHAN_HOI to order', orderCode);
+        window._ptagQuickAssign(String(orderCode), 'wait');
     }
 
     /**
