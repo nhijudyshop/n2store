@@ -11,30 +11,26 @@ const CelebrationManager = (() => {
         hanh: { name: 'Hạnh', photo: 'assets/employees/hanh.jpg' },
     };
 
-    const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@11.11.9/dist/motion.js';
+    const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js';
     const CONFETTI_CDN = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js';
 
-    let motionLib = null;   // { animate, spring, stagger }
     let overlay = null;
-    let cleanups = [];      // animation controls + timeouts to cancel on dismiss
+    let cleanups = [];
 
-    // --- Load libs ---
-    async function loadMotion() {
-        if (motionLib) return motionLib;
-        motionLib = await import(MOTION_CDN);
-        return motionLib;
-    }
-
-    function loadConfetti() {
+    // --- Load libs via script tag (IIFE → window.Motion / window.confetti) ---
+    function loadScript(src, globalName) {
         return new Promise((resolve, reject) => {
-            if (window.confetti) { resolve(window.confetti); return; }
+            if (window[globalName]) { resolve(window[globalName]); return; }
             const s = document.createElement('script');
-            s.src = CONFETTI_CDN;
-            s.onload = () => resolve(window.confetti);
+            s.src = src;
+            s.onload = () => resolve(window[globalName]);
             s.onerror = reject;
             document.head.appendChild(s);
         });
     }
+
+    function loadMotion() { return loadScript(MOTION_CDN, 'Motion'); }
+    function loadConfetti() { return loadScript(CONFETTI_CDN, 'confetti'); }
 
     // --- Helper: tracked setTimeout ---
     function later(fn, ms) {
@@ -87,7 +83,8 @@ const CelebrationManager = (() => {
 
     // --- Motion animations ---
     async function animateEntrance() {
-        const { animate, spring } = await loadMotion();
+        const M = await loadMotion();
+        const { animate, spring } = M;
         const card = overlay.querySelector('.celebration-card');
         const trophy = overlay.querySelector('.celebration-trophy');
         const photoRing = overlay.querySelector('.celebration-photo-ring');
@@ -317,5 +314,3 @@ const CelebrationManager = (() => {
     return { celebrate, dismiss, isAdmin, EMPLOYEES };
 })();
 
-// Expose globally for console testing & other scripts
-window.CelebrationManager = CelebrationManager;
