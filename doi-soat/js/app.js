@@ -272,14 +272,14 @@
     document.body.appendChild(imageOverlay);
     const overlayImg = imageOverlay.querySelector('img');
 
-    // Hover events on product name cells
+    // Hover events on product name cells — use cached blob URL, no repeated network requests
     productTableBody.addEventListener('mouseenter', (e) => {
         const cell = e.target.closest('.product-name-cell');
         if (!cell) return;
         const pid = cell.dataset.productId;
-        const src = productImageCache[pid];
-        if (!src) return;
-        overlayImg.src = src;
+        const blobUrl = productImageCache[pid];
+        if (!blobUrl) return;
+        overlayImg.src = blobUrl;
         imageOverlay.classList.add('visible');
     }, true);
 
@@ -316,9 +316,12 @@
 
                 if (!imageUrl) return;
 
-                productImageCache[line.ProductId] = window.TPOSImageProxy
-                    ? window.TPOSImageProxy.proxyImageUrl(imageUrl)
-                    : `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+                // Download image once and store as blob URL (no repeated network requests on hover)
+                const imgProxyUrl = `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+                const imgResp = await fetch(imgProxyUrl);
+                if (!imgResp.ok) return;
+                const blob = await imgResp.blob();
+                productImageCache[line.ProductId] = URL.createObjectURL(blob);
             } catch (e) { /* skip */ }
         });
     }
