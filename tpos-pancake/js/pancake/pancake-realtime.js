@@ -262,8 +262,17 @@ const PancakeRealtime = {
             this.reconnectAttempts++;
             var delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
             var self = this;
-            this.reconnectTimer = setTimeout(function() { self.connect(); }, delay);
+            this.reconnectTimer = setTimeout(function() {
+                // After first failed browser WS attempt, switch to server mode
+                if (self.reconnectAttempts >= 2) {
+                    console.log('[PK-RT] Browser WS failed, switching to server mode');
+                    self.connectServerMode();
+                } else {
+                    self.connect();
+                }
+            }, delay);
         } else {
+            console.log('[PK-RT] Max reconnects reached, falling back to auto-refresh');
             this.startAutoRefresh();
         }
     },

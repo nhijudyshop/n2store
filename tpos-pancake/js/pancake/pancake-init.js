@@ -33,11 +33,16 @@ const PancakeColumnManager = {
         // Bind all events
         this._bindEvents();
 
-        // Initialize realtime
-        var connected = await window.PancakeRealtime.connect();
-        if (!connected) {
-            console.log('[PK-INIT] WebSocket unavailable, using polling');
-            window.PancakeRealtime.startAutoRefresh();
+        // Initialize realtime - default to server mode (browser direct WS fails cross-origin)
+        var realtimeMode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
+        if (realtimeMode === 'browser') {
+            var connected = await window.PancakeRealtime.connect();
+            if (!connected) {
+                console.log('[PK-INIT] Browser WS failed, falling back to server mode');
+                await window.PancakeRealtime.connectServerMode();
+            }
+        } else {
+            await window.PancakeRealtime.connectServerMode();
         }
 
         // Listen for realtime manager events (from realtime-manager.js)
