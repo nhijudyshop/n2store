@@ -311,6 +311,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/fb-ads', fbAdsRoutes);
+app.use('/api/hang-qq', require('./routes/hang-qq'));
 app.use('/api/tpos/order-buffer', require('./routes/tpos-order-buffer'));
 
 // Facebook Global ID Cache — share resolved (psid → globalUserId) across all clients

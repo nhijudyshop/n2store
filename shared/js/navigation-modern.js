@@ -201,8 +201,8 @@ const MENU_CONFIG = [
     {
         href: "../hang-qq/index.html",
         icon: "package",
-        text: "Hàng Quảng Châu",
-        shortText: "Hàng QQ",
+        text: "Hàng Hương Châu",
+        shortText: "Hàng HC",
         pageIdentifier: "hang-qq",
         permissionRequired: "hang-qq",
     },

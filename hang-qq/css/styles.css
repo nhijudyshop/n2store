@@ -418,6 +418,61 @@ body {
     font-weight: 600;
 }
 
+/* Inline editing */
+.editable-cell {
+    cursor: pointer;
+    position: relative;
+    transition: background var(--transition);
+}
+
+.editable-cell:hover {
+    background: var(--accent-light);
+}
+
+.editable-cell.inline-editing {
+    padding: 4px 6px;
+    background: #fff;
+}
+
+.inline-input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-family: inherit;
+    background: #fff;
+    color: var(--text-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.inline-input[type="number"] {
+    text-align: right;
+}
+
+.cell-saving {
+    opacity: 0.6;
+}
+
+.cell-saved {
+    animation: cellFlashGreen 800ms ease;
+}
+
+.cell-error {
+    animation: cellFlashRed 1500ms ease;
+}
+
+@keyframes cellFlashGreen {
+    0% { background: var(--success-light); }
+    100% { background: transparent; }
+}
+
+@keyframes cellFlashRed {
+    0%, 50% { background: var(--danger-light); }
+    100% { background: transparent; }
+}
+
 .shortage-cell {
     color: var(--danger);
     font-weight: 600;

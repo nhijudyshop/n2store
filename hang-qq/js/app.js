@@ -1,8 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 
 /**
- * Hàng QQ - Quản lý hàng Quảng Châu
- * Data stored in Firestore collection: hang_qq
+ * Hàng QQ - Quản lý hàng Hương Châu
+ * Data stored in PostgreSQL via Render API
  * localStorage key: hangQQ_data (cache only)
  */
 
@@ -11,8 +11,24 @@
 
     // ===== Constants =====
     const LS_KEY = 'hangQQ_data';
-    const FIRESTORE_COLLECTION = 'hang_qq';
+    const API_BASE = 'https://n2store-fallback.onrender.com/api/hang-qq';
     const PAGE_SIZE = 50;
+
+    // ===== Editable field config =====
+    const EDITABLE_FIELDS = [
+        { key: 'ngayDiHang', type: 'date', label: 'Ngày đi hàng' },
+        { key: 'soLuong', type: 'number', label: 'SL' },
+        { key: 'soKg', type: 'number', label: 'Kg', step: '0.1' },
+        { key: 'moTa', type: 'text', label: 'Mô tả' },
+        { key: 'soTien', type: 'number', label: 'Tiền ¥', step: '0.01' },
+        { key: 'slNhan', type: 'number', label: 'SL nhận' },
+        { key: 'thieu', type: 'number', label: 'Thiếu' },
+        { key: 'chiPhi', type: 'number', label: 'CP hàng về', step: '0.01' },
+        { key: 'ghiChu', type: 'text', label: 'Ghi chú' },
+        { key: 'ngayTT', type: 'date', label: 'Ngày TT' },
+        { key: 'soTienTT', type: 'number', label: 'Tiền TT', step: '0.01' },
+        { key: 'soTienVND', type: 'number', label: 'Tiền VND' },
+    ];
 
     // ===== State =====
     let allData = [];
@@ -23,7 +39,7 @@
     let editingId = null;
     let productImages = [];
     let invoiceImages = [];
-    let db = null;
+    let activeInlineCell = null; // track currently editing cell
 
     // ===== DOM refs =====
     const $ = (sel) => document.querySelector(sel);
@@ -45,7 +61,6 @@
     document.addEventListener('DOMContentLoaded', async () => {
         cacheElements();
         bindEvents();
-        await initFirestore();
         await loadData();
         renderAll();
         initLucide();
@@ -71,40 +86,32 @@
         }
     }
 
-    // ===== Firestore =====
-    async function initFirestore() {
-        try {
-            if (typeof firebase !== 'undefined' && firebase.firestore) {
-                db = firebase.firestore();
-            }
-        } catch (e) {
-            console.warn('Firestore not available, using localStorage only:', e.message);
+    // ===== API =====
+    async function apiRequest(method, path = '', body = null) {
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+        };
+        if (body) opts.body = JSON.stringify(body);
+
+        const res = await fetch(`${API_BASE}${path}`, opts);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(err.error || res.statusText);
         }
+        return res.json();
     }
 
     async function loadData() {
-        // Try Firestore first
-        if (db) {
-            try {
-                const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
-                allData = [];
-                snapshot.forEach((doc) => {
-                    allData.push({ id: doc.id, ...doc.data() });
-                });
-                saveToLocalStorage();
-                return;
-            } catch (e) {
-                console.warn('Firestore load failed, using localStorage:', e.message);
-            }
-        }
-
-        // Fallback to localStorage
-        const cached = localStorage.getItem(LS_KEY);
-        if (cached) {
-            try {
-                allData = JSON.parse(cached);
-            } catch (e) {
-                allData = [];
+        try {
+            const result = await apiRequest('GET');
+            allData = result.data || [];
+            saveToLocalStorage();
+        } catch (e) {
+            console.warn('API load failed, using localStorage:', e.message);
+            const cached = localStorage.getItem(LS_KEY);
+            if (cached) {
+                try { allData = JSON.parse(cached); } catch (_) { allData = []; }
             }
         }
     }
@@ -114,35 +121,21 @@
     }
 
     async function saveEntry(entry) {
-        if (db) {
-            try {
-                if (entry.id) {
-                    await db.collection(FIRESTORE_COLLECTION).doc(entry.id).set(entry, { merge: true });
-                } else {
-                    const docRef = await db.collection(FIRESTORE_COLLECTION).add(entry);
-                    entry.id = docRef.id;
-                }
-            } catch (e) {
-                console.error('Firestore save error:', e);
-                // Generate local ID as fallback
-                if (!entry.id) {
-                    entry.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-                }
-            }
-        } else if (!entry.id) {
-            entry.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        if (entry.id) {
+            const result = await apiRequest('PUT', `/${entry.id}`, entry);
+            return result.data;
         }
-        return entry;
+        const result = await apiRequest('POST', '', entry);
+        return result.data;
+    }
+
+    async function patchEntry(id, fields) {
+        const result = await apiRequest('PATCH', `/${id}`, fields);
+        return result.data;
     }
 
     async function deleteEntry(id) {
-        if (db) {
-            try {
-                await db.collection(FIRESTORE_COLLECTION).doc(id).delete();
-            } catch (e) {
-                console.error('Firestore delete error:', e);
-            }
-        }
+        await apiRequest('DELETE', `/${id}`);
         allData = allData.filter((d) => d.id !== id);
         saveToLocalStorage();
     }
@@ -223,9 +216,17 @@
         // Keyboard
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                if (activeInlineCell) { cancelInlineEdit(); return; }
                 closeModal();
                 closeImportModal();
                 closeImageViewer();
+            }
+        });
+
+        // Click outside inline edit to save
+        document.addEventListener('click', (e) => {
+            if (activeInlineCell && !e.target.closest('.inline-editing') && !e.target.closest('.inline-input')) {
+                commitInlineEdit();
             }
         });
     }
@@ -247,22 +248,14 @@
         const status = els.filterStatus.value;
 
         filteredData = allData.filter((item) => {
-            // Search
             if (search) {
                 const searchableText = [item.moTa, item.ghiChu, item.stt, item.ngayDiHang]
-                    .filter(Boolean)
-                    .join(' ')
-                    .toLowerCase();
+                    .filter(Boolean).join(' ').toLowerCase();
                 if (!searchableText.includes(search)) return false;
             }
-
-            // Month filter
             if (month && item.ngayDiHang) {
-                const itemMonth = item.ngayDiHang.slice(0, 7); // YYYY-MM
-                if (itemMonth !== month) return false;
+                if (item.ngayDiHang.slice(0, 7) !== month) return false;
             }
-
-            // Status filter
             if (status) {
                 const paid = parseNum(item.soTienTT);
                 const total = parseNum(item.soTien);
@@ -270,7 +263,6 @@
                 if (status === 'unpaid' && paid > 0) return false;
                 if (status === 'partial' && (paid <= 0 || paid >= total)) return false;
             }
-
             return true;
         });
     }
@@ -279,7 +271,6 @@
         filteredData.sort((a, b) => {
             let valA = a[sortField];
             let valB = b[sortField];
-
             if (['soTien', 'chiPhi', 'soTienTT', 'soTienVND', 'soLuong', 'soKg'].includes(sortField)) {
                 valA = parseNum(valA);
                 valB = parseNum(valB);
@@ -287,7 +278,6 @@
                 valA = (valA || '').toString();
                 valB = (valB || '').toString();
             }
-
             if (valA < valB) return sortDir === 'asc' ? -1 : 1;
             if (valA > valB) return sortDir === 'asc' ? 1 : -1;
             return 0;
@@ -300,7 +290,7 @@
 
         if (pageData.length === 0) {
             els.tableBody.innerHTML = '';
-            els.emptyState.style.display = allData.length === 0 ? 'block' : 'block';
+            els.emptyState.style.display = 'block';
             $('.table-wrapper').style.display = allData.length === 0 ? 'none' : 'block';
             if (allData.length > 0 && filteredData.length === 0) {
                 els.emptyState.querySelector('p').innerHTML = 'Không tìm thấy kết quả phù hợp.';
@@ -316,29 +306,30 @@
             const globalIdx = start + idx + 1;
             const productImgs = item.productImages || [];
             const invoiceImgs = item.invoiceImages || [];
+            const id = item.id;
 
-            return `<tr data-id="${item.id}">
+            return `<tr data-id="${id}">
                 <td class="col-stt">${globalIdx}</td>
-                <td class="col-date">${formatDate(item.ngayDiHang)}</td>
-                <td class="col-num">${item.soLuong || ''}</td>
-                <td class="col-num">${item.soKg || ''}</td>
-                <td class="col-desc">${escHtml(item.moTa || '')}</td>
-                <td class="col-money money-cell">${formatMoney(item.soTien)}</td>
-                <td class="col-num">${item.slNhan || ''}</td>
-                <td class="col-num ${item.thieu ? 'shortage-cell' : ''}">${item.thieu || ''}</td>
-                <td class="col-money money-cell">${formatMoney(item.chiPhi)}</td>
-                <td class="col-note">${escHtml(item.ghiChu || '')}</td>
-                <td class="col-date">${formatDate(item.ngayTT)}</td>
-                <td class="col-money money-cell">${formatMoney(item.soTienTT)}</td>
-                <td class="col-money money-cell">${formatMoney(item.soTienVND)}</td>
-                <td class="col-img">${renderImgThumb(productImgs, 'product')}</td>
-                <td class="col-img">${renderImgThumb(invoiceImgs, 'invoice')}</td>
+                <td class="col-date editable-cell" data-id="${id}" data-field="ngayDiHang">${formatDate(item.ngayDiHang)}</td>
+                <td class="col-num editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</td>
+                <td class="col-num editable-cell" data-id="${id}" data-field="soKg">${item.soKg || ''}</td>
+                <td class="col-desc editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</td>
+                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTien">${formatMoney(item.soTien)}</td>
+                <td class="col-num editable-cell" data-id="${id}" data-field="slNhan">${item.slNhan || ''}</td>
+                <td class="col-num editable-cell ${item.thieu ? 'shortage-cell' : ''}" data-id="${id}" data-field="thieu">${item.thieu || ''}</td>
+                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</td>
+                <td class="col-note editable-cell" data-id="${id}" data-field="ghiChu">${escHtml(item.ghiChu || '')}</td>
+                <td class="col-date editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</td>
+                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTienTT">${formatMoney(item.soTienTT)}</td>
+                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTienVND">${formatMoney(item.soTienVND)}</td>
+                <td class="col-img">${renderImgThumb(productImgs, 'product', id)}</td>
+                <td class="col-img">${renderImgThumb(invoiceImgs, 'invoice', id)}</td>
                 <td class="col-actions">
                     <div class="action-btns">
-                        <button class="btn-icon" onclick="HangQQ.edit('${item.id}')" title="Sửa">
+                        <button class="btn-icon" onclick="HangQQ.edit('${id}')" title="Sửa">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
-                        <button class="btn-icon danger" onclick="HangQQ.del('${item.id}')" title="Xóa">
+                        <button class="btn-icon danger" onclick="HangQQ.del('${id}')" title="Xóa">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                     </div>
@@ -346,10 +337,133 @@
             </tr>`;
         }).join('');
 
+        // Bind inline edit click handlers
+        els.tableBody.querySelectorAll('.editable-cell').forEach((cell) => {
+            cell.addEventListener('dblclick', () => startInlineEdit(cell));
+        });
+
         lucideRefresh();
     }
 
-    function renderImgThumb(images, type) {
+    // ===== Inline Edit =====
+    function startInlineEdit(cell) {
+        if (activeInlineCell) commitInlineEdit();
+
+        const id = cell.dataset.id;
+        const field = cell.dataset.field;
+        const item = allData.find((d) => String(d.id) === String(id));
+        if (!item) return;
+
+        const fieldConfig = EDITABLE_FIELDS.find((f) => f.key === field);
+        if (!fieldConfig) return;
+
+        activeInlineCell = { cell, id, field, originalValue: item[field] };
+        cell.classList.add('inline-editing');
+
+        const rawValue = item[field] || '';
+        let inputHtml;
+
+        if (fieldConfig.type === 'date') {
+            inputHtml = `<input type="date" class="inline-input" value="${rawValue}">`;
+        } else if (fieldConfig.type === 'number') {
+            const step = fieldConfig.step || '1';
+            inputHtml = `<input type="number" class="inline-input" value="${parseNum(rawValue) || ''}" step="${step}">`;
+        } else {
+            inputHtml = `<input type="text" class="inline-input" value="${escAttr(String(rawValue))}">`;
+        }
+
+        cell.innerHTML = inputHtml;
+        const input = cell.querySelector('.inline-input');
+        input.focus();
+        if (fieldConfig.type === 'text') input.select();
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitInlineEdit(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelInlineEdit(); }
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                commitInlineEdit();
+                // Move to next editable cell
+                const allCells = [...els.tableBody.querySelectorAll('.editable-cell')];
+                const currentIdx = allCells.indexOf(cell);
+                const nextCell = allCells[e.shiftKey ? currentIdx - 1 : currentIdx + 1];
+                if (nextCell) startInlineEdit(nextCell);
+            }
+        });
+    }
+
+    async function commitInlineEdit() {
+        if (!activeInlineCell) return;
+
+        const { cell, id, field, originalValue } = activeInlineCell;
+        const input = cell.querySelector('.inline-input');
+        if (!input) { cancelInlineEdit(); return; }
+
+        let newValue = input.value;
+        const fieldConfig = EDITABLE_FIELDS.find((f) => f.key === field);
+
+        // Convert to number for number fields
+        if (fieldConfig && fieldConfig.type === 'number') {
+            newValue = newValue ? parseFloat(newValue) : '';
+        }
+
+        activeInlineCell = null;
+        cell.classList.remove('inline-editing');
+
+        // If unchanged, just restore display
+        if (String(newValue) === String(originalValue || '')) {
+            restoreCellDisplay(cell, field, originalValue);
+            return;
+        }
+
+        // Optimistic update
+        const item = allData.find((d) => String(d.id) === String(id));
+        if (item) item[field] = newValue;
+        restoreCellDisplay(cell, field, newValue);
+        cell.classList.add('cell-saving');
+
+        try {
+            const updated = await patchEntry(id, { [field]: newValue === '' ? null : newValue });
+            // Sync returned data
+            if (item) Object.assign(item, updated);
+            saveToLocalStorage();
+            cell.classList.remove('cell-saving');
+            cell.classList.add('cell-saved');
+            setTimeout(() => cell.classList.remove('cell-saved'), 800);
+            renderStats();
+        } catch (e) {
+            // Revert on error
+            if (item) item[field] = originalValue;
+            restoreCellDisplay(cell, field, originalValue);
+            cell.classList.remove('cell-saving');
+            cell.classList.add('cell-error');
+            setTimeout(() => cell.classList.remove('cell-error'), 1500);
+            showToast('Lỗi lưu: ' + e.message, 'error');
+        }
+    }
+
+    function cancelInlineEdit() {
+        if (!activeInlineCell) return;
+        const { cell, field, originalValue } = activeInlineCell;
+        activeInlineCell = null;
+        cell.classList.remove('inline-editing');
+        restoreCellDisplay(cell, field, originalValue);
+    }
+
+    function restoreCellDisplay(cell, field, value) {
+        const fieldConfig = EDITABLE_FIELDS.find((f) => f.key === field);
+        if (!fieldConfig) { cell.textContent = value || ''; return; }
+
+        if (fieldConfig.type === 'date') {
+            cell.textContent = formatDate(value);
+        } else if (fieldConfig.type === 'number' && ['soTien', 'chiPhi', 'soTienTT', 'soTienVND'].includes(field)) {
+            cell.textContent = formatMoney(value);
+        } else {
+            cell.textContent = value || '';
+        }
+    }
+
+    function renderImgThumb(images, type, id) {
         if (!images || images.length === 0) {
             return '<span class="no-img">—</span>';
         }
@@ -363,14 +477,9 @@
 
     function renderPagination() {
         const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
-        if (totalPages <= 1) {
-            els.pagination.innerHTML = '';
-            return;
-        }
+        if (totalPages <= 1) { els.pagination.innerHTML = ''; return; }
 
-        let html = '';
-        html += `<button ${currentPage === 1 ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage - 1})">‹</button>`;
-
+        let html = `<button ${currentPage === 1 ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage - 1})">‹</button>`;
         for (let i = 1; i <= totalPages; i++) {
             if (totalPages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== totalPages) {
                 if (i === currentPage - 3 || i === currentPage + 3) html += '<button disabled>…</button>';
@@ -378,7 +487,6 @@
             }
             html += `<button class="${i === currentPage ? 'active' : ''}" onclick="HangQQ.goPage(${i})">${i}</button>`;
         }
-
         html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage + 1})">›</button>`;
         els.pagination.innerHTML = html;
     }
@@ -475,29 +583,27 @@
             soTienVND: parseNum($('#fSoTienVND').value) || '',
             productImages: productImages,
             invoiceImages: invoiceImages,
-            updatedAt: Date.now(),
         };
 
-        if (editingId) {
-            entry.id = editingId;
-            const idx = allData.findIndex((d) => d.id === editingId);
-            if (idx !== -1) {
-                allData[idx] = { ...allData[idx], ...entry };
+        if (editingId) entry.id = editingId;
+
+        try {
+            const saved = await saveEntry(entry);
+
+            if (editingId) {
+                const idx = allData.findIndex((d) => String(d.id) === String(editingId));
+                if (idx !== -1) allData[idx] = saved;
+            } else {
+                allData.push(saved);
             }
-        } else {
-            entry.createdAt = Date.now();
+
+            saveToLocalStorage();
+            closeModal();
+            renderAll();
+            showToast(editingId ? 'Đã cập nhật' : 'Đã thêm đơn hàng', 'success');
+        } catch (e) {
+            showToast('Lỗi lưu: ' + e.message, 'error');
         }
-
-        const saved = await saveEntry(entry);
-
-        if (!editingId) {
-            allData.push(saved);
-        }
-
-        saveToLocalStorage();
-        closeModal();
-        renderAll();
-        showToast(editingId ? 'Đã cập nhật đơn hàng' : 'Đã thêm đơn hàng', 'success');
     }
 
     // ===== Image Handling =====
@@ -508,12 +614,8 @@
         Array.from(files).forEach((file) => {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const dataUrl = ev.target.result;
-                if (type === 'product') {
-                    productImages.push(dataUrl);
-                } else {
-                    invoiceImages.push(dataUrl);
-                }
+                if (type === 'product') { productImages.push(ev.target.result); }
+                else { invoiceImages.push(ev.target.result); }
                 renderImagePreviews();
             };
             reader.readAsDataURL(file);
@@ -537,11 +639,8 @@
     }
 
     function removeImage(type, idx) {
-        if (type === 'product') {
-            productImages.splice(idx, 1);
-        } else {
-            invoiceImages.splice(idx, 1);
-        }
+        if (type === 'product') productImages.splice(idx, 1);
+        else invoiceImages.splice(idx, 1);
         renderImagePreviews();
     }
 
@@ -587,10 +686,8 @@
                 const sheet = workbook.Sheets[sheetName];
                 const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-                // Parse the data based on known column structure
                 pendingImportData = parseExcelData(rawData);
 
-                // Show preview
                 $('#importDropzone').style.display = 'none';
                 $('#importPreview').style.display = 'block';
                 $('#importFileName').textContent = file.name;
@@ -606,29 +703,16 @@
     }
 
     function parseExcelData(rawRows) {
-        // Skip header rows (first 2 rows are headers based on the Excel structure)
         const dataRows = rawRows.slice(2);
         const entries = [];
-
         let currentDate = '';
 
         dataRows.forEach((row) => {
-            // Column mapping from Excel:
-            // A=0: NGÀY ĐI HÀNG, B=1: SL, C=2: SỐ KG, D=3: X, E=4: STT
-            // F=5: SỐ HÓA ĐƠN, G=6: SỐ TIỀN, H=7: SL nhận, I=8: THIẾU
-            // J=9: CHI PHÍ HÀNG VỀ, K=10: Ghi chú
-            // M=12: NGÀY TT, N=13: SỐ TIỀN TT, O=14: SỐ TIỀN VND
-
             const dateVal = row[0];
             const moTa = (row[5] || '').toString().trim();
             const soTien = parseNum(row[6]);
 
-            // Track current shipping date
-            if (dateVal) {
-                currentDate = parseExcelDate(dateVal);
-            }
-
-            // Skip rows without description and amount
+            if (dateVal) currentDate = parseExcelDate(dateVal);
             if (!moTa && !soTien) return;
 
             entries.push({
@@ -647,18 +731,13 @@
                 soTienVND: parseNum(row[14]) || '',
                 productImages: [],
                 invoiceImages: [],
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
             });
         });
-
         return entries;
     }
 
     function parseExcelDate(val) {
         if (!val) return '';
-
-        // Already a date string like "27/12"
         if (typeof val === 'string') {
             const match = val.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
             if (match) {
@@ -667,44 +746,29 @@
                 const year = match[3] ? (match[3].length === 2 ? '20' + match[3] : match[3]) : new Date().getFullYear().toString();
                 return `${year}-${month}-${day}`;
             }
-            // Might be text like "CÒN LẠI", "KM" etc — not a date
             return '';
         }
-
-        // Excel serial date number
         if (typeof val === 'number' && val > 40000) {
             const date = new Date((val - 25569) * 86400 * 1000);
-            if (!isNaN(date.getTime())) {
-                return date.toISOString().slice(0, 10);
-            }
+            if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
         }
-
         return '';
     }
 
     function renderImportPreview(data) {
-        const thead = $('#importTableHead');
-        const tbody = $('#importTableBody');
-
-        thead.innerHTML = `<tr>
+        $('#importTableHead').innerHTML = `<tr>
             <th>#</th><th>Ngày</th><th>SL</th><th>Kg</th><th>Mô tả</th>
             <th>Tiền (¥)</th><th>SL nhận</th><th>CP hàng về</th><th>Ghi chú</th>
             <th>Ngày TT</th><th>Tiền TT</th><th>Tiền VND</th>
         </tr>`;
 
-        tbody.innerHTML = data.map((d, i) => `<tr>
+        $('#importTableBody').innerHTML = data.map((d, i) => `<tr>
             <td>${i + 1}</td>
-            <td>${formatDate(d.ngayDiHang)}</td>
-            <td>${d.soLuong}</td>
-            <td>${d.soKg}</td>
-            <td>${escHtml(d.moTa)}</td>
-            <td>${formatMoney(d.soTien)}</td>
-            <td>${d.slNhan}</td>
-            <td>${formatMoney(d.chiPhi)}</td>
-            <td>${escHtml(d.ghiChu)}</td>
-            <td>${formatDate(d.ngayTT)}</td>
-            <td>${formatMoney(d.soTienTT)}</td>
-            <td>${formatMoney(d.soTienVND)}</td>
+            <td>${formatDate(d.ngayDiHang)}</td><td>${d.soLuong}</td><td>${d.soKg}</td>
+            <td>${escHtml(d.moTa)}</td><td>${formatMoney(d.soTien)}</td>
+            <td>${d.slNhan}</td><td>${formatMoney(d.chiPhi)}</td>
+            <td>${escHtml(d.ghiChu)}</td><td>${formatDate(d.ngayTT)}</td>
+            <td>${formatMoney(d.soTienTT)}</td><td>${formatMoney(d.soTienVND)}</td>
         </tr>`).join('');
     }
 
@@ -714,41 +778,32 @@
         $('#btnConfirmImport').disabled = true;
         $('#btnConfirmImport').textContent = 'Đang import...';
 
-        let imported = 0;
-        for (const entry of pendingImportData) {
-            const saved = await saveEntry(entry);
-            allData.push(saved);
-            imported++;
+        try {
+            const result = await apiRequest('POST', '/bulk', { entries: pendingImportData });
+            await loadData();
+            closeImportModal();
+            renderAll();
+            showToast(`Đã import ${result.imported} đơn hàng`, 'success');
+        } catch (e) {
+            showToast('Lỗi import: ' + e.message, 'error');
+            $('#btnConfirmImport').disabled = false;
+            $('#btnConfirmImport').textContent = 'Import dữ liệu';
         }
-
-        saveToLocalStorage();
-        closeImportModal();
-        renderAll();
-        showToast(`Đã import ${imported} đơn hàng thành công`, 'success');
     }
 
     // ===== Export =====
     function exportToExcel() {
-        if (typeof XLSX === 'undefined') {
-            showToast('Thư viện SheetJS chưa được tải', 'error');
-            return;
-        }
+        if (typeof XLSX === 'undefined') { showToast('SheetJS chưa tải', 'error'); return; }
 
         const exportData = filteredData.map((d, i) => ({
             'STT': i + 1,
             'Ngày đi hàng': formatDate(d.ngayDiHang),
-            'SL': d.soLuong,
-            'Số Kg': d.soKg,
-            'STT đơn': d.stt,
-            'Mô tả hóa đơn': d.moTa,
-            'Số tiền (¥)': d.soTien,
-            'SL nhận': d.slNhan,
-            'Thiếu': d.thieu,
-            'CP hàng về': d.chiPhi,
-            'Ghi chú': d.ghiChu,
+            'SL': d.soLuong, 'Số Kg': d.soKg, 'STT đơn': d.stt,
+            'Mô tả hóa đơn': d.moTa, 'Số tiền (¥)': d.soTien,
+            'SL nhận': d.slNhan, 'Thiếu': d.thieu,
+            'CP hàng về': d.chiPhi, 'Ghi chú': d.ghiChu,
             'Ngày TT': formatDate(d.ngayTT),
-            'Số tiền TT (¥)': d.soTienTT,
-            'Số tiền VND': d.soTienVND,
+            'Số tiền TT (¥)': d.soTienTT, 'Số tiền VND': d.soTienVND,
         }));
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -767,22 +822,16 @@
 
     function formatMoney(val) {
         const n = parseNum(val);
-        if (n === 0) return '';
-        return n.toLocaleString('vi-VN');
+        return n === 0 ? '' : n.toLocaleString('vi-VN');
     }
 
     function formatDate(dateStr) {
         if (!dateStr) return '';
-        // YYYY-MM-DD to DD/MM/YYYY
         const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
     }
 
     function formatMonth(monthStr) {
-        // YYYY-MM to "Tháng M/YYYY"
         const [y, m] = monthStr.split('-');
         return `Tháng ${parseInt(m)}/${y}`;
     }
@@ -794,7 +843,7 @@
     }
 
     function escAttr(str) {
-        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
     function debounce(fn, delay) {
@@ -819,12 +868,10 @@
             container.className = 'toast-container';
             document.body.appendChild(container);
         }
-
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(100%)';
@@ -832,34 +879,24 @@
         }, 3000);
     }
 
-    // ===== Public API (for onclick handlers) =====
+    // ===== Public API =====
     window.HangQQ = {
         edit(id) {
-            const entry = allData.find((d) => d.id === id);
+            const entry = allData.find((d) => String(d.id) === String(id));
             if (entry) openModal(entry);
         },
-
         del(id) {
-            if (!confirm('Bạn có chắc muốn xóa đơn hàng này?')) return;
-            deleteEntry(id).then(() => {
-                renderAll();
-                showToast('Đã xóa đơn hàng', 'success');
-            });
+            if (!confirm('Xóa đơn hàng này?')) return;
+            deleteEntry(id).then(() => { renderAll(); showToast('Đã xóa', 'success'); })
+                .catch((e) => showToast('Lỗi xóa: ' + e.message, 'error'));
         },
-
         goPage(page) {
             currentPage = page;
             renderTable();
             renderPagination();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
-
-        viewImg(src) {
-            openImageViewer(src);
-        },
-
-        removeImg(type, idx) {
-            removeImage(type, idx);
-        },
+        viewImg(src) { openImageViewer(src); },
+        removeImg(type, idx) { removeImage(type, idx); },
     };
 })();
