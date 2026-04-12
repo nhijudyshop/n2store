@@ -8,6 +8,17 @@
 
 ## 2026-04-12
 
+### [docs] TPOS Website Full Analysis — TposWebsite.md ✅
+| | |
+|---|---|
+| **Files** | `docs/tpos/TposWebsite.md` (NEW) |
+| **Source** | Fetched trực tiếp source code từ `https://tomato.tpos.vn/` v6.4.5.2 (6 JS bundles, 2 CSS, ~2.9MB minified) |
+| **Analysis** | 419 controllers, 138 services/factories, 36 directives, 107 OData entities, 31 action methods, 80+ REST APIs, 12 filters, 5 real-time event types |
+| **Modules covered** | Dashboard, POS, Sales, E-Invoice, Quotations, Sale Online, Channels, Purchase, Inventory, Accounting, Categories, Reports, Settings |
+| **Integrations** | Facebook, Lazada, Shopee, VNPay, HolaShip, GHN, ZTO, DHL, Zalo, Google Charts, Call Center PBX |
+| **Cross-ref** | TPOS-INTEGRATION.md, TPOS-REALTIME-EVENTS-ANALYSIS.md, SHARED_TPOS.md |
+| **Status** | ✅ Done |
+
 ### [shared] Warehouse Shared Utilities + Product Warehouse SSE Real-time ✅
 | | |
 |---|---|
