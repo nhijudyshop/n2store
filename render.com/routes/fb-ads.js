@@ -755,20 +755,28 @@ router.get('/pages/:pageId/posts', async (req, res) => {
 
         // Fetch live videos + regular posts in parallel
         const [liveRes, postsRes] = await Promise.all([
-            fetch(`${FB_GRAPH_URL}/${req.params.pageId}/live_videos?fields=id,title,description,status,embed_html,permalink_url,creation_time&limit=10&access_token=${pageToken}`).then(r => r.json()),
+            fetch(`${FB_GRAPH_URL}/${req.params.pageId}/live_videos?fields=id,title,description,status,permalink_url,creation_time,thumbnails{uri,is_preferred}&limit=10&access_token=${pageToken}`).then(r => r.json()),
             fetch(`${FB_GRAPH_URL}/${req.params.pageId}/posts?fields=id,message,created_time,full_picture,permalink_url,type,status_type&limit=${limit}&access_token=${pageToken}`).then(r => r.json())
         ]);
 
         // Map live videos to post-like format, mark as live
-        const liveVideos = (liveRes.data || []).map(lv => ({
-            id: lv.id,
-            message: lv.title || lv.description || 'Live Video',
-            created_time: lv.creation_time,
-            permalink_url: lv.permalink_url,
-            full_picture: null,
-            is_live: true,
-            live_status: lv.status // LIVE, VOD, PROCESSING
-        }));
+        const liveVideos = (liveRes.data || []).map(lv => {
+            // Get best thumbnail
+            let thumb = null;
+            if (lv.thumbnails?.data) {
+                const preferred = lv.thumbnails.data.find(t => t.is_preferred);
+                thumb = preferred?.uri || lv.thumbnails.data[0]?.uri || null;
+            }
+            return {
+                id: lv.id,
+                message: lv.title || lv.description || 'Live Video',
+                created_time: lv.creation_time,
+                permalink_url: lv.permalink_url,
+                full_picture: thumb,
+                is_live: true,
+                live_status: lv.status
+            };
+        });
 
         const posts = (postsRes.data || []).map(p => ({ ...p, is_live: false }));
 
