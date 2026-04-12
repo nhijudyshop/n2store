@@ -61,6 +61,18 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Handle drag & drop files
+     * @param {FileList} files - Dropped files
+     * @param {string} type - 'invoice' | 'product' | 'price'
+     * @param {string} itemId - Item ID (for product/price images)
+     */
+    async handleDroppedFiles(files, type, itemId = null) {
+        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if (imageFiles.length === 0) return;
+        await this.addLocalImages(imageFiles, type, itemId);
+    }
+
+    /**
      * Handle paste event for images
      * @param {ClipboardEvent} e - Paste event
      * @param {string} type - 'invoice' | 'product' | 'price'
@@ -360,7 +372,7 @@ class PurchaseOrderFormModal {
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                         <polyline points="21,15 16,10 5,21"></polyline>
                     </svg>
-                    <span>Ctrl+V</span>
+                    <span>Ctrl+V / Kéo thả</span>
                 </div>
                 <input type="file" id="invoiceFileInput" accept="image/*" multiple style="display: none;">
             `;
@@ -449,7 +461,7 @@ class PurchaseOrderFormModal {
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                         <polyline points="21,15 16,10 5,21"></polyline>
                     </svg>
-                    <span>Ctrl+V</span>
+                    <span>Ctrl+V / Kéo thả</span>
                 </div>
                 <input type="file" data-file-type="${type}" accept="image/*" multiple style="display: none;">
             `;
@@ -560,6 +572,29 @@ class PurchaseOrderFormModal {
                 this.hoveredImageArea = null;
             });
 
+            // Drag & Drop support
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.style.borderColor = '#3b82f6';
+                area.style.background = 'rgba(59, 130, 246, 0.05)';
+            });
+            area.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                area.style.borderColor = '#d1d5db';
+                area.style.background = '';
+            });
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.style.borderColor = '#d1d5db';
+                area.style.background = '';
+                const files = e.dataTransfer?.files;
+                if (files?.length > 0) {
+                    this.handleDroppedFiles(files, 'invoice');
+                }
+            });
+
             // Paste on focus
             area.addEventListener('keydown', (e) => {
                 if (e.ctrlKey && e.key === 'v') {
@@ -623,6 +658,29 @@ class PurchaseOrderFormModal {
             area.addEventListener('mouseleave', () => {
                 area.style.borderColor = '#d1d5db';
                 area.style.color = '#9ca3af';
+            });
+
+            // Drag & Drop support
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.style.borderColor = '#3b82f6';
+                area.style.background = 'rgba(59, 130, 246, 0.05)';
+            });
+            area.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                area.style.borderColor = '#d1d5db';
+                area.style.background = '';
+            });
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                area.style.borderColor = '#d1d5db';
+                area.style.background = '';
+                const files = e.dataTransfer?.files;
+                if (files?.length > 0) {
+                    this.handleDroppedFiles(files, type, itemId);
+                }
             });
 
             // Paste on focus (stopPropagation prevents global handler from double-firing)

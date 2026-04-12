@@ -386,7 +386,7 @@ td:has(.mini-thumb:hover) {
 /* Floating image preview on hover */
 .po-image-preview {
     position: fixed;
-    z-index: 99999;
+    z-index: var(--z-image-preview);
     pointer-events: none;
     border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);

@@ -85,6 +85,16 @@
     /* Font */
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* Z-index scale */
+    --z-dropdown: 100;
+    --z-sticky: 500;
+    --z-fixed: 1000;
+    --z-modal-bg: 2000;
+    --z-modal: 2001;
+    --z-tooltip: 2100;
+    --z-notification: 3000;
+    --z-image-preview: 4000;
 }
 
 /* Dark mode support (optional) */

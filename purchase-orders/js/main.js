@@ -6,6 +6,15 @@
  */
 
 // ========================================
+// UTILITY: HTML Escaping (XSS prevention)
+// ========================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ========================================
 // UTILITY: Variant Matching (Section 15.6)
 // ========================================
 
@@ -211,7 +220,7 @@ class PurchaseOrderController {
         // Orders changed
         this.unsubscribers.push(
             this.dataManager.on('ordersChange', (orders) => {
-                if (this.currentTab === 'HISTORY' || this.currentTab === 'NOTES') return;
+                if (['HISTORY', 'REFUNDS', 'PRODUCTS', 'NOTES'].includes(this.currentTab)) return;
                 if (this.currentTab === this.config.OrderStatus.DELETED) {
                     this.renderTrashTable(orders);
                     return;
@@ -264,7 +273,7 @@ class PurchaseOrderController {
         // Page changed
         this.unsubscribers.push(
             this.dataManager.on('pageChange', (paginationInfo) => {
-                if (this.currentTab === 'HISTORY' || this.currentTab === 'NOTES') return;
+                if (['HISTORY', 'REFUNDS', 'PRODUCTS', 'NOTES'].includes(this.currentTab)) return;
                 this.renderPagination(paginationInfo);
                 this.renderTableForCurrentPage();
             })
@@ -307,7 +316,7 @@ class PurchaseOrderController {
 
         // Restore tab from URL hash, default to DRAFT
         const hash = window.location.hash.replace('#', '');
-        const validTabs = [...Object.values(this.config.OrderStatus), 'HISTORY', 'NOTES'];
+        const validTabs = [...Object.values(this.config.OrderStatus), 'HISTORY', 'REFUNDS', 'PRODUCTS', 'NOTES'];
         this.currentTab = validTabs.includes(hash) ? hash : this.config.OrderStatus.DRAFT;
 
         // Load stats & counts (always needed for summary cards + tab badges)
@@ -319,6 +328,14 @@ class PurchaseOrderController {
         if (this.currentTab === 'HISTORY') {
             if (window.PurchaseOrderHistory) {
                 window.PurchaseOrderHistory.init();
+            }
+        } else if (this.currentTab === 'REFUNDS') {
+            if (window.PurchaseOrderRefunds) {
+                window.PurchaseOrderRefunds.init();
+            }
+        } else if (this.currentTab === 'PRODUCTS') {
+            if (window.PurchaseOrderProducts) {
+                window.PurchaseOrderProducts.init();
             }
         } else if (this.currentTab === 'NOTES') {
             if (window.PurchaseOrderNotes) {
@@ -386,8 +403,8 @@ class PurchaseOrderController {
             const supplierList = suppliers.map(name => {
                 const items = grouped[name];
                 const productNames = items.map(it => it.productName).join(', ');
-                return `<div class="overdue-supplier" style="cursor: pointer; padding: 4px 0;" data-supplier="${name.replace(/"/g, '&quot;')}">
-                    <strong>${name}</strong>: ${items.length} SP — <span style="font-size: 12px; color: #991b1b;">${productNames}</span>
+                return `<div class="overdue-supplier" style="cursor: pointer; padding: 4px 0;" data-supplier="${escapeHtml(name)}">
+                    <strong>${escapeHtml(name)}</strong>: ${items.length} SP — <span style="font-size: 12px; color: #991b1b;">${escapeHtml(productNames)}</span>
                 </div>`;
             }).join('');
 
@@ -545,6 +562,12 @@ class PurchaseOrderController {
         if (this.currentTab === 'HISTORY' && window.PurchaseOrderHistory) {
             window.PurchaseOrderHistory.destroy();
         }
+        if (this.currentTab === 'REFUNDS' && window.PurchaseOrderRefunds) {
+            window.PurchaseOrderRefunds.destroy();
+        }
+        if (this.currentTab === 'PRODUCTS' && window.PurchaseOrderProducts) {
+            window.PurchaseOrderProducts.destroy();
+        }
         if (this.currentTab === 'NOTES' && window.PurchaseOrderNotes) {
             window.PurchaseOrderNotes.destroy();
         }
@@ -559,6 +582,24 @@ class PurchaseOrderController {
             this.dataManager.clearSelection();
             if (window.PurchaseOrderHistory) {
                 window.PurchaseOrderHistory.init();
+            }
+            return;
+        }
+
+        if (status === 'REFUNDS') {
+            // Refunds tab: TPOS purchase refund list
+            this.dataManager.clearSelection();
+            if (window.PurchaseOrderRefunds) {
+                window.PurchaseOrderRefunds.init();
+            }
+            return;
+        }
+
+        if (status === 'PRODUCTS') {
+            // Products tab: TPOS product catalog
+            this.dataManager.clearSelection();
+            if (window.PurchaseOrderProducts) {
+                window.PurchaseOrderProducts.init();
             }
             return;
         }
@@ -857,9 +898,9 @@ class PurchaseOrderController {
                 <div style="padding: 14px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
                     <div>
                         <h3 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #333;">
-                            Đơn mua hàng - ${singleOrder.orderNumber || ''}
+                            Đơn mua hàng - ${escapeHtml(singleOrder.orderNumber || '')}
                         </h3>
-                        <div style="font-size: 13px; color: #666;">NCC: <strong style="color: #333;">${supplierDisplay}</strong></div>
+                        <div style="font-size: 13px; color: #666;">NCC: <strong style="color: #333;">${escapeHtml(supplierDisplay)}</strong></div>
                     </div>
                     <div style="font-size: 12px; color: #999;">${new Date().toLocaleDateString('vi-VN')}</div>
                 </div>
@@ -912,7 +953,7 @@ class PurchaseOrderController {
                         <tr>
                             <td style="padding: 4px 0; text-align: right;">
                                 <span style="font-size: 13px; color: #666; margin-right: 8px;">Ghi chú</span>
-                                <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
+                                <input type="text" id="poNote" value="${escapeHtml(singleOrder.notes || '')}" placeholder="Nhập ghi chú..." style="
                                     width: 220px; height: 32px; border: 1px solid #ccc;
                                     border-radius: 3px; font-size: 13px; padding: 0 8px;
                                 ">
@@ -2450,18 +2491,18 @@ class PurchaseOrderController {
         overlay.innerHTML = `
             <div class="image-viewer">
                 <div class="image-viewer__header">
-                    <h3>${title}</h3>
+                    <h3>${escapeHtml(title)}</h3>
                     <button class="btn-icon" id="btnCloseViewer">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
                 <div class="image-viewer__content">
-                    <img src="${images[0]}" alt="${title}">
+                    <img src="${escapeHtml(images[0])}" alt="${escapeHtml(title)}">
                 </div>
                 ${images.length > 1 ? `
                     <div class="image-viewer__thumbnails">
                         ${images.map((img, idx) => `
-                            <img src="${img}" alt="${title} ${idx + 1}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">
+                            <img src="${escapeHtml(img)}" alt="${escapeHtml(title)} ${idx + 1}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">
                         `).join('')}
                     </div>
                 ` : ''}

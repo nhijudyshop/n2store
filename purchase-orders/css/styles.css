@@ -4,63 +4,7 @@
  * Purpose: All styles for the purchase orders module
  */
 
-/* ========================================
-   CSS VARIABLES
-   ======================================== */
-:root {
-    /* Colors */
-    --color-primary: #2563eb;
-    --color-primary-hover: #1d4ed8;
-    --color-primary-light: #dbeafe;
-
-    --color-success: #10b981;
-    --color-success-light: #d1fae5;
-
-    --color-warning: #f59e0b;
-    --color-warning-light: #fef3c7;
-
-    --color-danger: #ef4444;
-    --color-danger-light: #fee2e2;
-
-    --color-info: #3b82f6;
-    --color-info-light: #dbeafe;
-
-    /* Neutrals */
-    --color-bg: #f8fafc;
-    --color-bg-card: #ffffff;
-    --color-border: #e2e8f0;
-    --color-border-light: #f1f5f9;
-
-    --color-text-primary: #0f172a;
-    --color-text-secondary: #64748b;
-    --color-text-muted: #94a3b8;
-
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-
-    /* Spacing */
-    --spacing-xs: 4px;
-    --spacing-sm: 8px;
-    --spacing-md: 16px;
-    --spacing-lg: 24px;
-    --spacing-xl: 32px;
-
-    /* Border radius */
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-full: 9999px;
-
-    /* Transitions */
-    --transition-fast: 150ms ease;
-    --transition-normal: 200ms ease;
-
-    /* Layout */
-    --sidebar-width: 260px;
-}
+/* CSS variables are defined in variables.css — do not duplicate here */
 
 /* ========================================
    BASE STYLES
@@ -805,7 +749,7 @@ body {font-size: 14px;
     position: fixed;
     top: var(--spacing-lg);
     right: var(--spacing-lg);
-    z-index: 200000;
+    z-index: var(--z-notification);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -885,7 +829,7 @@ body {font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 5000; /* Higher than mobile nav (3000) */
+    z-index: var(--z-modal-bg);
     animation: fadeIn 0.2s ease;
 }
 
@@ -1410,7 +1354,7 @@ body {font-size: 14px;
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 999;
+    z-index: var(--z-fixed);
 }
 
 /* ========================================
@@ -1475,5 +1419,46 @@ body {font-size: 14px;
     .form-totals,
     .form-actions {
         justify-content: center;
+    }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+@media print {
+    .page-header .btn,
+    .filter-bar,
+    .pagination,
+    .tab-nav,
+    .summary-cards,
+    .toast,
+    .modal-overlay,
+    .loading-overlay,
+    nav,
+    .sidebar {
+        display: none !important;
+    }
+
+    .main-content {
+        padding: 0;
+    }
+
+    .table-wrapper {
+        overflow: visible;
+        box-shadow: none;
+    }
+
+    .order-table {
+        font-size: 11px;
+    }
+
+    .order-table th,
+    .order-table td {
+        padding: 4px 6px;
+    }
+
+    body {
+        background: white;
+        color: black;
     }
 }

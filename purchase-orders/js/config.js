@@ -71,6 +71,8 @@ const TAB_CONFIG = [
     { id: 'awaiting-purchase', label: 'Chờ mua', status: OrderStatus.AWAITING_PURCHASE, icon: 'shopping-cart' },
     { id: 'awaiting-delivery', label: 'Chờ hàng', status: OrderStatus.AWAITING_DELIVERY, icon: 'truck' },
     { id: 'history', label: 'Lịch sử', status: 'HISTORY', icon: 'history', isSpecial: true },
+    { id: 'refunds', label: 'Trả hàng NCC', status: 'REFUNDS', icon: 'undo-2', isSpecial: true },
+    { id: 'products', label: 'Kho SP', status: 'PRODUCTS', icon: 'package', isSpecial: true },
     { id: 'notes', label: 'Hàng bán dùm', status: 'NOTES', icon: 'sticky-note', isSpecial: true },
     { id: 'trash', label: 'Thùng rác', status: OrderStatus.DELETED, icon: 'trash-2', isTrash: true }
 ];

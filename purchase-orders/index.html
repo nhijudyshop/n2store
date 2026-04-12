@@ -81,36 +81,36 @@
         </header>
 
         <!-- Summary Cards -->
-        <section class="summary-cards" id="summaryCards">
+        <section class="summary-cards" id="summaryCards" aria-label="Thống kê đơn hàng">
             <!-- Cards rendered by JS -->
         </section>
 
         <!-- Tabs -->
-        <section class="tabs-container">
-            <div class="tabs-nav" id="tabsContainer">
+        <nav class="tabs-container" aria-label="Phân loại đơn hàng">
+            <div class="tabs-nav" id="tabsContainer" role="tablist">
                 <!-- Tabs rendered by JS -->
             </div>
-        </section>
+        </nav>
 
         <!-- Filter Bar -->
-        <section id="filterBar">
+        <section id="filterBar" aria-label="Bộ lọc">
             <!-- Filter bar rendered by JS -->
         </section>
 
         <!-- Table Container -->
-        <section id="tableContainer">
+        <section id="tableContainer" role="region" aria-label="Danh sách đơn hàng" aria-live="polite">
             <!-- Table rendered by JS -->
         </section>
 
         <!-- Pagination -->
-        <section id="pagination">
+        <nav id="pagination" aria-label="Phân trang">
             <!-- Pagination rendered by JS -->
-        </section>
+        </nav>
     </main>
 
     <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
+    <div class="loading-overlay" id="loadingOverlay" aria-hidden="true" role="status">
+        <div class="loading-spinner" aria-label="Đang tải..."></div>
     </div>
 
     <!-- Module Scripts (load in order) -->
@@ -134,6 +134,8 @@
     <script src="js/lib/barcode-label-dialog.js"></script>
     <script src="js/dialogs.js"></script>
     <script src="js/history-tab.js"></script>
+    <script src="js/refund-tab.js"></script>
+    <script src="js/products-tab.js"></script>
     <script src="js/notes-tab.js"></script>
     <script src="js/main.js"></script>
 

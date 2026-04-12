@@ -12,7 +12,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 5000; /* Higher than mobile nav (3000) */
+    z-index: var(--z-modal-bg);
     animation: fadeIn 0.2s ease;
 }
 
@@ -541,7 +541,7 @@
 
 .inventory-zoom-preview {
     position: fixed;
-    z-index: 15000;
+    z-index: var(--z-image-preview);
     pointer-events: none;
     width: 280px;
     height: 280px;

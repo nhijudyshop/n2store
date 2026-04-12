@@ -4,12 +4,9 @@
  * Provides window.TPOSClient for product code operations
  *
  * Token flow:
- *   Each company has its own TPOS account → direct login → correct company token
- *   CompanyId 1 (NJD LIVE): nvktlive1
- *   CompanyId 2 (NJD SHOP): nvktshop1
- *
- * Tokens cached per company in localStorage
- * All requests go through Cloudflare proxy to bypass CORS
+ *   Browser sends { companyId } to proxy → proxy injects server-side credentials
+ *   Tokens cached per company in localStorage + Firestore
+ *   All requests go through Cloudflare proxy to bypass CORS
  */
 
 window.TPOSClient = (function() {
@@ -20,14 +17,8 @@ window.TPOSClient = (function() {
     const SWITCH_COMPANY_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
     const TOKEN_BUFFER = 5 * 60 * 1000; // 5 minutes before expiry
 
-    const CREDENTIALS_BY_COMPANY = {
-        1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-        2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-    };
-
-    function getCredentials(companyId) {
-        return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
-    }
+    // Credentials are stored server-side in Cloudflare Worker proxy.
+    // Browser sends { companyId } via JSON → proxy injects credentials.
 
     // Token storage per company: { access_token, refresh_token, expires_at }
     const tokenStore = {};
@@ -168,16 +159,15 @@ window.TPOSClient = (function() {
 
     /**
      * Password login → gets token for the specified company directly
-     * Each company has its own account, no SwitchCompany needed
+     * Uses proxy auth: sends { companyId } as JSON, proxy injects credentials server-side
      */
     async function loginWithPassword(companyId) {
         const cid = companyId || getCompanyId();
-        const creds = getCredentials(cid);
-        console.log(`[TPOS-Search] Password login with ${creds.username} for company ${cid}...`);
+        console.log(`[TPOS-Search] Proxy auth login for company ${cid}...`);
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(creds).toString()
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: cid })
         });
 
         if (!response.ok) {
@@ -186,7 +176,7 @@ window.TPOSClient = (function() {
 
         const data = await response.json();
         saveToken(cid, data);
-        console.log(`[TPOS-Search] Password login OK, company ${cid} token saved`);
+        console.log(`[TPOS-Search] Proxy auth OK, company ${cid} token saved`);
         return data;
     }
 
@@ -554,7 +544,6 @@ window.TPOSClient = (function() {
         getToken,
         authenticatedFetch,
         switchCompanyToken,
-        getCredentials,
         isTokenValid: () => isTokenValid(getCompanyId())
     };
 })();

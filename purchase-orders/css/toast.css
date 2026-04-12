@@ -8,7 +8,7 @@
     position: fixed;
     top: var(--spacing-lg);
     right: var(--spacing-lg);
-    z-index: 200000;
+    z-index: var(--z-notification);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);

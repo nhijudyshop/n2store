@@ -138,42 +138,55 @@ window.ProductCodeGenerator = (function() {
         return maxNum;
     }
 
+    // Cache Firestore product codes to avoid N+1 full collection loads
+    let _firestoreCodesCache = null;
+    let _firestoreCacheTime = 0;
+    const CACHE_TTL = 60000; // 60 seconds
+
+    async function loadFirestoreCodes() {
+        if (_firestoreCodesCache && (Date.now() - _firestoreCacheTime) < CACHE_TTL) {
+            return _firestoreCodesCache;
+        }
+        if (!window.firebase || !window.firebase.firestore) return new Set();
+
+        const db = firebase.firestore();
+        const snapshot = await db.collection('purchase_orders').get();
+        const codes = new Set();
+
+        snapshot.forEach(doc => {
+            const items = doc.data().items || [];
+            for (const item of items) {
+                const code = (item.productCode || '').toUpperCase();
+                if (code) codes.add(code);
+            }
+        });
+
+        _firestoreCodesCache = codes;
+        _firestoreCacheTime = Date.now();
+        console.log(`[ProductCodeGen] Cached ${codes.size} product codes from Firestore`);
+        return codes;
+    }
+
     /**
      * Get max number from Firestore (purchase_orders collection → items array)
+     * Uses cached codes to avoid repeated full collection loads
      * @param {string} prefix
      * @returns {Promise<number>}
      */
     async function getMaxNumberFromFirestore(prefix) {
         try {
-            if (!window.firebase || !window.firebase.firestore) {
-                console.warn('Firestore not available');
-                return 0;
-            }
-
-            const db = firebase.firestore();
+            const codes = await loadFirestoreCodes();
             const upperPrefix = prefix.toUpperCase();
             const regex = new RegExp(`^${upperPrefix}(\\d+)`, 'i');
-
-            const snapshot = await db.collection('purchase_orders').get();
-
             let maxNum = 0;
 
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const items = data.items || [];
-                for (const item of items) {
-                    const code = item.productCode || '';
-                    if (code) {
-                        const match = code.match(regex);
-                        if (match) {
-                            const num = parseInt(match[1], 10);
-                            if (num > maxNum) {
-                                maxNum = num;
-                            }
-                        }
-                    }
+            for (const code of codes) {
+                const match = code.match(regex);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNum) maxNum = num;
                 }
-            });
+            }
 
             console.log(`[ProductCodeGen] Firestore max for ${upperPrefix}: ${maxNum}`);
             return maxNum;
@@ -222,25 +235,8 @@ window.ProductCodeGenerator = (function() {
      */
     async function codeExistsInFirestore(code) {
         try {
-            if (!window.firebase || !window.firebase.firestore) {
-                return false;
-            }
-
-            const db = firebase.firestore();
-            const upperCode = code.toUpperCase();
-
-            const snapshot = await db.collection('purchase_orders').get();
-
-            for (const doc of snapshot.docs) {
-                const items = doc.data().items || [];
-                for (const item of items) {
-                    if ((item.productCode || '').toUpperCase() === upperCode) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            const codes = await loadFirestoreCodes();
+            return codes.has(code.toUpperCase());
         } catch (error) {
             console.error('Error checking code in Firestore:', error);
             return false;

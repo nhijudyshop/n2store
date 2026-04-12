@@ -74,7 +74,7 @@ class PurchaseOrderTableRenderer {
                 const status = this.syncStatusMap.get(orderId);
                 statusCell.innerHTML = this.renderSyncStatusBadges(status);
                 if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
+                    lucide.createIcons({ nameAttr: 'data-lucide', icons: lucide.icons, attrs: {} });
                 }
             }
         });

@@ -305,7 +305,8 @@ window.NCCManager = (function() {
         // Step 1: Search if partner already exists on TPOS
         let tposId = null;
         try {
-            const searchUrl = `${PROXY_URL}/api/odata/Partner?$filter=Supplier eq true and Ref eq '${encodeURIComponent(ref)}'&$top=1&$select=Id,Name,Ref`;
+            const safeRef = ref.replace(/'/g, "''"); // OData single-quote escaping
+            const searchUrl = `${PROXY_URL}/api/odata/Partner?$filter=Supplier eq true and Ref eq '${encodeURIComponent(safeRef)}'&$top=1&$select=Id,Name,Ref`;
             const searchResp = await window.TPOSClient.authenticatedFetch(searchUrl);
             if (searchResp.ok) {
                 const searchData = await searchResp.json();
