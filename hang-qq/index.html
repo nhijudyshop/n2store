@@ -7,23 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hàng QQ - Quản lý hàng Hương Châu</title>
 
-    <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
-    <script type="module" src="../shared/esm/compat.js"></script>
-    <script src="../shared/js/storage-migration.js"></script>
-
-    <!-- SheetJS -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-
-    <!-- Fonts & Icons -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../shared/css/typography.css" />
-
     <!-- Styles -->
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
+
+    <!-- ES Module compat -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Lucide Icons (used by navigation-modern) -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -269,16 +268,29 @@
 
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
 
-    <!-- Shared scripts -->
+    <!-- Auth Manager -->
     <script src="../shared/js/shared-auth-manager.js"></script>
+
+    <!-- Navigation -->
     <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Notification System -->
     <script src="../shared/js/notification-system.js"></script>
+
+    <!-- Shop & API Config -->
     <script src="../shared/js/shop-config.js"></script>
     <script src="../shared/js/api-config.js"></script>
     <script src="../shared/js/token-manager.js"></script>
 
-    <!-- App -->
+    <!-- Page Script -->
     <script src="js/app.js"></script>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    </script>
 </body>
 
 </html>
