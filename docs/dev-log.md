@@ -8,6 +8,15 @@
 
 ## 2026-04-12
 
+### [orders] Đổi nguồn Kho Sản Phẩm từ Kho Đi Chợ API sang TPOS OData ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/dropped-products-manager.js` |
+| **Trước** | Kho Sản Phẩm panel lấy data từ Render API `/api/v2/kho-di-cho` (PostgreSQL) |
+| **Sau** | Lấy từ TPOS OData `ProductTemplate/ODataService.GetViewV2` (cùng nguồn với `product-warehouse/index.html`) |
+| **Chi tiết** | Dùng `tokenManager.authenticatedFetch` + `API_CONFIG.buildUrl.tposOData`. Bỏ SSE listener cho `kho_di_cho` |
+| **Status** | ✅ Done |
+
 ### [orders] Fix Excel fetch dùng đúng campaign từ dropdown ✅
 | | |
 |---|---|
