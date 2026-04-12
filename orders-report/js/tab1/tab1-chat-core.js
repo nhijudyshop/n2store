@@ -72,39 +72,86 @@ window.sendBillFromChat = async function() {
         return;
     }
 
-    // Use existing sendBillFromMainTable if available (handles preview, enrichment, etc.)
-    if (typeof window.sendBillFromMainTable === 'function') {
-        await window.sendBillFromMainTable(orderId);
-        return;
-    }
+    const btn = document.getElementById('chatHeaderBillBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
 
-    // Fallback: manual flow
     try {
-        const btn = document.getElementById('chatHeaderBillBtn');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
-
         const invoiceData = window.InvoiceStatusStore.get(orderId);
         if (!invoiceData) {
             window.notificationManager?.error?.('Không tìm thấy dữ liệu phiếu bán hàng');
             return;
         }
 
-        if (typeof window.BillService?.sendBillToCustomer === 'function') {
-            const result = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid);
-            if (result?.success) {
-                window.notificationManager?.show?.('Đã gửi bill cho khách', 'success');
-            } else {
-                window.notificationManager?.error?.(result?.error || 'Lỗi gửi bill');
+        // Generate bill image for preview in chat
+        let billImageUrl = null;
+        if (typeof window.BillService?.generateBillImage === 'function') {
+            try {
+                const blob = await window.BillService.generateBillImage(invoiceData);
+                if (blob) billImageUrl = URL.createObjectURL(blob);
+            } catch (e) {
+                console.warn('[CHAT] Bill image preview failed:', e.message);
             }
+        }
+
+        // Send bill via Pancake API
+        let sendResult = null;
+        if (typeof window.BillService?.sendBillToCustomer === 'function') {
+            sendResult = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid);
+        } else if (typeof window.sendBillFromMainTable === 'function') {
+            await window.sendBillFromMainTable(orderId);
+            sendResult = { success: true };
         } else {
             window.notificationManager?.error?.('BillService chưa sẵn sàng');
+            return;
+        }
+
+        if (sendResult?.success) {
+            window.notificationManager?.show?.('Đã gửi bill cho khách', 'success');
+            window.InvoiceStatusStore.markBillSent?.(orderId);
+
+            // Append bill message to chat modal (optimistic UI)
+            if (window.allChatMessages && window.renderChatMessages) {
+                const billMsg = {
+                    id: 'bill_' + Date.now(),
+                    text: `📄 Bill #${invoiceData.Number || invoiceData.Reference || orderId}`,
+                    time: new Date(),
+                    sender: 'shop',
+                    senderName: '',
+                    attachments: billImageUrl ? [{
+                        type: 'image',
+                        url: billImageUrl,
+                        preview_url: billImageUrl
+                    }] : []
+                };
+                window.allChatMessages.push(billMsg);
+                window.renderChatMessages(window.allChatMessages);
+
+                // Auto-scroll to bottom
+                const messagesEl = document.getElementById('chatMessages');
+                if (messagesEl) {
+                    setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 100);
+                }
+            }
+
+            // Update button to "sent" state
+            if (btn) {
+                btn.style.background = '#d1fae5';
+                btn.style.color = '#059669';
+                btn.style.border = '1px solid #6ee7b7';
+                btn.innerHTML = '<i class="fas fa-check"></i> Đã gửi';
+                btn.title = 'Bill đã được gửi';
+            }
+        } else {
+            window.notificationManager?.error?.(sendResult?.error || 'Lỗi gửi bill');
         }
     } catch (err) {
         console.error('[CHAT] Send bill error:', err);
         window.notificationManager?.error?.('Lỗi gửi bill: ' + err.message);
     } finally {
-        const btn = document.getElementById('chatHeaderBillBtn');
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-invoice"></i> Gửi Bill'; }
+        if (btn && !btn.style.background?.includes('d1fae5')) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-file-invoice"></i> Gửi Bill';
+        }
     }
 };
 
