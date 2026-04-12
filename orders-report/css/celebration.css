@@ -47,8 +47,8 @@
 /* --- Photo ring --- */
 .celebration-photo-ring {
     position: relative;
-    width: 180px;
-    height: 180px;
+    width: 220px;
+    height: 220px;
     border-radius: 50%;
     padding: 5px;
     background: conic-gradient(
@@ -289,7 +289,7 @@
     }
 
     .celebration-photo-ring {
-        width: 140px;
+        width: 170px;
         height: 140px;
     }
 }
