@@ -68,7 +68,7 @@ const chatDbPool = new Pool({
 
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;
-app.locals.tposTokenManager = tposTokenManager;
+// tposTokenManager is set after require() below — see after route imports
 
 // Test database connection on startup
 chatDbPool.query('SELECT NOW()')
@@ -240,6 +240,7 @@ const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
 const tposTokenManager = require('./services/tpos-token-manager');
 const { createAuthTokenStore } = require('./services/auth-token-store');
 const authTokenStore = createAuthTokenStore(chatDbPool);
+app.locals.tposTokenManager = tposTokenManager;
 
 // ===== Auth Token Cache API (protected by CLIENT_API_KEY) =====
 function requireApiKey(req, res, next) {
