@@ -11,9 +11,11 @@ const CelebrationManager = (() => {
     };
 
     const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js';
+    const API_URL = 'https://n2store-fallback.onrender.com/api/realtime';
 
     let overlay = null;
     let cleanups = [];
+    let sseConnected = false;
 
     // --- Get Motion.dev (preloaded in <head>) ---
     function loadMotion() {
@@ -319,22 +321,79 @@ const CelebrationManager = (() => {
         } catch { return false; }
     }
 
+    // --- Broadcast celebration to all clients via Render SSE ---
+    async function triggerCelebration(employeeKey, detail) {
+        try {
+            const res = await fetch(`${API_URL}/celebration`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee: employeeKey, detail }),
+            });
+            const data = await res.json();
+            console.log(`[Celebration] 🎉 Broadcast sent, ${data.clientsNotified} clients notified`);
+            // Also show locally in case SSE hasn't connected yet
+            celebrate(employeeKey, detail);
+        } catch (e) {
+            console.warn('[Celebration] Broadcast failed, showing locally:', e);
+            celebrate(employeeKey, detail);
+        }
+    }
+
+    // --- SSE listener — all clients auto-subscribe ---
+    function connectSSE() {
+        if (sseConnected) return;
+
+        try {
+            const es = new EventSource(`${API_URL}/sse?keys=celebration`);
+
+            es.addEventListener('celebration', (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    const { employee, detail } = msg.data || {};
+                    if (employee) {
+                        console.log(`[Celebration] 🎉 Received broadcast for "${employee}"`);
+                        celebrate(employee, detail);
+                    }
+                } catch (err) {
+                    console.warn('[Celebration] SSE parse error:', err);
+                }
+            });
+
+            es.addEventListener('connected', () => {
+                sseConnected = true;
+                console.log('[Celebration] SSE connected, listening for celebrations');
+            });
+
+            es.onerror = () => {
+                sseConnected = false;
+                // EventSource auto-reconnects
+            };
+        } catch (e) {
+            console.warn('[Celebration] SSE connection failed:', e);
+        }
+    }
+
     // --- Init ---
-    function initTestButton() {
+    function init() {
+        // Test button — admin only, broadcasts to all
         const btn = document.getElementById('celebrationTestBtn');
-        if (!btn) return;
-        if (isAdmin()) btn.classList.add('visible');
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            celebrate('hanh', 'Hoàn thành 100% KPI tháng này!');
-        });
+        if (btn) {
+            if (isAdmin()) btn.classList.add('visible');
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerCelebration('hanh', 'Hoàn thành 100% KPI tháng này!');
+            });
+        }
+
+        // All clients subscribe to SSE celebrations
+        connectSSE();
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTestButton);
+        document.addEventListener('DOMContentLoaded', init);
     } else {
-        initTestButton();
+        init();
     }
 
-    return { celebrate, dismiss, isAdmin, EMPLOYEES };
+    return { celebrate, triggerCelebration, dismiss, isAdmin, EMPLOYEES };
 })();

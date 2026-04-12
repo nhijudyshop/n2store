@@ -327,6 +327,38 @@ router.post('/sse/test', (req, res) => {
 });
 
 // =====================================================
+// CELEBRATION BROADCAST
+// Admin triggers → all clients watching "celebration" key see fireworks
+// =====================================================
+
+/**
+ * POST /api/realtime/celebration
+ * Body: { employee: "hanh", detail: "Hoàn thành 100% KPI!" }
+ * Requires admin-authenticated userType
+ */
+router.post('/celebration', (req, res) => {
+    const { employee, detail } = req.body;
+
+    if (!employee) {
+        return res.status(400).json({ error: 'Missing employee parameter' });
+    }
+
+    const count = notifyClients('celebration', {
+        employee,
+        detail: detail || '',
+        triggeredAt: Date.now(),
+    }, 'celebration');
+
+    console.log(`[SSE] 🎉 Celebration triggered for "${employee}", notified ${count} clients`);
+
+    res.json({
+        success: true,
+        employee,
+        clientsNotified: count,
+    });
+});
+
+// =====================================================
 // WALLET EVENT SUBSCRIPTION
 // Subscribe to wallet events and broadcast to SSE clients
 // =====================================================
