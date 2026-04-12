@@ -50,16 +50,16 @@ async function _fetchNameBatch(prefix, existingNames) {
                 role: 'user',
                 parts: [{ text: `Liệt kê chính xác 20 tên chiến dịch livestream, mỗi dòng 1 tên, không đánh số, không giải thích.
 
-Format mỗi tên: ${prefix} + khoảng trắng + 1-2 từ viết HOA + lặp chữ cái cuối 4-6 lần.
+Format mỗi tên: ${prefix} + khoảng trắng + 2-4 từ viết HOA + lặp chữ cái cuối 4-6 lần.
 
 Ví dụ:
-${prefix} BÙMMMMMM
-${prefix} DEALLLLL
-${prefix} HOTTTTTT
-${prefix} CHÁYYY
-${prefix} SẬPPPPP
-${prefix} SIÊU SALEEEE
-${prefix} PHÁ ĐẢOOOOO
+${prefix} SIÊU SALE SẬPPPPP
+${prefix} PHÁ GIÁ ĐẢOOOOO
+${prefix} CHÁY HÀNG HOTTTTTT
+${prefix} NỔ ĐƠN BÙMMMMMM
+${prefix} GIÁ RẺ VÔ ĐỊCHHHH
+${prefix} HÚT ĐƠN KHỦNGGGGG
+${prefix} DEAL SỐC CHẤTTTTT
 
 Tên KHÔNG được trùng: ${usedList}` }]
             }],
