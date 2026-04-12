@@ -5,7 +5,12 @@
 // =====================================================
 
 const express = require('express');
+const { types } = require('pg');
 const router = express.Router();
+
+// Override pg DATE parser (OID 1082) to return raw string 'YYYY-MM-DD'
+// instead of JS Date object — avoids timezone shift
+types.setTypeParser(1082, (val) => val);
 
 let _tablesCreated = false;
 
@@ -46,20 +51,10 @@ async function ensureTables(pool) {
     }
 }
 
-// Format DATE column without timezone shift (pg returns JS Date at UTC midnight)
-function formatDateCol(d) {
-    if (!d) return '';
-    // d is a JS Date — use UTC methods to avoid timezone offset
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
-
 function mapRow(row) {
     return {
         id: row.id,
-        ngayDiHang: formatDateCol(row.ngay_di_hang),
+        ngayDiHang: row.ngay_di_hang || '',
         soLuong: row.so_luong || '',
         soKg: row.so_kg ? parseFloat(row.so_kg) : '',
         stt: row.stt || '',
@@ -69,7 +64,7 @@ function mapRow(row) {
         thieu: row.thieu || '',
         chiPhi: row.chi_phi ? parseFloat(row.chi_phi) : '',
         ghiChu: row.ghi_chu || '',
-        ngayTT: formatDateCol(row.ngay_tt),
+        ngayTT: row.ngay_tt || '',
         soTienTT: row.so_tien_tt ? parseFloat(row.so_tien_tt) : '',
         soTienVND: row.so_tien_vnd ? parseFloat(row.so_tien_vnd) : '',
         done: row.done || false,
