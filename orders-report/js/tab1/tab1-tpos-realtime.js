@@ -103,6 +103,16 @@
         const order = await fetchOrderByCode(code);
         if (!order) return;
 
+        // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất trong bảng
+        if (typeof allData !== 'undefined' && allData.length > 0) {
+            const highestSTTOrder = allData.reduce((max, o) =>
+                (o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max, allData[0]);
+            if (highestSTTOrder.LiveCampaignId && order.LiveCampaignId !== highestSTTOrder.LiveCampaignId) {
+                console.log(`[TPOS-RT] Skipping order ${code}: campaign ${order.LiveCampaignId} ≠ table campaign ${highestSTTOrder.LiveCampaignId}`);
+                return;
+            }
+        }
+
         // Add to table
         addOrderToTable(order);
 
@@ -582,6 +592,13 @@
                 if (allData.find(o => o.Code === code)) continue;
                 const order = await fetchOrderByCode(code);
                 if (order) {
+                    // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất
+                    const topOrder = allData.reduce((max, o) =>
+                        (o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max, allData[0]);
+                    if (topOrder?.LiveCampaignId && order.LiveCampaignId !== topOrder.LiveCampaignId) {
+                        console.log(`[TPOS-RT] Gap fill skip ${code}: different campaign`);
+                        continue;
+                    }
                     addOrderToTable(order);
                     autoTagTheKhachLa(code, order);
                     markProcessed(code);
