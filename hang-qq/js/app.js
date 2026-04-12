@@ -290,9 +290,12 @@
         });
     }
 
-    // Track expanded date groups (all expanded by default)
-    let expandedDates = new Set();
-    let expandedInited = false;
+    // Track collapsed date groups (default = all expanded)
+    const collapsedDates = new Set();
+
+    function makeDateId(dateKey) {
+        return 'dg_' + dateKey.replace(/[^a-zA-Z0-9]/g, '_');
+    }
 
     function renderTable() {
         const start = (currentPage - 1) * PAGE_SIZE;
@@ -300,7 +303,6 @@
 
         if (pageData.length === 0) {
             els.tableBody.innerHTML = '';
-            els.emptyState.classList.remove('hidden');
             els.emptyState.style.display = 'block';
             $('.table-wrapper').style.display = allData.length === 0 ? 'none' : 'block';
             if (allData.length > 0 && filteredData.length === 0) {
@@ -309,7 +311,6 @@
             return;
         }
 
-        els.emptyState.classList.add('hidden');
         els.emptyState.style.display = 'none';
         $('.table-wrapper').style.display = 'block';
 
@@ -332,27 +333,20 @@
             groups[groups.length - 1].items.push({ item, globalIdx: start + idx + 1 });
         });
 
-        // Init expanded state: expand all on first render
-        if (!expandedInited) {
-            groups.forEach((g) => expandedDates.add(g.date));
-            expandedInited = true;
-        }
-
-        const COL_COUNT = 12; // number of <th> columns
+        const COL_COUNT = 12;
         let html = '';
 
         groups.forEach((group) => {
-            const isExpanded = expandedDates.has(group.date);
+            const dateId = makeDateId(group.date);
+            const isCollapsed = collapsedDates.has(group.date);
             const dateDisplay = group.date === '_nodate' ? 'Không có ngày' : formatDate(group.date);
             const count = group.items.length;
             const groupTotal = group.items.reduce((s, g) => s + parseNum(g.item.soTien), 0);
-            const dateId = group.date.replace(/[^a-zA-Z0-9]/g, '_');
 
-            // Date group header row
-            html += `<tr class="date-group-header" data-date="${group.date}">
+            html += `<tr class="date-group-header" id="${dateId}_header">
                 <td colspan="${COL_COUNT}">
-                    <div class="dg-header" onclick="HangQQ.toggleDate('${group.date}')">
-                        <span class="material-symbols-outlined dg-arrow ${isExpanded ? 'dg-expanded' : ''}">chevron_right</span>
+                    <div class="dg-header" data-datekey="${group.date}">
+                        <span class="material-symbols-outlined dg-arrow ${isCollapsed ? '' : 'dg-expanded'}">chevron_right</span>
                         <span class="dg-date">${dateDisplay}</span>
                         <span class="dg-count">${count} đơn</span>
                         <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
@@ -360,7 +354,6 @@
                 </td>
             </tr>`;
 
-            // Item rows
             group.items.forEach(({ item, globalIdx }) => {
                 const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
                 const id = item.id;
@@ -368,7 +361,7 @@
                 const thieuVal = parseNum(item.thieu);
                 const cpVal = parseNum(item.chiPhi);
 
-                html += `<tr data-id="${id}" class="date-group-row ${item.done ? 'row-done' : ''}" data-group="${group.date}" ${isExpanded ? '' : 'style="display:none"'}>
+                html += `<tr data-id="${id}" class="date-group-row ${dateId}_rows ${item.done ? 'row-done' : ''}" ${isCollapsed ? 'style="display:none"' : ''}>
                 <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
                 <td><span class="td-stt">${sttStr}</span></td>
                 <td></td>
@@ -422,7 +415,15 @@
 
         els.tableBody.innerHTML = html;
 
-        // Bind inline edit click handlers
+        // Bind date group toggle via event delegation
+        els.tableBody.querySelectorAll('.dg-header').forEach((hdr) => {
+            hdr.addEventListener('click', () => {
+                const dateKey = hdr.getAttribute('data-datekey');
+                toggleDateGroup(dateKey);
+            });
+        });
+
+        // Bind inline edit
         els.tableBody.querySelectorAll('.editable-cell').forEach((cell) => {
             cell.addEventListener('dblclick', () => startInlineEdit(cell));
         });
@@ -449,23 +450,29 @@
     }
 
     function toggleDateGroup(dateKey) {
-        const isExpanded = expandedDates.has(dateKey);
-        if (isExpanded) {
-            expandedDates.delete(dateKey);
-        } else {
-            expandedDates.add(dateKey);
-        }
+        const dateId = makeDateId(dateKey);
+        const isCollapsed = collapsedDates.has(dateKey);
 
-        // Toggle rows
-        const rows = els.tableBody.querySelectorAll(`tr[data-group="${dateKey}"]`);
+        if (isCollapsed) {
+            collapsedDates.delete(dateKey);
+        } else {
+            collapsedDates.add(dateKey);
+        }
+        const nowCollapsed = !isCollapsed;
+
+        // Toggle rows by class
+        const rows = els.tableBody.querySelectorAll('.' + dateId + '_rows');
         rows.forEach((row) => {
-            row.style.display = isExpanded ? 'none' : '';
+            row.style.display = nowCollapsed ? 'none' : '';
         });
 
         // Toggle arrow
-        const header = els.tableBody.querySelector(`tr[data-date="${dateKey}"] .dg-arrow`);
+        const header = document.getElementById(dateId + '_header');
         if (header) {
-            header.classList.toggle('dg-expanded', !isExpanded);
+            const arrow = header.querySelector('.dg-arrow');
+            if (arrow) {
+                arrow.classList.toggle('dg-expanded', !nowCollapsed);
+            }
         }
     }
 
@@ -1101,7 +1108,6 @@
         },
         viewImg(src) { openImageViewer(src); },
         removeImg(type, idx) { removeImage(type, idx); },
-        toggleDate(dateKey) { toggleDateGroup(dateKey); },
         toggleMenu(e, id) {
             e.stopPropagation();
             const menu = $(`#menu-${id}`);
