@@ -242,6 +242,9 @@
             });
         }
 
+        // DEBUG: log product image data
+        console.log('[DEBUG] OrderLines product data:', data.OrderLines?.map(l => ({ Name: l.Name, ProductId: l.ProductId, Product: l.Product ? { Id: l.Product.Id, ImageUrl: l.Product.ImageUrl } : null })));
+
         // Init checked quantities to 0
         if (data.OrderLines) {
             data.OrderLines.forEach(line => {
