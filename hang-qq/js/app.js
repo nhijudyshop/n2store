@@ -296,49 +296,87 @@
 
         if (pageData.length === 0) {
             els.tableBody.innerHTML = '';
+            els.emptyState.classList.remove('hidden');
             els.emptyState.style.display = 'block';
             $('.table-wrapper').style.display = allData.length === 0 ? 'none' : 'block';
             if (allData.length > 0 && filteredData.length === 0) {
                 els.emptyState.querySelector('p').innerHTML = 'Không tìm thấy kết quả phù hợp.';
             }
-            lucideRefresh();
             return;
         }
 
+        els.emptyState.classList.add('hidden');
         els.emptyState.style.display = 'none';
         $('.table-wrapper').style.display = 'block';
 
+        // Pagination info
+        const end = Math.min(start + PAGE_SIZE, filteredData.length);
+        const infoEl = $('#paginationInfo');
+        if (infoEl) {
+            infoEl.innerHTML = `Hiển thị <span class="text-on-surface font-semibold">${start + 1} - ${end}</span> trên <span class="text-on-surface font-semibold">${filteredData.length}</span> vận đơn`;
+        }
+
         els.tableBody.innerHTML = pageData.map((item, idx) => {
             const globalIdx = start + idx + 1;
-            const productImgs = item.productImages || [];
-            const invoiceImgs = item.invoiceImages || [];
+            const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
             const id = item.id;
+            const sttStr = String(globalIdx).padStart(2, '0');
 
-            return `<tr data-id="${id}" class="${item.done ? 'row-done' : ''}">
-                <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
-                <td class="col-stt">${globalIdx}</td>
-                <td class="col-date editable-cell" data-id="${id}" data-field="ngayDiHang">${formatDate(item.ngayDiHang)}</td>
-                <td class="col-num editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</td>
-                <td class="col-num editable-cell" data-id="${id}" data-field="soKg">${item.soKg || ''}</td>
-                <td class="col-desc editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</td>
-                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTien">${formatMoney(item.soTien)}</td>
-                <td class="col-num editable-cell" data-id="${id}" data-field="slNhan">${item.slNhan || ''}</td>
-                <td class="col-num editable-cell ${item.thieu ? 'shortage-cell' : ''}" data-id="${id}" data-field="thieu">${item.thieu || ''}</td>
-                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</td>
-                <td class="col-note editable-cell" data-id="${id}" data-field="ghiChu">${escHtml(item.ghiChu || '')}</td>
-                <td class="col-date editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</td>
-                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTienTT">${formatMoney(item.soTienTT)}</td>
-                <td class="col-money money-cell editable-cell" data-id="${id}" data-field="soTienVND">${formatMoney(item.soTienVND)}</td>
-                <td class="col-img">${renderImgThumb(productImgs, 'product', id)}</td>
-                <td class="col-img">${renderImgThumb(invoiceImgs, 'invoice', id)}</td>
-                <td class="col-actions">
-                    <div class="action-btns">
-                        <button class="btn-icon" onclick="HangQQ.edit('${id}')" title="Sửa">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            // Chi phí badge
+            let cpBadge = '';
+            if (parseNum(item.chiPhi) > 0) {
+                cpBadge = `<span class="inline-block px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary text-[10px] font-bold uppercase editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</span>`;
+            } else {
+                cpBadge = `<span class="editable-cell text-[11px] text-slate-400 italic" data-id="${id}" data-field="chiPhi">—</span>`;
+            }
+
+            // Ngày TT display
+            const ngayTTDisplay = item.ngayTT
+                ? `<span class="text-[11px] text-slate-500 editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</span>`
+                : `<span class="text-[11px] text-slate-400 italic editable-cell" data-id="${id}" data-field="ngayTT">Chưa TT</span>`;
+
+            // Thiếu badge
+            const thieuVal = parseNum(item.thieu);
+            const thieuBadge = `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full ${thieuVal > 0 ? 'bg-error-container/30 text-error' : 'bg-slate-100 text-slate-400'} text-[10px] font-bold editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>`;
+
+            return `<tr data-id="${id}" class="group hover:bg-surface-container-low/50 transition-colors ${item.done ? 'row-done' : ''}">
+                <td class="col-check px-3 py-5"><input type="checkbox" class="done-check w-4 h-4 rounded accent-secondary cursor-pointer" data-id="${id}" ${item.done ? 'checked' : ''}></td>
+                <td class="px-4 py-5 font-semibold text-xs text-slate-400">${sttStr}</td>
+                <td class="px-4 py-5 editable-cell" data-id="${id}" data-field="ngayDiHang">
+                    <span class="text-xs font-bold text-on-surface">${formatDate(item.ngayDiHang)}</span>
+                </td>
+                <td class="px-4 py-5 text-center">
+                    <span class="text-xs font-semibold text-on-surface editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
+                    ${item.soLuong ? ' <span class="text-[10px] text-slate-400">SL</span>' : ''}
+                    ${item.soKg ? `<div class="text-[10px] text-slate-400 editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
+                </td>
+                <td class="px-4 py-5 editable-cell max-w-[200px]" data-id="${id}" data-field="moTa">
+                    <p class="text-xs font-medium text-on-surface leading-tight">${escHtml(item.moTa || '')}</p>
+                    ${item.ghiChu ? `<div class="text-[10px] text-slate-400 mt-0.5 editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
+                </td>
+                <td class="px-4 py-5 text-right editable-cell" data-id="${id}" data-field="soTien">
+                    <span class="text-xs font-bold text-primary">¥ ${formatMoney(item.soTien)}</span>
+                </td>
+                <td class="px-4 py-5 text-center">${thieuBadge}</td>
+                <td class="px-4 py-5">${cpBadge}</td>
+                <td class="px-4 py-5">${ngayTTDisplay}</td>
+                <td class="px-4 py-5 text-right editable-cell" data-id="${id}" data-field="soTienVND">
+                    <span class="text-xs font-bold text-on-surface">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
+                </td>
+                <td class="px-4 py-5">${renderImgThumb(allImgs, 'media', id)}</td>
+                <td class="px-4 py-5 text-right">
+                    <div class="relative inline-block">
+                        <button class="text-slate-400 hover:text-primary transition-colors p-1 rounded-lg hover:bg-surface-container-high/50" onclick="HangQQ.toggleMenu(event, '${id}')">
+                            <span class="material-symbols-outlined text-xl">more_vert</span>
                         </button>
-                        <button class="btn-icon danger" onclick="HangQQ.del('${id}')" title="Xóa">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
+                        <div class="context-menu hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.15)] border border-outline-variant/30 py-1 z-50 min-w-[140px]" id="menu-${id}">
+                            <button class="w-full px-4 py-2.5 text-left text-xs font-medium text-on-surface hover:bg-surface-container-low flex items-center gap-2" onclick="HangQQ.edit('${id}')">
+                                <span class="material-symbols-outlined text-base">edit</span> Sửa
+                            </button>
+                            <button class="w-full px-4 py-2.5 text-left text-xs font-medium text-error hover:bg-error-container/20 flex items-center gap-2" onclick="HangQQ.del('${id}')">
+                                <span class="material-symbols-outlined text-base">delete</span> Xóa
+                            </button>
+                        </div>
                     </div>
                 </td>
             </tr>`;
@@ -515,21 +553,31 @@
 
     function renderImgThumb(images, type, id) {
         if (!images || images.length === 0) {
-            return '<span class="no-img">—</span>';
+            return '';
         }
         const first = images[0];
-        const extra = images.length > 1 ? ` <span class="img-count-badge" data-count="+${images.length - 1}"></span>` : '';
-        return `<div class="img-thumb-group">
-            <img class="img-thumb" src="${first}" onclick="HangQQ.viewImg('${escAttr(first)}')" alt="${type}">
-            ${extra}
+        let html = `<div class="flex justify-center -space-x-2">`;
+        html += `<div class="w-8 h-8 rounded-lg bg-slate-200 border-2 border-white overflow-hidden shadow-sm cursor-pointer" onclick="HangQQ.viewImg('${escAttr(first)}')">
+            <img src="${first}" alt="${type}" class="w-full h-full object-cover">
         </div>`;
+        if (images.length > 1) {
+            html += `<div class="w-8 h-8 rounded-lg bg-primary/10 border-2 border-white flex items-center justify-center text-primary text-[10px] font-bold shadow-sm cursor-pointer" onclick="HangQQ.viewImg('${escAttr(images[1])}')">+${images.length - 1}</div>`;
+        }
+        html += `</div>`;
+        return html;
     }
 
     function renderPagination() {
         const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
-        if (totalPages <= 1) { els.pagination.innerHTML = ''; return; }
+        const footer = $('#paginationFooter');
+        if (totalPages <= 1) {
+            els.pagination.innerHTML = '';
+            if (footer) footer.style.display = filteredData.length > 0 ? 'flex' : 'none';
+            return;
+        }
+        if (footer) footer.style.display = 'flex';
 
-        let html = `<button ${currentPage === 1 ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage - 1})">‹</button>`;
+        let html = `<button ${currentPage === 1 ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage - 1})"><span class="material-symbols-outlined text-sm">chevron_left</span></button>`;
         for (let i = 1; i <= totalPages; i++) {
             if (totalPages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== totalPages) {
                 if (i === currentPage - 3 || i === currentPage + 3) html += '<button disabled>…</button>';
@@ -537,7 +585,7 @@
             }
             html += `<button class="${i === currentPage ? 'active' : ''}" onclick="HangQQ.goPage(${i})">${i}</button>`;
         }
-        html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage + 1})">›</button>`;
+        html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="HangQQ.goPage(${currentPage + 1})"><span class="material-symbols-outlined text-sm">chevron_right</span></button>`;
         els.pagination.innerHTML = html;
     }
 
@@ -930,12 +978,24 @@
     }
 
     // ===== Public API =====
+    // Close all context menus
+    function closeAllMenus() {
+        document.querySelectorAll('.context-menu').forEach((m) => m.classList.add('hidden'));
+    }
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.context-menu') && !e.target.closest('[onclick*="toggleMenu"]')) {
+            closeAllMenus();
+        }
+    });
+
     window.HangQQ = {
         edit(id) {
+            closeAllMenus();
             const entry = allData.find((d) => String(d.id) === String(id));
             if (entry) openModal(entry);
         },
         del(id) {
+            closeAllMenus();
             if (!confirm('Xóa đơn hàng này?')) return;
             deleteEntry(id).then(() => { renderAll(); showToast('Đã xóa', 'success'); })
                 .catch((e) => showToast('Lỗi xóa: ' + e.message, 'error'));
@@ -948,5 +1008,16 @@
         },
         viewImg(src) { openImageViewer(src); },
         removeImg(type, idx) { removeImage(type, idx); },
+        toggleMenu(e, id) {
+            e.stopPropagation();
+            const menu = $(`#menu-${id}`);
+            const wasHidden = menu.classList.contains('hidden');
+            closeAllMenus();
+            if (wasHidden) menu.classList.remove('hidden');
+        },
     };
+
+    // FAB for mobile
+    const fab = $('#btnAddFab');
+    if (fab) fab.addEventListener('click', () => openModal());
 })();

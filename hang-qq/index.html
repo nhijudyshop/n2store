@@ -1,6 +1,6 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
 <!DOCTYPE html>
-<html lang="vi">
+<html class="light" lang="vi">
 
 <head>
     <meta charset="UTF-8">
@@ -9,155 +9,225 @@
 
     <!-- Core Loader -->
     <script src="../shared/js/core-loader.js"></script>
-
-    <!-- ES Module: Shared utilities -->
     <script type="module" src="../shared/esm/compat.js"></script>
-
-    <!-- Storage Migration -->
     <script src="../shared/js/storage-migration.js"></script>
 
-    <!-- SheetJS for Excel import -->
+    <!-- SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Lucide Icons -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/styles.css">
+    <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../shared/css/typography.css" />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#004ac6",
+                        "primary-container": "#2563eb",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#eeefff",
+                        secondary: "#006c49",
+                        "secondary-container": "#6cf8bb",
+                        tertiary: "#784b00",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        error: "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        surface: "#f8f9ff",
+                        "surface-dim": "#cbdbf5",
+                        "surface-container": "#e5eeff",
+                        "surface-container-low": "#eff4ff",
+                        "surface-container-high": "#dce9ff",
+                        "surface-container-highest": "#d3e4fe",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#0b1c30",
+                        "on-surface-variant": "#434655",
+                        outline: "#737686",
+                        "outline-variant": "#c3c6d7",
+                        background: "#f8f9ff",
+                    },
+                    fontFamily: {
+                        headline: ["Manrope", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body>
+<body class="bg-background text-on-surface font-body antialiased">
     <div class="main-content" id="mainContent">
-        <div class="container">
-            <!-- Page Header -->
-            <header class="page-header">
-                <div class="header-left">
-                    <h1><i data-lucide="package"></i> Hàng QQ</h1>
-                    <span class="subtitle">Quản lý hàng Hương Châu</span>
+        <!-- Page content - pushed by navigation-modern sidebar -->
+        <div class="pt-6 px-4 sm:px-8 pb-12 max-w-[1600px] mx-auto">
+
+            <!-- Header -->
+            <section class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold font-headline text-on-surface tracking-tight mb-1">Quản lý hàng Hàng QQ</h2>
+                    <p class="text-slate-500 font-medium text-sm">Quản lý hàng Hương Châu &bull; Theo dõi vận hành thời gian thực</p>
                 </div>
-                <div class="header-actions">
-                    <button class="btn btn-primary" id="btnAdd" title="Thêm mới">
-                        <i data-lucide="plus"></i> Thêm
+                <div class="flex flex-wrap gap-3">
+                    <button class="px-4 py-2.5 rounded-xl border border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors flex items-center gap-2" id="btnExport">
+                        <span class="material-symbols-outlined text-lg">upload_file</span>
+                        <span>Xuất file</span>
                     </button>
-                    <button class="btn btn-success" id="btnImportExcel" title="Import Excel">
-                        <i data-lucide="upload"></i> Import Excel
+                    <button class="px-4 py-2.5 rounded-xl bg-secondary text-white font-semibold text-sm hover:opacity-90 transition-opacity flex items-center gap-2" id="btnImportExcel">
+                        <span class="material-symbols-outlined text-lg">grid_on</span>
+                        <span>Import Excel</span>
                     </button>
-                    <button class="btn btn-outline" id="btnExport" title="Xuất Excel">
-                        <i data-lucide="download"></i> Xuất
+                    <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-container text-white font-bold text-sm shadow-lg hover:shadow-primary/20 transition-all flex items-center gap-2" id="btnAdd">
+                        <span class="material-symbols-outlined text-lg">add</span>
+                        <span>Thêm mới</span>
                     </button>
-                    <button class="btn btn-outline btn-reload" id="btnRefresh" title="Tải lại">
-                        <i data-lucide="refresh-cw"></i>
+                    <button class="p-2.5 rounded-xl border border-outline-variant text-slate-400 hover:text-primary hover:border-primary transition-colors" id="btnRefresh" title="Tải lại">
+                        <span class="material-symbols-outlined text-lg">refresh</span>
                     </button>
                 </div>
-            </header>
+            </section>
 
             <!-- Summary Cards -->
-            <div class="summary-cards">
-                <div class="card card-total">
-                    <div class="card-icon"><i data-lucide="package"></i></div>
-                    <div class="card-info">
-                        <span class="card-label">Tổng đơn</span>
-                        <span class="card-value" id="statTotalOrders">0</span>
+            <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+                <div class="bg-surface-container-lowest p-5 sm:p-6 rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.06)] flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute right-[-10px] top-[-10px] w-24 h-24 bg-primary/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tổng đơn</p>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-on-surface" id="statTotalOrders">0</p>
+                    </div>
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">package</span>
                     </div>
                 </div>
-                <div class="card card-amount">
-                    <div class="card-icon"><i data-lucide="banknote"></i></div>
-                    <div class="card-info">
-                        <span class="card-label">Tổng tiền (CNY)</span>
-                        <span class="card-value" id="statTotalCNY">0</span>
+                <div class="bg-surface-container-lowest p-5 sm:p-6 rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.06)] flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute right-[-10px] top-[-10px] w-24 h-24 bg-tertiary/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tổng tiền (CNY)</p>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-on-surface" id="statTotalCNY">0</p>
+                    </div>
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed-variant">
+                        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">payments</span>
                     </div>
                 </div>
-                <div class="card card-paid">
-                    <div class="card-icon"><i data-lucide="check-circle"></i></div>
-                    <div class="card-info">
-                        <span class="card-label">Đã thanh toán</span>
-                        <span class="card-value" id="statTotalPaid">0</span>
+                <div class="bg-surface-container-lowest p-5 sm:p-6 rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.06)] flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute right-[-10px] top-[-10px] w-24 h-24 bg-secondary/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Đã thanh toán</p>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-on-surface" id="statTotalPaid">0</p>
+                    </div>
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
+                        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>
                     </div>
                 </div>
-                <div class="card card-remaining">
-                    <div class="card-icon"><i data-lucide="alert-circle"></i></div>
-                    <div class="card-info">
-                        <span class="card-label">Còn lại (VND)</span>
-                        <span class="card-value" id="statRemaining">0</span>
+                <div class="bg-surface-container-lowest p-5 sm:p-6 rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.06)] flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute right-[-10px] top-[-10px] w-24 h-24 bg-error/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Còn lại (VND)</p>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-on-surface" id="statRemaining">0</p>
+                    </div>
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-error-container flex items-center justify-center text-error">
+                        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Search & Filter -->
-            <div class="toolbar">
-                <div class="search-box">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="searchInput" placeholder="Tìm theo mô tả, ghi chú...">
+            <!-- Filters -->
+            <section class="flex flex-col sm:flex-row gap-3 mb-6">
+                <div class="flex-1 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-surface-container-low p-2 rounded-xl">
+                    <div class="relative flex-1">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <input class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border-none rounded-lg text-xs focus:ring-1 focus:ring-primary/20" id="searchInput" placeholder="Tìm theo mô tả, ghi chú..." type="text" />
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="relative">
+                            <select class="w-full pl-3 pr-8 py-2 bg-surface-container-lowest border-none rounded-lg text-xs appearance-none focus:ring-1 focus:ring-primary/20" id="filterMonth">
+                                <option value="">Tất cả tháng</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">expand_more</span>
+                        </div>
+                        <div class="relative">
+                            <select class="w-full pl-3 pr-8 py-2 bg-surface-container-lowest border-none rounded-lg text-xs appearance-none focus:ring-1 focus:ring-primary/20" id="filterStatus">
+                                <option value="">Tất cả</option>
+                                <option value="paid">Đã TT</option>
+                                <option value="unpaid">Chưa TT</option>
+                                <option value="partial">TT 1 phần</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">filter_list</span>
+                        </div>
+                        <div class="relative">
+                            <select class="w-full pl-3 pr-8 py-2 bg-surface-container-lowest border-none rounded-lg text-xs appearance-none focus:ring-1 focus:ring-primary/20" id="filterDone">
+                                <option value="">Tất cả đơn</option>
+                                <option value="done">Đã xong</option>
+                                <option value="undone">Chưa xong</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">checklist</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="filter-group-inline">
-                    <select id="filterMonth">
-                        <option value="">Tất cả tháng</option>
-                    </select>
-                    <select id="filterStatus">
-                        <option value="">Tất cả</option>
-                        <option value="paid">Đã TT</option>
-                        <option value="unpaid">Chưa TT</option>
-                        <option value="partial">TT 1 phần</option>
-                    </select>
-                    <select id="filterDone">
-                        <option value="">Tất cả đơn</option>
-                        <option value="done">Đã xong</option>
-                        <option value="undone">Chưa xong</option>
-                    </select>
-                </div>
-            </div>
+            </section>
 
             <!-- Data Table -->
-            <div class="table-wrapper">
-                <table class="data-table" id="dataTable">
-                    <thead>
-                        <tr>
-                            <th class="col-check"><input type="checkbox" id="checkAll" title="Chọn tất cả"></th>
-                            <th class="col-stt">#</th>
-                            <th class="col-date sortable" data-sort="ngayDiHang">Ngày đi hàng</th>
-                            <th class="col-num sortable" data-sort="soLuong">SL</th>
-                            <th class="col-num sortable" data-sort="soKg">Kg</th>
-                            <th class="col-desc">Mô tả hóa đơn</th>
-                            <th class="col-money sortable" data-sort="soTien">Tiền (¥)</th>
-                            <th class="col-num">SL nhận</th>
-                            <th class="col-num">Thiếu</th>
-                            <th class="col-money sortable" data-sort="chiPhi">CP hàng về</th>
-                            <th class="col-note">Ghi chú</th>
-                            <th class="col-date">Ngày TT</th>
-                            <th class="col-money sortable" data-sort="soTienTT">Tiền TT (¥)</th>
-                            <th class="col-money sortable" data-sort="soTienVND">Tiền VND</th>
-                            <th class="col-img">Ảnh SP</th>
-                            <th class="col-img">Ảnh HĐ</th>
-                            <th class="col-actions">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Data rows rendered by JS -->
-                    </tbody>
-                </table>
-            </div>
+            <section class="table-wrapper bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.06)] overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="data-table w-full text-left border-collapse" id="dataTable">
+                        <thead class="bg-surface-container-high/40">
+                            <tr>
+                                <th class="col-check px-3 py-4"><input type="checkbox" id="checkAll" title="Chọn tất cả" class="w-4 h-4 rounded accent-secondary cursor-pointer"></th>
+                                <th class="col-stt px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">#</th>
+                                <th class="col-date px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest sortable cursor-pointer hover:text-primary" data-sort="ngayDiHang">Ngày đi hàng</th>
+                                <th class="col-num px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center sortable cursor-pointer hover:text-primary" data-sort="soLuong">SL / KG</th>
+                                <th class="col-desc px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mô tả hóa đơn</th>
+                                <th class="col-money px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right sortable cursor-pointer hover:text-primary" data-sort="soTien">Tiền (¥)</th>
+                                <th class="col-num px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Thiếu</th>
+                                <th class="col-money px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest sortable cursor-pointer hover:text-primary" data-sort="chiPhi">CP hàng về</th>
+                                <th class="col-date px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ngày TT</th>
+                                <th class="col-money px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right sortable cursor-pointer hover:text-primary" data-sort="soTienVND">Tiền VND</th>
+                                <th class="col-img px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Media</th>
+                                <th class="col-actions px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y-0">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination footer -->
+                <div class="px-6 sm:px-8 py-5 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-3" id="paginationFooter">
+                    <p class="text-[11px] text-slate-400 font-medium" id="paginationInfo"></p>
+                    <div class="flex gap-2" id="pagination"></div>
+                </div>
+            </section>
 
             <!-- Empty State -->
-            <div class="empty-state" id="emptyState" style="display: none;">
-                <i data-lucide="inbox"></i>
-                <p>Chưa có dữ liệu. Nhấn <strong>Thêm</strong> hoặc <strong>Import Excel</strong> để bắt đầu.</p>
+            <div class="empty-state text-center py-16 hidden" id="emptyState">
+                <span class="material-symbols-outlined text-5xl text-slate-300 mb-4">inbox</span>
+                <p class="text-sm text-slate-400">Chưa có dữ liệu. Nhấn <strong>Thêm mới</strong> hoặc <strong>Import Excel</strong> để bắt đầu.</p>
             </div>
-
-            <!-- Pagination -->
-            <div class="pagination" id="pagination"></div>
         </div>
     </div>
+
+    <!-- FAB mobile -->
+    <button class="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-primary to-primary-container text-white shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50 sm:hidden" id="btnAddFab">
+        <span class="material-symbols-outlined text-3xl">add</span>
+    </button>
 
     <!-- Modal: Add/Edit -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal" id="modalForm">
             <div class="modal-header">
-                <h2 id="modalTitle">Thêm đơn hàng</h2>
-                <button class="btn-close" id="btnCloseModal"><i data-lucide="x"></i></button>
+                <h2 id="modalTitle" class="text-lg font-bold font-headline">Thêm đơn hàng</h2>
+                <button class="btn-close" id="btnCloseModal"><span class="material-symbols-outlined">close</span></button>
             </div>
             <div class="modal-body">
                 <form id="formEntry">
@@ -215,14 +285,12 @@
                             <label for="fSoTienVND">Số tiền VND</label>
                             <input type="number" id="fSoTienVND" min="0">
                         </div>
-
-                        <!-- Image uploads -->
                         <div class="form-group">
                             <label>Ảnh sản phẩm</label>
                             <div class="image-upload" id="uploadProductImg">
                                 <input type="file" accept="image/*" id="fImgProduct" multiple>
                                 <div class="upload-placeholder">
-                                    <i data-lucide="image-plus"></i>
+                                    <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
                                     <span>Chọn ảnh SP</span>
                                 </div>
                                 <div class="image-preview" id="previewProduct"></div>
@@ -233,7 +301,7 @@
                             <div class="image-upload" id="uploadInvoiceImg">
                                 <input type="file" accept="image/*" id="fImgInvoice" multiple>
                                 <div class="upload-placeholder">
-                                    <i data-lucide="image-plus"></i>
+                                    <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
                                     <span>Chọn ảnh HĐ</span>
                                 </div>
                                 <div class="image-preview" id="previewInvoice"></div>
@@ -253,12 +321,12 @@
     <div class="modal-overlay" id="importOverlay">
         <div class="modal modal-import" id="modalImport">
             <div class="modal-header">
-                <h2>Import từ Excel</h2>
-                <button class="btn-close" id="btnCloseImport"><i data-lucide="x"></i></button>
+                <h2 class="text-lg font-bold font-headline">Import từ Excel</h2>
+                <button class="btn-close" id="btnCloseImport"><span class="material-symbols-outlined">close</span></button>
             </div>
             <div class="modal-body">
                 <div class="import-dropzone" id="importDropzone">
-                    <i data-lucide="file-spreadsheet"></i>
+                    <span class="material-symbols-outlined text-5xl text-secondary">upload_file</span>
                     <p>Kéo thả file Excel vào đây</p>
                     <p class="hint">hoặc click để chọn file (.xlsx, .xls)</p>
                     <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
@@ -278,9 +346,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" id="btnCancelImport">Hủy</button>
-                <button class="btn btn-success" id="btnConfirmImport" disabled>
-                    <i data-lucide="check"></i> Import dữ liệu
-                </button>
+                <button class="btn btn-success" id="btnConfirmImport" disabled>Import dữ liệu</button>
             </div>
         </div>
     </div>
@@ -288,37 +354,23 @@
     <!-- Modal: Image Viewer -->
     <div class="modal-overlay" id="imageViewerOverlay">
         <div class="image-viewer" id="imageViewer">
-            <button class="btn-close viewer-close" id="btnCloseViewer"><i data-lucide="x"></i></button>
+            <button class="btn-close viewer-close" id="btnCloseViewer"><span class="material-symbols-outlined">close</span></button>
             <img id="viewerImage" src="" alt="Preview">
         </div>
     </div>
 
-    <!-- Hidden file input for Excel import -->
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
 
-    <!-- Auth Manager -->
+    <!-- Shared scripts -->
     <script src="../shared/js/shared-auth-manager.js"></script>
-
-    <!-- Navigation -->
     <script defer src="../shared/js/navigation-modern.js"></script>
-
-    <!-- Notification System -->
     <script src="../shared/js/notification-system.js"></script>
-
-    <!-- Token Manager & API Config -->
     <script src="../shared/js/shop-config.js"></script>
     <script src="../shared/js/api-config.js"></script>
     <script src="../shared/js/token-manager.js"></script>
 
-    <!-- App JS -->
+    <!-- App -->
     <script src="js/app.js"></script>
-
-    <!-- Initialize Lucide Icons -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-        });
-    </script>
 </body>
 
 </html>
