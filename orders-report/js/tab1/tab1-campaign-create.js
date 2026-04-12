@@ -45,7 +45,7 @@ async function _fetchNameBatch(prefix, existingNames) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3-pro-preview',
             contents: [{
                 role: 'user',
                 parts: [{ text: `Tạo danh sách 20 tên chiến dịch bán hàng livestream. Quy tắc:
