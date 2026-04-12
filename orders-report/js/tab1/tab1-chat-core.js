@@ -54,6 +54,61 @@ window.sendQRFromChatHeader = async function() {
 };
 
 /**
+ * Send bill image from chat modal header
+ * Uses existing BillService + InvoiceStatusStore infrastructure
+ */
+window.sendBillFromChat = async function() {
+    const orderId = window.currentChatOrderId;
+    const psid = window.currentChatPSID;
+    const pageId = window.currentChatChannelId || window.currentSendPageId;
+
+    if (!orderId || !psid) {
+        window.notificationManager?.warning?.('Không có thông tin đơn hàng hoặc khách hàng');
+        return;
+    }
+
+    if (!window.InvoiceStatusStore || !window.InvoiceStatusStore.has(orderId)) {
+        window.notificationManager?.warning?.('Đơn hàng chưa có phiếu bán hàng');
+        return;
+    }
+
+    // Use existing sendBillFromMainTable if available (handles preview, enrichment, etc.)
+    if (typeof window.sendBillFromMainTable === 'function') {
+        await window.sendBillFromMainTable(orderId);
+        return;
+    }
+
+    // Fallback: manual flow
+    try {
+        const btn = document.getElementById('chatHeaderBillBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
+
+        const invoiceData = window.InvoiceStatusStore.get(orderId);
+        if (!invoiceData) {
+            window.notificationManager?.error?.('Không tìm thấy dữ liệu phiếu bán hàng');
+            return;
+        }
+
+        if (typeof window.BillService?.sendBillToCustomer === 'function') {
+            const result = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid);
+            if (result?.success) {
+                window.notificationManager?.show?.('Đã gửi bill cho khách', 'success');
+            } else {
+                window.notificationManager?.error?.(result?.error || 'Lỗi gửi bill');
+            }
+        } else {
+            window.notificationManager?.error?.('BillService chưa sẵn sàng');
+        }
+    } catch (err) {
+        console.error('[CHAT] Send bill error:', err);
+        window.notificationManager?.error?.('Lỗi gửi bill: ' + err.message);
+    } finally {
+        const btn = document.getElementById('chatHeaderBillBtn');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-invoice"></i> Gửi Bill'; }
+    }
+};
+
+/**
  * Get avatar URL for a customer — same 4-tier fallback as inbox-chat.js
  * Extracts direct avatar from currentConversationData, then falls back to proxy.
  */
@@ -195,6 +250,13 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         } else {
             noteEl.style.display = 'none';
         }
+    }
+
+    // Show/hide "Gửi Bill" button based on invoice status
+    const billBtn = document.getElementById('chatHeaderBillBtn');
+    if (billBtn) {
+        const hasInvoice = window.InvoiceStatusStore && window.InvoiceStatusStore.has(orderId);
+        billBtn.style.display = hasInvoice ? 'inline-flex' : 'none';
     }
 
     // Update type toggle
