@@ -1633,6 +1633,7 @@
         }
 
         // Messenger button or sent badge - show for confirmed/paid invoices
+        const isMyCskh = (invoiceData.UserName || '').toUpperCase().includes('MY CSKH');
         const canSendBill = showState === 'Đã xác nhận' || showState === 'Đã thanh toán';
         if (billSent) {
             // Bill đã gửi: click để xem preview và in (không gửi lại)
@@ -1691,10 +1692,13 @@
         // Row 3: Trạng thái đơn (derive từ StateCode) + nút "Đã ra đơn"
         const orderStatus = deriveOrderStatusFromStateCode(stateCode, isMergeCancel);
         html += `<div style="display:flex; align-items:center; gap:4px; margin-top:2px; flex-wrap:wrap;">`;
-        // Ẩn badge trạng thái đơn (Hủy bỏ / Đơn hàng / Nháp) khỏi cột Phiếu bán hàng.
-        // Logic derive vẫn giữ cho các nơi khác dùng.
-        // "Đã ra đơn" badge → click mở modal hiển thị toàn bộ response invoice
+        // "Lịch sử" badge → click mở modal hiển thị toàn bộ response invoice
         html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
+
+        // MY CSKH: show "Tạo PBH mới" button to allow creating a new invoice
+        if (isMyCskh) {
+            html += `<button type="button" onclick="window.openSaleButtonModal && window.openSaleButtonModal(); event.stopPropagation();" title="Tạo phiếu bán hàng mới (MY CSKH)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH</button>`;
+        }
         html += `</div>`;
 
         html += `</div>`;

@@ -674,42 +674,56 @@ async function confirmAndPrintSale() {
     }
 
     // Guard duplicate: nếu đơn này đã có PBH "Đã xác nhận"/"Đã thanh toán" thì không tạo lại
-    // (Same logic as bulk fast-sale modal — tab1-fast-sale.js:419)
+    // Exception: "MY CSKH" invoices bypass this check (customer service orders can be re-created)
     try {
-        if (
-            currentSaleOrderData.ShowState === 'Đã xác nhận' ||
-            currentSaleOrderData.ShowState === 'Đã thanh toán' ||
-            currentSaleOrderData.State === 'open' ||
-            currentSaleOrderData.StatusText === 'Đơn hàng' ||
-            currentSaleOrderData.Status === 'Đơn hàng'
-        ) {
-            const label =
-                currentSaleOrderData.StatusText ||
-                currentSaleOrderData.Status ||
-                currentSaleOrderData.ShowState ||
-                currentSaleOrderData.State;
-            const msg = `Đơn này đang ở trạng thái "${label}", không thể tạo PBH (tránh tạo trùng).`;
-            console.warn('[SALE-CONFIRM] ⚠️', msg);
-            if (window.notificationManager) window.notificationManager.warning(msg, 4000);
-            else alert(msg);
-            return;
-        }
+        // Check if existing invoice is from MY CSKH → allow bypass
         const saleOnlineId =
             currentSaleOrderData.SaleOnlineIds?.[0] || currentSaleOrderData.Id;
-        if (saleOnlineId && window.InvoiceStatusStore) {
-            const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
+        let isMyCskh = (currentSaleOrderData.UserName || '').toUpperCase().includes('MY CSKH');
+
+        if (!isMyCskh && saleOnlineId && window.InvoiceStatusStore) {
+            const existingInvoice = window.InvoiceStatusStore.get(saleOnlineId);
+            if (existingInvoice && (existingInvoice.UserName || '').toUpperCase().includes('MY CSKH')) {
+                isMyCskh = true;
+            }
+        }
+
+        if (!isMyCskh) {
             if (
-                invoiceData &&
-                (invoiceData.ShowState === 'Đã xác nhận' ||
-                    invoiceData.ShowState === 'Đã thanh toán' ||
-                    invoiceData.State === 'open')
+                currentSaleOrderData.ShowState === 'Đã xác nhận' ||
+                currentSaleOrderData.ShowState === 'Đã thanh toán' ||
+                currentSaleOrderData.State === 'open' ||
+                currentSaleOrderData.StatusText === 'Đơn hàng' ||
+                currentSaleOrderData.Status === 'Đơn hàng'
             ) {
-                const msg = `Đơn này đã có PBH "${invoiceData.ShowState || invoiceData.State}" trong store. Bỏ qua để tránh tạo trùng.`;
+                const label =
+                    currentSaleOrderData.StatusText ||
+                    currentSaleOrderData.Status ||
+                    currentSaleOrderData.ShowState ||
+                    currentSaleOrderData.State;
+                const msg = `Đơn này đang ở trạng thái "${label}", không thể tạo PBH (tránh tạo trùng).`;
                 console.warn('[SALE-CONFIRM] ⚠️', msg);
                 if (window.notificationManager) window.notificationManager.warning(msg, 4000);
                 else alert(msg);
                 return;
             }
+            if (saleOnlineId && window.InvoiceStatusStore) {
+                const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
+                if (
+                    invoiceData &&
+                    (invoiceData.ShowState === 'Đã xác nhận' ||
+                        invoiceData.ShowState === 'Đã thanh toán' ||
+                        invoiceData.State === 'open')
+                ) {
+                    const msg = `Đơn này đã có PBH "${invoiceData.ShowState || invoiceData.State}" trong store. Bỏ qua để tránh tạo trùng.`;
+                    console.warn('[SALE-CONFIRM] ⚠️', msg);
+                    if (window.notificationManager) window.notificationManager.warning(msg, 4000);
+                    else alert(msg);
+                    return;
+                }
+            }
+        } else {
+            console.log('[SALE-CONFIRM] MY CSKH bypass: allowing PBH creation despite existing invoice');
         }
     } catch (guardErr) {
         console.warn('[SALE-CONFIRM] Duplicate-guard check failed (non-blocking):', guardErr);
