@@ -45,7 +45,7 @@ async function _fetchNameBatch(prefix, existingNames) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            model: 'gemini-2.5-pro-preview-05-06',
+            model: 'gemini-2.0-flash',
             contents: [{
                 role: 'user',
                 parts: [{ text: `Tạo danh sách 20 tên chiến dịch bán hàng livestream. Quy tắc:
@@ -69,8 +69,8 @@ async function _fetchNameBatch(prefix, existingNames) {
     }
 
     const data = await response.json();
+    console.log('[CAMPAIGN] Gemini full response:', JSON.stringify(data).substring(0, 500));
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    console.log('[CAMPAIGN] Gemini raw response:', text);
     if (!text) return [];
 
     // Parse lines into clean names
