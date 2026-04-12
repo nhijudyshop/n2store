@@ -381,10 +381,11 @@ body {
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     padding: 0 24px;
     margin-bottom: 2px;
     background: none;
+    white-space: nowrap;
 }
 .dg-col-header:hover { background: none; }
 
@@ -392,7 +393,7 @@ body {
 /*  SL  | SỐ KG |  X  | STT | SỐ HÓA ĐƠN | SỐ TIỀN | SL  | THIẾU | CP HÀNG VỀ | GHI CHÚ | × */
 .dg-item {
     display: grid;
-    grid-template-columns: 44px 56px 36px 44px 1fr 90px 44px 56px 120px 1fr 36px;
+    grid-template-columns: 40px 52px 34px 40px 1fr 85px 40px 52px 150px 1fr 32px;
     align-items: center;
     padding: 14px 24px;
     background: var(--surface-lowest);
