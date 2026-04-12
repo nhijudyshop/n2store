@@ -624,6 +624,7 @@
                     TotalQuantity: colTotalQty >= 0 ? parseInt(row[colTotalQty]) || 0 : 0,
                     AmountTotal: colTotal >= 0 ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0 : 0,
                     Details: details,
+                    _fromExcel: true,
                 };
 
                 _orderDetailsCache.set(orderId, orderData);
@@ -898,6 +899,22 @@
         if (_needsFullData(templateContent)) {
             // Use pre-fetched cache first (from _prefetchOrderDetails)
             let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+
+            // If from Excel cache, Details may lack Note (discount info).
+            // Enrich with OrderStore data if available (OrderStore has Details with Note from TPOS list)
+            if (fullOrder && fullOrder._fromExcel) {
+                const storeOrder = window.OrderStore?.get(order.orderId);
+                if (storeOrder?.Details?.length && fullOrder.Details?.length) {
+                    // Merge Note from OrderStore into Excel-parsed Details
+                    for (const detail of fullOrder.Details) {
+                        const match = storeOrder.Details.find(d =>
+                            (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
+                            (d.ProductNameGet || '').includes(detail.ProductCode)
+                        );
+                        if (match?.Note) detail.Note = match.Note;
+                    }
+                }
+            }
 
             // Fallback: individual fetch if not in cache
             if (!fullOrder && window.getOrderDetails) {
@@ -1201,6 +1218,19 @@
                 if (_needsFullData(templateContent)) {
                     // Use pre-fetched cache first
                     let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+                    // Enrich Excel data with Note from OrderStore (for discount info)
+                    if (fullOrder && fullOrder._fromExcel) {
+                        const storeOrder = window.OrderStore?.get(order.orderId);
+                        if (storeOrder?.Details?.length && fullOrder.Details?.length) {
+                            for (const detail of fullOrder.Details) {
+                                const match = storeOrder.Details.find(d =>
+                                    (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
+                                    (d.ProductNameGet || '').includes(detail.ProductCode)
+                                );
+                                if (match?.Note) detail.Note = match.Note;
+                            }
+                        }
+                    }
                     if (!fullOrder && window.getOrderDetails) {
                         fullOrder = await window.getOrderDetails(order.orderId).catch(() => null);
                     }
