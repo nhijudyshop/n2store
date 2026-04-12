@@ -419,6 +419,8 @@ const FBAds = (() => {
         currentTab = tab;
         selectedIds.clear();
         updateBulkUI();
+        // Clear search when switching tabs (prevents stale filter from drill-down)
+        document.getElementById('searchBox').value = '';
         document.querySelectorAll('#mainTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
 
         // Show/hide ads toolbar, metrics, tables
