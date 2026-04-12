@@ -393,19 +393,31 @@ const TposColumnManager = {
 
     /**
      * Load partner info for all visible comments (batch, then re-render)
+     * Uses correct CRM Team ID per comment (important for multi-page mode)
      */
     async loadPartnerInfoForComments() {
         const state = window.TposState;
-        const userIds = [...new Set(state.comments.map(c => c.from?.id).filter(Boolean))];
-        const crmTeamId = state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
-        if (!crmTeamId) return;
+        const defaultCrmTeamId = state.selectedPage?.Id;
+
+        // Build userId -> crmTeamId mapping from comments
+        const userPageMap = new Map(); // userId -> page child Id
+        for (const c of state.comments) {
+            const userId = c.from?.id;
+            if (!userId || userPageMap.has(userId)) continue;
+            // Use the comment's tagged page object if available (multi-campaign)
+            const pageObj = c._pageObj;
+            userPageMap.set(userId, pageObj?.Id || defaultCrmTeamId);
+        }
+
+        if (userPageMap.size === 0) return;
 
         // Batch fetch (5 concurrent)
+        const entries = Array.from(userPageMap.entries());
         const batchSize = 5;
-        for (let i = 0; i < userIds.length; i += batchSize) {
-            const batch = userIds.slice(i, i + batchSize);
-            await Promise.all(batch.map(async (userId) => {
-                if (state.partnerCache.has(userId)) return;
+        for (let i = 0; i < entries.length; i += batchSize) {
+            const batch = entries.slice(i, i + batchSize);
+            await Promise.all(batch.map(async ([userId, crmTeamId]) => {
+                if (!crmTeamId || state.partnerCache.has(userId)) return;
                 if (state.partnerFetchPromises.has(userId)) return state.partnerFetchPromises.get(userId);
 
                 const promise = (async () => {
@@ -414,8 +426,8 @@ const TposColumnManager = {
                         if (data?.Partner) {
                             state.partnerCache.set(userId, data.Partner);
                         }
-                    } catch (e) {
-                        // silently skip
+                    } catch {
+                        // silently skip 400 errors (user not in this CRM team)
                     } finally {
                         state.partnerFetchPromises.delete(userId);
                     }

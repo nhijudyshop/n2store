@@ -376,8 +376,10 @@ const TposCommentList = {
         const isHidden = comment.is_hidden;
 
         // Avatar
+        // Avatar: use comment's page ID (multi-campaign) or selected page
+        const commentPageId = comment._pageId || state.selectedPage?.Facebook_PageId;
         const directPictureUrl = comment.from?.picture?.data?.url || '';
-        const pictureUrl = SharedUtils.getAvatarUrl(fromId, state.selectedPage?.Facebook_PageId, null, directPictureUrl);
+        const pictureUrl = SharedUtils.getAvatarUrl(fromId, commentPageId, null, directPictureUrl);
         const timeStr = SharedUtils.formatTime(createdTime);
 
         // Page badge (show when multiple pages selected)
@@ -871,19 +873,19 @@ const TposCommentList = {
      */
     async createOrder(fromId, fromName, commentId) {
         const state = window.TposState;
-        // CRMTeamId must be the CHILD page Id (e.g. 2 for NhiJudy Store), not parent team Id
-        const crmTeamId = state.selectedPage?.Id;
-        const postId = state.selectedCampaign?.Facebook_LiveId;
+
+        // Find the comment to get its page info (important for multi-campaign)
+        const comment = state.comments.find(c => c.id === commentId);
+        const pageObj = comment?._pageObj || state.selectedPage;
+        const crmTeamId = pageObj?.Id;
+        const postId = comment?._campaignId
+            ? state.liveCampaigns.find(c => c.Id === comment._campaignId)?.Facebook_LiveId
+            : state.selectedCampaign?.Facebook_LiveId;
 
         if (!crmTeamId || !postId) {
             if (window.notificationManager) window.notificationManager.show('Chưa chọn campaign', 'error');
             return;
         }
-
-        // Get phone/address from partner cache if available
-        const partner = state.partnerCache.get(fromId);
-        const phone = document.getElementById(`phone-${fromId}`)?.value || partner?.Phone || '';
-        const address = document.getElementById(`addr-${fromId}`)?.value || partner?.Street || '';
 
         // Update button to loading
         const btn = document.getElementById(`create-order-${fromId}`);
@@ -899,10 +901,7 @@ const TposCommentList = {
                 userName: fromName,
                 userId: fromId,
                 postId,
-                commentId,
-                phone,
-                address,
-                note: ''
+                commentId
             });
 
             if (order && order.Code) {

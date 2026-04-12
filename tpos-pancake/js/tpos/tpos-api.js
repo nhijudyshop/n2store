@@ -500,8 +500,6 @@ const TposApi = {
                 Facebook_PostId: params.postId,
                 Facebook_CommentId: params.commentId
             };
-            if (params.phone) body.Phone = params.phone;
-            if (params.address) body.Address = params.address;
             if (params.note) body.Note = params.note;
 
             const response = await this.authenticatedFetch(url, {
