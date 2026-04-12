@@ -266,7 +266,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    cursor: default;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.chat-order-note:hover {
+    background: #fde68a;
+}
+
+.chat-order-note[data-source="pancake"] {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+}
+
+.chat-order-note[data-source="pancake"]:hover {
+    background: #fed7aa;
 }
 
 .chat-phone-number {

@@ -239,17 +239,33 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
 
-    // Update order note
+    // Update order note — show Pancake notes by default, click to toggle TPOS
     const noteEl = document.getElementById('chatOrderNote');
     if (noteEl) {
         const noteCell = orderRow?.querySelector('td[data-column="notes"]');
-        const noteText = noteCell?.textContent?.trim() || '';
-        if (noteText && noteText !== '−') {
-            noteEl.textContent = noteText;
-            noteEl.style.display = 'block';
-        } else {
-            noteEl.style.display = 'none';
+        const tposNote = noteCell?.textContent?.trim() || '';
+
+        // Store both note sources for toggle
+        noteEl._tposNote = (tposNote && tposNote !== '−') ? tposNote : '';
+        noteEl._pancakeNotes = '';
+        noteEl._currentSource = 'pancake'; // default to Pancake
+
+        // Fetch Pancake notes (async)
+        const phone = window.currentChatPhone;
+        if (phone && window.PancakeValidator) {
+            window.PancakeValidator.quickLookup(phone).then(data => {
+                if (!data?.customer) return;
+                const pNotes = data.customer.pancake_notes || [];
+                if (pNotes.length > 0) {
+                    const noteTexts = pNotes.map(n => n.message || n.content || '').filter(Boolean);
+                    noteEl._pancakeNotes = noteTexts.join(' | ');
+                }
+                _updateChatNoteDisplay(noteEl);
+            });
         }
+
+        // Show TPOS note initially if no Pancake yet
+        _updateChatNoteDisplay(noteEl);
     }
 
     // Show/hide "Gửi Bill" button based on invoice status
@@ -1480,6 +1496,42 @@ function _parseTimestamp(ts) {
     }
     return null;
 }
+
+// =====================================================
+// CHAT NOTE TOGGLE (Pancake ↔ TPOS)
+// =====================================================
+
+function _updateChatNoteDisplay(noteEl) {
+    if (!noteEl) return;
+    const source = noteEl._currentSource || 'pancake';
+    const text = source === 'pancake' ? noteEl._pancakeNotes : noteEl._tposNote;
+
+    if (text) {
+        const prefix = source === 'pancake' ? '🟠 ' : '📝 ';
+        noteEl.textContent = prefix + text;
+        noteEl.setAttribute('data-source', source);
+        noteEl.title = source === 'pancake'
+            ? 'Ghi chú Pancake — Click để xem ghi chú TPOS'
+            : 'Ghi chú TPOS — Click để xem ghi chú Pancake';
+        noteEl.style.display = 'block';
+    } else {
+        // Try the other source
+        const otherText = source === 'pancake' ? noteEl._tposNote : noteEl._pancakeNotes;
+        if (otherText) {
+            noteEl._currentSource = source === 'pancake' ? 'tpos' : 'pancake';
+            _updateChatNoteDisplay(noteEl);
+        } else {
+            noteEl.style.display = 'none';
+        }
+    }
+}
+
+window._toggleChatNoteSource = function() {
+    const noteEl = document.getElementById('chatOrderNote');
+    if (!noteEl) return;
+    noteEl._currentSource = noteEl._currentSource === 'pancake' ? 'tpos' : 'pancake';
+    _updateChatNoteDisplay(noteEl);
+};
 
 // Expose helpers for other modules
 window._parseTimestamp = _parseTimestamp;
