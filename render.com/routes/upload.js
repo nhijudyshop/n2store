@@ -13,7 +13,7 @@ const firebaseStorageService = require('../services/firebase-storage-service');
 const setCorsHeaders = (req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Data, X-User-Id');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Data, X-User-Id, X-API-Key');
     res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
     next();
 };
