@@ -1695,8 +1695,10 @@
         // "Lịch sử" badge → click mở modal hiển thị toàn bộ response invoice
         html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
 
-        // "+ PBH" button — always show when invoice exists, bypass duplicate guard on click
-        html += `<button type="button" onclick="window._forceCreatePBH('${order.Id}'); event.stopPropagation();" title="Tạo phiếu bán hàng mới" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH</button>`;
+        // "+ PBH" button with invoice count — always show when invoice exists
+        const allEntries = InvoiceStatusStore.getAll(order.Id);
+        const entryCount = allEntries.length;
+        html += `<button type="button" onclick="window._forceCreatePBH('${order.Id}'); event.stopPropagation();" title="Tạo phiếu bán hàng mới (đã tạo ${entryCount} lần)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH${entryCount > 1 ? ' (' + entryCount + ')' : ''}</button>`;
         html += `</div>`;
 
         html += `</div>`;
