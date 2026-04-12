@@ -954,6 +954,28 @@
             }
         });
 
+        // Edit product — click edit button
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.btn-action-edit');
+            if (editBtn) {
+                e.stopPropagation();
+                const row = editBtn.closest('tr[data-template-id]');
+                if (row) {
+                    const templateId = parseInt(row.dataset.templateId, 10);
+                    if (templateId) openEditProduct(templateId);
+                }
+                return;
+            }
+        });
+
+        // Edit modal buttons
+        $('#closeEditProduct')?.addEventListener('click', closeEditModal);
+        $('#cancelEditProduct')?.addEventListener('click', closeEditModal);
+        $('#saveEditProduct')?.addEventListener('click', saveEditProduct);
+        $('#editProductModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeEditModal();
+        });
+
         // Variant expand — click expand button or click on row
         $('#productTableBody')?.addEventListener('click', (e) => {
             // Expand button click
@@ -1025,9 +1047,103 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeColumnSettingsModal();
+                closeEditModal();
                 hideSuggestions();
             }
         });
+    }
+
+    // =====================================================
+    // EDIT PRODUCT
+    // =====================================================
+
+    let editingProduct = null; // full TPOS product detail for update
+
+    /**
+     * Fetch full product detail from TPOS (needed for UpdateV2)
+     */
+    async function fetchProductDetail(templateId) {
+        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})`;
+        const response = await window.tokenManager.authenticatedFetch(url, {
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    }
+
+    /**
+     * Open edit modal for a product
+     */
+    async function openEditProduct(templateId) {
+        const product = pageProducts.find(p => p.id === templateId);
+        if (!product) return;
+
+        try {
+            showToast('Đang tải chi tiết sản phẩm...', 'info');
+            const detail = await fetchProductDetail(templateId);
+            editingProduct = detail;
+
+            $('#editProductId').value = templateId;
+            $('#editProductCode').value = product.code || '';
+            $('#editProductName').value = detail.Name || product.name || '';
+            $('#editListPrice').value = detail.ListPrice || product.price || 0;
+            $('#editPurchasePrice').value = detail.PurchasePrice || product.defaultBuyPrice || 0;
+            $('#editProductNote').value = detail.DescriptionSale || product.note || '';
+            $('#editProductActive').checked = detail.Active !== false;
+
+            $('#editProductModal').classList.add('show');
+            WS.initIcons();
+        } catch (err) {
+            console.error('[Edit] Failed to load product detail:', err);
+            showToast('Lỗi tải chi tiết: ' + err.message, 'error');
+        }
+    }
+
+    function closeEditModal() {
+        $('#editProductModal')?.classList.remove('show');
+        editingProduct = null;
+    }
+
+    /**
+     * Save edited product to TPOS via UpdateV2
+     */
+    async function saveEditProduct() {
+        if (!editingProduct) return;
+
+        const payload = { ...editingProduct };
+        delete payload['@odata.context'];
+
+        payload.Name = $('#editProductName').value.trim();
+        payload.ListPrice = parseFloat($('#editListPrice').value) || 0;
+        payload.PurchasePrice = parseFloat($('#editPurchasePrice').value) || 0;
+        payload.DescriptionSale = $('#editProductNote').value.trim();
+        payload.Active = $('#editProductActive').checked;
+
+        try {
+            showToast('Đang lưu...', 'info');
+
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${response.status}`);
+            }
+
+            showToast('Đã lưu thành công!', 'success');
+            closeEditModal();
+            fetchProducts(true); // silent refresh
+        } catch (err) {
+            console.error('[Edit] Save failed:', err);
+            showToast('Lỗi lưu: ' + err.message, 'error');
+        }
     }
 
     // =====================================================

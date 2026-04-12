@@ -315,6 +315,53 @@
         </div>
     </div>
 
+    <!-- Edit Product Modal -->
+    <div class="column-settings-modal" id="editProductModal">
+        <div class="column-settings-modal-content" style="max-width:520px;">
+            <div class="column-settings-modal-header">
+                <h3><i data-lucide="pencil"></i> Chỉnh sửa sản phẩm</h3>
+                <button class="column-settings-modal-close" id="closeEditProduct">&times;</button>
+            </div>
+            <div class="column-settings-modal-body" style="padding:20px;">
+                <input type="hidden" id="editProductId">
+                <div style="display:grid;gap:14px;">
+                    <div>
+                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Mã sản phẩm</label>
+                        <input type="text" id="editProductCode" class="filter-select" style="width:100%;padding:8px 12px;" readonly>
+                    </div>
+                    <div>
+                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Tên sản phẩm</label>
+                        <input type="text" id="editProductName" class="filter-select" style="width:100%;padding:8px 12px;">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Giá bán</label>
+                            <input type="number" id="editListPrice" class="filter-select" style="width:100%;padding:8px 12px;" min="0">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Giá mua mặc định</label>
+                            <input type="number" id="editPurchasePrice" class="filter-select" style="width:100%;padding:8px 12px;" min="0">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Ghi chú</label>
+                        <textarea id="editProductNote" class="filter-select" style="width:100%;padding:8px 12px;min-height:60px;resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="editProductActive" style="width:18px;height:18px;">
+                        <label for="editProductActive" style="font-weight:600;font-size:13px;">Hiệu lực (Active)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="column-settings-modal-footer">
+                <button class="column-settings-btn column-settings-btn-cancel" id="cancelEditProduct">Hủy</button>
+                <button class="column-settings-btn column-settings-btn-save" id="saveEditProduct">
+                    <i data-lucide="check"></i> Lưu lên TPOS
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>
 
