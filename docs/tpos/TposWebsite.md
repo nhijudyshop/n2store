@@ -10,77 +10,172 @@
 
 ## Mục lục — Quick Navigation
 
-> **Cách dùng:** Ctrl+F tìm keyword, hoặc click link nhảy đến section. Số dòng (L:xxx) để tham chiếu nhanh.
+> **Cách dùng:** Ctrl+F số dòng `L:xxx` hoặc keyword. Click link để nhảy đến section.
 
 ### 0. N2Store Integration (thông tin triển khai thực tế)
 
-| Section | Keyword tìm nhanh | Nội dung |
-|---|---|---|
-| [0.1 Architecture](#01-n2store--tpos-architecture) | proxy, CORS, worker | Sơ đồ Browser → CF Worker → TPOS, tại sao cần proxy |
-| [0.2 Proxy Rules](#02-proxy-rules-cloudflare-worker) | retry, timeout, route | GET retry 3x/15s, POST no-retry/60s, full route mapping |
-| [0.3 Multi-Company Token](#03-multi-company-token-system-chi-tiết) | company, token, refresh | NJD Live vs NJD Shop, localStorage/Firestore keys, refresh flow |
-| [0.4 Per-User Credentials](#04-per-user-tpos-credentials-postgresql) | user, credential, nvkt | Bảng tpos_credentials, mapping app user → TPOS username |
-| [0.5 Database Tables](#05-database-tables-n2store--tpos) | database, table, postgres | 10 tables: tpos_credentials, invoice_status, social_orders... |
-| [0.6 Purchase Config](#06-per-company-purchase-config) | JournalId, AccountId, WarehouseId | Config khác nhau giữa Company 1 vs 2 |
-| [0.7 API Payloads](#07-detailed-api-payloads) | payload, JSON, body | Exact JSON cho Purchase, Payment, Partner, Refund 5-step |
-| [0.8 Real-time Details](#08-real-time-event-details-từ-capture-2026-04-05) | event, message, capture | 310 events, MessageType 11/12, ChannelId, browser dispatch code |
-| [0.9 Implementation Files](#09-n2store-key-implementation-files) | file, path, source | 14 key files: tpos-client.js, worker.js, token-manager.js... |
+| L | Section | Keyword | Nội dung |
+|---|---|---|---|
+| **91** | [0.1 Architecture](#01-n2store--tpos-architecture) | proxy, CORS, worker | Browser → CF Worker → TPOS, tại sao cần proxy |
+| **103** | [0.2 Proxy Rules](#02-proxy-rules-cloudflare-worker) | retry, timeout, route | GET retry 3x/15s, POST no-retry/60s, full route mapping |
+| **126** | [0.3 Multi-Company Token](#03-multi-company-token-system-chi-tiết) | company, token, refresh | NJD Live vs Shop, localStorage/Firestore keys, refresh flow |
+| **182** | [0.4 Per-User Credentials](#04-per-user-tpos-credentials-postgresql) | user, credential, nvkt | tpos_credentials table, app user → TPOS username |
+| **196** | [0.5 Database Tables](#05-database-tables-n2store--tpos) | database, table, postgres | 10 tables: invoice_status, social_orders... |
+| **211** | [0.6 Purchase Config](#06-per-company-purchase-config) | JournalId, AccountId | Config Company 1 vs 2 |
+| **223** | [0.7 API Payloads](#07-detailed-api-payloads) | payload, JSON, body | Exact JSON: Purchase, Payment, Partner, Refund 5-step |
+| **336** | [0.8 Real-time Details](#08-real-time-event-details-từ-capture-2026-04-05) | event, message, capture | 310 events, MessageType 11/12, browser dispatch code |
+| **399** | [0.9 Implementation Files](#09-n2store-key-implementation-files) | file, path, source | 14 key files: tpos-client.js, worker.js... |
+
+**Chi tiết bên trong 0.7:**
+
+| L | Sub-section |
+|---|---|
+| **225** | Create Purchase Order (JSON) |
+| **261** | Create Payment (JSON) |
+| **284** | Create Partner / Supplier (JSON) |
+| **299** | Sale Refund 5-Step Flow |
+| **320** | Report APIs (Supplier Debt, Invoice) |
+
+**Chi tiết bên trong 0.8:**
+
+| L | Sub-section |
+|---|---|
+| **340** | Message Breakdown (type 11/12, IsOwner) |
+| **358** | Facebook Pages (ChannelIds) |
+| **366** | Browser Event Dispatching code |
+| **388** | UI Features Priority table |
+
+---
 
 ### 1–3. Nền tảng TPOS
 
-| Section | Keyword tìm nhanh | Nội dung |
-|---|---|---|
-| [1. Tổng quan](#1-tổng-quan) | version, URL, CDN | TPOS v6.4.5.2, 6 JS bundles (2.9MB), SPA AngularJS |
-| [2. Tech Stack](#2-tech-stack--kiến-trúc) | AngularJS, Kendo, jQuery | Frontend stack, modules, dynamic route loading |
-| [3. Auth & Authorization](#3-authentication--authorization) | login, token, 2FA, permission | Login flow, headers, multi-company, TOTP, role-based access |
+| L | Section | Keyword | Nội dung |
+|---|---|---|---|
+| **420** | [1. Tổng quan](#1-tổng-quan) | version, URL, CDN | TPOS v6.4.5.2, 6 JS bundles (2.9MB) |
+| **435** | → Source Files | size, bundle | vendor 4.2MB, controllers 2.4MB... |
+| **450** | [2. Tech Stack](#2-tech-stack--kiến-trúc) | AngularJS, Kendo, jQuery | Frontend stack, modules |
+| **478** | → AngularJS Modules | module, dependency | 8 modules + dependencies |
+| **491** | → Kiến trúc ứng dụng | architecture, diagram | Sơ đồ HTTP/WS connections |
+| **509** | → Dynamic Route Loading | route, dynamic, permission | Routes load từ `/api/account/layout` |
+| **522** | [3. Auth](#3-authentication--authorization) | login, token, 2FA | Login, headers, permission |
+| **524** | → 3.1 Login Flow | POST /token, grant_type | Endpoint + response format |
+| **543** | → 3.2 Token Management | interceptor, 401, refresh | Auto-attach, auto-refresh |
+| **550** | → 3.3 Standard Headers | header, TPOSAppVersion | 6 headers required |
+| **563** | → 3.4 Multi-Company | SwitchCompany | Company switching |
+| **569** | → 3.5 2FA/TOTP | totp, 2fa, temporary | TOTP status, temp password |
+| **576** | → 3.6 Permission System | CheckPermission, role | Role-based, directive |
+
+---
 
 ### 4. Modules & Chức năng (theo menu TPOS)
 
-| Section | URL TPOS | Controllers | Nội dung chính |
-|---|---|---|---|
-| [4.1 Dashboard](#41-dashboard-appdashboard) | `#/app/dashboard` | 1 | Biểu đồ, thống kê |
-| [4.2 POS](#42-điểm-bán-hàng-pos--20-controllers) | `#/app/posconfig/*` | 20 | Session, order tại quầy, restaurant |
-| [4.3 Bán hàng](#43-bán-hàng-sales--55-controllers) | `#/app/fastsaleorder/*` | 55+ | FastSaleOrder, delivery, cross-check, refund, import Excel |
-| [4.4 Hóa đơn ĐT](#44-hóa-đơn-điện-tử-e-invoice--11-controllers) | `#/app/wiinvoice/*` | 11 | E-invoice create/adjust/replace |
-| [4.5 Báo giá & ĐĐH](#45-báo-giá--đơn-đặt-hàng--27-controllers) | `#/app/salequotation/*` | 27 | Quotation, Sale Order |
-| [4.6 Sale Online](#46-sale-online--40-controllers) | `#/app/saleOnline/*` | 40+ | Live campaign, Facebook, inbox, comment → order |
-| [4.7 Kênh bán](#47-kênh-bán-hàng-sale-channels--6-controllers) | `#/app/salechannel/*` | 6 | Facebook Pages, Lazada, Shopee |
-| [4.8 Mua hàng](#48-mua-hàng-purchase--8-controllers) | `#/app/fastpurchaseorder/*` | 8 | Purchase order, Excel import, refund |
-| [4.9 Kho hàng](#49-kho-hàng-inventory--40-controllers) | `#/app/stock*` | 40+ | Picking, inventory, move, warehouse, FIFO vacuum |
-| [4.10 Kế toán](#410-kế-toán-accounting--55-controllers) | `#/app/account*` | 55 | Payment, journal, tax, deposit, phiếu thu/chi, sổ quỹ |
-| [4.11 Danh mục](#411-danh-mục-categories--80-controllers) | `#/app/partner/*`, `product/*` | 80+ | KH/NCC, sản phẩm, thuộc tính, UOM, barcode, promotion, loyalty |
-| [4.12 Báo cáo](#412-báo-cáo-reports--35-controllers) | `#/app/report/*` | 35+ | Doanh thu, công nợ, kho, giao hàng, audit log |
-| [4.13 Cấu hình](#413-cấu-hình-settings--40-controllers) | `#/app/configs/*` | 40+ | User, role, 2FA, company, mail, printer, VNPay |
+| L | Section | URL TPOS | Ctrl | Nội dung chính |
+|---|---|---|---|---|
+| **587** | [4.1 Dashboard](#41-dashboard-appdashboard) | `#/app/dashboard` | 1 | Biểu đồ, thống kê |
+| **599** | [4.2 POS](#42-điểm-bán-hàng-pos--20-controllers) | `#/app/posconfig/*` | 20 | Session, order quầy, restaurant |
+| **618** | [4.3 Bán hàng](#43-bán-hàng-sales--55-controllers) | `#/app/fastsaleorder/*` | 55+ | FastSaleOrder, delivery, refund |
+| **660** | [4.4 Hóa đơn ĐT](#44-hóa-đơn-điện-tử-e-invoice--11-controllers) | `#/app/wiinvoice/*` | 11 | E-invoice |
+| **678** | [4.5 Báo giá](#45-báo-giá--đơn-đặt-hàng--27-controllers) | `#/app/salequotation/*` | 27 | Quotation, Sale Order |
+| **701** | [4.6 Sale Online](#46-sale-online--40-controllers) | `#/app/saleOnline/*` | 40+ | Live, Facebook, inbox → order |
+| **735** | [4.7 Kênh bán](#47-kênh-bán-hàng-sale-channels--6-controllers) | `#/app/salechannel/*` | 6 | FB Pages, Lazada, Shopee |
+| **750** | [4.8 Mua hàng](#48-mua-hàng-purchase--8-controllers) | `#/app/fastpurchaseorder/*` | 8 | Purchase, Excel import |
+| **769** | [4.9 Kho hàng](#49-kho-hàng-inventory--40-controllers) | `#/app/stock*` | 40+ | Picking, move, FIFO vacuum |
+| **811** | [4.10 Kế toán](#410-kế-toán-accounting--55-controllers) | `#/app/account*` | 55 | Payment, journal, thu/chi |
+| **867** | [4.11 Danh mục](#411-danh-mục-categories--80-controllers) | `partner/*`, `product/*` | 80+ | KH/NCC, SP, promotion |
+| **958** | [4.12 Báo cáo](#412-báo-cáo-reports--35-controllers) | `#/app/report/*` | 35+ | Doanh thu, công nợ, kho |
+| **993** | [4.13 Cấu hình](#413-cấu-hình-settings--40-controllers) | `#/app/configs/*` | 40+ | User, role, 2FA, VNPay |
+
+**Chi tiết bên trong 4.11 Danh mục:**
+
+| L | Sub-section | Controllers |
+|---|---|---|
+| **869** | Khách hàng & Nhà cung cấp | 25+ |
+| **898** | Sản phẩm | 45+ |
+| **928** | Khuyến mãi & Loyalty | 15 |
+| **944** | Khác (tag, loại thu/chi, TK kế toán) | — |
+
+---
 
 ### 5–12. Kỹ thuật & Tham chiếu
 
-| Section | Keyword tìm nhanh | Nội dung |
-|---|---|---|
-| [5. API Architecture](#5-api-architecture) | OData, endpoint, filter | 31 OData actions, 80+ REST APIs, query patterns |
-| [6. Real-time](#6-real-time-features) | Socket.IO, SignalR, event | rt-2.tpos.app, sr.tpos.vn, 5 event types |
-| [7. Data Models](#7-data-models-odata-entities) | entity, model, schema | 107 OData entities grouped by domain |
-| [8. Services](#8-services--factories) | factory, service, cache | 138 factories, IndexedDB product cache, printing |
-| [9. Directives](#9-ui-components-directives) | directive, component, UI | 36 directives: barcode scanner, pagination, lazy img... |
-| [10. Utilities](#10-utility-functions) | util, helper, validate | String (bỏ dấu), Array extensions, Date, number format |
-| [11. Integrations](#11-integrations) | Facebook, Lazada, VNPay | 11 integrations: FB, Lazada, Shopee, VNPay, GHN, DHL, Zalo... |
-| [12. localStorage](#12-localstorage-keys) | localStorage, storage, key | accessToken, routes, navs, product cache keys |
-| [Tổng kết](#tổng-kết) | summary, tổng | 419 controllers, 107 entities, 138 services |
+| L | Section | Keyword | Nội dung |
+|---|---|---|---|
+| **1035** | [5. API Architecture](#5-api-architecture) | OData, endpoint, filter | |
+| **1037** | → 5.1 API Base URLs | base, URL | OData, REST, Custom, Token, Print |
+| **1047** | → 5.2 OData Actions (31) | action, method | GetView, ActionConfirm, ActionRefund... |
+| **1085** | → 5.3 REST/Custom APIs (80+) | common, facebook, address | 8 API groups |
+| **1106** | → 5.4 OData Query Patterns | filter, expand, top, skip | Ví dụ query thực tế |
+| **1131** | [6. Real-time](#6-real-time-features) | Socket.IO, SignalR | |
+| **1133** | → 6.1 Socket.IO | rt-2.tpos.app, chatomni | URL, namespace, auth, heartbeat |
+| **1145** | → 6.2 Events | on-message, SaleOnline | 5 event types + tần suất |
+| **1155** | → 6.3 Event Structure | JSON, payload | Chat message + Order event JSON |
+| **1174** | → 6.4 SignalR | sr.tpos.vn | Secondary real-time |
+| **1179** | → 6.5 Browser Factories | commonSocketFactory | Socket factories |
+| **1188** | [7. Data Models (107)](#7-data-models-odata-entities) | entity, model | |
+| **1194** | → Sales | FastSaleOrder, SaleOrder | 8 entities |
+| **1206** | → Sale Online | SaleOnline_Order | 5 entities |
+| **1215** | → Purchase | FastPurchaseOrder | 5 entities |
+| **1222** | → Inventory | StockPicking, StockMove | 14 entities |
+| **1236** | → Product | ProductTemplate, Product | 10 entities |
+| **1248** | → Accounting | Account, Payment, Journal | 25 entities |
+| **1273** | → Partner | Partner, PartnerCategory | 5 entities |
+| **1282** | → POS | POS_Config, POS_Order | 8 entities |
+| **1290** | → CRM & Marketing | CRMTeam, CRMActivity | 3 entities |
+| **1297** | → Promotions | Promotion, Coupon, Loyalty | 8 entities |
+| **1306** | → Delivery | DeliveryCarrier | 4 entities |
+| **1314** | → System | Company, User, Role, IR* | 20 entities |
+| **1338** | [8. Services (138)](#8-services--factories) | factory, service | |
+| **1340** | → 8.1 Core Infrastructure | BasicODataService, cache | 17 core factories |
+| **1363** | → 8.2 Product Cache | IndexedDB, superCache | saleProductStorageService |
+| **1372** | → 8.3 Printing | printer, barcode, PDF | 6 print factories |
+| **1383** | → 8.4 Top Actions (frequency) | DefaultGet, ActionImport | Top 11 by usage count |
+| **1401** | [9. Directives (36)](#9-ui-components-directives) | directive, UI | |
+| **1403** | → Full list | barcode, paging, lazy | 36 directives table |
+| **1447** | [10. Utilities](#10-utility-functions) | util, helper | |
+| **1449** | → 10.1 String | nameNoSign, bỏ dấu | 8 string functions |
+| **1462** | → 10.2 Array | sum, average, getBy | 5 Array.prototype extensions |
+| **1472** | → 10.3 Date | addDays, DateDiff | Date helpers |
+| **1481** | → 10.4 Angular Factories | WebUtils, WebFormats | round, format, download |
+| **1489** | → 10.5 Validation | isEmail, isPhone | TValidation object |
+| **1501** | → 10.6 Data Structures | VersionableList, Map | Immutable wrappers |
+| **1506** | → 10.7 OData Helpers | getOdata, getErrorMessages | Sync OData + error extract |
+| **1515** | [11. Integrations](#11-integrations) | | |
+| **1517** | → 11.1 Facebook | Graph API, SDK, Live | 3 integration layers |
+| **1526** | → 11.2 Marketplace | Lazada, Shopee | Auth + sync |
+| **1533** | → 11.3 Payment | VNPay, QR, TPayGate | Payment gateways |
+| **1541** | → 11.4 Delivery | HolaShip, GHN, ZTO, DHL | 4 carriers |
+| **1550** | → 11.5 Loyalty | WiLoyalty | TMT integration |
+| **1557** | → 11.6 Call Center | PBX, phone | 3 controllers |
+| **1566** | → 11.7 Zalo | zaloFactory | Zalo OA |
+| **1572** | → 11.8 Omnichannel | chatomniMultiFactory | Multi-channel chat |
+| **1578** | → 11.9 Google Charts | GoogleChartService | Dashboard charts |
+| **1586** | [12. localStorage](#12-localstorage-keys) | localStorage, key | 12 keys |
+| **1605** | [Tổng kết](#tổng-kết) | summary | 419 ctrl, 107 entities, 138 svc |
+
+---
 
 ### Tìm nhanh theo nhu cầu
 
-| Bạn cần... | Đến section |
-|---|---|
-| Gọi API tạo đơn mua hàng | [0.7 API Payloads → Create Purchase Order](#07-detailed-api-payloads) |
-| Biết cách auth/login TPOS | [3.1 Login Flow](#31-login-flow) |
-| Xem đơn bán hàng gọi API gì | [4.3 Bán hàng](#43-bán-hàng-sales--55-controllers) + [5.2 OData Actions](#52-odata-action-methods-31-methods-found) |
-| Setup real-time WebSocket | [6.1 Socket.IO](#61-socketio-primary) + [0.8 Real-time Details](#08-real-time-event-details-từ-capture-2026-04-05) |
-| Tìm entity/model nào có sẵn | [7. Data Models](#7-data-models-odata-entities) |
-| Biết TPOS dùng framework gì | [2. Tech Stack](#2-tech-stack--kiến-trúc) |
-| Tích hợp Facebook / Lazada | [11. Integrations](#11-integrations) |
-| Token multi-company hoạt động sao | [0.3 Multi-Company Token](#03-multi-company-token-system-chi-tiết) |
-| File nào trong N2Store xử lý TPOS | [0.9 Implementation Files](#09-n2store-key-implementation-files) |
-| Hoàn trả đơn hàng (refund flow) | [0.7 → Sale Refund 5-Step](#07-detailed-api-payloads) |
-| Database tables liên quan TPOS | [0.5 Database Tables](#05-database-tables-n2store--tpos) |
+| Bạn cần... | Dòng | Section |
+|---|---|---|
+| Gọi API tạo đơn mua hàng | **L:225** | 0.7 → Create Purchase Order |
+| Gọi API tạo thanh toán | **L:261** | 0.7 → Create Payment |
+| Gọi API tạo NCC | **L:284** | 0.7 → Create Partner |
+| Flow hoàn trả đơn (refund) | **L:299** | 0.7 → Sale Refund 5-Step |
+| Report công nợ NCC | **L:320** | 0.7 → Report APIs |
+| Cách auth/login TPOS | **L:524** | 3.1 Login Flow |
+| Headers cần gửi kèm | **L:550** | 3.3 Standard Headers |
+| Token multi-company | **L:126** | 0.3 Multi-Company Token |
+| Bán hàng gọi API gì | **L:618** | 4.3 Bán hàng + **L:1047** 5.2 OData Actions |
+| Setup real-time WebSocket | **L:1133** | 6.1 Socket.IO + **L:336** 0.8 Real-time |
+| Tìm entity/model | **L:1188** | 7. Data Models |
+| TPOS dùng framework gì | **L:450** | 2. Tech Stack |
+| Tích hợp Facebook / Lazada | **L:1515** | 11. Integrations |
+| File nào xử lý TPOS | **L:399** | 0.9 Implementation Files |
+| Database tables TPOS | **L:196** | 0.5 Database Tables |
+| CORS proxy setup | **L:91** | 0.1 Architecture + **L:103** 0.2 Proxy Rules |
+| Danh sách 36 UI directives | **L:1403** | 9. Directives |
+| Utility bỏ dấu tiếng Việt | **L:1449** | 10.1 String Utilities |
 
 ---
 
