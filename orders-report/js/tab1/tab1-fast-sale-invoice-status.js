@@ -818,6 +818,8 @@
                             }
 
                             this.set(soId, order, originalOrder);
+                            // Save NJD mapping to DB
+                            _saveNjdToDb(soId, order.Reference, order);
                             // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng'
                         });
                     }
@@ -854,6 +856,8 @@
                             }
 
                             this.set(soId, order, originalOrder);
+                            // Save NJD mapping to DB (even for failed orders — invoice was created)
+                            _saveNjdToDb(soId, order.Reference, order);
                             // Do NOT auto-transition processing tag for failed orders
                             // Failed orders get reset to "Nháp" and tagged "ÂM MÃ" instead
                         });
@@ -1219,22 +1223,132 @@
         return null;
     }
 
+    // NJD Mapping API base
+    const NJD_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-mapping';
+
+    /**
+     * Lookup NJD numbers from Render DB for a SaleOnlineOrder
+     */
+    async function _lookupNjdFromDb(saleOnlineId) {
+        try {
+            const resp = await fetch(`${NJD_API_BASE}/lookup/${encodeURIComponent(saleOnlineId)}`);
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            return data.success && data.mappings?.length > 0 ? data.mappings : null;
+        } catch (e) {
+            console.warn('[INVOICE-NJD] DB lookup failed:', e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Save NJD mapping to Render DB (fire-and-forget)
+     */
+    function _saveNjdToDb(saleOnlineId, orderCode, inv) {
+        if (!inv?.Number || !saleOnlineId) return;
+        fetch(`${NJD_API_BASE}/upsert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                saleOnlineId: String(saleOnlineId),
+                orderCode: orderCode || null,
+                njdNumber: inv.Number,
+                tposInvoiceId: inv.Id || null,
+                partnerName: inv.PartnerDisplayName || null,
+                phone: inv.Phone || null,
+                amountTotal: inv.AmountTotal || null,
+                showState: inv.ShowState || null,
+                state: inv.State || null,
+                stateCode: inv.StateCode || 'None',
+                dateInvoice: inv.DateInvoice || null,
+                userName: inv.UserName || null
+            })
+        }).catch(e => console.warn('[INVOICE-NJD] save failed:', e.message));
+    }
+
+    /**
+     * Delete NJD mapping from Render DB (fire-and-forget)
+     */
+    function _deleteNjdFromDb(saleOnlineId) {
+        if (!saleOnlineId) return;
+        fetch(`${NJD_API_BASE}/${encodeURIComponent(saleOnlineId)}`, { method: 'DELETE' })
+            .catch(e => console.warn('[INVOICE-NJD] delete failed:', e.message));
+    }
+
+    /**
+     * Fetch invoices from TPOS by NJD numbers (reliable mapping)
+     */
+    async function _fetchByNjdNumbers(njdNumbers, headers) {
+        const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+        // Build OR filter: Number eq 'NJD/2026/60507' or Number eq 'NJD/2026/60508'
+        const conditions = njdNumbers.map(n => `Number eq '${n}'`).join(' or ');
+        const filter = `(Type eq 'invoice' and (${conditions}))`;
+        const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+            `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        return Array.isArray(data?.value) ? data.value : [];
+    }
+
+    /**
+     * Fetch invoices from TPOS by Reference (fallback) + validate SaleOnlineIds
+     */
+    async function _fetchByReferenceFallback(orderCode, saleOnlineId, headers) {
+        const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+        const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
+        const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+            `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        const list = Array.isArray(data?.value) ? data.value : [];
+
+        // Validate: only keep invoices whose SaleOnlineIds contains our saleOnlineId
+        if (!saleOnlineId) return list;
+        const sid = String(saleOnlineId);
+        const validated = list.filter(inv => {
+            const soIds = inv.SaleOnlineIds || [];
+            return soIds.some(id => String(id) === sid);
+        });
+
+        if (validated.length < list.length) {
+            console.warn(`[INVOICE-NJD] Reference fallback filtered ${list.length - validated.length} mismatched invoices for ${orderCode}`);
+        }
+        return validated;
+    }
+
     async function fetchAndUpdateInvoiceForCode(orderCode, saleOnlineId) {
         if (!orderCode) return null;
         if (!window.tokenManager?.getAuthHeader) return null;
         try {
-            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-            const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
-            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
-                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
             const headers = await window.tokenManager.getAuthHeader();
-            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
-            if (!resp.ok) {
-                console.warn('[INVOICE-WS] fetch HTTP', resp.status, 'for code', orderCode);
-                return null;
+            let list = [];
+
+            // Strategy 1: Lookup NJD from DB → fetch by Number (reliable)
+            if (saleOnlineId) {
+                const dbMappings = await _lookupNjdFromDb(saleOnlineId);
+                if (dbMappings && dbMappings.length > 0) {
+                    const njdNumbers = dbMappings.map(m => m.njd_number);
+                    list = await _fetchByNjdNumbers(njdNumbers, headers);
+                    if (list.length > 0) {
+                        console.log('[INVOICE-NJD] Found via NJD lookup:', njdNumbers.join(', '));
+                    }
+                }
             }
-            const data = await resp.json();
-            const list = Array.isArray(data?.value) ? data.value : [];
+
+            // Strategy 2: Fallback to Reference + validate SaleOnlineIds
+            if (list.length === 0) {
+                list = await _fetchByReferenceFallback(orderCode, saleOnlineId, headers);
+                // Save NJD mappings to DB for future lookups
+                if (list.length > 0 && saleOnlineId) {
+                    for (const inv of list) {
+                        _saveNjdToDb(saleOnlineId, orderCode, inv);
+                    }
+                    console.log('[INVOICE-NJD] Fallback Reference → saved NJD mappings for', orderCode);
+                }
+            }
+
             if (list.length === 0) return null;
             // Latest invoice = first (đã orderby DateInvoice desc)
             const inv = list[0];
@@ -1307,8 +1421,8 @@
     }
 
     /**
-     * Modal hiển thị TẤT CẢ phiếu bán hàng có Reference khớp với order code
-     * (click vào "Đã ra đơn"). Luôn fetch fresh từ TPOS để có data mới nhất.
+     * Modal hiển thị TẤT CẢ phiếu bán hàng cho order.
+     * Strategy: NJD DB lookup → fallback Reference+validate SaleOnlineIds.
      */
     async function showInvoiceRawModal(saleOnlineId) {
         const sid = String(saleOnlineId);
@@ -1333,18 +1447,25 @@
                 _openInvoiceListModal({ error: 'tokenManager chưa sẵn sàng', orderCode });
                 return;
             }
-            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-            const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
-            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
-                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
             const headers = await window.tokenManager.getAuthHeader();
-            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
-            if (!resp.ok) {
-                _openInvoiceListModal({ error: `HTTP ${resp.status}`, orderCode });
-                return;
+            let list = [];
+
+            // Strategy 1: NJD DB lookup
+            const dbMappings = await _lookupNjdFromDb(sid);
+            if (dbMappings && dbMappings.length > 0) {
+                const njdNumbers = dbMappings.map(m => m.njd_number);
+                list = await _fetchByNjdNumbers(njdNumbers, headers);
             }
-            const data = await resp.json();
-            const list = Array.isArray(data?.value) ? data.value : [];
+
+            // Strategy 2: Fallback Reference + validate
+            if (list.length === 0) {
+                list = await _fetchByReferenceFallback(orderCode, sid, headers);
+                // Save NJD mappings to DB
+                for (const inv of list) {
+                    _saveNjdToDb(sid, orderCode, inv);
+                }
+            }
+
             // Cache lại cho lần sau
             _rawInvoicesById.set(sid, list);
             _orderCodeById.set(sid, orderCode);
@@ -2355,8 +2476,9 @@
         if (!confirmed) return;
 
         try {
-            // Delete from store (API)
+            // Delete from store (API) + NJD mapping
             const deleted = await InvoiceStatusStore.delete(saleOnlineId);
+            _deleteNjdFromDb(saleOnlineId);
 
             if (deleted) {
                 window.notificationManager?.success(`Đã xóa phiếu ${billNumber}`, 3000);
@@ -3174,6 +3296,9 @@
         window.bulkPrintSelectedBills = bulkPrintSelectedBills;
         // Delete invoice function
         window.deleteInvoiceFromStore = deleteInvoiceFromStore;
+        // NJD mapping helpers (for external modules like workflow)
+        window._deleteNjdFromDb = _deleteNjdFromDb;
+        window._saveNjdToDb = _saveNjdToDb;
         // Fulfillment (Ra đơn) functions
         window.renderFulfillmentCell = renderFulfillmentCell;
         window.openFulfillmentModal = openFulfillmentModal;

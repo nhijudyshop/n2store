@@ -70,6 +70,9 @@ export const ROUTES = {
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
 
+    // Invoice NJD Mapping (PostgreSQL - reliable NJD↔Order mapping)
+    INVOICE_MAPPING: { pattern: '/api/invoice-mapping/*' },
+
     // Social Orders (PostgreSQL - replaces Firestore for don-inbox)
     SOCIAL_ORDERS: { pattern: '/api/social-orders/*' },
 
@@ -138,6 +141,7 @@ export function matchRoute(pathname) {
 
     if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/admin/render/')) return 'ADMIN_RENDER';
+    if (pathname.startsWith('/api/invoice-mapping/')) return 'INVOICE_MAPPING';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';

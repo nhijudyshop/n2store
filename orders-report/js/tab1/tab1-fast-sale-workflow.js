@@ -454,10 +454,14 @@
                 }
             }
 
-            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
+            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
                 // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
+            }
+            // Delete NJD mapping from Render DB
+            if (typeof window._deleteNjdFromDb === 'function') {
+                window._deleteNjdFromDb(saleOnlineId);
             }
 
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
@@ -1324,10 +1328,14 @@
                 }
             }
 
-            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
+            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
                 // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
+            }
+            // Delete NJD mapping from Render DB
+            if (typeof window._deleteNjdFromDb === 'function') {
+                window._deleteNjdFromDb(saleOnlineId);
             }
 
             // Step 4: Add "OK + định danh" tag using quickAssignTag

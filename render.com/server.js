@@ -68,6 +68,7 @@ const chatDbPool = new Pool({
 
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;
+app.locals.tposTokenManager = tposTokenManager;
 
 // Test database connection on startup
 chatDbPool.query('SELECT NOW()')
@@ -216,6 +217,7 @@ const adminDataRoutes = require('./routes/admin-data');
 const adminFirebaseRoutes = require('./routes/admin-firebase');
 const adminRenderRoutes = require('./routes/admin-render');
 const invoiceStatusRoutes = require('./routes/invoice-status');
+const invoiceMappingRoutes = require('./routes/invoice-mapping');
 const socialOrdersRoutes = require('./routes/social-orders');
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
@@ -303,6 +305,7 @@ app.use('/api/admin/data', adminDataRoutes);
 app.use('/api/admin/firebase', adminFirebaseRoutes);
 app.use('/api/admin/render', adminRenderRoutes);
 app.use('/api/invoice-status', invoiceStatusRoutes);
+app.use('/api/invoice-mapping', invoiceMappingRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
