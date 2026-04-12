@@ -290,11 +290,34 @@
     <!-- Hidden file input for Excel import -->
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
 
-    <!-- Firebase -->
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- Auth Manager -->
+    <script src="../shared/js/shared-auth-manager.js"></script>
+
+    <!-- Navigation -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Notification System -->
+    <script src="../shared/js/notification-system.js"></script>
+
+    <!-- Token Manager & API Config -->
+    <script src="../shared/js/shop-config.js"></script>
+    <script src="../shared/js/api-config.js"></script>
+    <script src="../shared/js/token-manager.js"></script>
 
     <!-- App JS -->
     <script src="js/app.js"></script>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
 </body>
 
 </html>

@@ -199,6 +199,14 @@ const MENU_CONFIG = [
         permissionRequired: "supplier-debt",
     },
     {
+        href: "../hang-qq/index.html",
+        icon: "package",
+        text: "Hàng Quảng Châu",
+        shortText: "Hàng QQ",
+        pageIdentifier: "hang-qq",
+        permissionRequired: "hang-qq",
+    },
+    {
         href: "../invoice-compare/index.html",
         icon: "file-check-2",
         text: "So Sánh Đơn Hàng",
@@ -500,7 +508,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Kho & Nhập Hàng",
         icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat", "product-warehouse", "kho-di-cho"]
+        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat", "product-warehouse", "kho-di-cho", "hang-qq"]
     },
     {
         name: "Khách Hàng",
