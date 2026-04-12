@@ -8,21 +8,79 @@
 
 ---
 
-## Mục lục
+## Mục lục — Quick Navigation
 
-0. [Bổ sung từ N2Store Integration Docs](#0-bổ-sung-từ-n2store-integration-docs)
-1. [Tổng quan](#1-tổng-quan)
-2. [Tech Stack & Kiến trúc](#2-tech-stack--kiến-trúc)
-3. [Authentication & Authorization](#3-authentication--authorization)
-4. [Modules & Chức năng](#4-modules--chức-năng)
-5. [API Architecture](#5-api-architecture)
-6. [Real-time Features](#6-real-time-features)
-7. [Data Models (OData Entities)](#7-data-models-odata-entities)
-8. [Services & Factories](#8-services--factories)
-9. [UI Components (Directives)](#9-ui-components-directives)
-10. [Utility Functions](#10-utility-functions)
-11. [Integrations](#11-integrations)
-12. [localStorage Keys](#12-localstorage-keys)
+> **Cách dùng:** Ctrl+F tìm keyword, hoặc click link nhảy đến section. Số dòng (L:xxx) để tham chiếu nhanh.
+
+### 0. N2Store Integration (thông tin triển khai thực tế)
+
+| Section | Keyword tìm nhanh | Nội dung |
+|---|---|---|
+| [0.1 Architecture](#01-n2store--tpos-architecture) | proxy, CORS, worker | Sơ đồ Browser → CF Worker → TPOS, tại sao cần proxy |
+| [0.2 Proxy Rules](#02-proxy-rules-cloudflare-worker) | retry, timeout, route | GET retry 3x/15s, POST no-retry/60s, full route mapping |
+| [0.3 Multi-Company Token](#03-multi-company-token-system-chi-tiết) | company, token, refresh | NJD Live vs NJD Shop, localStorage/Firestore keys, refresh flow |
+| [0.4 Per-User Credentials](#04-per-user-tpos-credentials-postgresql) | user, credential, nvkt | Bảng tpos_credentials, mapping app user → TPOS username |
+| [0.5 Database Tables](#05-database-tables-n2store--tpos) | database, table, postgres | 10 tables: tpos_credentials, invoice_status, social_orders... |
+| [0.6 Purchase Config](#06-per-company-purchase-config) | JournalId, AccountId, WarehouseId | Config khác nhau giữa Company 1 vs 2 |
+| [0.7 API Payloads](#07-detailed-api-payloads) | payload, JSON, body | Exact JSON cho Purchase, Payment, Partner, Refund 5-step |
+| [0.8 Real-time Details](#08-real-time-event-details-từ-capture-2026-04-05) | event, message, capture | 310 events, MessageType 11/12, ChannelId, browser dispatch code |
+| [0.9 Implementation Files](#09-n2store-key-implementation-files) | file, path, source | 14 key files: tpos-client.js, worker.js, token-manager.js... |
+
+### 1–3. Nền tảng TPOS
+
+| Section | Keyword tìm nhanh | Nội dung |
+|---|---|---|
+| [1. Tổng quan](#1-tổng-quan) | version, URL, CDN | TPOS v6.4.5.2, 6 JS bundles (2.9MB), SPA AngularJS |
+| [2. Tech Stack](#2-tech-stack--kiến-trúc) | AngularJS, Kendo, jQuery | Frontend stack, modules, dynamic route loading |
+| [3. Auth & Authorization](#3-authentication--authorization) | login, token, 2FA, permission | Login flow, headers, multi-company, TOTP, role-based access |
+
+### 4. Modules & Chức năng (theo menu TPOS)
+
+| Section | URL TPOS | Controllers | Nội dung chính |
+|---|---|---|---|
+| [4.1 Dashboard](#41-dashboard-appdashboard) | `#/app/dashboard` | 1 | Biểu đồ, thống kê |
+| [4.2 POS](#42-điểm-bán-hàng-pos--20-controllers) | `#/app/posconfig/*` | 20 | Session, order tại quầy, restaurant |
+| [4.3 Bán hàng](#43-bán-hàng-sales--55-controllers) | `#/app/fastsaleorder/*` | 55+ | FastSaleOrder, delivery, cross-check, refund, import Excel |
+| [4.4 Hóa đơn ĐT](#44-hóa-đơn-điện-tử-e-invoice--11-controllers) | `#/app/wiinvoice/*` | 11 | E-invoice create/adjust/replace |
+| [4.5 Báo giá & ĐĐH](#45-báo-giá--đơn-đặt-hàng--27-controllers) | `#/app/salequotation/*` | 27 | Quotation, Sale Order |
+| [4.6 Sale Online](#46-sale-online--40-controllers) | `#/app/saleOnline/*` | 40+ | Live campaign, Facebook, inbox, comment → order |
+| [4.7 Kênh bán](#47-kênh-bán-hàng-sale-channels--6-controllers) | `#/app/salechannel/*` | 6 | Facebook Pages, Lazada, Shopee |
+| [4.8 Mua hàng](#48-mua-hàng-purchase--8-controllers) | `#/app/fastpurchaseorder/*` | 8 | Purchase order, Excel import, refund |
+| [4.9 Kho hàng](#49-kho-hàng-inventory--40-controllers) | `#/app/stock*` | 40+ | Picking, inventory, move, warehouse, FIFO vacuum |
+| [4.10 Kế toán](#410-kế-toán-accounting--55-controllers) | `#/app/account*` | 55 | Payment, journal, tax, deposit, phiếu thu/chi, sổ quỹ |
+| [4.11 Danh mục](#411-danh-mục-categories--80-controllers) | `#/app/partner/*`, `product/*` | 80+ | KH/NCC, sản phẩm, thuộc tính, UOM, barcode, promotion, loyalty |
+| [4.12 Báo cáo](#412-báo-cáo-reports--35-controllers) | `#/app/report/*` | 35+ | Doanh thu, công nợ, kho, giao hàng, audit log |
+| [4.13 Cấu hình](#413-cấu-hình-settings--40-controllers) | `#/app/configs/*` | 40+ | User, role, 2FA, company, mail, printer, VNPay |
+
+### 5–12. Kỹ thuật & Tham chiếu
+
+| Section | Keyword tìm nhanh | Nội dung |
+|---|---|---|
+| [5. API Architecture](#5-api-architecture) | OData, endpoint, filter | 31 OData actions, 80+ REST APIs, query patterns |
+| [6. Real-time](#6-real-time-features) | Socket.IO, SignalR, event | rt-2.tpos.app, sr.tpos.vn, 5 event types |
+| [7. Data Models](#7-data-models-odata-entities) | entity, model, schema | 107 OData entities grouped by domain |
+| [8. Services](#8-services--factories) | factory, service, cache | 138 factories, IndexedDB product cache, printing |
+| [9. Directives](#9-ui-components-directives) | directive, component, UI | 36 directives: barcode scanner, pagination, lazy img... |
+| [10. Utilities](#10-utility-functions) | util, helper, validate | String (bỏ dấu), Array extensions, Date, number format |
+| [11. Integrations](#11-integrations) | Facebook, Lazada, VNPay | 11 integrations: FB, Lazada, Shopee, VNPay, GHN, DHL, Zalo... |
+| [12. localStorage](#12-localstorage-keys) | localStorage, storage, key | accessToken, routes, navs, product cache keys |
+| [Tổng kết](#tổng-kết) | summary, tổng | 419 controllers, 107 entities, 138 services |
+
+### Tìm nhanh theo nhu cầu
+
+| Bạn cần... | Đến section |
+|---|---|
+| Gọi API tạo đơn mua hàng | [0.7 API Payloads → Create Purchase Order](#07-detailed-api-payloads) |
+| Biết cách auth/login TPOS | [3.1 Login Flow](#31-login-flow) |
+| Xem đơn bán hàng gọi API gì | [4.3 Bán hàng](#43-bán-hàng-sales--55-controllers) + [5.2 OData Actions](#52-odata-action-methods-31-methods-found) |
+| Setup real-time WebSocket | [6.1 Socket.IO](#61-socketio-primary) + [0.8 Real-time Details](#08-real-time-event-details-từ-capture-2026-04-05) |
+| Tìm entity/model nào có sẵn | [7. Data Models](#7-data-models-odata-entities) |
+| Biết TPOS dùng framework gì | [2. Tech Stack](#2-tech-stack--kiến-trúc) |
+| Tích hợp Facebook / Lazada | [11. Integrations](#11-integrations) |
+| Token multi-company hoạt động sao | [0.3 Multi-Company Token](#03-multi-company-token-system-chi-tiết) |
+| File nào trong N2Store xử lý TPOS | [0.9 Implementation Files](#09-n2store-key-implementation-files) |
+| Hoàn trả đơn hàng (refund flow) | [0.7 → Sale Refund 5-Step](#07-detailed-api-payloads) |
+| Database tables liên quan TPOS | [0.5 Database Tables](#05-database-tables-n2store--tpos) |
 
 ---
 
