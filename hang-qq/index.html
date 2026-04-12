@@ -129,33 +129,13 @@
                 </div>
             </div>
 
-            <!-- Data Table -->
-            <div class="table-wrapper">
-                <div class="hq-table-scroll">
-                    <table class="data-table" id="dataTable">
-                        <thead>
-                            <tr>
-                                <th class="col-check"><input type="checkbox" id="checkAll" title="Chọn tất cả"></th>
-                                <th class="th-cell">#</th>
-                                <th class="th-cell sortable" data-sort="ngayDiHang">Ngày đi hàng</th>
-                                <th class="th-cell th-center sortable" data-sort="soLuong">SL / KG</th>
-                                <th class="th-cell">Mô tả hóa đơn</th>
-                                <th class="th-cell th-right sortable" data-sort="soTien">Tiền (¥)</th>
-                                <th class="th-cell th-center">Thiếu</th>
-                                <th class="th-cell sortable" data-sort="chiPhi">CP hàng về</th>
-                                <th class="th-cell">Ngày TT</th>
-                                <th class="th-cell th-right sortable" data-sort="soTienVND">Tiền VND</th>
-                                <th class="th-cell th-center">Media</th>
-                                <th class="th-cell"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody"></tbody>
-                    </table>
-                </div>
-                <div class="hq-pagination-footer" id="paginationFooter">
-                    <p class="hq-pagination-info" id="paginationInfo"></p>
-                    <div class="pagination" id="pagination"></div>
-                </div>
+            <!-- Date-grouped list -->
+            <div class="hq-list" id="dateGroupList"></div>
+
+            <!-- Pagination -->
+            <div class="hq-pagination-footer" id="paginationFooter">
+                <p class="hq-pagination-info" id="paginationInfo"></p>
+                <div class="pagination" id="pagination"></div>
             </div>
 
             <!-- Empty State -->

@@ -46,7 +46,6 @@
     const $$ = (sel) => document.querySelectorAll(sel);
 
     const els = {
-        tableBody: null,
         emptyState: null,
         pagination: null,
         searchInput: null,
@@ -68,7 +67,6 @@
     });
 
     function cacheElements() {
-        els.tableBody = $('#tableBody');
         els.emptyState = $('#emptyState');
         els.pagination = $('#pagination');
         els.searchInput = $('#searchInput');
@@ -298,13 +296,13 @@
     }
 
     function renderTable() {
+        const listEl = $('#dateGroupList');
         const start = (currentPage - 1) * PAGE_SIZE;
         const pageData = filteredData.slice(start, start + PAGE_SIZE);
 
         if (pageData.length === 0) {
-            els.tableBody.innerHTML = '';
+            listEl.innerHTML = '';
             els.emptyState.style.display = 'block';
-            $('.table-wrapper').style.display = allData.length === 0 ? 'none' : 'block';
             if (allData.length > 0 && filteredData.length === 0) {
                 els.emptyState.querySelector('p').innerHTML = 'Không tìm thấy kết quả phù hợp.';
             }
@@ -312,7 +310,6 @@
         }
 
         els.emptyState.style.display = 'none';
-        $('.table-wrapper').style.display = 'block';
 
         // Pagination info
         const end = Math.min(start + PAGE_SIZE, filteredData.length);
@@ -333,7 +330,6 @@
             groups[groups.length - 1].items.push({ item, globalIdx: start + idx + 1 });
         });
 
-        const COL_COUNT = 12;
         let html = '';
 
         groups.forEach((group) => {
@@ -343,16 +339,18 @@
             const count = group.items.length;
             const groupTotal = group.items.reduce((s, g) => s + parseNum(g.item.soTien), 0);
 
-            html += `<tr class="date-group-header" id="${dateId}_header">
-                <td colspan="${COL_COUNT}">
-                    <div class="dg-header" data-datekey="${group.date}">
-                        <span class="material-symbols-outlined dg-arrow ${isCollapsed ? '' : 'dg-expanded'}">chevron_right</span>
-                        <span class="dg-date">${dateDisplay}</span>
-                        <span class="dg-count">${count} đơn</span>
-                        <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
-                    </div>
-                </td>
-            </tr>`;
+            html += `<div class="dg-section" id="${dateId}">`;
+
+            // Header
+            html += `<div class="dg-header" data-datekey="${group.date}">
+                <span class="material-symbols-outlined dg-arrow ${isCollapsed ? '' : 'dg-expanded'}">chevron_right</span>
+                <span class="dg-date">${dateDisplay}</span>
+                <span class="dg-count">${count} đơn</span>
+                <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
+            </div>`;
+
+            // Items
+            html += `<div class="dg-items ${isCollapsed ? 'collapsed' : ''}">`;
 
             group.items.forEach(({ item, globalIdx }) => {
                 const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
@@ -361,92 +359,59 @@
                 const thieuVal = parseNum(item.thieu);
                 const cpVal = parseNum(item.chiPhi);
 
-                html += `<tr data-id="${id}" class="date-group-row ${dateId}_rows ${item.done ? 'row-done' : ''}" ${isCollapsed ? 'style="display:none"' : ''}>
-                <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
-                <td><span class="td-stt">${sttStr}</span></td>
-                <td></td>
-                <td style="text-align:center">
-                    <span class="td-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
-                    ${item.soLuong ? ' <span class="td-sl-unit">SL</span>' : ''}
-                    ${item.soKg ? `<div class="td-sl-unit editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
-                </td>
-                <td class="editable-cell" data-id="${id}" data-field="moTa" style="max-width:220px">
-                    <span class="td-desc">${escHtml(item.moTa || '')}</span>
-                    ${item.ghiChu ? `<div class="td-note editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
-                </td>
-                <td style="text-align:right" class="editable-cell" data-id="${id}" data-field="soTien">
-                    <span class="td-money-primary">¥ ${formatMoney(item.soTien)}</span>
-                </td>
-                <td style="text-align:center">
-                    <span class="td-thieu-badge ${thieuVal > 0 ? 'has-thieu' : 'no-thieu'} editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>
-                </td>
-                <td>
-                    ${cpVal > 0
-                        ? `<span class="td-cp-badge editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</span>`
-                        : `<span class="td-date-tt-empty editable-cell" data-id="${id}" data-field="chiPhi">—</span>`}
-                </td>
-                <td>
-                    ${item.ngayTT
-                        ? `<span class="td-date-tt editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</span>`
-                        : `<span class="td-date-tt-empty editable-cell" data-id="${id}" data-field="ngayTT">Chưa TT</span>`}
-                </td>
-                <td style="text-align:right" class="editable-cell" data-id="${id}" data-field="soTienVND">
-                    <span class="td-money">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
-                </td>
-                <td style="text-align:center">${renderImgThumb(allImgs, 'media', id)}</td>
-                <td style="text-align:right">
-                    <div class="td-menu-wrap">
-                        <button class="td-menu-btn" onclick="HangQQ.toggleMenu(event, '${id}')">
-                            <span class="material-symbols-outlined">more_vert</span>
-                        </button>
-                        <div class="context-menu hidden" id="menu-${id}">
-                            <button onclick="HangQQ.edit('${id}')">
-                                <span class="material-symbols-outlined">edit</span> Sửa
+                html += `<div class="dg-item ${item.done ? 'row-done' : ''}" data-id="${id}">
+                    <div class="dg-col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></div>
+                    <div class="dg-col-stt">${sttStr}</div>
+                    <div class="dg-col-sl">
+                        <span class="editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
+                        ${item.soLuong ? '<span class="unit"> SL</span>' : ''}
+                        ${item.soKg ? `<div class="unit editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
+                    </div>
+                    <div class="dg-col-desc">
+                        <div class="desc-text editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</div>
+                        ${item.ghiChu ? `<div class="desc-note editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
+                    </div>
+                    <div class="dg-col-money editable-cell" data-id="${id}" data-field="soTien">¥ ${formatMoney(item.soTien)}</div>
+                    <div class="dg-col-meta">
+                        <span class="meta-thieu ${thieuVal > 0 ? 'has' : 'no'} editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>
+                        <span class="meta-cp editable-cell" data-id="${id}" data-field="chiPhi">${cpVal > 0 ? formatMoney(item.chiPhi) : '—'}</span>
+                        <span class="meta-ngaytt ${item.ngayTT ? '' : 'empty'} editable-cell" data-id="${id}" data-field="ngayTT">${item.ngayTT ? formatDate(item.ngayTT) : 'Chưa TT'}</span>
+                        <span class="meta-vnd editable-cell" data-id="${id}" data-field="soTienVND">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
+                        <div class="meta-media">${renderImgThumb(allImgs, 'media', id)}</div>
+                        <div class="td-menu-wrap">
+                            <button class="td-menu-btn" onclick="HangQQ.toggleMenu(event, '${id}')">
+                                <span class="material-symbols-outlined">more_vert</span>
                             </button>
-                            <button class="ctx-danger" onclick="HangQQ.del('${id}')">
-                                <span class="material-symbols-outlined">delete</span> Xóa
-                            </button>
+                            <div class="context-menu hidden" id="menu-${id}">
+                                <button onclick="HangQQ.edit('${id}')"><span class="material-symbols-outlined">edit</span> Sửa</button>
+                                <button class="ctx-danger" onclick="HangQQ.del('${id}')"><span class="material-symbols-outlined">delete</span> Xóa</button>
+                            </div>
                         </div>
                     </div>
-                </td>
-            </tr>`;
+                </div>`;
             });
+
+            html += `</div></div>`; // close dg-items + dg-section
         });
 
-        els.tableBody.innerHTML = html;
+        listEl.innerHTML = html;
 
-        // Bind date group toggle via event delegation
-        els.tableBody.querySelectorAll('.dg-header').forEach((hdr) => {
+        // Bind date group toggles
+        listEl.querySelectorAll('.dg-header').forEach((hdr) => {
             hdr.addEventListener('click', () => {
-                const dateKey = hdr.getAttribute('data-datekey');
-                toggleDateGroup(dateKey);
+                toggleDateGroup(hdr.getAttribute('data-datekey'));
             });
         });
 
         // Bind inline edit
-        els.tableBody.querySelectorAll('.editable-cell').forEach((cell) => {
+        listEl.querySelectorAll('.editable-cell').forEach((cell) => {
             cell.addEventListener('dblclick', () => startInlineEdit(cell));
         });
 
         // Bind done checkboxes
-        els.tableBody.querySelectorAll('.done-check').forEach((cb) => {
+        listEl.querySelectorAll('.done-check').forEach((cb) => {
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
-
-        // Bind check-all
-        const checkAll = $('#checkAll');
-        if (checkAll) {
-            checkAll.checked = false;
-            checkAll.addEventListener('change', () => {
-                const boxes = els.tableBody.querySelectorAll('.done-check');
-                boxes.forEach((cb) => {
-                    if (cb.checked !== checkAll.checked) {
-                        cb.checked = checkAll.checked;
-                        toggleDone(cb.dataset.id, cb.checked);
-                    }
-                });
-            });
-        }
     }
 
     function toggleDateGroup(dateKey) {
@@ -460,20 +425,14 @@
         }
         const nowCollapsed = !isCollapsed;
 
-        // Toggle rows by class
-        const rows = els.tableBody.querySelectorAll('.' + dateId + '_rows');
-        rows.forEach((row) => {
-            row.style.display = nowCollapsed ? 'none' : '';
-        });
+        const section = document.getElementById(dateId);
+        if (!section) return;
 
-        // Toggle arrow
-        const header = document.getElementById(dateId + '_header');
-        if (header) {
-            const arrow = header.querySelector('.dg-arrow');
-            if (arrow) {
-                arrow.classList.toggle('dg-expanded', !nowCollapsed);
-            }
-        }
+        const items = section.querySelector('.dg-items');
+        if (items) items.classList.toggle('collapsed', nowCollapsed);
+
+        const arrow = section.querySelector('.dg-arrow');
+        if (arrow) arrow.classList.toggle('dg-expanded', !nowCollapsed);
     }
 
     // ===== Inline Edit =====
@@ -599,16 +558,14 @@
         const item = allData.find((d) => String(d.id) === String(id));
         if (!item) return;
 
-        // Optimistic UI
         item.done = done;
-        const row = els.tableBody.querySelector(`tr[data-id="${id}"]`);
+        const row = document.querySelector(`.dg-item[data-id="${id}"]`);
         if (row) row.classList.toggle('row-done', done);
 
         try {
             await patchEntry(id, { done });
             saveToLocalStorage();
         } catch (e) {
-            // Revert
             item.done = !done;
             if (row) row.classList.toggle('row-done', !done);
             const cb = row ? row.querySelector('.done-check') : null;
@@ -618,12 +575,12 @@
     }
 
     function renderImgThumb(images, type, id) {
-        if (!images || images.length === 0) return '—';
+        if (!images || images.length === 0) return '';
         const first = images[0];
-        let html = `<div class="td-media-group">`;
-        html += `<div class="td-media-thumb" onclick="HangQQ.viewImg('${escAttr(first)}')"><img src="${first}" alt="${type}"></div>`;
+        let html = `<div class="meta-media">`;
+        html += `<div class="meta-media-thumb" onclick="HangQQ.viewImg('${escAttr(first)}')"><img src="${first}" alt="${type}"></div>`;
         if (images.length > 1) {
-            html += `<div class="td-media-more" onclick="HangQQ.viewImg('${escAttr(images[1])}')">+${images.length - 1}</div>`;
+            html += `<div class="meta-media-more" onclick="HangQQ.viewImg('${escAttr(images[1])}')">+${images.length - 1}</div>`;
         }
         html += `</div>`;
         return html;
