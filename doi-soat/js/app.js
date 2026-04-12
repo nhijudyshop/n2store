@@ -262,6 +262,33 @@
         setTimeout(() => productBarcodeInput.focus(), 100);
     }
 
+    // Product image cache: productId → proxied image URL
+    const productImageCache = {};
+
+    // Create overlay element once
+    const imageOverlay = document.createElement('div');
+    imageOverlay.id = 'productImageOverlay';
+    imageOverlay.innerHTML = '<img src="" alt="">';
+    document.body.appendChild(imageOverlay);
+    const overlayImg = imageOverlay.querySelector('img');
+
+    // Hover events on product name cells
+    productTableBody.addEventListener('mouseenter', (e) => {
+        const cell = e.target.closest('.product-name-cell');
+        if (!cell) return;
+        const pid = cell.dataset.productId;
+        const src = productImageCache[pid];
+        if (!src) return;
+        overlayImg.src = src;
+        imageOverlay.classList.add('visible');
+    }, true);
+
+    productTableBody.addEventListener('mouseleave', (e) => {
+        const cell = e.target.closest('.product-name-cell');
+        if (!cell) return;
+        imageOverlay.classList.remove('visible');
+    }, true);
+
     async function loadProductImages(orderLines) {
         if (!orderLines) return;
         const token = await getToken();
@@ -270,9 +297,8 @@
         const headers = { 'authorization': `Bearer ${token}`, 'accept': 'application/json' };
 
         orderLines.forEach(async (line) => {
-            if (!line.ProductId) return;
+            if (!line.ProductId || productImageCache[line.ProductId]) return;
             try {
-                // Fetch product variant
                 const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, { headers });
                 if (!resp.ok) return;
                 const product = await resp.json();
@@ -290,14 +316,9 @@
 
                 if (!imageUrl) return;
 
-                const proxiedUrl = window.TPOSImageProxy
+                productImageCache[line.ProductId] = window.TPOSImageProxy
                     ? window.TPOSImageProxy.proxyImageUrl(imageUrl)
                     : `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
-
-                const cell = productTableBody.querySelector(`td[data-product-id="${line.ProductId}"] .product-img-tooltip`);
-                if (cell) {
-                    cell.innerHTML = `<img src="${proxiedUrl}" alt="" onerror="this.parentElement.style.display='none'">`;
-                }
             } catch (e) { /* skip */ }
         });
     }
@@ -334,7 +355,7 @@
 
             return `<tr class="${isDone ? 'checked' : ''}">
                 <td>${idx + 1}</td>
-                <td class="product-name-cell" data-product-id="${line.ProductId || ''}">${line.Name || line.ProductNameGet || ''}<span class="product-img-tooltip"></span></td>
+                <td class="product-name-cell" data-product-id="${line.ProductId || ''}">${line.Name || line.ProductNameGet || ''}</td>
                 <td>
                     <span class="qty-display">
                         <span class="${checkedQty > 0 ? 'qty-checked' : 'qty-unchecked'}">${checkedQty}</span>/${Math.floor(totalQty)}
