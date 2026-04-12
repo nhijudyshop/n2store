@@ -73,6 +73,15 @@
         }
         .suggestion-item:hover { background: #f0f0ff; }
         .suggestion-item:last-child { border-bottom: none; }
+
+        /* Edit modal form styles */
+        .edit-label { font-weight:600; font-size:12px; margin-bottom:3px; display:block; color:#374151; }
+        .edit-input { width:100%; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:#fff; transition:border-color .2s; }
+        .edit-input:focus { outline:none; border-color:#4f46e5; box-shadow:0 0 0 2px rgba(79,70,229,.15); }
+        textarea.edit-input { font-family:inherit; }
+        select.edit-input { cursor:pointer; }
+        .edit-checkbox { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer; }
+        .edit-checkbox input { width:16px; height:16px; cursor:pointer; }
     </style>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -317,40 +326,155 @@
 
     <!-- Edit Product Modal -->
     <div class="column-settings-modal" id="editProductModal">
-        <div class="column-settings-modal-content" style="max-width:520px;">
+        <div class="column-settings-modal-content" style="max-width:640px;">
             <div class="column-settings-modal-header">
                 <h3><i data-lucide="pencil"></i> Chỉnh sửa sản phẩm</h3>
                 <button class="column-settings-modal-close" id="closeEditProduct">&times;</button>
             </div>
-            <div class="column-settings-modal-body" style="padding:20px;">
+            <div class="column-settings-modal-body" style="padding:20px;max-height:70vh;overflow-y:auto;">
                 <input type="hidden" id="editProductId">
-                <div style="display:grid;gap:14px;">
-                    <div>
-                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Mã sản phẩm</label>
-                        <input type="text" id="editProductCode" class="filter-select" style="width:100%;padding:8px 12px;" readonly>
-                    </div>
-                    <div>
-                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Tên sản phẩm</label>
-                        <input type="text" id="editProductName" class="filter-select" style="width:100%;padding:8px 12px;">
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div>
-                            <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Giá bán</label>
-                            <input type="number" id="editListPrice" class="filter-select" style="width:100%;padding:8px 12px;" min="0">
+                <div style="display:grid;gap:16px;">
+
+                    <!-- Ảnh + Thông tin cơ bản -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#4f46e5;">Thông tin cơ bản</legend>
+                        <div style="display:grid;gap:10px;">
+                            <div style="display:flex;gap:14px;align-items:flex-start;">
+                                <div id="editImagePreview" style="width:80px;height:80px;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0;background:#f9fafb;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Bấm để đổi ảnh">
+                                    <span style="color:#9ca3af;font-size:11px;">No image</span>
+                                </div>
+                                <input type="file" id="editImageFile" accept="image/*" style="display:none;">
+                                <div style="flex:1;display:grid;gap:8px;">
+                                    <div>
+                                        <label class="edit-label">Tên sản phẩm</label>
+                                        <input type="text" id="editProductName" class="edit-input">
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                        <div>
+                                            <label class="edit-label">Mã sản phẩm</label>
+                                            <input type="text" id="editProductCode" class="edit-input">
+                                        </div>
+                                        <div>
+                                            <label class="edit-label">Mã vạch (Barcode)</label>
+                                            <input type="text" id="editBarcode" class="edit-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Giá mua mặc định</label>
-                            <input type="number" id="editPurchasePrice" class="filter-select" style="width:100%;padding:8px 12px;" min="0">
+                    </fieldset>
+
+                    <!-- Giá -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#059669;">Giá</legend>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label class="edit-label">Giá bán</label>
+                                <input type="number" id="editListPrice" class="edit-input" min="0">
+                            </div>
+                            <div>
+                                <label class="edit-label">Giá mua mặc định</label>
+                                <input type="number" id="editPurchasePrice" class="edit-input" min="0">
+                            </div>
+                            <div>
+                                <label class="edit-label">Chiết khấu bán (%)</label>
+                                <input type="number" id="editDiscountSale" class="edit-input" min="0" max="100" step="0.1">
+                            </div>
+                            <div>
+                                <label class="edit-label">Chiết khấu mua (%)</label>
+                                <input type="number" id="editDiscountPurchase" class="edit-input" min="0" max="100" step="0.1">
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block;">Ghi chú</label>
-                        <textarea id="editProductNote" class="filter-select" style="width:100%;padding:8px 12px;min-height:60px;resize:vertical;"></textarea>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="checkbox" id="editProductActive" style="width:18px;height:18px;">
-                        <label for="editProductActive" style="font-weight:600;font-size:13px;">Hiệu lực (Active)</label>
-                    </div>
+                    </fieldset>
+
+                    <!-- Phân loại -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#d97706;">Phân loại</legend>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label class="edit-label">Nhóm sản phẩm</label>
+                                <select id="editCategId" class="edit-input"></select>
+                            </div>
+                            <div>
+                                <label class="edit-label">Nhóm POS</label>
+                                <select id="editPOSCategId" class="edit-input">
+                                    <option value="">-- Không --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="edit-label">Đơn vị tính</label>
+                                <select id="editUOMId" class="edit-input"></select>
+                            </div>
+                            <div>
+                                <label class="edit-label">ĐVT mua hàng</label>
+                                <select id="editUOMPOId" class="edit-input"></select>
+                            </div>
+                            <div>
+                                <label class="edit-label">Trọng lượng (kg)</label>
+                                <input type="number" id="editWeight" class="edit-input" min="0" step="0.01">
+                            </div>
+                            <div>
+                                <label class="edit-label">Tracking</label>
+                                <select id="editTracking" class="edit-input">
+                                    <option value="none">Không theo dõi</option>
+                                    <option value="lot">Theo lô</option>
+                                    <option value="serial">Theo serial</option>
+                                </select>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Trạng thái -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#7c3aed;">Trạng thái</legend>
+                        <div style="display:flex;flex-wrap:wrap;gap:16px;">
+                            <label class="edit-checkbox"><input type="checkbox" id="editActive"> Hiệu lực</label>
+                            <label class="edit-checkbox"><input type="checkbox" id="editSaleOK"> Có thể bán</label>
+                            <label class="edit-checkbox"><input type="checkbox" id="editPurchaseOK"> Có thể mua</label>
+                            <label class="edit-checkbox"><input type="checkbox" id="editAvailableInPOS"> Hiển thị POS</label>
+                        </div>
+                    </fieldset>
+
+                    <!-- Kế toán -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#6b7280;">Kế toán & Kho</legend>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label class="edit-label">Chính sách hóa đơn</label>
+                                <select id="editInvoicePolicy" class="edit-input">
+                                    <option value="order">Theo đơn hàng</option>
+                                    <option value="delivery">Theo giao hàng</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="edit-label">Phương pháp mua</label>
+                                <select id="editPurchaseMethod" class="edit-input">
+                                    <option value="receive">Theo nhận hàng</option>
+                                    <option value="purchase">Theo đơn mua</option>
+                                </select>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Mô tả -->
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
+                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#0891b2;">Mô tả</legend>
+                        <div style="display:grid;gap:10px;">
+                            <div>
+                                <label class="edit-label">Ghi chú bán hàng</label>
+                                <textarea id="editDescriptionSale" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
+                            </div>
+                            <div>
+                                <label class="edit-label">Ghi chú mua hàng</label>
+                                <textarea id="editDescriptionPurchase" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
+                            </div>
+                            <div>
+                                <label class="edit-label">Mô tả chi tiết</label>
+                                <textarea id="editDescription" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
+                            </div>
+                        </div>
+                    </fieldset>
+
                 </div>
             </div>
             <div class="column-settings-modal-footer">

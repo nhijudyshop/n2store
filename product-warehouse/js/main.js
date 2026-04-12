@@ -975,6 +975,7 @@
         $('#editProductModal')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) closeEditModal();
         });
+        setupImageUpload();
 
         // Variant expand — click expand button or click on row
         $('#productTableBody')?.addEventListener('click', (e) => {
@@ -1058,12 +1059,16 @@
     // =====================================================
 
     let editingProduct = null; // full TPOS product detail for update
+    let cachedCategories = null;
+    let cachedPOSCategories = null;
+    let cachedUOMs = null;
+    let editImageBase64 = null; // new image selected by user
 
     /**
      * Fetch full product detail from TPOS (needed for UpdateV2)
      */
     async function fetchProductDetail(templateId) {
-        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})`;
+        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants($expand=AttributeValues)`;
         const response = await window.tokenManager.authenticatedFetch(url, {
             headers: { 'Accept': 'application/json' }
         });
@@ -1072,24 +1077,99 @@
     }
 
     /**
+     * Fetch dropdown data (categories, UOMs) — cached after first load
+     */
+    async function ensureDropdownData() {
+        const fetchJSON = async (endpoint) => {
+            const r = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/${endpoint}`,
+                { headers: { 'Accept': 'application/json' } }
+            );
+            return r.ok ? (await r.json()).value || [] : [];
+        };
+
+        if (!cachedCategories) {
+            cachedCategories = await fetchJSON('ProductCategory?$orderby=CompleteName asc&$top=500');
+        }
+        if (!cachedPOSCategories) {
+            cachedPOSCategories = await fetchJSON('POSCategory?$orderby=Name asc&$top=500');
+        }
+        if (!cachedUOMs) {
+            cachedUOMs = await fetchJSON('ProductUOM?$orderby=Name asc&$top=200');
+        }
+    }
+
+    function populateSelect(selectId, items, valueField, textField, selectedValue) {
+        const el = $(selectId);
+        if (!el) return;
+        const hasEmpty = el.querySelector('option[value=""]');
+        el.innerHTML = (hasEmpty ? '<option value="">-- Không --</option>' : '') +
+            items.map(it => {
+                const val = it[valueField];
+                const text = it[textField] || it.Name || '';
+                return `<option value="${val}"${val == selectedValue ? ' selected' : ''}>${escapeHtml(text)}</option>`;
+            }).join('');
+    }
+
+    /**
      * Open edit modal for a product
      */
     async function openEditProduct(templateId) {
-        const product = pageProducts.find(p => p.id === templateId);
-        if (!product) return;
-
         try {
-            showToast('Đang tải chi tiết sản phẩm...', 'info');
-            const detail = await fetchProductDetail(templateId);
-            editingProduct = detail;
+            showToast('Đang tải chi tiết...', 'info');
 
+            const [detail] = await Promise.all([
+                fetchProductDetail(templateId),
+                ensureDropdownData()
+            ]);
+            editingProduct = detail;
+            editImageBase64 = null;
+
+            // Basic info
             $('#editProductId').value = templateId;
-            $('#editProductCode').value = product.code || '';
-            $('#editProductName').value = detail.Name || product.name || '';
-            $('#editListPrice').value = detail.ListPrice || product.price || 0;
-            $('#editPurchasePrice').value = detail.PurchasePrice || product.defaultBuyPrice || 0;
-            $('#editProductNote').value = detail.DescriptionSale || product.note || '';
-            $('#editProductActive').checked = detail.Active !== false;
+            $('#editProductName').value = detail.Name || '';
+            $('#editProductCode').value = detail.DefaultCode || '';
+            $('#editBarcode').value = detail.Barcode || '';
+
+            // Image preview
+            const imgPreview = $('#editImagePreview');
+            if (imgPreview) {
+                const imgUrl = detail.ImageUrl || (detail.Image ? `data:image/png;base64,${detail.Image}` : '');
+                imgPreview.innerHTML = imgUrl
+                    ? `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;">`
+                    : '<span style="color:#9ca3af;font-size:11px;">No image</span>';
+            }
+
+            // Prices
+            $('#editListPrice').value = detail.ListPrice || 0;
+            $('#editPurchasePrice').value = detail.PurchasePrice || 0;
+            $('#editDiscountSale').value = detail.DiscountSale || 0;
+            $('#editDiscountPurchase').value = detail.DiscountPurchase || 0;
+
+            // Categories & UOM dropdowns
+            populateSelect('#editCategId', cachedCategories, 'Id', 'CompleteName', detail.CategId);
+            populateSelect('#editPOSCategId', cachedPOSCategories, 'Id', 'Name', detail.POSCategId);
+            populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', detail.UOMId);
+            populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', detail.UOMPOId);
+
+            // Classification
+            $('#editWeight').value = detail.Weight || 0;
+            $('#editTracking').value = detail.Tracking || 'none';
+
+            // Status checkboxes
+            $('#editActive').checked = detail.Active !== false;
+            $('#editSaleOK').checked = detail.SaleOK !== false;
+            $('#editPurchaseOK').checked = detail.PurchaseOK !== false;
+            $('#editAvailableInPOS').checked = detail.AvailableInPOS !== false;
+
+            // Accounting
+            $('#editInvoicePolicy').value = detail.InvoicePolicy || 'order';
+            $('#editPurchaseMethod').value = detail.PurchaseMethod || 'receive';
+
+            // Descriptions
+            $('#editDescriptionSale').value = detail.DescriptionSale || '';
+            $('#editDescriptionPurchase').value = detail.DescriptionPurchase || '';
+            $('#editDescription').value = detail.Description || '';
 
             $('#editProductModal').classList.add('show');
             WS.initIcons();
@@ -1102,6 +1182,29 @@
     function closeEditModal() {
         $('#editProductModal')?.classList.remove('show');
         editingProduct = null;
+        editImageBase64 = null;
+    }
+
+    /**
+     * Handle image file selection
+     */
+    function setupImageUpload() {
+        const preview = $('#editImagePreview');
+        const fileInput = $('#editImageFile');
+        if (!preview || !fileInput) return;
+
+        preview.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const dataUrl = ev.target.result;
+                editImageBase64 = dataUrl.split(',')[1]; // strip data:image/...;base64,
+                preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     /**
@@ -1113,11 +1216,44 @@
         const payload = { ...editingProduct };
         delete payload['@odata.context'];
 
+        // Basic info
         payload.Name = $('#editProductName').value.trim();
+        payload.DefaultCode = $('#editProductCode').value.trim();
+        payload.Barcode = $('#editBarcode').value.trim();
+
+        // Image
+        if (editImageBase64) {
+            payload.Image = editImageBase64;
+        }
+
+        // Prices
         payload.ListPrice = parseFloat($('#editListPrice').value) || 0;
         payload.PurchasePrice = parseFloat($('#editPurchasePrice').value) || 0;
-        payload.DescriptionSale = $('#editProductNote').value.trim();
-        payload.Active = $('#editProductActive').checked;
+        payload.DiscountSale = parseFloat($('#editDiscountSale').value) || 0;
+        payload.DiscountPurchase = parseFloat($('#editDiscountPurchase').value) || 0;
+
+        // Categories & UOM
+        payload.CategId = parseInt($('#editCategId').value) || payload.CategId;
+        payload.POSCategId = $('#editPOSCategId').value ? parseInt($('#editPOSCategId').value) : null;
+        payload.UOMId = parseInt($('#editUOMId').value) || payload.UOMId;
+        payload.UOMPOId = parseInt($('#editUOMPOId').value) || payload.UOMPOId;
+        payload.Weight = parseFloat($('#editWeight').value) || 0;
+        payload.Tracking = $('#editTracking').value || 'none';
+
+        // Status
+        payload.Active = $('#editActive').checked;
+        payload.SaleOK = $('#editSaleOK').checked;
+        payload.PurchaseOK = $('#editPurchaseOK').checked;
+        payload.AvailableInPOS = $('#editAvailableInPOS').checked;
+
+        // Accounting
+        payload.InvoicePolicy = $('#editInvoicePolicy').value || 'order';
+        payload.PurchaseMethod = $('#editPurchaseMethod').value || 'receive';
+
+        // Descriptions
+        payload.DescriptionSale = $('#editDescriptionSale').value.trim();
+        payload.DescriptionPurchase = $('#editDescriptionPurchase').value.trim();
+        payload.Description = $('#editDescription').value.trim();
 
         try {
             showToast('Đang lưu...', 'info');
@@ -1139,7 +1275,7 @@
 
             showToast('Đã lưu thành công!', 'success');
             closeEditModal();
-            fetchProducts(true); // silent refresh
+            fetchProducts(true);
         } catch (err) {
             console.error('[Edit] Save failed:', err);
             showToast('Lỗi lưu: ' + err.message, 'error');
