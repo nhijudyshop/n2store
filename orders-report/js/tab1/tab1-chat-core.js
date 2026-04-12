@@ -215,6 +215,12 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     conversationType = conversationType || 'INBOX';
 
+    // Check if user previously switched to a different page for this customer
+    const preferredPage = _getPreferredPage(psid);
+    if (preferredPage && preferredPage !== pageId) {
+        pageId = preferredPage;
+    }
+
     // Set state
     window.currentChatOrderId = orderId;
     window.currentChatChannelId = pageId;
@@ -1449,6 +1455,9 @@ window.switchChatPage = async function(newPageId) {
 
     window.currentChatChannelId = newPageId;
     window.currentSendPageId = newPageId;
+
+    // Remember page choice per customer (psid) for next time
+    _savePreferredPage(window.currentChatPSID, newPageId);
     const myToken = ++window._chatLoadSeq;
     _resetTransientChatState();
 
@@ -1547,6 +1556,37 @@ function _parseTimestamp(ts) {
         return isNaN(d.getTime()) ? null : d;
     }
     return null;
+}
+
+// =====================================================
+// PREFERRED PAGE PER CUSTOMER (localStorage)
+// =====================================================
+
+const PREF_PAGE_KEY = 'chat_preferred_pages';
+const PREF_PAGE_MAX = 200; // max entries to keep
+
+function _getPreferredPage(psid) {
+    if (!psid) return null;
+    try {
+        const map = JSON.parse(localStorage.getItem(PREF_PAGE_KEY) || '{}');
+        return map[psid] || null;
+    } catch { return null; }
+}
+
+function _savePreferredPage(psid, pageId) {
+    if (!psid || !pageId) return;
+    try {
+        const map = JSON.parse(localStorage.getItem(PREF_PAGE_KEY) || '{}');
+        map[psid] = pageId;
+
+        // Trim old entries if too many
+        const keys = Object.keys(map);
+        if (keys.length > PREF_PAGE_MAX) {
+            keys.slice(0, keys.length - PREF_PAGE_MAX).forEach(k => delete map[k]);
+        }
+
+        localStorage.setItem(PREF_PAGE_KEY, JSON.stringify(map));
+    } catch { /* quota exceeded — ignore */ }
 }
 
 // =====================================================
