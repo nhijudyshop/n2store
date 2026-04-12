@@ -1,5 +1,7 @@
 # Pancake.vn Website — Full Source Analysis
 
+> **LƯU Ý:** Đây là file tài liệu duy nhất về Pancake. Nếu có thông tin mới mà file này chưa có, cập nhật trực tiếp vào đây (không tạo file mới).
+
 > Phân tích toàn bộ source code website Pancake.vn từ HTML, JS bundles, __NEXT_DATA__, và build manifest.
 > Ngày phân tích: 2026-04-12
 
