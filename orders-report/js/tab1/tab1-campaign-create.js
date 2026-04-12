@@ -45,7 +45,7 @@ async function _fetchNameBatch(prefix, existingNames) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3-flash-preview',
             contents: [{
                 role: 'user',
                 parts: [{ text: `Liệt kê chính xác 20 tên chiến dịch livestream, mỗi dòng 1 tên, không đánh số, không giải thích.
@@ -64,7 +64,7 @@ ${prefix} DEAL SỐC CHẤTTTTT
 Tên KHÔNG được trùng: ${usedList}` }]
             }],
             generationConfig: {
-                maxOutputTokens: 600,
+                maxOutputTokens: 2000,
                 temperature: 1.0
             }
         })
