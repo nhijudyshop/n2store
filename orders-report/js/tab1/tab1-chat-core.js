@@ -297,16 +297,18 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
 
-    // Update order note — show Pancake notes by default, click to toggle TPOS
+    // Update order note banner — shows first note, click to expand all
     const noteEl = document.getElementById('chatOrderNote');
     if (noteEl) {
         const noteCell = orderRow?.querySelector('td[data-column="notes"]');
-        const tposNote = noteCell?.textContent?.trim() || '';
+        const tposNote = (noteCell?.textContent?.trim() || '').replace(/^−$/, '');
 
-        // Store both note sources for toggle
-        noteEl._tposNote = (tposNote && tposNote !== '−') ? tposNote : '';
-        noteEl._pancakeNotes = '';
-        noteEl._currentSource = 'pancake'; // default to Pancake
+        // Store all notes for popup
+        noteEl._allNotes = [];
+        if (tposNote) noteEl._allNotes.push({ text: tposNote, source: 'tpos' });
+
+        // Show TPOS note in banner immediately
+        _updateNoteBanner(noteEl);
 
         // Fetch Pancake notes (async)
         const phone = window.currentChatPhone;
@@ -314,16 +316,36 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
             window.PancakeValidator.quickLookup(phone).then(data => {
                 if (!data?.customer) return;
                 const pNotes = data.customer.pancake_notes || [];
-                if (pNotes.length > 0) {
-                    const noteTexts = pNotes.map(n => n.message || n.content || '').filter(Boolean);
-                    noteEl._pancakeNotes = noteTexts.join(' | ');
+                for (const n of pNotes) {
+                    const text = n.message || n.content || '';
+                    if (text) {
+                        const by = n.created_by?.fb_name || '';
+                        noteEl._allNotes.push({ text, source: 'pancake', by });
+                    }
                 }
-                _updateChatNoteDisplay(noteEl);
+                // Also fetch DB notes
+                if (data.notes?.length) {
+                    // notes from quickLookup won't have these, but full lookup does
+                }
+                _updateNoteBanner(noteEl);
             });
         }
 
-        // Show TPOS note initially if no Pancake yet
-        _updateChatNoteDisplay(noteEl);
+        // Fetch DB notes (customer_notes table)
+        if (phone) {
+            const workerUrl = window.WORKER_URL || window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/v2/customers/${phone}/notes`).then(r => r.json()).then(data => {
+                if (data.success && data.data?.length) {
+                    for (const n of data.data) {
+                        // Avoid duplicates
+                        if (!noteEl._allNotes.some(x => x.text === n.content && x.source === 'db')) {
+                            noteEl._allNotes.push({ text: n.content, source: 'db', by: n.created_by, pinned: n.is_pinned });
+                        }
+                    }
+                    _updateNoteBanner(noteEl);
+                }
+            }).catch(() => {});
+        }
     }
 
     // Show/hide "Gửi Bill" button based on invoice status
@@ -1590,39 +1612,86 @@ function _savePreferredPage(psid, pageId) {
 }
 
 // =====================================================
-// CHAT NOTE TOGGLE (Pancake ↔ TPOS)
+// CHAT NOTES BANNER + POPUP
 // =====================================================
 
-function _updateChatNoteDisplay(noteEl) {
+function _updateNoteBanner(noteEl) {
     if (!noteEl) return;
-    const source = noteEl._currentSource || 'pancake';
-    const text = source === 'pancake' ? noteEl._pancakeNotes : noteEl._tposNote;
-
-    if (text) {
-        const prefix = source === 'pancake' ? '🟠 ' : '📝 ';
-        noteEl.textContent = prefix + text;
-        noteEl.setAttribute('data-source', source);
-        noteEl.title = source === 'pancake'
-            ? 'Ghi chú Pancake — Click để xem ghi chú TPOS'
-            : 'Ghi chú TPOS — Click để xem ghi chú Pancake';
-        noteEl.style.display = 'block';
-    } else {
-        // Try the other source
-        const otherText = source === 'pancake' ? noteEl._tposNote : noteEl._pancakeNotes;
-        if (otherText) {
-            noteEl._currentSource = source === 'pancake' ? 'tpos' : 'pancake';
-            _updateChatNoteDisplay(noteEl);
-        } else {
-            noteEl.style.display = 'none';
-        }
+    const notes = noteEl._allNotes || [];
+    if (notes.length === 0) {
+        noteEl.style.display = 'none';
+        return;
     }
+
+    // Show first note in banner with count
+    const first = notes[0];
+    const icon = first.source === 'pancake' ? '🟠' : first.source === 'db' ? '📌' : '📝';
+    const countBadge = notes.length > 1 ? ` (+${notes.length - 1})` : '';
+    noteEl.textContent = `${icon} ${first.text}${countBadge}`;
+    noteEl.setAttribute('data-source', first.source);
+    noteEl.title = `${notes.length} ghi chú — Click để xem tất cả`;
+    noteEl.style.display = 'block';
 }
 
 window._toggleChatNoteSource = function() {
     const noteEl = document.getElementById('chatOrderNote');
     if (!noteEl) return;
-    noteEl._currentSource = noteEl._currentSource === 'pancake' ? 'tpos' : 'pancake';
-    _updateChatNoteDisplay(noteEl);
+    const notes = noteEl._allNotes || [];
+    if (notes.length === 0) return;
+
+    // Close existing popup
+    const existing = document.getElementById('chatNotesPopup');
+    if (existing) { existing.remove(); return; }
+
+    // Build popup
+    const popup = document.createElement('div');
+    popup.id = 'chatNotesPopup';
+    popup.className = 'chat-notes-popup';
+
+    const sourceLabels = { tpos: '📝 TPOS', pancake: '🟠 Pancake', db: '📌 N2Store' };
+    const sourceColors = { tpos: '#fef3c7', pancake: '#fff7ed', db: '#ede9fe' };
+    const sourceBorders = { tpos: '#fde68a', pancake: '#fed7aa', db: '#c4b5fd' };
+
+    let html = '<div class="cnp-header"><span class="cnp-title">Ghi chú khách hàng</span><button class="cnp-close" onclick="document.getElementById(\'chatNotesPopup\')?.remove()">&times;</button></div>';
+    html += '<div class="cnp-body">';
+
+    for (const n of notes) {
+        const label = sourceLabels[n.source] || n.source;
+        const bg = sourceColors[n.source] || '#f1f5f9';
+        const border = sourceBorders[n.source] || '#e2e8f0';
+        const byText = n.by ? `<span class="cnp-note-by">${_escapeHtml(n.by)}</span>` : '';
+        const pinIcon = n.pinned ? '<span title="Ghim">📌</span> ' : '';
+        html += `<div class="cnp-note" style="background:${bg};border-color:${border}">
+            <div class="cnp-note-source">${label} ${byText}</div>
+            <div class="cnp-note-text">${pinIcon}${_escapeHtml(n.text)}</div>
+        </div>`;
+    }
+
+    if (notes.length === 0) {
+        html += '<div class="cnp-empty">Không có ghi chú</div>';
+    }
+
+    html += '</div>';
+    popup.innerHTML = html;
+
+    // Position below noteEl
+    const rect = noteEl.getBoundingClientRect();
+    popup.style.position = 'fixed';
+    popup.style.top = (rect.bottom + 4) + 'px';
+    popup.style.left = Math.max(8, rect.left) + 'px';
+
+    document.body.appendChild(popup);
+
+    // Close on click outside
+    setTimeout(() => {
+        const closeHandler = (e) => {
+            if (!popup.contains(e.target) && e.target !== noteEl) {
+                popup.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        document.addEventListener('click', closeHandler);
+    }, 0);
 };
 
 // Expose helpers for other modules
