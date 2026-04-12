@@ -1587,18 +1587,18 @@ class PurchaseOrderController {
                         })).filter(i => i.product_code && i.product_name);
 
                         if (khoDiChoItems.length > 0) {
-                            fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                            fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ items: khoDiChoItems })
                             }).then(r => r.json()).then(res => {
                                 if (res.success) {
-                                    console.log('[KhoDiCho] Synced:', res.message);
+                                    console.log('[WebWarehouse] Synced:', res.message);
                                 }
-                            }).catch(err => console.warn('[KhoDiCho] Sync failed:', err));
+                            }).catch(err => console.warn('[WebWarehouse] Sync failed:', err));
                         }
                     } catch (err) {
-                        console.warn('[KhoDiCho] Sync error:', err);
+                        console.warn('[WebWarehouse] Sync error:', err);
                     }
 
                     // Open barcode selection modal with updated order data

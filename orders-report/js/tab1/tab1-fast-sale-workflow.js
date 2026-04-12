@@ -441,16 +441,16 @@
                     }).filter(i => i.product_code);
 
                     if (restoreItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[KhoDiCho] Đã trả kho:', restoreItems.length, 'SP');
-                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success) console.log('[WebWarehouse] Đã trả kho:', restoreItems.length, 'SP');
+                        }).catch(err => console.warn('[WebWarehouse] Trả kho lỗi:', err));
                     }
                 } catch (err) {
-                    console.warn('[KhoDiCho] Restore error:', err);
+                    console.warn('[WebWarehouse] Restore error:', err);
                 }
             }
 
@@ -1315,16 +1315,16 @@
                     }).filter(i => i.product_code);
 
                     if (restoreItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[KhoDiCho] Đã trả kho:', restoreItems.length, 'SP');
-                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success) console.log('[WebWarehouse] Đã trả kho:', restoreItems.length, 'SP');
+                        }).catch(err => console.warn('[WebWarehouse] Trả kho lỗi:', err));
                     }
                 } catch (err) {
-                    console.warn('[KhoDiCho] Restore error:', err);
+                    console.warn('[WebWarehouse] Restore error:', err);
                 }
             }
 

@@ -1,11 +1,11 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * =====================================================
- * API V2 - KHO DI CHO ROUTES
+ * API V2 - WEB WAREHOUSE ROUTES
  * =====================================================
  *
- * Market warehouse management - tracks products purchased
- * from suppliers via TPOS purchase orders.
+ * Web warehouse management - syncs products
+ * from TPOS product catalog (2-way sync).
  *
  * Also serves as the product pool for "Bán Hàng" tab in orders-report.
  * Supports held products (multi-user), confirm-to-order (TPOS),
@@ -30,7 +30,7 @@
  *   GET    /sales                 - Get sales history (for undo lookup)
  *
  * Created: 2026-03-30
- * Updated: 2026-04-11 — Add held, confirm-sale, return, SSE
+ * Updated: 2026-04-12 — Renamed kho_di_cho → web_warehouse
  * =====================================================
  */
 
@@ -49,11 +49,11 @@ let notifyClients, notifyClientsWildcard;
 function initializeNotifiers(notify, notifyWildcard) {
     notifyClients = notify;
     notifyClientsWildcard = notifyWildcard;
-    console.log('[KhoDiCho] SSE notifiers initialized');
+    console.log('[WebWarehouse] SSE notifiers initialized');
 }
 
-function notifyKhoChange(data, eventType = 'update') {
-    if (notifyClients) notifyClients('kho_di_cho', data, eventType);
+function notifyWarehouseChange(data, eventType = 'update') {
+    if (notifyClients) notifyClients('web_warehouse', data, eventType);
 }
 
 // =====================================================
@@ -65,9 +65,21 @@ let tableInitialized = false;
 async function ensureTable(db) {
     if (tableInitialized) return;
     try {
+        // Migration: rename old tables if they exist (one-time, idempotent)
+        await db.query(`
+            DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'kho_di_cho') THEN
+                    ALTER TABLE kho_di_cho RENAME TO web_warehouse;
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'kho_di_cho_sales') THEN
+                    ALTER TABLE kho_di_cho_sales RENAME TO web_warehouse_sales;
+                END IF;
+            END $$;
+        `);
+
         // Main warehouse table
         await db.query(`
-            CREATE TABLE IF NOT EXISTS kho_di_cho (
+            CREATE TABLE IF NOT EXISTS web_warehouse (
                 id SERIAL PRIMARY KEY,
                 stt INTEGER NOT NULL,
                 product_code VARCHAR(100) NOT NULL UNIQUE,
@@ -83,54 +95,54 @@ async function ensureTable(db) {
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
-            CREATE INDEX IF NOT EXISTS idx_kho_di_cho_product_code ON kho_di_cho(product_code);
-            CREATE INDEX IF NOT EXISTS idx_kho_di_cho_parent_code ON kho_di_cho(parent_product_code);
-            CREATE INDEX IF NOT EXISTS idx_kho_di_cho_stt ON kho_di_cho(stt);
+            CREATE INDEX IF NOT EXISTS idx_web_warehouse_product_code ON web_warehouse(product_code);
+            CREATE INDEX IF NOT EXISTS idx_web_warehouse_parent_code ON web_warehouse(parent_product_code);
+            CREATE INDEX IF NOT EXISTS idx_web_warehouse_stt ON web_warehouse(stt);
         `);
 
         // Migration: add columns incrementally (safe to run multiple times)
         await db.query(`
             DO $$
             BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='image_url') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN image_url TEXT;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='image_url') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN image_url TEXT;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_product_id') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN tpos_product_id INTEGER;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tpos_product_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tpos_product_id INTEGER;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='selling_price') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN selling_price NUMERIC(15,2) DEFAULT 0;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='selling_price') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN selling_price NUMERIC(15,2) DEFAULT 0;
                 END IF;
                 -- v3 columns: TPOS product sync
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_template_id') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN tpos_template_id INTEGER;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tpos_template_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tpos_template_id INTEGER;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='name_get') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN name_get TEXT;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='name_get') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN name_get TEXT;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='category') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN category VARCHAR(255);
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='category') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN category VARCHAR(255);
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='barcode') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN barcode VARCHAR(100);
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='barcode') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN barcode VARCHAR(100);
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='uom_name') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN uom_name VARCHAR(50) DEFAULT 'Cái';
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='uom_name') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN uom_name VARCHAR(50) DEFAULT 'Cái';
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='standard_price') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN standard_price NUMERIC(15,2) DEFAULT 0;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='standard_price') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN standard_price NUMERIC(15,2) DEFAULT 0;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_qty_available') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN tpos_qty_available NUMERIC(10,2) DEFAULT 0;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tpos_qty_available') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tpos_qty_available NUMERIC(10,2) DEFAULT 0;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='active') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN active BOOLEAN DEFAULT true;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='active') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN active BOOLEAN DEFAULT true;
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='data_hash') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN data_hash VARCHAR(64);
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='data_hash') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN data_hash VARCHAR(64);
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='last_synced_at') THEN
-                    ALTER TABLE kho_di_cho ADD COLUMN last_synced_at TIMESTAMPTZ;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='last_synced_at') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN last_synced_at TIMESTAMPTZ;
                 END IF;
             END $$;
         `);
@@ -152,7 +164,7 @@ async function ensureTable(db) {
 
         // Sales history table — for undo (return to warehouse)
         await db.query(`
-            CREATE TABLE IF NOT EXISTS kho_di_cho_sales (
+            CREATE TABLE IF NOT EXISTS web_warehouse_sales (
                 id SERIAL PRIMARY KEY,
                 product_code VARCHAR(100) NOT NULL,
                 parent_product_code VARCHAR(100),
@@ -171,15 +183,15 @@ async function ensureTable(db) {
                 returned_at TIMESTAMPTZ,
                 status VARCHAR(20) DEFAULT 'sold'
             );
-            CREATE INDEX IF NOT EXISTS idx_kdc_sales_product_code ON kho_di_cho_sales(product_code);
-            CREATE INDEX IF NOT EXISTS idx_kdc_sales_order_id ON kho_di_cho_sales(order_id);
-            CREATE INDEX IF NOT EXISTS idx_kdc_sales_status ON kho_di_cho_sales(status);
+            CREATE INDEX IF NOT EXISTS idx_ww_sales_product_code ON web_warehouse_sales(product_code);
+            CREATE INDEX IF NOT EXISTS idx_ww_sales_order_id ON web_warehouse_sales(order_id);
+            CREATE INDEX IF NOT EXISTS idx_ww_sales_status ON web_warehouse_sales(status);
         `);
 
         tableInitialized = true;
-        console.log('[KhoDiCho] Tables initialized');
+        console.log('[WebWarehouse] Tables initialized');
     } catch (err) {
-        console.error('[KhoDiCho] Table init error:', err.message);
+        console.error('[WebWarehouse] Table init error:', err.message);
     }
 }
 
@@ -188,7 +200,7 @@ async function ensureTable(db) {
 // =====================================================
 
 function handleError(res, error, message = 'Internal server error') {
-    console.error(`[KhoDiCho V2] ${message}:`, error.message);
+    console.error(`[WebWarehouse V2] ${message}:`, error.message);
     res.status(500).json({ success: false, error: message, details: error.message });
 }
 
@@ -229,7 +241,7 @@ async function getHolders(db, productCode) {
 // =====================================================
 
 /**
- * GET /api/v2/kho-di-cho
+ * GET /api/v2/web-warehouse
  * List products with search, filter, pagination
  * Enhanced: includes available_qty (quantity - held) and holders info
  */
@@ -300,7 +312,7 @@ router.get('/', async (req, res) => {
 
         // Count total
         const countResult = await db.query(
-            `SELECT COUNT(*) FROM kho_di_cho k ${joinClause} ${whereClause}`,
+            `SELECT COUNT(*) FROM web_warehouse k ${joinClause} ${whereClause}`,
             params
         );
         const total = parseInt(countResult.rows[0].count);
@@ -318,7 +330,7 @@ router.get('/', async (req, res) => {
             SELECT k.*,
                    COALESCE(h.total_held, 0) as held_qty,
                    k.quantity - COALESCE(h.total_held, 0) as available_qty
-            FROM kho_di_cho k
+            FROM web_warehouse k
             ${joinClause}
             ${whereClause}
             ORDER BY ${sortField} ${order}
@@ -350,12 +362,12 @@ router.get('/', async (req, res) => {
             }
         });
     } catch (error) {
-        handleError(res, error, 'Failed to fetch kho di cho');
+        handleError(res, error, 'Failed to fetch web warehouse');
     }
 });
 
 /**
- * POST /api/v2/kho-di-cho/batch
+ * POST /api/v2/web-warehouse/batch
  * Batch upsert products from purchase-orders
  * - If product_code exists: quantity += new quantity, append source_po_id
  * - If product_code new: assign next STT, insert
@@ -390,7 +402,7 @@ router.post('/batch', async (req, res) => {
 
             // Check if product already exists
             const existing = await client.query(
-                'SELECT id, quantity, source_po_ids FROM kho_di_cho WHERE product_code = $1',
+                'SELECT id, quantity, source_po_ids FROM web_warehouse WHERE product_code = $1',
                 [product_code]
             );
 
@@ -404,7 +416,7 @@ router.post('/batch', async (req, res) => {
                 }
 
                 await client.query(
-                    `UPDATE kho_di_cho
+                    `UPDATE web_warehouse
                      SET quantity = $1, source_po_ids = $2, updated_at = NOW(),
                          purchase_price = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE purchase_price END,
                          image_url = COALESCE($4, image_url),
@@ -416,11 +428,11 @@ router.post('/batch', async (req, res) => {
                 results.updated++;
             } else {
                 // Insert: assign next STT
-                const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM kho_di_cho');
+                const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
                 const nextStt = maxSttResult.rows[0].max_stt + 1;
 
                 await client.query(
-                    `INSERT INTO kho_di_cho (stt, product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_ids, image_url, tpos_product_id, selling_price)
+                    `INSERT INTO web_warehouse (stt, product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_ids, image_url, tpos_product_id, selling_price)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                     [nextStt, product_code, parent_product_code || null, product_name, variant || null,
                      quantity || 1, purchase_price || 0, source_po_id ? [source_po_id] : [],
@@ -433,7 +445,7 @@ router.post('/batch', async (req, res) => {
         await client.query('COMMIT');
 
         // Notify SSE
-        notifyKhoChange({ action: 'batch', ...results }, 'update');
+        notifyWarehouseChange({ action: 'batch', ...results }, 'update');
 
         res.json({
             success: true,
@@ -449,7 +461,7 @@ router.post('/batch', async (req, res) => {
 });
 
 /**
- * POST /api/v2/kho-di-cho/subtract
+ * POST /api/v2/web-warehouse/subtract
  * Subtract quantities after doi-soat success
  */
 router.post('/subtract', async (req, res) => {
@@ -476,7 +488,7 @@ router.post('/subtract', async (req, res) => {
             const subQty = quantity || 1;
 
             const existing = await client.query(
-                'SELECT id, quantity FROM kho_di_cho WHERE UPPER(product_code) = $1',
+                'SELECT id, quantity FROM web_warehouse WHERE UPPER(product_code) = $1',
                 [code]
             );
 
@@ -489,11 +501,11 @@ router.post('/subtract', async (req, res) => {
             const newQty = (row.quantity || 0) - subQty;
 
             if (newQty <= 0) {
-                await client.query('DELETE FROM kho_di_cho WHERE id = $1', [row.id]);
+                await client.query('DELETE FROM web_warehouse WHERE id = $1', [row.id]);
                 results.removed++;
             } else {
                 await client.query(
-                    'UPDATE kho_di_cho SET quantity = $1, updated_at = NOW() WHERE id = $2',
+                    'UPDATE web_warehouse SET quantity = $1, updated_at = NOW() WHERE id = $2',
                     [newQty, row.id]
                 );
                 results.subtracted++;
@@ -502,7 +514,7 @@ router.post('/subtract', async (req, res) => {
 
         await client.query('COMMIT');
 
-        notifyKhoChange({ action: 'subtract', ...results }, 'update');
+        notifyWarehouseChange({ action: 'subtract', ...results }, 'update');
 
         res.json({
             success: true,
@@ -518,7 +530,7 @@ router.post('/subtract', async (req, res) => {
 });
 
 /**
- * PATCH /api/v2/kho-di-cho/:id
+ * PATCH /api/v2/web-warehouse/:id
  * Update a product (quantity, price, etc.)
  */
 router.patch('/:id', async (req, res) => {
@@ -547,7 +559,7 @@ router.patch('/:id', async (req, res) => {
 
         fields.push(`updated_at = NOW()`);
 
-        const query = `UPDATE kho_di_cho SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+        const query = `UPDATE web_warehouse SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
         params.push(id);
 
         const result = await db.query(query, params);
@@ -556,7 +568,7 @@ router.patch('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        notifyKhoChange({ action: 'update', product: result.rows[0] }, 'update');
+        notifyWarehouseChange({ action: 'update', product: result.rows[0] }, 'update');
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -565,7 +577,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/v2/kho-di-cho/:id
+ * DELETE /api/v2/web-warehouse/:id
  * Delete a single product
  */
 router.delete('/:id', async (req, res) => {
@@ -575,13 +587,13 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const result = await db.query('DELETE FROM kho_di_cho WHERE id = $1 RETURNING *', [id]);
+        const result = await db.query('DELETE FROM web_warehouse WHERE id = $1 RETURNING *', [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        notifyKhoChange({ action: 'delete', id, product_code: result.rows[0].product_code }, 'deleted');
+        notifyWarehouseChange({ action: 'delete', id, product_code: result.rows[0].product_code }, 'deleted');
 
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {
@@ -590,7 +602,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/v2/kho-di-cho
+ * DELETE /api/v2/web-warehouse
  * Clear all products (reset warehouse)
  */
 router.delete('/', async (req, res) => {
@@ -598,8 +610,8 @@ router.delete('/', async (req, res) => {
     await ensureTable(db);
 
     try {
-        const result = await db.query('DELETE FROM kho_di_cho');
-        notifyKhoChange({ action: 'clear', count: result.rowCount }, 'deleted');
+        const result = await db.query('DELETE FROM web_warehouse');
+        notifyWarehouseChange({ action: 'clear', count: result.rowCount }, 'deleted');
         res.json({ success: true, message: `Cleared ${result.rowCount} products` });
     } catch (error) {
         handleError(res, error, 'Clear failed');
@@ -607,7 +619,7 @@ router.delete('/', async (req, res) => {
 });
 
 /**
- * POST /api/v2/kho-di-cho/bulk-delete
+ * POST /api/v2/web-warehouse/bulk-delete
  * Bulk delete products by IDs
  */
 router.post('/bulk-delete', async (req, res) => {
@@ -621,10 +633,10 @@ router.post('/bulk-delete', async (req, res) => {
 
     try {
         const result = await db.query(
-            `DELETE FROM kho_di_cho WHERE id = ANY($1) RETURNING id, product_code`,
+            `DELETE FROM web_warehouse WHERE id = ANY($1) RETURNING id, product_code`,
             [ids]
         );
-        notifyKhoChange({ action: 'bulk_delete', count: result.rowCount }, 'deleted');
+        notifyWarehouseChange({ action: 'bulk_delete', count: result.rowCount }, 'deleted');
         res.json({ success: true, deleted: result.rowCount });
     } catch (error) {
         handleError(res, error, 'Bulk delete failed');
@@ -632,7 +644,7 @@ router.post('/bulk-delete', async (req, res) => {
 });
 
 /**
- * POST /api/v2/kho-di-cho/bulk-update
+ * POST /api/v2/web-warehouse/bulk-update
  * Bulk update fields for multiple products
  * Body: { ids: [...], fields: { quantity, purchase_price, selling_price, active } }
  */
@@ -662,11 +674,11 @@ router.post('/bulk-update', async (req, res) => {
         sets.push('updated_at = NOW()');
 
         const result = await db.query(
-            `UPDATE kho_di_cho SET ${sets.join(', ')} WHERE id = ANY($1) RETURNING id`,
+            `UPDATE web_warehouse SET ${sets.join(', ')} WHERE id = ANY($1) RETURNING id`,
             params
         );
 
-        notifyKhoChange({ action: 'bulk_update', count: result.rowCount, fields: Object.keys(fields) }, 'update');
+        notifyWarehouseChange({ action: 'bulk_update', count: result.rowCount, fields: Object.keys(fields) }, 'update');
         res.json({ success: true, updated: result.rowCount });
     } catch (error) {
         handleError(res, error, 'Bulk update failed');
@@ -674,7 +686,7 @@ router.post('/bulk-update', async (req, res) => {
 });
 
 /**
- * POST /api/v2/kho-di-cho/change-qty
+ * POST /api/v2/web-warehouse/change-qty
  * Change quantity for a product (with delta or absolute value)
  * Body: { id, change: +/-N } or { id, value: N }
  */
@@ -689,12 +701,12 @@ router.post('/change-qty', async (req, res) => {
         let result;
         if (value !== undefined) {
             result = await db.query(
-                `UPDATE kho_di_cho SET quantity = GREATEST(0, $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
+                `UPDATE web_warehouse SET quantity = GREATEST(0, $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
                 [parseInt(value), id]
             );
         } else if (change !== undefined) {
             result = await db.query(
-                `UPDATE kho_di_cho SET quantity = GREATEST(0, quantity + $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
+                `UPDATE web_warehouse SET quantity = GREATEST(0, quantity + $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
                 [parseInt(change), id]
             );
         } else {
@@ -705,7 +717,7 @@ router.post('/change-qty', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        notifyKhoChange({ action: 'qty_change', product: result.rows[0] }, 'update');
+        notifyWarehouseChange({ action: 'qty_change', product: result.rows[0] }, 'update');
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
         handleError(res, error, 'Qty change failed');
@@ -718,7 +730,7 @@ router.post('/change-qty', async (req, res) => {
 // =====================================================
 
 /**
- * POST /api/v2/kho-di-cho/hold
+ * POST /api/v2/web-warehouse/hold
  * Hold a product from warehouse for a specific order
  *
  * Body: {
@@ -730,7 +742,7 @@ router.post('/change-qty', async (req, res) => {
  *
  * Side effects:
  * - Creates/updates held_products row
- * - SSE notify kho_di_cho (available_qty changed)
+ * - SSE notify web_warehouse (available_qty changed)
  * - SSE notify held_products/{orderId}
  */
 router.post('/hold', async (req, res) => {
@@ -749,7 +761,7 @@ router.post('/hold', async (req, res) => {
 
     try {
         // Check warehouse product exists and has available qty
-        const product = await db.query('SELECT * FROM kho_di_cho WHERE product_code = $1', [productCode]);
+        const product = await db.query('SELECT * FROM web_warehouse WHERE product_code = $1', [productCode]);
         if (product.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Product not found in warehouse' });
         }
@@ -780,7 +792,7 @@ router.post('/hold', async (req, res) => {
             displayName: displayName || userId,
             quantity,
             timestamp: Date.now(),
-            source: 'kho_di_cho',
+            source: 'web_warehouse',
             ...extraData
         };
 
@@ -794,7 +806,7 @@ router.post('/hold', async (req, res) => {
         `, [orderId, productCode, userId, JSON.stringify(heldData), isDraft]);
 
         // Notify SSE — warehouse changed
-        notifyKhoChange({
+        notifyWarehouseChange({
             action: 'held',
             productCode,
             availableQty: availableQty - quantity,
@@ -828,7 +840,7 @@ router.post('/hold', async (req, res) => {
 });
 
 /**
- * DELETE /api/v2/kho-di-cho/hold/:orderId/:productCode/:userId
+ * DELETE /api/v2/web-warehouse/hold/:orderId/:productCode/:userId
  * Release a held product (return to available pool)
  */
 router.delete('/hold/:orderId/:productCode/:userId', async (req, res) => {
@@ -844,7 +856,7 @@ router.delete('/hold/:orderId/:productCode/:userId', async (req, res) => {
         );
 
         // Notify SSE
-        notifyKhoChange({ action: 'released', productCode }, 'update');
+        notifyWarehouseChange({ action: 'released', productCode }, 'update');
         if (notifyClientsWildcard) {
             notifyClientsWildcard(`held_products/${orderId}`, {
                 productId: productCode, userId, deleted: true
@@ -862,7 +874,7 @@ router.delete('/hold/:orderId/:productCode/:userId', async (req, res) => {
 });
 
 /**
- * GET /api/v2/kho-di-cho/holders/:productCode
+ * GET /api/v2/web-warehouse/holders/:productCode
  * Get all holders of a specific product
  */
 router.get('/holders/:productCode', async (req, res) => {
@@ -876,7 +888,7 @@ router.get('/holders/:productCode', async (req, res) => {
         const totalHeld = holders.reduce((sum, h) => sum + h.quantity, 0);
 
         // Get warehouse quantity
-        const product = await db.query('SELECT quantity FROM kho_di_cho WHERE product_code = $1', [productCode]);
+        const product = await db.query('SELECT quantity FROM web_warehouse WHERE product_code = $1', [productCode]);
         const warehouseQty = product.rows.length > 0 ? product.rows[0].quantity : 0;
 
         res.json({
@@ -897,7 +909,7 @@ router.get('/holders/:productCode', async (req, res) => {
 // =====================================================
 
 /**
- * POST /api/v2/kho-di-cho/confirm-sale
+ * POST /api/v2/web-warehouse/confirm-sale
  * Confirm held product → subtract from warehouse, log to sales history
  *
  * Body: {
@@ -907,8 +919,8 @@ router.get('/holders/:productCode', async (req, res) => {
  *
  * Flow:
  * 1. Find held_products row
- * 2. Subtract quantity from kho_di_cho
- * 3. Log to kho_di_cho_sales
+ * 2. Subtract quantity from web_warehouse
+ * 3. Log to web_warehouse_sales
  * 4. Delete from held_products
  * 5. SSE notify
  */
@@ -939,7 +951,7 @@ router.post('/confirm-sale', async (req, res) => {
 
         // 2. Get warehouse product
         const productResult = await client.query(
-            'SELECT * FROM kho_di_cho WHERE product_code = $1',
+            'SELECT * FROM web_warehouse WHERE product_code = $1',
             [productCode]
         );
 
@@ -953,17 +965,17 @@ router.post('/confirm-sale', async (req, res) => {
 
         // 3. Subtract from warehouse (or delete if reaches 0)
         if (newQty <= 0) {
-            await client.query('DELETE FROM kho_di_cho WHERE id = $1', [warehouseProduct.id]);
+            await client.query('DELETE FROM web_warehouse WHERE id = $1', [warehouseProduct.id]);
         } else {
             await client.query(
-                'UPDATE kho_di_cho SET quantity = $1, updated_at = NOW() WHERE id = $2',
+                'UPDATE web_warehouse SET quantity = $1, updated_at = NOW() WHERE id = $2',
                 [newQty, warehouseProduct.id]
             );
         }
 
         // 4. Log to sales history
         await client.query(
-            `INSERT INTO kho_di_cho_sales
+            `INSERT INTO web_warehouse_sales
              (product_code, parent_product_code, product_name, variant, purchase_price, selling_price,
               image_url, tpos_product_id, quantity, order_id, order_stt, sold_by_user_id, sold_by_name, status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'sold')`,
@@ -985,7 +997,7 @@ router.post('/confirm-sale', async (req, res) => {
         await client.query('COMMIT');
 
         // SSE notify
-        notifyKhoChange({
+        notifyWarehouseChange({
             action: 'sold',
             productCode,
             quantity: confirmQty,
@@ -1018,7 +1030,7 @@ router.post('/confirm-sale', async (req, res) => {
 });
 
 /**
- * POST /api/v2/kho-di-cho/return
+ * POST /api/v2/web-warehouse/return
  * Return product from order back to warehouse (undo sale)
  *
  * Body: {
@@ -1041,7 +1053,7 @@ router.post('/return', async (req, res) => {
         await client.query('BEGIN');
 
         // 1. Find the sale record (most recent unreturned)
-        let saleQuery = `SELECT * FROM kho_di_cho_sales
+        let saleQuery = `SELECT * FROM web_warehouse_sales
                          WHERE product_code = $1 AND status = 'sold'`;
         const saleParams = [productCode];
         if (orderId) {
@@ -1056,31 +1068,31 @@ router.post('/return', async (req, res) => {
         if (saleResult.rows.length > 0) {
             const sale = saleResult.rows[0];
             await client.query(
-                `UPDATE kho_di_cho_sales SET status = 'returned', returned_at = NOW() WHERE id = $1`,
+                `UPDATE web_warehouse_sales SET status = 'returned', returned_at = NOW() WHERE id = $1`,
                 [sale.id]
             );
         }
 
         // 3. Add back to warehouse
         const existing = await client.query(
-            'SELECT id, quantity FROM kho_di_cho WHERE product_code = $1',
+            'SELECT id, quantity FROM web_warehouse WHERE product_code = $1',
             [productCode]
         );
 
         if (existing.rows.length > 0) {
             // Product still exists — increase quantity
             await client.query(
-                'UPDATE kho_di_cho SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2',
+                'UPDATE web_warehouse SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2',
                 [quantity, existing.rows[0].id]
             );
         } else if (saleResult.rows.length > 0) {
             // Product was deleted (qty reached 0) — recreate from sale record
             const sale = saleResult.rows[0];
-            const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM kho_di_cho');
+            const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
             const nextStt = maxSttResult.rows[0].max_stt + 1;
 
             await client.query(
-                `INSERT INTO kho_di_cho (stt, product_code, parent_product_code, product_name, variant,
+                `INSERT INTO web_warehouse (stt, product_code, parent_product_code, product_name, variant,
                  quantity, purchase_price, selling_price, image_url, tpos_product_id, source_po_ids)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}')`,
                 [nextStt, sale.product_code, sale.parent_product_code, sale.product_name,
@@ -1098,7 +1110,7 @@ router.post('/return', async (req, res) => {
         await client.query('COMMIT');
 
         // SSE notify
-        notifyKhoChange({
+        notifyWarehouseChange({
             action: 'returned',
             productCode,
             quantity,
@@ -1119,7 +1131,7 @@ router.post('/return', async (req, res) => {
 });
 
 /**
- * GET /api/v2/kho-di-cho/sales
+ * GET /api/v2/web-warehouse/sales
  * Get sales history (for undo lookup)
  * Query: ?orderId=xxx or ?productCode=xxx or ?status=sold
  */
@@ -1130,7 +1142,7 @@ router.get('/sales', async (req, res) => {
     const { orderId, productCode, status = 'sold', limit = 100 } = req.query;
 
     try {
-        let query = 'SELECT * FROM kho_di_cho_sales WHERE 1=1';
+        let query = 'SELECT * FROM web_warehouse_sales WHERE 1=1';
         const params = [];
         let paramIndex = 1;
 
@@ -1161,16 +1173,16 @@ let socketListener = null;
  */
 function initializeSyncService(service) {
     syncService = service;
-    console.log('[KhoDiCho] Sync service initialized');
+    console.log('[WebWarehouse] Sync service initialized');
 }
 
 function initializeSocketListener(listener) {
     socketListener = listener;
-    console.log('[KhoDiCho] Socket listener initialized');
+    console.log('[WebWarehouse] Socket listener initialized');
 }
 
 /**
- * POST /api/v2/kho-di-cho/sync
+ * POST /api/v2/web-warehouse/sync
  * Trigger manual sync (full or incremental)
  * Query: ?type=full (default: incremental)
  */
@@ -1196,9 +1208,9 @@ router.post('/sync', async (req, res) => {
 
         // Log result when done
         resultPromise.then(stats => {
-            console.log(`[KhoDiCho] ${syncType} sync completed:`, JSON.stringify(stats));
+            console.log(`[WebWarehouse] ${syncType} sync completed:`, JSON.stringify(stats));
         }).catch(err => {
-            console.error(`[KhoDiCho] ${syncType} sync error:`, err.message);
+            console.error(`[WebWarehouse] ${syncType} sync error:`, err.message);
         });
 
     } catch (error) {
@@ -1207,7 +1219,7 @@ router.post('/sync', async (req, res) => {
 });
 
 /**
- * GET /api/v2/kho-di-cho/sync/status
+ * GET /api/v2/web-warehouse/sync/status
  * Get current sync status
  */
 router.get('/sync/status', async (req, res) => {
@@ -1225,7 +1237,7 @@ router.get('/sync/status', async (req, res) => {
 });
 
 /**
- * GET /api/v2/kho-di-cho/sync/log
+ * GET /api/v2/web-warehouse/sync/log
  * Get sync history
  */
 router.get('/sync/log', async (req, res) => {

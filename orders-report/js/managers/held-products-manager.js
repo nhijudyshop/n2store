@@ -160,17 +160,17 @@
                     if (holderData.isDraft === true) continue;
 
                     // Remove this user's hold via API
-                    // For kho-di-cho sourced products, releasing the hold auto-restores available_qty
+                    // For web-warehouse sourced products, releasing the hold auto-restores available_qty
                     // (available_qty = quantity - SUM(held), so deleting held row restores it)
                     await fetch(
                         `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
                         { method: 'DELETE' }
                     );
 
-                    // Also try kho-di-cho hold endpoint (productId here is product_code for kho products)
-                    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+                    // Also try web-warehouse hold endpoint (productId here is product_code for kho products)
+                    const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
                     await fetch(
-                        `${KHO_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
+                        `${WAREHOUSE_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
                         { method: 'DELETE' }
                     ).catch(() => {});
 
@@ -474,16 +474,16 @@
                     if (holderData.isDraft === true) continue;
 
                     // Remove held product
-                    // For kho-di-cho products, releasing hold auto-restores available_qty
+                    // For web-warehouse products, releasing hold auto-restores available_qty
                     await fetch(
                         `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
                         { method: 'DELETE' }
                     ).catch(() => {});
 
-                    // Also try kho-di-cho hold release
-                    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+                    // Also try web-warehouse hold release
+                    const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
                     await fetch(
-                        `${KHO_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
+                        `${WAREHOUSE_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
                         { method: 'DELETE' }
                     ).catch(() => {});
                 }

@@ -8,6 +8,17 @@
 
 ## 2026-04-12
 
+### [shared] Rename kho_di_cho → web_warehouse + xóa trang Kho Đi Chợ ✅
+| | |
+|---|---|
+| **Files** | 24 files across render.com/, cloudflare-worker/, orders-report/, product-warehouse/, purchase-orders/, doi-soat/, shared/ |
+| **DB** | `kho_di_cho` → `web_warehouse`, `kho_di_cho_sales` → `web_warehouse_sales` (auto-migration in ensureTable) |
+| **API** | `/api/v2/kho-di-cho` → `/api/v2/web-warehouse` (backward compat alias kept) |
+| **SSE** | Channel key `kho_di_cho` → `web_warehouse` |
+| **Deleted** | `kho-di-cho/` directory (page), `kho-di-cho-cache.js` (replaced by `web-warehouse-cache.js`), `routes/v2/kho-di-cho.js` (replaced by `web-warehouse.js`) |
+| **Nav** | Removed "Kho Đi Chợ" from sidebar navigation |
+| **Status** | ✅ Done |
+
 ### [shared] Fix SSE realtime gây re-render toàn bộ bảng ✅
 | | |
 |---|---|

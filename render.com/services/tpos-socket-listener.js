@@ -8,7 +8,7 @@
  * via Socket.IO to receive product change events.
  *
  * When product events are received, triggers sync of
- * affected products into kho_di_cho (PostgreSQL).
+ * affected products into web_warehouse (PostgreSQL).
  *
  * TPOS Socket.IO details:
  * - Server: https://rt-2.tpos.app
@@ -186,7 +186,7 @@ class TPOSSocketListener {
                 break;
 
             case 'deleted':
-                // Template deleted — mark inactive in kho_di_cho
+                // Template deleted — mark inactive in web_warehouse
                 if (data.data?.Id) {
                     this._deactivateTemplate(data.data.Id);
                 }
@@ -376,7 +376,7 @@ class TPOSSocketListener {
 
         // Notify browser clients
         if (this.notifySSE && (stats.inserted > 0 || stats.updated > 0)) {
-            this.notifySSE('kho_di_cho', {
+            this.notifySSE('web_warehouse', {
                 action: 'sync_complete',
                 syncType: 'realtime',
                 stats,
@@ -392,7 +392,7 @@ class TPOSSocketListener {
         try {
             const db = this.syncService.db;
             const result = await db.query(
-                `UPDATE kho_di_cho SET active = false, updated_at = NOW()
+                `UPDATE web_warehouse SET active = false, updated_at = NOW()
                  WHERE tpos_template_id = $1 AND active = true`,
                 [templateId]
             );
@@ -400,7 +400,7 @@ class TPOSSocketListener {
             if (result.rowCount > 0) {
                 console.log(`[TPOS-SOCKET] Deactivated ${result.rowCount} products for template ${templateId}`);
                 if (this.notifySSE) {
-                    this.notifySSE('kho_di_cho', {
+                    this.notifySSE('web_warehouse', {
                         action: 'deactivated',
                         templateId,
                         count: result.rowCount,

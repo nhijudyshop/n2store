@@ -28,7 +28,7 @@ const ticketsRouter = require('./tickets');
 const balanceHistoryRouter = require('./balance-history');
 const analyticsRouter = require('./analytics');
 const pendingWithdrawalsRouter = require('./pending-withdrawals');
-const khoDiChoRouter = require('./kho-di-cho');
+const webWarehouseRouter = require('./web-warehouse');
 
 // Deprecation middleware for v1 endpoints (apply in main app)
 const addDeprecationWarning = (req, res, next) => {
@@ -48,7 +48,8 @@ router.use('/tickets', ticketsRouter);
 router.use('/balance-history', balanceHistoryRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/pending-withdrawals', pendingWithdrawalsRouter);
-router.use('/kho-di-cho', khoDiChoRouter);
+router.use('/web-warehouse', webWarehouseRouter);
+router.use('/kho-di-cho', webWarehouseRouter); // backward compat — remove after 1 week
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -56,7 +57,7 @@ router.get('/health', (req, res) => {
         success: true,
         version: '2.0.0',
         timestamp: new Date().toISOString(),
-        modules: ['customers', 'wallets', 'tickets', 'balance-history', 'analytics', 'pending-withdrawals', 'kho-di-cho']
+        modules: ['customers', 'wallets', 'tickets', 'balance-history', 'analytics', 'pending-withdrawals', 'web-warehouse']
     });
 });
 

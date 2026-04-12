@@ -89,7 +89,7 @@ render.com/
 │   │   ├── tickets.js           # Ticket system
 │   │   ├── balance-history.js   # Bank ↔ customer linking
 │   │   ├── analytics.js         # Dashboard + RFM segments
-│   │   ├── kho-di-cho.js        # Warehouse: hold → confirm → return
+│   │   ├── web-warehouse.js        # Warehouse: hold → confirm → return
 │   │   └── pending-withdrawals.js
 │   ├── sepay-webhook-core.js    # SePay webhook handler chính
 │   ├── sepay-transaction-matching.js  # Phone extraction, TPOS search
@@ -120,7 +120,7 @@ render.com/
 │   ├── wallet-event-processor.js # Atomic wallet: DEPOSIT/WITHDRAW/VIRTUAL_CREDIT
 │   ├── customer-creation-service.js  # Tìm/tạo customer từ TPOS
 │   ├── tpos-customer-service.js  # Search customer TPOS API
-│   ├── sync-tpos-products.js    # Full/incremental sync → kho_di_cho
+│   ├── sync-tpos-products.js    # Full/incremental sync → web_warehouse
 │   ├── tpos-socket-listener.js  # Socket.IO listener product events
 │   ├── pancake-alert-service.js # Alerts qua Telegram
 │   ├── firebase-storage-service.js  # Firebase Storage singleton
@@ -412,18 +412,18 @@ Thay thế Firebase Realtime Database:
 
 | Method | URL | Mô tả |
 |---|---|---|
-| GET | `/api/v2/kho-di-cho` | List products + available_qty |
-| POST | `/api/v2/kho-di-cho/batch` | Batch upsert từ purchase orders |
-| POST | `/api/v2/kho-di-cho/subtract` | Trừ sau đối soát |
-| PATCH | `/api/v2/kho-di-cho/:id` | Cập nhật product |
-| DELETE | `/api/v2/kho-di-cho/:id` | Xóa product |
-| DELETE | `/api/v2/kho-di-cho` | Clear toàn bộ |
-| POST | `/api/v2/kho-di-cho/hold` | Giữ cho order |
-| DELETE | `/api/v2/kho-di-cho/hold/:orderId/:productCode/:userId` | Release hold |
-| GET | `/api/v2/kho-di-cho/holders/:productCode` | Ai đang hold |
-| POST | `/api/v2/kho-di-cho/confirm-sale` | Xác nhận bán (held → trừ kho) |
-| POST | `/api/v2/kho-di-cho/return` | Trả hàng về kho |
-| GET | `/api/v2/kho-di-cho/sales` | Lịch sử bán |
+| GET | `/api/v2/web-warehouse` | List products + available_qty |
+| POST | `/api/v2/web-warehouse/batch` | Batch upsert từ purchase orders |
+| POST | `/api/v2/web-warehouse/subtract` | Trừ sau đối soát |
+| PATCH | `/api/v2/web-warehouse/:id` | Cập nhật product |
+| DELETE | `/api/v2/web-warehouse/:id` | Xóa product |
+| DELETE | `/api/v2/web-warehouse` | Clear toàn bộ |
+| POST | `/api/v2/web-warehouse/hold` | Giữ cho order |
+| DELETE | `/api/v2/web-warehouse/hold/:orderId/:productCode/:userId` | Release hold |
+| GET | `/api/v2/web-warehouse/holders/:productCode` | Ai đang hold |
+| POST | `/api/v2/web-warehouse/confirm-sale` | Xác nhận bán (held → trừ kho) |
+| POST | `/api/v2/web-warehouse/return` | Trả hàng về kho |
+| GET | `/api/v2/web-warehouse/sales` | Lịch sử bán |
 
 ### API V2 — Pending Withdrawals
 
@@ -686,7 +686,7 @@ Endpoint: `GET /api/realtime/sse?keys=key1,key2,key3`
 | `held_products/ORDER123` | Specific order hold |
 | `kpi_base` | KPI dashboard |
 | `settings` | App settings |
-| `kho_di_cho` | Warehouse product updates |
+| `web_warehouse` | Warehouse product updates |
 | `balance_update` | SePay balance (via `/api/sepay/stream`) |
 
 **Event types:** `connected`, `update`, `delete`, `error`, `heartbeat` (30s)
@@ -705,7 +705,7 @@ Endpoint: `GET /api/realtime/sse?keys=key1,key2,key3`
 | Mỗi ngày 9AM (`0 9 * * *`) | RETURN_SHIPPER tickets > 20 ngày chưa nhận |
 | Mỗi ngày 3AM (`0 3 * * *`) | Cleanup `recent_transfer_phones` > 7 ngày |
 | Mỗi ngày 4AM (`0 4 * * *`) | Cleanup `tpos_order_buffer` (giữ 3 ngày) |
-| Mỗi 30 phút | Incremental sync TPOS products → kho_di_cho |
+| Mỗi 30 phút | Incremental sync TPOS products → web_warehouse |
 
 ---
 
@@ -743,7 +743,7 @@ Endpoint: `GET /api/realtime/sse?keys=key1,key2,key3`
 | `services/wallet-event-processor.js` | Atomic wallet: DEPOSIT, WITHDRAW, VIRTUAL_CREDIT; EventEmitter cho SSE |
 | `services/customer-creation-service.js` | `ensureCustomerWithTPOS()` — tìm hoặc tạo customer |
 | `services/tpos-customer-service.js` | Search customer TPOS API theo phone |
-| `services/sync-tpos-products.js` | Full/incremental sync TPOS → kho_di_cho (hash-based change detection) |
+| `services/sync-tpos-products.js` | Full/incremental sync TPOS → web_warehouse (hash-based change detection) |
 | `services/tpos-socket-listener.js` | Socket.IO listener product events từ TPOS |
 | `services/pancake-alert-service.js` | Alerts qua Telegram Bot |
 | `services/firebase-storage-service.js` | Firebase Admin SDK singleton |

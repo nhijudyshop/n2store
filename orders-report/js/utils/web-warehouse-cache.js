@@ -1,13 +1,13 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * Kho Di Cho Cache - Pre-loads product STT data for bill generation
- * Used by BillService to append kho đi chợ STT numbers to product names on bills
+ * Web Warehouse Cache - Pre-loads product STT data for bill generation
+ * Used by BillService to append warehouse STT numbers to product names on bills
  */
-const KhoDiChoCache = (function () {
+const WebWarehouseCache = (function () {
     const API_URL =
-        'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho?limit=1000&sort_by=stt&sort_order=ASC';
-    const LS_KEY = 'khoDiChoCache';
-    const LS_TIMESTAMP_KEY = 'khoDiChoCacheTimestamp';
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse?limit=1000&sort_by=stt&sort_order=ASC';
+    const LS_KEY = 'webWarehouseCache';
+    const LS_TIMESTAMP_KEY = 'webWarehouseCacheTimestamp';
     const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
     // Map<normalizedProductCode, stt>
@@ -58,7 +58,7 @@ const KhoDiChoCache = (function () {
             localStorage.setItem(LS_KEY, JSON.stringify(data));
             localStorage.setItem(LS_TIMESTAMP_KEY, String(Date.now()));
         } catch (e) {
-            console.warn('[KHO-DI-CHO-CACHE] localStorage save failed:', e.message);
+            console.warn('[WEB-WAREHOUSE-CACHE] localStorage save failed:', e.message);
         }
     }
 
@@ -74,7 +74,7 @@ const KhoDiChoCache = (function () {
                 return true;
             }
         } catch (e) {
-            console.warn('[KHO-DI-CHO-CACHE] localStorage load failed:', e.message);
+            console.warn('[WEB-WAREHOUSE-CACHE] localStorage load failed:', e.message);
         }
         return false;
     }
@@ -94,11 +94,11 @@ const KhoDiChoCache = (function () {
                     buildMap(json.data);
                     saveToLocalStorage(json.data);
                 } else {
-                    console.warn('[KHO-DI-CHO-CACHE] API returned no data, trying localStorage');
+                    console.warn('[WEB-WAREHOUSE-CACHE] API returned no data, trying localStorage');
                     loadFromLocalStorage();
                 }
             } catch (err) {
-                console.warn('[KHO-DI-CHO-CACHE] API fetch failed:', err.message);
+                console.warn('[WEB-WAREHOUSE-CACHE] API fetch failed:', err.message);
                 loadFromLocalStorage();
             } finally {
                 _loading = null;
@@ -164,8 +164,8 @@ const KhoDiChoCache = (function () {
 })();
 
 // Expose globally
-window.KhoDiChoCache = KhoDiChoCache;
+window.WebWarehouseCache = WebWarehouseCache;
+window.KhoDiChoCache = WebWarehouseCache; // backward compat
 
 // Auto-load on script load (non-blocking)
-KhoDiChoCache.load();
-
+WebWarehouseCache.load();

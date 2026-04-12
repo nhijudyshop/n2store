@@ -212,7 +212,7 @@
         if (!confirmed) return;
 
         try {
-            // Release kho-di-cho hold (returns available_qty) + return to warehouse
+            // Release web-warehouse hold (returns available_qty) + return to warehouse
             const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
             if (heldProduct.IsFromKho || heldProduct.IsFromDropped) {
                 // Product came from kho — just release the hold (available_qty auto-restores)
@@ -522,11 +522,11 @@
     }
 
     const RENDER_API = 'https://n2store-fallback.onrender.com';
-    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+    const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
 
     /**
      * Remove held product from Render API
-     * Tries kho-di-cho hold endpoint first, falls back to realtime held-products
+     * Tries web-warehouse hold endpoint first, falls back to realtime held-products
      */
     async function removeHeldFromRender(orderId, productId, productCode) {
         try {
@@ -539,9 +539,9 @@
             }
             if (!userId) return;
 
-            // Try kho-di-cho hold endpoint (product_code based)
+            // Try web-warehouse hold endpoint (product_code based)
             if (productCode) {
-                await fetch(`${KHO_API}/hold/${orderId}/${encodeURIComponent(productCode)}/${userId}`, {
+                await fetch(`${WAREHOUSE_API}/hold/${orderId}/${encodeURIComponent(productCode)}/${userId}`, {
                     method: 'DELETE',
                 }).catch(() => {});
             }
@@ -571,7 +571,7 @@
             const userId = auth?.id || auth?.Id || auth?.username || auth?.userType || 'unknown';
             const displayName = auth?.displayName || auth?.userType || 'Unknown';
 
-            await fetch(`${KHO_API}/confirm-sale`, {
+            await fetch(`${WAREHOUSE_API}/confirm-sale`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

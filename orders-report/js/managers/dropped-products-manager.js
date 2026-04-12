@@ -60,7 +60,7 @@
 
     // Render API base URLs
     const RENDER_API = 'https://n2store-fallback.onrender.com';
-    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+    const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
 
     // Local state - Kho Đi Chợ (PostgreSQL) is the single source of truth
     let droppedProducts = [];
@@ -68,9 +68,9 @@
     let warehouseProducts = [];
 
     /**
-     * Map kho_di_cho row → dropped product format (compatible with existing UI)
+     * Map web_warehouse row → dropped product format (compatible with existing UI)
      */
-    function mapKhoProduct(kho) {
+    function mapWarehouseProduct(kho) {
         return {
             id: kho.id,
             ProductId: kho.tpos_product_id || kho.product_code,
@@ -89,7 +89,7 @@
             variant: kho.variant,
             parentProductCode: kho.parent_product_code,
             holders: kho.holders || [],
-            _source: 'kho_di_cho',
+            _source: 'web_warehouse',
             _khoId: kho.id,
         };
     }
@@ -228,51 +228,21 @@
     }
 
     /**
-     * Load warehouse products (Kho Sản Phẩm) from TPOS OData API
-     * Same source as product-warehouse/index.html
+     * Load warehouse products (Kho Sản Phẩm) from Web Warehouse API
      */
     async function loadWarehouseProductsFromAPI() {
         try {
-            const params = new URLSearchParams();
-            params.set('Active', 'true');
-            params.set('priceId', '0');
-            params.set('$top', '1000');
-            params.set('$skip', '0');
-            params.set('$orderby', 'DateCreated desc');
-            params.set('$count', 'true');
-            params.set('$filter', 'Active eq true');
-
-            const url = API_CONFIG.buildUrl.tposOData(
-                'ProductTemplate/ODataService.GetViewV2',
-                params.toString()
-            );
-
-            const response = await window.tokenManager.authenticatedFetch(url, {
-                headers: { 'Accept': 'application/json' }
-            });
+            const response = await fetch(`${WAREHOUSE_API}?limit=1000&sort_by=stt&sort_order=ASC&has_inventory=true`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-            const data = await response.json();
-            const items = data.value || [];
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Unknown error');
 
-            warehouseProducts = items.map(item => ({
-                ProductId: item.Id || item.DefaultCode,
-                ProductCode: item.DefaultCode || '',
-                ProductName: item.Name || '',
-                ProductNameGet: item.DefaultCode
-                    ? `[${item.DefaultCode}] ${item.Name || ''}`
-                    : item.Name || '',
-                ImageUrl: item.ImageUrl || '',
-                Price: item.ListPrice || 0,
-                PurchasePrice: item.PurchasePrice || 0,
-                Quantity: item.QtyAvailable || 0,
-                UOMName: item.UOMName || '',
-                _source: 'tpos_odata',
-            }));
+            warehouseProducts = (result.data || []).map(mapWarehouseProduct);
 
             renderWarehouseProductsTable();
             updateDroppedCounts();
-            console.log(`[KHO] Loaded ${warehouseProducts.length} warehouse products from TPOS`);
+            console.log(`[KHO] Loaded ${warehouseProducts.length} warehouse products`);
         } catch (error) {
             console.error('[KHO] Error loading warehouse products:', error);
         }
@@ -281,7 +251,7 @@
     /**
      * Setup SSE for real-time updates
      * - dropped_products: hàng rớt xả (sub-tab 1)
-     * - kho_di_cho: kho sản phẩm (sub-tab 2)
+     * - web_warehouse: kho sản phẩm (sub-tab 2)
      */
     function setupSSE() {
         if (sseSource) {
@@ -289,7 +259,7 @@
             sseSource = null;
         }
 
-        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('dropped_products')}`;
+        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('dropped_products,web_warehouse')}`;
 
         try {
             sseSource = new EventSource(sseUrl);
@@ -300,6 +270,8 @@
                     const key = payload.key || payload.matchedKey || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedSSE(payload.data || payload);
+                    } else if (key.startsWith('web_warehouse')) {
+                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {
                     console.warn('[SSE] Parse error:', err);
@@ -312,6 +284,8 @@
                     const key = payload.key || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedSSE(payload.data || payload);
+                    } else if (key.startsWith('web_warehouse')) {
+                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {}
             });
@@ -322,12 +296,14 @@
                     const key = payload.key || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedDeleteSSE(payload.data || payload);
+                    } else if (key.startsWith('web_warehouse')) {
+                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {}
             });
 
             sseSource.addEventListener('connected', () => {
-                console.log('[SSE] Connected for dropped_products');
+                console.log('[SSE] Connected for dropped_products + web_warehouse');
             });
 
             sseSource.onerror = () => {
@@ -1262,7 +1238,7 @@
             const p = warehouseProducts.find((x) => x.ProductId === pid);
             if (!p || (p.Quantity || 0) <= 0) continue;
 
-            // Use kho-di-cho hold API
+            // Use web-warehouse hold API
             try {
                 const auth = window.authManager?.getAuthState();
                 let userId = auth?.id || auth?.Id || auth?.username || auth?.userType;
@@ -1272,7 +1248,7 @@
                 const orderId = window.currentChatOrderData.Id;
                 const productCode = p.ProductCode;
 
-                const holdResp = await fetch(`${KHO_API}/hold`, {
+                const holdResp = await fetch(`${WAREHOUSE_API}/hold`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

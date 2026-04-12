@@ -340,10 +340,10 @@ initializeNotifiers(
     realtimeSseRoutes.notifyClientsWildcard
 );
 
-// Initialize SSE notifiers in kho-di-cho routes
-const khoDiChoRouter = require('./routes/v2/kho-di-cho');
-if (khoDiChoRouter.initializeNotifiers) {
-    khoDiChoRouter.initializeNotifiers(
+// Initialize SSE notifiers in web-warehouse routes
+const webWarehouseRouter = require('./routes/v2/web-warehouse');
+if (webWarehouseRouter.initializeNotifiers) {
+    webWarehouseRouter.initializeNotifiers(
         realtimeSseRoutes.notifyClients,
         realtimeSseRoutes.notifyClientsWildcard
     );
@@ -356,8 +356,8 @@ const tposProductSync = new TPOSProductSync(
     tposTokenManager,
     realtimeSseRoutes.notifyClients
 );
-if (khoDiChoRouter.initializeSyncService) {
-    khoDiChoRouter.initializeSyncService(tposProductSync);
+if (webWarehouseRouter.initializeSyncService) {
+    webWarehouseRouter.initializeSyncService(tposProductSync);
 }
 // Socket listener initialized after creation below
 // Start incremental sync cron (every 30 minutes) + TPOS Socket.IO listener
@@ -368,8 +368,8 @@ const tposSocketListener = new TPOSSocketListener(
     realtimeSseRoutes.notifyClients
 );
 
-if (khoDiChoRouter.initializeSocketListener) {
-    khoDiChoRouter.initializeSocketListener(tposSocketListener);
+if (webWarehouseRouter.initializeSocketListener) {
+    webWarehouseRouter.initializeSocketListener(tposSocketListener);
 }
 
 setTimeout(async () => {

@@ -667,16 +667,16 @@
                     })).filter(i => i.product_code);
 
                     if (subtractItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/subtract', {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/subtract', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: subtractItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[KhoDiCho] Trừ kho:', res.message);
-                        }).catch(err => console.warn('[KhoDiCho] Trừ kho lỗi:', err));
+                            if (res.success) console.log('[WebWarehouse] Trừ kho:', res.message);
+                        }).catch(err => console.warn('[WebWarehouse] Trừ kho lỗi:', err));
                     }
                 } catch (err) {
-                    console.warn('[KhoDiCho] Subtract error:', err);
+                    console.warn('[WebWarehouse] Subtract error:', err);
                 }
 
                 goBack();

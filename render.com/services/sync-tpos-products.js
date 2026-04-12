@@ -4,7 +4,7 @@
  * TPOS PRODUCT SYNC SERVICE
  * =====================================================
  *
- * Syncs product catalog from TPOS → PostgreSQL (kho_di_cho).
+ * Syncs product catalog from TPOS → PostgreSQL (web_warehouse).
  * Supports full sync and incremental sync.
  *
  * - Full sync: fetches ALL templates + variants (paginated)
@@ -120,7 +120,7 @@ class TPOSProductSync {
     // =====================================================
 
     /**
-     * Full sync: fetch ALL TPOS product templates + variants → upsert into kho_di_cho
+     * Full sync: fetch ALL TPOS product templates + variants → upsert into web_warehouse
      */
     async fullSync() {
         if (this._isRunning) {
@@ -179,7 +179,7 @@ class TPOSProductSync {
 
             // 3. Deactivate products not seen in this sync (no inventory)
             const deactivated = await this.db.query(
-                `UPDATE kho_di_cho SET active = false, updated_at = NOW()
+                `UPDATE web_warehouse SET active = false, updated_at = NOW()
                  WHERE (last_synced_at IS NULL OR last_synced_at < $1)
                    AND quantity = 0
                    AND active = true`,
@@ -192,7 +192,7 @@ class TPOSProductSync {
 
             // SSE notify
             if (this.notifySSE) {
-                this.notifySSE('kho_di_cho', { action: 'sync_complete', syncType: 'full', stats }, 'update');
+                this.notifySSE('web_warehouse', { action: 'sync_complete', syncType: 'full', stats }, 'update');
             }
 
             return stats;
@@ -277,7 +277,7 @@ class TPOSProductSync {
     }
 
     /**
-     * Upsert a single product into kho_di_cho
+     * Upsert a single product into web_warehouse
      * - If exists: update product info only (preserve quantity, source_po_ids)
      * - If new: insert with quantity=0
      */
@@ -295,7 +295,7 @@ class TPOSProductSync {
 
         // Check existing
         const existing = await this.db.query(
-            'SELECT id, data_hash FROM kho_di_cho WHERE product_code = $1',
+            'SELECT id, data_hash FROM web_warehouse WHERE product_code = $1',
             [product.product_code]
         );
 
@@ -304,7 +304,7 @@ class TPOSProductSync {
             if (existing.rows[0].data_hash === hash) {
                 // Only update sync timestamp
                 await this.db.query(
-                    'UPDATE kho_di_cho SET last_synced_at = $2, active = true WHERE id = $1',
+                    'UPDATE web_warehouse SET last_synced_at = $2, active = true WHERE id = $1',
                     [existing.rows[0].id, syncStartedAt]
                 );
                 stats.unchanged++;
@@ -313,7 +313,7 @@ class TPOSProductSync {
 
             // Changed — update product info (preserve quantity + source_po_ids)
             await this.db.query(
-                `UPDATE kho_di_cho SET
+                `UPDATE web_warehouse SET
                     parent_product_code = COALESCE($2, parent_product_code),
                     product_name = $3,
                     name_get = $4,
@@ -356,11 +356,11 @@ class TPOSProductSync {
             stats.updated++;
         } else {
             // New product — insert with quantity=0
-            const maxSttResult = await this.db.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM kho_di_cho');
+            const maxSttResult = await this.db.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
             const nextStt = maxSttResult.rows[0].max_stt + 1;
 
             await this.db.query(
-                `INSERT INTO kho_di_cho (
+                `INSERT INTO web_warehouse (
                     stt, product_code, parent_product_code, product_name, name_get,
                     variant, category, image_url, barcode, uom_name,
                     selling_price, purchase_price, standard_price,
@@ -434,7 +434,7 @@ class TPOSProductSync {
             console.log('[SYNC] === Incremental sync completed ===', JSON.stringify(stats));
 
             if (this.notifySSE && (stats.inserted > 0 || stats.updated > 0)) {
-                this.notifySSE('kho_di_cho', { action: 'sync_complete', syncType: 'incremental', stats }, 'update');
+                this.notifySSE('web_warehouse', { action: 'sync_complete', syncType: 'incremental', stats }, 'update');
             }
 
             return stats;
@@ -492,7 +492,7 @@ class TPOSProductSync {
         const productCount = await this.db.query(
             `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active) as active,
                     COUNT(*) FILTER (WHERE quantity > 0) as with_inventory
-             FROM kho_di_cho`
+             FROM web_warehouse`
         );
 
         return {

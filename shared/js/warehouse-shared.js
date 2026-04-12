@@ -4,7 +4,7 @@
  * WAREHOUSE SHARED UTILITIES
  * =====================================================
  * Common functions shared between:
- *   - kho-di-cho (Kho Đi Chợ)
+ *   - web-warehouse (Kho Đi Chợ)
  *   - product-warehouse (Kho Sản Phẩm)
  *
  * Usage: <script src="../shared/js/warehouse-shared.js"></script>
@@ -96,7 +96,7 @@
             return;
         }
 
-        // Fallback: floating toast (kho-di-cho style)
+        // Fallback: floating toast (web-warehouse style)
         const existing = document.querySelector('.toast');
         if (existing) existing.remove();
         const toast = document.createElement('div');

@@ -177,7 +177,7 @@ export default {
                 case 'TICKETS_V2':
                 case 'BALANCE_HISTORY_V2':
                 case 'ANALYTICS_V2':
-                case 'KHO_DI_CHO_V2':
+                case 'WEB_WAREHOUSE_V2':
                     return handleCustomer360Proxy(request, url, pathname);
 
                 // Customer 360 v1 (legacy)

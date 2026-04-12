@@ -5,7 +5,7 @@
    search with Excel suggestions, filter, sort,
    server-side pagination, variant images
    Data from TPOS OData API via Cloudflare proxy
-   + SSE real-time updates (shared with kho-di-cho)
+   + SSE real-time updates (shared with web-warehouse)
    ===================================================== */
 
 (function () {
@@ -14,8 +14,8 @@
     // Shared utilities alias
     const WS = window.WarehouseShared;
 
-    // SSE endpoint — same as kho-di-cho, listens for TPOS product changes
-    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=kho_di_cho';
+    // SSE endpoint — same as web-warehouse, listens for TPOS product changes
+    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
     let sseCtrl = null;
 
     // =====================================================

@@ -179,7 +179,7 @@ Tất cả forward → `n2store-fallback.onrender.com/api/*`:
 | `/api/v2/tickets/*` | Ticket system |
 | `/api/v2/balance-history/*` | Bank transaction history |
 | `/api/v2/analytics/*` | Analytics dashboard |
-| `/api/v2/kho-di-cho/*` | Warehouse management |
+| `/api/v2/web-warehouse/*` | Warehouse management |
 
 ### Customer 360 (V1 Legacy)
 
