@@ -674,21 +674,15 @@ async function confirmAndPrintSale() {
     }
 
     // Guard duplicate: nếu đơn này đã có PBH "Đã xác nhận"/"Đã thanh toán" thì không tạo lại
-    // Exception: "MY CSKH" invoices bypass this check (customer service orders can be re-created)
+    // Bypass if _forceCreatePBHBypass flag is set (from "+ PBH" button in invoice status column)
     try {
-        // Check if existing invoice is from MY CSKH → allow bypass
-        const saleOnlineId =
-            currentSaleOrderData.SaleOnlineIds?.[0] || currentSaleOrderData.Id;
-        let isMyCskh = (currentSaleOrderData.UserName || '').toUpperCase().includes('MY CSKH');
-
-        if (!isMyCskh && saleOnlineId && window.InvoiceStatusStore) {
-            const existingInvoice = window.InvoiceStatusStore.get(saleOnlineId);
-            if (existingInvoice && (existingInvoice.UserName || '').toUpperCase().includes('MY CSKH')) {
-                isMyCskh = true;
-            }
+        const forceBypass = window._forceCreatePBHBypass === true;
+        if (forceBypass) {
+            window._forceCreatePBHBypass = false; // Reset flag immediately
+            console.log('[SALE-CONFIRM] Force bypass: allowing PBH creation from + PBH button');
         }
 
-        if (!isMyCskh) {
+        if (!forceBypass) {
             if (
                 currentSaleOrderData.ShowState === 'Đã xác nhận' ||
                 currentSaleOrderData.ShowState === 'Đã thanh toán' ||

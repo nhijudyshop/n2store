@@ -418,9 +418,17 @@ async function showFastSaleModal() {
 
         // Filter out orders that already have confirmed/paid invoices
         // These orders should NOT be re-submitted to avoid duplicates
-        // Exception: "MY CSKH" invoices are allowed to be re-created (customer service orders)
+        // Bypass entirely if _forceCreatePBHBypass flag is set (from "+ PBH" button)
+        const forceBypass = window._forceCreatePBHBypass === true;
+        if (forceBypass) {
+            window._forceCreatePBHBypass = false;
+            console.log('[FAST-SALE] Force bypass: skipping duplicate invoice check');
+        }
+
         const confirmedOrderCodes = [];
         fastSaleOrdersData = fetchedOrders.filter((order) => {
+            if (forceBypass) return true; // Bypass all checks
+
             // Check 1: FastSaleOrder has confirmed/paid status from API
             if (
                 order.ShowState === 'Đã xác nhận' ||
@@ -429,13 +437,6 @@ async function showFastSaleModal() {
                 order.StatusText === 'Đơn hàng' ||
                 order.Status === 'Đơn hàng'
             ) {
-                // Exception: allow re-creation for MY CSKH invoices
-                const userName = order.UserName || '';
-                if (userName.toUpperCase().includes('MY CSKH')) {
-                    console.log(`[FAST-SALE] Allowing re-creation for MY CSKH order: ${order.Reference}`);
-                    return true;
-                }
-
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
                 confirmedOrderCodes.push(code);
                 console.log(
@@ -454,13 +455,6 @@ async function showFastSaleModal() {
                         invoiceData.ShowState === 'Đã thanh toán' ||
                         invoiceData.State === 'open')
                 ) {
-                    // Exception: allow re-creation for MY CSKH invoices
-                    const userName = invoiceData.UserName || '';
-                    if (userName.toUpperCase().includes('MY CSKH')) {
-                        console.log(`[FAST-SALE] Allowing re-creation for MY CSKH invoice: ${saleOnlineId}`);
-                        return true;
-                    }
-
                     const code = order.Reference || saleOnlineId;
                     confirmedOrderCodes.push(code);
                     console.log(

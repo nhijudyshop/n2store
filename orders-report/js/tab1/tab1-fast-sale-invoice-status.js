@@ -1695,10 +1695,8 @@
         // "Lịch sử" badge → click mở modal hiển thị toàn bộ response invoice
         html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
 
-        // MY CSKH: show "Tạo PBH mới" button to allow creating a new invoice
-        if (isMyCskh) {
-            html += `<button type="button" onclick="window.openSaleButtonModal && window.openSaleButtonModal(); event.stopPropagation();" title="Tạo phiếu bán hàng mới (MY CSKH)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH</button>`;
-        }
+        // "+ PBH" button — always show when invoice exists, bypass duplicate guard on click
+        html += `<button type="button" onclick="window._forceCreatePBH('${order.Id}'); event.stopPropagation();" title="Tạo phiếu bán hàng mới" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH</button>`;
         html += `</div>`;
 
         html += `</div>`;
@@ -3129,6 +3127,29 @@
         window.sendBillFromMainTable = sendBillFromMainTable;
         window.sendBillManually = sendBillManually;
         window.sendBillBatch = sendBillBatch;
+
+        /**
+         * Force create PBH for an order — bypass all duplicate guards
+         * Sets a global flag that tab1-sale.js and tab1-fast-sale.js check
+         */
+        window._forceCreatePBH = function(orderId) {
+            // Set bypass flag — checked by confirmAndPrintSale() and showFastSaleModal()
+            window._forceCreatePBHBypass = true;
+
+            // Select this order in the table
+            const checkbox = document.querySelector(`tr[data-order-id="${orderId}"] input[type="checkbox"]`);
+            if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // Open sale modal
+            if (typeof window.openSaleButtonModal === 'function') {
+                window.openSaleButtonModal();
+            } else {
+                window.notificationManager?.error('Chức năng tạo PBH chưa sẵn sàng');
+            }
+        };
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
         // Assign 'get' method explicitly (cannot use shorthand in object literal due to getter keyword conflict)
