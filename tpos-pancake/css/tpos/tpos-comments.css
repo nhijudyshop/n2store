@@ -339,13 +339,7 @@
     flex-direction: column;
     gap: 4px;
     align-items: center;
-    opacity: 0;
-    transition: opacity 0.2s;
     flex-shrink: 0;
-}
-
-.tpos-conversation-item:hover .tpos-conv-actions {
-    opacity: 1;
 }
 
 .tpos-action-btn {
