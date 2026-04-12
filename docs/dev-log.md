@@ -8,6 +8,15 @@
 
 ## 2026-04-12
 
+### [orders] Fix Excel fetch dùng đúng campaign từ dropdown ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/overview/overview-fetch.js`, `orders-report/js/overview/overview-ui.js` |
+| **Bug** | Excel fetch luôn dùng campaign từ Tab1 active, không theo dropdown đã chọn. Campaign tên kiểu "T10 PHÁ ĐÀOOOOOOO" không có date nên extractDateFromCampaignName() fail |
+| **Fix** | `getCurrentSessionCampaigns()` giờ dùng `currentTableName` (dropdown) → lookup `customStartDate` từ CampaignAPI → search TPOS theo date đó. 3 strategies: (1) date trong tên, (2) customStartDate từ API, (3) fallback Tab1 |
+| **Bonus** | Sau khi save Excel → reload dropdown (`loadAvailableTables()`) để cập nhật số đơn |
+| **Status** | ✅ Done |
+
 ### [docs] Full analysis Cloudflare Worker + Render Server ✅
 | | |
 |---|---|
