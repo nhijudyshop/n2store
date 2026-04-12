@@ -365,7 +365,8 @@
             html += `<div class="dg-header" data-datekey="${group.date}">
                 <span class="material-symbols-outlined dg-arrow ${isCollapsed ? '' : 'dg-expanded'}">chevron_right</span>
                 <span class="dg-date">${dateDisplay}</span>
-                <span class="dg-count">${count} đơn</span>
+                <div class="dg-line"></div>
+                <span class="dg-count">${count} đơn hàng</span>
                 <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
                 <button class="dg-add-btn" data-date="${group.date}" title="Thêm dòng vào ${dateDisplay}">
                     <span class="material-symbols-outlined">add</span>
