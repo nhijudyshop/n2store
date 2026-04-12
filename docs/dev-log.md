@@ -8,6 +8,16 @@
 
 ## 2026-04-12
 
+### [orders] Purchase Orders — Major Upgrade: Security, New Tabs, UX ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/lib/tpos-search.js`, `purchase-orders/js/lib/ncc-manager.js`, `purchase-orders/js/main.js`, `purchase-orders/js/config.js`, `purchase-orders/js/form-modal.js`, `purchase-orders/js/table-renderer.js`, `purchase-orders/js/lib/product-code-generator.js`, `purchase-orders/js/refund-tab.js` (NEW), `purchase-orders/js/products-tab.js` (NEW), `purchase-orders/css/variables.css`, `purchase-orders/css/styles.css`, `purchase-orders/css/modal.css`, `purchase-orders/css/table.css`, `purchase-orders/css/toast.css`, `purchase-orders/css/states.css`, `purchase-orders/index.html` |
+| **Security** | Xóa hardcoded TPOS credentials khỏi browser, dùng proxy auth JSON `{ companyId }`. Fix XSS (escapeHtml). Fix OData injection trong NCC manager. |
+| **New Tabs** | **Trả hàng NCC** (refund-tab.js): Xem phiếu trả hàng từ TPOS (Type='refund'). **Kho SP** (products-tab.js): Browse ProductTemplate catalog từ TPOS với search, sort, variant expansion. |
+| **CSS** | Xóa duplicate CSS variables. Thêm z-index scale (`--z-modal-bg`, `--z-notification`, etc.). Thêm print styles `@media print`. |
+| **UX** | Drag & drop image upload. ARIA attributes. Cache product codes (fix N+1 Firestore queries). |
+| **Status** | ✅ Done |
+
 ### [shared][render][inbox][orders][customer-hub] Pancake Integration — Full System ✅
 | | |
 |---|---|
