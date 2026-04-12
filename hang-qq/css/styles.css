@@ -377,32 +377,33 @@ body {
 .dg-items.collapsed { display: none; }
 
 /* Item row — spreadsheet-style grid */
+/*  SL  | SỐ KG |  X  | STT | SỐ HÓA ĐƠN | SỐ TIỀN | SL  | THIẾU | CP HÀNG VỀ | GHI CHÚ | × */
 .dg-item {
     display: grid;
-    grid-template-columns: 50px 60px 36px 50px 1fr 100px 50px 50px 90px 1fr 36px;
+    grid-template-columns: 40px 55px 32px 44px 1fr 90px 40px 50px 110px 140px 32px;
     align-items: center;
-    padding: 10px 16px;
-    border-bottom: 1px solid rgba(195, 198, 215, 0.15);
-    font-size: 12px;
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(195, 198, 215, 0.12);
+    font-size: 12.5px;
     color: var(--on-surface);
     transition: background 150ms;
-    gap: 4px;
+    gap: 6px;
 }
 .dg-item:last-child { border-bottom: none; }
 .dg-item:hover { background: rgba(239, 244, 255, 0.4); }
 
 /* Column header row */
 .dg-col-header {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: rgba(220, 233, 255, 0.25);
-    padding: 8px 16px;
+    letter-spacing: 0.06em;
+    background: rgba(220, 233, 255, 0.2);
+    padding: 7px 16px;
     border-bottom: 1px solid var(--outline-variant);
 }
-.dg-col-header:hover { background: rgba(220, 233, 255, 0.25); }
+.dg-col-header:hover { background: rgba(220, 233, 255, 0.2); }
 
 /* Done item */
 .dg-item.row-done { background: rgba(108, 248, 187, 0.06); }
@@ -417,35 +418,33 @@ body {
 }
 
 /* Grid columns */
-.col-sl { text-align: center; font-weight: 600; }
-.col-kg { text-align: center; color: #64748b; }
-.col-x { text-align: center; }
+.col-sl       { text-align: right; font-weight: 600; padding-right: 4px; }
+.col-kg       { text-align: right; color: #64748b; padding-right: 4px; }
+.col-x        { text-align: center; }
 .col-x input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
+    width: 14px; height: 14px;
     cursor: pointer;
     accent-color: var(--secondary);
 }
-.col-stt { text-align: center; font-weight: 600; color: #64748b; }
-.col-product {
+.col-stt      { text-align: center; font-weight: 600; color: #64748b; }
+.col-product  {
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 8px;
+    padding: 0 8px;
 }
-.col-money { text-align: right; font-weight: 700; color: var(--primary); }
-.col-slnhan { text-align: center; }
-.col-thieu { text-align: center; color: var(--error); font-weight: 600; }
-.col-cp { text-align: right; font-weight: 600; color: var(--secondary); }
-.col-note {
+.col-money    { text-align: right; font-weight: 700; color: var(--primary); font-family: 'Manrope', sans-serif; }
+.col-slnhan   { text-align: center; }
+.col-thieu    { text-align: center; color: var(--error); font-weight: 600; }
+.col-cp       { text-align: right; font-weight: 600; color: var(--secondary); font-family: 'Manrope', sans-serif; }
+.col-note     {
     color: #64748b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 8px;
 }
-.col-actions { text-align: center; }
+.col-actions  { text-align: center; }
 
 .row-del-btn {
     display: inline-flex;
