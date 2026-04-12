@@ -1361,7 +1361,8 @@ class InventoryPickerDialog {
         // Load products from TPOS API (for search index)
         await this.loadProductsFromTPOS();
 
-        // Show selected products list if any
+        // Show newest products immediately (or selected list)
+        this.filteredProducts = this.products.slice(0, 50);
         this.updateProductsList();
     }
 
@@ -1838,7 +1839,7 @@ class InventoryPickerDialog {
 
                 <!-- Search -->
                 <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; position: relative;">
-                    <input type="text" id="inventorySearchInput" placeholder="Tìm kiếm theo mã SP, tên, variant (tối thiểu 2 ký tự)..." autocomplete="off" style="
+                    <input type="text" id="inventorySearchInput" placeholder="Tìm nhanh theo mã SP hoặc tên sản phẩm..." autocomplete="off" style="
                         width: 100%;
                         padding: 10px 14px;
                         border: 1px solid #d1d5db;
@@ -1878,7 +1879,7 @@ class InventoryPickerDialog {
                         </div>
                     </div>
                     <p id="productCountText" style="margin: 8px 0 0; font-size: 13px; color: #6b7280;">
-                        Hiển thị ${this.filteredProducts.length} sản phẩm mới nhất
+                        Có ${this.products.length} sản phẩm trong kho
                     </p>
                 </div>
 
@@ -1947,23 +1948,9 @@ class InventoryPickerDialog {
             `;
         }
 
-        // When no search term: show selected products list
-        if (this.searchTerm.length < 2) {
-            // If has selected products, show them
-            if (this.selectedProducts.size > 0) {
-                return this.renderSelectedProductsList();
-            }
-            // Otherwise show search instruction
-            return `
-                <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin: 0 auto 12px; display: block; opacity: 0.5;">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.3-4.3"></path>
-                    </svg>
-                    <p>Nhập từ khóa tìm kiếm (tối thiểu 2 ký tự)</p>
-                    <p style="font-size: 12px; margin-top: 8px;">Có ${this.products.length} sản phẩm trong kho</p>
-                </div>
-            `;
+        // When no search term: show selected products or newest products
+        if (this.searchTerm.length === 0 && this.selectedProducts.size > 0) {
+            return this.renderSelectedProductsList();
         }
 
         if (this.filteredProducts.length === 0) {
@@ -2186,11 +2173,11 @@ class InventoryPickerDialog {
             });
         }
         if (countText) {
-            if (this.searchTerm.length < 2) {
+            if (this.searchTerm.length === 0) {
                 if (this.selectedProducts.size > 0) {
                     countText.textContent = `Đã chọn ${this.selectedProducts.size} sản phẩm`;
                 } else {
-                    countText.textContent = `Có ${this.products.length} sản phẩm trong kho`;
+                    countText.textContent = `Sản phẩm mới nhất (${this.products.length} SP trong kho)`;
                 }
             } else {
                 const modeLabel = this.searchMode === 'name' ? ' (theo tên)' : this.searchMode === 'code' ? ' (theo mã)' : '';
@@ -2391,9 +2378,15 @@ class InventoryPickerDialog {
         const searchWords = this.searchTerm.split(/\s+/).filter(w => w.length > 0);
         const matchesAllWords = (text) => searchWords.every(word => text.includes(word));
 
-        // Require at least 2 characters - don't show all products to avoid lag
-        if (this.searchTerm.length < 2) {
-            this.filteredProducts = []; // Empty - will show search instruction
+        // Show newest products when no search term (max 50)
+        if (this.searchTerm.length === 0) {
+            this.filteredProducts = this.products.slice(0, 50);
+        } else if (this.searchTerm.length === 1) {
+            // 1 char: filter by code prefix only (fast, useful for category browsing)
+            this.filteredProducts = this.products.filter(p => {
+                const code = (p.code || '').toLowerCase();
+                return code.startsWith(this.searchTerm);
+            }).slice(0, 100);
         } else {
             this.filteredProducts = this.products.filter(p => {
                 const fullName = (p.name || '').toLowerCase();
@@ -2719,8 +2712,21 @@ class InventoryPickerDialog {
         searchInput?.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const term = e.target.value;
-            showSuggestions(term);
-            // Don't auto-search while suggestions are showing - wait for selection or Enter
+            // Auto-search with debounce for instant results
+            searchTimeout = setTimeout(() => {
+                hideSuggestions();
+                // Auto-detect mode: if input looks like a code (short, alphanumeric), use code mode
+                const trimmed = term.trim();
+                const looksLikeCode = trimmed.length <= 8 && /^[a-zA-Z0-9]+$/.test(trimmed);
+                const autoMode = looksLikeCode ? 'code' : 'name';
+                this.filterProducts(term, autoMode);
+            }, 250);
+            // Also show suggestions dropdown for manual mode selection
+            if (term.trim().length >= 2) {
+                showSuggestions(term);
+            } else {
+                hideSuggestions();
+            }
         });
 
         searchInput?.addEventListener('keydown', (e) => {
