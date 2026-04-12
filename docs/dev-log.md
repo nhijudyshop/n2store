@@ -8,6 +8,14 @@
 
 ## 2026-04-12
 
+### [shared] Fix SSE realtime gây re-render toàn bộ bảng ✅
+| | |
+|---|---|
+| **Files** | `kho-di-cho/js/main.js`, `product-warehouse/js/main.js` |
+| **Bug** | Khi nhận SSE realtime từ TPOS, cả 2 trang `kho-di-cho` và `product-warehouse` đều gọi `showLoading(true)` → xóa trắng bảng (`innerHTML = ''`) → fetch lại → render lại toàn bộ. Gây flash/nhấp nháy |
+| **Fix** | Thêm param `silent` cho `loadData()` và `fetchProducts()`. SSE handler gọi với `silent=true` → skip loading indicator, giữ bảng hiện tại visible trong khi fetch data mới ở background |
+| **Status** | ✅ Done |
+
 ### [orders] Đổi nguồn Kho Sản Phẩm từ Kho Đi Chợ API sang TPOS OData ✅
 | | |
 |---|---|
