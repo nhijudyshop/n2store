@@ -293,7 +293,7 @@
 
             return `<tr class="${isDone ? 'checked' : ''}">
                 <td>${idx + 1}</td>
-                <td>${line.Name || line.ProductNameGet || ''}</td>
+                <td class="product-name-cell">${line.Name || line.ProductNameGet || ''}${line.Product && line.Product.ImageUrl ? `<span class="product-img-tooltip"><img src="${line.Product.ImageUrl}" alt=""></span>` : ''}</td>
                 <td>
                     <span class="qty-display">
                         <span class="${checkedQty > 0 ? 'qty-checked' : 'qty-unchecked'}">${checkedQty}</span>/${Math.floor(totalQty)}
