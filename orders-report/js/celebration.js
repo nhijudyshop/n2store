@@ -57,7 +57,7 @@ const CelebrationManager = (() => {
         el.setAttribute('aria-label', 'KPI Celebration');
 
         // Star rays
-        const rayCount = 16;
+        const rayCount = 8;
         let raysHTML = '';
         for (let i = 0; i < rayCount; i++) {
             const angle = (360 / rayCount) * i;
@@ -114,134 +114,111 @@ const CelebrationManager = (() => {
         return el;
     }
 
-    // --- Fireworks confetti sequence ---
+    // --- Fireworks confetti sequence (lightweight) ---
     async function launchFireworks() {
         const confetti = await loadConfetti();
 
-        const duration = 8000;
+        const duration = 5000;
         const end = Date.now() + duration;
-        const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981', '#ff4444', '#ffffff'];
+        const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981'];
 
-        // 1) Initial big burst
+        // 1) Initial burst
         confetti({
-            particleCount: 150,
-            spread: 100,
-            startVelocity: 55,
+            particleCount: 80,
+            spread: 90,
+            startVelocity: 45,
             origin: { y: 0.6 },
             colors,
-            gravity: 0.8,
-            ticks: 300,
+            gravity: 1,
+            ticks: 200,
         });
 
         // 2) Side cannons
         setTimeout(() => {
             confetti({
-                particleCount: 80,
+                particleCount: 40,
                 angle: 60,
-                spread: 70,
+                spread: 60,
                 origin: { x: 0, y: 0.65 },
                 colors,
-                ticks: 250,
+                ticks: 180,
             });
             confetti({
-                particleCount: 80,
+                particleCount: 40,
                 angle: 120,
-                spread: 70,
+                spread: 60,
                 origin: { x: 1, y: 0.65 },
                 colors,
-                ticks: 250,
+                ticks: 180,
             });
-        }, 400);
+        }, 500);
 
-        // 3) Continuous light rain
+        // 3) Gentle side rain (slower interval, fewer particles)
         const interval1 = setInterval(() => {
             if (Date.now() > end) {
                 clearInterval(interval1);
                 return;
             }
             confetti({
-                particleCount: 3,
+                particleCount: 2,
                 angle: 60,
-                spread: 55,
+                spread: 50,
                 origin: { x: 0 },
                 colors,
-                ticks: 200,
-                gravity: 0.6,
+                ticks: 150,
+                gravity: 0.8,
             });
             confetti({
-                particleCount: 3,
+                particleCount: 2,
                 angle: 120,
-                spread: 55,
+                spread: 50,
                 origin: { x: 1 },
                 colors,
-                ticks: 200,
-                gravity: 0.6,
+                ticks: 150,
+                gravity: 0.8,
             });
-        }, 120);
+        }, 250);
         confettiIntervals.push(interval1);
 
-        // 4) Random starbursts
-        const interval2 = setInterval(() => {
-            if (Date.now() > end) {
-                clearInterval(interval2);
-                return;
-            }
+        // 4) One starburst at 2s
+        setTimeout(() => {
             confetti({
-                particleCount: 30,
+                particleCount: 40,
                 spread: 360,
-                startVelocity: 25,
-                origin: {
-                    x: 0.2 + Math.random() * 0.6,
-                    y: 0.2 + Math.random() * 0.4,
-                },
+                startVelocity: 20,
+                origin: { x: 0.5, y: 0.35 },
                 colors,
-                ticks: 180,
-                gravity: 0.5,
-                scalar: 0.8,
+                ticks: 150,
+                gravity: 0.6,
+                scalar: 0.9,
             });
-        }, 800);
-        confettiIntervals.push(interval2);
+        }, 2000);
 
-        // 5) Falling stars (shapes)
+        // 5) Grand finale - 3 bursts
         setTimeout(() => {
-            confetti({
-                particleCount: 20,
-                spread: 180,
-                startVelocity: 10,
-                origin: { y: 0 },
-                colors: ['#ffd700', '#ffaa00'],
-                ticks: 400,
-                gravity: 0.3,
-                shapes: ['star'],
-                scalar: 1.8,
-            });
-        }, 1200);
-
-        // 6) Grand finale burst
-        setTimeout(() => {
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 3; i++) {
                 setTimeout(() => {
                     confetti({
-                        particleCount: 60,
-                        spread: 90 + Math.random() * 60,
-                        startVelocity: 35 + Math.random() * 20,
+                        particleCount: 35,
+                        spread: 80 + Math.random() * 40,
+                        startVelocity: 30,
                         origin: {
-                            x: 0.15 + Math.random() * 0.7,
-                            y: 0.3 + Math.random() * 0.4,
+                            x: 0.2 + Math.random() * 0.6,
+                            y: 0.35 + Math.random() * 0.3,
                         },
                         colors,
-                        ticks: 200,
+                        ticks: 150,
                     });
-                }, i * 200);
+                }, i * 300);
             }
-        }, 5000);
+        }, 3500);
     }
 
-    // --- Floating emoji rain ---
+    // --- Floating emoji rain (lightweight) ---
     function spawnFloatingEmojis() {
-        const emojis = ['🎉', '🎊', '⭐', '🌟', '✨', '💫', '🥳', '🎈', '🎆', '🎇', '💰', '🏅'];
+        const emojis = ['🎉', '🎊', '⭐', '✨', '🥳', '🎈', '💰', '🏅'];
         let count = 0;
-        const maxEmojis = 30;
+        const maxEmojis = 12;
 
         const interval = setInterval(() => {
             if (!overlay || !overlay.classList.contains('active') || count >= maxEmojis) {
@@ -254,46 +231,14 @@ const CelebrationManager = (() => {
             emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
             emoji.style.left = `${10 + Math.random() * 80}%`;
             emoji.style.bottom = '-40px';
-            emoji.style.fontSize = `${20 + Math.random() * 24}px`;
-            emoji.style.animationDuration = `${3 + Math.random() * 3}s`;
+            emoji.style.fontSize = `${22 + Math.random() * 16}px`;
+            emoji.style.animationDuration = `${3.5 + Math.random() * 2}s`;
 
             overlay.appendChild(emoji);
             count++;
 
-            // Remove after animation
             emoji.addEventListener('animationend', () => emoji.remove());
-        }, 300);
-
-        confettiIntervals.push(interval);
-    }
-
-    // --- CSS sparkles around photo ---
-    function spawnSparkles() {
-        if (!overlay) return;
-        const card = overlay.querySelector('.celebration-card');
-        if (!card) return;
-
-        let sparkleCount = 0;
-        const interval = setInterval(() => {
-            if (!overlay || !overlay.classList.contains('active') || sparkleCount >= 40) {
-                clearInterval(interval);
-                return;
-            }
-
-            const sparkle = document.createElement('div');
-            sparkle.className = 'celebration-sparkle';
-            const rect = card.getBoundingClientRect();
-            sparkle.style.left = `${rect.left + Math.random() * rect.width}px`;
-            sparkle.style.top = `${rect.top + Math.random() * rect.height}px`;
-            sparkle.style.width = `${3 + Math.random() * 5}px`;
-            sparkle.style.height = sparkle.style.width;
-            sparkle.style.background = ['#ffd700', '#ff6b35', '#ff1493', '#00d4ff', '#ffffff'][Math.floor(Math.random() * 5)];
-            sparkle.style.animationDuration = `${0.8 + Math.random() * 1.2}s`;
-
-            document.body.appendChild(sparkle);
-            sparkleCount++;
-            sparkle.addEventListener('animationend', () => sparkle.remove());
-        }, 200);
+        }, 600);
 
         confettiIntervals.push(interval);
     }
@@ -341,14 +286,13 @@ const CelebrationManager = (() => {
             });
         });
 
-        // Launch all effects
+        // Launch effects
         playSound();
         launchFireworks();
         spawnFloatingEmojis();
-        setTimeout(() => spawnSparkles(), 500);
 
-        // Auto-dismiss after 15 seconds
-        setTimeout(() => dismiss(), 15000);
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => dismiss(), 10000);
     }
 
     // --- Dismiss ---
@@ -361,9 +305,6 @@ const CelebrationManager = (() => {
 
         // Fade out
         overlay.classList.remove('active');
-
-        // Remove sparkles
-        document.querySelectorAll('.celebration-sparkle').forEach(s => s.remove());
 
         // Remove overlay after transition
         setTimeout(() => {
