@@ -379,12 +379,12 @@
                 <div class="col-kg">SỐ KG</div>
                 <div class="col-x">X</div>
                 <div class="col-stt">STT</div>
-                <div class="col-product">SẢN PHẨM</div>
+                <div class="col-product">SỐ HÓA ĐƠN</div>
                 <div class="col-money">SỐ TIỀN</div>
                 <div class="col-slnhan">SL</div>
                 <div class="col-thieu">THIẾU</div>
-                <div class="col-cp">CP HÀNG VỀ</div>
-                <div class="col-note">GHI CHÚ</div>
+                <div class="col-cp">CHI PHÍ HÀNG VỀ</div>
+                <div class="col-note">Ghi chú</div>
                 <div class="col-actions"></div>
             </div>`;
 
