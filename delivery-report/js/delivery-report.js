@@ -393,9 +393,10 @@
             html += `<tr>
                 <td data-col="index">${startIndex + i + 1}</td>
                 <td data-col="number">${escapeHtml(item.Number || '')}</td>
-                <td data-col="customer">
+                <td data-col="customer" data-phone="${escapeHtml(item.Phone || '')}">
                     <div class="dr-customer-name">${escapeHtml(item.PartnerDisplayName || '')}</div>
                     <div class="dr-customer-phone">ĐT: ${escapeHtml(item.Phone || '')}</div>
+                    <div class="dr-pancake-badge"></div>
                 </td>
                 <td data-col="receiverInfo">
                     <div class="dr-receiver-name">${escapeHtml(item.Ship_Receiver_Name || '')}</div>
@@ -416,6 +417,22 @@
         });
 
         tbody.innerHTML = html;
+
+        // Pancake enrichment — async, non-blocking
+        if (window.PancakeValidator) {
+            const cells = tbody.querySelectorAll('td[data-col="customer"][data-phone]');
+            const uniquePhones = [...new Set([...cells].map(c => c.dataset.phone).filter(Boolean))];
+            uniquePhones.slice(0, 50).forEach(phone => {
+                window.PancakeValidator.quickLookup(phone).then(data => {
+                    if (!data) return;
+                    cells.forEach(cell => {
+                        if (cell.dataset.phone !== phone) return;
+                        const badge = cell.querySelector('.dr-pancake-badge');
+                        if (badge) badge.innerHTML = window.PancakeValidator.renderCustomerBadge(data);
+                    });
+                });
+            });
+        }
 
         // Footer totals (from ALL data, not just current page)
         let allTotalAmount = 0, allTotalCOD = 0, allTotalShipPrice = 0;

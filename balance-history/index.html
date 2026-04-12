@@ -151,6 +151,7 @@
                                 <div id="inlineQRDisplay" class="inline-qr-display" style="display: none;">
                                     <img id="inlineQRImage" src="" alt="QR Code">
                                     <span id="inlineCustomerInfo" class="inline-customer-info"></span>
+                                    <div id="inlinePancakeWarning" style="display:none;margin-top:4px;"></div>
                                     <span id="inlineQRCode" class="inline-qr-code"></span>
                                     <button id="copyInlineQRBtn" class="btn btn-primary btn-sm" title="Copy hình QR">
                                         <i data-lucide="copy"></i>
@@ -1516,6 +1517,7 @@
     <script src="js/customer-info.js?v=20260311a"></script>
     <script src="../shared/js/audit-logger.js"></script>
     <script src="../shared/js/tpos-customer-lookup.js"></script>
+    <script src="../shared/js/pancake-customer-validator.js"></script>
     <script src="../shared/js/customer-creator.js"></script>
     <!-- Balance History sub-modules (load order: core -> filters -> table -> verification -> aggregator) -->
     <script src="js/balance-core.js?v=20260311a"></script>

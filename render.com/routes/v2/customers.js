@@ -34,6 +34,7 @@ const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer, detectCarrier, validateCustomerData } = require('../../utils/customer-helpers');
 const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
+const { checkCustomerAlerts } = require('../../services/pancake-alert-service');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -501,6 +502,8 @@ router.post('/sync-pancake', async (req, res) => {
                 JSON.stringify(pancakeData),
                 existingId
             ]);
+            // Fire-and-forget: check for alerts
+            checkCustomerAlerts(db, result.rows[0], 'updated').catch(() => {});
             res.json({ success: true, action: 'updated', data: result.rows[0] });
         } else {
             // Create new
@@ -521,6 +524,8 @@ router.post('/sync-pancake', async (req, res) => {
                 orderSuccess, orderFail,
                 JSON.stringify(pancakeData)
             ]);
+            // Fire-and-forget: check for alerts
+            checkCustomerAlerts(db, result.rows[0], 'created').catch(() => {});
             res.json({ success: true, action: 'created', data: result.rows[0] });
         }
     } catch (error) {
@@ -1534,6 +1539,62 @@ router.post('/:id/activities', async (req, res) => {
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
         handleError(res, error, 'Failed to log customer activity');
+    }
+});
+
+/**
+ * POST /api/v2/customers/:id/sync-tpos
+ * Create or update TPOS partner from customer data
+ */
+router.post('/:id/sync-tpos', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
+
+    try {
+        const customerQuery = isPhone
+            ? 'SELECT * FROM customers WHERE phone = $1'
+            : 'SELECT * FROM customers WHERE id = $1';
+        const lookupValue = isPhone ? normalizePhone(id) : parseInt(id);
+        const customerResult = await db.query(customerQuery, [lookupValue]);
+
+        if (customerResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Customer not found' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Try to create/find partner in TPOS
+        const tposResult = await searchCustomerByPhone(customer.phone);
+
+        if (tposResult) {
+            // Partner already exists in TPOS — link it
+            await db.query(
+                'UPDATE customers SET tpos_id = $1 WHERE id = $2',
+                [String(tposResult.Id), customer.id]
+            );
+            res.json({ success: true, action: 'linked', tposId: tposResult.Id, tposName: tposResult.Name });
+        } else {
+            // No TPOS partner found
+            res.json({ success: true, action: 'not_found', message: 'No TPOS partner with this phone' });
+        }
+    } catch (error) {
+        handleError(res, error, 'Failed to sync customer to TPOS');
+    }
+});
+
+/**
+ * POST /api/v2/customers/check-alerts
+ * Cron endpoint: check inactive high-value customers
+ */
+router.post('/check-alerts', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { checkInactiveCustomers } = require('../../services/pancake-alert-service');
+    try {
+        const count = await checkInactiveCustomers(db);
+        res.json({ success: true, alertsSent: count });
+    } catch (error) {
+        handleError(res, error, 'Failed to run alert check');
     }
 });
 

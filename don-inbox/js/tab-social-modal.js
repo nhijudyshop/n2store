@@ -257,7 +257,7 @@ function _collectSocialProducts() {
 }
 
 // ===== SAVE ORDER =====
-function saveOrder() {
+async function saveOrder() {
     const customerName = document.getElementById('customerName').value.trim();
     const phone = document.getElementById('customerPhone').value.trim();
     const address = document.getElementById('customerAddress').value.trim();
@@ -277,6 +277,16 @@ function saveOrder() {
         showNotification('Vui lòng nhập số điện thoại', 'error');
         document.getElementById('customerPhone').focus();
         return null;
+    }
+
+    // Pancake customer validation (check for banned/bom)
+    if (window.PancakeValidator) {
+        const pData = await window.PancakeValidator.quickLookup(phone);
+        if (pData?.risk?.level === 'danger') {
+            const warnings = pData.risk.warnings.map(w => w.text).join(', ');
+            const proceed = confirm(`⚠️ CẢNH BÁO: Khách hàng ${customerName} — ${warnings}\n\nBạn có muốn tiếp tục tạo đơn?`);
+            if (!proceed) return null;
+        }
     }
 
     // Calculate totals using borrowed state
@@ -378,6 +388,14 @@ function saveOrder() {
         if (window.InboxHistory) InboxHistory.logCreate(newOrder);
         savedOrderId = newOrder.id;
         showNotification('Đã tạo đơn hàng mới', 'success');
+
+        // Fire-and-forget: sync customer to Pancake DB
+        if (window.PancakeValidator && phone) {
+            window.PancakeValidator.syncPancakeCustomer({
+                phone, name: customerName, fb_id: newOrder.psid || null,
+                page_id: newOrder.pageId || null
+            });
+        }
 
         // Fire-and-forget: sync products to TPOS
         if (window.TPOSProductCreator && products.length > 0) {

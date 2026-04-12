@@ -636,6 +636,19 @@ async function generateDepositQRInline() {
         });
     }
 
+    // Pancake customer validation (fire-and-forget)
+    if (window.PancakeValidator && customerPhone) {
+        window.PancakeValidator.quickLookup(customerPhone).then(data => {
+            if (!data) return;
+            const warningEl = document.getElementById('inlinePancakeWarning');
+            if (warningEl) {
+                const badge = window.PancakeValidator.renderCustomerBadge(data);
+                warningEl.innerHTML = badge;
+                warningEl.style.display = badge ? 'block' : 'none';
+            }
+        });
+    }
+
     // Display QR inline
     const inlineCustomerInfoEl = document.getElementById('inlineCustomerInfo');
     if (inlineQRDisplay && inlineQRImage && inlineQRCode) {

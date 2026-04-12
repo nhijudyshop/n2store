@@ -230,6 +230,18 @@
         $('#staffName').textContent = data.UserName || '';
         $('#companyName').textContent = data.CompanyName || '';
 
+        // Pancake customer validation (fire-and-forget)
+        const custPhone = data.Partner?.Phone || data.ReceiverPhone || '';
+        if (window.PancakeValidator && custPhone) {
+            const pancakeBadgeEl = document.getElementById('pancakeCustomerBadge');
+            window.PancakeValidator.quickLookup(custPhone).then(pData => {
+                if (!pData || !pancakeBadgeEl) return;
+                const badge = window.PancakeValidator.renderCustomerBadge(pData);
+                pancakeBadgeEl.innerHTML = badge;
+                pancakeBadgeEl.style.display = badge ? 'block' : 'none';
+            });
+        }
+
         // Init checked quantities to 0
         if (data.OrderLines) {
             data.OrderLines.forEach(line => {
