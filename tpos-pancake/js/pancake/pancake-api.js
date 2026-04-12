@@ -172,6 +172,30 @@ const PancakeAPI = {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
 
+            // Handle error_code 122 (subscription expired for a page)
+            if (data.error_code === 122 && activePageIds.length > 1 && !state._searchablePageIds) {
+                console.warn('[PK-API] Error 122 - finding working pages...');
+                const working = [];
+                for (const pid of activePageIds) {
+                    try {
+                        const testUrl = window.API_CONFIG.buildUrl.pancake('conversations', `pages[${pid}]=0&access_token=${token}&cursor_mode=true&from_platform=web`);
+                        const testResp = await API_CONFIG.smartFetch(testUrl);
+                        const testData = await testResp.json();
+                        if (!testData.error_code || (testData.error_code !== 122 && testData.error_code !== 429)) {
+                            working.push(pid);
+                        } else {
+                            console.warn(`[PK-API] Page ${pid} has error ${testData.error_code}, excluding`);
+                        }
+                    } catch { working.push(pid); }
+                }
+                if (working.length > 0 && working.length < activePageIds.length) {
+                    state._searchablePageIds = working;
+                    console.log('[PK-API] Retrying with working pages:', working);
+                    this.isLoadingConversations = false;
+                    return await this.fetchConversations(true);
+                }
+            }
+
             state.conversations = data.conversations || [];
             state.pagesWithCurrentCount = data.pages_with_current_count || {};
             this.lastFetchTime = Date.now();
