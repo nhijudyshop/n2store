@@ -22,13 +22,16 @@
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho';
     const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=kho_di_cho';
 
+    // Shared utilities alias
+    const WS = window.WarehouseShared;
+
     // State
     let allData = [];
     let filteredData = [];
     let expandedParents = new Set();
     let selectedIds = new Set();
     let searchTimeout = null;
-    let sseSource = null;
+    let sseCtrl = null; // SSE control object
 
     // Pagination
     let currentPage = 1;
@@ -51,7 +54,7 @@
         initEventListeners();
         loadData();
         loadSyncStatus();
-        setupSSE();
+        initSSE();
     });
 
     function initEventListeners() {
@@ -178,40 +181,16 @@
     }
 
     // =====================================================
-    // SSE REAL-TIME
+    // SSE REAL-TIME (uses shared setupSSE)
     // =====================================================
 
-    let sseReloadTimer = null;
-    let sseMuteUntil = 0; // Timestamp — ignore SSE events until this time
-
-    function setupSSE() {
-        if (sseSource) { sseSource.close(); sseSource = null; }
-
-        try {
-            sseSource = new EventSource(SSE_URL);
-
-            const handleSSE = (e) => {
-                // Skip SSE events caused by our own actions (muted)
-                if (Date.now() < sseMuteUntil) return;
-
-                // Only reload for events from OTHER users (sync_complete, batch, etc.)
-                // Skip qty_change and single update events — we already updated DOM optimistically
-                try {
-                    const payload = JSON.parse(e.data);
-                    const action = payload?.data?.action;
-                    if (action === 'qty_change' || action === 'update') return;
-                } catch (_) {}
-
-                if (sseReloadTimer) clearTimeout(sseReloadTimer);
-                sseReloadTimer = setTimeout(() => loadData(), 2000);
-            };
-
-            sseSource.addEventListener('update', handleSSE);
-            sseSource.addEventListener('deleted', handleSSE);
-            sseSource.onerror = () => console.warn('[KHO] SSE disconnected, auto-reconnect');
-        } catch (e) {
-            console.warn('[KHO] SSE setup failed:', e);
-        }
+    function initSSE() {
+        sseCtrl = WS.setupSSE({
+            sseUrl: SSE_URL,
+            onReload: () => loadData(),
+            ignoreActions: ['qty_change', 'update'],
+            debounceMs: 2000,
+        });
     }
 
     // =====================================================
@@ -502,7 +481,7 @@
     // Inline quantity change — optimistic UI update (no full re-render)
     async function changeQty(id, change) {
         // Mute SSE for 3s — our own action, don't re-render
-        sseMuteUntil = Date.now() + 3000;
+        if (sseCtrl) sseCtrl.mute(3000);
 
         // Optimistic: update DOM immediately
         const row = document.querySelector(`tr[data-id="${id}"]`);
@@ -531,8 +510,8 @@
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
         } catch (err) {
-            showToast('Lỗi: ' + err.message, 'error');
-            sseMuteUntil = 0;
+            WS.showToast('Lỗi: ' + err.message, 'error');
+            if (sseCtrl) sseCtrl.unmute();
             loadData(); // Revert on error
         }
     }
@@ -732,43 +711,18 @@
     function closeConfirmModal() { document.getElementById('confirmModal').style.display = 'none'; pendingConfirmAction = null; }
 
     // =====================================================
-    // UTILITIES
+    // UTILITIES (delegates to WarehouseShared)
     // =====================================================
 
-    function formatCurrency(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)); }
-    function formatNum(v) { return v ? new Intl.NumberFormat('vi-VN').format(v) : '0'; }
-
-    function esc(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
+    const formatCurrency = WS.formatCurrency;
+    const formatNum = WS.formatNum;
+    const esc = WS.escapeHtml;
+    const showToast = WS.showToast;
+    const tryInitIcons = WS.initIcons;
+    const timeSince = WS.timeSince;
 
     function showLoading(show) {
         document.getElementById('loadingState').style.display = show ? 'block' : 'none';
         if (show) { document.getElementById('tableBody').innerHTML = ''; document.getElementById('emptyState').style.display = 'none'; }
-    }
-
-    function showToast(msg, type = 'success') {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = msg;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
-
-    function tryInitIcons() { if (typeof lucide !== 'undefined') lucide.createIcons(); }
-
-    function timeSince(date) {
-        const s = Math.floor((Date.now() - date.getTime()) / 1000);
-        if (s < 60) return `${s}s`;
-        const m = Math.floor(s / 60);
-        if (m < 60) return `${m} phút`;
-        const h = Math.floor(m / 60);
-        if (h < 24) return `${h} giờ`;
-        return `${Math.floor(h / 24)} ngày`;
     }
 })();

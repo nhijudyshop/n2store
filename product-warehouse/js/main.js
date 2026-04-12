@@ -5,10 +5,18 @@
    search with Excel suggestions, filter, sort,
    server-side pagination, variant images
    Data from TPOS OData API via Cloudflare proxy
+   + SSE real-time updates (shared with kho-di-cho)
    ===================================================== */
 
 (function () {
     'use strict';
+
+    // Shared utilities alias
+    const WS = window.WarehouseShared;
+
+    // SSE endpoint — same as kho-di-cho, listens for TPOS product changes
+    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=kho_di_cho';
+    let sseCtrl = null;
 
     // =====================================================
     // COLUMN DEFINITIONS (order matches screenshot)
@@ -80,50 +88,14 @@
     const $$ = (sel) => document.querySelectorAll(sel);
 
     // =====================================================
-    // HELPERS
+    // HELPERS (delegates to WarehouseShared)
     // =====================================================
-    function formatPrice(val) {
-        if (val === null || val === undefined) return '-';
-        return val.toLocaleString('vi-VN');
-    }
-
-    function formatQty(val) {
-        if (val === null || val === undefined) return '-';
-        return val.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function getQtyClass(qty) {
-        if (qty <= 0) return 'qty-out-of-stock';
-        if (qty <= 5) return 'qty-low-stock';
-        return 'qty-in-stock';
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    function highlightMatch(text, query) {
-        if (!query || !text) return escapeHtml(text);
-        const escaped = escapeHtml(text);
-        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        return escaped.replace(regex, '<span class="highlight">$1</span>');
-    }
-
-    function removeVietnameseTones(str) {
-        if (!str) return '';
-        str = str.toLowerCase();
-        str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
-        str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
-        str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
-        str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
-        str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
-        str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
-        str = str.replace(/đ/g, 'd');
-        return str;
-    }
+    const formatPrice = WS.formatPrice;
+    const formatQty = WS.formatQty;
+    const getQtyClass = WS.getQtyClass;
+    const escapeHtml = WS.escapeHtml;
+    const highlightMatch = WS.highlightMatch;
+    const removeVietnameseTones = WS.removeVietnameseTones;
 
     // =====================================================
     // EXCEL SUGGESTION SYSTEM
@@ -665,15 +637,7 @@
         }
     }
 
-    function showToast(message, type = 'info') {
-        const container = $('#toastContainer');
-        if (!container) return;
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
-    }
+    const showToast = WS.showToast;
 
     // =====================================================
     // COLUMN VISIBILITY
@@ -731,7 +695,7 @@
         });
 
         modal.classList.add('show');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        WS.initIcons();
     }
 
     function closeColumnSettingsModal() {
@@ -836,7 +800,7 @@
         syncColumnVisibilityToDOM();
 
         // Lucide icons
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        WS.initIcons();
     }
 
     function renderPagination(total, totalPages, start, end) {
@@ -1067,70 +1031,9 @@
     }
 
     // =====================================================
-    // IMAGE VIEWER
+    // IMAGE (delegates to WarehouseShared)
     // =====================================================
-    function showImage(src) {
-        const overlay = document.createElement('div');
-        overlay.className = 'image-modal-overlay';
-        overlay.innerHTML = `<img src="${escapeHtml(src)}" alt="Ảnh sản phẩm">`;
-        overlay.addEventListener('click', () => overlay.remove());
-        document.body.appendChild(overlay);
-    }
-
-    // =====================================================
-    // IMAGE ZOOM ON HOVER
-    // =====================================================
-    function initImageZoomHover() {
-        let zoomEl = null;
-
-        function getOrCreateZoom() {
-            if (!zoomEl) {
-                zoomEl = document.createElement('img');
-                zoomEl.className = 'image-zoom-preview';
-                document.body.appendChild(zoomEl);
-            }
-            return zoomEl;
-        }
-
-        const tableBody = $('#productTableBody');
-        if (!tableBody) return;
-
-        tableBody.addEventListener('mouseenter', function(e) {
-            const thumb = e.target.closest('.product-thumb');
-            if (!thumb) return;
-            const zoom = getOrCreateZoom();
-            zoom.src = thumb.src;
-            zoom.classList.add('visible');
-            positionZoom(e, zoom);
-        }, true);
-
-        tableBody.addEventListener('mousemove', function(e) {
-            const thumb = e.target.closest('.product-thumb');
-            if (!thumb || !zoomEl) return;
-            positionZoom(e, zoomEl);
-        }, true);
-
-        tableBody.addEventListener('mouseleave', function(e) {
-            const thumb = e.target.closest('.product-thumb');
-            if (!thumb || !zoomEl) return;
-            zoomEl.classList.remove('visible');
-        }, true);
-
-        function positionZoom(e, el) {
-            const offset = 16;
-            const w = 280, h = 280;
-            let x = e.clientX + offset;
-            let y = e.clientY - h / 2;
-
-            // Keep within viewport
-            if (x + w > window.innerWidth) x = e.clientX - w - offset;
-            if (y < 4) y = 4;
-            if (y + h > window.innerHeight - 4) y = window.innerHeight - h - 4;
-
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-        }
-    }
+    const showImage = WS.showImageOverlay;
 
     // =====================================================
     // INIT
@@ -1143,9 +1046,9 @@
 
         loadColumnVisibility();
         setupEventListeners();
-        initImageZoomHover();
+        WS.initImageZoomHover('#productTableBody');
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        WS.initIcons();
 
         // Wait for TokenManager then fetch first page
         if (window.tokenManager) {
@@ -1156,7 +1059,20 @@
         // Preload Excel data for search suggestions (after token is ready)
         loadExcelData();
 
-        console.log('[ProductWarehouse] Initialized, total products:', totalCount);
+        // SSE real-time: auto-refresh when TPOS products change
+        sseCtrl = WS.setupSSE({
+            sseUrl: SSE_URL,
+            onReload: () => {
+                console.log('[ProductWarehouse] SSE triggered refresh');
+                variantCache = {}; // Clear variant cache on TPOS change
+                imageCache = {};   // Clear image cache
+                fetchProducts();
+            },
+            ignoreActions: [], // Refresh on all TPOS changes
+            debounceMs: 3000,
+        });
+
+        console.log('[ProductWarehouse] Initialized with SSE real-time, total products:', totalCount);
     }
 
     window.warehouseApp = { showImage };

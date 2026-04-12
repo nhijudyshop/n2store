@@ -8,6 +8,16 @@
 
 ## 2026-04-12
 
+### [shared] Warehouse Shared Utilities + Product Warehouse SSE Real-time ✅
+| | |
+|---|---|
+| **Files** | `shared/js/warehouse-shared.js` (NEW), `kho-di-cho/js/main.js`, `kho-di-cho/index.html`, `product-warehouse/js/main.js`, `product-warehouse/index.html` |
+| **Shared module** | Extracted common utils: `formatCurrency`, `formatPrice`, `formatQty`, `escapeHtml`, `highlightMatch`, `removeVietnameseTones`, `timeSince`, `showToast`, `setupSSE`, `initImageZoomHover`, `showImageOverlay`, `getQtyClass`, `initIcons` → `window.WarehouseShared` |
+| **SSE real-time** | Product Warehouse now listens to SSE (`keys=kho_di_cho`) for TPOS product changes, auto-refreshes on sync_complete/batch/created/deleted events |
+| **Refactor kho-di-cho** | Replaced local utility functions with `WS.*` shared aliases, SSE setup uses `WS.setupSSE()` with mute/unmute control |
+| **Refactor product-warehouse** | Replaced local `formatPrice`, `escapeHtml`, `showToast`, `initImageZoomHover`, `showImage` etc. with shared versions |
+| **Status** | ✅ Done |
+
 ### [chat] TPOS Sale Online Features — Hide/Show, Reply, Order Actions ✅
 | | |
 |---|---|
