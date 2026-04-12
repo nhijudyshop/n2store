@@ -451,6 +451,62 @@ body {
 .context-menu button.ctx-danger:hover { background: rgba(255, 218, 214, 0.2); }
 .context-menu button .material-symbols-outlined { font-size: 16px; }
 
+/* ===== Date group header ===== */
+.date-group-header td {
+    padding: 0;
+    background: var(--surface-low);
+    border-bottom: 1px solid var(--outline-variant);
+}
+
+.dg-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 150ms;
+}
+
+.dg-header:hover {
+    background: var(--surface-high);
+}
+
+.dg-arrow {
+    font-size: 20px;
+    color: var(--outline);
+    transition: transform 200ms ease;
+    transform: rotate(0deg);
+}
+
+.dg-arrow.dg-expanded {
+    transform: rotate(90deg);
+}
+
+.dg-date {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--on-surface);
+}
+
+.dg-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.1);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.dg-total {
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-left: auto;
+}
+
 /* ===== Done row ===== */
 .row-done { background: rgba(108, 248, 187, 0.08) !important; }
 .row-done td { opacity: 0.5; text-decoration: line-through; text-decoration-color: #737686; }

@@ -290,6 +290,10 @@
         });
     }
 
+    // Track expanded date groups (all expanded by default)
+    let expandedDates = new Set();
+    let expandedInited = false;
+
     function renderTable() {
         const start = (currentPage - 1) * PAGE_SIZE;
         const pageData = filteredData.slice(start, start + PAGE_SIZE);
@@ -316,21 +320,58 @@
             infoEl.innerHTML = `Hiển thị <strong>${start + 1} - ${end}</strong> trên <strong>${filteredData.length}</strong> vận đơn`;
         }
 
-        els.tableBody.innerHTML = pageData.map((item, idx) => {
-            const globalIdx = start + idx + 1;
-            const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
-            const id = item.id;
-            const sttStr = String(globalIdx).padStart(2, '0');
+        // Group by date
+        const groups = [];
+        let lastDate = null;
+        pageData.forEach((item, idx) => {
+            const dateKey = item.ngayDiHang || '_nodate';
+            if (dateKey !== lastDate) {
+                groups.push({ date: dateKey, items: [] });
+                lastDate = dateKey;
+            }
+            groups[groups.length - 1].items.push({ item, globalIdx: start + idx + 1 });
+        });
 
-            const thieuVal = parseNum(item.thieu);
-            const cpVal = parseNum(item.chiPhi);
+        // Init expanded state: expand all on first render
+        if (!expandedInited) {
+            groups.forEach((g) => expandedDates.add(g.date));
+            expandedInited = true;
+        }
 
-            return `<tr data-id="${id}" class="${item.done ? 'row-done' : ''}">
+        const COL_COUNT = 12; // number of <th> columns
+        let html = '';
+
+        groups.forEach((group) => {
+            const isExpanded = expandedDates.has(group.date);
+            const dateDisplay = group.date === '_nodate' ? 'Không có ngày' : formatDate(group.date);
+            const count = group.items.length;
+            const groupTotal = group.items.reduce((s, g) => s + parseNum(g.item.soTien), 0);
+            const dateId = group.date.replace(/[^a-zA-Z0-9]/g, '_');
+
+            // Date group header row
+            html += `<tr class="date-group-header" data-date="${group.date}">
+                <td colspan="${COL_COUNT}">
+                    <div class="dg-header" onclick="HangQQ.toggleDate('${group.date}')">
+                        <span class="material-symbols-outlined dg-arrow ${isExpanded ? 'dg-expanded' : ''}">chevron_right</span>
+                        <span class="dg-date">${dateDisplay}</span>
+                        <span class="dg-count">${count} đơn</span>
+                        <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
+                    </div>
+                </td>
+            </tr>`;
+
+            // Item rows
+            group.items.forEach(({ item, globalIdx }) => {
+                const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
+                const id = item.id;
+                const sttStr = String(globalIdx).padStart(2, '0');
+                const thieuVal = parseNum(item.thieu);
+                const cpVal = parseNum(item.chiPhi);
+
+                html += `<tr data-id="${id}" class="date-group-row ${item.done ? 'row-done' : ''}" data-group="${group.date}" ${isExpanded ? '' : 'style="display:none"'}>
                 <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
                 <td><span class="td-stt">${sttStr}</span></td>
-                <td class="editable-cell" data-id="${id}" data-field="ngayDiHang">
-                    <span class="td-date">${formatDate(item.ngayDiHang)}</span>
-                </td>
+                <td></td>
                 <td style="text-align:center">
                     <span class="td-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
                     ${item.soLuong ? ' <span class="td-sl-unit">SL</span>' : ''}
@@ -376,7 +417,10 @@
                     </div>
                 </td>
             </tr>`;
-        }).join('');
+            });
+        });
+
+        els.tableBody.innerHTML = html;
 
         // Bind inline edit click handlers
         els.tableBody.querySelectorAll('.editable-cell').forEach((cell) => {
@@ -402,8 +446,27 @@
                 });
             });
         }
+    }
 
-        lucideRefresh();
+    function toggleDateGroup(dateKey) {
+        const isExpanded = expandedDates.has(dateKey);
+        if (isExpanded) {
+            expandedDates.delete(dateKey);
+        } else {
+            expandedDates.add(dateKey);
+        }
+
+        // Toggle rows
+        const rows = els.tableBody.querySelectorAll(`tr[data-group="${dateKey}"]`);
+        rows.forEach((row) => {
+            row.style.display = isExpanded ? 'none' : '';
+        });
+
+        // Toggle arrow
+        const header = els.tableBody.querySelector(`tr[data-date="${dateKey}"] .dg-arrow`);
+        if (header) {
+            header.classList.toggle('dg-expanded', !isExpanded);
+        }
     }
 
     // ===== Inline Edit =====
@@ -1038,6 +1101,7 @@
         },
         viewImg(src) { openImageViewer(src); },
         removeImg(type, idx) { removeImage(type, idx); },
+        toggleDate(dateKey) { toggleDateGroup(dateKey); },
         toggleMenu(e, id) {
             e.stopPropagation();
             const menu = $(`#menu-${id}`);
