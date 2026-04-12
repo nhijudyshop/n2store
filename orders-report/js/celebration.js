@@ -15,17 +15,20 @@ const CelebrationManager = (() => {
     let overlay = null;
     let cleanups = [];
 
-    // --- Load Motion.dev ---
+    // --- Get Motion.dev (preloaded in <head>) ---
     function loadMotion() {
+        if (window.Motion) return Promise.resolve(window.Motion);
+        // Fallback: try loading again
         return new Promise((resolve, reject) => {
-            if (window.Motion) { resolve(window.Motion); return; }
             const s = document.createElement('script');
             s.src = MOTION_CDN;
             s.onload = () => resolve(window.Motion);
-            s.onerror = reject;
+            s.onerror = () => reject(new Error('Motion.dev failed to load'));
             document.head.appendChild(s);
         });
     }
+
+    function hasMotion() { return !!window.Motion; }
 
     // --- Tracked timers ---
     function later(fn, ms) {
@@ -72,6 +75,7 @@ const CelebrationManager = (() => {
 
     // --- Motion.dev particle system (replaces canvas-confetti) ---
     async function launchParticles() {
+        if (!hasMotion()) return; // Skip particles if Motion unavailable
         const { animate } = await loadMotion();
         const container = overlay.querySelector('.celebration-particles');
         const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981', '#fff'];
@@ -185,9 +189,23 @@ const CelebrationManager = (() => {
         cleanups.push(ctrl);
     }
 
-    // --- Motion.dev entrance animations ---
+    // --- Entrance animations ---
     async function animateEntrance() {
-        const { animate } = await loadMotion();
+        overlay.classList.add('active');
+
+        let animate;
+        try {
+            const M = await loadMotion();
+            animate = M.animate;
+        } catch (e) {
+            console.warn('[Celebration] Motion.dev unavailable, using CSS fallback');
+            // CSS fallback — just show everything
+            overlay.style.opacity = '1';
+            overlay.querySelectorAll('.celebration-card, .celebration-trophy, .celebration-title, .celebration-name, .celebration-detail, .celebration-close-hint')
+                .forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+            return;
+        }
+
         const card = overlay.querySelector('.celebration-card');
         const trophy = overlay.querySelector('.celebration-trophy');
         const photoRing = overlay.querySelector('.celebration-photo-ring');
@@ -199,7 +217,6 @@ const CelebrationManager = (() => {
 
         // Overlay fade
         animate(overlay, { opacity: [0, 1] }, { duration: 0.5, easing: 'ease-out' });
-        overlay.classList.add('active');
 
         // Card pop in
         animate(card,
