@@ -255,10 +255,13 @@ const TposCommentList = {
         const pictureUrl = SharedUtils.getAvatarUrl(fromId, state.selectedPage?.Facebook_PageId, null, directPictureUrl);
         const timeStr = SharedUtils.formatTime(createdTime);
 
-        // SessionIndex badge
+        // SessionIndex badge + Order info
         const sessionInfo = state.sessionIndexMap.get(fromId);
         const sessionIndexBadge = sessionInfo
-            ? `<span class="session-index-badge" title="${sessionInfo.code || '#' + sessionInfo.index}">${sessionInfo.index}</span>`
+            ? `<span class="session-index-badge" title="STT: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
+            : '';
+        const orderBadge = sessionInfo?.code
+            ? `<span class="order-code-badge" title="Đơn ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
             : '';
 
         // Gradient placeholder
@@ -317,9 +320,10 @@ const TposCommentList = {
                     </span>
                 </div>
                 <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
-                    <!-- Row 1: Name + Hidden tag -->
-                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px;">
+                    <!-- Row 1: Name + Order badge + Hidden tag -->
+                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <span class="customer-name" style="font-weight: 600;">${SharedUtils.escapeHtml(fromName)}</span>
+                        ${orderBadge}
                         ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;">Ẩn</span>' : ''}
                     </div>
 
@@ -366,16 +370,22 @@ const TposCommentList = {
                         </div>
                     </div>
                 </div>
-                <div class="tpos-conv-actions">
-                    <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
-                        <i data-lucide="phone"></i>
+                <div class="tpos-conv-actions" style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+                    <button class="tpos-action-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
+                        <i data-lucide="user" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button class="tpos-action-btn" title="Trả lời comment" onclick="event.stopPropagation(); TposCommentList.showReplyInput('${id}', '${fromId}')">
+                        <i data-lucide="reply" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button class="tpos-action-btn" title="${isHidden ? 'Hiện comment' : 'Ẩn comment'}" onclick="event.stopPropagation(); TposColumnManager.toggleHideComment('${id}', ${!isHidden})">
+                        <i data-lucide="${isHidden ? 'eye' : 'eye-off'}" style="width:14px;height:14px;"></i>
                     </button>
                     ${isSavedToTpos
-                        ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color: #10b981; padding: 4px;">
-                               <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                        ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color:#10b981;padding:4px;">
+                               <i data-lucide="check" style="width:14px;height:14px;"></i>
                            </span>`
-                        : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); TposCommentList.handleSaveToTpos('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
-                               <i data-lucide="plus"></i>
+                        : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos" onclick="event.stopPropagation(); TposCommentList.handleSaveToTpos('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
+                               <i data-lucide="plus" style="width:14px;height:14px;"></i>
                            </button>`
                     }
                 </div>
@@ -656,6 +666,79 @@ const TposCommentList = {
         state.showDebt = showDebt;
         state.showZeroDebt = showZeroDebt;
         this.renderComments();
+    },
+
+    /**
+     * Show inline reply input under a comment
+     * @param {string} commentId
+     * @param {string} fromId
+     */
+    showReplyInput(commentId, fromId) {
+        // Remove any existing reply input
+        document.querySelectorAll('.tpos-reply-input-row').forEach(el => el.remove());
+
+        const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
+        if (!commentEl) return;
+
+        const replyRow = document.createElement('div');
+        replyRow.className = 'tpos-reply-input-row';
+        replyRow.style.cssText = 'display:flex;gap:6px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e5e7eb;align-items:center;';
+        replyRow.innerHTML = `
+            <input type="text" id="reply-input-${commentId}" placeholder="Trả lời comment..."
+                style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"
+                onkeydown="if(event.key==='Enter')TposCommentList.sendReply('${commentId}')">
+            <button style="padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;"
+                onclick="TposCommentList.sendReply('${commentId}')">Gửi</button>
+            <button style="padding:6px 8px;background:transparent;border:none;cursor:pointer;color:#6b7280;"
+                onclick="this.parentElement.remove()">✕</button>
+        `;
+        replyRow.addEventListener('click', e => e.stopPropagation());
+        commentEl.appendChild(replyRow);
+
+        const input = document.getElementById(`reply-input-${commentId}`);
+        if (input) input.focus();
+    },
+
+    /**
+     * Send reply to a comment via API
+     * @param {string} commentId
+     */
+    async sendReply(commentId) {
+        const input = document.getElementById(`reply-input-${commentId}`);
+        const message = input?.value?.trim();
+        if (!message) return;
+
+        const state = window.TposState;
+        const pageId = state.selectedPage?.Facebook_PageId;
+        if (!pageId) return;
+
+        // Disable input while sending
+        input.disabled = true;
+        const sendBtn = input.nextElementSibling;
+        if (sendBtn) { sendBtn.textContent = '...'; sendBtn.disabled = true; }
+
+        const result = await window.TposApi.replyToComment(pageId, commentId, message);
+        if (result) {
+            // Remove reply input
+            const replyRow = input.closest('.tpos-reply-input-row');
+            if (replyRow) replyRow.remove();
+            if (window.notificationManager) window.notificationManager.show('Đã trả lời comment!', 'success');
+        } else {
+            input.disabled = false;
+            if (sendBtn) { sendBtn.textContent = 'Gửi'; sendBtn.disabled = false; }
+            if (window.notificationManager) window.notificationManager.show('Lỗi gửi trả lời', 'error');
+        }
+    },
+
+    /**
+     * Show order detail for a customer (opens customer panel with order focus)
+     * @param {string} fromId - Facebook user ID
+     */
+    async showOrderDetail(fromId) {
+        const state = window.TposState;
+        const partner = state.partnerCache.get(fromId);
+        const name = partner?.Name || fromId;
+        window.TposCustomerPanel.showCustomerInfo(fromId, name);
     }
 };
 

@@ -164,22 +164,51 @@ const TposCustomerPanel = {
                 <h4><i data-lucide="shopping-bag" style="width: 16px; height: 16px;"></i> Đơn hàng gần nhất</h4>
                 <table class="order-table">
                     <thead>
-                        <tr><th>#</th><th>Trạng thái</th><th>Ngày tạo</th></tr>
+                        <tr><th>Mã</th><th>STT</th><th>Trạng thái</th><th>Ngày tạo</th></tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td><span class="order-code">${order.Code || order.Id}</span></td>
-                            <td><span class="status-badge ${getStatusClass(order.Status)}">${order.StatusText || 'Nháp'}</span></td>
+                            <td>${order.SessionIndex || '-'}</td>
+                            <td><span class="status-badge ${getStatusClass(order.Status)}" id="orderStatusBadge">${order.StatusText || 'Nháp'}</span></td>
                             <td>${formatDate(order.DateCreated)}</td>
                         </tr>
                     </tbody>
                 </table>
+                ${(order.Details && order.Details.length > 0) ? `
+                <div style="margin-top: 12px;">
+                    <strong style="font-size: 12px; color: #374151;">Sản phẩm:</strong>
+                    <table class="order-table" style="margin-top: 6px;">
+                        <thead><tr><th>Tên</th><th>SL</th><th>Đơn giá</th></tr></thead>
+                        <tbody>
+                            ${order.Details.map(d => `<tr>
+                                <td>${SharedUtils.escapeHtml(d.ProductName || d.Product?.NameGet || '-')}</td>
+                                <td>${d.Quantity || 0}</td>
+                                <td>${(d.PriceUnit || d.Price || 0).toLocaleString('vi-VN')}đ</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : '<p style="margin-top:8px;color:#9ca3af;font-size:12px;">Chưa có sản phẩm trong đơn</p>'}
                 ${order.Note ? `
                 <div style="margin-top: 12px; padding: 8px 12px; background: #fef3c7; border-radius: 6px;">
                     <strong style="font-size: 12px; color: #92400e;">Ghi chú đơn:</strong>
                     <p style="margin: 4px 0 0; font-size: 13px; color: #92400e;">${SharedUtils.escapeHtml(order.Note)}</p>
                 </div>
                 ` : ''}
+                <!-- Order Actions -->
+                <div style="display:flex;gap:8px;margin-top:12px;" id="orderActions">
+                    ${order.StatusText === 'Nháp' ? `
+                    <button onclick="TposCustomerPanel.confirmOrder('${order.Id}')"
+                            style="padding:6px 14px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">
+                        Xác nhận đơn
+                    </button>
+                    <button onclick="TposCustomerPanel.cancelOrder('${order.Id}')"
+                            style="padding:6px 14px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">
+                        Hủy đơn
+                    </button>
+                    ` : ''}
+                </div>
             </div>
             ` : `
             <div class="customer-section">
@@ -195,10 +224,10 @@ const TposCustomerPanel = {
                     Đóng
                 </button>
                 ${order.Code ? `
-                <button onclick="window.open('https://tomato.tpos.vn/sale-online/order/${order.Id}', '_blank')"
+                <button onclick="window.open('https://tomato.tpos.vn/#/app/saleOnline/facebook/post/${order.Facebook_PostId || ''}/false', '_blank')"
                         style="flex: 1; padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     <i data-lucide="external-link" style="width: 14px; height: 14px; display: inline; vertical-align: middle;"></i>
-                    Mở đơn trên TPOS
+                    Mở trên TPOS
                 </button>
                 ` : ''}
             </div>
@@ -230,6 +259,42 @@ const TposCustomerPanel = {
      * @param {string} value
      * @param {string} text
      */
+    /**
+     * Confirm an order
+     * @param {string} orderId
+     */
+    async confirmOrder(orderId) {
+        if (!confirm('Xác nhận đơn hàng này?')) return;
+        const success = await window.TposApi.confirmOrder(orderId);
+        if (success) {
+            const badge = document.getElementById('orderStatusBadge');
+            if (badge) { badge.textContent = 'Đã xác nhận'; badge.className = 'status-badge status-normal'; }
+            const actions = document.getElementById('orderActions');
+            if (actions) actions.innerHTML = '<span style="color:#10b981;font-size:12px;font-weight:500;">✓ Đã xác nhận</span>';
+            if (window.notificationManager) window.notificationManager.show('Đã xác nhận đơn!', 'success');
+        } else {
+            if (window.notificationManager) window.notificationManager.show('Lỗi xác nhận đơn', 'error');
+        }
+    },
+
+    /**
+     * Cancel an order
+     * @param {string} orderId
+     */
+    async cancelOrder(orderId) {
+        if (!confirm('Hủy đơn hàng này?')) return;
+        const success = await window.TposApi.cancelOrder(orderId);
+        if (success) {
+            const badge = document.getElementById('orderStatusBadge');
+            if (badge) { badge.textContent = 'Huỷ bỏ'; badge.className = 'status-badge status-danger'; }
+            const actions = document.getElementById('orderActions');
+            if (actions) actions.innerHTML = '<span style="color:#ef4444;font-size:12px;font-weight:500;">✗ Đã hủy</span>';
+            if (window.notificationManager) window.notificationManager.show('Đã hủy đơn!', 'info');
+        } else {
+            if (window.notificationManager) window.notificationManager.show('Lỗi hủy đơn', 'error');
+        }
+    },
+
     async selectStatus(value, text) {
         const state = window.TposState;
 

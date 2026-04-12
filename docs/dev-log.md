@@ -8,6 +8,18 @@
 
 ## 2026-04-12
 
+### [chat] TPOS Sale Online Features — Hide/Show, Reply, Order Actions ✅
+| | |
+|---|---|
+| **Files** | `tpos-pancake/js/tpos/tpos-api.js`, `tpos-pancake/js/tpos/tpos-comment-list.js`, `tpos-pancake/js/tpos/tpos-customer-panel.js`, `tpos-pancake/js/tpos/tpos-init.js` |
+| **Comment Hide/Show** | Gọi API TPOS thật (`facebook-graph/comment/hide`) thay vì chỉ đổi UI local |
+| **Comment Reply** | Nút trả lời inline dưới comment, gửi qua API (`facebook-graph/comment/reply`) |
+| **Order Badge** | Hiện mã đơn (Code) trên mỗi comment nếu khách có đơn, click để xem chi tiết |
+| **Order Detail** | Modal khách hàng hiện chi tiết đơn: sản phẩm, STT, trạng thái, ghi chú |
+| **Order Actions** | Nút Xác nhận / Hủy đơn trực tiếp trong modal (`ActionConfirm`, `ActionCancel`) |
+| **API mới** | `hideComment()`, `replyToComment()`, `getOrderForUser()`, `confirmOrder()`, `cancelOrder()` |
+| **Status** | ✅ Done |
+
 ### [chat] tpos-pancake Hotfixes — WORKER_URL, Realtime, Error 122 ✅
 | | |
 |---|---|

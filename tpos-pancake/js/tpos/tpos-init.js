@@ -370,15 +370,31 @@ const TposColumnManager = {
      * @param {string} commentId
      * @param {boolean} hide
      */
-    toggleHideComment(commentId, hide) {
+    async toggleHideComment(commentId, hide) {
         const state = window.TposState;
         const comment = state.comments.find(c => c.id === commentId);
-        if (comment) {
-            comment.is_hidden = hide;
-            window.TposCommentList.renderComments();
-        }
-        if (window.notificationManager) {
-            window.notificationManager.show(hide ? 'Đã ẩn comment' : 'Đã hiện comment', 'success');
+        if (!comment) return;
+
+        // Optimistic UI update
+        comment.is_hidden = hide;
+        window.TposCommentList.renderComments();
+
+        // Call actual TPOS API
+        const pageId = state.selectedPage?.Facebook_PageId;
+        if (pageId) {
+            const success = await window.TposApi.hideComment(pageId, commentId, hide);
+            if (success) {
+                if (window.notificationManager) {
+                    window.notificationManager.show(hide ? 'Đã ẩn comment trên Facebook' : 'Đã hiện comment trên Facebook', 'success');
+                }
+            } else {
+                // Revert on failure
+                comment.is_hidden = !hide;
+                window.TposCommentList.renderComments();
+                if (window.notificationManager) {
+                    window.notificationManager.show('Lỗi: Không thể ' + (hide ? 'ẩn' : 'hiện') + ' comment', 'error');
+                }
+            }
         }
     },
 

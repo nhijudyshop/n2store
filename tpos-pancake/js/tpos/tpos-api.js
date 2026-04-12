@@ -352,6 +352,129 @@ const TposApi = {
         });
 
         return await response.json();
+    },
+
+    /**
+     * Hide or show a Facebook comment via TPOS API
+     * @param {string} pageId - Facebook page ID
+     * @param {string} commentId - Facebook comment ID
+     * @param {boolean} hide - true to hide, false to show
+     * @returns {Promise<boolean>}
+     */
+    async hideComment(pageId, commentId, hide) {
+        const token = await this.getToken();
+        if (!token) return false;
+
+        try {
+            const url = `${TposApi._getWorkerUrl()}/api/rest/v2.0/facebook-graph/comment/hide`;
+            const response = await this.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pageid: pageId,
+                    commentId: commentId,
+                    is_hidden: hide
+                })
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('[TPOS-API] hideComment error:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Reply to a Facebook comment
+     * @param {string} pageId - Facebook page ID
+     * @param {string} commentId - Facebook comment ID
+     * @param {string} message - Reply text
+     * @returns {Promise<object|null>}
+     */
+    async replyToComment(pageId, commentId, message) {
+        const token = await this.getToken();
+        if (!token) return null;
+
+        try {
+            const url = `${TposApi._getWorkerUrl()}/api/rest/v2.0/facebook-graph/comment/reply`;
+            const response = await this.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pageid: pageId,
+                    commentId: commentId,
+                    message: message
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('[TPOS-API] replyToComment error:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Get order details for a customer's Facebook user ID
+     * @param {string} fbUserId - Facebook AS User ID
+     * @param {string} postId - Full post ID (pageId_postId)
+     * @returns {Promise<object|null>}
+     */
+    async getOrderForUser(fbUserId, postId) {
+        const token = await this.getToken();
+        if (!token) return null;
+
+        try {
+            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order/ODataService.GetViewV2?$filter=Facebook_ASUserId eq '${fbUserId}'&$expand=OrderLines($expand=Product),Partner&$top=1&$orderby=DateCreated desc`;
+            const response = await this.authenticatedFetch(url);
+            if (!response.ok) return null;
+            const data = await response.json();
+            const items = data.value || [];
+            return items.length > 0 ? items[0] : null;
+        } catch (error) {
+            console.error('[TPOS-API] getOrderForUser error:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Confirm an order
+     * @param {string} orderId
+     * @returns {Promise<boolean>}
+     */
+    async confirmOrder(orderId) {
+        try {
+            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order/ODataService.ActionConfirm`;
+            const response = await this.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: [orderId] })
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('[TPOS-API] confirmOrder error:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Cancel an order
+     * @param {string} orderId
+     * @returns {Promise<boolean>}
+     */
+    async cancelOrder(orderId) {
+        try {
+            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order/ODataService.ActionCancel`;
+            const response = await this.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: [orderId] })
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('[TPOS-API] cancelOrder error:', error);
+            return false;
+        }
     }
 };
 
