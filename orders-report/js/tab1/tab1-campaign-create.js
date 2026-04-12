@@ -63,7 +63,7 @@ async function autoGenerateCampaignName() {
                 model: 'gemini-2.0-flash',
                 contents: [{
                     role: 'user',
-                    parts: [{ text: `Bạn là người đặt tên chiến dịch bán hàng livestream. Danh sách tên chiến dịch hiện có: ${namesList}. Chiến dịch tiếp theo là ${prefix}. Hãy đặt tên theo phong cách tương tự (ngắn gọn, vui vẻ, viết HOA, 1-3 từ sau số T). Chỉ trả lời đúng 1 tên đầy đủ, không giải thích. Ví dụ: "${prefix} CHÁY HÀNG"` }]
+                    parts: [{ text: `Bạn đặt tên chiến dịch bán hàng livestream theo phong cách "teen" — viết HOA, 1-3 từ sau số T, và lặp chữ cái cuối 3-5 lần cho vui. Danh sách hiện có: ${namesList}. Chiến dịch tiếp theo là ${prefix}. KHÔNG đặt trùng tên đã có. Chỉ trả lời đúng 1 tên, không giải thích. Ví dụ: "${prefix} PHÁ ĐẢOOOOO", "${prefix} NỔ ĐƠNNNNN", "${prefix} CHÁY HÀNGGGGG", "${prefix} DEALLLLLL", "${prefix} SALE SẬPPPPP"` }]
                 }],
                 generationConfig: {
                     maxOutputTokens: 30,

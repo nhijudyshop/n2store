@@ -1965,8 +1965,14 @@
                     <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
                         <i class="fas fa-tag" style="color: #8b5cf6;"></i> Tên chiến dịch:
                     </label>
-                    <input type="text" id="newCampaignName" placeholder="VD: Chiến dịch Noel 2025"
-                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="newCampaignName" placeholder="VD: T11 NỔ ĐƠNNNNN"
+                            style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+                        <button type="button" onclick="autoGenerateCampaignName()" title="Đổi tên khác"
+                            style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb; cursor: pointer; font-size: 16px; white-space: nowrap;">
+                            🎲
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Custom Date Range -->
