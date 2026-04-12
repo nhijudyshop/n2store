@@ -171,7 +171,7 @@
 }
 
 .tpos-conversation-item.is-hidden {
-    opacity: 0.5;
+    opacity: 1;
 }
 
 .tpos-conversation-item.highlight {
