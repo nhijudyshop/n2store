@@ -48,17 +48,24 @@ async function _fetchNameBatch(prefix, existingNames) {
             model: 'gemini-3-pro-preview',
             contents: [{
                 role: 'user',
-                parts: [{ text: `Tạo danh sách 20 tên chiến dịch bán hàng livestream. Quy tắc:
-- Viết HOA, bắt đầu bằng "${prefix}"
-- Theo sau 1-2 từ ngắn gọn, vui vẻ, năng lượng
-- Lặp ký tự CUỐI CÙNG của từ cuối thêm 4-6 lần (ví dụ: BÙMMMMMM, DEALLLLL, HOTTTTTT)
-- KHÔNG lặp cả từ (sai: BÙM BÙMMMM, đúng: BÙMMMMMM)
-- KHÔNG trùng với tên đã có: ${usedList}
-- Mỗi tên 1 dòng, chỉ tên, không đánh số, không giải thích` }]
+                parts: [{ text: `Liệt kê chính xác 20 tên chiến dịch livestream, mỗi dòng 1 tên, không đánh số, không giải thích.
+
+Format mỗi tên: ${prefix} + khoảng trắng + 1-2 từ viết HOA + lặp chữ cái cuối 4-6 lần.
+
+Ví dụ:
+${prefix} BÙMMMMMM
+${prefix} DEALLLLL
+${prefix} HOTTTTTT
+${prefix} CHÁYYY
+${prefix} SẬPPPPP
+${prefix} SIÊU SALEEEE
+${prefix} PHÁ ĐẢOOOOO
+
+Tên KHÔNG được trùng: ${usedList}` }]
             }],
             generationConfig: {
-                maxOutputTokens: 400,
-                temperature: 1.2
+                maxOutputTokens: 600,
+                temperature: 1.0
             }
         })
     });
