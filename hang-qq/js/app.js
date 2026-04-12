@@ -349,35 +349,40 @@
                 <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
             </div>`;
 
-            // Items
+            // Column header row
             html += `<div class="dg-items ${isCollapsed ? 'collapsed' : ''}">`;
+            html += `<div class="dg-item dg-col-header">
+                <div class="col-sl">SL</div>
+                <div class="col-kg">SỐ KG</div>
+                <div class="col-x">X</div>
+                <div class="col-stt">STT</div>
+                <div class="col-product">SẢN PHẨM</div>
+                <div class="col-money">SỐ TIỀN</div>
+                <div class="col-slnhan">SL</div>
+                <div class="col-thieu">THIẾU</div>
+                <div class="col-cp">CP HÀNG VỀ</div>
+                <div class="col-note">GHI CHÚ</div>
+                <div class="col-actions"></div>
+            </div>`;
 
             group.items.forEach(({ item, globalIdx }) => {
-                const allImgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
                 const id = item.id;
-                const sttStr = String(globalIdx).padStart(2, '0');
                 const thieuVal = parseNum(item.thieu);
                 const cpVal = parseNum(item.chiPhi);
+                const slNhan = parseNum(item.slNhan);
 
                 html += `<div class="dg-item ${item.done ? 'row-done' : ''}" data-id="${id}">
-                    <div class="dg-col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></div>
-                    <div class="dg-col-stt">${sttStr}</div>
-                    <div class="dg-col-sl">
-                        <span class="editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
-                        ${item.soLuong ? '<span class="unit"> SL</span>' : ''}
-                        ${item.soKg ? `<div class="unit editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
-                    </div>
-                    <div class="dg-col-desc">
-                        <div class="desc-text editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</div>
-                        ${item.ghiChu ? `<div class="desc-note editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
-                    </div>
-                    <div class="dg-col-money editable-cell" data-id="${id}" data-field="soTien">¥ ${formatMoney(item.soTien)}</div>
-                    <div class="dg-col-meta">
-                        <span class="meta-thieu ${thieuVal > 0 ? 'has' : 'no'} editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>
-                        <span class="meta-cp editable-cell" data-id="${id}" data-field="chiPhi">${cpVal > 0 ? formatMoney(item.chiPhi) : '—'}</span>
-                        <span class="meta-ngaytt ${item.ngayTT ? '' : 'empty'} editable-cell" data-id="${id}" data-field="ngayTT">${item.ngayTT ? formatDate(item.ngayTT) : 'Chưa TT'}</span>
-                        <span class="meta-vnd editable-cell" data-id="${id}" data-field="soTienVND">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
-                        <div class="meta-media">${renderImgThumb(allImgs, 'media', id)}</div>
+                    <div class="col-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</div>
+                    <div class="col-kg editable-cell" data-id="${id}" data-field="soKg">${item.soKg || ''}</div>
+                    <div class="col-x"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></div>
+                    <div class="col-stt editable-cell" data-id="${id}" data-field="stt">${escHtml(item.stt || '')}</div>
+                    <div class="col-product editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</div>
+                    <div class="col-money editable-cell" data-id="${id}" data-field="soTien">${formatMoney(item.soTien)}</div>
+                    <div class="col-slnhan editable-cell" data-id="${id}" data-field="slNhan">${slNhan || ''}</div>
+                    <div class="col-thieu editable-cell" data-id="${id}" data-field="thieu">${thieuVal || ''}</div>
+                    <div class="col-cp editable-cell" data-id="${id}" data-field="chiPhi">${cpVal ? formatMoney(item.chiPhi) : ''}</div>
+                    <div class="col-note editable-cell" data-id="${id}" data-field="ghiChu">${escHtml(item.ghiChu || '')}</div>
+                    <div class="col-actions">
                         <div class="td-menu-wrap">
                             <button class="td-menu-btn" onclick="HangQQ.toggleMenu(event, '${id}')">
                                 <span class="material-symbols-outlined">more_vert</span>
