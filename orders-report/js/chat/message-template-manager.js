@@ -739,10 +739,21 @@
             result = result.replace(/{order\.code}/g, '(Không có mã)');
         }
 
-        // {order.total} / {order.totalAmount}
+        // {order.total} / {order.totalAmount} — phải trừ giảm giá nếu có
         if (orderData.totalAmount) {
-            result = result.replace(/{order\.total}/g, _formatCurrency(orderData.totalAmount));
-            result = result.replace(/{order\.totalAmount}/g, _formatCurrency(orderData.totalAmount));
+            // Calculate discount from products (same logic as {order.details})
+            let discountForTotal = 0;
+            if (orderData.products && Array.isArray(orderData.products)) {
+                for (const p of orderData.products) {
+                    const di = _parseDiscountPrice(p.note);
+                    if (di) {
+                        discountForTotal += (p.price - di.discountPrice) * p.quantity;
+                    }
+                }
+            }
+            const finalTotal = orderData.totalAmount - discountForTotal;
+            result = result.replace(/{order\.total}/g, _formatCurrency(finalTotal));
+            result = result.replace(/{order\.totalAmount}/g, _formatCurrency(finalTotal));
         } else {
             result = result.replace(/{order\.total}/g, '0đ');
             result = result.replace(/{order\.totalAmount}/g, '0đ');
