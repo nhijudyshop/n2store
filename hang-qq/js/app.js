@@ -313,7 +313,7 @@
         const end = Math.min(start + PAGE_SIZE, filteredData.length);
         const infoEl = $('#paginationInfo');
         if (infoEl) {
-            infoEl.innerHTML = `Hiển thị <span class="text-on-surface font-semibold">${start + 1} - ${end}</span> trên <span class="text-on-surface font-semibold">${filteredData.length}</span> vận đơn`;
+            infoEl.innerHTML = `Hiển thị <strong>${start + 1} - ${end}</strong> trên <strong>${filteredData.length}</strong> vận đơn`;
         }
 
         els.tableBody.innerHTML = pageData.map((item, idx) => {
@@ -322,59 +322,55 @@
             const id = item.id;
             const sttStr = String(globalIdx).padStart(2, '0');
 
-            // Chi phí badge
-            let cpBadge = '';
-            if (parseNum(item.chiPhi) > 0) {
-                cpBadge = `<span class="inline-block px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary text-[10px] font-bold uppercase editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</span>`;
-            } else {
-                cpBadge = `<span class="editable-cell text-[11px] text-slate-400 italic" data-id="${id}" data-field="chiPhi">—</span>`;
-            }
-
-            // Ngày TT display
-            const ngayTTDisplay = item.ngayTT
-                ? `<span class="text-[11px] text-slate-500 editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</span>`
-                : `<span class="text-[11px] text-slate-400 italic editable-cell" data-id="${id}" data-field="ngayTT">Chưa TT</span>`;
-
-            // Thiếu badge
             const thieuVal = parseNum(item.thieu);
-            const thieuBadge = `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full ${thieuVal > 0 ? 'bg-error-container/30 text-error' : 'bg-slate-100 text-slate-400'} text-[10px] font-bold editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>`;
+            const cpVal = parseNum(item.chiPhi);
 
-            return `<tr data-id="${id}" class="group hover:bg-surface-container-low/50 transition-colors ${item.done ? 'row-done' : ''}">
-                <td class="col-check px-3 py-5"><input type="checkbox" class="done-check w-4 h-4 rounded accent-secondary cursor-pointer" data-id="${id}" ${item.done ? 'checked' : ''}></td>
-                <td class="px-4 py-5 font-semibold text-xs text-slate-400">${sttStr}</td>
-                <td class="px-4 py-5 editable-cell" data-id="${id}" data-field="ngayDiHang">
-                    <span class="text-xs font-bold text-on-surface">${formatDate(item.ngayDiHang)}</span>
+            return `<tr data-id="${id}" class="${item.done ? 'row-done' : ''}">
+                <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
+                <td><span class="td-stt">${sttStr}</span></td>
+                <td class="editable-cell" data-id="${id}" data-field="ngayDiHang">
+                    <span class="td-date">${formatDate(item.ngayDiHang)}</span>
                 </td>
-                <td class="px-4 py-5 text-center">
-                    <span class="text-xs font-semibold text-on-surface editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
-                    ${item.soLuong ? ' <span class="text-[10px] text-slate-400">SL</span>' : ''}
-                    ${item.soKg ? `<div class="text-[10px] text-slate-400 editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
+                <td style="text-align:center">
+                    <span class="td-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || '—'}</span>
+                    ${item.soLuong ? ' <span class="td-sl-unit">SL</span>' : ''}
+                    ${item.soKg ? `<div class="td-sl-unit editable-cell" data-id="${id}" data-field="soKg">${item.soKg} KG</div>` : ''}
                 </td>
-                <td class="px-4 py-5 editable-cell max-w-[200px]" data-id="${id}" data-field="moTa">
-                    <p class="text-xs font-medium text-on-surface leading-tight">${escHtml(item.moTa || '')}</p>
-                    ${item.ghiChu ? `<div class="text-[10px] text-slate-400 mt-0.5 editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
+                <td class="editable-cell" data-id="${id}" data-field="moTa" style="max-width:220px">
+                    <span class="td-desc">${escHtml(item.moTa || '')}</span>
+                    ${item.ghiChu ? `<div class="td-note editable-cell" data-id="${id}" data-field="ghiChu">Note: ${escHtml(item.ghiChu)}</div>` : ''}
                 </td>
-                <td class="px-4 py-5 text-right editable-cell" data-id="${id}" data-field="soTien">
-                    <span class="text-xs font-bold text-primary">¥ ${formatMoney(item.soTien)}</span>
+                <td style="text-align:right" class="editable-cell" data-id="${id}" data-field="soTien">
+                    <span class="td-money-primary">¥ ${formatMoney(item.soTien)}</span>
                 </td>
-                <td class="px-4 py-5 text-center">${thieuBadge}</td>
-                <td class="px-4 py-5">${cpBadge}</td>
-                <td class="px-4 py-5">${ngayTTDisplay}</td>
-                <td class="px-4 py-5 text-right editable-cell" data-id="${id}" data-field="soTienVND">
-                    <span class="text-xs font-bold text-on-surface">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
+                <td style="text-align:center">
+                    <span class="td-thieu-badge ${thieuVal > 0 ? 'has-thieu' : 'no-thieu'} editable-cell" data-id="${id}" data-field="thieu">${thieuVal}</span>
                 </td>
-                <td class="px-4 py-5">${renderImgThumb(allImgs, 'media', id)}</td>
-                <td class="px-4 py-5 text-right">
-                    <div class="relative inline-block">
-                        <button class="text-slate-400 hover:text-primary transition-colors p-1 rounded-lg hover:bg-surface-container-high/50" onclick="HangQQ.toggleMenu(event, '${id}')">
-                            <span class="material-symbols-outlined text-xl">more_vert</span>
+                <td>
+                    ${cpVal > 0
+                        ? `<span class="td-cp-badge editable-cell" data-id="${id}" data-field="chiPhi">${formatMoney(item.chiPhi)}</span>`
+                        : `<span class="td-date-tt-empty editable-cell" data-id="${id}" data-field="chiPhi">—</span>`}
+                </td>
+                <td>
+                    ${item.ngayTT
+                        ? `<span class="td-date-tt editable-cell" data-id="${id}" data-field="ngayTT">${formatDate(item.ngayTT)}</span>`
+                        : `<span class="td-date-tt-empty editable-cell" data-id="${id}" data-field="ngayTT">Chưa TT</span>`}
+                </td>
+                <td style="text-align:right" class="editable-cell" data-id="${id}" data-field="soTienVND">
+                    <span class="td-money">${formatMoney(item.soTienVND) ? formatMoney(item.soTienVND) + 'đ' : '—'}</span>
+                </td>
+                <td style="text-align:center">${renderImgThumb(allImgs, 'media', id)}</td>
+                <td style="text-align:right">
+                    <div class="td-menu-wrap">
+                        <button class="td-menu-btn" onclick="HangQQ.toggleMenu(event, '${id}')">
+                            <span class="material-symbols-outlined">more_vert</span>
                         </button>
-                        <div class="context-menu hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-[0_12px_32px_-4px_rgba(11,28,48,0.15)] border border-outline-variant/30 py-1 z-50 min-w-[140px]" id="menu-${id}">
-                            <button class="w-full px-4 py-2.5 text-left text-xs font-medium text-on-surface hover:bg-surface-container-low flex items-center gap-2" onclick="HangQQ.edit('${id}')">
-                                <span class="material-symbols-outlined text-base">edit</span> Sửa
+                        <div class="context-menu hidden" id="menu-${id}">
+                            <button onclick="HangQQ.edit('${id}')">
+                                <span class="material-symbols-outlined">edit</span> Sửa
                             </button>
-                            <button class="w-full px-4 py-2.5 text-left text-xs font-medium text-error hover:bg-error-container/20 flex items-center gap-2" onclick="HangQQ.del('${id}')">
-                                <span class="material-symbols-outlined text-base">delete</span> Xóa
+                            <button class="ctx-danger" onclick="HangQQ.del('${id}')">
+                                <span class="material-symbols-outlined">delete</span> Xóa
                             </button>
                         </div>
                     </div>
@@ -552,16 +548,12 @@
     }
 
     function renderImgThumb(images, type, id) {
-        if (!images || images.length === 0) {
-            return '';
-        }
+        if (!images || images.length === 0) return '—';
         const first = images[0];
-        let html = `<div class="flex justify-center -space-x-2">`;
-        html += `<div class="w-8 h-8 rounded-lg bg-slate-200 border-2 border-white overflow-hidden shadow-sm cursor-pointer" onclick="HangQQ.viewImg('${escAttr(first)}')">
-            <img src="${first}" alt="${type}" class="w-full h-full object-cover">
-        </div>`;
+        let html = `<div class="td-media-group">`;
+        html += `<div class="td-media-thumb" onclick="HangQQ.viewImg('${escAttr(first)}')"><img src="${first}" alt="${type}"></div>`;
         if (images.length > 1) {
-            html += `<div class="w-8 h-8 rounded-lg bg-primary/10 border-2 border-white flex items-center justify-center text-primary text-[10px] font-bold shadow-sm cursor-pointer" onclick="HangQQ.viewImg('${escAttr(images[1])}')">+${images.length - 1}</div>`;
+            html += `<div class="td-media-more" onclick="HangQQ.viewImg('${escAttr(images[1])}')">+${images.length - 1}</div>`;
         }
         html += `</div>`;
         return html;
