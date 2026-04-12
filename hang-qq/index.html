@@ -1,0 +1,300 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hàng QQ - Quản lý hàng Quảng Châu</title>
+
+    <!-- Core Loader -->
+    <script src="../shared/js/core-loader.js"></script>
+
+    <!-- ES Module: Shared utilities -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Storage Migration -->
+    <script src="../shared/js/storage-migration.js"></script>
+
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../shared/css/typography.css" />
+</head>
+
+<body>
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="header-left">
+                    <h1><i data-lucide="package"></i> Hàng QQ</h1>
+                    <span class="subtitle">Quản lý hàng Quảng Châu</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="btnAdd" title="Thêm mới">
+                        <i data-lucide="plus"></i> Thêm
+                    </button>
+                    <button class="btn btn-success" id="btnImportExcel" title="Import Excel">
+                        <i data-lucide="upload"></i> Import Excel
+                    </button>
+                    <button class="btn btn-outline" id="btnExport" title="Xuất Excel">
+                        <i data-lucide="download"></i> Xuất
+                    </button>
+                    <button class="btn btn-outline btn-reload" id="btnRefresh" title="Tải lại">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card card-total">
+                    <div class="card-icon"><i data-lucide="package"></i></div>
+                    <div class="card-info">
+                        <span class="card-label">Tổng đơn</span>
+                        <span class="card-value" id="statTotalOrders">0</span>
+                    </div>
+                </div>
+                <div class="card card-amount">
+                    <div class="card-icon"><i data-lucide="banknote"></i></div>
+                    <div class="card-info">
+                        <span class="card-label">Tổng tiền (CNY)</span>
+                        <span class="card-value" id="statTotalCNY">0</span>
+                    </div>
+                </div>
+                <div class="card card-paid">
+                    <div class="card-icon"><i data-lucide="check-circle"></i></div>
+                    <div class="card-info">
+                        <span class="card-label">Đã thanh toán</span>
+                        <span class="card-value" id="statTotalPaid">0</span>
+                    </div>
+                </div>
+                <div class="card card-remaining">
+                    <div class="card-icon"><i data-lucide="alert-circle"></i></div>
+                    <div class="card-info">
+                        <span class="card-label">Còn lại (VND)</span>
+                        <span class="card-value" id="statRemaining">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search & Filter -->
+            <div class="toolbar">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="searchInput" placeholder="Tìm theo mô tả, ghi chú...">
+                </div>
+                <div class="filter-group-inline">
+                    <select id="filterMonth">
+                        <option value="">Tất cả tháng</option>
+                    </select>
+                    <select id="filterStatus">
+                        <option value="">Tất cả</option>
+                        <option value="paid">Đã TT</option>
+                        <option value="unpaid">Chưa TT</option>
+                        <option value="partial">TT 1 phần</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-wrapper">
+                <table class="data-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th class="col-stt">#</th>
+                            <th class="col-date sortable" data-sort="ngayDiHang">Ngày đi hàng</th>
+                            <th class="col-num sortable" data-sort="soLuong">SL</th>
+                            <th class="col-num sortable" data-sort="soKg">Kg</th>
+                            <th class="col-desc">Mô tả hóa đơn</th>
+                            <th class="col-money sortable" data-sort="soTien">Tiền (¥)</th>
+                            <th class="col-num">SL nhận</th>
+                            <th class="col-num">Thiếu</th>
+                            <th class="col-money sortable" data-sort="chiPhi">CP hàng về</th>
+                            <th class="col-note">Ghi chú</th>
+                            <th class="col-date">Ngày TT</th>
+                            <th class="col-money sortable" data-sort="soTienTT">Tiền TT (¥)</th>
+                            <th class="col-money sortable" data-sort="soTienVND">Tiền VND</th>
+                            <th class="col-img">Ảnh SP</th>
+                            <th class="col-img">Ảnh HĐ</th>
+                            <th class="col-actions">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data rows rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i data-lucide="inbox"></i>
+                <p>Chưa có dữ liệu. Nhấn <strong>Thêm</strong> hoặc <strong>Import Excel</strong> để bắt đầu.</p>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Edit -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalForm">
+            <div class="modal-header">
+                <h2 id="modalTitle">Thêm đơn hàng</h2>
+                <button class="btn-close" id="btnCloseModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEntry">
+                    <input type="hidden" id="entryId">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="fNgayDiHang">Ngày đi hàng</label>
+                            <input type="date" id="fNgayDiHang" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fSoLuong">Số lượng (SL)</label>
+                            <input type="number" id="fSoLuong" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="fSoKg">Số Kg</label>
+                            <input type="number" id="fSoKg" min="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="fStt">STT đơn</label>
+                            <input type="text" id="fStt">
+                        </div>
+                        <div class="form-group form-group-wide">
+                            <label for="fMoTa">Mô tả hóa đơn</label>
+                            <input type="text" id="fMoTa" placeholder="VD: ÁO XANH 6913 30X42">
+                        </div>
+                        <div class="form-group">
+                            <label for="fSoTien">Số tiền (¥)</label>
+                            <input type="number" id="fSoTien" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="fSlNhan">SL nhận</label>
+                            <input type="number" id="fSlNhan" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="fThieu">Thiếu</label>
+                            <input type="number" id="fThieu" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="fChiPhi">Chi phí hàng về</label>
+                            <input type="number" id="fChiPhi" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="fGhiChu">Ghi chú</label>
+                            <input type="text" id="fGhiChu">
+                        </div>
+                        <div class="form-group">
+                            <label for="fNgayTT">Ngày thanh toán</label>
+                            <input type="date" id="fNgayTT">
+                        </div>
+                        <div class="form-group">
+                            <label for="fSoTienTT">Số tiền TT (¥)</label>
+                            <input type="number" id="fSoTienTT" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="fSoTienVND">Số tiền VND</label>
+                            <input type="number" id="fSoTienVND" min="0">
+                        </div>
+
+                        <!-- Image uploads -->
+                        <div class="form-group">
+                            <label>Ảnh sản phẩm</label>
+                            <div class="image-upload" id="uploadProductImg">
+                                <input type="file" accept="image/*" id="fImgProduct" multiple>
+                                <div class="upload-placeholder">
+                                    <i data-lucide="image-plus"></i>
+                                    <span>Chọn ảnh SP</span>
+                                </div>
+                                <div class="image-preview" id="previewProduct"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ảnh hóa đơn</label>
+                            <div class="image-upload" id="uploadInvoiceImg">
+                                <input type="file" accept="image/*" id="fImgInvoice" multiple>
+                                <div class="upload-placeholder">
+                                    <i data-lucide="image-plus"></i>
+                                    <span>Chọn ảnh HĐ</span>
+                                </div>
+                                <div class="image-preview" id="previewInvoice"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelModal">Hủy</button>
+                <button class="btn btn-primary" id="btnSaveEntry">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Import Excel -->
+    <div class="modal-overlay" id="importOverlay">
+        <div class="modal modal-import" id="modalImport">
+            <div class="modal-header">
+                <h2>Import từ Excel</h2>
+                <button class="btn-close" id="btnCloseImport"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="import-dropzone" id="importDropzone">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <p>Kéo thả file Excel vào đây</p>
+                    <p class="hint">hoặc click để chọn file (.xlsx, .xls)</p>
+                    <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
+                </div>
+                <div class="import-preview" id="importPreview" style="display:none">
+                    <div class="import-info">
+                        <span id="importFileName"></span>
+                        <span id="importRowCount"></span>
+                    </div>
+                    <div class="import-table-wrapper">
+                        <table class="data-table import-table" id="importTable">
+                            <thead id="importTableHead"></thead>
+                            <tbody id="importTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelImport">Hủy</button>
+                <button class="btn btn-success" id="btnConfirmImport" disabled>
+                    <i data-lucide="check"></i> Import dữ liệu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Image Viewer -->
+    <div class="modal-overlay" id="imageViewerOverlay">
+        <div class="image-viewer" id="imageViewer">
+            <button class="btn-close viewer-close" id="btnCloseViewer"><i data-lucide="x"></i></button>
+            <img id="viewerImage" src="" alt="Preview">
+        </div>
+    </div>
+
+    <!-- Hidden file input for Excel import -->
+    <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
+
+    <!-- Firebase -->
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- App JS -->
+    <script src="js/app.js"></script>
+</body>
+
+</html>
