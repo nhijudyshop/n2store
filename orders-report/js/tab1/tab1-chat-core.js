@@ -184,6 +184,19 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
 
+    // Update order note
+    const noteEl = document.getElementById('chatOrderNote');
+    if (noteEl) {
+        const noteCell = orderRow?.querySelector('td[data-column="notes"]');
+        const noteText = noteCell?.textContent?.trim() || '';
+        if (noteText && noteText !== '−') {
+            noteEl.textContent = noteText;
+            noteEl.style.display = 'block';
+        } else {
+            noteEl.style.display = 'none';
+        }
+    }
+
     // Update type toggle
     _updateTypeToggle(conversationType);
 
