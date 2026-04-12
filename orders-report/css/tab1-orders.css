@@ -232,6 +232,15 @@ color: #333;
     font-weight: 600;
 }
 
+.customer-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid #e5e7eb;
+}
+
 /* Messages column - expandable */
 .table th[data-column='messages'],
 .table td[data-column='messages'] {
