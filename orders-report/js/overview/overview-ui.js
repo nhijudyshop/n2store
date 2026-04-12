@@ -163,6 +163,18 @@ async function executeExcelFetch() {
         await loadEmployeeRanges();
         renderStatisticsFromAllOrders();
 
+        // Reload dropdown to reflect new data (update order count, add if missing)
+        try {
+            await loadAvailableTables();
+            // Re-select the current table after reload
+            const selector = document.getElementById('tableSelector');
+            if (selector) {
+                selector.value = currentTableName;
+            }
+        } catch (reloadErr) {
+            console.warn('[REPORT] ⚠️ Failed to reload dropdown after Excel save:', reloadErr);
+        }
+
         // Show success message
         alert(`✅ Đã tải dữ liệu từ Excel!\n- Số đơn hàng: ${parsedOrders.length}\n- Bảng: ${currentTableName}\n- Đã lưu vào Firebase`);
 

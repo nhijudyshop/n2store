@@ -160,56 +160,57 @@ function requestCampaignInfoFromTab1() {
  */
 async function getCurrentSessionCampaigns() {
     console.log('[REPORT] 🔍 getCurrentSessionCampaigns() called');
+    console.log('[REPORT] 📋 currentTableName (dropdown):', currentTableName || 'null');
 
-    // First, try to get campaign info from Tab1
-    if (!campaignInfoFromTab1) {
-        console.log('[REPORT] 📡 Requesting campaign info from Tab1...');
-        await requestCampaignInfoFromTab1();
-    }
-
-    console.log('[REPORT] 📋 campaignInfoFromTab1:', campaignInfoFromTab1 ? 'exists' : 'null');
-
-    if (!campaignInfoFromTab1) {
-        console.warn('[REPORT] ⚠️ campaignManager not available from Tab1');
+    if (!currentTableName) {
+        console.warn('[REPORT] ⚠️ No table selected in dropdown');
         return [];
     }
 
-    const activeCampaign = campaignInfoFromTab1.activeCampaign;
-    console.log('[REPORT] 📋 activeCampaign:', activeCampaign ? `"${activeCampaign.name}"` : 'null');
+    // Strategy 1: Extract date directly from dropdown campaign name (e.g., "Live 30/12/2025")
+    let dateFilter = extractDateFromCampaignName(currentTableName);
 
-    if (!activeCampaign) {
-        console.warn('[REPORT] ⚠️ No active campaign found');
-        return [];
+    // Strategy 2: Look up campaign's customStartDate from CampaignAPI
+    if (!dateFilter) {
+        console.log('[REPORT] 📡 No date in campaign name, looking up customStartDate from CampaignAPI...');
+        try {
+            const allCampaigns = await window.CampaignAPI.loadAll();
+            const matchedCampaign = allCampaigns.find(c => c.name === currentTableName);
+
+            if (matchedCampaign && matchedCampaign.customStartDate) {
+                // Convert ISO date "2025-12-30T10:00:00" to "30/12/2025"
+                const isoDate = matchedCampaign.customStartDate.split('T')[0]; // "2025-12-30"
+                const [year, month, day] = isoDate.split('-');
+                dateFilter = `${day}/${month}/${year}`;
+                console.log(`[REPORT] 📅 Found customStartDate for "${currentTableName}": ${dateFilter}`);
+            } else {
+                console.warn(`[REPORT] ⚠️ Campaign "${currentTableName}" not found or has no customStartDate`);
+            }
+        } catch (error) {
+            console.error('[REPORT] ❌ Error looking up campaign from API:', error);
+        }
     }
 
-    // Extract date from campaign name (e.g., "Live 30/12/2025" → "30/12/2025")
-    const dateFilter = extractDateFromCampaignName(activeCampaign.name);
+    // Strategy 3: Fallback to Tab1's active campaign info
+    if (!dateFilter) {
+        console.log('[REPORT] 📡 Falling back to Tab1 campaign info...');
+        if (!campaignInfoFromTab1) {
+            await requestCampaignInfoFromTab1();
+        }
+        if (campaignInfoFromTab1?.activeCampaign?.customStartDate) {
+            const isoDate = campaignInfoFromTab1.activeCampaign.customStartDate.split('T')[0];
+            const [year, month, day] = isoDate.split('-');
+            dateFilter = `${day}/${month}/${year}`;
+            console.log(`[REPORT] 📅 Using Tab1 fallback customStartDate: ${dateFilter}`);
+        }
+    }
 
     if (!dateFilter) {
-        console.warn('[REPORT] ⚠️ Could not extract date from campaign name:', activeCampaign.name);
-        console.log('[REPORT] Trying to use customStartDate as fallback...');
-
-        // Fallback: try to extract from customStartDate
-        if (activeCampaign.customStartDate) {
-            // Convert ISO date "2025-12-30T10:00:00.000Z" to "30/12/2025"
-            const isoDate = activeCampaign.customStartDate.split('T')[0]; // "2025-12-30"
-            const [year, month, day] = isoDate.split('-');
-            const fallbackDate = `${day}/${month}/${year}`; // "30/12/2025"
-            console.log('[REPORT] 📅 Using fallback date from customStartDate:', fallbackDate);
-
-            try {
-                const campaigns = await fetchCampaignsFromTPOS(fallbackDate);
-                return campaigns;
-            } catch (error) {
-                console.error('[REPORT] ❌ Error fetching campaigns with fallback date:', error);
-                return [];
-            }
-        }
-
+        console.warn('[REPORT] ⚠️ Could not determine date for campaign:', currentTableName);
         return [];
     }
 
-    console.log(`[REPORT] 📅 Extracted date from campaign name: ${dateFilter}`);
+    console.log(`[REPORT] 📅 Fetching TPOS campaigns with date filter: ${dateFilter}`);
 
     // Fetch campaigns from TPOS API
     try {
