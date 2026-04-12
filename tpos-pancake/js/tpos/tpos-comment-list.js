@@ -445,76 +445,51 @@ const TposCommentList = {
                 <div class="tpos-conv-avatar">
                     ${pictureUrl
                 ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                           <div class="avatar-placeholder" style="display: none; background: ${gradientColor};">${initial}</div>`
-                : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
+                           <div class="avatar-placeholder" style="display:none;background:${gradientColor};">${initial}</div>`
+                : `<div class="avatar-placeholder" style="background:${gradientColor};">${initial}</div>`
             }
                     ${sessionIndexBadge}
-                    <span class="channel-badge">
-                        <i data-lucide="facebook" class="channel-icon fb"></i>
-                    </span>
+                    <span class="channel-badge"><i data-lucide="facebook" class="channel-icon fb"></i></span>
                 </div>
-                <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
-                    <!-- Row 1: Name + Page badge + Order badge + Hidden tag -->
-                    <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <span class="customer-name" style="font-weight: 600;cursor:pointer;color:#1d4ed8;" onclick="event.stopPropagation(); TposCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin Pancake">${SharedUtils.escapeHtml(fromName)}</span>
-                        ${isMultiPage ? `<span style="${pageBadgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
+                <div class="tpos-conv-content">
+                    <div class="tpos-conv-header">
+                        <span class="customer-name" onclick="event.stopPropagation(); TposCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
+                        ${isMultiPage ? `<span class="tpos-tag" style="${pageBadgeColor}">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
                         ${orderBadge}
-                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;">Ẩn</span>' : ''}
+                        ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
                     </div>
-
-                    <!-- Row 2: COMMENT -->
-                    <div class="tpos-conv-message" style="margin-top: 6px; color: #1f2937; font-size: 14px; font-weight: 500; line-height: 1.4; background: #f0f9ff; padding: 8px 10px; border-radius: 6px; border-left: 3px solid #3b82f6;">${SharedUtils.escapeHtml(message)}</div>
-
-                    <!-- Row 3: Status + Phone + Address -->
-                    <div class="tpos-conv-info" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap;" onclick="event.stopPropagation();">
-                        <!-- Status Dropdown -->
-                        <div class="inline-status-container" style="position: relative; display: inline-flex;">
-                            <button id="status-btn-${fromId}" style="display: flex; align-items: center; gap: 3px; padding: 3px 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb; cursor: pointer; font-size: 11px; color: #374151;"
-                                    onclick="event.stopPropagation(); TposCommentList.toggleInlineStatusDropdown('${fromId}')">
-                                <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span>
-                                <i data-lucide="chevron-down" style="width: 10px; height: 10px;"></i>
+                    <div class="tpos-conv-message">${SharedUtils.escapeHtml(message)}</div>
+                    <div class="tpos-conv-info" onclick="event.stopPropagation();">
+                        <div class="inline-status-container">
+                            <button id="status-btn-${fromId}" class="tpos-filter-select" style="padding:3px 8px;font-size:11px;min-width:auto;"
+                                onclick="event.stopPropagation(); TposCommentList.toggleInlineStatusDropdown('${fromId}')">
+                                <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span> ▾
                             </button>
-                            <div id="status-dropdown-${fromId}" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #e5e7eb; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 120px;">
+                            <div id="status-dropdown-${fromId}" style="display:none;position:absolute;top:100%;left:0;background:white;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:1000;min-width:130px;">
                                 ${statusDropdownHtml}
                             </div>
                         </div>
-
-                        <!-- Phone Input + Debt Badge -->
-                        <div class="inline-phone-container" style="display: inline-flex; align-items: center; gap: 2px;">
-                            <input type="text" id="phone-${fromId}" value="${SharedUtils.escapeHtml(phone)}" placeholder="SĐT"
-                                   style="width: 100px; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; background: #f9fafb;"
-                                   onclick="event.stopPropagation();">
-                            <button id="save-phone-${fromId}" style="padding: 3px 4px; border: none; background: transparent; cursor: pointer;"
-                                    onclick="event.stopPropagation(); TposCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')"
-                                    title="Lưu SĐT">
-                                <i data-lucide="save" style="width: 14px; height: 14px; color: #6b7280;"></i>
-                            </button>
-                            ${hasDebt ? `<span class="debt-badge" style="padding: 2px 6px; background: #fef2f2; color: #dc2626; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap;" title="Công nợ">Nợ: ${debtDisplay}</span>` : ''}
-                        </div>
-
-                        <!-- Address Input -->
-                        <div class="inline-addr-container" style="display: inline-flex; align-items: center; gap: 2px; flex: 1; min-width: 150px;">
-                            <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ"
-                                   style="flex: 1; padding: 3px 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 11px; background: #f9fafb; min-width: 0;"
-                                   onclick="event.stopPropagation();">
-                            <button id="save-addr-${fromId}" style="padding: 3px 4px; border: none; background: transparent; cursor: pointer;"
-                                    onclick="event.stopPropagation(); TposCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')"
-                                    title="Lưu địa chỉ">
-                                <i data-lucide="save" style="width: 14px; height: 14px; color: #6b7280;"></i>
-                            </button>
-                        </div>
+                        <input type="text" id="phone-${fromId}" value="${SharedUtils.escapeHtml(phone)}" placeholder="SĐT" style="width:105px;" onclick="event.stopPropagation();">
+                        <button class="tpos-action-btn" style="width:24px;height:24px;opacity:1;" onclick="event.stopPropagation(); TposCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')" title="Lưu SĐT">
+                            <i data-lucide="save" style="width:12px;height:12px;"></i>
+                        </button>
+                        ${hasDebt ? `<span class="debt-badge">Nợ: ${debtDisplay}</span>` : ''}
+                        <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ" style="flex:1;min-width:120px;" onclick="event.stopPropagation();">
+                        <button class="tpos-action-btn" style="width:24px;height:24px;opacity:1;" onclick="event.stopPropagation(); TposCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')" title="Lưu địa chỉ">
+                            <i data-lucide="save" style="width:12px;height:12px;"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="tpos-conv-actions" style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+                <div class="tpos-conv-actions">
                     ${!sessionInfo?.code
-                        ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn hàng TPOS" style="color:#3b82f6;" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                        ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn" style="color:var(--primary);" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
                                <i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>
                            </button>`
-                        : `<span title="Đã có đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;font-size:10px;font-weight:700;">
+                        : `<span title="Đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
                                <i data-lucide="package-check" style="width:14px;height:14px;"></i>
                            </span>`
                     }
-                    <button class="tpos-action-btn" title="Xem thông tin" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
+                    <button class="tpos-action-btn" title="Xem info" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
                         <i data-lucide="user" style="width:14px;height:14px;"></i>
                     </button>
                     <button class="tpos-action-btn" title="Trả lời" onclick="event.stopPropagation(); TposCommentList.showReplyInput('${id}', '${fromId}')">
