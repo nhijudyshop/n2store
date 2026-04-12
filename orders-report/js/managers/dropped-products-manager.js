@@ -228,21 +228,51 @@
     }
 
     /**
-     * Load warehouse products (Kho Sản Phẩm) from Kho Đi Chợ API
+     * Load warehouse products (Kho Sản Phẩm) from TPOS OData API
+     * Same source as product-warehouse/index.html
      */
     async function loadWarehouseProductsFromAPI() {
         try {
-            const response = await fetch(`${KHO_API}?limit=1000&sort_by=stt&sort_order=ASC&has_inventory=true`);
+            const params = new URLSearchParams();
+            params.set('Active', 'true');
+            params.set('priceId', '0');
+            params.set('$top', '1000');
+            params.set('$skip', '0');
+            params.set('$orderby', 'DateCreated desc');
+            params.set('$count', 'true');
+            params.set('$filter', 'Active eq true');
+
+            const url = API_CONFIG.buildUrl.tposOData(
+                'ProductTemplate/ODataService.GetViewV2',
+                params.toString()
+            );
+
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                headers: { 'Accept': 'application/json' }
+            });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || 'Unknown error');
+            const data = await response.json();
+            const items = data.value || [];
 
-            warehouseProducts = (result.data || []).map(mapKhoProduct);
+            warehouseProducts = items.map(item => ({
+                ProductId: item.Id || item.DefaultCode,
+                ProductCode: item.DefaultCode || '',
+                ProductName: item.Name || '',
+                ProductNameGet: item.DefaultCode
+                    ? `[${item.DefaultCode}] ${item.Name || ''}`
+                    : item.Name || '',
+                ImageUrl: item.ImageUrl || '',
+                Price: item.ListPrice || 0,
+                PurchasePrice: item.PurchasePrice || 0,
+                Quantity: item.QtyAvailable || 0,
+                UOMName: item.UOMName || '',
+                _source: 'tpos_odata',
+            }));
 
             renderWarehouseProductsTable();
             updateDroppedCounts();
-            console.log(`[KHO] Loaded ${warehouseProducts.length} warehouse products`);
+            console.log(`[KHO] Loaded ${warehouseProducts.length} warehouse products from TPOS`);
         } catch (error) {
             console.error('[KHO] Error loading warehouse products:', error);
         }
@@ -259,7 +289,7 @@
             sseSource = null;
         }
 
-        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('dropped_products,kho_di_cho')}`;
+        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('dropped_products')}`;
 
         try {
             sseSource = new EventSource(sseUrl);
@@ -270,8 +300,6 @@
                     const key = payload.key || payload.matchedKey || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedSSE(payload.data || payload);
-                    } else if (key.startsWith('kho_di_cho')) {
-                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {
                     console.warn('[SSE] Parse error:', err);
@@ -284,8 +312,6 @@
                     const key = payload.key || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedSSE(payload.data || payload);
-                    } else if (key.startsWith('kho_di_cho')) {
-                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {}
             });
@@ -296,14 +322,12 @@
                     const key = payload.key || '';
                     if (key.startsWith('dropped_products')) {
                         handleDroppedDeleteSSE(payload.data || payload);
-                    } else if (key.startsWith('kho_di_cho')) {
-                        loadWarehouseProductsFromAPI();
                     }
                 } catch (err) {}
             });
 
             sseSource.addEventListener('connected', () => {
-                console.log('[SSE] Connected for dropped_products + kho_di_cho');
+                console.log('[SSE] Connected for dropped_products');
             });
 
             sseSource.onerror = () => {
