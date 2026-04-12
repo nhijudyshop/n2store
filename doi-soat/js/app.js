@@ -242,9 +242,6 @@
             });
         }
 
-        // DEBUG: log product image data
-        console.log('[DEBUG] OrderLines product data:', data.OrderLines?.map(l => ({ Name: l.Name, ProductId: l.ProductId, Product: l.Product ? { Id: l.Product.Id, ImageUrl: l.Product.ImageUrl } : null })));
-
         // Init checked quantities to 0
         if (data.OrderLines) {
             data.OrderLines.forEach(line => {
@@ -256,12 +253,41 @@
         }
 
         renderProductTable();
+        loadProductImages(data.OrderLines);
         updateSaveButton();
         renderOrderDetail(data);
         showPage(reconcilePage);
 
         // Focus on product barcode input
         setTimeout(() => productBarcodeInput.focus(), 100);
+    }
+
+    async function loadProductImages(orderLines) {
+        if (!orderLines) return;
+        const token = await getToken();
+        if (!token) return;
+        const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        orderLines.forEach(async (line) => {
+            if (!line.ProductId) return;
+            try {
+                const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, {
+                    headers: { 'authorization': `Bearer ${token}`, 'accept': 'application/json' }
+                });
+                if (!resp.ok) return;
+                const product = await resp.json();
+                if (!product.ImageUrl) return;
+
+                const imgUrl = window.TPOSImageProxy
+                    ? window.TPOSImageProxy.proxyImageUrl(product.ImageUrl)
+                    : `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(product.ImageUrl)}`;
+
+                const cell = productTableBody.querySelector(`td[data-product-id="${line.ProductId}"] .product-img-tooltip`);
+                if (cell) {
+                    cell.innerHTML = `<img src="${imgUrl}" alt="" onerror="this.parentElement.style.display='none'">`;
+                }
+            } catch (e) { /* skip */ }
+        });
     }
 
     function extractBarcode(line) {
@@ -296,7 +322,7 @@
 
             return `<tr class="${isDone ? 'checked' : ''}">
                 <td>${idx + 1}</td>
-                <td class="product-name-cell">${line.Name || line.ProductNameGet || ''}${line.Product && line.Product.ImageUrl ? `<span class="product-img-tooltip"><img src="https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=${encodeURIComponent(line.Product.ImageUrl)}" alt=""></span>` : ''}</td>
+                <td class="product-name-cell" data-product-id="${line.ProductId || ''}">${line.Name || line.ProductNameGet || ''}<span class="product-img-tooltip"></span></td>
                 <td>
                     <span class="qty-display">
                         <span class="${checkedQty > 0 ? 'qty-checked' : 'qty-unchecked'}">${checkedQty}</span>/${Math.floor(totalQty)}
