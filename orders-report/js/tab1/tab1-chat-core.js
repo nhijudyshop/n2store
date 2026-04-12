@@ -82,21 +82,26 @@ window.sendBillFromChat = async function() {
             return;
         }
 
-        // Generate bill image for preview in chat
+        // Generate bill image once (reuse for preview + send)
+        let billBlob = null;
         let billImageUrl = null;
         if (typeof window.BillService?.generateBillImage === 'function') {
             try {
-                const blob = await window.BillService.generateBillImage(invoiceData);
-                if (blob) billImageUrl = URL.createObjectURL(blob);
+                billBlob = await window.BillService.generateBillImage(invoiceData);
+                if (billBlob) billImageUrl = URL.createObjectURL(billBlob);
             } catch (e) {
-                console.warn('[CHAT] Bill image preview failed:', e.message);
+                console.warn('[CHAT] Bill image generation failed:', e.message);
             }
         }
 
-        // Send bill via Pancake API
+        // Send bill via Pancake API — pass conversation ID + pre-generated blob
+        const convId = window.currentConversationId;
         let sendResult = null;
         if (typeof window.BillService?.sendBillToCustomer === 'function') {
-            sendResult = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid);
+            sendResult = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid, {
+                conversationId: convId,
+                preGeneratedBlob: billBlob
+            });
         } else if (typeof window.sendBillFromMainTable === 'function') {
             await window.sendBillFromMainTable(orderId);
             sendResult = { success: true };

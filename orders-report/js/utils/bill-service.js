@@ -1297,8 +1297,8 @@ ${
             if (contentId) {
                 // Use pre-generated content_id
             } else {
-                // Generate bill image using custom template (no TPOS API request)
-                const imageBlob = await generateBillImage(orderResult, options);
+                // Generate bill image (reuse pre-generated blob if available)
+                const imageBlob = options.preGeneratedBlob || await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
                 const isJpeg = imageBlob.type === 'image/jpeg';
@@ -1334,30 +1334,24 @@ ${
 
             // Step 3: Send message with image via Pancake API
 
-            // Get conversation ID - same logic as chat modal (openChatModal)
-            // Uses fetchConversationsByCustomerFbId to ensure we get real conversation data
-            let convId = null;
+            // Use pre-supplied conversationId if available (from chat modal)
+            let convId = options.conversationId || null;
 
-            if (window.pancakeDataManager) {
+            // Otherwise lookup conversation by customer fb_id
+            if (!convId && window.pancakeDataManager) {
                 try {
-                    // Same method as chat modal uses in tab1-chat.js line 1888
                     const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
                         pageId,
                         psid
                     );
 
                     if (result.conversations?.length > 0) {
-                        // Filter INBOX conversations (same as chat modal)
                         const inboxConversations = result.conversations.filter(
                             (conv) => conv.type === 'INBOX'
                         );
-
-                        if (inboxConversations.length > 0) {
-                            convId = inboxConversations[0].id;
-                        } else {
-                            // Fallback to first conversation if no INBOX found
-                            convId = result.conversations[0].id;
-                        }
+                        convId = inboxConversations.length > 0
+                            ? inboxConversations[0].id
+                            : result.conversations[0].id;
                     } else {
                         console.warn('[BILL-SERVICE] No conversations found for customer');
                     }
@@ -1369,8 +1363,17 @@ ${
                 }
             }
 
-            // No fallback - must have real conversation ID from Pancake
+            // If no conversation found, try extension bypass as fallback
             if (!convId) {
+                if (billImageFile && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
+                    console.log('[BILL-SERVICE] No conversation — trying extension bypass');
+                    try {
+                        await window.sendImagesViaExtension(pageId, psid, [billImageFile]);
+                        return { success: true, method: 'extension' };
+                    } catch (extErr) {
+                        console.error('[BILL-SERVICE] Extension fallback failed:', extErr.message);
+                    }
+                }
                 return {
                     success: false,
                     error: 'Không tìm thấy conversation. Khách hàng chưa có tin nhắn với page này.',
