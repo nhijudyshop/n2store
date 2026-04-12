@@ -2937,10 +2937,14 @@
                 <div class="fast-sale-results-content" id="successTab">
                     <div style="padding: 20px;">
                         <div id="successOrdersTable"></div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="merge-btn-confirm" id="printInvoiceBtn" onclick="printSuccessOrders('invoice')"
                                 style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
                                 <i class="fas fa-print"></i> In hóa đơn
+                            </button>
+                            <button class="merge-btn-confirm" id="sendBillBatchBtn" onclick="window.sendBillBatch()"
+                                style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                                <i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt
                             </button>
                         </div>
                     </div>

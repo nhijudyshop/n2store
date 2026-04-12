@@ -2626,6 +2626,72 @@
     }
 
     /**
+     * Batch send bills to multiple customers via Messenger
+     * Uses same data flow as sendBillManually but processes selected orders sequentially
+     */
+    async function sendBillBatch() {
+        const resultsData = window.fastSaleResultsData;
+        if (!resultsData || !resultsData.success || resultsData.success.length === 0) {
+            window.notificationManager?.warning('Không có đơn hàng thành công');
+            return;
+        }
+
+        // Get selected indexes (or all if none selected)
+        let selectedIndexes = Array.from(
+            document.querySelectorAll('.success-order-checkbox:checked')
+        ).map((cb) => parseInt(cb.value));
+
+        if (selectedIndexes.length === 0) {
+            selectedIndexes = resultsData.success.map((_, i) => i);
+        }
+
+        if (selectedIndexes.length === 0) return;
+
+        const confirmMsg = `Gửi bill qua Messenger cho ${selectedIndexes.length} đơn hàng?`;
+        if (!confirm(confirmMsg)) return;
+
+        const btn = document.getElementById('sendBillBatchBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
+
+        let sent = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        for (const index of selectedIndexes) {
+            const order = resultsData.success[index];
+            if (!order) { skipped++; continue; }
+
+            // Update button progress
+            if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${sent + failed + skipped + 1}/${selectedIndexes.length}`;
+
+            try {
+                await sendBillManually(index, true); // skipPreview = true for batch
+                sent++;
+            } catch (err) {
+                console.error(`[BILL-BATCH] Error sending bill for order ${order.Number}:`, err);
+                failed++;
+            }
+
+            // Small delay between sends to avoid rate limiting
+            if (index !== selectedIndexes[selectedIndexes.length - 1]) {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt';
+        }
+
+        const msg = `Gửi bill: ${sent} thành công${failed > 0 ? `, ${failed} lỗi` : ''}${skipped > 0 ? `, ${skipped} bỏ qua` : ''}`;
+        if (failed > 0) {
+            window.notificationManager?.warning(msg);
+        } else {
+            window.notificationManager?.show(msg, 'success');
+        }
+    }
+
+    /**
      * Override printSuccessOrders to disable auto-send
      */
     async function printSuccessOrdersWithoutAutoSend(type) {
@@ -3058,6 +3124,7 @@
         window.renderInvoiceStatusCell = renderInvoiceStatusCell;
         window.sendBillFromMainTable = sendBillFromMainTable;
         window.sendBillManually = sendBillManually;
+        window.sendBillBatch = sendBillBatch;
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
         // Assign 'get' method explicitly (cannot use shorthand in object literal due to getter keyword conflict)
