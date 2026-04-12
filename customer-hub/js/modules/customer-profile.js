@@ -83,9 +83,14 @@ export class CustomerProfileModule {
                             <!-- Will be rendered dynamically -->
                         </div>
 
-                        <!-- Column 3: RFM Analysis (20%) -->
-                        <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="height: 100%; min-width: 0;">
-                            <!-- Will be rendered dynamically -->
+                        <!-- Column 3: RFM + Pancake Info (20%) -->
+                        <div style="display: flex; flex-direction: column; gap: 16px; height: 100%; min-width: 0;">
+                            <div id="rfm-analysis-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden">
+                                <!-- Will be rendered dynamically -->
+                            </div>
+                            <div id="pancake-info-card" class="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm overflow-hidden" style="flex: 1; display: flex; flex-direction: column;">
+                                <!-- Will be rendered by _renderPancakeInfoCard -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -133,6 +138,7 @@ export class CustomerProfileModule {
                 this._renderRFMCard(data.customer);
                 this._renderTicketsCard(data.recentTickets || [], data.recentActivities || [], data.recentWalletTransactions || []);
                 this._renderNotesSection(data.notes || []);
+                this._renderPancakeInfoCard(data.customer);
 
                 // Initialize wallet panel module
                 this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
@@ -194,6 +200,7 @@ export class CustomerProfileModule {
                 this._renderRFMCard(data.customer);
                 this._renderTicketsCard([], []);
                 this._renderNotesSection([]);
+                this._renderPancakeInfoCard(data.customer);
 
                 // Initialize wallet panel module
                 this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
@@ -1126,6 +1133,120 @@ export class CustomerProfileModule {
             document.getElementById('order-detail-loading')?.remove();
             alert('Lỗi khi tải thông tin đơn hàng: ' + err.message);
         }
+    }
+
+    _renderPancakeInfoCard(customer) {
+        const container = this.container.querySelector('#pancake-info-card');
+        if (!container) return;
+
+        const hasPancakeData = customer.fb_id || customer.global_id || customer.pancake_id || customer.pancake_synced_at;
+
+        if (!hasPancakeData) {
+            container.innerHTML = `
+                <div class="p-5">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-orange-500">forum</span>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Pancake</h3>
+                    </div>
+                    <p class="text-sm text-slate-400 italic">Chưa đồng bộ từ Pancake</p>
+                </div>
+            `;
+            return;
+        }
+
+        const escHtml = (s) => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+        const pancakeNotes = customer.pancake_notes || [];
+        let notesHtml = '';
+        if (pancakeNotes.length > 0) {
+            const noteItems = pancakeNotes.slice(0, 5).map(n => {
+                const text = n.message || n.content || '';
+                const by = n.created_by?.fb_name || 'Pancake';
+                return `<div class="p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg mb-1.5 border-l-2 border-orange-400">
+                    <p class="text-xs text-slate-700 dark:text-slate-300">${escHtml(typeof text === 'string' ? text : JSON.stringify(text))}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${escHtml(by)}</p>
+                </div>`;
+            }).join('');
+            notesHtml = `
+                <div class="mt-3">
+                    <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Ghi chú Pancake (${pancakeNotes.length})</p>
+                    ${noteItems}
+                </div>
+            `;
+        }
+
+        const orderOk = customer.order_success_count || 0;
+        const orderFail = customer.order_fail_count || 0;
+        const total = orderOk + orderFail;
+        const returnRate = total > 0 ? Math.round((orderFail / total) * 100) : 0;
+
+        const syncedAt = customer.pancake_synced_at
+            ? new Date(customer.pancake_synced_at).toLocaleString('vi-VN')
+            : 'N/A';
+
+        const copyBtn = (val) => val
+            ? `<button class="opacity-0 group-hover:opacity-100 text-orange-500 transition-opacity" onclick="navigator.clipboard.writeText('${escHtml(val)}')"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span></button>`
+            : '';
+
+        container.innerHTML = `
+            <div class="p-5 overflow-y-auto" style="flex: 1;">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-orange-500">forum</span>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Pancake</h3>
+                    </div>
+                    ${customer.can_inbox === false ? '<span class="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded">No Inbox</span>' : ''}
+                </div>
+
+                <div class="space-y-2.5">
+                    ${customer.fb_id ? `<div class="group flex items-center justify-between">
+                        <span class="text-xs text-slate-500">FB ID</span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-mono text-slate-700 dark:text-slate-300 select-all">${escHtml(customer.fb_id)}</span>
+                            ${copyBtn(customer.fb_id)}
+                        </div>
+                    </div>` : ''}
+
+                    ${customer.global_id ? `<div class="group flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Global ID</span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-mono text-slate-700 dark:text-slate-300 select-all">${escHtml(customer.global_id)}</span>
+                            ${copyBtn(customer.global_id)}
+                        </div>
+                    </div>` : ''}
+
+                    ${customer.gender ? `<div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Giới tính</span>
+                        <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.gender)}</span>
+                    </div>` : ''}
+
+                    ${customer.birthday ? `<div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Sinh nhật</span>
+                        <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.birthday)}</span>
+                    </div>` : ''}
+
+                    ${customer.lives_in ? `<div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Nơi sống</span>
+                        <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.lives_in)}</span>
+                    </div>` : ''}
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Đơn Pancake</span>
+                        <div class="flex gap-1.5">
+                            <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded">${orderOk} OK</span>
+                            <span class="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded">${orderFail} hoàn</span>
+                            ${returnRate > 30 ? `<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded">${returnRate}%</span>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Đồng bộ</span>
+                        <span class="text-[10px] text-slate-400">${syncedAt}</span>
+                    </div>
+                </div>
+
+                ${notesHtml}
+            </div>
+        `;
     }
 
     _renderNotesSection(notes) {

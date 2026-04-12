@@ -1359,6 +1359,105 @@ router.post('/:id/notes', async (req, res) => {
 });
 
 /**
+ * PATCH /api/v2/customers/:id/notes/:noteId
+ * Update a customer note
+ */
+router.patch('/:id/notes/:noteId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { noteId } = req.params;
+    const { content, category, is_pinned } = req.body;
+
+    if (!content && category === undefined && is_pinned === undefined) {
+        return res.status(400).json({ success: false, error: 'Nothing to update' });
+    }
+
+    try {
+        const setClauses = [];
+        const values = [];
+        let idx = 1;
+
+        if (content) { setClauses.push(`content = $${idx++}`); values.push(content); }
+        if (category !== undefined) { setClauses.push(`category = $${idx++}`); values.push(category); }
+        if (is_pinned !== undefined) { setClauses.push(`is_pinned = $${idx++}`); values.push(is_pinned); }
+        setClauses.push(`updated_at = NOW()`);
+
+        values.push(parseInt(noteId));
+
+        const result = await db.query(
+            `UPDATE customer_notes SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+            values
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Note not found' });
+        }
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        handleError(res, error, 'Failed to update customer note');
+    }
+});
+
+/**
+ * DELETE /api/v2/customers/:id/notes/:noteId
+ * Delete a customer note
+ */
+router.delete('/:id/notes/:noteId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { noteId } = req.params;
+
+    try {
+        const result = await db.query(
+            'DELETE FROM customer_notes WHERE id = $1 RETURNING *',
+            [parseInt(noteId)]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Note not found' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        handleError(res, error, 'Failed to delete customer note');
+    }
+});
+
+/**
+ * GET /api/v2/customers/:id/notes
+ * List all notes for a customer
+ */
+router.get('/:id/notes', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
+
+    try {
+        const customerQuery = isPhone
+            ? 'SELECT id, phone FROM customers WHERE phone = $1'
+            : 'SELECT id, phone FROM customers WHERE id = $1';
+        const lookupValue = isPhone ? normalizePhone(id) : parseInt(id);
+        const customerResult = await db.query(customerQuery, [lookupValue]);
+
+        if (customerResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Customer not found' });
+        }
+
+        const result = await db.query(`
+            SELECT id, content, is_pinned, category, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                (updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as updated_at
+            FROM customer_notes
+            WHERE phone = $1
+            ORDER BY is_pinned DESC, created_at DESC
+        `, [customerResult.rows[0].phone]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        handleError(res, error, 'Failed to list customer notes');
+    }
+});
+
+/**
  * POST /api/v2/customers/:id/activities
  * Log a customer activity (from frontend order operations)
  */
