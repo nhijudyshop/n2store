@@ -422,7 +422,7 @@
                 reason
             );
 
-            // Trả lại sản phẩm vào Kho Đi Chợ nếu đã hoàn thành đối soát (non-blocking)
+            // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
             if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
                 try {
                     const restoreItems = invoiceData.OrderLines.map(line => {
@@ -1296,7 +1296,7 @@
                 reason
             );
 
-            // Trả lại sản phẩm vào Kho Đi Chợ nếu đã hoàn thành đối soát (non-blocking)
+            // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
             if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
                 try {
                     const restoreItems = invoiceData.OrderLines.map(line => {

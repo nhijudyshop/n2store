@@ -4,7 +4,7 @@
  * WAREHOUSE SHARED UTILITIES
  * =====================================================
  * Common functions shared between:
- *   - web-warehouse (Kho Đi Chợ)
+ *   - web-warehouse (Web Warehouse)
  *   - product-warehouse (Kho Sản Phẩm)
  *
  * Usage: <script src="../shared/js/warehouse-shared.js"></script>

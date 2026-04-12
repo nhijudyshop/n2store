@@ -238,8 +238,8 @@ const BillService = (function () {
                 const price = item.PriceUnit || item.Price || 0;
                 const total = quantity * price;
                 const productName = item.ProductName || item.ProductNameGet || '';
-                const khoDiChoSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(item) : 0;
-                const displayName = `${khoDiChoSTT} - ${productName}`;
+                const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(item) : 0;
+                const displayName = `${warehouseSTT} - ${productName}`;
                 const uomName = item.ProductUOMName || 'Cái';
                 const note = item.Note || '';
 

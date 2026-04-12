@@ -30,7 +30,7 @@
   - [API V2 — Tickets](#api-v2--tickets)
   - [API V2 — Balance History](#api-v2--balance-history)
   - [API V2 — Analytics](#api-v2--analytics)
-  - [API V2 — Kho Đi Chợ (Warehouse)](#api-v2--kho-đi-chợ-warehouse)
+  - [API V2 — Web Warehouse](#api-v2--kho-đi-chợ-warehouse)
   - [API V2 — Pending Withdrawals](#api-v2--pending-withdrawals)
   - [Invoice Status](#invoice-status)
   - [Invoice NJD Mapping](#invoice-njd-mapping)
@@ -408,7 +408,7 @@ Thay thế Firebase Realtime Database:
 | GET | `/api/v2/analytics/activity-feed` | Activity feed |
 | POST | `/api/v2/analytics/rfm/recalculate` | Tính lại RFM scores |
 
-### API V2 — Kho Đi Chợ (Warehouse)
+### API V2 — Web Warehouse
 
 | Method | URL | Mô tả |
 |---|---|---|

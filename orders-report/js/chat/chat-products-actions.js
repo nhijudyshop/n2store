@@ -123,7 +123,7 @@
                 throw new Error('updateOrderWithFullPayload not available');
             }
 
-            // Confirm sale on Kho Đi Chợ (subtract from warehouse + log to sales history)
+            // Confirm sale on Web Warehouse (subtract from warehouse + log to sales history)
             if (heldProduct.IsFromKho || heldProduct.IsFromDropped || heldProduct._khoProductCode) {
                 const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
                 if (productCode) {
@@ -563,7 +563,7 @@
     }
 
     /**
-     * Confirm sale on Kho Đi Chợ — subtract from warehouse + log to sales history
+     * Confirm sale on Web Warehouse — subtract from warehouse + log to sales history
      */
     async function confirmKhoSale(orderId, productCode, quantity, orderStt) {
         try {

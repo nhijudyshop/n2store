@@ -1576,7 +1576,7 @@ class PurchaseOrderController {
 
                     // Sync products to Kho Di Cho (non-blocking)
                     try {
-                        const khoDiChoItems = (singleOrder.items || []).map(item => ({
+                        const warehouseItems = (singleOrder.items || []).map(item => ({
                             product_code: item.productCode || '',
                             parent_product_code: item.parentProductCode || null,
                             product_name: item.productName || '',
@@ -1586,11 +1586,11 @@ class PurchaseOrderController {
                             source_po_id: singleOrder.id || ''
                         })).filter(i => i.product_code && i.product_name);
 
-                        if (khoDiChoItems.length > 0) {
+                        if (warehouseItems.length > 0) {
                             fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ items: khoDiChoItems })
+                                body: JSON.stringify({ items: warehouseItems })
                             }).then(r => r.json()).then(res => {
                                 if (res.success) {
                                     console.log('[WebWarehouse] Synced:', res.message);

@@ -113,8 +113,8 @@ function renderPackingSlipProducts() {
 
     const rows = packingSlipOrderLines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const khoDiChoSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
-        const displayName = `${khoDiChoSTT} - ${productName}`;
+        const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
+        const displayName = `${warehouseSTT} - ${productName}`;
         const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
 
@@ -332,8 +332,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
     const productRows = lines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const khoDiChoSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
-        const displayName = `${khoDiChoSTT} - ${productName}`;
+        const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
+        const displayName = `${warehouseSTT} - ${productName}`;
         const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;

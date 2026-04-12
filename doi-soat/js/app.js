@@ -659,7 +659,7 @@
                 const orderNum = currentOrder.Number || currentOrder.MoveName || '';
                 const productList = contents;
 
-                // Trừ số lượng sản phẩm trong Kho Đi Chợ (non-blocking)
+                // Trừ số lượng sản phẩm trong Web Warehouse (non-blocking)
                 try {
                     const subtractItems = currentOrder.OrderLines.map(line => ({
                         product_code: extractBarcode(line) || '',

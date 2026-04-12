@@ -62,7 +62,7 @@
     const RENDER_API = 'https://n2store-fallback.onrender.com';
     const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
 
-    // Local state - Kho Đi Chợ (PostgreSQL) is the single source of truth
+    // Local state - Web Warehouse (PostgreSQL) is the single source of truth
     let droppedProducts = [];
     // Warehouse (Kho Sản Phẩm) — in-memory only for now.
     let warehouseProducts = [];
@@ -674,7 +674,7 @@
 
     /**
      * Move warehouse product to order (hold)
-     * Uses Kho Đi Chợ hold API for multi-user collaboration
+     * Uses Web Warehouse hold API for multi-user collaboration
      */
     /**
      * Move dropped product to order (held)
