@@ -207,7 +207,8 @@
     position: absolute;
     font-size: 32px;
     pointer-events: none;
-    animation: celebrationFloat 4s ease-out forwards;
+    will-change: transform, opacity;
+    animation: celebrationFloat 4s linear forwards;
     z-index: 1;
 }
 
@@ -289,11 +290,14 @@
 
 @keyframes celebrationFloat {
     0% {
-        transform: translateY(0) rotate(0deg) scale(1);
+        transform: translateY(0);
         opacity: 1;
     }
+    80% {
+        opacity: 0.6;
+    }
     100% {
-        transform: translateY(-400px) rotate(720deg) scale(0);
+        transform: translateY(-500px);
         opacity: 0;
     }
 }
