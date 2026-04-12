@@ -29,7 +29,7 @@ window.openCreateCampaignModal = function() {
 };
 
 // Gemini name pool: fetch 20 names at once, cycle through them
-const _namePool = {
+var _namePool = window._campaignNamePool = {
     names: [],      // current batch of unused names
     used: [],       // all names used this session (to exclude from next batch)
     loading: false,
@@ -63,17 +63,23 @@ async function _fetchNameBatch(prefix, existingNames) {
         })
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+        console.warn('[CAMPAIGN] Gemini API error:', response.status);
+        return [];
+    }
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    console.log('[CAMPAIGN] Gemini raw response:', text);
     if (!text) return [];
 
     // Parse lines into clean names
     const usedUpper = new Set(allUsed.map(n => n.toUpperCase()));
-    return text.split('\n')
-        .map(line => line.replace(/^\d+[\.\)\-\s]+/, '').replace(/^["'\s]+|["'\s]+$/g, '').trim().toUpperCase())
+    const names = text.split('\n')
+        .map(line => line.replace(/^\d+[\.\)\-\s]+/, '').replace(/^["'\s*]+|["'\s*]+$/g, '').trim().toUpperCase())
         .filter(name => name.length > 0 && name.startsWith(prefix) && !usedUpper.has(name));
+    console.log('[CAMPAIGN] Parsed', names.length, 'names:', names);
+    return names;
 }
 
 // Main function: pick next name from pool, refill from Gemini when empty
