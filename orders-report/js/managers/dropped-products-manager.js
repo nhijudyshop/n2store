@@ -1028,7 +1028,7 @@
             const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
             const imgInner = p.ImageUrl
-                ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false">`
+                ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
                 : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
             return `
@@ -1404,7 +1404,7 @@
             const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
             const imgInner = p.ImageUrl
-                ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false">`
+                ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
                 : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
             return `

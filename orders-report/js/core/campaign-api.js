@@ -107,8 +107,14 @@
 
         /** Get report with full orders */
         async getReport(tableName) {
-            const data = await _fetch(`/reports/${encodeURIComponent(tableName)}`);
-            return data.report;
+            try {
+                const data = await _fetch(`/reports/${encodeURIComponent(tableName)}`);
+                return data.report;
+            } catch (e) {
+                // 404 = report not yet fetched, return null (not an error)
+                if (e.message.includes('404') || e.message === 'Report not found') return null;
+                throw e;
+            }
         },
 
         /** Save/update report */

@@ -406,7 +406,7 @@ function renderAllOrders() {
 function updateChatColumnsOnly() {
     // DEPRECATED: No longer needed since columns are simplified
     // Badges are now handled by new-messages-notifier.js
-    console.log('[CHAT] updateChatColumnsOnly() is deprecated - badges handled by new-messages-notifier.js');
+    // Silently delegate to notifier (deprecated function kept for backwards compat)
 
     // Trigger notifier to re-apply badges
     if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
