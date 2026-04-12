@@ -220,6 +220,10 @@ const TposColumnManager = {
 
             const result = await window.TposApi.loadComments(pageId, postId, afterCursor);
 
+            // Tag each comment with page name (for multi-page display)
+            const campaignPageName = state.selectedCampaign?.Facebook_UserName || state.selectedPage?.Name || '';
+            result.comments.forEach(c => { c._pageName = campaignPageName; });
+
             if (append) {
                 state.comments = [...state.comments, ...result.comments];
             } else {

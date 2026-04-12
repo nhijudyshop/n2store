@@ -255,6 +255,13 @@ const TposCommentList = {
         const pictureUrl = SharedUtils.getAvatarUrl(fromId, state.selectedPage?.Facebook_PageId, null, directPictureUrl);
         const timeStr = SharedUtils.formatTime(createdTime);
 
+        // Page badge (show when multiple pages selected)
+        const pageName = comment._pageName || state.selectedPage?.Name || state.selectedCampaign?.Facebook_UserName || '';
+        const isMultiPage = state.selectedPages && state.selectedPages.length > 1;
+        const isStore = pageName.toLowerCase().includes('store');
+        const pageBadgeColor = isStore ? 'background:#fef3c7;color:#92400e' : 'background:#dbeafe;color:#1e40af';
+        const shortPageName = pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '');
+
         // SessionIndex badge + Order info
         const sessionInfo = state.sessionIndexMap.get(fromId);
         const sessionIndexBadge = sessionInfo
@@ -320,9 +327,10 @@ const TposCommentList = {
                     </span>
                 </div>
                 <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
-                    <!-- Row 1: Name + Order badge + Hidden tag -->
+                    <!-- Row 1: Name + Page badge + Order badge + Hidden tag -->
                     <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <span class="customer-name" style="font-weight: 600;">${SharedUtils.escapeHtml(fromName)}</span>
+                        ${isMultiPage ? `<span style="${pageBadgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
                         ${orderBadge}
                         ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;">Ẩn</span>' : ''}
                     </div>
