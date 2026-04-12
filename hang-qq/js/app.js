@@ -284,7 +284,8 @@
             }
             if (valA < valB) return sortDir === 'asc' ? -1 : 1;
             if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-            return 0;
+            // Secondary sort: by id ascending (keep insert order within same date)
+            return (a.id || 0) - (b.id || 0);
         });
     }
 
@@ -426,6 +427,9 @@
     async function addRowInGroup(dateKey) {
         if (addingRow) return;
         addingRow = true;
+
+        // Ensure group stays expanded
+        collapsedDates.delete(dateKey);
 
         const entry = {
             ngayDiHang: dateKey === '_nodate' ? null : dateKey,
