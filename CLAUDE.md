@@ -7,7 +7,16 @@ When working on this project, always reference the documentation in `/docs` fold
 ### Key Documentation Files:
 - `docs/` - Contains comprehensive documentation about all modules and folders
 - `docs/architecture/DATA-SYNCHRONIZATION.md` - Data sync patterns (localStorage + Firebase real-time)
+- `docs/cloudflare/cloudflare.md` - Cloudflare Worker (chatomni-proxy) — routes, integrations, error handling
+- `docs/render/render.md` - Render.com API Server — endpoints, services, cron, WebSocket, SSE
 - `shared/README.md` - Shared library documentation (auth, cache, utils, TPOS client)
+
+### Pancake / TPOS Reference (BẮT BUỘC)
+Khi code liên quan đến **Pancake** hoặc **TPOS**, **PHẢI đọc mục lục** của 2 file sau trước khi code:
+- `docs/pancake/PancakeWebsite.md` — Mục lục Pancake (API, webhooks, modules)
+- `docs/tpos/TposWebsite.md` — Mục lục TPOS (controllers, OData, modules, integrations)
+
+Điều này giúp hiểu rõ cấu trúc, tìm đúng API/endpoint, tránh code sai logic.
 
 ## Shared Library Structure
 

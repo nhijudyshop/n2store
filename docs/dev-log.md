@@ -8,6 +8,22 @@
 
 ## 2026-04-12
 
+### [docs] Full analysis Cloudflare Worker + Render Server ✅
+| | |
+|---|---|
+| **Files** | `docs/cloudflare/cloudflare.md` (NEW), `docs/render/render.md` (NEW), `CLAUDE.md`, `MEMORY.md` |
+| **Cloudflare Worker** | Phân tích toàn bộ `cloudflare-worker/`: 40+ routes, 10 handlers, TPOS/Pancake/FB/AI proxy, Edge Cache 60s, token cache in-memory, Facebook Private Reply fallback, image proxy chain |
+| **Render Server** | Phân tích toàn bộ `render.com/`: 100+ endpoints, Customer360 V2 (customers/wallets/tickets/analytics/kho-di-cho), SePay webhook+matching, WS server+clients (Pancake Phoenix + TPOS Socket.IO), SSE engine, 9 cron jobs, 11 services, ADMS ZKTeco protocol, 40+ migrations |
+| **Updated** | CLAUDE.md (thêm docs links), MEMORY.md (thêm infrastructure docs section) |
+| **Status** | ✅ Done |
+
+### [docs] Thêm rule đọc Pancake/TPOS docs trước khi code ✅
+| | |
+|---|---|
+| **Files** | `CLAUDE.md`, `MEMORY.md` |
+| **Chi tiết** | Thêm rule bắt buộc: khi code liên quan Pancake hoặc TPOS, phải đọc mục lục `docs/pancake/PancakeWebsite.md` và `docs/tpos/TposWebsite.md` trước khi code để hiểu rõ cấu trúc |
+| **Status** | ✅ Done |
+
 ### [docs] TPOS Website Full Analysis — TposWebsite.md ✅
 | | |
 |---|---|
