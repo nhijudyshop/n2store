@@ -386,15 +386,9 @@
                     <div class="col-cp editable-cell" data-id="${id}" data-field="chiPhi">${cpVal ? formatMoney(item.chiPhi) : ''}</div>
                     <div class="col-note editable-cell" data-id="${id}" data-field="ghiChu">${escHtml(item.ghiChu || '')}</div>
                     <div class="col-actions">
-                        <div class="td-menu-wrap">
-                            <button class="td-menu-btn" onclick="HangQQ.toggleMenu(event, '${id}')">
-                                <span class="material-symbols-outlined">more_vert</span>
-                            </button>
-                            <div class="context-menu hidden" id="menu-${id}">
-                                <button onclick="HangQQ.edit('${id}')"><span class="material-symbols-outlined">edit</span> Sửa</button>
-                                <button class="ctx-danger" onclick="HangQQ.del('${id}')"><span class="material-symbols-outlined">delete</span> Xóa</button>
-                            </div>
-                        </div>
+                        <button class="row-del-btn" onclick="HangQQ.del('${id}')" title="Xóa">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
                     </div>
                 </div>`;
             });
@@ -1070,25 +1064,13 @@
     }
 
     // ===== Public API =====
-    // Close all context menus
-    function closeAllMenus() {
-        document.querySelectorAll('.context-menu').forEach((m) => m.classList.add('hidden'));
-    }
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.context-menu') && !e.target.closest('[onclick*="toggleMenu"]')) {
-            closeAllMenus();
-        }
-    });
-
     window.HangQQ = {
         edit(id) {
-            closeAllMenus();
             const entry = allData.find((d) => String(d.id) === String(id));
             if (entry) openModal(entry);
         },
         del(id) {
-            closeAllMenus();
-            if (!confirm('Xóa đơn hàng này?')) return;
+            if (!confirm('Xóa dòng này?')) return;
             deleteEntry(id).then(() => { renderAll(); showToast('Đã xóa', 'success'); })
                 .catch((e) => showToast('Lỗi xóa: ' + e.message, 'error'));
         },
@@ -1100,13 +1082,6 @@
         },
         viewImg(src) { openImageViewer(src); },
         removeImg(type, idx) { removeImage(type, idx); },
-        toggleMenu(e, id) {
-            e.stopPropagation();
-            const menu = $(`#menu-${id}`);
-            const wasHidden = menu.classList.contains('hidden');
-            closeAllMenus();
-            if (wasHidden) menu.classList.remove('hidden');
-        },
     };
 
     // FAB for mobile
