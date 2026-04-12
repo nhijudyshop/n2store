@@ -440,6 +440,22 @@
             allData.push(saved);
             saveToLocalStorage();
             renderAll();
+
+            // Scroll to new row, highlight it, and auto-focus product field
+            requestAnimationFrame(() => {
+                const newRow = document.querySelector(`.dg-item[data-id="${saved.id}"]`);
+                if (newRow) {
+                    newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    newRow.classList.add('row-new');
+                    setTimeout(() => newRow.classList.remove('row-new'), 2000);
+
+                    // Auto start inline edit on product (moTa) cell
+                    const moTaCell = newRow.querySelector('[data-field="moTa"]');
+                    if (moTaCell) {
+                        setTimeout(() => startInlineEdit(moTaCell), 300);
+                    }
+                }
+            });
         } catch (e) {
             console.error('addRowInGroup error:', e);
             showToast('Lỗi thêm dòng: ' + e.message, 'error');
