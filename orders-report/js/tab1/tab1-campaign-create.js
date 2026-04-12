@@ -24,9 +24,76 @@ window.openCreateCampaignModal = function() {
         document.getElementById('newCampaignCustomEndDate').value = customEndDate.value;
     }
 
-    // Focus on name input
-    document.getElementById('newCampaignName').focus();
+    // Auto-generate campaign name via Gemini
+    autoGenerateCampaignName();
 };
+
+// Auto-generate campaign name: find max T number + 1, then ask Gemini for a creative suffix
+async function autoGenerateCampaignName() {
+    const nameInput = document.getElementById('newCampaignName');
+    const campaigns = window.campaignManager?.allCampaigns || {};
+    const existingNames = Object.values(campaigns).map(c => c.name);
+
+    // Find the highest T number
+    let maxT = 0;
+    for (const name of existingNames) {
+        const match = name.match(/^T(\d+)\b/i);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxT) maxT = num;
+        }
+    }
+    const nextT = maxT + 1;
+    const prefix = `T${nextT}`;
+
+    // Set prefix immediately so user sees something
+    nameInput.value = `${prefix} ...`;
+    nameInput.focus();
+
+    // Ask Gemini for a creative suffix
+    try {
+        const namesList = existingNames.length > 0
+            ? existingNames.join(', ')
+            : 'chưa có chiến dịch nào';
+
+        const response = await fetch('https://n2store-fallback.onrender.com/api/gemini/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{ text: `Bạn là người đặt tên chiến dịch bán hàng livestream. Danh sách tên chiến dịch hiện có: ${namesList}. Chiến dịch tiếp theo là ${prefix}. Hãy đặt tên theo phong cách tương tự (ngắn gọn, vui vẻ, viết HOA, 1-3 từ sau số T). Chỉ trả lời đúng 1 tên đầy đủ, không giải thích. Ví dụ: "${prefix} CHÁY HÀNG"` }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 30,
+                    temperature: 1.0
+                }
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const suggestion = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (suggestion) {
+                // Use Gemini's suggestion, ensure it starts with the right prefix
+                const cleaned = suggestion.replace(/^["'\s]+|["'\s]+$/g, '');
+                nameInput.value = cleaned.toUpperCase().startsWith(prefix.toUpperCase())
+                    ? cleaned.toUpperCase()
+                    : `${prefix} ${cleaned.toUpperCase()}`;
+            } else {
+                nameInput.value = prefix;
+            }
+        } else {
+            nameInput.value = prefix;
+        }
+    } catch (err) {
+        console.warn('[CAMPAIGN] Gemini name suggestion failed, using prefix only:', err.message);
+        nameInput.value = prefix;
+    }
+
+    nameInput.select();
+}
 
 // Close Create Campaign Modal
 window.closeCreateCampaignModal = function() {
