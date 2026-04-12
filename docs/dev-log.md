@@ -8,6 +8,16 @@
 
 ## 2026-04-12
 
+### [chat] tpos-pancake Hotfixes — WORKER_URL, Realtime, Error 122 ✅
+| | |
+|---|---|
+| **Files** | `tpos-pancake/js/tpos/tpos-api.js`, `tpos-pancake/js/tpos/tpos-state.js`, `tpos-pancake/js/pancake/pancake-realtime.js`, `tpos-pancake/js/pancake/pancake-init.js`, `tpos-pancake/js/pancake/pancake-api.js` |
+| **Fix 1** | `WORKER_URL` redeclaration crash — removed duplicate `const` in tpos-api.js |
+| **Fix 2** | WebSocket auth — browser can't set Cookie cross-origin, default to server mode (relay) |
+| **Fix 3** | proxyBaseUrl wrong — was pointing to fallback render, changed to CloudFlare Worker |
+| **Fix 4** | Error 122 — page 193642490509664 subscription expired, auto-exclude and retry |
+| **Status** | ✅ Done |
+
 ### [chat] tpos-pancake Full Rebuild — Modular Architecture ✅
 | | |
 |---|---|
