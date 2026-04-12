@@ -24,15 +24,25 @@ const TposRealtime = {
 
     /**
      * Start SSE connection for realtime comments (via proxy)
+     * Supports multiple concurrent SSE connections for multi-campaign mode
+     * @param {string} [pageId] - Override page ID
+     * @param {string} [postId] - Override post ID
+     * @param {string} [pageName] - Page name for tagging new comments
      */
-    startSSE() {
+    startSSE(pageId, postId, pageName) {
         const state = window.TposState;
-        if (!state.selectedPage || !state.selectedCampaign) return;
 
-        this.stopSSE();
+        // Use params or defaults from state
+        pageId = pageId || state.selectedPage?.Facebook_PageId;
+        postId = postId || state.selectedCampaign?.Facebook_LiveId;
+        pageName = pageName || state.selectedCampaign?.Facebook_UserName || '';
 
-        const pageId = state.selectedPage.Facebook_PageId;
-        const postId = state.selectedCampaign.Facebook_LiveId;
+        if (!pageId || !postId) return;
+
+        // For single-campaign mode, stop existing SSE first
+        if (!pageName && state._sseConnections?.size > 0) {
+            this.stopSSE();
+        }
 
         window.TposApi.getToken().then(token => {
             if (!token) {
@@ -41,46 +51,73 @@ const TposRealtime = {
             }
 
             const sseUrl = `${state.proxyBaseUrl}/facebook/comments/stream?pageid=${pageId}&postId=${postId}&token=${encodeURIComponent(token)}`;
-            console.log('[TPOS-RT] Starting SSE connection via proxy...');
+            const sseKey = `${pageId}_${postId}`;
 
-            state.eventSource = new EventSource(sseUrl);
+            // Track multiple SSE connections
+            if (!state._sseConnections) state._sseConnections = new Map();
 
-            state.eventSource.onopen = () => {
-                console.log('[TPOS-RT] SSE connected');
+            // Don't open duplicate
+            if (state._sseConnections.has(sseKey)) return;
+
+            console.log(`[TPOS-RT] Starting SSE for ${pageName || pageId}...`);
+            const es = new EventSource(sseUrl);
+
+            es.onopen = () => {
+                console.log(`[TPOS-RT] SSE connected: ${pageName || sseKey}`);
                 state.sseConnected = true;
                 window.TposCommentList.updateConnectionStatus(true, 'sse');
             };
 
-            state.eventSource.onmessage = (event) => {
-                this.handleSSEMessage(event.data);
+            es.onmessage = (event) => {
+                this.handleSSEMessage(event.data, pageName);
             };
 
-            state.eventSource.onerror = () => {
-                console.error('[TPOS-RT] SSE error');
-                state.sseConnected = false;
-                window.TposCommentList.updateConnectionStatus(false, 'sse');
+            es.onerror = () => {
+                console.error(`[TPOS-RT] SSE error: ${pageName || sseKey}`);
+                state._sseConnections.delete(sseKey);
+                es.close();
 
+                if (state._sseConnections.size === 0) {
+                    state.sseConnected = false;
+                    window.TposCommentList.updateConnectionStatus(false, 'sse');
+                }
+
+                // Reconnect after 5s
                 setTimeout(() => {
-                    if (state.selectedCampaign) {
-                        console.log('[TPOS-RT] SSE reconnecting...');
-                        this.startSSE();
+                    if (state.selectedCampaignIds?.size > 0 || state.selectedCampaign) {
+                        this.startSSE(pageId, postId, pageName);
                     }
                 }, 5000);
             };
+
+            state._sseConnections.set(sseKey, es);
+
+            // Also keep backward compat
+            state.eventSource = es;
         });
     },
 
     /**
-     * Stop SSE connection
+     * Stop all SSE connections
      */
     stopSSE() {
         const state = window.TposState;
+
+        // Close all tracked connections
+        if (state._sseConnections) {
+            for (const [key, es] of state._sseConnections) {
+                es.close();
+            }
+            state._sseConnections.clear();
+        }
+
+        // Backward compat
         if (state.eventSource) {
             state.eventSource.close();
             state.eventSource = null;
-            state.sseConnected = false;
-            console.log('[TPOS-RT] SSE disconnected');
         }
+
+        state.sseConnected = false;
     },
 
     /**
@@ -111,8 +148,9 @@ const TposRealtime = {
     /**
      * Handle SSE message (new comments from live stream)
      * @param {string} data - JSON string
+     * @param {string} [pageName] - Page name to tag on comments
      */
-    handleSSEMessage(data) {
+    handleSSEMessage(data, pageName) {
         const state = window.TposState;
         try {
             const comments = JSON.parse(data);
@@ -121,6 +159,9 @@ const TposRealtime = {
             comments.forEach(comment => {
                 const exists = state.comments.some(c => c.id === comment.id);
                 if (exists) return;
+
+                // Tag with page name for multi-campaign display
+                if (pageName) comment._pageName = pageName;
 
                 const isStaff = this.isPageOrStaffComment(comment);
 

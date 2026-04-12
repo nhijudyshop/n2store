@@ -46,9 +46,14 @@ const TposColumnManager = {
             await this.onCrmTeamChange(value);
         });
 
-        // Live Campaign changed
+        // Live Campaign changed (single - backward compat)
         bus.on('tpos:liveCampaignChanged', async (campaignId) => {
             await this.onLiveCampaignChange(campaignId);
+        });
+
+        // Multiple campaigns changed (new multi-select)
+        bus.on('tpos:campaignsChanged', async (campaignIds) => {
+            await this.onMultiCampaignChange(campaignIds);
         });
 
         // Refresh requested
@@ -180,12 +185,107 @@ const TposColumnManager = {
         state.selectedCampaign = state.liveCampaigns.find(c => c.Id === campaignId);
 
         if (state.selectedCampaign) {
-            // Multi-page: update selectedPage to match campaign's page
             if (state.selectedPages.length > 1) {
                 const campaignPageId = state.selectedCampaign.Facebook_UserId;
                 state.selectedPage = state.allPages.find(p => p.Facebook_PageId === campaignPageId) || state.selectedPage;
             }
             await this.loadComments();
+        }
+    },
+
+    /**
+     * Handle multiple campaigns selected
+     * @param {string[]} campaignIds
+     */
+    async onMultiCampaignChange(campaignIds) {
+        const state = window.TposState;
+
+        // Stop all SSE
+        window.TposRealtime.stopSSE();
+
+        if (!campaignIds || campaignIds.length === 0) {
+            state.selectedCampaign = null;
+            state.comments = [];
+            state.clearAllCaches();
+            window.TposCommentList.renderComments();
+            return;
+        }
+
+        state.clearAllCaches();
+        state.comments = [];
+        window.TposCommentList.showLoading();
+        state.isLoading = true;
+
+        try {
+            const campaigns = campaignIds
+                .map(id => state.liveCampaigns.find(c => c.Id === id))
+                .filter(Boolean);
+
+            // Load comments from all selected campaigns in parallel
+            const results = await Promise.all(campaigns.map(async (campaign) => {
+                const pageId = campaign.Facebook_UserId;
+                const postId = campaign.Facebook_LiveId;
+                const pageName = campaign.Facebook_UserName || '';
+
+                // Find the matching page object
+                const page = state.allPages.find(p => p.Facebook_PageId === pageId) || state.selectedPage;
+
+                try {
+                    const result = await window.TposApi.loadComments(pageId, postId);
+                    // Tag each comment with page name and campaign info
+                    (result.comments || []).forEach(c => {
+                        c._pageName = pageName;
+                        c._campaignId = campaign.Id;
+                        c._campaignName = campaign.Name;
+                        c._pageId = pageId;
+                        c._pageObj = page;
+                    });
+                    return result.comments || [];
+                } catch (error) {
+                    console.warn(`[TPOS-INIT] Error loading comments for ${campaign.Name}:`, error);
+                    return [];
+                }
+            }));
+
+            // Merge all comments, sort by time (newest first)
+            const allComments = results.flat();
+            allComments.sort((a, b) => {
+                const ta = new Date(a.created_time || 0).getTime();
+                const tb = new Date(b.created_time || 0).getTime();
+                return tb - ta;
+            });
+
+            state.comments = allComments;
+            state.selectedCampaign = campaigns[0]; // Set first as "active" for SSE
+            state.hasMore = false; // Disable pagination for multi-campaign
+
+            // Update selectedPage to first campaign's page
+            if (campaigns[0]) {
+                const firstPageId = campaigns[0].Facebook_UserId;
+                state.selectedPage = state.allPages.find(p => p.Facebook_PageId === firstPageId) || state.selectedPage;
+            }
+
+            console.log(`[TPOS-INIT] Loaded ${allComments.length} comments from ${campaigns.length} campaigns`);
+            window.TposCommentList.renderComments();
+
+            // Start SSE for each campaign
+            campaigns.forEach(c => {
+                window.TposRealtime.startSSE(c.Facebook_UserId, c.Facebook_LiveId, c.Facebook_UserName);
+            });
+
+            // Load session index for all campaigns
+            for (const campaign of campaigns) {
+                this.loadSessionIndex(campaign.Facebook_LiveId);
+            }
+
+            // Load partner info
+            this.loadPartnerInfoForComments();
+
+        } catch (error) {
+            console.error('[TPOS-INIT] Error loading multi-campaign comments:', error);
+            window.TposCommentList.showError(error.message);
+        } finally {
+            state.isLoading = false;
         }
     },
 
@@ -267,17 +367,21 @@ const TposColumnManager = {
     },
 
     /**
-     * Load SessionIndex for current campaign
+     * Load SessionIndex for a campaign
+     * @param {string} [postId] - Post ID, defaults to selected campaign
      */
-    async loadSessionIndex() {
+    async loadSessionIndex(postId) {
         const state = window.TposState;
-        if (!state.selectedCampaign) return;
+        if (!postId && !state.selectedCampaign) return;
+        postId = postId || state.selectedCampaign.Facebook_LiveId;
 
         try {
-            const postId = state.selectedCampaign.Facebook_LiveId;
             const map = await window.TposApi.loadSessionIndex(postId);
-            state.sessionIndexMap = map;
-            console.log('[TPOS-INIT] Loaded SessionIndex for', map.size, 'users');
+            // Merge into existing map (for multi-campaign)
+            for (const [k, v] of map) {
+                state.sessionIndexMap.set(k, v);
+            }
+            console.log('[TPOS-INIT] SessionIndex loaded, total:', state.sessionIndexMap.size);
 
             if (state.comments.length > 0) {
                 window.TposCommentList.renderComments();

@@ -29,9 +29,19 @@ const TposCommentList = {
                         <select id="tposCrmTeamSelect" class="tpos-filter-select" disabled>
                             <option value="">Chọn Page...</option>
                         </select>
-                        <select id="tposLiveCampaignSelect" class="tpos-filter-select" disabled>
-                            <option value="">Chọn Live Campaign...</option>
-                        </select>
+                        <div class="tpos-campaign-multi" style="position:relative;">
+                            <button id="tposCampaignBtn" class="tpos-filter-select" style="text-align:left;cursor:pointer;display:flex;align-items:center;gap:4px;min-width:180px;" disabled>
+                                <span id="tposCampaignBtnText">Chọn Live Campaign...</span>
+                                <i data-lucide="chevron-down" style="width:14px;height:14px;margin-left:auto;flex-shrink:0;"></i>
+                            </button>
+                            <div id="tposCampaignDropdown" class="tpos-campaign-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;min-width:280px;max-height:350px;overflow-y:auto;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:500;margin-top:4px;">
+                                <div style="padding:6px 10px;border-bottom:1px solid #e5e7eb;display:flex;gap:6px;">
+                                    <button id="tposCampaignSelectAll" style="padding:3px 8px;background:#3b82f6;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Chọn tất cả hôm nay</button>
+                                    <button id="tposCampaignClearAll" style="padding:3px 8px;background:#f3f4f6;color:#374151;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Bỏ chọn</button>
+                                </div>
+                                <div id="tposCampaignList" style="padding:4px 0;"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="tpos-header-actions">
                         <div class="tpos-status-indicator" id="tposStatusIndicator">
@@ -78,12 +88,35 @@ const TposCommentList = {
             });
         }
 
-        const campaignSelect = document.getElementById('tposLiveCampaignSelect');
-        if (campaignSelect) {
-            campaignSelect.addEventListener('change', (e) => {
-                window.eventBus.emit('tpos:liveCampaignChanged', e.target.value);
+        // Campaign multi-select dropdown
+        const campaignBtn = document.getElementById('tposCampaignBtn');
+        if (campaignBtn) {
+            campaignBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleCampaignDropdown();
             });
         }
+        const selectAllBtn = document.getElementById('tposCampaignSelectAll');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectTodayCampaigns();
+            });
+        }
+        const clearAllBtn = document.getElementById('tposCampaignClearAll');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.clearCampaignSelection();
+            });
+        }
+        // Close dropdown on outside click
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('tposCampaignDropdown');
+            if (dropdown && dropdown.style.display !== 'none' && !e.target.closest('.tpos-campaign-multi')) {
+                dropdown.style.display = 'none';
+            }
+        });
 
         const btnRefresh = document.getElementById('btnTposRefresh');
         if (btnRefresh) {
@@ -158,23 +191,115 @@ const TposCommentList = {
     },
 
     /**
-     * Render Live Campaign options in the selector
+     * Render Live Campaign options as multi-select checkboxes
      */
     renderLiveCampaignOptions() {
         const state = window.TposState;
-        const select = document.getElementById('tposLiveCampaignSelect');
-        if (!select) return;
+        const list = document.getElementById('tposCampaignList');
+        const btn = document.getElementById('tposCampaignBtn');
+        if (!list) return;
 
-        let options = '<option value="">Chọn Live Campaign...</option>';
+        if (state.liveCampaigns.length === 0) {
+            list.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:12px;text-align:center;">Không có campaign</div>';
+            if (btn) btn.disabled = true;
+            return;
+        }
+        if (btn) btn.disabled = false;
 
-        state.liveCampaigns.forEach(campaign => {
-            options += `<option value="${campaign.Id}">
-                ${SharedUtils.escapeHtml(campaign.Name)} (${campaign.Facebook_UserName || ''})
-            </option>`;
+        // Initialize selectedCampaignIds if not exists
+        if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
+
+        list.innerHTML = state.liveCampaigns.map(c => {
+            const checked = state.selectedCampaignIds.has(c.Id);
+            const pageName = c.Facebook_UserName || '';
+            const isStore = pageName.toLowerCase().includes('store');
+            const badgeColor = isStore ? 'background:#fef3c7;color:#92400e' : 'background:#dbeafe;color:#1e40af';
+            return `<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox" value="${c.Id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;flex-shrink:0;"
+                    onchange="TposCommentList.toggleCampaign('${c.Id}')">
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${SharedUtils.escapeHtml(c.Name)}</span>
+                <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${pageName.replace('NhiJudy ','').replace('Nhi Judy ','')}</span>
+            </label>`;
+        }).join('');
+
+        this.updateCampaignBtnText();
+    },
+
+    /**
+     * Toggle campaign dropdown visibility
+     */
+    toggleCampaignDropdown() {
+        const dropdown = document.getElementById('tposCampaignDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    },
+
+    /**
+     * Toggle a single campaign selection
+     * @param {string} campaignId
+     */
+    toggleCampaign(campaignId) {
+        const state = window.TposState;
+        if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
+
+        if (state.selectedCampaignIds.has(campaignId)) {
+            state.selectedCampaignIds.delete(campaignId);
+        } else {
+            state.selectedCampaignIds.add(campaignId);
+        }
+
+        this.updateCampaignBtnText();
+        window.eventBus.emit('tpos:campaignsChanged', Array.from(state.selectedCampaignIds));
+    },
+
+    /**
+     * Select all today's campaigns
+     */
+    selectTodayCampaigns() {
+        const state = window.TposState;
+        if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
+
+        const today = new Date().toISOString().slice(0, 10);
+        state.liveCampaigns.forEach(c => {
+            const cDate = (c.DateCreated || '').slice(0, 10);
+            if (cDate === today) {
+                state.selectedCampaignIds.add(c.Id);
+            }
         });
 
-        select.innerHTML = options;
-        select.disabled = state.liveCampaigns.length === 0;
+        this.renderLiveCampaignOptions();
+        window.eventBus.emit('tpos:campaignsChanged', Array.from(state.selectedCampaignIds));
+    },
+
+    /**
+     * Clear all campaign selections
+     */
+    clearCampaignSelection() {
+        const state = window.TposState;
+        if (state.selectedCampaignIds) state.selectedCampaignIds.clear();
+        this.renderLiveCampaignOptions();
+        window.eventBus.emit('tpos:campaignsChanged', []);
+    },
+
+    /**
+     * Update campaign button text with selection count
+     */
+    updateCampaignBtnText() {
+        const state = window.TposState;
+        const btnText = document.getElementById('tposCampaignBtnText');
+        if (!btnText) return;
+
+        const count = state.selectedCampaignIds?.size || 0;
+        if (count === 0) {
+            btnText.textContent = 'Chọn Live Campaign...';
+        } else if (count === 1) {
+            const id = Array.from(state.selectedCampaignIds)[0];
+            const c = state.liveCampaigns.find(x => x.Id === id);
+            btnText.textContent = c ? c.Name : '1 campaign';
+        } else {
+            btnText.textContent = `${count} campaigns đã chọn`;
+        }
     },
 
     /**
