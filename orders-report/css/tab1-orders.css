@@ -230,6 +230,8 @@ color: #333;
 /* Customer name bold */
 .table td[data-column='customer'] .customer-name {
     font-weight: 600;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .customer-avatar {
@@ -239,6 +241,10 @@ color: #333;
     object-fit: cover;
     flex-shrink: 0;
     border: 1px solid #e5e7eb;
+}
+
+.table td[data-column='customer'] .partner-status {
+    white-space: nowrap;
 }
 
 /* Messages column - expandable */
