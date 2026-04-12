@@ -6,6 +6,31 @@
 
 ---
 
+## 2026-04-12
+
+### [shared][render][inbox][orders][customer-hub] Pancake Integration — Full System ✅
+| | |
+|---|---|
+| **Files** | `shared/js/pancake-customer-validator.js` (NEW), `shared/js/unified-customer-360.js` (NEW), `render.com/services/pancake-alert-service.js` (NEW), `render.com/routes/v2/customers.js`, `inbox/js/inbox-customer-lookup.js` (NEW), `inbox/index.html`, `inbox/css/inbox.css`, `orders-report/js/tab1/tab1-customer-info.js` (NEW), `orders-report/js/tab1/tab1-table.js`, `orders-report/css/tab1-orders.css`, `orders-report/tab1-orders.html`, `customer-hub/js/modules/customer-profile.js`, `balance-history/index.html`, `balance-history/js/balance-verification.js`, `delivery-report/index.html`, `delivery-report/js/delivery-report.js`, `don-inbox/index.html`, `don-inbox/js/tab-social-modal.js`, `doi-soat/index.html`, `doi-soat/js/app.js` |
+| **Feature** | **14 tính năng tích hợp Pancake vào toàn bộ n2store:** |
+| | 1. Inbox: Standalone Customer Lookup modal (tên/SĐT/FB ID) |
+| | 2. Customer Hub: Pancake info card (fb_id, global_id, notes, order stats) |
+| | 3. Backend: Notes full CRUD (GET/PATCH/DELETE) |
+| | 4. Orders-Report: Customer info popup on name click |
+| | 5. Balance-history: Pancake validation on QR generation |
+| | 6. Delivery-report: async customer risk badges in table |
+| | 7. Don-inbox: customer danger confirmation on order create |
+| | 8. Doi-soat: Pancake customer badge on reconciliation |
+| | 9. Shared: PancakeValidator (lookup, risk, badges) |
+| | 10. Shared: UnifiedCustomer360 (aggregated profile) |
+| | 11. Backend: Automated Telegram alerts (return spike, banned customer) |
+| | 12. Backend: sync-tpos endpoint (auto-link TPOS partner) |
+| | 13. Backend: check-alerts cron endpoint |
+| | 14. Backend: Alert integration into sync-pancake flow |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-11
 
 ### [orders] Purchase Orders — Thùng rác (Trash tab) ✅
