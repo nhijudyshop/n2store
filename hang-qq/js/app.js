@@ -422,7 +422,11 @@
         });
     }
 
+    let addingRow = false;
     async function addRowInGroup(dateKey) {
+        if (addingRow) return;
+        addingRow = true;
+
         const entry = {
             ngayDiHang: dateKey === '_nodate' ? null : dateKey,
             soLuong: null, soKg: null, stt: '', moTa: '', soTien: 0,
@@ -436,10 +440,11 @@
             allData.push(saved);
             saveToLocalStorage();
             renderAll();
-            showToast('Đã thêm dòng mới vào ' + formatDate(dateKey), 'success');
         } catch (e) {
             console.error('addRowInGroup error:', e);
             showToast('Lỗi thêm dòng: ' + e.message, 'error');
+        } finally {
+            addingRow = false;
         }
     }
 
