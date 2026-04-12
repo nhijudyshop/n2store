@@ -371,23 +371,23 @@ const TposCommentList = {
                     </div>
                 </div>
                 <div class="tpos-conv-actions" style="display:flex;flex-direction:column;gap:2px;align-items:center;">
-                    <button class="tpos-action-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
+                    ${!sessionInfo?.code
+                        ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn hàng TPOS" style="color:#3b82f6;" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                               <i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>
+                           </button>`
+                        : `<span title="Đã có đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;font-size:10px;font-weight:700;">
+                               <i data-lucide="package-check" style="width:14px;height:14px;"></i>
+                           </span>`
+                    }
+                    <button class="tpos-action-btn" title="Xem thông tin" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
                         <i data-lucide="user" style="width:14px;height:14px;"></i>
                     </button>
-                    <button class="tpos-action-btn" title="Trả lời comment" onclick="event.stopPropagation(); TposCommentList.showReplyInput('${id}', '${fromId}')">
+                    <button class="tpos-action-btn" title="Trả lời" onclick="event.stopPropagation(); TposCommentList.showReplyInput('${id}', '${fromId}')">
                         <i data-lucide="reply" style="width:14px;height:14px;"></i>
                     </button>
-                    <button class="tpos-action-btn" title="${isHidden ? 'Hiện comment' : 'Ẩn comment'}" onclick="event.stopPropagation(); TposColumnManager.toggleHideComment('${id}', ${!isHidden})">
+                    <button class="tpos-action-btn" title="${isHidden ? 'Hiện' : 'Ẩn'}" onclick="event.stopPropagation(); TposColumnManager.toggleHideComment('${id}', ${!isHidden})">
                         <i data-lucide="${isHidden ? 'eye' : 'eye-off'}" style="width:14px;height:14px;"></i>
                     </button>
-                    ${isSavedToTpos
-                        ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color:#10b981;padding:4px;">
-                               <i data-lucide="check" style="width:14px;height:14px;"></i>
-                           </span>`
-                        : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos" onclick="event.stopPropagation(); TposCommentList.handleSaveToTpos('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
-                               <i data-lucide="plus" style="width:14px;height:14px;"></i>
-                           </button>`
-                    }
                 </div>
                 <div class="tpos-conv-meta">
                     <span class="tpos-conv-time">${timeStr}</span>
@@ -727,6 +727,84 @@ const TposCommentList = {
             input.disabled = false;
             if (sendBtn) { sendBtn.textContent = 'Gửi'; sendBtn.disabled = false; }
             if (window.notificationManager) window.notificationManager.show('Lỗi gửi trả lời', 'error');
+        }
+    },
+
+    /**
+     * Create a TPOS order from a comment
+     * @param {string} fromId - Facebook user ID
+     * @param {string} fromName - Customer name
+     * @param {string} commentId - Comment ID
+     */
+    async createOrder(fromId, fromName, commentId) {
+        const state = window.TposState;
+        const crmTeamId = state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
+        const postId = state.selectedCampaign?.Facebook_LiveId;
+
+        if (!crmTeamId || !postId) {
+            if (window.notificationManager) window.notificationManager.show('Chưa chọn campaign', 'error');
+            return;
+        }
+
+        // Get phone/address from partner cache if available
+        const partner = state.partnerCache.get(fromId);
+        const phone = document.getElementById(`phone-${fromId}`)?.value || partner?.Phone || '';
+        const address = document.getElementById(`addr-${fromId}`)?.value || partner?.Street || '';
+
+        // Update button to loading
+        const btn = document.getElementById(`create-order-${fromId}`);
+        if (btn) {
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px;"></i>';
+            btn.disabled = true;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        try {
+            const order = await window.TposApi.createOrderFromComment({
+                crmTeamId,
+                userName: fromName,
+                userId: fromId,
+                postId,
+                commentId,
+                phone,
+                address,
+                note: ''
+            });
+
+            if (order && order.Code) {
+                // Update session index map
+                state.sessionIndexMap.set(fromId, {
+                    index: order.SessionIndex || '?',
+                    session: order.Session,
+                    code: order.Code
+                });
+
+                // Replace button with order badge
+                if (btn) {
+                    btn.outerHTML = `<span title="Đơn: ${order.Code} (STT ${order.SessionIndex})" style="color:#10b981;padding:4px;font-size:10px;font-weight:700;">
+                        <i data-lucide="package-check" style="width:14px;height:14px;"></i>
+                    </span>`;
+                }
+
+                // Add order badge to name row
+                const header = btn?.closest('.tpos-conversation-item')?.querySelector('.tpos-conv-header');
+                if (header && !header.querySelector('.order-code-badge')) {
+                    header.insertAdjacentHTML('beforeend',
+                        `<span class="order-code-badge" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;">${order.Code}</span>`
+                    );
+                }
+
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                if (window.notificationManager) window.notificationManager.show(`Đã tạo đơn ${order.Code} (STT: ${order.SessionIndex})`, 'success');
+            }
+        } catch (error) {
+            // Restore button
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>';
+                btn.disabled = false;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            if (window.notificationManager) window.notificationManager.show('Lỗi tạo đơn: ' + error.message, 'error');
         }
     },
 
