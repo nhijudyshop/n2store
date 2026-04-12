@@ -103,6 +103,11 @@
                         <option value="unpaid">Chưa TT</option>
                         <option value="partial">TT 1 phần</option>
                     </select>
+                    <select id="filterDone">
+                        <option value="">Tất cả đơn</option>
+                        <option value="done">Đã xong</option>
+                        <option value="undone">Chưa xong</option>
+                    </select>
                 </div>
             </div>
 
@@ -111,6 +116,7 @@
                 <table class="data-table" id="dataTable">
                     <thead>
                         <tr>
+                            <th class="col-check"><input type="checkbox" id="checkAll" title="Chọn tất cả"></th>
                             <th class="col-stt">#</th>
                             <th class="col-date sortable" data-sort="ngayDiHang">Ngày đi hàng</th>
                             <th class="col-num sortable" data-sort="soLuong">SL</th>

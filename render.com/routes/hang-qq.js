@@ -28,12 +28,17 @@ async function ensureTables(pool) {
                 ngay_tt DATE,
                 so_tien_tt NUMERIC(12,2) DEFAULT 0,
                 so_tien_vnd NUMERIC(15,0) DEFAULT 0,
+                done BOOLEAN DEFAULT FALSE,
                 product_images JSONB DEFAULT '[]',
                 invoice_images JSONB DEFAULT '[]',
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
+        // Add done column if missing (for existing tables)
+        await pool.query(`
+            ALTER TABLE hang_qq ADD COLUMN IF NOT EXISTS done BOOLEAN DEFAULT FALSE;
+        `).catch(() => {});
         _tablesCreated = true;
         console.log('[HANG-QQ] Table created/verified');
     } catch (error) {
@@ -57,6 +62,7 @@ function mapRow(row) {
         ngayTT: row.ngay_tt ? row.ngay_tt.toISOString().slice(0, 10) : '',
         soTienTT: row.so_tien_tt ? parseFloat(row.so_tien_tt) : '',
         soTienVND: row.so_tien_vnd ? parseFloat(row.so_tien_vnd) : '',
+        done: row.done || false,
         productImages: row.product_images || [],
         invoiceImages: row.invoice_images || [],
         createdAt: row.created_at,
@@ -212,8 +218,8 @@ router.patch('/:id', async (req, res) => {
             stt: 'stt', moTa: 'mo_ta', soTien: 'so_tien',
             slNhan: 'sl_nhan', thieu: 'thieu', chiPhi: 'chi_phi',
             ghiChu: 'ghi_chu', ngayTT: 'ngay_tt', soTienTT: 'so_tien_tt',
-            soTienVND: 'so_tien_vnd', productImages: 'product_images',
-            invoiceImages: 'invoice_images',
+            soTienVND: 'so_tien_vnd', done: 'done',
+            productImages: 'product_images', invoiceImages: 'invoice_images',
         };
 
         const sets = [];
@@ -222,9 +228,14 @@ router.patch('/:id', async (req, res) => {
 
         for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
             if (req.body[jsKey] !== undefined) {
-                const val = ['productImages', 'invoiceImages'].includes(jsKey)
-                    ? JSON.stringify(req.body[jsKey])
-                    : (req.body[jsKey] === '' ? null : req.body[jsKey]);
+                let val;
+                if (['productImages', 'invoiceImages'].includes(jsKey)) {
+                    val = JSON.stringify(req.body[jsKey]);
+                } else if (jsKey === 'done') {
+                    val = !!req.body[jsKey];
+                } else {
+                    val = req.body[jsKey] === '' ? null : req.body[jsKey];
+                }
                 sets.push(`${dbCol}=$${paramIdx++}`);
                 vals.push(val);
             }

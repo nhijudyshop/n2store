@@ -403,6 +403,36 @@ body {
     border-bottom: none;
 }
 
+/* Checkbox column */
+.col-check {
+    width: 36px;
+    text-align: center;
+}
+
+.col-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--success);
+}
+
+/* Done row */
+.row-done {
+    background: var(--success-light) !important;
+}
+
+.row-done td {
+    opacity: 0.55;
+    text-decoration: line-through;
+    text-decoration-color: var(--text-muted);
+}
+
+.row-done td.col-check,
+.row-done td.col-actions {
+    opacity: 1;
+    text-decoration: none;
+}
+
 /* Column widths */
 .col-stt { width: 40px; text-align: center; }
 .col-date { width: 95px; }

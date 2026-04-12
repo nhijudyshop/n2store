@@ -52,6 +52,7 @@
         searchInput: null,
         filterMonth: null,
         filterStatus: null,
+        filterDone: null,
         modalOverlay: null,
         importOverlay: null,
         imageViewerOverlay: null,
@@ -73,6 +74,7 @@
         els.searchInput = $('#searchInput');
         els.filterMonth = $('#filterMonth');
         els.filterStatus = $('#filterStatus');
+        els.filterDone = $('#filterDone');
         els.modalOverlay = $('#modalOverlay');
         els.importOverlay = $('#importOverlay');
         els.imageViewerOverlay = $('#imageViewerOverlay');
@@ -156,6 +158,7 @@
         els.searchInput.addEventListener('input', debounce(() => { currentPage = 1; renderAll(); }, 300));
         els.filterMonth.addEventListener('change', () => { currentPage = 1; renderAll(); });
         els.filterStatus.addEventListener('change', () => { currentPage = 1; renderAll(); });
+        els.filterDone.addEventListener('change', () => { currentPage = 1; renderAll(); });
 
         // Sorting
         $$('.sortable').forEach((th) => {
@@ -246,6 +249,7 @@
         const search = (els.searchInput.value || '').toLowerCase().trim();
         const month = els.filterMonth.value;
         const status = els.filterStatus.value;
+        const doneFilter = els.filterDone.value;
 
         filteredData = allData.filter((item) => {
             if (search) {
@@ -263,6 +267,8 @@
                 if (status === 'unpaid' && paid > 0) return false;
                 if (status === 'partial' && (paid <= 0 || paid >= total)) return false;
             }
+            if (doneFilter === 'done' && !item.done) return false;
+            if (doneFilter === 'undone' && item.done) return false;
             return true;
         });
     }
@@ -308,7 +314,8 @@
             const invoiceImgs = item.invoiceImages || [];
             const id = item.id;
 
-            return `<tr data-id="${id}">
+            return `<tr data-id="${id}" class="${item.done ? 'row-done' : ''}">
+                <td class="col-check"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></td>
                 <td class="col-stt">${globalIdx}</td>
                 <td class="col-date editable-cell" data-id="${id}" data-field="ngayDiHang">${formatDate(item.ngayDiHang)}</td>
                 <td class="col-num editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</td>
@@ -341,6 +348,26 @@
         els.tableBody.querySelectorAll('.editable-cell').forEach((cell) => {
             cell.addEventListener('dblclick', () => startInlineEdit(cell));
         });
+
+        // Bind done checkboxes
+        els.tableBody.querySelectorAll('.done-check').forEach((cb) => {
+            cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
+        });
+
+        // Bind check-all
+        const checkAll = $('#checkAll');
+        if (checkAll) {
+            checkAll.checked = false;
+            checkAll.addEventListener('change', () => {
+                const boxes = els.tableBody.querySelectorAll('.done-check');
+                boxes.forEach((cb) => {
+                    if (cb.checked !== checkAll.checked) {
+                        cb.checked = checkAll.checked;
+                        toggleDone(cb.dataset.id, cb.checked);
+                    }
+                });
+            });
+        }
 
         lucideRefresh();
     }
@@ -460,6 +487,29 @@
             cell.textContent = formatMoney(value);
         } else {
             cell.textContent = value || '';
+        }
+    }
+
+    // ===== Toggle Done =====
+    async function toggleDone(id, done) {
+        const item = allData.find((d) => String(d.id) === String(id));
+        if (!item) return;
+
+        // Optimistic UI
+        item.done = done;
+        const row = els.tableBody.querySelector(`tr[data-id="${id}"]`);
+        if (row) row.classList.toggle('row-done', done);
+
+        try {
+            await patchEntry(id, { done });
+            saveToLocalStorage();
+        } catch (e) {
+            // Revert
+            item.done = !done;
+            if (row) row.classList.toggle('row-done', !done);
+            const cb = row ? row.querySelector('.done-check') : null;
+            if (cb) cb.checked = !done;
+            showToast('Lỗi: ' + e.message, 'error');
         }
     }
 
