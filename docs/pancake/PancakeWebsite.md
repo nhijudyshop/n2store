@@ -15,7 +15,7 @@
 | UI Library | **Ant Design v3** (antd) |
 | Rich Text | **Draft.js** |
 | Realtime | **Phoenix WebSocket** (Elixir backend) |
-| Charts | **Recharts** (bar, line, donut, area) |
+| Charts | **Highcharts** (spline, area, bar, pie/donut) via `react-highcharts` |
 | CDN | `content.pancake.vn` |
 | Build ID | `0f1b050542be9edca219492ca4a910464895bbb1` |
 
