@@ -83,13 +83,13 @@ const CelebrationManager = (() => {
 
     // --- Motion animations ---
     async function animateEntrance() {
-        const M = await loadMotion();
-        const { animate, spring } = M;
+        const { animate } = await loadMotion();
         const card = overlay.querySelector('.celebration-card');
         const trophy = overlay.querySelector('.celebration-trophy');
         const photoRing = overlay.querySelector('.celebration-photo-ring');
+        const photo = overlay.querySelector('.celebration-photo');
         const title = overlay.querySelector('.celebration-title');
-        const name = overlay.querySelector('.celebration-name');
+        const nameEl = overlay.querySelector('.celebration-name');
         const detail = overlay.querySelector('.celebration-detail');
         const hint = overlay.querySelector('.celebration-close-hint');
 
@@ -97,10 +97,10 @@ const CelebrationManager = (() => {
         animate(overlay, { opacity: [0, 1] }, { duration: 0.5, easing: 'ease-out' });
         overlay.classList.add('active');
 
-        // 2) Card — spring entrance
+        // 2) Card entrance (expo ease-out instead of spring)
         animate(card,
             { opacity: [0, 1], scale: [0.7, 1], y: [40, 0] },
-            { easing: spring({ stiffness: 200, damping: 22 }), delay: 0.15 }
+            { duration: 0.7, easing: [0.16, 1, 0.3, 1], delay: 0.15 }
         );
 
         // 3) Trophy — bounce in
@@ -109,7 +109,7 @@ const CelebrationManager = (() => {
             { duration: 0.6, easing: 'ease-out', delay: 0.4 }
         );
 
-        // 4) Trophy continuous bounce (gentle)
+        // 4) Trophy continuous bounce
         later(() => {
             const ctrl = animate(trophy,
                 { y: [0, -6, 0] },
@@ -118,34 +118,28 @@ const CelebrationManager = (() => {
             cleanups.push(ctrl);
         }, 1000);
 
-        // 5) Photo ring — spin continuously
+        // 5) Photo ring spin
         const ringCtrl = animate(photoRing,
             { rotate: [0, 360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
         cleanups.push(ringCtrl);
 
-        // 6) Photo counter-rotate to stay upright
-        const photo = overlay.querySelector('.celebration-photo');
+        // 6) Photo counter-rotate
         const photoCtrl = animate(photo,
             { rotate: [0, -360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
         cleanups.push(photoCtrl);
 
-        // 7) Title shimmer — background-position animation
-        const titleCtrl = animate(title,
-            { backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] },
-            { duration: 3, easing: 'ease-in-out', repeat: Infinity }
-        );
-        cleanups.push(titleCtrl);
-
-        // 8) Stagger the text elements
-        const textEls = [title, name, detail, hint].filter(Boolean);
-        animate(textEls,
-            { opacity: [0, 1], y: [15, 0] },
-            { duration: 0.5, easing: 'ease-out', delay: 0.6 }
-        );
+        // 7) Text elements fade in sequentially
+        const textEls = [title, nameEl, detail, hint].filter(Boolean);
+        textEls.forEach((el, i) => {
+            animate(el,
+                { opacity: [0, 1], y: [15, 0] },
+                { duration: 0.5, easing: 'ease-out', delay: 0.5 + i * 0.1 }
+            );
+        });
     }
 
     // --- Floating emojis via Motion ---
@@ -272,19 +266,23 @@ const CelebrationManager = (() => {
         });
         cleanups = [];
 
-        // Fade out via Motion
+        // Fade out
         try {
             const { animate } = await loadMotion();
             const card = overlay.querySelector('.celebration-card');
-            if (card) animate(card, { opacity: 0, scale: 0.85 }, { duration: 0.3, easing: 'ease-in' });
-            await animate(overlay, { opacity: 0 }, { duration: 0.4, easing: 'ease-in' }).finished;
+            if (card) animate(card, { opacity: [1, 0], scale: [1, 0.85] }, { duration: 0.3, easing: 'ease-in' });
+            animate(overlay, { opacity: [1, 0] }, { duration: 0.4, easing: 'ease-in' });
         } catch (e) {
             overlay.style.opacity = '0';
         }
 
-        overlay.remove();
+        // Remove after fade
+        const ref = overlay;
+        later(() => {
+            if (ref) ref.remove();
+            if (window.confetti) window.confetti.reset();
+        }, 500);
         overlay = null;
-        if (window.confetti) window.confetti.reset();
     }
 
     // --- Admin check ---
