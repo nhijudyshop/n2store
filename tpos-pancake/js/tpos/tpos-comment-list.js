@@ -250,6 +250,7 @@ const TposCommentList = {
         }
 
         this.updateCampaignBtnText();
+        state.saveCampaignSelection();
         window.eventBus.emit('tpos:campaignsChanged', Array.from(state.selectedCampaignIds));
     },
 
@@ -269,6 +270,7 @@ const TposCommentList = {
         });
 
         this.renderLiveCampaignOptions();
+        state.saveCampaignSelection();
         window.eventBus.emit('tpos:campaignsChanged', Array.from(state.selectedCampaignIds));
     },
 
@@ -279,6 +281,7 @@ const TposCommentList = {
         const state = window.TposState;
         if (state.selectedCampaignIds) state.selectedCampaignIds.clear();
         this.renderLiveCampaignOptions();
+        state.saveCampaignSelection();
         window.eventBus.emit('tpos:campaignsChanged', []);
     },
 

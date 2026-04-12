@@ -105,6 +105,26 @@ const TposState = {
      */
     savePageSelection(value) {
         localStorage.setItem('tpos_selected_page', value);
+    },
+
+    /**
+     * Save selected campaign IDs to localStorage
+     */
+    saveCampaignSelection() {
+        if (this.selectedCampaignIds) {
+            localStorage.setItem('tpos_selected_campaigns', JSON.stringify(Array.from(this.selectedCampaignIds)));
+        }
+    },
+
+    /**
+     * Restore saved campaign IDs from localStorage
+     * @returns {string[]|null}
+     */
+    getSavedCampaignSelection() {
+        try {
+            const saved = localStorage.getItem('tpos_selected_campaigns');
+            return saved ? JSON.parse(saved) : null;
+        } catch { return null; }
     }
 };
 

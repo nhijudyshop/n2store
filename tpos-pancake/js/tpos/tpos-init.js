@@ -123,10 +123,7 @@ const TposColumnManager = {
             window.TposCommentList.renderLiveCampaignOptions();
 
             if (state.liveCampaigns.length > 0) {
-                const first = state.liveCampaigns[0];
-                const campaignSelect = document.getElementById('tposLiveCampaignSelect');
-                if (campaignSelect) campaignSelect.value = first.Id;
-                await this.onLiveCampaignChange(first.Id);
+                await this._restoreCampaignSelection();
                 return;
             }
         } else {
@@ -149,10 +146,7 @@ const TposColumnManager = {
                 window.TposCommentList.renderLiveCampaignOptions();
 
                 if (state.liveCampaigns.length > 0) {
-                    const first = state.liveCampaigns[0];
-                    const campaignSelect = document.getElementById('tposLiveCampaignSelect');
-                    if (campaignSelect) campaignSelect.value = first.Id;
-                    await this.onLiveCampaignChange(first.Id);
+                    await this._restoreCampaignSelection();
                     return;
                 }
             }
@@ -190,6 +184,36 @@ const TposColumnManager = {
                 state.selectedPage = state.allPages.find(p => p.Facebook_PageId === campaignPageId) || state.selectedPage;
             }
             await this.loadComments();
+        }
+    },
+
+    /**
+     * Restore saved campaign selection from localStorage, or auto-select today's
+     */
+    async _restoreCampaignSelection() {
+        const state = window.TposState;
+        const saved = state.getSavedCampaignSelection();
+
+        if (saved && saved.length > 0) {
+            // Filter to only campaigns that still exist
+            const validIds = saved.filter(id => state.liveCampaigns.some(c => c.Id === id));
+            if (validIds.length > 0) {
+                if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
+                validIds.forEach(id => state.selectedCampaignIds.add(id));
+                window.TposCommentList.renderLiveCampaignOptions();
+                await this.onMultiCampaignChange(validIds);
+                return;
+            }
+        }
+
+        // Fallback: auto-select first campaign
+        const first = state.liveCampaigns[0];
+        if (first) {
+            if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
+            state.selectedCampaignIds.add(first.Id);
+            state.saveCampaignSelection();
+            window.TposCommentList.renderLiveCampaignOptions();
+            await this.onMultiCampaignChange([first.Id]);
         }
     },
 
