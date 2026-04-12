@@ -203,6 +203,11 @@ async function initInboxApp() {
     orderController.init();
     window.inboxOrders = orderController;
 
+    // Initialize Pancake Features (tags, assignee, notes CRUD, bulk, etc.)
+    if (window.inboxFeatures) {
+        window.inboxFeatures.init(chatController, dataManager);
+    }
+
     // Listen for account changes from Pancake Settings modal
     window.addEventListener('pancakeAccountChanged', async () => {
         showToast('Đang chuyển tài khoản...', 'info');

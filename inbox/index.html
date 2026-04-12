@@ -19,6 +19,7 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="css/inbox.css" />
+        <link rel="stylesheet" href="css/inbox-features.css" />
         <link rel="stylesheet" href="css/quick-reply-modal.css" />
 
         <!-- Font Awesome (for quick reply modal icons) -->
@@ -61,6 +62,9 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
+                        <button class="btn-icon-sm" id="btnBulkMode" title="Chọn nhiều" data-perm="inbox:manage_labels" data-perm-action="hide">
+                            <i data-lucide="check-square"></i>
+                        </button>
                         <button class="btn-icon-sm" id="btnCustomerLookup" title="Tra cứu khách hàng" onclick="openCustomerLookupModal()">
                             <i data-lucide="user-search"></i>
                         </button>
@@ -130,6 +134,32 @@
                     </button>
                 </div>
 
+                <!-- Bulk Action Bar -->
+                <div class="bulk-action-bar" id="bulkActionBar" style="display:none;">
+                    <div class="bulk-info">
+                        <i data-lucide="check-square"></i>
+                        Đã chọn <strong id="bulkSelectedCount">0</strong>
+                    </div>
+                    <button onclick="window.inboxFeatures.selectAllBulk()" title="Chọn tất cả">
+                        <i data-lucide="check-check"></i> Tất cả
+                    </button>
+                    <button onclick="window.inboxFeatures.bulkMarkRead()" title="Đánh dấu đã đọc">
+                        <i data-lucide="mail-open"></i> Đã đọc
+                    </button>
+                    <button id="btnBulkTag" onclick="window.inboxFeatures.showBulkTagSelector()" title="Gắn tag">
+                        <i data-lucide="tag"></i> Tag
+                    </button>
+                    <button id="btnBulkLabel" onclick="window.inboxFeatures.showBulkLabelSelector()" title="Gán nhãn">
+                        <i data-lucide="bookmark"></i> Nhãn
+                    </button>
+                    <button id="btnBulkAssign" onclick="window.inboxFeatures.showBulkAssignSelector()" title="Phân công">
+                        <i data-lucide="user-plus"></i> Assign
+                    </button>
+                    <button class="btn-bulk-close" onclick="window.inboxFeatures.toggleBulkMode()" title="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <!-- Conversation List -->
                 <div class="conversation-list" id="conversationList">
                     <!-- Conversations will be rendered by JS -->
@@ -165,11 +195,17 @@
                         <button class="btn-icon-sm" id="btnToggleLivestream" title="Đưa vào Livestream" style="display:none;">
                             <i data-lucide="radio"></i>
                         </button>
+                        <button class="btn-icon-sm" id="btnPageSettings" title="Cài đặt Page" style="display:none;" onclick="window.inboxFeatures?.showPageSettingsModal()">
+                            <i data-lucide="sliders"></i>
+                        </button>
                         <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thông tin">
                             <i data-lucide="panel-right-open"></i>
                         </button>
                     </div>
                 </div>
+
+                <!-- Viewing Indicator -->
+                <div class="viewing-indicator" id="viewingIndicator" style="display:none;"></div>
 
                 <!-- Customer Stats Bar (phone, comments, orders) -->
                 <div class="customer-stats-bar" id="customerStatsBar" style="display:none;"></div>
@@ -200,6 +236,9 @@
                     </div>
                     <div class="chat-label-resize" id="chatLabelResize" title="Kéo để mở rộng"></div>
                 </div>
+
+                <!-- Pancake Tag Bar -->
+                <div class="pancake-tag-bar" id="pancakeTagBar" style="display:none;"></div>
 
                 <!-- Quick Reply Bar (like tpos-pancake) -->
                 <div class="quick-reply-bar" id="quickReplyBar" style="display:none;">
@@ -321,6 +360,8 @@
                 <div class="info-tab-content active" id="tabStats">
                     <!-- Customer Info Card (populated by JS from Pancake data) -->
                     <div class="customer-info-card" id="customerInfoCard" style="display:none;"></div>
+                    <!-- Assignee Section -->
+                    <div class="assignee-section" id="assigneeSection" style="display:none;"></div>
                     <!-- Notes Section -->
                     <div class="conv-notes-section" id="convNotesSection" style="display:none;">
                         <div class="conv-notes-list" id="convNotesList"></div>
@@ -715,6 +756,7 @@
         <script src="js/inbox-data.js"></script>
         <script src="js/inbox-chat.js"></script>
         <script src="js/inbox-orders.js"></script>
+        <script src="js/inbox-pancake-features.js"></script>
         <script src="js/inbox-main.js"></script>
 
         <!-- Debug Panel (remove in production) -->

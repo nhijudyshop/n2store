@@ -1099,9 +1099,11 @@ class InboxChatController {
         const typeIcon = conv.type === 'COMMENT' ? 'message-circle' : 'mail';
         const phoneIconHtml = conv.phone ? `<span class="conv-phone-icon" title="${this.escapeHtml(conv.phone)}"><i data-lucide="phone"></i></span>` : '';
         const tagsHtml = this.getTagsHtml(conv);
+        const bulkChecked = window.inboxFeatures?.bulkSelected?.has(conv.id) ? 'checked' : '';
         return `
             <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
-                 data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
+                 data-id="${conv.id}" onclick="${window.inboxFeatures?.isBulkMode ? `event.stopPropagation();window.inboxFeatures.toggleBulkSelect('${conv.id}')` : `window.inboxChat.selectConversation('${conv.id}')`}">
+                <div class="bulk-checkbox ${bulkChecked}" onclick="event.stopPropagation();window.inboxFeatures.toggleBulkSelect('${conv.id}')"></div>
                 <div class="conv-avatar-wrap">${avatarHtml}${unreadBadge}</div>
                 <div class="conv-content">
                     <div class="conv-header">
@@ -1793,6 +1795,14 @@ class InboxChatController {
             this.renderPostInfo(conv);
             this.renderActivities(conv);
             this.renderNotes(conv);
+
+            // Render Pancake features (tags, assignee, notes CRUD, QR, viewing)
+            if (window.inboxFeatures) {
+                window.inboxFeatures.renderEnrichedCustomerInfo(conv);
+                // Show page settings button
+                const psBtn = document.getElementById('btnPageSettings');
+                if (psBtn) psBtn.style.display = '';
+            }
 
             // Auto-fill order form with extracted phone
             if (window.inboxOrders && conv.phone) {
@@ -3966,7 +3976,10 @@ class InboxChatController {
             } else if (data.type === 'post_type_detected') {
                 this.handlePostTypeDetected(data);
             }
-            // viewing_conversation:append/remove — ignored (not critical)
+            // viewing_conversation events → inboxFeatures
+            if (data.type === 'viewing_conversation:append' || data.type === 'viewing_conversation:remove') {
+                window.inboxFeatures?.handleViewingEvent(data.type, data.payload);
+            }
         } catch (e) {
             console.warn('[InboxChat] WS parse error:', e, 'raw:', event.data?.substring?.(0, 200));
         }

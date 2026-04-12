@@ -8,6 +8,22 @@
 
 ## 2026-04-12
 
+### [inbox] Full Pancake Features — Tags, Assignee, Notes CRUD, Bulk Actions, QR Sync, Settings ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-pancake-features.js` (NEW), `inbox/css/inbox-features.css` (NEW), `inbox/index.html`, `inbox/js/inbox-chat.js`, `inbox/js/inbox-main.js` |
+| **Phase 1** | **Pancake Tags**: Load tags từ page settings, render tag bar, gắn/gỡ tag cho conversation qua API |
+| **Phase 2** | **Assignee**: Load page users, phân công/gỡ phân công nhân viên, hiển thị trong info panel |
+| **Phase 3** | **Notes CRUD**: Thêm nút sửa/xóa ghi chú khách hàng (PUT/DELETE API) |
+| **Phase 4** | **Pancake Quick Replies sync**: Load QR từ page settings, hiển thị trong quick reply bar |
+| **Phase 5** | **Viewing Indicator**: Xử lý WebSocket viewing_conversation events, hiển thị ai đang xem |
+| **Phase 6** | **Bulk Actions**: Chọn nhiều conv, mark read/gắn tag/assign/gán nhãn hàng loạt |
+| **Phase 7** | **Orders sync Pancake**: Tạo đơn qua Pancake API với warehouse/shop_id |
+| **Phase 8** | **Customer Profile Edit**: Sửa SĐT/tên khách hàng qua API |
+| **Phase 9** | **Page Settings UI**: Modal xem settings page (tags, QR, warehouses, toggles) |
+| **Phase 10** | **Auto-tagging & Round Robin**: Hiển thị trạng thái trong Page Settings UI |
+| **Status** | ✅ Done |
+
 ### [orders] Purchase Orders — Major Upgrade: Security, New Tabs, UX ✅
 | | |
 |---|---|
