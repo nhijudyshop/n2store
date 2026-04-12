@@ -267,24 +267,36 @@
         const token = await getToken();
         if (!token) return;
         const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const headers = { 'authorization': `Bearer ${token}`, 'accept': 'application/json' };
 
         orderLines.forEach(async (line) => {
             if (!line.ProductId) return;
             try {
-                const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, {
-                    headers: { 'authorization': `Bearer ${token}`, 'accept': 'application/json' }
-                });
+                // Fetch product variant
+                const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, { headers });
                 if (!resp.ok) return;
                 const product = await resp.json();
-                if (!product.ImageUrl) return;
 
-                const imgUrl = window.TPOSImageProxy
-                    ? window.TPOSImageProxy.proxyImageUrl(product.ImageUrl)
-                    : `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(product.ImageUrl)}`;
+                let imageUrl = product.ImageUrl;
+
+                // Variant has no image — fetch parent template
+                if (!imageUrl && product.ProductTmplId) {
+                    const tmplResp = await fetch(`${proxyUrl}/api/odata/ProductTemplate(${product.ProductTmplId})`, { headers });
+                    if (tmplResp.ok) {
+                        const tmpl = await tmplResp.json();
+                        imageUrl = tmpl.ImageUrl;
+                    }
+                }
+
+                if (!imageUrl) return;
+
+                const proxiedUrl = window.TPOSImageProxy
+                    ? window.TPOSImageProxy.proxyImageUrl(imageUrl)
+                    : `${proxyUrl}/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
 
                 const cell = productTableBody.querySelector(`td[data-product-id="${line.ProductId}"] .product-img-tooltip`);
                 if (cell) {
-                    cell.innerHTML = `<img src="${imgUrl}" alt="" onerror="this.parentElement.style.display='none'">`;
+                    cell.innerHTML = `<img src="${proxiedUrl}" alt="" onerror="this.parentElement.style.display='none'">`;
                 }
             } catch (e) { /* skip */ }
         });
