@@ -345,10 +345,14 @@
 
 /* Tag filter checkbox styles */
 .tag-filter-option input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
     accent-color: #3b82f6;
 }
 
 .exclude-tag-filter .tag-filter-option input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
     accent-color: #ef4444;
 }
 

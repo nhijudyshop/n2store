@@ -3621,8 +3621,8 @@ button[onclick*='showAddProductForm'] {
 }
 
 .merge-select-all-label input[type='checkbox'] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     accent-color: white;
 }
@@ -4542,8 +4542,8 @@ button[onclick*='showAddProductForm'] {
 }
 
 .column-setting-item input[type='checkbox'] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     margin-right: 12px;
     cursor: pointer;
     accent-color: #8b5cf6;
@@ -5622,8 +5622,8 @@ td[data-column].hidden {
 }
 
 .bulk-tag-select-all-label input[type='checkbox'] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     accent-color: #10b981;
 }
@@ -5726,8 +5726,8 @@ td[data-column].hidden {
 }
 
 .bulk-tag-row-tag input[type='checkbox'] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     accent-color: #10b981;
     margin-top: 2px;
