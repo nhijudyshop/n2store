@@ -10,6 +10,7 @@
 
 ## Mục lục
 
+0. [Bổ sung từ N2Store Integration Docs](#0-bổ-sung-từ-n2store-integration-docs)
 1. [Tổng quan](#1-tổng-quan)
 2. [Tech Stack & Kiến trúc](#2-tech-stack--kiến-trúc)
 3. [Authentication & Authorization](#3-authentication--authorization)
@@ -22,6 +23,339 @@
 10. [Utility Functions](#10-utility-functions)
 11. [Integrations](#11-integrations)
 12. [localStorage Keys](#12-localstorage-keys)
+
+---
+
+## 0. Bổ sung từ N2Store Integration Docs
+
+> Thông tin dưới đây được cross-reference từ `docs/TPOS-INTEGRATION.md`, `docs/TPOS-REALTIME-EVENTS-ANALYSIS.md`, `docs/architecture/SHARED_TPOS.md` — chứa chi tiết triển khai N2Store chưa có trong phân tích source code TPOS.
+
+### 0.1 N2Store ↔ TPOS Architecture
+
+```
+Browser ──→ Cloudflare Worker (CORS proxy) ──→ TPOS API (tomato.tpos.vn)
+               ↕                                    ↕
+          Render Server (fallback)           WebSocket (rt-2.tpos.app)
+               ↕
+          PostgreSQL + Firebase
+```
+
+**QUAN TRỌNG**: Tất cả TPOS API calls từ browser **PHẢI** đi qua Cloudflare Worker proxy (`https://chatomni-proxy.nhijudyshop.workers.dev`) để bypass CORS.
+
+### 0.2 Proxy Rules (Cloudflare Worker)
+
+| HTTP Method | Timeout | Retry | Lý do |
+|---|---|---|---|
+| GET, DELETE | 15s | 3 lần (exponential backoff) | Idempotent, an toàn retry |
+| POST, PUT, PATCH | 60s | Không retry | Tránh duplicate data |
+
+**Full Route Mapping:**
+
+| Client Request | Target |
+|---|---|
+| `/api/odata/*` | `tomato.tpos.vn/odata/*` |
+| `/api/token` | `tomato.tpos.vn/token` (cached) |
+| `/api/Product/ExportProductV2` | Export product Excel |
+| `/api/Product/ExportFileWithStandardPriceV2` | Export standard price Excel |
+| `/api/Product/ExportFileWithVariantPrice` | Export variant price Excel |
+| `/api/rest/*` | `tomato.tpos.vn/rest/*` |
+| `/api/pancake/*` | `pancake.vn/api/v1/*` |
+| `/api/sepay/*` | `n2store-fallback.onrender.com/api/sepay/*` |
+| `/api/customers/*` | `n2store-fallback.onrender.com/api/customers/*` |
+| `/tpos/order/:id/lines` | `FastSaleOrder(id)/OrderLines` |
+| `/tpos/order-ref/:ref/lines` | Search by Number → OrderLines |
+
+### 0.3 Multi-Company Token System (Chi tiết)
+
+| CompanyId | Name | ShopConfig ID | TPOS Username | TPOS Password |
+|---|---|---|---|---|
+| 1 | NJD Live | `njd-live` | nvktlive1 | Aa@28612345678 |
+| 2 | NJD Shop | `njd-shop` | nvktshop1 | Aa@28612345678 |
+
+**Token Storage (per-company):**
+
+| Storage | Key Company 1 | Key Company 2 |
+|---|---|---|
+| localStorage | `bearer_token_data_1` | `bearer_token_data_2` |
+| Firestore | `tokens/tpos_token` | `tokens/tpos_token_2` |
+| Shop selector | `n2store_selected_shop` = `njd-live` | `n2store_selected_shop` = `njd-shop` |
+
+**Token Data Format:**
+```json
+{
+  "access_token": "eyJhb...",
+  "refresh_token": "abc123...",
+  "token_type": "Bearer",
+  "expires_in": 86400,
+  "expires_at": 1772695000000,
+  "issued_at": 1772608600000
+}
+```
+
+**Company ID Resolution:**
+```javascript
+// 1. ShopConfig (purchase-orders page)
+if (window.ShopConfig?.getConfig) return window.ShopConfig.getConfig().CompanyId || 1;
+// 2. localStorage (everywhere)
+const shop = localStorage.getItem('n2store_selected_shop');
+return shop === 'njd-shop' ? 2 : 1;
+```
+
+**Token Refresh Flow (purchase-orders):**
+```
+1. localStorage['bearer_token_data_{companyId}'] → valid?
+2. Nếu expired → Firestore tokens/tpos_token[_{id}] → valid?
+3. Nếu expired → Try refresh_token (grant_type=refresh_token)
+4. Nếu fail → Password login → Company 1 token
+5. Nếu companyId !== 1 → SwitchCompany(companyId) → Company N token
+6. Save → localStorage + Firestore
+```
+
+**401 Error Handling:**
+```
+1. Clear in-memory token
+2. Invalidate localStorage (set expires_at: 0, keep refresh_token)
+3. Try refresh_token → nếu fail → Password login + SwitchCompany
+4. Retry original request
+```
+
+> **Legacy migration:** `bearer_token_data` (không suffix) → tự động migrate sang `bearer_token_data_1`.
+
+### 0.4 Per-User TPOS Credentials (PostgreSQL)
+
+Table `tpos_credentials`:
+
+| App User | TPOS Username | Company |
+|---|---|---|
+| admin | nvkt | 1 |
+| hanh | nv07 | 1 |
+| coi | nvv09 | 1 |
+| huyen | nv08 | 1 |
+| bobo | NV01 | 1 |
+| my | my | 1 |
+| lai | nv05 | 1 |
+
+### 0.5 Database Tables (N2Store ↔ TPOS)
+
+| Table | Mục đích |
+|---|---|
+| `tpos_credentials` | Tài khoản TPOS per user per company |
+| `realtime_credentials` | JWT cho WebSocket TPOS + Pancake |
+| `invoice_status` | Track phiếu bán hàng (FastSaleOrder) |
+| `invoice_sent_bills` | Đã gửi bill cho KH chưa |
+| `return_orders` | Đơn trả hàng NCC |
+| `social_orders` | Đơn hàng từ social (Facebook) |
+| `tpos_saved_customers` | KH đã lưu từ TPOS |
+| `recent_transfers` | Chuyển khoản ngân hàng (match với KH TPOS) |
+| `pending_customer_matches` | Partial phone matches (multiple results) |
+| `balance_customer_info` | Customer info extracted from transfers |
+
+### 0.6 Per-Company Purchase Config
+
+| Config | Company 1 (NJD Live) | Company 2 (NJD Shop) |
+|---|---|---|
+| JournalId | 4 | 11 |
+| AccountId | 4 | 32 |
+| PickingTypeId | 1 | 5 |
+| PaymentJournalId | 1 | 8 |
+| WarehouseId | 1 | 2 |
+
+> Hardcoded trong `purchase-orders/js/lib/tpos-purchase.js` → `STATIC.Config`
+
+### 0.7 Detailed API Payloads
+
+#### Create Purchase Order
+
+```json
+POST /api/odata/FastPurchaseOrder
+{
+  "Id": 0,
+  "Type": "invoice",
+  "State": "draft",
+  "DateInvoice": "2026-04-02T12:00:00+07:00",
+  "PartnerId": 12345,
+  "CompanyId": 1,
+  "JournalId": 4,
+  "AccountId": 4,
+  "PickingTypeId": 1,
+  "PaymentJournalId": 1,
+  "AmountTotal": 275000,
+  "DecreaseAmount": 0,
+  "CostsIncurred": 0,
+  "PaymentAmount": 0,
+  "FormAction": "SaveAndPrint",
+  "OrderLines": [
+    {
+      "ProductId": 148018,
+      "ProductQty": 1,
+      "PriceUnit": 280000,
+      "PriceSubTotal": 280000,
+      "ProductUOMId": 1,
+      "AccountId": 4
+    }
+  ],
+  "Partner": { "..." },
+  "Company": { "..." },
+  "Journal": { "..." }
+}
+```
+
+#### Create Payment
+
+```json
+POST /api/odata/AccountPayment
+{
+  "PartnerId": 12345,
+  "PartnerType": "supplier",
+  "PaymentType": "outbound",
+  "Amount": 500000,
+  "PaymentDate": "2026-04-02T00:00:00",
+  "Communication": "Thanh toán NCC B28",
+  "JournalId": 1,
+  "Journal": { "Id": 1, "Name": "Tiền mặt", "Type": "cash" },
+  "CompanyId": 1,
+  "CurrencyId": 1
+}
+```
+
+- Confirm: `POST /odata/AccountPayment/ODataService.ActionPost` → `{ "id": {paymentId} }`
+- Cancel: `POST /odata/AccountPayment/ODataService.ActionCancel` → `{ "id": {paymentId} }`
+- Delete: `DELETE /odata/AccountPayment({paymentId})`
+- List: `GET /odata/AccountPayment/OdataService.GetAccountPaymentList?partnerType=supplier`
+
+#### Create Partner (Supplier)
+
+```json
+POST /api/odata/Partner
+{
+  "Id": 0, "Name": "Tên NCC", "Ref": "MÃ_NCC",
+  "Supplier": true, "Customer": false, "Active": true,
+  "CompanyId": 1, "Type": "contact",
+  "AccountPayable": { "Id": 4, "Code": "331", "Name": "Phải trả người bán" },
+  "AccountReceivable": { "Id": 1, "Code": "131", "Name": "Phải thu của khách hàng" },
+  "StockCustomer": { "Id": 9 },
+  "StockSupplier": { "Id": 8 }
+}
+```
+
+#### Sale Refund 5-Step Flow (Chi tiết)
+
+```
+Step 1: POST /odata/FastSaleOrder/ODataService.ActionRefund
+        Body: { "id": {originalOrderId} }  →  { "value": {refundOrderId} }
+
+Step 2: GET /odata/FastSaleOrder({refundOrderId})?$expand=Partner,User,Warehouse,...
+
+Step 3: PUT /odata/FastSaleOrder({refundOrderId})
+        Body: { ...fullDetailsFromStep2, FormAction: "SaveAndPrint" }
+        ⚠ PHẢI gửi toàn bộ nested objects
+
+Step 4: POST /odata/FastSaleOrder/ODataService.ActionInvoiceOpenV2
+        Body: { "ids": [{refundOrderId}] }  →  State: "draft" → "open"
+
+Step 5: GET https://tomato.tpos.vn/fastsaleorder/PrintRefund/{refundOrderId}
+        ⚠ Gọi trực tiếp TPOS, không qua proxy
+```
+
+**Partial Refund:** Giữa Step 2 và 3, filter `OrderLines` chỉ giữ SP cần hoàn, recalculate `AmountTotal`.
+
+#### Report APIs
+
+```
+# Supplier Debt
+GET /odata/Report/PartnerDebtReport?Display=all&DateFrom={ISO}&DateTo={ISO}&ResultSelection=supplier
+
+# Supplier Debt Detail
+GET /odata/Report/PartnerDebtReportDetail?ResultSelection=supplier&PartnerId={id}&DateFrom={ISO}&DateTo={ISO}
+
+# Supplier Invoices
+GET /odata/AccountInvoice/ODataService.GetInvoicePartner?partnerId={id}
+
+# Outstanding Debt
+GET /api/Partner/CreditDebitSupplierDetail?partnerId={id}&take=50&skip=0
+```
+
+### 0.8 Real-time Event Details (từ capture 2026-04-05)
+
+> Captured: 8.5 phút, 310 events, 37 conversations, 17 orders
+
+#### Message Breakdown
+
+| MessageType | Count | Mô tả |
+|---|---|---|
+| 11 | 62 | Facebook Messenger (inbox) |
+| 12 | 34 | Facebook Comment (trên post live) |
+
+| IsOwner | Count | Mô tả |
+|---|---|---|
+| false | 69 (72%) | Khách hàng gửi |
+| true | 27 (28%) | Shop gửi/trả lời |
+
+| Attachment Type | Count |
+|---|---|
+| text_only | 84 |
+| image | 13 |
+| template | 1 |
+
+#### Facebook Pages (ChannelIds)
+
+| ChannelId | Count | Ghi chú |
+|---|---|---|
+| 270136663390370 | 55 | Page chính (STORE) |
+| 1479019015501919 | 28 | Page 2 |
+| 117267091364524 | 13 | Page 3 (HOUSE) |
+
+#### Browser Event Dispatching (N2Store)
+
+```javascript
+// N2Store broadcast real-time events via CustomEvent:
+window.addEventListener('tposNewOrder', (e) => {
+    const { id, customerName, content } = e.detail;
+    // Badge đơn mới, toast notification
+});
+
+window.addEventListener('tposOrderUpdate', (e) => {
+    const orderCode = e.detail.Data?.Code;
+    // Refresh row trong bảng đơn hàng
+});
+
+window.addEventListener('tposConversationUpdate', (e) => {
+    const { conversation, eventType, rawData } = e.detail;
+    const msg = rawData?.Message;
+    if (msg?.MessageType === 12) { /* Comment live */ }
+    else if (msg?.MessageType === 11 && !msg?.IsOwner) { /* Inbox KH */ }
+});
+```
+
+#### UI Features Priority
+
+| # | Feature | Event | Priority | Tần suất |
+|---|---|---|---|---|
+| 1 | Badge đơn mới | SaleOnline_Order.created | CAO | ~80/h |
+| 2 | Cập nhật trạng thái đơn | SaleOnline_Order.updated | CAO | ~45/h |
+| 3 | Live comment feed | chatomni.on-message (type 12) | TRUNG BÌNH | ~250/h |
+| 4 | Badge inbox mới | chatomni.on-message (type 11) | TRUNG BÌNH | ~465/h |
+| 5 | Trạng thái KH (phone/address) | chatomni.on-message | THẤP | Tự động |
+| 6 | Refresh hình sản phẩm | product.image-updated | THẤP | Rất thấp |
+
+### 0.9 N2Store Key Implementation Files
+
+| Component | File |
+|---|---|
+| TPOS Client (Universal) | `shared/universal/tpos-client.js` |
+| OData Helper | `shared/universal/tpos-odata.js` |
+| API Endpoints Config | `shared/universal/api-endpoints.js` |
+| CF Worker Router | `cloudflare-worker/worker.js` |
+| CF TPOS Handler | `cloudflare-worker/modules/handlers/tpos-handler.js` |
+| CF Token Handler | `cloudflare-worker/modules/handlers/token-handler.js` |
+| Render Token Manager | `render.com/services/tpos-token-manager.js` |
+| Browser Token Manager | `shared/js/token-manager.js` |
+| TPOS Socket Listener | `render.com/services/tpos-socket-listener.js` |
+| Product Sync | `render.com/services/sync-tpos-products.js` |
+| Customer Service | `render.com/services/tpos-customer-service.js` |
+| Refund Flow | `shared/js/api-service.js` (line 774-1050) |
+| PO Creator | `purchase-orders/js/lib/tpos-purchase.js` |
+| Product Search | `purchase-orders/js/lib/tpos-search.js` |
 
 ---
 
