@@ -46,51 +46,27 @@ async function autoGenerateCampaignName() {
     const nextT = maxT + 1;
     const prefix = `T${nextT}`;
 
-    // Set prefix immediately so user sees something
-    nameInput.value = `${prefix} ...`;
+    // Teen-style suffixes: word + last char repeated
+    const SUFFIXES = [
+        'BÙMMMMMM', 'DEALLLLL', 'CHÁYYY', 'SẬPPPPP', 'HOTTTTTT',
+        'NỔLLLLL', 'XINH XỈUUUUU', 'PHÁTTTTT', 'GIẢMMMMM', 'CHỐTTTTT',
+        'GIÁ SỐCCCC', 'HÀNG ĐẸPPPPP', 'SIÊU RẺẺẺẺ', 'XẢ KHOOOO',
+        'SALE SẬPPPPP', 'PHÁ ĐẢOOOOO', 'NỔ ĐƠNNNNN', 'BÁNHHHH',
+        'HÚT ĐƠNNNNN', 'VIP PROOOO', 'ĐỈNHHHHHH', 'KHỦNGGGGG',
+        'SIÊU SALEEEE', 'GIÁ HỦYYYYYY', 'FULLLLLL', 'MAXXXXXS',
+        'MEGA SALEEEEE', 'FLASHHHHH', 'ĐỈNH CAOOOOO', 'KHÔNGGGGG',
+        'LÊN ĐƠNNNNN', 'TẤT TAYYYYY', 'SĂNNNNNN', 'RẺ VÔÔÔÔÔ',
+        'BOMMMMMM', 'CHẤT LƯỢNGGGGG', 'BAOOOOOO', 'THẦNNNNN',
+    ];
+
+    // Pick a random suffix that hasn't been used
+    const existingUpper = existingNames.map(n => n.toUpperCase());
+    const available = SUFFIXES.filter(s => !existingUpper.some(n => n.includes(s)));
+    const pool = available.length > 0 ? available : SUFFIXES;
+    const suffix = pool[Math.floor(Math.random() * pool.length)];
+
+    nameInput.value = `${prefix} ${suffix}`;
     nameInput.focus();
-
-    // Ask Gemini for a creative suffix
-    try {
-        const namesList = existingNames.length > 0
-            ? existingNames.join(', ')
-            : 'chưa có chiến dịch nào';
-
-        const response = await fetch('https://n2store-fallback.onrender.com/api/gemini/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'gemini-2.0-flash',
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `Đặt tên chiến dịch bán hàng livestream. Quy tắc: viết HOA, bắt đầu bằng "${prefix}", theo sau 1-2 từ ngắn, lặp ký tự cuối cùng của từ cuối 4-6 lần. Danh sách đã có (KHÔNG được trùng): ${namesList}. Chỉ trả lời đúng 1 tên, không giải thích. Ví dụ đúng: "${prefix} BÙMMMMMM", "${prefix} DEALLLLL", "${prefix} CHÁYYY", "${prefix} SẬPPPPP", "${prefix} HOTTTTTT"` }]
-                }],
-                generationConfig: {
-                    maxOutputTokens: 30,
-                    temperature: 1.0
-                }
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const suggestion = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-            if (suggestion) {
-                // Use Gemini's suggestion, ensure it starts with the right prefix
-                const cleaned = suggestion.replace(/^["'\s]+|["'\s]+$/g, '');
-                nameInput.value = cleaned.toUpperCase().startsWith(prefix.toUpperCase())
-                    ? cleaned.toUpperCase()
-                    : `${prefix} ${cleaned.toUpperCase()}`;
-            } else {
-                nameInput.value = prefix;
-            }
-        } else {
-            nameInput.value = prefix;
-        }
-    } catch (err) {
-        console.warn('[CAMPAIGN] Gemini name suggestion failed, using prefix only:', err.message);
-        nameInput.value = prefix;
-    }
 
     nameInput.select();
 }
