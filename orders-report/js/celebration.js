@@ -2,254 +2,235 @@
 
 /**
  * 🎉 KPI Celebration System
- * Shows fireworks + confetti + employee photo when KPI target is met.
- * Only admin-authenticated users can trigger the test button.
- *
- * Uses canvas-confetti (https://github.com/catdad/canvas-confetti)
+ * Animations powered by Motion.dev (WAAPI — GPU-accelerated)
+ * Confetti via canvas-confetti
  */
 
 const CelebrationManager = (() => {
-    // --- Employee registry ---
     const EMPLOYEES = {
-        hanh: {
-            name: 'Hạnh',
-            photo: 'assets/employees/hanh.jpg',
-        },
-        // Add more employees here:
-        // nhi: { name: 'Nhi', photo: 'assets/employees/nhi.jpg' },
+        hanh: { name: 'Hạnh', photo: 'assets/employees/hanh.jpg' },
     };
 
-    // Confetti CDN
+    const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@11.11.9/dist/motion.js';
     const CONFETTI_CDN = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js';
 
-    let confettiLoaded = false;
+    let motionLib = null;   // { animate, spring, stagger }
     let overlay = null;
-    let confettiIntervals = [];
+    let cleanups = [];      // animation controls + timeouts to cancel on dismiss
 
-    // --- Load canvas-confetti ---
+    // --- Load libs ---
+    async function loadMotion() {
+        if (motionLib) return motionLib;
+        motionLib = await import(MOTION_CDN);
+        return motionLib;
+    }
+
     function loadConfetti() {
         return new Promise((resolve, reject) => {
-            if (confettiLoaded && window.confetti) {
-                resolve(window.confetti);
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = CONFETTI_CDN;
-            script.onload = () => {
-                confettiLoaded = true;
-                resolve(window.confetti);
-            };
-            script.onerror = reject;
-            document.head.appendChild(script);
+            if (window.confetti) { resolve(window.confetti); return; }
+            const s = document.createElement('script');
+            s.src = CONFETTI_CDN;
+            s.onload = () => resolve(window.confetti);
+            s.onerror = reject;
+            document.head.appendChild(s);
         });
+    }
+
+    // --- Helper: tracked setTimeout ---
+    function later(fn, ms) {
+        const id = setTimeout(fn, ms);
+        cleanups.push({ type: 'timeout', id });
+        return id;
+    }
+
+    function interval(fn, ms) {
+        const id = setInterval(fn, ms);
+        cleanups.push({ type: 'interval', id });
+        return id;
     }
 
     // --- Create overlay DOM ---
     function createOverlay(employee, kpiDetail) {
-        // Remove existing
         const existing = document.getElementById('celebrationOverlay');
         if (existing) existing.remove();
 
         const el = document.createElement('div');
         el.id = 'celebrationOverlay';
         el.className = 'celebration-overlay';
-        el.setAttribute('role', 'dialog');
-        el.setAttribute('aria-label', 'KPI Celebration');
-
-        // Star rays
-        const rayCount = 8;
-        let raysHTML = '';
-        for (let i = 0; i < rayCount; i++) {
-            const angle = (360 / rayCount) * i;
-            raysHTML += `<div class="ray" style="transform: translate(-50%, 0) rotate(${angle}deg);"></div>`;
-        }
 
         el.innerHTML = `
             <div class="celebration-card">
-                <!-- Starburst behind photo -->
-                <div class="celebration-starburst">${raysHTML}</div>
-
-                <!-- Trophy -->
                 <div class="celebration-trophy">🏆</div>
-
-                <!-- Employee photo with rotating ring -->
                 <div class="celebration-photo-ring">
-                    <img
-                        class="celebration-photo"
-                        src="${employee.photo}"
-                        alt="${employee.name}"
-                        onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236366f1%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2258%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>🌟</text></svg>'"
-                    />
+                    <img class="celebration-photo"
+                         src="${employee.photo}" alt="${employee.name}"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236366f1%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2258%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>🌟</text></svg>'" />
                 </div>
-
-                <!-- Title -->
                 <div class="celebration-title">CHÚC MỪNG!</div>
-
-                <!-- Employee name -->
                 <div class="celebration-name">
                     Nhân viên <span class="highlight">${employee.name}</span> đã đạt KPI
                 </div>
-
-                <!-- KPI detail pill -->
                 ${kpiDetail ? `
                 <div class="celebration-detail">
                     <span class="celebration-detail-icon">💰</span>
                     <span class="celebration-detail-text">${kpiDetail}</span>
-                </div>
-                ` : ''}
-
-                <!-- Close hint -->
+                </div>` : ''}
                 <div class="celebration-close-hint">Nhấn để đóng</div>
             </div>
         `;
 
-        // Click to close
         el.addEventListener('click', () => dismiss());
-
-        // Prevent card click from bubbling (optional: keep it closable anywhere)
-        // el.querySelector('.celebration-card').addEventListener('click', e => e.stopPropagation());
-
         document.body.appendChild(el);
         overlay = el;
         return el;
     }
 
-    // --- Fireworks confetti sequence (lightweight) ---
+    // --- Motion animations ---
+    async function animateEntrance() {
+        const { animate, spring } = await loadMotion();
+        const card = overlay.querySelector('.celebration-card');
+        const trophy = overlay.querySelector('.celebration-trophy');
+        const photoRing = overlay.querySelector('.celebration-photo-ring');
+        const title = overlay.querySelector('.celebration-title');
+        const name = overlay.querySelector('.celebration-name');
+        const detail = overlay.querySelector('.celebration-detail');
+        const hint = overlay.querySelector('.celebration-close-hint');
+
+        // 1) Overlay fade in
+        animate(overlay, { opacity: [0, 1] }, { duration: 0.5, easing: 'ease-out' });
+        overlay.classList.add('active');
+
+        // 2) Card — spring entrance
+        animate(card,
+            { opacity: [0, 1], scale: [0.7, 1], y: [40, 0] },
+            { easing: spring({ stiffness: 200, damping: 22 }), delay: 0.15 }
+        );
+
+        // 3) Trophy — bounce in
+        animate(trophy,
+            { opacity: [0, 1], scale: [0, 1.2, 1], y: [-20, 0] },
+            { duration: 0.6, easing: 'ease-out', delay: 0.4 }
+        );
+
+        // 4) Trophy continuous bounce (gentle)
+        later(() => {
+            const ctrl = animate(trophy,
+                { y: [0, -6, 0] },
+                { duration: 1.2, easing: 'ease-in-out', repeat: Infinity }
+            );
+            cleanups.push(ctrl);
+        }, 1000);
+
+        // 5) Photo ring — spin continuously
+        const ringCtrl = animate(photoRing,
+            { rotate: [0, 360] },
+            { duration: 6, easing: 'linear', repeat: Infinity }
+        );
+        cleanups.push(ringCtrl);
+
+        // 6) Photo counter-rotate to stay upright
+        const photo = overlay.querySelector('.celebration-photo');
+        const photoCtrl = animate(photo,
+            { rotate: [0, -360] },
+            { duration: 6, easing: 'linear', repeat: Infinity }
+        );
+        cleanups.push(photoCtrl);
+
+        // 7) Title shimmer — background-position animation
+        const titleCtrl = animate(title,
+            { backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] },
+            { duration: 3, easing: 'ease-in-out', repeat: Infinity }
+        );
+        cleanups.push(titleCtrl);
+
+        // 8) Stagger the text elements
+        const textEls = [title, name, detail, hint].filter(Boolean);
+        animate(textEls,
+            { opacity: [0, 1], y: [15, 0] },
+            { duration: 0.5, easing: 'ease-out', delay: 0.6 }
+        );
+    }
+
+    // --- Floating emojis via Motion ---
+    async function spawnFloatingEmojis() {
+        const { animate } = await loadMotion();
+        const emojis = ['🎉', '🎊', '⭐', '✨', '🥳', '🎈', '💰', '🏅'];
+        let count = 0;
+        const max = 10;
+
+        interval(() => {
+            if (!overlay || !overlay.classList.contains('active') || count >= max) return;
+
+            const el = document.createElement('div');
+            el.className = 'celebration-floating-emoji';
+            el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            el.style.left = `${10 + Math.random() * 80}%`;
+            el.style.bottom = '0px';
+            el.style.fontSize = `${24 + Math.random() * 14}px`;
+            overlay.appendChild(el);
+            count++;
+
+            // Animate with Motion (WAAPI)
+            const ctrl = animate(el,
+                { y: [0, -500], opacity: [1, 0.7, 0] },
+                { duration: 3.5 + Math.random() * 1.5, easing: 'linear',
+                  onComplete: () => el.remove() }
+            );
+            cleanups.push(ctrl);
+        }, 700);
+    }
+
+    // --- Confetti (canvas — already smooth) ---
     async function launchFireworks() {
         const confetti = await loadConfetti();
-
-        const duration = 5000;
-        const end = Date.now() + duration;
         const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981'];
+        const end = Date.now() + 5000;
 
-        // 1) Initial burst
-        confetti({
-            particleCount: 80,
-            spread: 90,
-            startVelocity: 45,
-            origin: { y: 0.6 },
-            colors,
-            gravity: 1,
-            ticks: 200,
-        });
+        // Initial burst
+        confetti({ particleCount: 80, spread: 90, startVelocity: 45,
+                   origin: { y: 0.6 }, colors, gravity: 1, ticks: 200 });
 
-        // 2) Side cannons
-        setTimeout(() => {
-            confetti({
-                particleCount: 40,
-                angle: 60,
-                spread: 60,
-                origin: { x: 0, y: 0.65 },
-                colors,
-                ticks: 180,
-            });
-            confetti({
-                particleCount: 40,
-                angle: 120,
-                spread: 60,
-                origin: { x: 1, y: 0.65 },
-                colors,
-                ticks: 180,
-            });
+        // Side cannons
+        later(() => {
+            confetti({ particleCount: 40, angle: 60, spread: 60,
+                       origin: { x: 0, y: 0.65 }, colors, ticks: 180 });
+            confetti({ particleCount: 40, angle: 120, spread: 60,
+                       origin: { x: 1, y: 0.65 }, colors, ticks: 180 });
         }, 500);
 
-        // 3) Gentle side rain (slower interval, fewer particles)
-        const interval1 = setInterval(() => {
-            if (Date.now() > end) {
-                clearInterval(interval1);
-                return;
-            }
-            confetti({
-                particleCount: 2,
-                angle: 60,
-                spread: 50,
-                origin: { x: 0 },
-                colors,
-                ticks: 150,
-                gravity: 0.8,
-            });
-            confetti({
-                particleCount: 2,
-                angle: 120,
-                spread: 50,
-                origin: { x: 1 },
-                colors,
-                ticks: 150,
-                gravity: 0.8,
-            });
+        // Light side rain
+        interval(() => {
+            if (Date.now() > end) return;
+            confetti({ particleCount: 2, angle: 60, spread: 50,
+                       origin: { x: 0 }, colors, ticks: 150, gravity: 0.8 });
+            confetti({ particleCount: 2, angle: 120, spread: 50,
+                       origin: { x: 1 }, colors, ticks: 150, gravity: 0.8 });
         }, 250);
-        confettiIntervals.push(interval1);
 
-        // 4) One starburst at 2s
-        setTimeout(() => {
-            confetti({
-                particleCount: 40,
-                spread: 360,
-                startVelocity: 20,
-                origin: { x: 0.5, y: 0.35 },
-                colors,
-                ticks: 150,
-                gravity: 0.6,
-                scalar: 0.9,
-            });
+        // Starburst
+        later(() => {
+            confetti({ particleCount: 40, spread: 360, startVelocity: 20,
+                       origin: { x: 0.5, y: 0.35 }, colors, ticks: 150, gravity: 0.6 });
         }, 2000);
 
-        // 5) Grand finale - 3 bursts
-        setTimeout(() => {
+        // Finale
+        later(() => {
             for (let i = 0; i < 3; i++) {
-                setTimeout(() => {
-                    confetti({
-                        particleCount: 35,
-                        spread: 80 + Math.random() * 40,
-                        startVelocity: 30,
-                        origin: {
-                            x: 0.2 + Math.random() * 0.6,
-                            y: 0.35 + Math.random() * 0.3,
-                        },
-                        colors,
-                        ticks: 150,
-                    });
+                later(() => {
+                    confetti({ particleCount: 35, spread: 80 + Math.random() * 40,
+                               startVelocity: 30,
+                               origin: { x: 0.2 + Math.random() * 0.6, y: 0.35 + Math.random() * 0.3 },
+                               colors, ticks: 150 });
                 }, i * 300);
             }
         }, 3500);
     }
 
-    // --- Floating emoji rain (lightweight) ---
-    function spawnFloatingEmojis() {
-        const emojis = ['🎉', '🎊', '⭐', '✨', '🥳', '🎈', '💰', '🏅'];
-        let count = 0;
-        const maxEmojis = 12;
-
-        const interval = setInterval(() => {
-            if (!overlay || !overlay.classList.contains('active') || count >= maxEmojis) {
-                clearInterval(interval);
-                return;
-            }
-
-            const emoji = document.createElement('div');
-            emoji.className = 'celebration-floating-emoji';
-            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-            emoji.style.left = `${10 + Math.random() * 80}%`;
-            emoji.style.bottom = '-40px';
-            emoji.style.fontSize = `${22 + Math.random() * 16}px`;
-            emoji.style.animationDuration = `${3.5 + Math.random() * 2}s`;
-
-            overlay.appendChild(emoji);
-            count++;
-
-            emoji.addEventListener('animationend', () => emoji.remove());
-        }, 600);
-
-        confettiIntervals.push(interval);
-    }
-
-    // --- Play celebration sound (optional, non-blocking) ---
+    // --- Sound ---
     function playSound() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            // Simple fanfare: C E G C (high)
-            const notes = [523.25, 659.25, 783.99, 1046.5];
-            notes.forEach((freq, i) => {
+            [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sine';
@@ -261,102 +242,80 @@ const CelebrationManager = (() => {
                 osc.start(ctx.currentTime + i * 0.15);
                 osc.stop(ctx.currentTime + i * 0.15 + 0.6);
             });
-            // Close context after all notes finish
             setTimeout(() => ctx.close(), 2000);
-        } catch (e) {
-            // Audio not supported, no problem
-        }
+        } catch (e) { /* no audio support */ }
     }
 
-    // --- Main: show celebration ---
+    // --- Main ---
     async function celebrate(employeeKey, kpiDetail) {
         const employee = EMPLOYEES[employeeKey];
-        if (!employee) {
-            console.warn(`[Celebration] Employee "${employeeKey}" not found`);
-            return;
-        }
+        if (!employee) { console.warn(`[Celebration] "${employeeKey}" not found`); return; }
 
-        // Build overlay
         createOverlay(employee, kpiDetail || null);
 
-        // Activate with slight delay for transition
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                overlay.classList.add('active');
-            });
-        });
-
-        // Launch effects
+        // All animations via Motion.dev
+        animateEntrance();
         playSound();
         launchFireworks();
-        spawnFloatingEmojis();
+        later(() => spawnFloatingEmojis(), 800);
 
-        // Auto-dismiss after 10 seconds
-        setTimeout(() => dismiss(), 10000);
+        // Auto-dismiss
+        later(() => dismiss(), 10000);
     }
 
     // --- Dismiss ---
-    function dismiss() {
+    async function dismiss() {
         if (!overlay) return;
 
-        // Clear all intervals
-        confettiIntervals.forEach(id => clearInterval(id));
-        confettiIntervals = [];
+        // Stop all tracked animations/timers
+        cleanups.forEach(c => {
+            if (c.type === 'timeout') clearTimeout(c.id);
+            else if (c.type === 'interval') clearInterval(c.id);
+            else if (c && typeof c.stop === 'function') c.stop();
+        });
+        cleanups = [];
 
-        // Fade out
-        overlay.classList.remove('active');
+        // Fade out via Motion
+        try {
+            const { animate } = await loadMotion();
+            const card = overlay.querySelector('.celebration-card');
+            if (card) animate(card, { opacity: 0, scale: 0.85 }, { duration: 0.3, easing: 'ease-in' });
+            await animate(overlay, { opacity: 0 }, { duration: 0.4, easing: 'ease-in' }).finished;
+        } catch (e) {
+            overlay.style.opacity = '0';
+        }
 
-        // Remove overlay after transition
-        setTimeout(() => {
-            if (overlay) {
-                overlay.remove();
-                overlay = null;
-            }
-            // Reset confetti canvas if exists
-            if (window.confetti) {
-                window.confetti.reset();
-            }
-        }, 700);
+        overlay.remove();
+        overlay = null;
+        if (window.confetti) window.confetti.reset();
     }
 
     // --- Admin check ---
     function isAdmin() {
         try {
-            const auth = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
-            return auth.userType === 'admin-authenticated';
-        } catch {
-            return false;
-        }
+            return JSON.parse(localStorage.getItem('loginindex_auth') || '{}').userType === 'admin-authenticated';
+        } catch { return false; }
     }
 
     // --- Init test button ---
     function initTestButton() {
         const btn = document.getElementById('celebrationTestBtn');
         if (!btn) return;
-
-        // Show only for admin
-        if (isAdmin()) {
-            btn.classList.add('visible');
-        }
-
+        if (isAdmin()) btn.classList.add('visible');
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             celebrate('hanh', 'Hoàn thành 100% KPI tháng này!');
         });
     }
 
-    // --- Auto-init on DOM ready ---
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initTestButton);
     } else {
         initTestButton();
     }
 
-    // Public API
-    return {
-        celebrate,
-        dismiss,
-        isAdmin,
-        EMPLOYEES,
-    };
+    return { celebrate, dismiss, isAdmin, EMPLOYEES };
 })();
+
+// Expose globally for console testing & other scripts
+window.CelebrationManager = CelebrationManager;

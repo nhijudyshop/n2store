@@ -2,7 +2,8 @@
 
 /* ============================================
    🎉 KPI Celebration Overlay
-   Full-screen fireworks + employee photo
+   Animations powered by Motion.dev (WAAPI)
+   CSS handles layout only, JS handles motion
    ============================================ */
 
 /* --- Overlay backdrop --- */
@@ -16,28 +17,12 @@
     background: radial-gradient(ellipse at center, rgba(10, 5, 30, 0.92) 0%, rgba(0, 0, 0, 0.97) 100%);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
     overflow: hidden;
 }
 
 .celebration-overlay.active {
-    opacity: 1;
     pointer-events: auto;
-}
-
-/* --- Ambient glow particles (CSS only) --- */
-.celebration-overlay::before {
-    content: '';
-    position: absolute;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    animation: celebrationPulseGlow 3s ease-in-out infinite;
 }
 
 /* --- Main card --- */
@@ -56,17 +41,8 @@
         0 0 80px rgba(255, 215, 0, 0.12),
         0 0 160px rgba(255, 100, 50, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    transform: scale(0.7) translateY(40px);
-    opacity: 0;
-    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     max-width: 480px;
     width: 90vw;
-}
-
-.celebration-overlay.active .celebration-card {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-    transition-delay: 0.2s;
 }
 
 /* --- Photo ring --- */
@@ -80,23 +56,9 @@
         from 0deg,
         #ffd700, #ff6b35, #ff1493, #8b5cf6, #00d4ff, #10b981, #ffd700
     );
-    animation: celebrationRingSpin 6s linear infinite;
     box-shadow:
         0 0 40px rgba(255, 215, 0, 0.4),
         0 0 80px rgba(255, 107, 53, 0.2);
-}
-
-.celebration-photo-ring::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-    border-radius: 50%;
-    background: conic-gradient(
-        from 180deg,
-        transparent, rgba(255, 215, 0, 0.3), transparent, rgba(255, 107, 53, 0.3), transparent
-    );
-    animation: celebrationRingSpin 4s linear infinite reverse;
-    filter: blur(8px);
 }
 
 .celebration-photo {
@@ -109,33 +71,10 @@
     display: block;
 }
 
-/* --- Star burst behind photo --- */
-.celebration-starburst {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 260px;
-    height: 260px;
-    pointer-events: none;
-}
-
-.celebration-starburst .ray {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 2px;
-    height: 130px;
-    transform-origin: top center;
-    background: linear-gradient(to bottom, rgba(255, 215, 0, 0.6), transparent);
-    animation: celebrationRayPulse 2.5s ease-in-out infinite;
-}
-
 /* --- Trophy icon --- */
 .celebration-trophy {
     font-size: 48px;
     line-height: 1;
-    animation: celebrationBounce 1s ease-in-out infinite;
     filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6));
 }
 
@@ -151,7 +90,6 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: celebrationShimmer 3s ease-in-out infinite;
     text-shadow: none;
 }
 
@@ -199,16 +137,13 @@
     color: rgba(255, 255, 255, 0.3);
     letter-spacing: 0.05em;
     margin-top: 8px;
-    animation: celebrationFadeInUp 1s ease-out 1.5s both;
+    opacity: 0;
 }
 
 /* --- Floating emojis --- */
 .celebration-floating-emoji {
     position: absolute;
-    font-size: 32px;
     pointer-events: none;
-    will-change: transform, opacity;
-    animation: celebrationFloat 4s linear forwards;
     z-index: 1;
 }
 
@@ -254,92 +189,6 @@
 }
 
 /* ============================================
-   Keyframes
-   ============================================ */
-
-@keyframes celebrationPulseGlow {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
-}
-
-@keyframes celebrationRingSpin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* The photo inside must counter-rotate to stay upright */
-.celebration-photo-ring > .celebration-photo {
-    animation: celebrationRingSpin 6s linear infinite reverse;
-}
-
-@keyframes celebrationBounce {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-8px) scale(1.08); }
-}
-
-@keyframes celebrationShimmer {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-@keyframes celebrationRayPulse {
-    0%, 100% { opacity: 0.3; transform: translate(-50%, 0) scaleY(0.8); }
-    50% { opacity: 0.8; transform: translate(-50%, 0) scaleY(1); }
-}
-
-@keyframes celebrationFloat {
-    0% {
-        transform: translateY(0);
-        opacity: 1;
-    }
-    80% {
-        opacity: 0.6;
-    }
-    100% {
-        transform: translateY(-500px);
-        opacity: 0;
-    }
-}
-
-@keyframes celebrationFadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* --- Sparkle particles (pure CSS) --- */
-.celebration-sparkle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #ffd700;
-    pointer-events: none;
-    animation: celebrationSparkle 1.5s ease-out forwards;
-}
-
-@keyframes celebrationSparkle {
-    0% {
-        transform: scale(0);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(0);
-        opacity: 0;
-    }
-}
-
-/* ============================================
    Responsive
    ============================================ */
 
@@ -352,14 +201,5 @@
     .celebration-photo-ring {
         width: 140px;
         height: 140px;
-    }
-
-    .celebration-starburst {
-        width: 200px;
-        height: 200px;
-    }
-
-    .celebration-starburst .ray {
-        height: 100px;
     }
 }
