@@ -149,6 +149,18 @@
 
     // ===== Event Bindings =====
     function bindEvents() {
+        // Top panel toggle
+        const topToggle = $('#topToggle');
+        const topPanel = $('#topPanel');
+        const topArrow = $('#topToggleArrow');
+        if (topToggle && topPanel) {
+            topToggle.addEventListener('click', () => {
+                const open = topPanel.style.display !== 'none';
+                topPanel.style.display = open ? 'none' : '';
+                topToggle.classList.toggle('expanded', !open);
+            });
+        }
+
         // Header buttons
         $('#btnAdd').addEventListener('click', () => openModal());
         $('#btnImportExcel').addEventListener('click', () => openImportModal());

@@ -119,6 +119,37 @@ body {
 }
 .hq-btn-icon:hover { color: var(--primary); border-color: var(--primary); }
 
+/* ===== Top toggle ===== */
+.hq-top-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 4px;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 4px;
+}
+
+.hq-toggle-arrow {
+    font-size: 20px;
+    color: var(--outline);
+    transition: transform 200ms;
+}
+.hq-top-toggle.expanded .hq-toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.hq-toggle-label {
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--on-surface);
+}
+
+.hq-top-panel {
+    margin-bottom: 8px;
+}
+
 /* ===== Summary Cards (compact single row) ===== */
 .hq-cards {
     display: flex;

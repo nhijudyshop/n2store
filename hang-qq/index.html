@@ -29,33 +29,38 @@
     <div class="main-content" id="mainContent">
         <div class="hq-container">
 
-            <!-- Header -->
-            <header class="hq-header">
-                <div>
-                    <h2 class="hq-title">Quản lý hàng Hàng QQ</h2>
-                    <p class="hq-subtitle">Quản lý hàng Hương Châu &bull; Theo dõi vận hành thời gian thực</p>
-                </div>
-                <div class="hq-actions">
-                    <button class="hq-btn hq-btn-outline" id="btnExport">
-                        <span class="material-symbols-outlined">upload_file</span>
-                        <span>Xuất file</span>
-                    </button>
-                    <button class="hq-btn hq-btn-secondary" id="btnImportExcel">
-                        <span class="material-symbols-outlined">grid_on</span>
-                        <span>Import Excel</span>
-                    </button>
-                    <button class="hq-btn hq-btn-primary" id="btnAdd">
-                        <span class="material-symbols-outlined">add</span>
-                        <span>Thêm mới</span>
-                    </button>
-                    <button class="hq-btn hq-btn-icon" id="btnRefresh" title="Tải lại">
-                        <span class="material-symbols-outlined">refresh</span>
-                    </button>
-                </div>
-            </header>
+            <!-- Header (collapsible) -->
+            <div class="hq-top-toggle" id="topToggle">
+                <span class="material-symbols-outlined hq-toggle-arrow" id="topToggleArrow">expand_more</span>
+                <span class="hq-toggle-label">Hàng QQ</span>
+            </div>
 
-            <!-- Summary Cards -->
-            <div class="hq-cards">
+            <div class="hq-top-panel" id="topPanel" style="display:none">
+                <header class="hq-header">
+                    <div>
+                        <h2 class="hq-title">Quản lý hàng Hàng QQ</h2>
+                        <p class="hq-subtitle">Quản lý hàng Hương Châu &bull; Theo dõi vận hành thời gian thực</p>
+                    </div>
+                    <div class="hq-actions">
+                        <button class="hq-btn hq-btn-outline" id="btnExport">
+                            <span class="material-symbols-outlined">upload_file</span>
+                            <span>Xuất file</span>
+                        </button>
+                        <button class="hq-btn hq-btn-secondary" id="btnImportExcel">
+                            <span class="material-symbols-outlined">grid_on</span>
+                            <span>Import Excel</span>
+                        </button>
+                        <button class="hq-btn hq-btn-primary" id="btnAdd">
+                            <span class="material-symbols-outlined">add</span>
+                            <span>Thêm mới</span>
+                        </button>
+                        <button class="hq-btn hq-btn-icon" id="btnRefresh" title="Tải lại">
+                            <span class="material-symbols-outlined">refresh</span>
+                        </button>
+                    </div>
+                </header>
+
+                <div class="hq-cards">
                 <div class="hq-card">
                     <div class="hq-card-bg" style="background:rgba(0,74,198,0.05)"></div>
                     <div class="hq-card-text">
@@ -97,6 +102,7 @@
                     </div>
                 </div>
             </div>
+            </div><!-- /hq-top-panel -->
 
             <!-- Filters -->
             <div class="hq-filters">
