@@ -62,9 +62,9 @@
     document.addEventListener('DOMContentLoaded', async () => {
         cacheElements();
         bindEvents();
+        initPasteSupport();
         await loadData();
         renderAll();
-        initLucide();
     });
 
     function cacheElements() {
@@ -708,8 +708,12 @@
     function handleImageSelect(e, type) {
         const files = e.target.files;
         if (!files.length) return;
+        addImageFiles(Array.from(files), type);
+    }
 
-        Array.from(files).forEach((file) => {
+    function addImageFiles(files, type) {
+        files.forEach((file) => {
+            if (!file.type.startsWith('image/')) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
                 if (type === 'product') { productImages.push(ev.target.result); }
@@ -717,6 +721,40 @@
                 renderImagePreviews();
             };
             reader.readAsDataURL(file);
+        });
+    }
+
+    // Paste images from clipboard
+    let pasteTarget = 'product'; // which upload area was last focused
+
+    function initPasteSupport() {
+        // Track which upload area user interacted with last
+        const productUpload = $('#uploadProductImg');
+        const invoiceUpload = $('#uploadInvoiceImg');
+        if (productUpload) productUpload.addEventListener('click', () => { pasteTarget = 'product'; });
+        if (invoiceUpload) invoiceUpload.addEventListener('click', () => { pasteTarget = 'invoice'; });
+
+        // Global paste listener
+        document.addEventListener('paste', (e) => {
+            // Only handle when modal is open
+            if (!els.modalOverlay.classList.contains('active')) return;
+
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+
+            const imageFiles = [];
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    if (file) imageFiles.push(file);
+                }
+            }
+
+            if (imageFiles.length > 0) {
+                e.preventDefault();
+                addImageFiles(imageFiles, pasteTarget);
+                showToast(`Đã dán ${imageFiles.length} ảnh vào ${pasteTarget === 'product' ? 'Ảnh SP' : 'Ảnh HĐ'}`, 'success');
+            }
         });
     }
 
