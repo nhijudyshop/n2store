@@ -1101,7 +1101,7 @@
         return {};
     }
 
-    async function saveProvinceGroups(groups) {
+    async function saveProvinceGroups(groups, onlyKeys) {
         const db = getFirestoreDB();
         if (!db) {
             console.warn('[DELIVERY-REPORT] No Firestore DB for saving province groups');
@@ -1109,10 +1109,26 @@
         }
 
         try {
-            await db.collection('delivery_report').doc('province_groups').set({
-                groups: groups,
-                lastUpdated: Date.now()
-            }, { merge: true });
+            const docRef = db.collection('delivery_report').doc('province_groups');
+            // Use dot-notation to update only specific keys, preventing overwrites
+            // from concurrent saves on other machines
+            const updateData = { lastUpdated: Date.now() };
+            const keysToSave = onlyKeys || Object.keys(groups);
+            keysToSave.forEach(key => {
+                updateData[`groups.${key}`] = groups[key];
+            });
+
+            // Try update first (doc must exist), fallback to set if doc doesn't exist
+            try {
+                await docRef.update(updateData);
+            } catch (updateErr) {
+                // Document doesn't exist yet, create it
+                if (updateErr.code === 'not-found') {
+                    await docRef.set({ groups: groups, lastUpdated: Date.now() });
+                } else {
+                    throw updateErr;
+                }
+            }
             console.log('[DELIVERY-REPORT] Province groups saved to Firestore');
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to save province groups:', e);
@@ -1290,7 +1306,9 @@
 
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, state.provinceGroups);
-            await saveProvinceGroups(state.provinceGroups);
+            // Only save the newly assigned keys to avoid overwriting existing assignments
+            const newKeys = unassigned.map(item => item.Number);
+            await saveProvinceGroups(state.provinceGroups, newKeys);
         }
     }
 
@@ -1321,7 +1339,8 @@
         const unassigned = provinceData.filter(item => !groups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, groups);
-            saveProvinceGroups(groups);
+            const newKeys = unassigned.map(item => item.Number);
+            saveProvinceGroups(groups, newKeys);
         }
 
         const allTomato = provinceData.filter(item => groups[item.Number] === 'tomato');
