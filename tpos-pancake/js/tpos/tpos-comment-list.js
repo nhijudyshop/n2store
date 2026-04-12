@@ -738,7 +738,8 @@ const TposCommentList = {
      */
     async createOrder(fromId, fromName, commentId) {
         const state = window.TposState;
-        const crmTeamId = state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
+        // CRMTeamId must be the CHILD page Id (e.g. 2 for NhiJudy Store), not parent team Id
+        const crmTeamId = state.selectedPage?.Id;
         const postId = state.selectedCampaign?.Facebook_LiveId;
 
         if (!crmTeamId || !postId) {
