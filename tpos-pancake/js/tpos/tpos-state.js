@@ -48,7 +48,7 @@ const TposState = {
     containerId: null,
 
     // API base URLs
-    proxyBaseUrl: 'https://n2store-fallback.onrender.com',
+    proxyBaseUrl: (window.API_CONFIG ? window.API_CONFIG.WORKER_URL : 'https://chatomni-proxy.nhijudyshop.workers.dev'),
     tposPancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
     tposBaseUrl: 'https://tomato.tpos.vn',
 

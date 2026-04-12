@@ -50,7 +50,7 @@ const PancakeRealtime = {
             if (state.pageIds.length === 0) await window.PancakeAPI.fetchPages();
             this.pageIds = state.pageIds;
 
-            var wsUrl = 'wss://pancake.vn/socket/websocket?token=' + encodeURIComponent(this.token) + '&vsn=2.0.0';
+            var wsUrl = 'wss://pancake.vn/socket/websocket?access_token=' + encodeURIComponent(this.token) + '&vsn=2.0.0';
             this._closeWs();
             this.ws = new WebSocket(wsUrl);
 

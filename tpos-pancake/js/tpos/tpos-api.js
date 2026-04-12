@@ -5,9 +5,10 @@
  * Dependencies: TposState (window.TposState), tposTokenManager (window.tposTokenManager)
  */
 
-const WORKER_URL = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-
 const TposApi = {
+    _getWorkerUrl() {
+        return window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    },
     /**
      * Get current TPOS token via token manager
      * @returns {Promise<string|null>}
