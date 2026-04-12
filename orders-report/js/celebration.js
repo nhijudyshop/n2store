@@ -2,8 +2,7 @@
 
 /**
  * 🎉 KPI Celebration System
- * Animations powered by Motion.dev (WAAPI — GPU-accelerated)
- * Confetti via canvas-confetti
+ * 100% Motion.dev (WAAPI GPU-accelerated) — no canvas-confetti, no CSS keyframes
  */
 
 const CelebrationManager = (() => {
@@ -12,40 +11,29 @@ const CelebrationManager = (() => {
     };
 
     const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js';
-    const CONFETTI_CDN = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js';
 
     let overlay = null;
     let cleanups = [];
 
-    // --- Load libs via script tag (IIFE → window.Motion / window.confetti) ---
-    function loadScript(src, globalName) {
+    // --- Load Motion.dev ---
+    function loadMotion() {
         return new Promise((resolve, reject) => {
-            if (window[globalName]) { resolve(window[globalName]); return; }
+            if (window.Motion) { resolve(window.Motion); return; }
             const s = document.createElement('script');
-            s.src = src;
-            s.onload = () => resolve(window[globalName]);
+            s.src = MOTION_CDN;
+            s.onload = () => resolve(window.Motion);
             s.onerror = reject;
             document.head.appendChild(s);
         });
     }
 
-    function loadMotion() { return loadScript(MOTION_CDN, 'Motion'); }
-    function loadConfetti() { return loadScript(CONFETTI_CDN, 'confetti'); }
-
-    // --- Helper: tracked setTimeout ---
+    // --- Tracked timers ---
     function later(fn, ms) {
         const id = setTimeout(fn, ms);
         cleanups.push({ type: 'timeout', id });
-        return id;
     }
 
-    function interval(fn, ms) {
-        const id = setInterval(fn, ms);
-        cleanups.push({ type: 'interval', id });
-        return id;
-    }
-
-    // --- Create overlay DOM ---
+    // --- Create DOM ---
     function createOverlay(employee, kpiDetail) {
         const existing = document.getElementById('celebrationOverlay');
         if (existing) existing.remove();
@@ -73,6 +61,7 @@ const CelebrationManager = (() => {
                 </div>` : ''}
                 <div class="celebration-close-hint">Nhấn để đóng</div>
             </div>
+            <div class="celebration-particles"></div>
         `;
 
         el.addEventListener('click', () => dismiss());
@@ -81,7 +70,122 @@ const CelebrationManager = (() => {
         return el;
     }
 
-    // --- Motion animations ---
+    // --- Motion.dev particle system (replaces canvas-confetti) ---
+    async function launchParticles() {
+        const { animate } = await loadMotion();
+        const container = overlay.querySelector('.celebration-particles');
+        const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981', '#fff'];
+
+        // Wave 1: big burst from center (40 particles)
+        for (let i = 0; i < 40; i++) {
+            later(() => spawnParticle(animate, container, colors, {
+                startX: 50, startY: 55,
+                endX: 5 + Math.random() * 90,
+                endY: -10 + Math.random() * 60,
+                size: 6 + Math.random() * 8,
+                duration: 1.5 + Math.random() * 1,
+            }), i * 15);
+        }
+
+        // Wave 2: left cannon (20 particles)
+        later(() => {
+            for (let i = 0; i < 20; i++) {
+                later(() => spawnParticle(animate, container, colors, {
+                    startX: 0, startY: 65,
+                    endX: 15 + Math.random() * 50,
+                    endY: 5 + Math.random() * 40,
+                    size: 5 + Math.random() * 7,
+                    duration: 1.2 + Math.random() * 1,
+                }), i * 20);
+            }
+        }, 400);
+
+        // Wave 3: right cannon (20 particles)
+        later(() => {
+            for (let i = 0; i < 20; i++) {
+                later(() => spawnParticle(animate, container, colors, {
+                    startX: 100, startY: 65,
+                    endX: 35 + Math.random() * 50,
+                    endY: 5 + Math.random() * 40,
+                    size: 5 + Math.random() * 7,
+                    duration: 1.2 + Math.random() * 1,
+                }), i * 20);
+            }
+        }, 600);
+
+        // Wave 4: gentle rain (scattered, slower)
+        later(() => {
+            for (let i = 0; i < 25; i++) {
+                later(() => spawnParticle(animate, container, colors, {
+                    startX: Math.random() * 100, startY: -5,
+                    endX: Math.random() * 100,
+                    endY: 90 + Math.random() * 15,
+                    size: 4 + Math.random() * 6,
+                    duration: 2 + Math.random() * 1.5,
+                    gravity: true,
+                }), i * 80);
+            }
+        }, 1500);
+
+        // Wave 5: finale burst (3 spots)
+        later(() => {
+            for (let b = 0; b < 3; b++) {
+                const cx = 20 + b * 30;
+                later(() => {
+                    for (let i = 0; i < 15; i++) {
+                        spawnParticle(animate, container, colors, {
+                            startX: cx, startY: 40,
+                            endX: cx - 20 + Math.random() * 40,
+                            endY: 5 + Math.random() * 50,
+                            size: 5 + Math.random() * 8,
+                            duration: 1 + Math.random() * 0.8,
+                        });
+                    }
+                }, b * 250);
+            }
+        }, 3500);
+    }
+
+    function spawnParticle(animate, container, colors, opts) {
+        if (!overlay) return;
+
+        const el = document.createElement('div');
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const isCircle = Math.random() > 0.3;
+
+        el.style.cssText = `
+            position:absolute;
+            width:${opts.size}px;
+            height:${isCircle ? opts.size : opts.size * 0.6}px;
+            background:${color};
+            border-radius:${isCircle ? '50%' : '2px'};
+            left:${opts.startX}%;
+            top:${opts.startY}%;
+            pointer-events:none;
+            z-index:1;
+        `;
+        container.appendChild(el);
+
+        const rotation = -180 + Math.random() * 360;
+        const midY = opts.gravity
+            ? opts.startY + (opts.endY - opts.startY) * 0.3
+            : Math.min(opts.startY, opts.endY) - 5 - Math.random() * 15;
+
+        const ctrl = animate(el, {
+            x: [`0%`, `${(opts.endX - opts.startX) * 0.6}vw`, `${(opts.endX - opts.startX)}vw`],
+            y: [`0%`, `${(midY - opts.startY)}vh`, `${(opts.endY - opts.startY)}vh`],
+            rotate: [0, rotation],
+            scale: [0, 1.2, 0.3],
+            opacity: [0, 1, 1, 0],
+        }, {
+            duration: opts.duration,
+            easing: [0.25, 0.46, 0.45, 0.94],
+            onComplete: () => el.remove(),
+        });
+        cleanups.push(ctrl);
+    }
+
+    // --- Motion.dev entrance animations ---
     async function animateEntrance() {
         const { animate } = await loadMotion();
         const card = overlay.querySelector('.celebration-card');
@@ -93,148 +197,63 @@ const CelebrationManager = (() => {
         const detail = overlay.querySelector('.celebration-detail');
         const hint = overlay.querySelector('.celebration-close-hint');
 
-        // 1) Overlay fade in
+        // Overlay fade
         animate(overlay, { opacity: [0, 1] }, { duration: 0.5, easing: 'ease-out' });
         overlay.classList.add('active');
 
-        // 2) Card entrance (expo ease-out instead of spring)
+        // Card pop in
         animate(card,
-            { opacity: [0, 1], scale: [0.7, 1], y: [40, 0] },
-            { duration: 0.7, easing: [0.16, 1, 0.3, 1], delay: 0.15 }
+            { opacity: [0, 1], scale: [0.7, 1.02, 1], y: [40, -5, 0] },
+            { duration: 0.8, easing: [0.16, 1, 0.3, 1], delay: 0.15 }
         );
 
-        // 3) Trophy — bounce in
+        // Trophy drop + bounce
         animate(trophy,
-            { opacity: [0, 1], scale: [0, 1.2, 1], y: [-20, 0] },
-            { duration: 0.6, easing: 'ease-out', delay: 0.4 }
+            { opacity: [0, 1], scale: [0, 1.3, 0.9, 1.05, 1], y: [-30, 0, -4, 0] },
+            { duration: 0.8, easing: 'ease-out', delay: 0.4 }
         );
 
-        // 4) Trophy continuous bounce
+        // Trophy gentle float
         later(() => {
             const ctrl = animate(trophy,
-                { y: [0, -6, 0] },
-                { duration: 1.2, easing: 'ease-in-out', repeat: Infinity }
+                { y: [0, -8, 0] },
+                { duration: 1.5, easing: 'ease-in-out', repeat: Infinity }
             );
             cleanups.push(ctrl);
-        }, 1000);
+        }, 1200);
 
-        // 5) Photo ring spin
+        // Photo ring spin
         const ringCtrl = animate(photoRing,
             { rotate: [0, 360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
         cleanups.push(ringCtrl);
 
-        // 6) Photo counter-rotate
+        // Photo counter-rotate
         const photoCtrl = animate(photo,
             { rotate: [0, -360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
         cleanups.push(photoCtrl);
 
-        // 7) Text elements fade in sequentially
-        const textEls = [title, nameEl, detail, hint].filter(Boolean);
-        textEls.forEach((el, i) => {
+        // Photo ring glow pulse
+        const glowCtrl = animate(photoRing,
+            { boxShadow: [
+                '0 0 40px rgba(255,215,0,0.4), 0 0 80px rgba(255,107,53,0.2)',
+                '0 0 60px rgba(255,215,0,0.7), 0 0 120px rgba(255,107,53,0.4)',
+                '0 0 40px rgba(255,215,0,0.4), 0 0 80px rgba(255,107,53,0.2)',
+            ]},
+            { duration: 2, easing: 'ease-in-out', repeat: Infinity }
+        );
+        cleanups.push(glowCtrl);
+
+        // Text stagger
+        [title, nameEl, detail, hint].filter(Boolean).forEach((el, i) => {
             animate(el,
-                { opacity: [0, 1], y: [15, 0] },
-                { duration: 0.5, easing: 'ease-out', delay: 0.5 + i * 0.1 }
+                { opacity: [0, 1], y: [20, 0] },
+                { duration: 0.5, easing: [0.16, 1, 0.3, 1], delay: 0.6 + i * 0.12 }
             );
         });
-    }
-
-    // --- Floating emojis via Motion ---
-    async function spawnFloatingEmojis() {
-        const { animate } = await loadMotion();
-        const emojis = ['🎉', '🎊', '⭐', '✨', '🥳', '🎈', '💰', '🏅'];
-        let count = 0;
-        const max = 10;
-
-        interval(() => {
-            if (!overlay || !overlay.classList.contains('active') || count >= max) return;
-
-            const el = document.createElement('div');
-            el.className = 'celebration-floating-emoji';
-            el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-            el.style.left = `${10 + Math.random() * 80}%`;
-            el.style.bottom = '0px';
-            el.style.fontSize = `${24 + Math.random() * 14}px`;
-            overlay.appendChild(el);
-            count++;
-
-            // Animate with Motion (WAAPI)
-            const ctrl = animate(el,
-                { y: [0, -500], opacity: [1, 0.7, 0] },
-                { duration: 3.5 + Math.random() * 1.5, easing: 'linear',
-                  onComplete: () => el.remove() }
-            );
-            cleanups.push(ctrl);
-        }, 700);
-    }
-
-    // --- Confetti (canvas — already smooth) ---
-    async function launchFireworks() {
-        const confetti = await loadConfetti();
-        const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981'];
-        const end = Date.now() + 5000;
-
-        // Initial burst
-        confetti({ particleCount: 80, spread: 90, startVelocity: 45,
-                   origin: { y: 0.6 }, colors, gravity: 1, ticks: 200 });
-
-        // Side cannons
-        later(() => {
-            confetti({ particleCount: 40, angle: 60, spread: 60,
-                       origin: { x: 0, y: 0.65 }, colors, ticks: 180 });
-            confetti({ particleCount: 40, angle: 120, spread: 60,
-                       origin: { x: 1, y: 0.65 }, colors, ticks: 180 });
-        }, 500);
-
-        // Light side rain
-        interval(() => {
-            if (Date.now() > end) return;
-            confetti({ particleCount: 2, angle: 60, spread: 50,
-                       origin: { x: 0 }, colors, ticks: 150, gravity: 0.8 });
-            confetti({ particleCount: 2, angle: 120, spread: 50,
-                       origin: { x: 1 }, colors, ticks: 150, gravity: 0.8 });
-        }, 250);
-
-        // Starburst
-        later(() => {
-            confetti({ particleCount: 40, spread: 360, startVelocity: 20,
-                       origin: { x: 0.5, y: 0.35 }, colors, ticks: 150, gravity: 0.6 });
-        }, 2000);
-
-        // Finale
-        later(() => {
-            for (let i = 0; i < 3; i++) {
-                later(() => {
-                    confetti({ particleCount: 35, spread: 80 + Math.random() * 40,
-                               startVelocity: 30,
-                               origin: { x: 0.2 + Math.random() * 0.6, y: 0.35 + Math.random() * 0.3 },
-                               colors, ticks: 150 });
-                }, i * 300);
-            }
-        }, 3500);
-    }
-
-    // --- Sound ---
-    function playSound() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.5);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(ctx.currentTime + i * 0.15);
-                osc.stop(ctx.currentTime + i * 0.15 + 0.6);
-            });
-            setTimeout(() => ctx.close(), 2000);
-        } catch (e) { /* no audio support */ }
     }
 
     // --- Main ---
@@ -243,14 +262,9 @@ const CelebrationManager = (() => {
         if (!employee) { console.warn(`[Celebration] "${employeeKey}" not found`); return; }
 
         createOverlay(employee, kpiDetail || null);
-
-        // All animations via Motion.dev
         animateEntrance();
-        playSound();
-        launchFireworks();
-        later(() => spawnFloatingEmojis(), 800);
+        launchParticles();
 
-        // Auto-dismiss
         later(() => dismiss(), 10000);
     }
 
@@ -258,31 +272,27 @@ const CelebrationManager = (() => {
     async function dismiss() {
         if (!overlay) return;
 
-        // Stop all tracked animations/timers
         cleanups.forEach(c => {
             if (c.type === 'timeout') clearTimeout(c.id);
             else if (c.type === 'interval') clearInterval(c.id);
             else if (c && typeof c.stop === 'function') c.stop();
+            else if (c && typeof c.cancel === 'function') c.cancel();
         });
         cleanups = [];
 
-        // Fade out
         try {
             const { animate } = await loadMotion();
             const card = overlay.querySelector('.celebration-card');
-            if (card) animate(card, { opacity: [1, 0], scale: [1, 0.85] }, { duration: 0.3, easing: 'ease-in' });
+            if (card) animate(card, { opacity: [1, 0], scale: [1, 0.85], y: [0, 20] },
+                { duration: 0.35, easing: 'ease-in' });
             animate(overlay, { opacity: [1, 0] }, { duration: 0.4, easing: 'ease-in' });
         } catch (e) {
             overlay.style.opacity = '0';
         }
 
-        // Remove after fade
         const ref = overlay;
-        later(() => {
-            if (ref) ref.remove();
-            if (window.confetti) window.confetti.reset();
-        }, 500);
         overlay = null;
+        setTimeout(() => ref.remove(), 500);
     }
 
     // --- Admin check ---
@@ -292,7 +302,7 @@ const CelebrationManager = (() => {
         } catch { return false; }
     }
 
-    // --- Init test button ---
+    // --- Init ---
     function initTestButton() {
         const btn = document.getElementById('celebrationTestBtn');
         if (!btn) return;
@@ -311,4 +321,3 @@ const CelebrationManager = (() => {
 
     return { celebrate, dismiss, isAdmin, EMPLOYEES };
 })();
-

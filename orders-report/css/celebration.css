@@ -43,6 +43,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
     max-width: 480px;
     width: 90vw;
+    z-index: 2;
 }
 
 /* --- Photo ring --- */
@@ -140,11 +141,13 @@
     opacity: 0;
 }
 
-/* --- Floating emojis --- */
-.celebration-floating-emoji {
+/* --- Particle container --- */
+.celebration-particles {
     position: absolute;
+    inset: 0;
     pointer-events: none;
-    z-index: 1;
+    overflow: hidden;
+    z-index: 0;
 }
 
 /* --- Test button (admin only) --- */
