@@ -347,6 +347,9 @@
                 <span class="dg-date">${dateDisplay}</span>
                 <span class="dg-count">${count} đơn</span>
                 <span class="dg-total">¥ ${formatMoney(groupTotal)}</span>
+                <button class="dg-add-btn" data-date="${group.date}" title="Thêm dòng vào ${dateDisplay}">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
             </div>`;
 
             // Column header row
@@ -403,8 +406,17 @@
 
         // Bind date group toggles
         listEl.querySelectorAll('.dg-header').forEach((hdr) => {
-            hdr.addEventListener('click', () => {
+            hdr.addEventListener('click', (e) => {
+                if (e.target.closest('.dg-add-btn')) return;
                 toggleDateGroup(hdr.getAttribute('data-datekey'));
+            });
+        });
+
+        // Bind add-row-in-group buttons
+        listEl.querySelectorAll('.dg-add-btn').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                addRowInGroup(btn.getAttribute('data-date'));
             });
         });
 
@@ -417,6 +429,26 @@
         listEl.querySelectorAll('.done-check').forEach((cb) => {
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
+    }
+
+    async function addRowInGroup(dateKey) {
+        const entry = {
+            ngayDiHang: dateKey === '_nodate' ? '' : dateKey,
+            soLuong: '', soKg: '', stt: '', moTa: '', soTien: '',
+            slNhan: '', thieu: '', chiPhi: '', ghiChu: '',
+            ngayTT: '', soTienTT: '', soTienVND: '',
+            productImages: [], invoiceImages: [],
+        };
+
+        try {
+            const saved = await saveEntry(entry);
+            allData.push(saved);
+            saveToLocalStorage();
+            renderAll();
+            showToast('Đã thêm dòng mới', 'success');
+        } catch (e) {
+            showToast('Lỗi: ' + e.message, 'error');
+        }
     }
 
     function toggleDateGroup(dateKey) {
