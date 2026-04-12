@@ -28,7 +28,55 @@ window.openCreateCampaignModal = function() {
     autoGenerateCampaignName();
 };
 
-// Auto-generate campaign name: find max T number + 1, then ask Gemini for a creative suffix
+// Gemini name pool: fetch 20 names at once, cycle through them
+const _namePool = {
+    names: [],      // current batch of unused names
+    used: [],       // all names used this session (to exclude from next batch)
+    loading: false,
+    prefix: '',
+};
+
+// Fetch 20 unique names from Gemini
+async function _fetchNameBatch(prefix, existingNames) {
+    const allUsed = [...existingNames, ..._namePool.used];
+    const usedList = allUsed.length > 0 ? allUsed.join(', ') : 'chưa có';
+
+    const response = await fetch('https://n2store-fallback.onrender.com/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: 'gemini-2.5-pro-preview-05-06',
+            contents: [{
+                role: 'user',
+                parts: [{ text: `Tạo danh sách 20 tên chiến dịch bán hàng livestream. Quy tắc:
+- Viết HOA, bắt đầu bằng "${prefix}"
+- Theo sau 1-2 từ ngắn gọn, vui vẻ, năng lượng
+- Lặp ký tự CUỐI CÙNG của từ cuối thêm 4-6 lần (ví dụ: BÙMMMMMM, DEALLLLL, HOTTTTTT)
+- KHÔNG lặp cả từ (sai: BÙM BÙMMMM, đúng: BÙMMMMMM)
+- KHÔNG trùng với tên đã có: ${usedList}
+- Mỗi tên 1 dòng, chỉ tên, không đánh số, không giải thích` }]
+            }],
+            generationConfig: {
+                maxOutputTokens: 400,
+                temperature: 1.2
+            }
+        })
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) return [];
+
+    // Parse lines into clean names
+    const usedUpper = new Set(allUsed.map(n => n.toUpperCase()));
+    return text.split('\n')
+        .map(line => line.replace(/^\d+[\.\)\-\s]+/, '').replace(/^["'\s]+|["'\s]+$/g, '').trim().toUpperCase())
+        .filter(name => name.length > 0 && name.startsWith(prefix) && !usedUpper.has(name));
+}
+
+// Main function: pick next name from pool, refill from Gemini when empty
 async function autoGenerateCampaignName() {
     const nameInput = document.getElementById('newCampaignName');
     const campaigns = window.campaignManager?.allCampaigns || {};
@@ -46,28 +94,39 @@ async function autoGenerateCampaignName() {
     const nextT = maxT + 1;
     const prefix = `T${nextT}`;
 
-    // Teen-style suffixes: word + last char repeated
-    const SUFFIXES = [
-        'BÙMMMMMM', 'DEALLLLL', 'CHÁYYY', 'SẬPPPPP', 'HOTTTTTT',
-        'NỔLLLLL', 'XINH XỈUUUUU', 'PHÁTTTTT', 'GIẢMMMMM', 'CHỐTTTTT',
-        'GIÁ SỐCCCC', 'HÀNG ĐẸPPPPP', 'SIÊU RẺẺẺẺ', 'XẢ KHOOOO',
-        'SALE SẬPPPPP', 'PHÁ ĐẢOOOOO', 'NỔ ĐƠNNNNN', 'BÁNHHHH',
-        'HÚT ĐƠNNNNN', 'VIP PROOOO', 'ĐỈNHHHHHH', 'KHỦNGGGGG',
-        'SIÊU SALEEEE', 'GIÁ HỦYYYYYY', 'FULLLLLL', 'MAXXXXXS',
-        'MEGA SALEEEEE', 'FLASHHHHH', 'ĐỈNH CAOOOOO', 'KHÔNGGGGG',
-        'LÊN ĐƠNNNNN', 'TẤT TAYYYYY', 'SĂNNNNNN', 'RẺ VÔÔÔÔÔ',
-        'BOMMMMMM', 'CHẤT LƯỢNGGGGG', 'BAOOOOOO', 'THẦNNNNN',
-    ];
+    // Reset pool if prefix changed (new T number)
+    if (_namePool.prefix !== prefix) {
+        _namePool.names = [];
+        _namePool.used = [];
+        _namePool.prefix = prefix;
+    }
 
-    // Pick a random suffix that hasn't been used
-    const existingUpper = existingNames.map(n => n.toUpperCase());
-    const available = SUFFIXES.filter(s => !existingUpper.some(n => n.includes(s)));
-    const pool = available.length > 0 ? available : SUFFIXES;
-    const suffix = pool[Math.floor(Math.random() * pool.length)];
+    // If pool empty, fetch new batch from Gemini
+    if (_namePool.names.length === 0 && !_namePool.loading) {
+        _namePool.loading = true;
+        nameInput.value = `${prefix} ...`;
+        nameInput.disabled = true;
 
-    nameInput.value = `${prefix} ${suffix}`;
+        try {
+            _namePool.names = await _fetchNameBatch(prefix, existingNames);
+        } catch (err) {
+            console.warn('[CAMPAIGN] Gemini batch failed:', err.message);
+        }
+
+        _namePool.loading = false;
+        nameInput.disabled = false;
+    }
+
+    // Pick next name from pool
+    if (_namePool.names.length > 0) {
+        const name = _namePool.names.shift();
+        _namePool.used.push(name);
+        nameInput.value = name;
+    } else {
+        nameInput.value = prefix;
+    }
+
     nameInput.focus();
-
     nameInput.select();
 }
 
