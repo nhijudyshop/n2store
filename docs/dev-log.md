@@ -8,12 +8,12 @@
 
 ## 2026-04-12
 
-### [orders] Thêm chức năng chỉnh sửa sản phẩm trên Kho Sản Phẩm ✅
+### [orders] Chỉnh sửa sản phẩm đầy đủ trên Kho Sản Phẩm ✅
 | | |
 |---|---|
 | **Files** | `product-warehouse/index.html`, `product-warehouse/js/main.js` |
-| **Trước** | Nút sửa (pencil) không có handler, bấm không có gì xảy ra |
-| **Sau** | Mở modal chỉnh sửa: Tên, Giá bán, Giá mua, Ghi chú, Hiệu lực. Fetch full detail từ TPOS, save qua `ProductTemplate/ODataService.UpdateV2` |
+| **Trước** | Nút sửa (pencil) không có handler |
+| **Sau** | Modal chỉnh sửa đầy đủ tất cả fields TPOS: Thông tin cơ bản (tên, mã, barcode, ảnh), Giá (bán, mua, CK bán/mua), Phân loại (nhóm SP, nhóm POS, ĐVT, trọng lượng, tracking), Trạng thái (active, sale OK, purchase OK, POS), Kế toán (invoice policy, purchase method), Mô tả (3 loại). Dropdowns load từ TPOS OData (cached). Ảnh upload base64. Save qua `UpdateV2` |
 | **Status** | ✅ Done |
 
 ### [shared] Rename kho_di_cho → web_warehouse + xóa trang Kho Đi Chợ ✅
