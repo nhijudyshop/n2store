@@ -135,8 +135,15 @@
     }
 
     async function deleteEntry(id) {
-        await apiRequest('DELETE', `/${id}`);
-        allData = allData.filter((d) => d.id !== id);
+        try {
+            await apiRequest('DELETE', `/${id}`);
+        } catch (e) {
+            // If 404, item already gone from server — still remove locally
+            if (!e.message.includes('not found') && !e.message.includes('Not Found')) {
+                throw e;
+            }
+        }
+        allData = allData.filter((d) => String(d.id) !== String(id));
         saveToLocalStorage();
     }
 
