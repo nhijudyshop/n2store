@@ -335,28 +335,57 @@
 </div></div>
 
 <!-- Create Ad -->
-<div class="modal-overlay" id="createAdModal"><div class="modal" style="max-width:700px">
+<div class="modal-overlay" id="createAdModal"><div class="modal" style="max-width:750px">
     <div class="modal-header"><h3>Tạo quảng cáo</h3><button class="modal-close" onclick="FBAds.closeModal('createAdModal')">&times;</button></div>
     <div class="modal-body">
         <div class="form-group"><label>Nhóm QC</label><select id="adAdSetId"></select></div>
-        <div class="form-group"><label>Tên</label><input type="text" id="adName" placeholder="Ad 1 - Hình SP A"></div>
-        <div class="form-group"><label>Facebook Page</label><select id="adPageId"></select></div>
-        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-            <legend style="font-weight:600;font-size:14px;padding:0 8px">Nội dung</legend>
-            <div class="form-group"><label>Message</label><textarea id="adMessage" rows="3" placeholder="Nội dung quảng cáo..."></textarea></div>
-            <div class="form-group"><label>Headline</label><input type="text" id="adHeadline" placeholder="Giảm giá 50%"></div>
-            <div class="form-group"><label>Mô tả</label><input type="text" id="adDescription" placeholder="Free ship từ 200k"></div>
-            <div class="form-group"><label>Link</label><input type="url" id="adLink" placeholder="https://..."></div>
-            <div class="form-group"><label>Hình</label><input type="file" id="adImageFile" accept="image/*" onchange="FBAds.previewAdImage(this)"><div id="adImagePreview" style="margin-top:8px"></div></div>
-            <div class="form-group"><label>CTA</label><select id="adCTA">
-                <option value="LEARN_MORE">Tìm hiểu thêm</option><option value="SHOP_NOW">Mua ngay</option><option value="SIGN_UP">Đăng ký</option>
-                <option value="CONTACT_US">Liên hệ</option><option value="SEND_MESSAGE">Nhắn tin</option><option value="ORDER_NOW">Đặt hàng</option>
-                <option value="NO_BUTTON">Không nút</option>
-            </select></div>
-        </fieldset>
+        <div class="form-group"><label>Tên quảng cáo</label><input type="text" id="adName" placeholder="Ad 1 - Boost bài viết"></div>
+
+        <!-- Ad type selector -->
+        <div class="form-group">
+            <label>Loại quảng cáo</label>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-primary btn-sm" id="adTypePost" onclick="FBAds.setAdType('post')" style="flex:1">Chọn bài viết trên Page</button>
+                <button class="btn btn-outline btn-sm" id="adTypeNew" onclick="FBAds.setAdType('new')" style="flex:1">Tạo nội dung mới</button>
+            </div>
+        </div>
+
+        <!-- === USE EXISTING POST === -->
+        <div id="adPostSection">
+            <div class="form-group">
+                <label>Chọn Page</label>
+                <select id="adPageId" onchange="FBAds.loadPagePosts()"></select>
+            </div>
+            <div class="form-group">
+                <label>Chọn bài viết</label>
+                <div id="pagePostsList" style="max-height:350px;overflow-y:auto;border:1px solid var(--fb-border);border-radius:var(--radius)">
+                    <div style="padding:20px;text-align:center;color:var(--fb-text-light)">Chọn Page để xem bài viết</div>
+                </div>
+            </div>
+            <input type="hidden" id="selectedPostId">
+        </div>
+
+        <!-- === CREATE NEW CONTENT === -->
+        <div id="adNewSection" style="display:none">
+            <div class="form-group"><label>Facebook Page</label><select id="adPageIdNew"></select></div>
+            <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+                <legend style="font-weight:600;font-size:14px;padding:0 8px">Nội dung mới</legend>
+                <div class="form-group"><label>Message</label><textarea id="adMessage" rows="3" placeholder="Nội dung quảng cáo..."></textarea></div>
+                <div class="form-group"><label>Headline</label><input type="text" id="adHeadline" placeholder="Giảm giá 50%"></div>
+                <div class="form-group"><label>Mô tả</label><input type="text" id="adDescription" placeholder="Free ship từ 200k"></div>
+                <div class="form-group"><label>Link</label><input type="url" id="adLink" placeholder="https://..."></div>
+                <div class="form-group"><label>Hình</label><input type="file" id="adImageFile" accept="image/*" onchange="FBAds.previewAdImage(this)"><div id="adImagePreview" style="margin-top:8px"></div></div>
+                <div class="form-group"><label>CTA</label><select id="adCTA">
+                    <option value="LEARN_MORE">Tìm hiểu thêm</option><option value="SHOP_NOW">Mua ngay</option><option value="SIGN_UP">Đăng ký</option>
+                    <option value="CONTACT_US">Liên hệ</option><option value="SEND_MESSAGE">Nhắn tin</option><option value="ORDER_NOW">Đặt hàng</option>
+                    <option value="NO_BUTTON">Không nút</option>
+                </select></div>
+            </fieldset>
+        </div>
+
         <div class="form-group"><label>Trạng thái</label><select id="adStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAd()">Tạo</button></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAd()">Tạo quảng cáo</button></div>
 </div></div>
 
 <!-- Create Audience -->

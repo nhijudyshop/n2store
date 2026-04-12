@@ -705,16 +705,74 @@ const FBAds = (() => {
     // =====================================================
     // AD CREATION
     // =====================================================
+    let adType = 'post'; // 'post' = existing post, 'new' = create new content
+
+    function setAdType(type) {
+        adType = type;
+        document.getElementById('adPostSection').style.display = type === 'post' ? '' : 'none';
+        document.getElementById('adNewSection').style.display = type === 'new' ? '' : 'none';
+        document.getElementById('adTypePost').className = type === 'post' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+        document.getElementById('adTypeNew').className = type === 'new' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    }
+
     function populateAdSetSelect() {
         const sel = document.getElementById('adAdSetId');
         sel.innerHTML = adsets.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
     }
 
     function populatePageSelect() {
-        const sel = document.getElementById('adPageId');
-        sel.innerHTML = pages.length
+        const opts = pages.length
             ? pages.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')
             : '<option value="">Không tìm thấy Page</option>';
+        document.getElementById('adPageId').innerHTML = opts;
+        document.getElementById('adPageIdNew').innerHTML = opts;
+        // Auto load posts for first page
+        if (pages.length) loadPagePosts();
+    }
+
+    async function loadPagePosts() {
+        const pageId = document.getElementById('adPageId').value;
+        if (!pageId) return;
+        const container = document.getElementById('pagePostsList');
+        container.innerHTML = '<div style="padding:20px;text-align:center"><div class="loading-spinner"></div></div>';
+        document.getElementById('selectedPostId').value = '';
+
+        try {
+            const res = await api(`/pages/${pageId}/posts?limit=20`);
+            const posts = res.data || [];
+            if (!posts.length) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--fb-text-light)">Chưa có bài viết nào</div>';
+                return;
+            }
+            container.innerHTML = posts.map(p => {
+                const msg = p.message ? (p.message.length > 120 ? p.message.substring(0, 120) + '...' : p.message) : '(Không có text)';
+                const time = new Date(p.created_time).toLocaleString('vi-VN');
+                return `<div class="post-item" data-post-id="${p.id}" onclick="FBAds.selectPost('${p.id}', this)" style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#f8f9fa'" onmouseout="if(!this.classList.contains('selected'))this.style.background=''">
+                    ${p.full_picture ? `<img src="${p.full_picture}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:var(--fb-bg);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px">📝</div>'}
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:13px;line-height:1.4;color:var(--fb-text)">${esc(msg)}</div>
+                        <div style="font-size:11px;color:var(--fb-text-light);margin-top:4px">${time}</div>
+                    </div>
+                    <div style="flex-shrink:0;display:flex;align-items:center"><div class="post-check" style="width:20px;height:20px;border:2px solid var(--fb-border);border-radius:50%"></div></div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            container.innerHTML = `<div style="padding:20px;text-align:center;color:red">${err.message}</div>`;
+        }
+    }
+
+    function selectPost(postId, el) {
+        // Deselect all
+        document.querySelectorAll('#pagePostsList .post-item').forEach(item => {
+            item.classList.remove('selected');
+            item.style.background = '';
+            item.querySelector('.post-check').style.cssText = 'width:20px;height:20px;border:2px solid var(--fb-border);border-radius:50%';
+        });
+        // Select this one
+        el.classList.add('selected');
+        el.style.background = '#e7f3ff';
+        el.querySelector('.post-check').style.cssText = 'width:20px;height:20px;border:2px solid var(--fb-primary);border-radius:50%;background:var(--fb-primary);box-shadow:inset 0 0 0 3px #fff';
+        document.getElementById('selectedPostId').value = postId;
     }
 
     function previewAdImage(input) {
@@ -731,54 +789,58 @@ const FBAds = (() => {
     async function createAd() {
         const adsetId = document.getElementById('adAdSetId').value;
         const name = document.getElementById('adName').value.trim();
-        const pageId = document.getElementById('adPageId').value;
-        const message = document.getElementById('adMessage').value.trim();
-        const headline = document.getElementById('adHeadline').value.trim();
-        const description = document.getElementById('adDescription').value.trim();
-        const link = document.getElementById('adLink').value.trim();
-        const cta = document.getElementById('adCTA').value;
         const status = document.getElementById('adStatus').value;
-        const imageFile = document.getElementById('adImageFile').files[0];
 
         if (!name) { toast('Nhập tên quảng cáo', 'error'); return; }
         if (!adsetId) { toast('Chọn nhóm QC', 'error'); return; }
-        if (!pageId) { toast('Chọn Facebook Page', 'error'); return; }
 
         try {
-            // Upload image if provided
-            let imageHash = null;
-            if (imageFile) {
-                toast('Đang upload hình...', 'info');
-                const base64 = await fileToBase64(imageFile);
-                const imgRes = await api('/adimages', {
-                    method: 'POST',
-                    body: { account_id: selectedAccountId, image_base64: base64, filename: imageFile.name }
-                });
-                // Extract image hash from response
-                const images = imgRes.data?.images;
-                if (images) {
-                    const firstKey = Object.keys(images)[0];
-                    imageHash = images[firstKey]?.hash;
-                }
-            }
+            let creative;
 
-            // Build creative spec
-            const linkData = {};
-            if (message) linkData.message = message;
-            if (link) {
-                linkData.link = link;
-                if (headline) linkData.name = headline;
-                if (description) linkData.description = description;
-                if (cta !== 'NO_BUTTON') linkData.call_to_action = { type: cta };
-                if (imageHash) linkData.image_hash = imageHash;
-            }
+            if (adType === 'post') {
+                // Use existing post
+                const postId = document.getElementById('selectedPostId').value;
+                if (!postId) { toast('Chọn 1 bài viết từ Page', 'error'); return; }
+                creative = { object_story_id: postId };
+            } else {
+                // Create new content
+                const pageId = document.getElementById('adPageIdNew').value;
+                if (!pageId) { toast('Chọn Facebook Page', 'error'); return; }
 
-            const creative = {
-                object_story_spec: {
-                    page_id: pageId,
-                    link_data: linkData
+                const message = document.getElementById('adMessage').value.trim();
+                const headline = document.getElementById('adHeadline').value.trim();
+                const description = document.getElementById('adDescription').value.trim();
+                const link = document.getElementById('adLink').value.trim();
+                const cta = document.getElementById('adCTA').value;
+                const imageFile = document.getElementById('adImageFile').files[0];
+
+                let imageHash = null;
+                if (imageFile) {
+                    toast('Đang upload hình...', 'info');
+                    const base64 = await fileToBase64(imageFile);
+                    const imgRes = await api('/adimages', {
+                        method: 'POST',
+                        body: { account_id: selectedAccountId, image_base64: base64, filename: imageFile.name }
+                    });
+                    const images = imgRes.data?.images;
+                    if (images) {
+                        const firstKey = Object.keys(images)[0];
+                        imageHash = images[firstKey]?.hash;
+                    }
                 }
-            };
+
+                const linkData = {};
+                if (message) linkData.message = message;
+                if (link) {
+                    linkData.link = link;
+                    if (headline) linkData.name = headline;
+                    if (description) linkData.description = description;
+                    if (cta !== 'NO_BUTTON') linkData.call_to_action = { type: cta };
+                    if (imageHash) linkData.image_hash = imageHash;
+                }
+
+                creative = { object_story_spec: { page_id: pageId, link_data: linkData } };
+            }
 
             await api('/ads', {
                 method: 'POST',
@@ -1360,7 +1422,7 @@ const FBAds = (() => {
         createCampaign, editCampaign, updateCampaign, deleteCampaign,
         toggleStatus, viewAdSets, viewAds,
         createAdSet, searchInterests, addInterest, removeInterest,
-        createAd, previewAdImage,
+        createAd, previewAdImage, setAdType, loadPagePosts, selectPost,
         onCheckbox, toggleSelectAll, bulkAction,
         addAppRole, removeRole, switchSettingsTab,
         checkAuthAfterSDK, loadInsights,

@@ -738,6 +738,31 @@ router.get('/pages', async (req, res) => {
     }
 });
 
+// GET /api/fb-ads/pages/:pageId/posts — List posts from a page
+router.get('/pages/:pageId/posts', async (req, res) => {
+    try {
+        // Find page access token from pages list
+        const pagesData = await fbFetch('/me/accounts', {
+            params: { fields: 'id,access_token', limit: '100' }
+        });
+        const page = (pagesData.data || []).find(p => p.id === req.params.pageId);
+        if (!page) {
+            return res.status(404).json({ success: false, error: 'Page not found or no access' });
+        }
+
+        // Use page access token to get posts
+        const url = `${FB_GRAPH_URL}/${req.params.pageId}/posts?fields=id,message,created_time,full_picture,permalink_url,type,status_type&limit=${req.query.limit || 20}&access_token=${page.access_token}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.error) {
+            return res.status(400).json({ success: false, error: data.error.message });
+        }
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
+    }
+});
+
 // =====================================================
 // CAMPAIGN UPDATE
 // =====================================================
