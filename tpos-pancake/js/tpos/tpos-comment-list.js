@@ -456,7 +456,7 @@ const TposCommentList = {
                 <div class="tpos-conv-content" style="flex: 1; min-width: 0;">
                     <!-- Row 1: Name + Page badge + Order badge + Hidden tag -->
                     <div class="tpos-conv-header" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <span class="customer-name" style="font-weight: 600;">${SharedUtils.escapeHtml(fromName)}</span>
+                        <span class="customer-name" style="font-weight: 600;cursor:pointer;color:#1d4ed8;" onclick="event.stopPropagation(); TposCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin Pancake">${SharedUtils.escapeHtml(fromName)}</span>
                         ${isMultiPage ? `<span style="${pageBadgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
                         ${orderBadge}
                         ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;">Ẩn</span>' : ''}
@@ -950,6 +950,187 @@ const TposCommentList = {
         const partner = state.partnerCache.get(fromId);
         const name = partner?.Name || fromId;
         window.TposCustomerPanel.showCustomerInfo(fromId, name);
+    },
+
+    /**
+     * Show Pancake customer info modal (click on customer name)
+     * Looks up the customer in Pancake conversations and shows full info
+     * @param {string} fbId - Facebook user ID from comment
+     * @param {string} name - Customer name
+     * @param {string} pageId - Facebook page ID
+     */
+    async showPancakeCustomerInfo(fbId, name, pageId) {
+        const modal = document.getElementById('customerInfoModal');
+        const titleEl = document.getElementById('customerInfoTitle');
+        const bodyEl = document.getElementById('customerInfoBody');
+        if (!modal || !bodyEl) return;
+
+        titleEl.textContent = `${name} — Pancake`;
+        bodyEl.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><span>Đang tìm khách trên Pancake...</span></div>';
+        modal.style.display = 'flex';
+
+        try {
+            const token = await window.pancakeTokenManager?.getToken();
+            if (!token) throw new Error('Không có Pancake token');
+
+            // Strategy 1: Try INBOX conversation directly (pageId_fbId)
+            const state = window.TposState;
+            const commentPageId = pageId || state.selectedPage?.Facebook_PageId || '270136663390370';
+            const convId = `${commentPageId}_${fbId}`;
+
+            // Find customer_id UUID from conversations list
+            const pkState = window.PancakeState;
+            let customerUUID = null;
+            let convData = null;
+
+            // Check if this user exists in loaded Pancake conversations
+            if (pkState?.conversations) {
+                const found = pkState.conversations.find(c =>
+                    c.from?.id === fbId || c.from_psid === fbId ||
+                    c.customers?.some(cu => cu.fb_id === fbId)
+                );
+                if (found?.customers?.[0]) {
+                    customerUUID = found.customers[0].id;
+                }
+            }
+
+            // Try to load messages with customer info
+            if (customerUUID) {
+                const url = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${commentPageId}/conversations/${convId}/messages`,
+                    `access_token=${token}&customer_id=${customerUUID}`
+                );
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    convData = await resp.json();
+                }
+            }
+
+            // Strategy 2: If no UUID found, try without customer_id (may fail)
+            if (!convData || !convData.success) {
+                // Try all pages
+                const pageIds = pkState?.pageIds || [commentPageId];
+                for (const pid of pageIds) {
+                    try {
+                        const cid = `${pid}_${fbId}`;
+                        const url = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${pid}/conversations/${cid}/messages`,
+                            `access_token=${token}&customer_id=unknown`
+                        );
+                        const resp = await fetch(url);
+                        if (resp.ok) {
+                            const d = await resp.json();
+                            if (d.success && d.customers?.length > 0) {
+                                convData = d;
+                                break;
+                            }
+                        }
+                    } catch { /* try next page */ }
+                }
+            }
+
+            if (convData?.success) {
+                this._renderPancakeCustomerModal(bodyEl, convData, name);
+            } else {
+                bodyEl.innerHTML = `
+                    <div style="text-align:center;padding:30px;">
+                        <p style="color:#6b7280;margin-bottom:12px;">Không tìm thấy khách "${name}" trên Pancake.</p>
+                        <p style="font-size:12px;color:#9ca3af;">FB ID: ${fbId} | Page: ${commentPageId}</p>
+                        <button onclick="document.getElementById('customerInfoModal').style.display='none'"
+                            style="margin-top:16px;padding:8px 16px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;">Đóng</button>
+                    </div>`;
+            }
+        } catch (error) {
+            bodyEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;">Lỗi: ${error.message}</div>`;
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    /**
+     * Render Pancake customer data into modal
+     */
+    _renderPancakeCustomerModal(bodyEl, data, name) {
+        const customer = data.customers?.[0] || {};
+        const notes = data.notes || [];
+        const orders = data.recent_orders || [];
+        const phones = customer.recent_phone_numbers || data.conv_recent_phone_numbers || [];
+        const globalId = data.global_id || customer.global_id || '';
+        const canInbox = data.can_inbox;
+        const gender = data.gender;
+        const birthday = data.birthday;
+        const isBanned = data.is_banned;
+        const activities = data.activities || [];
+        const adClicks = data.ad_clicks || [];
+
+        const phoneList = phones.map(p => p.phone_number || p.captured).filter(Boolean);
+
+        bodyEl.innerHTML = `
+            <!-- Customer Info -->
+            <div class="customer-section">
+                <h4><i data-lucide="user" style="width:16px;height:16px;"></i> Thông tin Pancake</h4>
+                <div class="customer-field"><label>Tên:</label><span><strong>${SharedUtils.escapeHtml(customer.name || name)}</strong></span></div>
+                <div class="customer-field"><label>FB ID:</label><span>${customer.fb_id || '-'}</span></div>
+                <div class="customer-field"><label>Global ID:</label><span>${globalId || '-'}</span></div>
+                <div class="customer-field"><label>SĐT:</label><span>${phoneList.length > 0 ? phoneList.join(', ') : '-'}</span></div>
+                ${gender ? `<div class="customer-field"><label>Giới tính:</label><span>${gender}</span></div>` : ''}
+                ${birthday ? `<div class="customer-field"><label>Sinh nhật:</label><span>${birthday}</span></div>` : ''}
+                <div class="customer-field"><label>Inbox:</label><span>${canInbox ? '✅ Có thể nhắn' : '❌ Không thể nhắn'}</span></div>
+                ${isBanned ? '<div class="customer-field"><label>Trạng thái:</label><span style="color:#ef4444;">🚫 Đã bị ban</span></div>' : ''}
+            </div>
+
+            <!-- Notes -->
+            ${notes.length > 0 ? `
+            <div class="customer-section">
+                <h4><i data-lucide="sticky-note" style="width:16px;height:16px;"></i> Ghi chú (${notes.length})</h4>
+                ${notes.slice(0, 5).map(n => `
+                    <div class="comment-item">
+                        <div class="comment-text">${SharedUtils.escapeHtml(n.message || '')}</div>
+                        <div class="comment-time">${n.created_by?.fb_name || ''} — ${SharedUtils.formatFullTime(n.created_at)}</div>
+                    </div>
+                `).join('')}
+            </div>` : ''}
+
+            <!-- Recent Orders -->
+            ${orders.length > 0 ? `
+            <div class="customer-section">
+                <h4><i data-lucide="shopping-bag" style="width:16px;height:16px;"></i> Đơn hàng Pancake (${orders.length})</h4>
+                <table class="order-table">
+                    <thead><tr><th>Mã</th><th>Trạng thái</th><th>Tổng</th></tr></thead>
+                    <tbody>
+                        ${orders.slice(0, 5).map(o => `<tr>
+                            <td><span class="order-code">${o.code || o.id || '-'}</span></td>
+                            <td>${o.status_text || o.status || '-'}</td>
+                            <td>${o.total ? o.total.toLocaleString('vi-VN') + 'đ' : '-'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>` : ''}
+
+            <!-- Ad Clicks -->
+            ${adClicks.length > 0 ? `
+            <div class="customer-section">
+                <h4><i data-lucide="mouse-pointer-click" style="width:16px;height:16px;"></i> Quảng cáo đã click (${adClicks.length})</h4>
+                ${adClicks.slice(0, 3).map(ad => `
+                    <div style="padding:6px 0;font-size:12px;border-bottom:1px solid #f3f4f6;">
+                        ${SharedUtils.escapeHtml(ad.ad_name || ad.campaign_name || 'Ad')} — ${SharedUtils.formatFullTime(ad.timestamp || ad.created_time)}
+                    </div>
+                `).join('')}
+            </div>` : ''}
+
+            <!-- Actions -->
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button onclick="document.getElementById('customerInfoModal').style.display='none'"
+                    style="flex:1;padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:6px;cursor:pointer;font-weight:500;">Đóng</button>
+                ${canInbox && customer.fb_id ? `
+                <button onclick="window.PancakeConversationList?.selectConversationByFbId?.('${customer.fb_id}');document.getElementById('customerInfoModal').style.display='none';"
+                    style="flex:1;padding:10px 16px;background:#00a884;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:500;">
+                    <i data-lucide="message-circle" style="width:14px;height:14px;display:inline;vertical-align:middle;"></i> Mở chat Pancake
+                </button>` : ''}
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 };
 
