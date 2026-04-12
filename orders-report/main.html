@@ -134,6 +134,7 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="css/modern.css" />
+        <link rel="stylesheet" href="css/celebration.css" />
 
         <!-- Render API key for token cache endpoints (/api/auth/token/*) -->
         <script>window.N2STORE_CLIENT_API_KEY='8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';</script>
@@ -1182,5 +1183,11 @@
                 setTimeout(() => lucide.createIcons(), 200);
             });
         </script>
+        <!-- 🎉 Celebration test button (admin-only) -->
+        <button id="celebrationTestBtn" class="celebration-test-btn" title="Test celebration animation">
+            <span class="btn-icon">🎆</span>
+            Test Pháo Hoa
+        </button>
+        <script src="js/celebration.js"></script>
     </body>
 </html>

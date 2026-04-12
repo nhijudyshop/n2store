@@ -1,0 +1,360 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+
+/* ============================================
+   🎉 KPI Celebration Overlay
+   Full-screen fireworks + employee photo
+   ============================================ */
+
+/* --- Overlay backdrop --- */
+.celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(10, 5, 30, 0.92) 0%, rgba(0, 0, 0, 0.97) 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.celebration-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* --- Ambient glow particles (CSS only) --- */
+.celebration-overlay::before {
+    content: '';
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: celebrationPulseGlow 3s ease-in-out infinite;
+}
+
+/* --- Main card --- */
+.celebration-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 48px 56px 40px;
+    border-radius: 28px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    box-shadow:
+        0 0 80px rgba(255, 215, 0, 0.12),
+        0 0 160px rgba(255, 100, 50, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transform: scale(0.7) translateY(40px);
+    opacity: 0;
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 480px;
+    width: 90vw;
+}
+
+.celebration-overlay.active .celebration-card {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    transition-delay: 0.2s;
+}
+
+/* --- Photo ring --- */
+.celebration-photo-ring {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    padding: 5px;
+    background: conic-gradient(
+        from 0deg,
+        #ffd700, #ff6b35, #ff1493, #8b5cf6, #00d4ff, #10b981, #ffd700
+    );
+    animation: celebrationRingSpin 6s linear infinite;
+    box-shadow:
+        0 0 40px rgba(255, 215, 0, 0.4),
+        0 0 80px rgba(255, 107, 53, 0.2);
+}
+
+.celebration-photo-ring::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 180deg,
+        transparent, rgba(255, 215, 0, 0.3), transparent, rgba(255, 107, 53, 0.3), transparent
+    );
+    animation: celebrationRingSpin 4s linear infinite reverse;
+    filter: blur(8px);
+}
+
+.celebration-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid rgba(10, 5, 30, 0.9);
+    display: block;
+}
+
+/* --- Star burst behind photo --- */
+.celebration-starburst {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 260px;
+    height: 260px;
+    pointer-events: none;
+}
+
+.celebration-starburst .ray {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 130px;
+    transform-origin: top center;
+    background: linear-gradient(to bottom, rgba(255, 215, 0, 0.6), transparent);
+    animation: celebrationRayPulse 2.5s ease-in-out infinite;
+}
+
+/* --- Trophy icon --- */
+.celebration-trophy {
+    font-size: 48px;
+    line-height: 1;
+    animation: celebrationBounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6));
+}
+
+/* --- Title text --- */
+.celebration-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 30%, #ff6b35 60%, #ffd700 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: celebrationShimmer 3s ease-in-out infinite;
+    text-shadow: none;
+}
+
+/* --- Subtitle / employee name --- */
+.celebration-name {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(18px, 3vw, 24px);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+.celebration-name .highlight {
+    color: #ffd700;
+    font-weight: 700;
+}
+
+/* --- KPI achievement detail --- */
+.celebration-detail {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    border-radius: 100px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.celebration-detail-icon {
+    font-size: 24px;
+}
+
+.celebration-detail-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #6ee7b7;
+}
+
+/* --- Close hint --- */
+.celebration-close-hint {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.05em;
+    margin-top: 8px;
+    animation: celebrationFadeInUp 1s ease-out 1.5s both;
+}
+
+/* --- Floating emojis --- */
+.celebration-floating-emoji {
+    position: absolute;
+    font-size: 32px;
+    pointer-events: none;
+    animation: celebrationFloat 4s ease-out forwards;
+    z-index: 1;
+}
+
+/* --- Test button (admin only) --- */
+.celebration-test-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+    transition: all 0.2s ease;
+    opacity: 0.85;
+}
+
+.celebration-test-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+    opacity: 1;
+}
+
+.celebration-test-btn:active {
+    transform: translateY(0);
+}
+
+.celebration-test-btn.visible {
+    display: flex;
+}
+
+.celebration-test-btn .btn-icon {
+    font-size: 16px;
+}
+
+/* ============================================
+   Keyframes
+   ============================================ */
+
+@keyframes celebrationPulseGlow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+}
+
+@keyframes celebrationRingSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* The photo inside must counter-rotate to stay upright */
+.celebration-photo-ring > .celebration-photo {
+    animation: celebrationRingSpin 6s linear infinite reverse;
+}
+
+@keyframes celebrationBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.08); }
+}
+
+@keyframes celebrationShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes celebrationRayPulse {
+    0%, 100% { opacity: 0.3; transform: translate(-50%, 0) scaleY(0.8); }
+    50% { opacity: 0.8; transform: translate(-50%, 0) scaleY(1); }
+}
+
+@keyframes celebrationFloat {
+    0% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-400px) rotate(720deg) scale(0);
+        opacity: 0;
+    }
+}
+
+@keyframes celebrationFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- Sparkle particles (pure CSS) --- */
+.celebration-sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #ffd700;
+    pointer-events: none;
+    animation: celebrationSparkle 1.5s ease-out forwards;
+}
+
+@keyframes celebrationSparkle {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+
+@media (max-width: 600px) {
+    .celebration-card {
+        padding: 32px 24px 28px;
+        gap: 18px;
+    }
+
+    .celebration-photo-ring {
+        width: 140px;
+        height: 140px;
+    }
+
+    .celebration-starburst {
+        width: 200px;
+        height: 200px;
+    }
+
+    .celebration-starburst .ray {
+        height: 100px;
+    }
+}
