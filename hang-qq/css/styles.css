@@ -443,7 +443,7 @@ body {
 .col-money    { text-align: right; font-weight: 700; color: var(--primary); }
 .col-slnhan   { text-align: center; font-weight: 500; }
 .col-thieu    { text-align: center; color: #ba1a1a; font-weight: 700; }
-.col-cp       { font-weight: 700; color: #1b6d24; }
+.col-cp       { text-align: center; font-weight: 700; color: #1b6d24; }
 .col-note     {
     color: #64748b;
     font-size: 12px;
