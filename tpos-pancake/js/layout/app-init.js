@@ -24,18 +24,20 @@
 
         // 3. Initialize TPOS column
         try {
-            if (window.TposInit) {
-                await window.TposInit.initialize();
+            const tposInit = window.TposColumnManager || window.TposInit;
+            if (tposInit && tposInit.initialize) {
+                await tposInit.initialize('tposContent');
                 console.log('[APP] TPOS column initialized');
             }
         } catch (error) {
             console.error('[APP] TPOS initialization failed:', error);
         }
 
-        // 4. Initialize Pancake column
+        // 4. Initialize Pancake column (may auto-init via DOMContentLoaded)
         try {
-            if (window.PancakeInit) {
-                await window.PancakeInit.initialize();
+            const pancakeInit = window.PancakeColumnManager || window.PancakeInit;
+            if (pancakeInit && pancakeInit.initialize && !pancakeInit._initialized) {
+                await pancakeInit.initialize('pancakeContent');
                 console.log('[APP] Pancake column initialized');
             }
         } catch (error) {
@@ -79,8 +81,10 @@
 
         // Layout refresh
         window.eventBus.on('layout:refresh', () => {
-            if (window.TposInit) window.TposInit.refresh();
-            if (window.PancakeInit) window.PancakeInit.refresh();
+            const tpos = window.TposColumnManager || window.TposInit;
+            const pancake = window.PancakeColumnManager || window.PancakeInit;
+            if (tpos?.refresh) tpos.refresh();
+            if (pancake?.refresh) pancake.refresh();
         });
     }
 
