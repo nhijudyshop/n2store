@@ -46,17 +46,17 @@ button { font-family: inherit; cursor: pointer; }
 /* ---- TOP BAR ---- */
 
 .top-bar {
-    height: var(--topbar-height);
+    height: 48px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 0 var(--spacing-xl);
+    padding: 0 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 100;
-    gap: var(--spacing-md);
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -174,7 +174,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .dual-column-section {
     flex: 1;
-    padding: var(--spacing-lg);
+    padding: 8px;
     display: flex;
     flex-direction: column;
     min-height: 0;

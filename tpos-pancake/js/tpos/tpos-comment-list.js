@@ -17,53 +17,38 @@ const TposCommentList = {
             return;
         }
 
-        container.innerHTML = `
-            <div class="tpos-chat-wrapper">
-                <!-- Merged Header: TPOS title + selectors + actions in one row -->
-                <div class="tpos-chat-header tpos-merged-header">
-                    <div class="tpos-title-section">
-                        <i data-lucide="shopping-cart" class="tpos-icon"></i>
-                        <span class="tpos-title">TPOS</span>
-                    </div>
-                    <div class="tpos-selectors">
-                        <select id="tposCrmTeamSelect" class="tpos-filter-select" disabled>
-                            <option value="">Chọn Page...</option>
-                        </select>
-                        <div class="tpos-campaign-multi" style="position:relative;">
-                            <button id="tposCampaignBtn" class="tpos-filter-select" style="text-align:left;cursor:pointer;display:flex;align-items:center;gap:4px;min-width:180px;" disabled>
-                                <span id="tposCampaignBtnText">Chọn Live Campaign...</span>
-                                <i data-lucide="chevron-down" style="width:14px;height:14px;margin-left:auto;flex-shrink:0;"></i>
-                            </button>
-                            <div id="tposCampaignDropdown" class="tpos-campaign-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;min-width:280px;max-height:350px;overflow-y:auto;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:500;margin-top:4px;">
-                                <div style="padding:6px 10px;border-bottom:1px solid #e5e7eb;display:flex;gap:6px;">
-                                    <button id="tposCampaignSelectAll" style="padding:3px 8px;background:#3b82f6;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Chọn tất cả hôm nay</button>
-                                    <button id="tposCampaignClearAll" style="padding:3px 8px;background:#f3f4f6;color:#374151;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Bỏ chọn</button>
-                                </div>
-                                <div id="tposCampaignList" style="padding:4px 0;"></div>
-                            </div>
+        // Render selectors into topbar (if available)
+        const topbarSelectors = document.getElementById('topbarTposSelectors');
+        if (topbarSelectors) {
+            topbarSelectors.innerHTML = `
+                <select id="tposCrmTeamSelect" class="tpos-filter-select" disabled>
+                    <option value="">Chọn Page...</option>
+                </select>
+                <div class="tpos-campaign-multi" style="position:relative;">
+                    <button id="tposCampaignBtn" class="tpos-filter-select" style="text-align:left;cursor:pointer;display:flex;align-items:center;gap:4px;min-width:160px;" disabled>
+                        <span id="tposCampaignBtnText">Chọn Campaign...</span>
+                        <i data-lucide="chevron-down" style="width:12px;height:12px;margin-left:auto;flex-shrink:0;"></i>
+                    </button>
+                    <div id="tposCampaignDropdown" class="tpos-campaign-dropdown" style="display:none;position:absolute;top:100%;left:0;min-width:300px;max-height:350px;overflow-y:auto;background:white;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:500;margin-top:4px;">
+                        <div style="padding:6px 10px;border-bottom:1px solid #e5e7eb;display:flex;gap:6px;">
+                            <button id="tposCampaignSelectAll" style="padding:3px 8px;background:#3b82f6;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Hôm nay</button>
+                            <button id="tposCampaignClearAll" style="padding:3px 8px;background:#f3f4f6;color:#374151;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Bỏ chọn</button>
                         </div>
-                    </div>
-                    <div class="tpos-header-actions">
-                        <div class="tpos-status-indicator" id="tposStatusIndicator">
-                            <span class="status-dot disconnected"></span>
-                            <span class="status-text">Live</span>
-                        </div>
-                        <button class="tpos-btn-refresh" id="btnTposRefresh" title="Refresh">
-                            <i data-lucide="refresh-cw"></i>
-                        </button>
-                        <button class="tpos-btn-expand" id="btnTposExpand" title="Mở rộng" onclick="toggleFullscreen('tpos')">
-                            <i data-lucide="maximize-2"></i>
-                        </button>
+                        <div id="tposCampaignList" style="padding:4px 0;"></div>
                     </div>
                 </div>
-                <!-- Comment list -->
+            `;
+        }
+
+        // Column content: just comment list + load more (no header)
+        container.innerHTML = `
+            <div class="tpos-chat-wrapper">
                 <div class="tpos-conversation-list" id="tposCommentList">
                     <div class="tpos-empty">
                         <i data-lucide="message-square"></i>
-                        <span>Chọn Page và Live Campaign để xem comment</span>
+                        <span>Chọn Page và Campaign để xem comment</span>
                     </div>
                 </div>
-                <!-- Loading indicator for infinite scroll -->
                 <div class="tpos-load-more" id="tposLoadMore" style="display: none;">
                     <div class="tpos-loading-more">
                         <i data-lucide="loader-2" class="spin"></i>

@@ -53,28 +53,46 @@
 
 <body>
     <main class="main-content">
-        <!-- Top Bar -->
-        <header class="top-bar">
-            <div class="top-bar-left">
-                <button class="btn-icon" id="menuToggle"><i data-lucide="menu"></i></button>
-                <div class="breadcrumb">
-                    <i data-lucide="columns"></i>
-                    <span>Tpos - Pancake</span>
+        <!-- Top Bar — TPOS selectors (left) + Pancake page selector (right) -->
+        <header class="top-bar" style="gap:8px;">
+            <!-- TPOS side: logo + page select + campaign select + Live + refresh -->
+            <div class="top-bar-left" style="flex:1;gap:8px;min-width:0;">
+                <i data-lucide="shopping-cart" style="width:18px;height:18px;color:var(--primary);flex-shrink:0;"></i>
+                <span style="font-weight:800;font-size:13px;color:var(--gray-900);flex-shrink:0;">TPOS</span>
+                <div id="topbarTposSelectors" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+                    <!-- Will be populated by tpos-comment-list.js -->
                 </div>
-                <span id="serverModeIndicator" class="server-mode-indicator mode-pancake">Pancake</span>
+                <div class="tpos-status-indicator" id="tposStatusIndicator">
+                    <span class="status-dot disconnected"></span>
+                    <span class="status-text">Live</span>
+                </div>
+                <button class="btn-icon" id="btnTposRefresh" title="Refresh TPOS" style="width:28px;height:28px;">
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+                </button>
             </div>
-            <div class="top-bar-right">
-                <button class="btn btn-secondary" id="btnTposSettings" title="Cài đặt TPOS">
-                    <i data-lucide="shopping-cart"></i><span>TPOS</span>
+
+            <!-- Divider -->
+            <div style="width:1px;height:28px;background:var(--gray-200);flex-shrink:0;"></div>
+
+            <!-- Pancake side: logo + page selector + settings -->
+            <div class="top-bar-right" style="flex:1;gap:8px;min-width:0;">
+                <i data-lucide="layout-grid" style="width:18px;height:18px;color:#f59e0b;flex-shrink:0;"></i>
+                <span style="font-weight:800;font-size:13px;color:var(--gray-900);flex-shrink:0;">Pancake</span>
+                <div id="topbarPancakeSelector" style="flex:1;min-width:0;">
+                    <!-- Will be populated by pancake page selector -->
+                </div>
+                <span id="serverModeIndicator" class="server-mode-indicator mode-pancake" style="font-size:9px;">Pancake</span>
+                <button class="btn-icon" id="btnPancakeSettings" title="Cài đặt Pancake" style="width:28px;height:28px;">
+                    <i data-lucide="settings" style="width:14px;height:14px;"></i>
                 </button>
-                <button class="btn btn-secondary" id="btnPancakeSettings" title="Cài đặt Pancake">
-                    <i data-lucide="layout-grid"></i><span>Pancake</span>
+                <button class="btn-icon" id="btnTposSettings" title="Cài đặt TPOS" style="width:28px;height:28px;">
+                    <i data-lucide="sliders" style="width:14px;height:14px;"></i>
                 </button>
-                <button class="btn btn-secondary" id="btnColumnSettings">
-                    <i data-lucide="settings-2"></i><span>Cài đặt cột</span>
+                <button class="btn-icon" id="btnColumnSettings" style="width:28px;height:28px;">
+                    <i data-lucide="columns" style="width:14px;height:14px;"></i>
                 </button>
-                <button class="btn-icon" id="btnRefresh" title="Làm mới">
-                    <i data-lucide="refresh-cw"></i>
+                <button class="btn-icon" id="btnRefresh" title="Làm mới" style="width:28px;height:28px;">
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
                 </button>
             </div>
         </header>
