@@ -482,56 +482,194 @@
     const _orderDetailsCache = new Map();
 
     /**
-     * Pre-fetch order details for ALL orders in parallel batches
-     * Instead of 1 API call per order during send, fetch all upfront
-     * Uses concurrency pool of 10 to avoid overwhelming TPOS
+     * Pre-fetch order details — tries Excel bulk export first (1 request),
+     * falls back to individual API calls if Excel fails.
      */
     async function _prefetchOrderDetails(orders) {
-        const BATCH_SIZE = 10;
         const orderIds = orders.map(o => o.orderId).filter(id => id && !_orderDetailsCache.has(String(id)));
-
         if (orderIds.length === 0) {
             console.log('[TemplateMgr] All order details already cached');
             return;
         }
 
-        console.log(`[TemplateMgr] Pre-fetching ${orderIds.length} order details (batch=${BATCH_SIZE})...`);
         const startTime = Date.now();
+        const progressEl = document.getElementById('msgProgressText');
+
+        // Try Excel export first (1 request for ALL orders)
+        const excelSuccess = await _prefetchViaExcel(orders, progressEl);
+        if (excelSuccess) {
+            console.log(`[TemplateMgr] Excel pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+            return;
+        }
+
+        // Fallback: individual API calls in batches
+        console.log('[TemplateMgr] Excel failed, falling back to API batch fetch...');
+        const BATCH_SIZE = 10;
         let fetched = 0;
 
         for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
             const batch = orderIds.slice(i, i + BATCH_SIZE);
-
-            // Fetch batch in parallel
-            const results = await Promise.allSettled(
+            await Promise.allSettled(
                 batch.map(async (orderId) => {
                     try {
                         if (window.getOrderDetails) {
                             const fullOrder = await window.getOrderDetails(orderId);
-                            if (fullOrder) {
-                                _orderDetailsCache.set(String(orderId), fullOrder);
-                                return;
-                            }
+                            if (fullOrder) { _orderDetailsCache.set(String(orderId), fullOrder); return; }
                         }
-                    } catch (e) {
-                        console.warn(`[TemplateMgr] Pre-fetch failed for ${orderId}:`, e.message);
-                    }
-                    // Fallback: try OrderStore
+                    } catch (e) {}
                     const storeOrder = window.OrderStore?.get(orderId);
-                    if (storeOrder?.Details?.length) {
-                        _orderDetailsCache.set(String(orderId), storeOrder);
-                    }
+                    if (storeOrder?.Details?.length) _orderDetailsCache.set(String(orderId), storeOrder);
                 })
             );
-
             fetched += batch.length;
-            const progressEl = document.getElementById('msgProgressText');
-            if (progressEl) {
-                progressEl.textContent = `Đang tải chi tiết SP: ${fetched}/${orderIds.length}...`;
-            }
+            if (progressEl) progressEl.textContent = `Đang tải chi tiết SP: ${fetched}/${orderIds.length}...`;
         }
+        console.log(`[TemplateMgr] API pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    }
 
-        console.log(`[TemplateMgr] Pre-fetched ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    /**
+     * Pre-fetch via TPOS Excel export — 1 request gets ALL order products
+     * POST /api/SaleOnline_Order/ExportFile with campaignId or order ids
+     */
+    async function _prefetchViaExcel(orders, progressEl) {
+        try {
+            if (typeof XLSX === 'undefined') {
+                console.warn('[TemplateMgr] XLSX library not loaded, skip Excel path');
+                return false;
+            }
+
+            const headers = await window.tokenManager?.getAuthHeader();
+            if (!headers) return false;
+
+            if (progressEl) progressEl.textContent = 'Đang tải Excel sản phẩm...';
+
+            // Build filter — use campaignId if available, otherwise export all selected
+            const campaignId = orders[0]?.LiveCampaignId || '';
+            const body = JSON.stringify({
+                data: '{}',
+                campaignId: campaignId ? String(campaignId) : '',
+                postId: '',
+                ids: ''
+            });
+
+            const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body
+            });
+
+            if (!resp.ok) {
+                console.warn('[TemplateMgr] Excel export failed:', resp.status);
+                return false;
+            }
+
+            const blob = await resp.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            // Find header row (contains "Ma" or "Mã" and "San pham" or "Sản phẩm")
+            let headerIdx = -1;
+            let colCode = -1, colName = -1, colPhone = -1, colAddress = -1;
+            let colProducts = -1, colTotalQty = -1, colTotal = -1;
+
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const row = rows[i].map(c => String(c || '').toLowerCase().trim());
+                const maIdx = row.findIndex(c => c === 'ma' || c === 'mã');
+                const spIdx = row.findIndex(c => c.includes('san pham') || c.includes('sản phẩm'));
+                if (maIdx >= 0 && spIdx >= 0) {
+                    headerIdx = i;
+                    colCode = maIdx;
+                    colProducts = spIdx;
+                    colName = row.findIndex(c => c === 'ten' || c === 'tên');
+                    colPhone = row.findIndex(c => c.includes('dien thoai') || c.includes('điện thoại'));
+                    colAddress = row.findIndex(c => c.includes('dia chi') || c.includes('địa chỉ'));
+                    colTotalQty = row.findIndex(c => c.includes('tong so luong') || c.includes('tổng số lượng'));
+                    colTotal = row.findIndex(c => c.includes('tong tien') || c.includes('tổng tiền'));
+                    break;
+                }
+            }
+
+            if (headerIdx < 0 || colProducts < 0) {
+                console.warn('[TemplateMgr] Excel header not found');
+                return false;
+            }
+
+            // Build orderId lookup from orders list (Code → orderId)
+            const codeToId = new Map();
+            orders.forEach(o => {
+                if (o.Code) codeToId.set(String(o.Code).trim(), String(o.orderId));
+            });
+
+            let parsed = 0;
+            for (let i = headerIdx + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+
+                const code = String(row[colCode] || '').trim();
+                const orderId = codeToId.get(code);
+                if (!orderId) continue;
+
+                // Parse products from column O text
+                const productsText = String(row[colProducts] || '');
+                const details = _parseProductsText(productsText);
+
+                const orderData = {
+                    Id: orderId,
+                    Code: code,
+                    Name: colName >= 0 ? String(row[colName] || '') : '',
+                    Telephone: colPhone >= 0 ? String(row[colPhone] || '') : '',
+                    Address: colAddress >= 0 ? String(row[colAddress] || '') : '',
+                    TotalQuantity: colTotalQty >= 0 ? parseInt(row[colTotalQty]) || 0 : 0,
+                    AmountTotal: colTotal >= 0 ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0 : 0,
+                    Details: details,
+                };
+
+                _orderDetailsCache.set(orderId, orderData);
+                parsed++;
+            }
+
+            console.log(`[TemplateMgr] Excel parsed: ${parsed} orders with product details`);
+            return parsed > 0;
+
+        } catch (error) {
+            console.warn('[TemplateMgr] Excel pre-fetch error:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Parse TPOS product text from Excel column O
+     * Format: "[CODE] Name SL: qty Gia: price\n[CODE2] Name2 SL: qty2 Gia: price2"
+     */
+    function _parseProductsText(text) {
+        if (!text || !text.trim()) return [];
+
+        const lines = text.split(/\n|\r\n/).filter(l => l.trim());
+        return lines.map(line => {
+            // Match: [CODE] Name SL: qty Gia: price
+            const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
+            if (match) {
+                return {
+                    ProductCode: match[1].trim(),
+                    ProductName: match[2].trim(),
+                    ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
+                    Quantity: parseInt(match[3]) || 1,
+                    Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                    PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                };
+            }
+            // Fallback: just product name
+            return {
+                ProductCode: '',
+                ProductName: line.trim(),
+                ProductNameGet: line.trim(),
+                Quantity: 1,
+                Price: 0,
+                PriceUnit: 0,
+            };
+        }).filter(d => d.ProductName);
     }
 
     function _replacePlaceholders(content, orderData) {

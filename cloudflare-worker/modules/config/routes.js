@@ -36,6 +36,8 @@ export const ROUTES = {
     // TPOS
     TPOS_EXPORT_V2: { pattern: '/api/Product/ExportProductV2', method: 'POST' },
     TPOS_EXPORT_STANDARD: { pattern: '/api/Product/ExportFileWithStandardPriceV2', method: 'POST' },
+    TPOS_EXPORT_SALEONLINE: { pattern: '/api/SaleOnline_Order/ExportFile', method: 'POST' },
+    TPOS_EXPORT_SALEONLINE_DETAIL: { pattern: '/api/SaleOnline_Order/ExportFileDetail', method: 'POST' },
     TPOS_ORDER_LINES: { pattern: '/tpos/order/:id/lines', method: 'GET' },
     TPOS_ORDER_REF_LINES: { pattern: '/tpos/order-ref/:ref/lines', method: 'GET' },
     TPOS_REST: { pattern: '/api/rest/*' },
@@ -112,6 +114,8 @@ export function matchRoute(pathname) {
     if (pathname === '/api/deepseek-ocr') return 'DEEPSEEK_OCR';
     if (pathname === '/api/Product/ExportProductV2') return 'TPOS_EXPORT_V2';
     if (pathname === '/api/Product/ExportFileWithStandardPriceV2') return 'TPOS_EXPORT_STANDARD';
+    if (pathname === '/api/SaleOnline_Order/ExportFile') return 'TPOS_EXPORT_SALEONLINE';
+    if (pathname === '/api/SaleOnline_Order/ExportFileDetail') return 'TPOS_EXPORT_SALEONLINE_DETAIL';
     if (pathname === '/api/sepay-dashboard') return 'SEPAY_DASHBOARD';
     if (pathname === '/api/autofb-balance') return 'AUTOFB_BALANCE';
     if (pathname === '/api/autofb-services') return 'AUTOFB_SERVICES';

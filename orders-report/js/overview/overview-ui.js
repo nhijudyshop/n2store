@@ -214,13 +214,41 @@ async function executeAPIFetch() {
     try {
         btn.disabled = true;
         btn.classList.remove('highlight-pulse');
-        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải từ API...';
+        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải...';
 
         // Hide helper message during fetch
         document.getElementById('tableHelperMessage').style.display = 'none';
 
         // Show progress
         progressContainer.style.display = 'block';
+
+        // Try Excel export first (1 request for ALL orders)
+        const excelResult = await _fetchViaExcel(allOrders);
+        if (excelResult && excelResult.length > 0) {
+            console.log(`[REPORT] Excel fetch: ${excelResult.length} orders with details`);
+
+            // Save to cache
+            const cacheData = {
+                tableName: currentTableName,
+                orders: excelResult,
+                fetchedAt: new Date().toISOString(),
+                totalOrders: allOrders.length,
+                successOrders: excelResult.length,
+                errorOrders: 0,
+                method: 'excel'
+            };
+            cachedOrderDetails[currentTableName] = cacheData;
+
+            updateStats();
+            renderDetailTable();
+            saveToFirebase();
+            resetButtonState();
+            return;
+        }
+
+        // Fallback: individual API calls
+        console.log('[REPORT] Excel failed, falling back to API batch fetch...');
+        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> API batch...';
 
         const fetchedOrders = [];
         const total = allOrders.length;
@@ -318,6 +346,117 @@ async function executeAPIFetch() {
         resetButtonState();
         alert(`Lỗi khi tải chi tiết đơn hàng: ${error.message}`);
     }
+}
+
+// =====================================================
+// EXCEL BULK FETCH — 1 request for ALL order details
+// =====================================================
+
+async function _fetchViaExcel(orders) {
+    try {
+        if (typeof XLSX === 'undefined') return null;
+
+        const headers = await window.tokenManager?.getAuthHeader();
+        if (!headers) return null;
+
+        // Use campaignId from first order if available
+        const campaignId = orders[0]?.LiveCampaignId || '';
+        const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile', {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: '{}', campaignId: campaignId ? String(campaignId) : '', postId: '', ids: '' })
+        });
+
+        if (!resp.ok) return null;
+
+        const blob = await resp.blob();
+        const workbook = XLSX.read(await blob.arrayBuffer(), { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        // Find header
+        let headerIdx = -1, colCode = -1, colName = -1, colPhone = -1;
+        let colAddress = -1, colProducts = -1, colTotalQty = -1, colTotal = -1, colStatus = -1, colDate = -1, colNote = -1;
+
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+            const row = (rows[i] || []).map(c => String(c || '').toLowerCase().trim());
+            const maIdx = row.findIndex(c => c === 'ma' || c === 'mã');
+            const spIdx = row.findIndex(c => c.includes('san pham') || c.includes('sản phẩm'));
+            if (maIdx >= 0 && spIdx >= 0) {
+                headerIdx = i;
+                colCode = maIdx;
+                colProducts = spIdx;
+                colName = row.findIndex(c => c === 'ten' || c === 'tên');
+                colPhone = row.findIndex(c => c.includes('dien thoai') || c.includes('điện thoại'));
+                colAddress = row.findIndex(c => c.includes('dia chi') || c.includes('địa chỉ'));
+                colTotalQty = row.findIndex(c => c.includes('tong so luong') || c.includes('tổng số lượng'));
+                colTotal = row.findIndex(c => c.includes('tong tien') || c.includes('tổng tiền'));
+                colStatus = row.findIndex(c => c.includes('trang thai') || c.includes('trạng thái'));
+                colDate = row.findIndex(c => c.includes('ngay tao') || c.includes('ngày tạo'));
+                colNote = row.findIndex(c => c.includes('ghi chu') || c.includes('ghi chú'));
+                break;
+            }
+        }
+
+        if (headerIdx < 0 || colProducts < 0) return null;
+
+        // Build orderId lookup
+        const codeToOrder = new Map();
+        orders.forEach(o => { if (o.Code) codeToOrder.set(String(o.Code).trim(), o); });
+
+        const result = [];
+        for (let i = headerIdx + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            const code = String(row[colCode] || '').trim();
+            const srcOrder = codeToOrder.get(code);
+            if (!srcOrder) continue;
+
+            const productsText = String(row[colProducts] || '');
+            const details = _parseProductsFromText(productsText);
+
+            result.push({
+                orderId: srcOrder.orderId,
+                Code: code,
+                Name: colName >= 0 ? String(row[colName] || '') : srcOrder.Name || '',
+                Telephone: colPhone >= 0 ? String(row[colPhone] || '') : srcOrder.Telephone || '',
+                Address: colAddress >= 0 ? String(row[colAddress] || '') : '',
+                TotalQuantity: colTotalQty >= 0 ? parseInt(row[colTotalQty]) || 0 : 0,
+                AmountTotal: colTotal >= 0 ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0 : 0,
+                Details: details,
+                Tags: srcOrder.Tags || '',
+                SessionIndex: srcOrder.stt || '',
+            });
+        }
+
+        console.log(`[REPORT] Excel parsed: ${result.length} orders`);
+        return result.length > 0 ? result : null;
+
+    } catch (err) {
+        console.warn('[REPORT] Excel fetch error:', err.message);
+        return null;
+    }
+}
+
+function _parseProductsFromText(text) {
+    if (!text || !text.trim()) return [];
+    return text.split(/\n|\r\n/).filter(l => l.trim()).map(line => {
+        const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
+        if (match) {
+            return {
+                ProductCode: match[1].trim(),
+                productCode: match[1].trim(),
+                ProductName: match[2].trim(),
+                ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
+                Quantity: parseInt(match[3]) || 1,
+                ProductUOMQty: parseInt(match[3]) || 1,
+                Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+            };
+        }
+        return { ProductCode: '', productCode: '', ProductName: line.trim(), Quantity: 1, Price: 0 };
+    }).filter(d => d.ProductName);
 }
 
 // =====================================================

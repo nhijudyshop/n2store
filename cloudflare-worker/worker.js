@@ -21,6 +21,8 @@ import { handlePancakeDirect, handlePancakeOfficial, handlePancakeOfficialV2, ha
 import {
     handleTposExportProductV2,
     handleTposExportStandardPrice,
+    handleTposExportSaleOnline,
+    handleTposExportSaleOnlineDetail,
     handleTposOrderLines,
     handleTposOrderLinesByRef,
     handleTposRest,
@@ -104,6 +106,10 @@ export default {
                     return handleTposExportProductV2(request, url);
                 case 'TPOS_EXPORT_STANDARD':
                     return handleTposExportStandardPrice(request, url);
+                case 'TPOS_EXPORT_SALEONLINE':
+                    return handleTposExportSaleOnline(request, url);
+                case 'TPOS_EXPORT_SALEONLINE_DETAIL':
+                    return handleTposExportSaleOnlineDetail(request, url);
                 case 'TPOS_ORDER_LINES':
                     return handleTposOrderLines(request, pathname);
                 case 'TPOS_ORDER_REF_LINES':

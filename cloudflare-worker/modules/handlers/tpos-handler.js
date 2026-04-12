@@ -56,6 +56,59 @@ export async function handleTposExportProductV2(request, url) {
 }
 
 /**
+ * Handle POST /api/SaleOnline_Order/ExportFile
+ * Export campaign orders as Excel (contains product details in column O)
+ */
+export async function handleTposExportSaleOnline(request, url) {
+    const queryParams = url.search || '';
+    const targetUrl = `https://tomato.tpos.vn/SaleOnline_Order/ExportFile${queryParams}`;
+
+    console.log('[TPOS-EXPORT-SALEONLINE] Proxying to:', targetUrl);
+
+    const tposHeaders = buildTposHeaders(request);
+
+    try {
+        const tposResponse = await fetchWithRetry(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+        }, 3, 1000, 30000); // 30s timeout — Excel can be large
+
+        console.log('[TPOS-EXPORT-SALEONLINE] Response status:', tposResponse.status);
+        return proxyResponseWithCors(tposResponse);
+    } catch (error) {
+        console.error('[TPOS-EXPORT-SALEONLINE] Error:', error.message);
+        return errorResponse('Failed to export SaleOnline orders: ' + error.message, 500);
+    }
+}
+
+/**
+ * Handle POST /api/SaleOnline_Order/ExportFileDetail
+ * Export campaign order details as Excel (one row per product line)
+ */
+export async function handleTposExportSaleOnlineDetail(request, url) {
+    const targetUrl = 'https://tomato.tpos.vn/SaleOnline_Order/ExportFileDetail';
+
+    console.log('[TPOS-EXPORT-SALEONLINE-DETAIL] Proxying to:', targetUrl);
+
+    const tposHeaders = buildTposHeaders(request);
+
+    try {
+        const tposResponse = await fetchWithRetry(targetUrl, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: await request.text(),
+        }, 3, 1000, 30000);
+
+        console.log('[TPOS-EXPORT-SALEONLINE-DETAIL] Response status:', tposResponse.status);
+        return proxyResponseWithCors(tposResponse);
+    } catch (error) {
+        console.error('[TPOS-EXPORT-SALEONLINE-DETAIL] Error:', error.message);
+        return errorResponse('Failed to export SaleOnline order details: ' + error.message, 500);
+    }
+}
+
+/**
  * Handle POST /api/Product/ExportFileWithStandardPriceV2
  * TPOS Standard Price Excel Export
  * @param {Request} request
