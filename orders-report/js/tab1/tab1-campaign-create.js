@@ -77,7 +77,7 @@ async function _fetchNameBatch(prefix, existingNames) {
 }
 
 // Main function: pick next name from pool, refill from Gemini when empty
-async function autoGenerateCampaignName() {
+window.autoGenerateCampaignName = async function() {
     const nameInput = document.getElementById('newCampaignName');
     const campaigns = window.campaignManager?.allCampaigns || {};
     const existingNames = Object.values(campaigns).map(c => c.name);
@@ -128,7 +128,7 @@ async function autoGenerateCampaignName() {
 
     nameInput.focus();
     nameInput.select();
-}
+};
 
 // Close Create Campaign Modal
 window.closeCreateCampaignModal = function() {
