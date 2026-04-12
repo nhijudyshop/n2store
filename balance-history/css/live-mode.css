@@ -753,6 +753,12 @@
     flex-wrap: wrap;
 }
 
+/* Hidden rows */
+.kanban-card .detail-receiver,
+.kanban-card .detail-risks {
+    display: none;
+}
+
 /* Row labels */
 .kanban-card .detail-receiver::before {
     content: 'Nhận';
