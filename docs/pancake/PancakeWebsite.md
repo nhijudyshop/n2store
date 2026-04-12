@@ -7,6 +7,32 @@
 
 ---
 
+## Mục lục
+
+| # | Section | Nội dung | Dòng |
+|---|---------|----------|------|
+| 1 | [Tổng quan kiến trúc](#1-tổng-quan-kiến-trúc) | Tech stack, multi-domain, API domains | ~10 |
+| 2 | [Route Map](#2-route-map-build-manifest) | 70+ routes: conversation, post, statistic, setting, tools | ~51 |
+| 3 | [Redux Store](#3-redux-store--state-shape) | 16 state slices: auth, pages, conversations, messages, CRM, calling, SIP | ~152 |
+| 4 | [API Endpoints (v1)](#4-api-endpoints-v1) | 100+ endpoints: users, pages, posts, shops, CRM, shopee, tiktok, whatsapp, zalo, line, telegram | ~325 |
+| 5 | [WebSocket Events](#5-websocket-events-phoenix-channels) | 50+ Phoenix channel events: pages:*, users:*, content:*, calling, WhatsApp | ~535 |
+| 6 | [Tính năng theo trang](#6-tính-năng-theo-trang) | Chi tiết 16 trang: conversation, post, dashboard, KPI, statistics x7, settings x10 | ~625 |
+| 7 | [Platform Integrations](#7-platform-integrations) | 13 platforms: Facebook, Instagram, TikTok, WhatsApp, Zalo, LINE, Telegram, Shopee... | ~815 |
+| 8 | [Tính năng đặc biệt](#8-tính-năng-đặc-biệt) | Multi-page mode, AI (CakeAI), CRM, VoIP/SIP, E-commerce, Zero-width encoding | ~845 |
+| 9 | [CSS / UI Components](#9-css--ui-components) | Ant Design v3, custom components, layout structure | ~896 |
+| 10 | [i18n](#10-i18n-internationalization) | 5 locales (vi, en, id, th, ph), error codes tiếng Việt | ~920 |
+| 11 | [JS Bundle Structure](#11-js-bundle-structure) | Shared chunks, page-specific chunks với size | ~949 |
+| 12 | [Tóm tắt](#12-tóm-tắt) | Overview ngắn gọn toàn bộ platform | ~990 |
+| 13 | [API Response Schemas](#13-api-response-schemas-chi-tiết) | JSON response chi tiết: /me, /pages, /conversations, /messages, search, mark read | ~1009 |
+| 14 | [Customer ID System](#14-customer-id-system-cross-page) | fb_id vs global_id, cross-page lookup strategy, ID formats | ~1199 |
+| 15 | [Sub-object Schemas](#15-sub-object-schemas) | Tag, QuickReply, Warehouse, PhoneNumber, Note, Attachment, TagHistory... | ~1231 |
+| 16 | [Error Codes](#16-error-codes) | Mã lỗi 100-429, Referer header requirement | ~1294 |
+| 17 | [N2Store Mapping](#17-n2store-specific-mapping) | Render DB ↔ Pancake: customers, fb_global_id_cache, pancake_accounts | ~1312 |
+| 18 | [Pages & Accounts](#18-pages--accounts-hiện-tại) | Danh sách pages (6) và accounts (6) hiện tại | ~1362 |
+| 19 | [Environment & Config](#19-environment--config-keys) | FB_APP_ID, Stripe, extension ID, currencies, 31 shipping carriers | ~1392 |
+
+---
+
 ## 1. Tổng quan kiến trúc
 
 ### Tech Stack
