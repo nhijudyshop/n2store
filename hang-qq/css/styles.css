@@ -452,7 +452,14 @@ body {
 /* ===== Editable cell ===== */
 .editable-cell { cursor: pointer; transition: background 150ms; }
 .editable-cell:hover { background: rgba(219, 225, 255, 0.3); }
-.editable-cell.inline-editing { padding: 4px 6px; background: #fff; }
+.editable-cell.inline-editing {
+    padding: 4px 6px;
+    background: #fff;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: unset;
+    z-index: 5;
+}
 
 .inline-input {
     width: 100%;
