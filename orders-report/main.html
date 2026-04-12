@@ -1186,11 +1186,25 @@
                 setTimeout(() => lucide.createIcons(), 200);
             });
         </script>
-        <!-- 🎉 Celebration test button (admin-only) -->
-        <button id="celebrationTestBtn" class="celebration-test-btn" title="Test celebration animation">
-            <span class="btn-icon">🎆</span>
-            Test Pháo Hoa
-        </button>
+        <!-- 🎉 Admin settings gear (bottom-left) -->
+        <div id="adminSettingsWidget" class="admin-settings-widget">
+            <button class="admin-settings-gear" id="adminSettingsGear" title="Cài đặt Admin">
+                <i data-lucide="settings" style="width:18px;height:18px"></i>
+            </button>
+            <div class="admin-settings-panel" id="adminSettingsPanel">
+                <div class="admin-settings-title">Cài đặt Admin</div>
+                <label class="admin-settings-row">
+                    <span>🎆 Nút Test Pháo Hoa</span>
+                    <input type="checkbox" id="toggleCelebrationBtn" />
+                    <span class="admin-toggle-slider"></span>
+                </label>
+                <div id="celebrationTestBtnWrap" style="display:none;margin-top:8px">
+                    <button id="celebrationTestBtn" class="celebration-fire-btn">
+                        🎆 Bắn Pháo Hoa
+                    </button>
+                </div>
+            </div>
+        </div>
         <script src="js/celebration.js"></script>
     </body>
 </html>

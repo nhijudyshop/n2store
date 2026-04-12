@@ -375,13 +375,45 @@ const CelebrationManager = (() => {
 
     // --- Init ---
     function init() {
-        // Test button — admin only, broadcasts to all
+        const widget = document.getElementById('adminSettingsWidget');
+        const gear = document.getElementById('adminSettingsGear');
+        const panel = document.getElementById('adminSettingsPanel');
+        const toggle = document.getElementById('toggleCelebrationBtn');
+        const btnWrap = document.getElementById('celebrationTestBtnWrap');
         const btn = document.getElementById('celebrationTestBtn');
+
+        // Show widget only for admin
+        if (widget && isAdmin()) {
+            widget.classList.add('visible');
+        }
+
+        // Gear click → toggle panel
+        if (gear && panel) {
+            gear.addEventListener('click', (e) => {
+                e.stopPropagation();
+                panel.classList.toggle('open');
+            });
+            // Close panel on outside click
+            document.addEventListener('click', (e) => {
+                if (widget && !widget.contains(e.target)) {
+                    panel.classList.remove('open');
+                }
+            });
+        }
+
+        // Toggle → show/hide fire button
+        if (toggle && btnWrap) {
+            toggle.addEventListener('change', () => {
+                btnWrap.style.display = toggle.checked ? 'block' : 'none';
+            });
+        }
+
+        // Fire button → broadcast
         if (btn) {
-            if (isAdmin()) btn.classList.add('visible');
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 triggerCelebration('hanh', 'Hoàn thành 100% KPI tháng này!');
+                panel.classList.remove('open');
             });
         }
 
