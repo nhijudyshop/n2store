@@ -119,36 +119,29 @@ body {
 }
 .hq-btn-icon:hover { color: var(--primary); border-color: var(--primary); }
 
-/* ===== Summary Cards ===== */
+/* ===== Summary Cards (compact single row) ===== */
 .hq-cards {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-bottom: 28px;
-}
-
-.hq-card {
-    background: var(--surface-lowest);
-    padding: 22px 24px;
-    border-radius: 16px;
-    box-shadow: var(--shadow);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: relative;
+    gap: 0;
+    margin-bottom: 20px;
+    background: var(--surface-lowest);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
     overflow: hidden;
 }
 
-.hq-card-bg {
-    position: absolute;
-    right: -10px;
-    top: -10px;
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    transition: transform 200ms;
+.hq-card {
+    flex: 1;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    border-right: 1px solid rgba(195, 198, 215, 0.2);
 }
-.hq-card:hover .hq-card-bg { transform: scale(1.1); }
+.hq-card:last-child { border-right: none; }
+
+.hq-card-bg { display: none; }
 
 .hq-card-text {
     display: flex;
@@ -157,31 +150,31 @@ body {
 }
 
 .hq-card-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
 }
 
 .hq-card-value {
     font-family: 'Manrope', sans-serif;
-    font-size: 1.8rem;
+    font-size: 1.25rem;
     font-weight: 800;
     color: var(--on-surface);
 }
 
 .hq-card-icon {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
     flex-shrink: 0;
 }
+.hq-card-icon .material-symbols-outlined { font-size: 20px; }
 
 /* ===== Filters ===== */
 .hq-filters {
