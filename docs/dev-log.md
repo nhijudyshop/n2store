@@ -8,6 +8,17 @@
 
 ## 2026-04-12
 
+### [chat] tpos-pancake Full Rebuild — Modular Architecture ✅
+| | |
+|---|---|
+| **Files** | `tpos-pancake/index.html` (1233→428 lines), `tpos-pancake/js/shared/` (4 files), `tpos-pancake/js/layout/` (3 files), `tpos-pancake/js/tpos/` (7 files), `tpos-pancake/js/pancake/` (9 files), `tpos-pancake/css/variables.css`, `tpos-pancake/css/layout.css`, `tpos-pancake/css/components.css` |
+| **What** | Rebuild toàn bộ tpos-pancake từ ~22,500 LOC god classes thành 27 modular files (~9,200 LOC, giảm 59%) |
+| **Shared** | `utils.js` (escapeHtml, normalizePhone, formatDebt, formatTime, getAvatarUrl), `cache-manager.js` (TTL+LRU), `debt-manager.js` (unified debt loading), `event-bus.js` (cross-column events) |
+| **TPOS** | Tách `tpos-chat.js` (2165 lines) → 7 modules: state, api, comment-list, customer-panel, realtime, token-manager, init |
+| **Pancake** | Tách `pancake-chat.js` (3999 lines) + `pancake-data-manager.js` (3643 lines) → 9 modules: state, api, conversation-list, chat-window, page-selector, context-menu, realtime, token-manager, init |
+| **CSS** | Tách `modern.css` → `variables.css` + `layout.css` + `components.css` |
+| **Status** | ✅ Done |
+
 ### [inbox] Full Pancake Features — Tags, Assignee, Notes CRUD, Bulk Actions, QR Sync, Settings ✅
 | | |
 |---|---|
