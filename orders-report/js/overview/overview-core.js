@@ -26,8 +26,8 @@ let _firebaseLoadedTable = null;   // Table already loaded successfully
 const STORAGE_KEY = 'report_order_details_by_table';
 const FIREBASE_PATH = 'report_order_details';
 const TABLE_NAME_SETTINGS_PATH = 'settings/table_name'; // Path to default table name (same as tab1)
-const BATCH_SIZE = 10;
-const BATCH_DELAY = 1000; // 1 second
+const BATCH_SIZE = 20;
+const BATCH_DELAY = 300; // 300ms between batches
 
 // =====================================================
 // PERMISSION HELPER

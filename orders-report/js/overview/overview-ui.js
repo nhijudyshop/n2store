@@ -824,7 +824,7 @@ function updateStats() {
     // TotalQuantity is available on raw orders from tab1 (TPOS API field)
     const totalProducts = allOrders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
 
-    // Count unique product codes from cachedOrderDetails if available (Details are only in cached data)
+    // Count unique product codes from cachedOrderDetails or allOrders.Details
     const uniqueProductCodes = new Set();
     const cached = currentTableName && cachedOrderDetails[currentTableName];
     if (cached && cached.orders) {
@@ -833,6 +833,18 @@ function updateStats() {
                 const code = d.ProductCode || d.productCode || '';
                 if (code) uniqueProductCodes.add(code);
             });
+        });
+    }
+    // Also check allOrders if they have Details loaded (from OrderStore enrichment)
+    if (uniqueProductCodes.size === 0) {
+        allOrders.forEach(order => {
+            const storeOrder = window.OrderStore?.get(order.orderId);
+            if (storeOrder?.Details) {
+                storeOrder.Details.forEach(d => {
+                    const code = d.ProductCode || d.ProductNameGet?.match(/\[([^\]]+)\]/)?.[1] || '';
+                    if (code) uniqueProductCodes.add(code);
+                });
+            }
         });
     }
 

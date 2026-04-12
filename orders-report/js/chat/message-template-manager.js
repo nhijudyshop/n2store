@@ -478,6 +478,62 @@
                content.includes('{partner.address}');
     }
 
+    // Cache for pre-fetched order details (cleared after each send session)
+    const _orderDetailsCache = new Map();
+
+    /**
+     * Pre-fetch order details for ALL orders in parallel batches
+     * Instead of 1 API call per order during send, fetch all upfront
+     * Uses concurrency pool of 10 to avoid overwhelming TPOS
+     */
+    async function _prefetchOrderDetails(orders) {
+        const BATCH_SIZE = 10;
+        const orderIds = orders.map(o => o.orderId).filter(id => id && !_orderDetailsCache.has(String(id)));
+
+        if (orderIds.length === 0) {
+            console.log('[TemplateMgr] All order details already cached');
+            return;
+        }
+
+        console.log(`[TemplateMgr] Pre-fetching ${orderIds.length} order details (batch=${BATCH_SIZE})...`);
+        const startTime = Date.now();
+        let fetched = 0;
+
+        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+            const batch = orderIds.slice(i, i + BATCH_SIZE);
+
+            // Fetch batch in parallel
+            const results = await Promise.allSettled(
+                batch.map(async (orderId) => {
+                    try {
+                        if (window.getOrderDetails) {
+                            const fullOrder = await window.getOrderDetails(orderId);
+                            if (fullOrder) {
+                                _orderDetailsCache.set(String(orderId), fullOrder);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[TemplateMgr] Pre-fetch failed for ${orderId}:`, e.message);
+                    }
+                    // Fallback: try OrderStore
+                    const storeOrder = window.OrderStore?.get(orderId);
+                    if (storeOrder?.Details?.length) {
+                        _orderDetailsCache.set(String(orderId), storeOrder);
+                    }
+                })
+            );
+
+            fetched += batch.length;
+            const progressEl = document.getElementById('msgProgressText');
+            if (progressEl) {
+                progressEl.textContent = `Đang tải chi tiết SP: ${fetched}/${orderIds.length}...`;
+            }
+        }
+
+        console.log(`[TemplateMgr] Pre-fetched ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    }
+
     function _replacePlaceholders(content, orderData) {
         let result = content;
 
@@ -702,17 +758,18 @@
         let orderData;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
         if (_needsFullData(templateContent)) {
-            // OrderStore only has list-level data (no Details/line items).
-            // Fetch full order with $expand=Details via getOrderDetails API.
-            let fullOrder = null;
-            if (window.getOrderDetails) {
+            // Use pre-fetched cache first (from _prefetchOrderDetails)
+            let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+
+            // Fallback: individual fetch if not in cache
+            if (!fullOrder && window.getOrderDetails) {
                 try {
                     fullOrder = await window.getOrderDetails(order.orderId);
                 } catch (e) {
                     console.warn('[TemplateMgr] getOrderDetails failed:', e.message);
                 }
             }
-            // Fallback to OrderStore if API failed
+            // Fallback to OrderStore
             if (!fullOrder || !fullOrder.Details?.length) {
                 const storeOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
                 if (storeOrder?.Details?.length) fullOrder = storeOrder;
@@ -1004,7 +1061,11 @@
                 // 1. Build order data + replace placeholders
                 let orderData;
                 if (_needsFullData(templateContent)) {
-                    let fullOrder = window.getOrderDetails ? await window.getOrderDetails(order.orderId).catch(() => null) : null;
+                    // Use pre-fetched cache first
+                    let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+                    if (!fullOrder && window.getOrderDetails) {
+                        fullOrder = await window.getOrderDetails(order.orderId).catch(() => null);
+                    }
                     if (!fullOrder?.Details?.length) {
                         const storeOrder = window.OrderStore?.get(order.orderId);
                         if (storeOrder?.Details?.length) fullOrder = storeOrder;
@@ -1922,6 +1983,13 @@
         const useExtension = document.getElementById('msgApiLabel')?.textContent === 'N2Store';
 
         try {
+            // Pre-fetch order details in batch if template uses {order.details}
+            const templateContent = template.Content || template.BodyPlain || template.content || '';
+            if (_needsFullData(templateContent)) {
+                document.getElementById('msgProgressText').textContent = 'Đang tải chi tiết sản phẩm...';
+                await _prefetchOrderDetails(orders);
+            }
+
             if (useExtension) {
                 // Validate extension is connected
                 if (!window.pancakeExtension?.connected || !window.sendViaExtension) {
