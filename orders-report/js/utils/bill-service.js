@@ -1244,11 +1244,26 @@ ${
             // Remove iframe
             document.body.removeChild(iframe);
 
-            // Convert to blob
-            const blob = await new Promise((resolve) => {
-                canvas.toBlob(resolve, 'image/png');
-            });
+            // Convert to blob — use JPEG with progressive quality reduction to stay under 500KB
+            const MAX_SIZE = 480 * 1024; // 480KB (buffer for 500KB limit)
+            let blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
 
+            if (blob.size > MAX_SIZE) {
+                // Try lower quality
+                blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.65));
+            }
+            if (blob.size > MAX_SIZE) {
+                // Try even lower + scale down canvas
+                const smallCanvas = document.createElement('canvas');
+                const ratio = 0.7;
+                smallCanvas.width = Math.round(canvas.width * ratio);
+                smallCanvas.height = Math.round(canvas.height * ratio);
+                const ctx = smallCanvas.getContext('2d');
+                ctx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+                blob = await new Promise((resolve) => smallCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+            }
+
+            console.log(`[BILL-SERVICE] Image size: ${(blob.size / 1024).toFixed(0)}KB`);
             return blob;
         } catch (error) {
             document.body.removeChild(iframe);
@@ -1286,11 +1301,12 @@ ${
                 const imageBlob = await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
+                const isJpeg = imageBlob.type === 'image/jpeg';
                 billImageFile = new File(
                     [imageBlob],
-                    `bill_${orderResult?.Number || Date.now()}.png`,
+                    `bill_${orderResult?.Number || Date.now()}.${isJpeg ? 'jpg' : 'png'}`,
                     {
-                        type: 'image/png',
+                        type: imageBlob.type || 'image/jpeg',
                     }
                 );
                 const imageFile = billImageFile;
