@@ -404,19 +404,16 @@
 
         listEl.innerHTML = html;
 
-        // Bind date group toggles
+        // Bind date group toggles + add buttons
         listEl.querySelectorAll('.dg-header').forEach((hdr) => {
             hdr.addEventListener('click', (e) => {
-                if (e.target.closest('.dg-add-btn')) return;
+                const addBtn = e.target.closest('.dg-add-btn');
+                if (addBtn) {
+                    e.stopPropagation();
+                    addRowInGroup(addBtn.getAttribute('data-date'));
+                    return;
+                }
                 toggleDateGroup(hdr.getAttribute('data-datekey'));
-            });
-        });
-
-        // Bind add-row-in-group buttons
-        listEl.querySelectorAll('.dg-add-btn').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                addRowInGroup(btn.getAttribute('data-date'));
             });
         });
 
@@ -433,10 +430,10 @@
 
     async function addRowInGroup(dateKey) {
         const entry = {
-            ngayDiHang: dateKey === '_nodate' ? '' : dateKey,
-            soLuong: '', soKg: '', stt: '', moTa: '', soTien: '',
-            slNhan: '', thieu: '', chiPhi: '', ghiChu: '',
-            ngayTT: '', soTienTT: '', soTienVND: '',
+            ngayDiHang: dateKey === '_nodate' ? null : dateKey,
+            soLuong: null, soKg: null, stt: '', moTa: '', soTien: 0,
+            slNhan: null, thieu: null, chiPhi: 0, ghiChu: '',
+            ngayTT: null, soTienTT: 0, soTienVND: 0,
             productImages: [], invoiceImages: [],
         };
 
@@ -445,9 +442,10 @@
             allData.push(saved);
             saveToLocalStorage();
             renderAll();
-            showToast('Đã thêm dòng mới', 'success');
+            showToast('Đã thêm dòng mới vào ' + formatDate(dateKey), 'success');
         } catch (e) {
-            showToast('Lỗi: ' + e.message, 'error');
+            console.error('addRowInGroup error:', e);
+            showToast('Lỗi thêm dòng: ' + e.message, 'error');
         }
     }
 
