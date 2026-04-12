@@ -530,10 +530,10 @@
     // =====================================================
     // API - Fetch products from TPOS OData
     // =====================================================
-    async function fetchProducts() {
+    async function fetchProducts(silent = false) {
         if (isLoading) return;
         isLoading = true;
-        showLoading(true);
+        if (!silent) showLoading(true);
 
         try {
             const skip = (currentPage - 1) * pageSize;
@@ -619,7 +619,7 @@
             showToast('Lỗi tải dữ liệu: ' + error.message, 'error');
         } finally {
             isLoading = false;
-            showLoading(false);
+            if (!silent) showLoading(false);
             render();
             // Lazy-load images for products without ImageUrl
             lazyLoadImages();
@@ -1066,7 +1066,7 @@
                 console.log('[ProductWarehouse] SSE triggered refresh');
                 variantCache = {}; // Clear variant cache on TPOS change
                 imageCache = {};   // Clear image cache
-                fetchProducts();
+                fetchProducts(true); // silent=true: no loading flash
             },
             ignoreActions: [], // Refresh on all TPOS changes
             debounceMs: 3000,

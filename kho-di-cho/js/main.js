@@ -136,8 +136,8 @@
     // DATA LOADING (server-side pagination + filter)
     // =====================================================
 
-    async function loadData() {
-        showLoading(true);
+    async function loadData(silent = false) {
+        if (!silent) showLoading(true);
         try {
             const params = new URLSearchParams({
                 page: currentPage,
@@ -177,7 +177,7 @@
             console.error('Load error:', err);
             showToast('Lỗi kết nối server', 'error');
         }
-        showLoading(false);
+        if (!silent) showLoading(false);
     }
 
     // =====================================================
@@ -187,7 +187,7 @@
     function initSSE() {
         sseCtrl = WS.setupSSE({
             sseUrl: SSE_URL,
-            onReload: () => loadData(),
+            onReload: () => loadData(true),
             ignoreActions: ['qty_change', 'update'],
             debounceMs: 2000,
         });
