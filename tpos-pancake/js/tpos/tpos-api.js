@@ -274,7 +274,7 @@ const TposApi = {
     async updatePartnerStatusViaProxy(partnerId, statusValue) {
         const state = window.TposState;
         try {
-            const apiUrl = `${state.proxyBaseUrl}/api/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
+            const apiUrl = `${state.workerUrl}/api/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
             const response = await this.authenticatedFetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -308,7 +308,7 @@ const TposApi = {
         const model = { ...partner, ...fields };
         const effectiveTeamId = teamId || state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
 
-        const apiUrl = `${state.proxyBaseUrl}/api/odata/SaleOnline_Order/ODataService.CreateUpdatePartner`;
+        const apiUrl = `${state.workerUrl}/api/odata/SaleOnline_Order/ODataService.CreateUpdatePartner`;
         const response = await this.authenticatedFetch(apiUrl, {
             method: 'POST',
             headers: {
