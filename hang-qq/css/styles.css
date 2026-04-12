@@ -463,14 +463,21 @@ body {
 }
 .row-del-btn .material-symbols-outlined { font-size: 16px; }
 
-/* New row highlight */
+/* New row highlight — show all cells as editable placeholders */
 .row-new {
-    animation: rowHighlight 2s ease;
+    background: rgba(37, 99, 235, 0.06);
 }
 
-@keyframes rowHighlight {
-    0%, 30% { background: rgba(37, 99, 235, 0.12); }
-    100% { background: transparent; }
+.row-new .editable-cell {
+    border: 1px dashed var(--outline-variant);
+    border-radius: 4px;
+    min-height: 28px;
+}
+
+.row-new .editable-cell:empty::after {
+    content: '—';
+    color: #cbd5e1;
+    font-size: 11px;
 }
 .dg-item:hover .row-del-btn { opacity: 1; }
 .row-del-btn:hover { background: rgba(186, 26, 26, 0.1); color: var(--error); }

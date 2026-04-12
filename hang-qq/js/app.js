@@ -470,12 +470,11 @@
                 if (newRow) {
                     newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     newRow.classList.add('row-new');
-                    setTimeout(() => newRow.classList.remove('row-new'), 2000);
 
-                    // Auto start inline edit on product (moTa) cell
-                    const moTaCell = newRow.querySelector('[data-field="moTa"]');
-                    if (moTaCell) {
-                        setTimeout(() => startInlineEdit(moTaCell), 300);
+                    // Auto start inline edit on STT cell first
+                    const sttCell = newRow.querySelector('[data-field="stt"]');
+                    if (sttCell) {
+                        setTimeout(() => startInlineEdit(sttCell), 300);
                     }
                 }
             });
