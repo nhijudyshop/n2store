@@ -288,7 +288,7 @@ function renderProductsTab(data) {
         (p, i) => `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image" loading="lazy">` : ""}</td>
+            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ""}</td>
             <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
             <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
@@ -929,7 +929,7 @@ function refreshProductsTableOnly() {
         (p, i) => `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image" loading="lazy">` : ""}</td>
+            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ""}</td>
             <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
             <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
@@ -1283,7 +1283,7 @@ function displayInlineResults(results) {
             return `
         <div class="${itemClass}" onclick="addProductToOrderFromInline(${p.Id})" data-product-id="${p.Id}">
             ${isInOrder ? `<div class="inline-result-quantity-badge"><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>` : ''}
-            ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="inline-result-image">` : `<div class="inline-result-image placeholder"><i class="fas fa-image"></i></div>`}
+            ${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="inline-result-image" onerror="this.style.display='none'">` : `<div class="inline-result-image placeholder"><i class="fas fa-image"></i></div>`}
             <div class="inline-result-info">
                 <div class="inline-result-name">${p.Name}</div>
                 <div class="inline-result-code">Mã: ${p.Code}</div>

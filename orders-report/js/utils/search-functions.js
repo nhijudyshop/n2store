@@ -138,9 +138,9 @@ function renderSearchResultItem(product) {
         <div class="search-result-item" onclick='selectProductFromSuggestion(${product.Id}, ${productJson})'>
             ${
                 hasImage
-                    ? `<img src="${product.ImageUrl}" 
-                       class="search-result-image" 
-                       alt="${product.Name}" 
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.ImageUrl) : product.ImageUrl}"
+                       class="search-result-image"
+                       alt="${product.Name}"
                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                     : ""
             }
