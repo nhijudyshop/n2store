@@ -106,6 +106,7 @@ async function saveToFirebase(tableName, data) {
 async function loadFromFirebase(tableName) {
     try {
         const report = await window.CampaignAPI.getReport(tableName);
+        if (!report) return null;
 
         // Update status
         firebaseTableName = tableName;
