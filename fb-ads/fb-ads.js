@@ -747,10 +747,18 @@ const FBAds = (() => {
             container.innerHTML = posts.map(p => {
                 const msg = p.message ? (p.message.length > 120 ? p.message.substring(0, 120) + '...' : p.message) : '(Không có text)';
                 const time = new Date(p.created_time).toLocaleString('vi-VN');
-                return `<div class="post-item" data-post-id="${p.id}" onclick="FBAds.selectPost('${p.id}', this)" style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#f8f9fa'" onmouseout="if(!this.classList.contains('selected'))this.style.background=''">
-                    ${p.full_picture ? `<img src="${p.full_picture}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:var(--fb-bg);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px">📝</div>'}
+                const isLive = p.live_status === 'LIVE';
+                const isVOD = p.live_status === 'VOD';
+                const liveBadge = isLive ? '<span style="background:#e53935;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;animation:pulse 1.5s infinite">LIVE</span> '
+                    : isVOD ? '<span style="background:#f57c00;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Vừa Live</span> '
+                    : p.is_live ? '<span style="background:var(--fb-text-light);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">Video</span> ' : '';
+                const borderLeft = isLive ? 'border-left:4px solid #e53935;' : isVOD ? 'border-left:4px solid #f57c00;' : '';
+                const icon = isLive ? '🔴' : isVOD ? '📹' : p.full_picture ? '' : '📝';
+
+                return `<div class="post-item" data-post-id="${p.id}" onclick="FBAds.selectPost('${p.id}', this)" style="display:flex;gap:12px;padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background 0.1s;${borderLeft}" onmouseover="this.style.background='#f8f9fa'" onmouseout="if(!this.classList.contains('selected'))this.style.background=''">
+                    ${p.full_picture ? `<img src="${p.full_picture}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;flex-shrink:0">` : `<div style="width:80px;height:80px;background:${isLive ? '#fde8e8' : isVOD ? '#fff3e0' : 'var(--fb-bg)'};border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:24px">${icon}</div>`}
                     <div style="flex:1;min-width:0">
-                        <div style="font-size:13px;line-height:1.4;color:var(--fb-text)">${esc(msg)}</div>
+                        <div style="font-size:13px;line-height:1.4;color:var(--fb-text)">${liveBadge}${esc(msg)}</div>
                         <div style="font-size:11px;color:var(--fb-text-light);margin-top:4px">${time}</div>
                     </div>
                     <div style="flex-shrink:0;display:flex;align-items:center"><div class="post-check" style="width:20px;height:20px;border:2px solid var(--fb-border);border-radius:50%"></div></div>

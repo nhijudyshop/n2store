@@ -750,14 +750,45 @@ router.get('/pages/:pageId/posts', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Page not found or no access' });
         }
 
-        // Use page access token to get posts
-        const url = `${FB_GRAPH_URL}/${req.params.pageId}/posts?fields=id,message,created_time,full_picture,permalink_url,type,status_type&limit=${req.query.limit || 20}&access_token=${page.access_token}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.error) {
-            return res.status(400).json({ success: false, error: data.error.message });
-        }
-        res.json({ success: true, data: data.data || [] });
+        const pageToken = page.access_token;
+        const limit = req.query.limit || 20;
+
+        // Fetch live videos + regular posts in parallel
+        const [liveRes, postsRes] = await Promise.all([
+            fetch(`${FB_GRAPH_URL}/${req.params.pageId}/live_videos?fields=id,title,description,status,embed_html,permalink_url,creation_time&limit=10&access_token=${pageToken}`).then(r => r.json()),
+            fetch(`${FB_GRAPH_URL}/${req.params.pageId}/posts?fields=id,message,created_time,full_picture,permalink_url,type,status_type&limit=${limit}&access_token=${pageToken}`).then(r => r.json())
+        ]);
+
+        // Map live videos to post-like format, mark as live
+        const liveVideos = (liveRes.data || []).map(lv => ({
+            id: lv.id,
+            message: lv.title || lv.description || 'Live Video',
+            created_time: lv.creation_time,
+            permalink_url: lv.permalink_url,
+            full_picture: null,
+            is_live: true,
+            live_status: lv.status // LIVE, VOD, PROCESSING
+        }));
+
+        const posts = (postsRes.data || []).map(p => ({ ...p, is_live: false }));
+
+        // Sort: LIVE first, then VOD, then regular posts by time
+        const all = [...liveVideos, ...posts].sort((a, b) => {
+            // Live broadcasting first
+            if (a.live_status === 'LIVE' && b.live_status !== 'LIVE') return -1;
+            if (b.live_status === 'LIVE' && a.live_status !== 'LIVE') return 1;
+            // Then VOD (recent live)
+            if (a.live_status === 'VOD' && !b.is_live) return -1;
+            if (b.live_status === 'VOD' && !a.is_live) return 1;
+            // Then by time
+            return new Date(b.created_time) - new Date(a.created_time);
+        });
+
+        // Deduplicate by id
+        const seen = new Set();
+        const unique = all.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+
+        res.json({ success: true, data: unique.slice(0, parseInt(limit)) });
     } catch (error) {
         res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
