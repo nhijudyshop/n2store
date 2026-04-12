@@ -418,6 +418,7 @@ async function showFastSaleModal() {
 
         // Filter out orders that already have confirmed/paid invoices
         // These orders should NOT be re-submitted to avoid duplicates
+        // Exception: "MY CSKH" invoices are allowed to be re-created (customer service orders)
         const confirmedOrderCodes = [];
         fastSaleOrdersData = fetchedOrders.filter((order) => {
             // Check 1: FastSaleOrder has confirmed/paid status from API
@@ -428,6 +429,13 @@ async function showFastSaleModal() {
                 order.StatusText === 'Đơn hàng' ||
                 order.Status === 'Đơn hàng'
             ) {
+                // Exception: allow re-creation for MY CSKH invoices
+                const userName = order.UserName || '';
+                if (userName.toUpperCase().includes('MY CSKH')) {
+                    console.log(`[FAST-SALE] Allowing re-creation for MY CSKH order: ${order.Reference}`);
+                    return true;
+                }
+
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
                 confirmedOrderCodes.push(code);
                 console.log(
@@ -446,6 +454,13 @@ async function showFastSaleModal() {
                         invoiceData.ShowState === 'Đã thanh toán' ||
                         invoiceData.State === 'open')
                 ) {
+                    // Exception: allow re-creation for MY CSKH invoices
+                    const userName = invoiceData.UserName || '';
+                    if (userName.toUpperCase().includes('MY CSKH')) {
+                        console.log(`[FAST-SALE] Allowing re-creation for MY CSKH invoice: ${saleOnlineId}`);
+                        return true;
+                    }
+
                     const code = order.Reference || saleOnlineId;
                     confirmedOrderCodes.push(code);
                     console.log(
