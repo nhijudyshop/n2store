@@ -1056,6 +1056,9 @@ class PurchaseOrderFormModal {
      * - No dot/comma = shorthand, always ×1000 (100 → 100.000, 1500 → 1.500.000)
      */
     parsePrice(value) {
+        // If already a number (from DB/API), return directly — no ×1000
+        if (typeof value === 'number') return value;
+
         const str = String(value || '').trim();
         if (!str) return 0;
         let num;
@@ -1067,9 +1070,10 @@ class PurchaseOrderFormModal {
             // Dot = thousand separator: "100.000" → 100000, already full price
             num = parseFloat(str.replace(/\./g, '')) || 0;
         } else {
-            // Plain number: "100", "1500" → shorthand, ×1000
+            // Plain number: "100", "1500" → shorthand ×1000, but only for small values
+            // Values >= 1000 are already full prices (e.g. "210000" from DB)
             num = parseFloat(str) || 0;
-            if (num > 0) num = Math.round(num * 1000);
+            if (num > 0 && num < 1000) num = Math.round(num * 1000);
         }
         return num;
     }
@@ -2864,9 +2868,11 @@ class PurchaseOrderFormModal {
             }
 
             const orderData = this.getFormData();
-            orderData.status = 'AWAITING_PURCHASE';
+            // When editing, preserve original status; when creating, set AWAITING_PURCHASE
+            orderData.status = this.isEdit ? (this.order?.status || 'AWAITING_PURCHASE') : 'AWAITING_PURCHASE';
 
             console.log('[FormModal] Submit orderData:', {
+                status: orderData.status,
                 notes: orderData.notes,
                 discountAmount: orderData.discountAmount,
                 shippingFee: orderData.shippingFee,
