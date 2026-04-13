@@ -2414,31 +2414,41 @@ function checkOverdueTickets() {
     if (!alertBanner) return;
 
     if (overdueTickets.length > 0) {
-        // Show banner
-        alertBanner.classList.remove('hidden');
-        countEl.textContent = overdueTickets.length;
-
-        // Store overdue tickets for filter
+        // Update count and store overdue tickets regardless of dismiss state
+        if (countEl) countEl.textContent = overdueTickets.length;
         window.overdueTickets = overdueTickets;
 
-        // Setup event handlers (only once)
-        if (!btnShow._handlerAdded) {
+        // Only show banner if user hasn't dismissed it for this session
+        // Re-show if overdue count changed (new overdue ticket appeared)
+        const prevCount = alertBanner.dataset.lastCount;
+        const currentCount = String(overdueTickets.length);
+        const wasDismissed = alertBanner.dataset.dismissed === 'true';
+
+        if (!wasDismissed || prevCount !== currentCount) {
+            alertBanner.classList.remove('hidden');
+            alertBanner.dataset.dismissed = 'false';
+        }
+        alertBanner.dataset.lastCount = currentCount;
+
+        // Setup event handlers (only once, with null checks)
+        if (btnShow && !btnShow._handlerAdded) {
             btnShow.addEventListener('click', () => {
-                // Filter to show only overdue tickets
                 showOverdueTicketsFilter();
             });
             btnShow._handlerAdded = true;
         }
 
-        if (!btnDismiss._handlerAdded) {
+        if (btnDismiss && !btnDismiss._handlerAdded) {
             btnDismiss.addEventListener('click', () => {
                 alertBanner.classList.add('hidden');
+                alertBanner.dataset.dismissed = 'true';
             });
             btnDismiss._handlerAdded = true;
         }
     } else {
-        // Hide banner
+        // No overdue tickets - hide and reset dismiss state
         alertBanner.classList.add('hidden');
+        alertBanner.dataset.dismissed = 'false';
     }
 }
 
