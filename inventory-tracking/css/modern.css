@@ -3195,16 +3195,26 @@ body {
 .note-row-btn i { width: 13px; height: 13px; }
 .note-row-btn:hover { color: var(--primary); background: var(--gray-100); }
 
-/* Inline image thumbnails (16px) */
-.note-thumb {
-    width: 16px;
-    height: 16px;
-    object-fit: cover;
-    border-radius: 2px;
+/* Image icon indicator (not the actual image) */
+.note-img-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     cursor: pointer;
-    border: 1px solid var(--gray-300);
-    vertical-align: middle;
+    color: var(--gray-400);
     flex-shrink: 0;
+    padding: 1px 3px;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+.note-img-icon:hover {
+    color: var(--primary);
+    background: var(--gray-100);
+}
+.note-img-icon i { width: 14px; height: 14px; }
+.note-img-count {
+    font-size: 10px;
+    font-weight: 600;
 }
 
 /* JS-driven fixed tooltip */
@@ -3219,9 +3229,10 @@ body {
     padding: 4px;
 }
 #noteTooltip img {
-    max-width: 300px;
-    max-height: 300px;
+    max-width: 280px;
+    max-height: 200px;
     display: block;
+    margin-bottom: 4px;
     border-radius: 4px;
 }
 

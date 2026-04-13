@@ -87,12 +87,18 @@ const NoteManager = {
         for (const n of notes) {
             const cls = n.is_admin ? 'note-admin' : 'note-user';
             const isOwn = n.username === this._getUsername();
-            const imgs = (n.note_images || []).map(url =>
-                '<img class="note-thumb" src="' + url + '" ' +
-                'onmouseenter="NoteManager.showTooltip(event,\'' + url + '\')" ' +
-                'onmouseleave="NoteManager.hideTooltip()" ' +
-                'onclick="NoteManager.openLightbox(\'' + url + '\'); event.stopPropagation();">'
-            ).join('');
+            const imgCount = (n.note_images || []).length;
+            const imgs = imgCount > 0
+                ? '<span class="note-img-icon" ' +
+                  'data-urls=\'' + JSON.stringify(n.note_images) + '\' ' +
+                  'onmouseenter="NoteManager.showTooltip(event, this.dataset.urls)" ' +
+                  'onmouseleave="NoteManager.hideTooltip()" ' +
+                  'onclick="NoteManager.openLightbox(JSON.parse(this.dataset.urls)[0]); event.stopPropagation();" ' +
+                  'title="' + imgCount + ' ảnh đính kèm">' +
+                  '<i data-lucide="image"></i>' +
+                  (imgCount > 1 ? '<span class="note-img-count">' + imgCount + '</span>' : '') +
+                  '</span>'
+                : '';
 
             html += '<div class="note-row">';
             html += '<span class="note-text ' + cls + '">';
@@ -135,22 +141,27 @@ const NoteManager = {
 
     // ==================== TOOLTIP ====================
 
-    showTooltip(event, url) {
+    showTooltip(event, urlsJson) {
         const el = this._tooltipEl;
         if (!el) return;
-        el.innerHTML = '<img src="' + url + '">';
+        try {
+            const urls = typeof urlsJson === 'string' ? JSON.parse(urlsJson) : [urlsJson];
+            el.innerHTML = urls.map(u => '<img src="' + u + '">').join('');
+        } catch (e) {
+            el.innerHTML = '<img src="' + urlsJson + '">';
+        }
         el.style.display = 'block';
         this._positionTooltip(event);
         // Track mouse
-        event.target._tooltipMove = (e) => this._positionTooltip(e);
+        const target = event.currentTarget || event.target;
+        target._tooltipMove = (e) => this._positionTooltip(e);
         event.target.addEventListener('mousemove', event.target._tooltipMove);
     },
 
     hideTooltip() {
         if (this._tooltipEl) this._tooltipEl.style.display = 'none';
         // Clean up mousemove
-        const targets = document.querySelectorAll('.note-thumb');
-        targets.forEach(t => {
+        document.querySelectorAll('.note-img-icon').forEach(t => {
             if (t._tooltipMove) {
                 t.removeEventListener('mousemove', t._tooltipMove);
                 delete t._tooltipMove;
