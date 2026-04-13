@@ -38,14 +38,7 @@ class PurchaseOrderService {
                 }
             }
 
-            // Initialize Firebase Storage for image uploads (still needed)
-            if (typeof firebase !== 'undefined') {
-                if (!firebase.apps.length) {
-                    const config = window.FIREBASE_CONFIG;
-                    if (config) firebase.initializeApp(config);
-                }
-                this.storage = firebase.storage();
-            }
+            // Images stored via REST API (no Firebase Storage needed)
 
             this.initialized = true;
             console.log('[PurchaseOrderService] Initialized (REST API mode)');
@@ -426,27 +419,38 @@ class PurchaseOrderService {
     }
 
     // ========================================
-    // IMAGE UPLOAD (still uses Firebase Storage)
+    // IMAGE UPLOAD (via Render REST API)
     // ========================================
 
     async uploadImage(file, folder = 'purchase-orders') {
         await this.initialize();
 
-        if (!this.storage) {
-            throw new window.PurchaseOrderValidation.ServiceException(
-                'UPLOAD_FAILED', 'Firebase Storage chưa khởi tạo.'
-            );
-        }
-
         try {
-            const timestamp = Date.now();
-            const extension = file.name.split('.').pop() || 'jpg';
-            const filename = `${folder}/${timestamp}_${Math.random().toString(36).substring(7)}.${extension}`;
-            const ref = this.storage.ref().child(filename);
-            const snapshot = await ref.put(file);
-            const downloadURL = await snapshot.ref.getDownloadURL();
-            console.log('[PurchaseOrderService] Image uploaded:', downloadURL);
-            return downloadURL;
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch(`${this.API_BASE}/images`, {
+                method: 'POST',
+                headers: {
+                    // Don't set Content-Type - browser sets it with boundary for FormData
+                    ...(this.currentUser ? {
+                        'X-Auth-Data': JSON.stringify({
+                            userId: this.currentUser.uid,
+                            userName: this.currentUser.displayName,
+                            email: this.currentUser.email
+                        })
+                    } : {})
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            console.log('[PurchaseOrderService] Image uploaded:', data.url);
+            return data.url;
         } catch (error) {
             console.error('[PurchaseOrderService] Upload failed:', error);
             throw new window.PurchaseOrderValidation.ServiceException(
@@ -465,85 +469,17 @@ class PurchaseOrderService {
     }
 
     // ========================================
-    // IMAGE CLEANUP (runs daily - non-blocking)
+    // IMAGE CLEANUP (no-ops, Firebase Storage removed)
     // ========================================
 
     async deleteStorageFile(downloadUrl) {
-        try {
-            if (!this.storage) return false;
-            const ref = this.storage.refFromURL(downloadUrl);
-            await ref.delete();
-            return true;
-        } catch (error) {
-            if (error.code !== 'storage/object-not-found') {
-                console.warn('[Cleanup] Failed to delete:', downloadUrl, error.message);
-            }
-            return false;
-        }
+        // No-op: Firebase Storage removed, images managed via REST API
+        return false;
     }
 
     async cleanupOldFirebaseImages() {
-        const STORAGE_KEY = 'po_image_cleanup_last_run';
-        const DAYS_THRESHOLD = 10;
-
-        try {
-            const lastRun = localStorage.getItem(STORAGE_KEY);
-            const today = new Date().toDateString();
-            if (lastRun === today) return;
-
-            console.log('[Cleanup] Starting daily Firebase image cleanup...');
-
-            // Fetch orders in target statuses that are old
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - DAYS_THRESHOLD);
-
-            const params = new URLSearchParams({
-                status: 'AWAITING_PURCHASE,AWAITING_DELIVERY',
-                pageSize: '100',
-                endDate: cutoffDate.toISOString()
-            });
-
-            const data = await this._fetch(`?${params.toString()}`);
-            const orders = data.orders || [];
-
-            let totalDeleted = 0;
-            let totalOrders = 0;
-
-            for (const order of orders) {
-                const items = order.items || [];
-                let orderChanged = false;
-
-                for (const item of items) {
-                    if (!item.productImages || item.productImages.length === 0) continue;
-                    if (!item.tposImageUrl) continue;
-
-                    const firebaseUrls = item.productImages.filter(url =>
-                        typeof url === 'string' && url.includes('firebasestorage.googleapis.com')
-                    );
-
-                    for (const url of firebaseUrls) {
-                        const deleted = await this.deleteStorageFile(url);
-                        if (deleted) totalDeleted++;
-                    }
-
-                    item.productImages = [];
-                    orderChanged = true;
-                }
-
-                if (orderChanged) {
-                    await this._fetch(`/${order.id}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ items })
-                    });
-                    totalOrders++;
-                }
-            }
-
-            localStorage.setItem(STORAGE_KEY, today);
-            console.log(`[Cleanup] Done. Deleted ${totalDeleted} files from ${totalOrders} orders.`);
-        } catch (error) {
-            console.error('[Cleanup] Image cleanup failed:', error);
-        }
+        // No-op: Firebase Storage removed, images managed via REST API
+        return;
     }
 }
 
