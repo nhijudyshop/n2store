@@ -490,7 +490,9 @@ window.BarcodeLabelDialog = (function () {
             `height:${labelH}mm`,
             `overflow:hidden`,
             `font-size:${fs}px`,
-            `line-height:${lineH}px`
+            `line-height:${lineH}px`,
+            `text-align:center`,
+            `margin-top:1px`
         ];
         if (paper.topMargin != null) labelStyleParts.push(`padding-top:${paper.topMargin}mm`);
         if (paper.leftMargin != null) labelStyleParts.push(`padding-left:${paper.leftMargin}mm`);
@@ -528,17 +530,18 @@ window.BarcodeLabelDialog = (function () {
                     // PrintNew — 2-column table
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // Default — vertical: name → barcode → code → price (matching TPOS PDF)
+                    // Default — vertical: name → barcode → code → price (matching TPOS exactly)
+                    // Structure from TPOS /BarcodeProductLabel/Print: <strong> tags, no class on code/price divs
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}">${escapeHtml(label.name)}</div>`;
+                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (!hideBarcode && label.code) {
                         sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div class="barcode-code">${escapeHtml(label.code)}</div>`;
+                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div class="barcode-price">${displayPrice}${currencyStr}</div>`;
+                        sheetsHTML += `<div><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
@@ -559,18 +562,16 @@ window.BarcodeLabelDialog = (function () {
 <head>
 <style>
 /*
- * Barcode label CSS — pixel-matched to TPOS actual PDF output.
- * Verified against: 60f44828-559f-4232-b0d7-41d58d4a30a4.pdf
- * Page: 66mm × 21mm (187pt × 60pt), 2 labels per sheet
- * Font: Times New Roman Bold (TPOS PDF actual output)
+ * Barcode label CSS — matched to TPOS /Content/print_barcode.css
+ * Verified against: label-test.html (TPOS original structure)
+ * Font: Arial (TPOS default), layout: float-based
  */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; }
 @page { size: ${sheetW}mm ${sheetH}mm; margin: 0 !important; }
 html, body {
     margin: 0 !important;
     padding: 0 !important;
-    font-family: 'Times New Roman', Times, serif;
-    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -578,7 +579,6 @@ html, body {
     width: ${sheetW}mm;
     height: ${sheetH}mm;
     page-break-after: always;
-    display: flex;
     overflow: hidden;
 }
 .barcode-sheet:last-child { page-break-after: auto; }
@@ -586,49 +586,21 @@ html, body {
 .barcode_label {
     box-sizing: border-box;
     text-align: center;
+    float: left;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
+    flex-flow: column;
     overflow: hidden;
-    padding: 0.8mm 0.5mm 0.3mm;
+    padding: 5px;
 }
+.barcode_label div { flex: 1 auto; }
 
-/* Product name: bold, 2 lines max, tight leading */
 .barcode-pname {
-    width: 100%;
-    font-weight: bold;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    line-height: 1.15;
 }
 
-/* Barcode: fills middle space, image stretches wide */
-.barcode-image {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 0;
-    padding: 0.3mm 0;
-}
 .barcode-image img {
-    width: 95%;
-    height: 100%;
-    object-fit: fill;
-}
-
-/* Code + price: bold, tight at bottom */
-.barcode-code {
-    font-weight: bold;
-    line-height: 1.2;
-}
-.barcode-price {
-    font-weight: bold;
-    line-height: 1.2;
+    width: 100%;
+    height: 25px;
 }
 
 /* Screen preview only */
