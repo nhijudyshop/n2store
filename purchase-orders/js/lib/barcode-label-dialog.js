@@ -271,6 +271,59 @@ window.BarcodeLabelDialog = (function () {
         btnCancel.addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
+        // Preview area (below separator, above footer)
+        const previewArea = document.createElement('div');
+        previewArea.id = 'bld-preview';
+        previewArea.style.cssText = 'margin-top:12px;';
+        body.appendChild(previewArea);
+
+        function updatePreview() {
+            const printItems = items.filter(it => it.code && it.quantity > 0);
+            if (!printItems.length) {
+                previewArea.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:12px;font-size:13px;">Không có sản phẩm để in</div>';
+                return;
+            }
+            // Build labels (max 4 for preview)
+            const previewLabels = [];
+            for (const item of printItems) {
+                for (let i = 0; i < Math.min(item.quantity, 2); i++) {
+                    previewLabels.push({ name: stripBrackets(item.name), code: item.code, price: item.price });
+                    if (previewLabels.length >= 4) break;
+                }
+                if (previewLabels.length >= 4) break;
+            }
+            const html = buildLabelHTML(previewLabels, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
+
+            // Show in inline iframe
+            previewArea.innerHTML = `
+                <div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600;">XEM TRƯỚC TEM:</div>
+                <div style="background:#e5e7eb;border-radius:6px;padding:12px;display:flex;justify-content:center;overflow:auto;">
+                    <iframe id="bld-preview-iframe" style="border:none;width:${selectedPaper.sheetW * 3}px;height:${selectedPaper.sheetH * 3 + 20}px;transform:scale(1);transform-origin:top center;" sandbox="allow-same-origin"></iframe>
+                </div>
+            `;
+            const iframe = previewArea.querySelector('#bld-preview-iframe');
+            iframe.onload = () => {
+                try {
+                    iframe.contentDocument.open();
+                    iframe.contentDocument.write(html);
+                    iframe.contentDocument.close();
+                } catch(e) {}
+            };
+            // Trigger load
+            iframe.src = 'about:blank';
+        }
+        // Initial preview
+        setTimeout(updatePreview, 100);
+
+        // Re-preview on settings change
+        const refreshPreview = () => setTimeout(updatePreview, 50);
+        body.querySelector('#bld-paper').addEventListener('change', refreshPreview);
+        body.querySelector('#bld-show-price').addEventListener('change', refreshPreview);
+        body.querySelector('#bld-show-bold').addEventListener('change', refreshPreview);
+        body.querySelector('#bld-show-name').addEventListener('change', refreshPreview);
+        body.querySelector('#bld-show-currency').addEventListener('change', refreshPreview);
+        body.querySelector('#bld-hide-barcode').addEventListener('change', refreshPreview);
+
         // Print
         btnPrint.addEventListener('click', () => {
             const printItems = items.filter(it => it.code && it.quantity > 0);
@@ -335,18 +388,25 @@ window.BarcodeLabelDialog = (function () {
                 // Dynamic name style matching TPOS style_name
                 const nameStyle = `max-height:${nameMaxH}px;overflow:hidden;margin-bottom:2px;`;
 
+                // Use TPOS barcode image server (exact same as TPOS uses)
+                const barcodeImg = `<img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(label.code)}&width=600&height=100" onerror="this.style.display='none'" />`;
+                const currencyStr = showCurrency ? ' đ' : '';
+
                 if (printType === 'new') {
+                    // Template B: PrintNew — 2-column table
                     sheetsHTML += `
                         <div class="barcode_label" style="${labelStyle}">
-                            <table border="0" style="width:100%;height:100%;">
+                            <table border="0">
                                 <tr style="text-align:center;">
-                                    <td style="width:50%;text-align:center;vertical-align:middle;">
-                                        <div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>
-                                        ${showPrice ? `<div><strong class="barcode-price">${displayPrice}</strong></div>` : ''}
+                                    <td style="width:50%;text-align:center;vertical-align:middle">
+                                        <div class="barcode-pname" style="${nameStyle}">
+                                            <${bTag}>${escapeHtml(label.code)}</${bTag}>
+                                        </div>
+                                        ${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}
                                     </td>
                                     <td style="width:50%;text-align:center;vertical-align:middle;">
-                                        <div class="barcode-image" style="width:100%;padding:2px;">
-                                            <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
+                                        <div class="barcode-image" style="width:100%;padding:2px">
+                                            ${!hideBarcode ? barcodeImg : ''}
                                         </div>
                                     </td>
                                 </tr>
@@ -354,12 +414,11 @@ window.BarcodeLabelDialog = (function () {
                         </div>
                     `;
                 } else {
-                    // Default template — matches TPOS /BarcodeProductLabel/Print exactly
-                    const currencyStr = showCurrency ? ' đ' : '';
+                    // Template A: Print (Default) — vertical stack
                     sheetsHTML += `
                         <div class="barcode_label" style="${labelStyle}text-align:center;margin-top:1px;">
                             ${showProductName ? `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>` : ''}
-                            ${!hideBarcode ? `<div class="barcode-image"><svg class="barcode" data-code="${escapeHtml(label.code)}"></svg></div>` : ''}
+                            ${!hideBarcode ? `<div class="barcode-image">${barcodeImg}</div>` : ''}
                             <div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>
                             ${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}
                         </div>
@@ -438,35 +497,7 @@ window.BarcodeLabelDialog = (function () {
 </head>
 <body>
 ${sheetsHTML}
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
-<script>
-    // Generate Code 128 barcodes (replaces TPOS server-side /Web/Barcode endpoint)
-    document.querySelectorAll('.barcode').forEach(function(svg) {
-        var code = svg.getAttribute('data-code');
-        if (!code) return;
-        try {
-            JsBarcode(svg, code, {
-                format: 'CODE128',
-                width: 1,
-                height: 25,
-                displayValue: false,
-                margin: 0,
-                background: 'transparent'
-            });
-            // Match TPOS: img { width: 100%; height: 25px }
-            var w = svg.getAttribute('width');
-            var h = svg.getAttribute('height');
-            svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-            svg.setAttribute('preserveAspectRatio', 'none');
-            svg.removeAttribute('width');
-            svg.removeAttribute('height');
-            svg.style.width = '100%';
-            svg.style.height = '25px';
-        } catch(e) {
-            console.warn('Barcode error:', code, e);
-        }
-    });
-<\/script>
+<!-- Barcode images loaded from TPOS server (gc-statics.tpos.vn) -->
 </body>
 </html>`;
     }
