@@ -14,6 +14,8 @@ async function createShipment(data) {
         const ngayDiHang = data.ngayDiHang;
 
         // Process each invoice (hoaDon) and save via API
+        // kienHang only on FIRST invoice to avoid duplication when grouped by date
+        let isFirstInvoice = true;
         for (const invoice of (data.hoaDon || [])) {
             const sttNCC = parseInt(invoice.sttNCC, 10);
             if (!sttNCC) continue;
@@ -23,9 +25,9 @@ async function createShipment(data) {
                 sttNCC: sttNCC,
                 ngayDiHang: ngayDiHang,
                 tenNCC: invoice.tenNCC || '',
-                kienHang: data.kienHang || [],
-                tongKien: data.tongKien || 0,
-                tongKg: data.tongKg || 0,
+                kienHang: isFirstInvoice ? (data.kienHang || []) : [],
+                tongKien: isFirstInvoice ? (data.tongKien || 0) : 0,
+                tongKg: isFirstInvoice ? (data.tongKg || 0) : 0,
                 sanPham: invoice.sanPham || [],
                 tongTienHD: invoice.tongTienHD || 0,
                 tongMon: invoice.tongMon || 0,
@@ -47,6 +49,7 @@ async function createShipment(data) {
                 ncc.dotHang.push(pgToShipment(saved));
             }
 
+            isFirstInvoice = false;
             console.log(`[CRUD] Created dotHang for NCC ${sttNCC}:`, newDotHang.id);
         }
 
@@ -78,6 +81,8 @@ async function updateShipment(id, data) {
             throw new Error('Shipment not found');
         }
 
+        // kienHang only on first invoice to avoid duplication
+        let isFirstUpdate = true;
         for (const invoice of (data.hoaDon || [])) {
             const sttNCC = parseInt(invoice.sttNCC, 10);
             if (!sttNCC) continue;
@@ -85,9 +90,9 @@ async function updateShipment(id, data) {
             const updateData = {
                 ngayDiHang: data.ngayDiHang,
                 tenNCC: invoice.tenNCC,
-                kienHang: data.kienHang,
-                tongKien: data.tongKien,
-                tongKg: data.tongKg,
+                kienHang: isFirstUpdate ? data.kienHang : [],
+                tongKien: isFirstUpdate ? data.tongKien : 0,
+                tongKg: isFirstUpdate ? data.tongKg : 0,
                 sanPham: invoice.sanPham,
                 tongTienHD: invoice.tongTienHD,
                 tongMon: invoice.tongMon,
@@ -110,6 +115,7 @@ async function updateShipment(id, data) {
                 }
             }
 
+            isFirstUpdate = false;
             console.log(`[CRUD] Updated dotHang for NCC ${sttNCC}:`, invoice.id);
         }
 

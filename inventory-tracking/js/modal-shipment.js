@@ -7,6 +7,15 @@
 let currentShipmentData = null;
 
 /**
+ * Check if a date already has kienHang in existing shipments
+ */
+function _dateHasPackages(dateStr) {
+    if (!dateStr || !globalState?.shipments) return false;
+    const shipment = globalState.shipments.find(s => s.ngayDiHang === dateStr);
+    return shipment && shipment.kienHang && shipment.kienHang.length > 0;
+}
+
+/**
  * Open shipment modal
  */
 function openShipmentModal(shipment = null) {
@@ -43,6 +52,9 @@ function renderShipmentForm(shipment) {
     const cachedDate = localStorage.getItem('lastShipmentDate');
     const date = shipment?.ngayDiHang || cachedDate || new Date().toISOString().split('T')[0];
     const packages = shipment?.kienHang || [];
+
+    // Check if this date already has kienHang from another shipment
+    const dateHasExistingPackages = !isEdit && _dateHasPackages(date);
     const invoices = shipment?.hoaDon || [];
     const costs = shipment?.chiPhiHangVe || [];
 
@@ -58,20 +70,29 @@ function renderShipmentForm(shipment) {
             <input type="date" id="shipmentDate" class="form-input" value="${date}">
         </div>
 
-        <div class="form-section form-section-collapsible ${isEdit || packagesString ? '' : 'collapsed'}">
-            <h4 class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-                <i data-lucide="box"></i> Kiện Hàng
-                <i data-lucide="chevron-down" class="toggle-arrow"></i>
-            </h4>
-            <div class="section-body">
-                <div class="form-group">
-                    <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
-                    <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
-                    <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
+        ${dateHasExistingPackages ? `
+            <div class="form-section" style="padding:12px 16px;background:var(--gray-50)">
+                <div style="color:var(--gray-500);font-size:13px">
+                    <i data-lucide="info" style="width:14px;height:14px;vertical-align:middle"></i>
+                    Kiện hàng đã được nhập cho ngày này. Bấm chỉnh sửa đợt hàng để thay đổi.
                 </div>
-                <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
             </div>
-        </div>
+        ` : `
+            <div class="form-section form-section-collapsible ${isEdit || packagesString ? '' : 'collapsed'}">
+                <h4 class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <i data-lucide="box"></i> Kiện Hàng
+                    <i data-lucide="chevron-down" class="toggle-arrow"></i>
+                </h4>
+                <div class="section-body">
+                    <div class="form-group">
+                        <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
+                        <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
+                        <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
+                    </div>
+                    <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
+                </div>
+            </div>
+        `}
 
         <div class="form-section">
             <h4><i data-lucide="receipt"></i> Hóa Đơn Nhà Cung Cấp</h4>
@@ -179,6 +200,20 @@ function setupShipmentFormListeners() {
 
     // Packages input listener
     document.getElementById('packagesInput')?.addEventListener('input', updatePackageTotals);
+
+    // Date change → re-check if packages section should show/hide (only for new shipments)
+    document.getElementById('shipmentDate')?.addEventListener('change', (e) => {
+        if (currentShipmentData) return; // Skip if editing
+        const newDate = e.target.value;
+        // Save current invoice data before re-render
+        localStorage.setItem('lastShipmentDate', newDate);
+        const body = document.getElementById('modalShipmentBody');
+        if (body) {
+            body.innerHTML = renderShipmentForm(null);
+            setupShipmentFormListeners();
+            if (window.lucide) lucide.createIcons();
+        }
+    });
 
     // Remove buttons delegation
     document.getElementById('modalShipmentBody')?.addEventListener('click', (e) => {
