@@ -410,7 +410,7 @@
                     <div class="col-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</div>
                     <div class="col-kg editable-cell" data-id="${id}" data-field="soKg">${item.soKg || ''}</div>
                     <div class="col-x"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></div>
-                    <div class="col-stt editable-cell" data-id="${id}" data-field="stt">${escHtml(item.stt || '')}</div>
+                    <div class="col-stt editable-cell ${(item.productImages && item.productImages.length) ? 'has-img' : ''}" data-id="${id}" data-field="stt">${escHtml(item.stt || '')}</div>
                     <div class="col-product editable-cell" data-id="${id}" data-field="moTa">${escHtml(item.moTa || '')}</div>
                     <div class="col-money editable-cell" data-id="${id}" data-field="soTien">${formatMoney(item.soTien)}</div>
                     <div class="col-slnhan editable-cell" data-id="${id}" data-field="slNhan">${slNhan || ''}</div>
@@ -452,6 +452,37 @@
         listEl.querySelectorAll('.done-check').forEach((cb) => {
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
+
+        // Bind STT hover to show images
+        listEl.querySelectorAll('.col-stt.has-img').forEach((cell) => {
+            cell.addEventListener('mouseenter', (e) => showSttTooltip(e, cell));
+            cell.addEventListener('mouseleave', hideSttTooltip);
+        });
+    }
+
+    // ===== STT Image Tooltip =====
+    let sttTooltipEl = null;
+
+    function showSttTooltip(e, cell) {
+        const id = cell.dataset.id;
+        const item = allData.find((d) => String(d.id) === String(id));
+        if (!item || !item.productImages || item.productImages.length === 0) return;
+
+        hideSttTooltip();
+        sttTooltipEl = document.createElement('div');
+        sttTooltipEl.className = 'stt-tooltip';
+        sttTooltipEl.innerHTML = item.productImages.map((src) =>
+            `<img src="${src}" onclick="HangQQ.viewImg('${escAttr(src)}')">`
+        ).join('');
+
+        document.body.appendChild(sttTooltipEl);
+        const rect = cell.getBoundingClientRect();
+        sttTooltipEl.style.top = (rect.bottom + 6) + 'px';
+        sttTooltipEl.style.left = rect.left + 'px';
+    }
+
+    function hideSttTooltip() {
+        if (sttTooltipEl) { sttTooltipEl.remove(); sttTooltipEl = null; }
     }
 
     let addingRow = false;
@@ -1058,6 +1089,7 @@
     function openMapImgModal() {
         mapImgFiles = [];
         $('#mapImgStt').value = '';
+        $('#mapImgDate').value = '';
         $('#mapImgPreview').innerHTML = '';
         $('#mapImgMatches').innerHTML = '';
         $('#mapImgOverlay').classList.add('active');
@@ -1081,19 +1113,24 @@
             addMapImgFiles(Array.from(e.target.files));
         });
 
-        // Show matching items on STT input
-        $('#mapImgStt').addEventListener('input', () => {
+        // Show matching items on STT/date input
+        function updateMapImgMatches() {
             const stt = $('#mapImgStt').value.trim();
-            const matches = stt ? allData.filter((d) => String(d.stt).trim() === stt) : [];
+            const date = $('#mapImgDate').value;
+            let matches = allData;
+            if (stt) matches = matches.filter((d) => String(d.stt).trim() === stt);
+            if (date) matches = matches.filter((d) => d.ngayDiHang === date);
             const el = $('#mapImgMatches');
-            if (!stt) { el.innerHTML = ''; return; }
+            if (!stt && !date) { el.innerHTML = ''; return; }
             if (matches.length === 0) {
-                el.innerHTML = `<div class="map-img-matches-info">Không tìm thấy sản phẩm có STT "<strong>${escHtml(stt)}</strong>"</div>`;
+                el.innerHTML = `<div class="map-img-matches-info">Không tìm thấy sản phẩm phù hợp</div>`;
             } else {
-                el.innerHTML = `<div class="map-img-matches-info">Tìm thấy <strong>${matches.length}</strong> sản phẩm có STT "<strong>${escHtml(stt)}</strong>":</div>` +
-                    matches.map((m) => `<div style="font-size:12px;padding:4px 0;color:#0b1c30">• ${escHtml(m.moTa || '(trống)')} — ${formatDate(m.ngayDiHang)}</div>`).join('');
+                el.innerHTML = `<div class="map-img-matches-info">Tìm thấy <strong>${matches.length}</strong> sản phẩm:</div>` +
+                    matches.map((m) => `<div style="font-size:12px;padding:4px 0;color:#0b1c30">• ${escHtml(m.moTa || '(trống)')} — STT: ${m.stt || '—'} — ${formatDate(m.ngayDiHang)}</div>`).join('');
             }
-        });
+        }
+        $('#mapImgStt').addEventListener('input', updateMapImgMatches);
+        $('#mapImgDate').addEventListener('change', updateMapImgMatches);
 
         // Paste support
         document.addEventListener('paste', (e) => {
@@ -1138,13 +1175,25 @@
         ).join('');
     }
 
+    // STT → image history stored in localStorage
+    const STT_IMG_KEY = 'hangQQ_sttImages';
+    function getSttImageMap() {
+        try { return JSON.parse(localStorage.getItem(STT_IMG_KEY) || '{}'); } catch (_) { return {}; }
+    }
+    function saveSttImageMap(map) {
+        localStorage.setItem(STT_IMG_KEY, JSON.stringify(map));
+    }
+
     async function saveMapImages() {
         const stt = $('#mapImgStt').value.trim();
-        if (!stt) { showToast('Nhập STT trước', 'error'); return; }
+        const date = $('#mapImgDate').value;
+        if (!stt && !date) { showToast('Nhập STT hoặc chọn ngày', 'error'); return; }
         if (mapImgFiles.length === 0) { showToast('Chọn hình trước', 'error'); return; }
 
-        const matches = allData.filter((d) => String(d.stt).trim() === stt);
-        if (matches.length === 0) { showToast('Không tìm thấy STT: ' + stt, 'error'); return; }
+        let matches = allData;
+        if (stt) matches = matches.filter((d) => String(d.stt).trim() === stt);
+        if (date) matches = matches.filter((d) => d.ngayDiHang === date);
+        if (matches.length === 0) { showToast('Không tìm thấy sản phẩm phù hợp', 'error'); return; }
 
         let updated = 0;
         for (const item of matches) {
@@ -1158,9 +1207,17 @@
             }
         }
 
+        // Save to STT image history
+        if (stt) {
+            const map = getSttImageMap();
+            map[stt] = [...(map[stt] || []), ...mapImgFiles];
+            saveSttImageMap(map);
+        }
+
         saveToLocalStorage();
         closeMapImgModal();
-        showToast(`Đã gán ${mapImgFiles.length} hình vào ${updated} sản phẩm (STT: ${stt})`, 'success');
+        renderAll();
+        showToast(`Đã gán ${mapImgFiles.length} hình vào ${updated} sản phẩm`, 'success');
     }
 
     // ===== Utilities =====
