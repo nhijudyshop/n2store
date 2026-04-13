@@ -3299,27 +3299,30 @@ body {
     word-break: break-word;
 }
 
-/* Image thumbnails in notes */
-.inline-note-images {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 2px;
-}
-
+/* Image thumbnails inline with text */
 .inline-note-thumb {
-    width: 36px;
-    height: 36px;
+    width: 18px;
+    height: 18px;
     object-fit: cover;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    border: 1px solid var(--gray-200);
-    transition: transform 0.15s;
+    border: 1px solid var(--gray-300);
+    vertical-align: middle;
+    margin-left: 2px;
+    transition: none;
+    position: relative;
+    z-index: 1;
 }
 
 .inline-note-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    width: 200px;
+    height: auto;
+    max-height: 200px;
+    position: absolute;
+    z-index: 100;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    border: 2px solid white;
 }
 
 /* Own images with remove button */

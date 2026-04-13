@@ -241,13 +241,13 @@ const InlineEditor = {
             const deleteBtn = isOwn ? `<button class="inline-delete-btn" onclick="InlineEditor.deleteNote(${n.id}, '${dotHangId}')" title="Xóa">&times;</button>` : '';
 
             const imagesHtml = (n.ghichu_images || []).map(url =>
-                `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')" title="Click để xem">`
+                `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')">`
             ).join('');
 
             return `<div class="inline-entry ${colorClass}">
                 <span class="inline-entry-name">${n.username}:</span>
                 ${n.ghichu_text ? `<span class="inline-entry-text">${this._escapeHtml(n.ghichu_text)}</span>` : ''}
-                ${imagesHtml ? `<div class="inline-note-images">${imagesHtml}</div>` : ''}
+                ${imagesHtml}
                 ${deleteBtn}
             </div>`;
         }).join('');
