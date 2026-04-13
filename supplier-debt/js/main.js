@@ -432,6 +432,93 @@ const RefundDateStore = {
     }
 };
 
+// =====================================================
+// ROW ORDER STORE — Firebase-backed custom row order for same-date entries
+// =====================================================
+const RowOrderStore = {
+    _data: new Map(), // key: "supplierCode_date" → value: [moveName1, moveName2, ...]
+    _unsubscribe: null,
+    _isListening: false,
+    COLLECTION: 'supplier_debt_row_order',
+
+    _getDocRef() {
+        const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
+        if (!db) return null;
+        return db.collection(this.COLLECTION).doc('orders');
+    },
+
+    async init() {
+        try {
+            const saved = localStorage.getItem('supplierDebt_rowOrder');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                for (const [k, v] of Object.entries(parsed)) {
+                    this._data.set(k, v);
+                }
+            }
+        } catch (e) { /* ignore */ }
+
+        const docRef = this._getDocRef();
+        if (docRef) {
+            try {
+                const doc = await docRef.get();
+                if (doc.exists && doc.data()?.data) {
+                    this._data = new Map(Object.entries(doc.data().data));
+                    this._saveLocal();
+                }
+            } catch (e) { console.error('[RowOrderStore] Firestore load error:', e); }
+
+            this._unsubscribe = docRef.onSnapshot((doc) => {
+                if (doc.exists && doc.data()?.data) {
+                    this._isListening = true;
+                    this._data = new Map(Object.entries(doc.data().data));
+                    this._saveLocal();
+                    this._isListening = false;
+                }
+            }, (err) => console.error('[RowOrderStore] Listener error:', err));
+        }
+        console.log('[RowOrderStore] Initialized with', this._data.size, 'entries');
+    },
+
+    _saveLocal() {
+        try { localStorage.setItem('supplierDebt_rowOrder', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+    },
+
+    _makeKey(supplierCode, dateStr) {
+        return `${supplierCode}_${dateStr}`;
+    },
+
+    get(supplierCode, dateStr) {
+        return this._data.get(this._makeKey(supplierCode, dateStr)) || null;
+    },
+
+    async set(supplierCode, dateStr, moveNames) {
+        const key = this._makeKey(supplierCode, dateStr);
+        this._data.set(key, moveNames);
+        this._saveLocal();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                await docRef.set({ data: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
+            } catch (e) { console.error('[RowOrderStore] Save error:', e); }
+        }
+    },
+
+    async delete(supplierCode, dateStr) {
+        const key = this._makeKey(supplierCode, dateStr);
+        this._data.delete(key);
+        this._saveLocal();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                await docRef.update({ [`data.${key}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
+            } catch (e) { console.error('[RowOrderStore] Delete error:', e); }
+        }
+    }
+};
+
 // Column definitions for visibility toggle
 const COLUMNS = [
     { id: 'code', index: 1, label: 'Mã NCC' },
@@ -1337,13 +1424,25 @@ function renderCongNoTab(partnerId) {
 
     // Sort by web date (if available) or TPOS date
     const hasWebDates = congNo.some(item => RefundDateStore.getByMoveName(item.MoveName || ''));
-    const sortedCongNo = hasWebDates ? [...congNo].sort((a, b) => {
+    let sortedCongNo = hasWebDates ? [...congNo].sort((a, b) => {
         const aWebDate = RefundDateStore.getByMoveName(a.MoveName || '');
         const bWebDate = RefundDateStore.getByMoveName(b.MoveName || '');
         const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
         const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
         return aTime - bTime;
-    }) : congNo;
+    }) : [...congNo];
+
+    // Apply custom row order within same-date groups
+    sortedCongNo = applyCustomRowOrder(sortedCongNo, supplierCode);
+
+    // Build date group info (which dates have multiple rows → draggable)
+    const dateGroups = new Map();
+    sortedCongNo.forEach(item => {
+        const webDate = RefundDateStore.getByMoveName(item.MoveName || '');
+        const dateStr = webDate || formatDateFromISO(item.Date);
+        if (!dateGroups.has(dateStr)) dateGroups.set(dateStr, []);
+        dateGroups.get(dateStr).push(item.MoveName || '');
+    });
 
     // Warn if paginated + web date sort (balance may be inaccurate across pages)
     const paginationWarning = hasWebDates && total > CONFIG.DETAIL_PAGE_SIZE
@@ -1351,7 +1450,7 @@ function renderCongNoTab(partnerId) {
         : '';
 
     let tableHtml = paginationWarning + `
-        <table class="detail-table">
+        <table class="detail-table congno-drag-table" data-supplier="${escapeHtmlAttr(supplierCode)}" data-partner="${partnerId}">
             <thead>
                 <tr>
                     <th>Ngày</th>
@@ -1412,9 +1511,18 @@ function renderCongNoTab(partnerId) {
         const isInvoice = /^BILL\//.test(moveName);
         const moveId = item.MoveId || item.Id || 0;
 
+        // Drag-and-drop: only for rows that share a date with other rows
+        const isDraggable = (dateGroups.get(dateStr)?.length || 0) > 1;
+        const dragAttrs = isDraggable
+            ? `draggable="true" data-movename="${escapedMoveName}" data-date="${escapeHtmlAttr(dateStr)}" class="draggable-row"`
+            : `data-movename="${escapedMoveName}" data-date="${escapeHtmlAttr(dateStr)}"`;
+        const dragHandle = isDraggable
+            ? `<span class="drag-handle" title="Kéo để đổi vị trí">⠿</span>`
+            : '';
+
         tableHtml += `
-            <tr>
-                <td>${dateStr}</td>
+            <tr ${dragAttrs}>
+                <td>${dragHandle}${dateStr}</td>
                 <td>${escapeHtml(item.Name || '')}</td>
                 <td class="note-cell">
                     <div class="note-content">
@@ -1485,6 +1593,187 @@ function renderCongNoTab(partnerId) {
 
     return tableHtml;
 }
+
+// =====================================================
+// DRAG-AND-DROP ROW REORDER (same-date rows)
+// =====================================================
+
+/**
+ * Apply custom row order from RowOrderStore within same-date groups.
+ * Preserves the date-based sort but reorders rows within each date group.
+ */
+function applyCustomRowOrder(rows, supplierCode) {
+    // Group rows by their display date
+    const dateGroupMap = new Map(); // dateStr → [row indices]
+    rows.forEach((item, idx) => {
+        const webDate = RefundDateStore.getByMoveName(item.MoveName || '');
+        const dateStr = webDate || formatDateFromISO(item.Date);
+        if (!dateGroupMap.has(dateStr)) dateGroupMap.set(dateStr, []);
+        dateGroupMap.get(dateStr).push(idx);
+    });
+
+    const result = [...rows];
+
+    // For each date group with 2+ rows, apply custom order if stored
+    for (const [dateStr, indices] of dateGroupMap) {
+        if (indices.length < 2) continue;
+
+        const customOrder = RowOrderStore.get(supplierCode, dateStr);
+        if (!customOrder || customOrder.length === 0) continue;
+
+        // Get the rows for this date group
+        const groupRows = indices.map(i => result[i]);
+
+        // Sort groupRows by the stored order
+        groupRows.sort((a, b) => {
+            const aIdx = customOrder.indexOf(a.MoveName || '');
+            const bIdx = customOrder.indexOf(b.MoveName || '');
+            // Items not in customOrder go to the end
+            const aPos = aIdx === -1 ? 9999 : aIdx;
+            const bPos = bIdx === -1 ? 9999 : bIdx;
+            return aPos - bPos;
+        });
+
+        // Put them back in the result array at their original positions
+        indices.forEach((origIdx, i) => {
+            result[origIdx] = groupRows[i];
+        });
+    }
+
+    return result;
+}
+
+/**
+ * Initialize drag-and-drop listeners on congno tables.
+ * Called via event delegation on the document.
+ */
+let _dragState = null;
+
+function initCongNoDragAndDrop() {
+    document.addEventListener('dragstart', (e) => {
+        const row = e.target.closest('tr.draggable-row');
+        if (!row) return;
+
+        _dragState = {
+            moveName: row.dataset.movename,
+            date: row.dataset.date,
+            row: row
+        };
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.dataset.movename);
+    });
+
+    document.addEventListener('dragover', (e) => {
+        if (!_dragState) return;
+        const row = e.target.closest('tr.draggable-row');
+        if (!row || row === _dragState.row) return;
+        // Only allow drop on rows with the same date
+        if (row.dataset.date !== _dragState.date) return;
+
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        // Visual indicator: show drop position
+        const tbody = row.closest('tbody');
+        if (!tbody) return;
+        tbody.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => {
+            r.classList.remove('drag-over-above', 'drag-over-below');
+        });
+
+        const rect = row.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+            row.classList.add('drag-over-above');
+        } else {
+            row.classList.add('drag-over-below');
+        }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        const row = e.target.closest('tr.draggable-row');
+        if (row) {
+            row.classList.remove('drag-over-above', 'drag-over-below');
+        }
+    });
+
+    document.addEventListener('drop', async (e) => {
+        if (!_dragState) return;
+        const targetRow = e.target.closest('tr.draggable-row');
+        if (!targetRow || targetRow === _dragState.row) {
+            cleanupDragState();
+            return;
+        }
+        if (targetRow.dataset.date !== _dragState.date) {
+            cleanupDragState();
+            return;
+        }
+
+        e.preventDefault();
+
+        const table = targetRow.closest('.congno-drag-table');
+        const supplierCode = table?.dataset.supplier || '';
+        const partnerId = parseInt(table?.dataset.partner || '0');
+        const dateStr = _dragState.date;
+
+        // Get all rows in this date group (in current DOM order)
+        const tbody = targetRow.closest('tbody');
+        const allRows = Array.from(tbody.querySelectorAll('tr[data-date]')).filter(r => r.dataset.date === dateStr);
+        const moveNames = allRows.map(r => r.dataset.movename);
+
+        // Determine new position
+        const dragIdx = moveNames.indexOf(_dragState.moveName);
+        const targetIdx = moveNames.indexOf(targetRow.dataset.movename);
+
+        if (dragIdx === -1 || targetIdx === -1 || dragIdx === targetIdx) {
+            cleanupDragState();
+            return;
+        }
+
+        // Remove dragged item and insert at new position
+        const newOrder = [...moveNames];
+        newOrder.splice(dragIdx, 1);
+
+        const rect = targetRow.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const insertIdx = e.clientY < midY
+            ? newOrder.indexOf(targetRow.dataset.movename)
+            : newOrder.indexOf(targetRow.dataset.movename) + 1;
+
+        newOrder.splice(insertIdx, 0, _dragState.moveName);
+
+        // Save to Firebase
+        await RowOrderStore.set(supplierCode, dateStr, newOrder);
+
+        cleanupDragState();
+
+        // Re-render the congno tab to recalculate balances
+        if (partnerId) {
+            const tabContent = document.getElementById(`tab-congno-${partnerId}`);
+            if (tabContent) {
+                tabContent.innerHTML = renderCongNoTab(partnerId);
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+    });
+
+    document.addEventListener('dragend', () => {
+        cleanupDragState();
+    });
+}
+
+function cleanupDragState() {
+    if (_dragState?.row) {
+        _dragState.row.classList.remove('dragging');
+    }
+    document.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => {
+        r.classList.remove('drag-over-above', 'drag-over-below');
+    });
+    _dragState = null;
+}
+
+// Initialize drag-and-drop on DOM ready (uses event delegation, only needs to run once)
+document.addEventListener('DOMContentLoaded', initCongNoDragAndDrop);
 
 function renderInfoTab(partnerId) {
     const rowState = State.expandedRows.get(partnerId);
@@ -3569,7 +3858,8 @@ async function init() {
     await Promise.all([
         WebNotesStore.init(),
         SupplierNotesStore.init(),
-        RefundDateStore.init()
+        RefundDateStore.init(),
+        RowOrderStore.init()
     ]);
 
     // Load initial data and refund orders in parallel
