@@ -898,7 +898,7 @@ body {
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
 .invoice-table .col-shortage { width: 80px; vertical-align: middle; }
 .invoice-table .col-image { width: 50px; vertical-align: middle; }
-.invoice-table .col-invoice-note { min-width: 160px; vertical-align: middle; }
+.invoice-table .col-invoice-note { min-width: 160px; max-width: 250px; vertical-align: middle; overflow: hidden; }
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
@@ -3145,9 +3145,11 @@ body {
 
 .inline-ghichu-entries {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 1px;
+    overflow: hidden;
 }
 
 .inline-thieu-entries {
@@ -3181,11 +3183,12 @@ body {
 /* Entry row in cell */
 .inline-entry {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     gap: 3px;
     font-size: 12px;
     line-height: 1.4;
+    overflow: hidden;
 }
 
 .inline-entry-admin { color: var(--gray-900); }
@@ -3202,14 +3205,20 @@ body {
 
 /* Tiny image thumbs inline — click to view full */
 .inline-note-thumb {
-    width: 18px;
-    height: 18px;
+    width: 18px !important;
+    height: 18px !important;
+    max-width: 18px !important;
+    max-height: 18px !important;
+    min-width: 18px;
+    min-height: 18px;
     object-fit: cover;
     border-radius: 3px;
     cursor: pointer;
     border: 1px solid var(--gray-300);
     vertical-align: middle;
     margin-left: 2px;
+    display: inline-block;
+    flex-shrink: 0;
 }
 
 .inline-note-thumb:hover {
