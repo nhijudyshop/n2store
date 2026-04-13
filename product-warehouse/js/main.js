@@ -764,6 +764,7 @@
                             <div class="action-btns">
                                 <button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>
                                 <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                                <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
                                 <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>
                             </div>
                         </td>
@@ -976,6 +977,21 @@
             if (e.target === e.currentTarget) closeEditModal();
         });
         setupImageUpload();
+
+        // Print barcode — click print button (single product)
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            const printBtn = e.target.closest('.btn-action-print');
+            if (printBtn) {
+                e.stopPropagation();
+                const row = printBtn.closest('tr[data-template-id]');
+                if (row) {
+                    const templateId = parseInt(row.dataset.templateId, 10);
+                    const product = allProducts.find(p => p.id === templateId);
+                    if (product) openBarcodePrint([product]);
+                }
+                return;
+            }
+        });
 
         // Delete product — click delete button
         $('#productTableBody')?.addEventListener('click', (e) => {
@@ -1299,6 +1315,44 @@
     // =====================================================
     // DELETE PRODUCT
     // =====================================================
+
+    /**
+     * Open barcode print dialog for products
+     * @param {Array} products - Array of product objects from allProducts
+     */
+    function openBarcodePrint(products) {
+        if (!window.BarcodeLabelDialog) {
+            alert('Barcode label dialog chưa sẵn sàng. Vui lòng tải lại trang.');
+            return;
+        }
+        if (!products.length) return;
+
+        // Convert product-warehouse format to barcode dialog format
+        const order = {
+            items: products.map(p => ({
+                id: p.id,
+                productName: p.name || '',
+                productCode: p.code || '',
+                variant: '',
+                quantity: Math.max(1, Math.round(p.qtyActual || 1)),
+                sellingPrice: p.price || 0,
+                tposProductId: p.id // product-warehouse ID = TPOS ProductTemplate ID
+            }))
+        };
+
+        window.BarcodeLabelDialog.open(order);
+    }
+
+    // Expose for toolbar bulk print
+    window.warehouseApp = window.warehouseApp || {};
+    window.warehouseApp.printBarcode = function() {
+        const selected = allProducts.filter(p => selectedIds.has(p.id));
+        if (!selected.length) {
+            alert('Vui lòng chọn sản phẩm trước');
+            return;
+        }
+        openBarcodePrint(selected);
+    };
 
     async function deleteProduct(templateId) {
         const product = pageProducts.find(p => p.id === templateId);

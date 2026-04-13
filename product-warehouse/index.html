@@ -154,6 +154,10 @@
                     <i data-lucide="refresh-cw"></i>
                     Tải lại
                 </button>
+                <button class="btn-toolbar" onclick="window.warehouseApp.printBarcode()" title="In mã vạch cho SP đã chọn">
+                    <i data-lucide="printer"></i>
+                    In mã vạch
+                </button>
                 <button class="btn-toolbar btn-column-settings" id="btnColumnSettings" title="Cài đặt cột hiển thị">
                     <i data-lucide="columns"></i>
                     Cài đặt cột
@@ -492,6 +496,7 @@
     <!-- Scripts -->
     <!-- Shared Warehouse Utilities -->
     <script src="../shared/js/warehouse-shared.js"></script>
+    <script src="../purchase-orders/js/lib/barcode-label-dialog.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
