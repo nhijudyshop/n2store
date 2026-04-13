@@ -409,9 +409,8 @@ body {
     box-shadow: 0 2px 8px rgba(0, 64, 161, 0.04);
 }
 
-/* Done item — only fade SL and SỐ KG */
+/* Done item — only fade SỐ KG */
 .dg-item.row-done { background: rgba(160, 243, 153, 0.08); }
-.dg-item.row-done .col-sl,
 .dg-item.row-done .col-kg {
     opacity: 0.35;
 }
