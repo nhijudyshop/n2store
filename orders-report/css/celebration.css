@@ -3,10 +3,9 @@
 /* ============================================
    🎉 KPI Celebration Overlay
    Animations powered by Motion.dev (WAAPI)
-   CSS handles layout only, JS handles motion
    ============================================ */
 
-/* --- Overlay backdrop --- */
+/* --- Overlay --- */
 .celebration-overlay {
     position: fixed;
     inset: 0;
@@ -14,7 +13,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(ellipse at center, rgba(10, 5, 30, 0.92) 0%, rgba(0, 0, 0, 0.97) 100%);
+    background: radial-gradient(ellipse at 50% 40%, rgba(25, 15, 55, 0.93) 0%, rgba(5, 2, 15, 0.98) 100%);
     opacity: 0;
     pointer-events: none;
     cursor: pointer;
@@ -25,39 +24,47 @@
     pointer-events: auto;
 }
 
-/* --- Main card --- */
+/* --- Card --- */
 .celebration-card {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 24px;
-    padding: 48px 56px 40px;
-    border-radius: 28px;
-    background: linear-gradient(165deg, rgba(20, 15, 40, 0.95) 0%, rgba(10, 8, 25, 0.98) 100%);
-    border: 1px solid rgba(255, 215, 0, 0.2);
+    gap: 20px;
+    padding: 44px 52px 36px;
+    border-radius: 32px;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255, 215, 0, 0.06) 0%, transparent 60%),
+        linear-gradient(170deg, rgba(30, 22, 60, 0.97) 0%, rgba(12, 8, 28, 0.99) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.15);
     box-shadow:
-        0 0 80px rgba(255, 215, 0, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    max-width: 480px;
-    width: 90vw;
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 24px 80px rgba(0, 0, 0, 0.5),
+        0 0 120px rgba(255, 215, 0, 0.06);
+    max-width: 440px;
+    width: 88vw;
     z-index: 2;
 }
 
 /* --- Photo ring --- */
+.celebration-photo-wrap {
+    position: relative;
+    margin-top: -8px;
+}
+
 .celebration-photo-ring {
     position: relative;
-    width: 220px;
-    height: 220px;
+    width: 200px;
+    height: 200px;
     border-radius: 50%;
-    padding: 5px;
+    padding: 4px;
     background: conic-gradient(
         from 0deg,
         #ffd700, #ff6b35, #ff1493, #8b5cf6, #00d4ff, #10b981, #ffd700
     );
     box-shadow:
-        0 0 40px rgba(255, 215, 0, 0.4),
-        0 0 80px rgba(255, 107, 53, 0.2);
+        0 0 30px rgba(255, 215, 0, 0.35),
+        0 0 60px rgba(255, 107, 53, 0.15);
 }
 
 .celebration-photo {
@@ -66,40 +73,54 @@
     border-radius: 50%;
     object-fit: cover;
     object-position: center 20%;
-    border: 4px solid rgba(10, 5, 30, 0.9);
+    border: 3px solid rgba(12, 8, 28, 1);
     display: block;
 }
 
-/* --- Trophy icon --- */
-.celebration-trophy {
-    font-size: 48px;
-    line-height: 1;
-    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6));
+/* Decorative glow ring behind photo */
+.celebration-photo-glow {
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 90deg,
+        transparent 0%, rgba(255, 215, 0, 0.12) 25%, transparent 50%,
+        rgba(139, 92, 246, 0.12) 75%, transparent 100%
+    );
+    filter: blur(12px);
+    pointer-events: none;
 }
 
-/* --- Title text --- */
+/* --- Trophy --- */
+.celebration-trophy {
+    font-size: 40px;
+    line-height: 1;
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+}
+
+/* --- Title --- */
 .celebration-title {
     font-family: 'Manrope', sans-serif;
-    font-size: clamp(28px, 5vw, 42px);
+    font-size: clamp(26px, 5vw, 38px);
     font-weight: 800;
     text-align: center;
-    line-height: 1.2;
-    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 30%, #ff6b35 60%, #ffd700 100%);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    background: linear-gradient(135deg, #ffd700 0%, #ffb800 40%, #ff8c00 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    text-shadow: none;
 }
 
-/* --- Subtitle / employee name --- */
+/* --- Employee name --- */
 .celebration-name {
     font-family: 'Inter', sans-serif;
-    font-size: clamp(18px, 3vw, 24px);
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
+    font-size: clamp(16px, 3vw, 20px);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
     text-align: center;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
 }
 
 .celebration-name .highlight {
@@ -107,35 +128,36 @@
     font-weight: 700;
 }
 
-/* --- KPI achievement detail --- */
+/* --- KPI detail pill --- */
 .celebration-detail {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
+    gap: 10px;
+    padding: 10px 22px;
     border-radius: 100px;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .celebration-detail-icon {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .celebration-detail-text {
     font-family: 'Inter', sans-serif;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #6ee7b7;
+    letter-spacing: 0.01em;
 }
 
 /* --- Close hint --- */
 .celebration-close-hint {
     font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.3);
-    letter-spacing: 0.05em;
-    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.04em;
+    margin-top: 4px;
     opacity: 0;
 }
 
@@ -148,7 +170,10 @@
     z-index: 0;
 }
 
-/* --- Admin settings widget (bottom-left) --- */
+/* ============================================
+   Admin Settings Widget
+   ============================================ */
+
 .admin-settings-widget {
     position: fixed;
     bottom: 20px;
@@ -162,36 +187,36 @@
 }
 
 .admin-settings-gear {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     border: none;
     border-radius: 50%;
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
+    background: rgba(99, 102, 241, 0.12);
+    color: #818cf8;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    opacity: 0.6;
+    transition: all 0.25s ease;
+    opacity: 0.5;
 }
 
 .admin-settings-gear:hover {
     opacity: 1;
-    background: rgba(99, 102, 241, 0.25);
-    transform: rotate(30deg);
+    background: rgba(99, 102, 241, 0.2);
+    transform: rotate(45deg);
 }
 
 .admin-settings-panel {
     position: absolute;
-    bottom: 50px;
+    bottom: 48px;
     left: 0;
-    width: 240px;
+    width: 230px;
     padding: 14px;
-    background: #1e1b2e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1a1730;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     display: none;
 }
 
@@ -201,11 +226,11 @@
 
 .admin-settings-title {
     font-family: 'Manrope', sans-serif;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.35);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     margin-bottom: 10px;
 }
 
@@ -217,7 +242,7 @@
     cursor: pointer;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.8);
     position: relative;
 }
 
@@ -228,7 +253,7 @@
 .admin-toggle-slider {
     width: 36px;
     height: 20px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     position: relative;
     flex-shrink: 0;
@@ -242,9 +267,9 @@
     left: 2px;
     width: 16px;
     height: 16px;
-    background: white;
+    background: rgba(255, 255, 255, 0.7);
     border-radius: 50%;
-    transition: transform 0.2s;
+    transition: all 0.2s;
 }
 
 .admin-settings-row input:checked + .admin-toggle-slider {
@@ -253,6 +278,7 @@
 
 .admin-settings-row input:checked + .admin-toggle-slider::after {
     transform: translateX(16px);
+    background: white;
 }
 
 .celebration-fire-btn {
@@ -270,7 +296,7 @@
 }
 
 .celebration-fire-btn:hover {
-    filter: brightness(1.15);
+    filter: brightness(1.12);
     transform: translateY(-1px);
 }
 
@@ -285,11 +311,15 @@
 @media (max-width: 600px) {
     .celebration-card {
         padding: 32px 24px 28px;
-        gap: 18px;
+        gap: 16px;
     }
 
     .celebration-photo-ring {
-        width: 170px;
-        height: 140px;
+        width: 160px;
+        height: 160px;
+    }
+
+    .celebration-photo-glow {
+        inset: -12px;
     }
 }

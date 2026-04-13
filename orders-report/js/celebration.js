@@ -50,10 +50,13 @@ const CelebrationManager = (() => {
         el.innerHTML = `
             <div class="celebration-card">
                 <div class="celebration-trophy">🏆</div>
-                <div class="celebration-photo-ring">
-                    <img class="celebration-photo"
-                         src="${employee.photo}" alt="${employee.name}"
-                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236366f1%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2258%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>🌟</text></svg>'" />
+                <div class="celebration-photo-wrap">
+                    <div class="celebration-photo-glow"></div>
+                    <div class="celebration-photo-ring">
+                        <img class="celebration-photo"
+                             src="${employee.photo}" alt="${employee.name}"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236366f1%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2258%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>🌟</text></svg>'" />
+                    </div>
                 </div>
                 <div class="celebration-title">CHÚC MỪNG!</div>
                 <div class="celebration-name">
@@ -255,16 +258,15 @@ const CelebrationManager = (() => {
         );
         cleanups.push(photoCtrl);
 
-        // Photo ring glow pulse
-        const glowCtrl = animate(photoRing,
-            { boxShadow: [
-                '0 0 40px rgba(255,215,0,0.4), 0 0 80px rgba(255,107,53,0.2)',
-                '0 0 60px rgba(255,215,0,0.7), 0 0 120px rgba(255,107,53,0.4)',
-                '0 0 40px rgba(255,215,0,0.4), 0 0 80px rgba(255,107,53,0.2)',
-            ]},
-            { duration: 2, easing: 'ease-in-out', repeat: Infinity }
-        );
-        cleanups.push(glowCtrl);
+        // Glow ring behind photo — slow counter-spin
+        const glow = overlay.querySelector('.celebration-photo-glow');
+        if (glow) {
+            const glowCtrl = animate(glow,
+                { rotate: [0, -360] },
+                { duration: 8, easing: 'linear', repeat: Infinity }
+            );
+            cleanups.push(glowCtrl);
+        }
 
         // Text stagger
         [title, nameEl, detail, hint].filter(Boolean).forEach((el, i) => {
