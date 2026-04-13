@@ -1506,6 +1506,12 @@ async function handleConfirmAction() {
                 }
             }
 
+            // Remove loading notification before showing success
+            if (loadingId) {
+                notificationManager.remove(loadingId);
+                loadingId = null;
+            }
+
             // Show success notification
             const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
             notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
