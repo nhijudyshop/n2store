@@ -407,6 +407,11 @@ function renderShipments(shipments) {
     if (window.lucide) {
         lucide.createIcons();
     }
+
+    // Setup inline editor listeners for real-time multi-user editing
+    if (typeof InlineEditor !== 'undefined') {
+        InlineEditor.setupAllListeners();
+    }
 }
 
 /**
@@ -644,6 +649,56 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
+ * Render inline thiếu cell content
+ * Shows input for current user + other users' entries
+ */
+function renderInlineThieu(dotHangId, legacyValue) {
+    const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
+    const inputColorClass = isCurrentAdmin ? 'inline-input-admin' : 'inline-input-user';
+
+    return `
+        <div class="inline-thieu-wrap">
+            <input type="number" class="inline-thieu-input ${inputColorClass}"
+                   data-dot-hang-id="${dotHangId}"
+                   placeholder="${legacyValue > 0 ? legacyValue : '0'}"
+                   oninput="InlineEditor.saveThieu('${dotHangId}', this.value)"
+                   onclick="event.stopPropagation()">
+            <div class="inline-thieu-entries" data-dot-hang-id="${dotHangId}"></div>
+        </div>
+    `;
+}
+
+/**
+ * Render inline ghi chú cell content
+ * Shows input + image paste for current user + other users' entries
+ */
+function renderInlineGhiChu(dotHangId, legacyNote) {
+    const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
+    const inputColorClass = isCurrentAdmin ? 'inline-input-admin' : 'inline-input-user';
+
+    return `
+        <div class="inline-ghichu-wrap">
+            <div class="inline-ghichu-input-row">
+                <input type="text" class="inline-ghichu-input ${inputColorClass}"
+                       data-dot-hang-id="${dotHangId}"
+                       placeholder="${legacyNote || 'Ghi chú...'}"
+                       oninput="InlineEditor.saveGhiChu('${dotHangId}', this.value)"
+                       onpaste="InlineEditor.handlePaste(event, '${dotHangId}')"
+                       onclick="event.stopPropagation()">
+                <label class="inline-attach-btn" title="Đính kèm ảnh">
+                    <i data-lucide="image-plus" style="width:14px;height:14px"></i>
+                    <input type="file" accept="image/*" style="display:none"
+                           onchange="InlineEditor.handleFileSelect(event, '${dotHangId}')">
+                </label>
+            </div>
+            <div class="inline-own-images" data-dot-hang-id="${dotHangId}"></div>
+            <div class="inline-upload-indicator" style="display:none"></div>
+            <div class="inline-ghichu-entries" data-dot-hang-id="${dotHangId}"></div>
+        </div>
+    `;
+}
+
+/**
  * Render a single product row
  */
 function renderProductRow(opts) {
@@ -698,8 +753,8 @@ function renderProductRow(opts) {
                 <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
-                    <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
+                <td class="col-shortage text-center ${rowspanBorderClass} inline-thieu-cell" rowspan="${rowSpan}" data-dot-hang-id="${invoiceId}">
+                    ${renderInlineThieu(invoiceId, soMonThieu)}
                 </td>
                 <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${imageCount > 0 ? `
@@ -709,8 +764,8 @@ function renderProductRow(opts) {
                         </span>
                     ` : '-'}
                 </td>
-                <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
-                    ${ghiChu ? `<span class="invoice-note-text">${ghiChu}</span>` : ''}
+                <td class="col-invoice-note ${rowspanBorderClass} inline-ghichu-cell" rowspan="${rowSpan}" data-dot-hang-id="${invoiceId}">
+                    ${renderInlineGhiChu(invoiceId, ghiChu)}
                 </td>
             ` : ''}
             ${canViewCost ? `

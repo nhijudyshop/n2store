@@ -21,6 +21,7 @@ const COLLECTIONS = {
     SHIPMENTS: 'inventory_tracking',  // Now stores NCC documents with datHang[] and dotHang[]
     PREPAYMENTS: 'inventory_prepayments',
     OTHER_EXPENSES: 'inventory_other_expenses',
+    INLINE_NOTES: 'inventory_inline_notes',  // Multi-user inline notes for Thiếu & Ghi Chú
     EDIT_HISTORY: 'edit_history',
     USERS: 'users',
 };
@@ -133,8 +134,9 @@ try {
     console.error('[CONFIG] Firebase initialization error:', error);
 }
 
-// Collection References — only usersRef still used (for permissions from Firebase)
-// All other data now served via REST API (api-client.js → Render PostgreSQL)
+// Collection References — most data now served via REST API (api-client.js → Render PostgreSQL)
+// usersRef: permissions from Firebase | inlineNotesRef: real-time multi-user inline notes
+const inlineNotesRef = db?.collection(COLLECTIONS.INLINE_NOTES);
 const usersRef = db?.collection(COLLECTIONS.USERS);
 
 console.log('[CONFIG] Configuration loaded successfully');

@@ -896,9 +896,9 @@ body {
 .invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
-.invoice-table .col-shortage { width: 60px; vertical-align: middle; }
+.invoice-table .col-shortage { width: 80px; vertical-align: middle; }
 .invoice-table .col-image { width: 50px; vertical-align: middle; }
-.invoice-table .col-invoice-note { vertical-align: middle; }
+.invoice-table .col-invoice-note { min-width: 160px; vertical-align: middle; }
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
@@ -3121,4 +3121,264 @@ body {
     .booking-table .col-actions {
         width: auto;
     }
+}
+
+/* =====================================================
+   INLINE EDITOR - Multi-user Thiếu & Ghi Chú
+   ===================================================== */
+
+/* Thiếu cell */
+.inline-thieu-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.inline-thieu-input {
+    width: 60px;
+    padding: 4px 6px;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    background: transparent;
+    transition: border-color 0.15s;
+}
+
+.inline-thieu-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.inline-thieu-input::placeholder {
+    color: var(--gray-400);
+    font-weight: 400;
+}
+
+/* Remove spinner arrows */
+.inline-thieu-input::-webkit-inner-spin-button,
+.inline-thieu-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.inline-thieu-input { -moz-appearance: textfield; }
+
+/* Ghi Chú cell */
+.inline-ghichu-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+
+.inline-ghichu-input-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.inline-ghichu-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    font-size: 13px;
+    background: transparent;
+    transition: border-color 0.15s;
+}
+
+.inline-ghichu-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.inline-ghichu-input::placeholder {
+    color: var(--gray-400);
+}
+
+/* Attach button */
+.inline-attach-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.inline-attach-btn:hover {
+    background: var(--gray-100);
+    color: var(--primary);
+}
+
+/* Admin input = black text, User input = red text */
+.inline-input-admin {
+    color: var(--gray-900);
+}
+
+.inline-input-user {
+    color: #dc2626;
+}
+
+/* Entry display - other users' values */
+.inline-thieu-entries,
+.inline-ghichu-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+}
+
+.inline-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 1.3;
+    padding: 1px 0;
+}
+
+.inline-entry-admin {
+    color: var(--gray-900);
+}
+
+.inline-entry-user {
+    color: #dc2626;
+}
+
+.inline-entry-name {
+    font-size: 11px;
+    opacity: 0.7;
+    font-style: italic;
+}
+
+.inline-entry-value {
+    font-weight: 600;
+}
+
+.inline-entry-text {
+    word-break: break-word;
+}
+
+/* Image thumbnails in notes */
+.inline-note-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.inline-note-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--gray-200);
+    transition: transform 0.15s;
+}
+
+.inline-note-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Own images with remove button */
+.inline-own-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.inline-own-image-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.inline-remove-img {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    border: none;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.inline-own-image-wrap:hover .inline-remove-img {
+    opacity: 1;
+}
+
+/* Upload indicator */
+.inline-upload-indicator {
+    font-size: 11px;
+    color: var(--primary);
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Image lightbox */
+.inline-image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.inline-image-lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.inline-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.inline-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.4);
 }
