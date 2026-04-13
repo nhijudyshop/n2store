@@ -1952,65 +1952,97 @@
 
     <!-- Create Campaign Modal -->
     <div class="tag-modal" id="createCampaignModal" style="display: none; z-index: 10150;">
-        <div class="tag-modal-content" style="max-width: 500px;">
-            <div class="tag-modal-header">
-                <h3><i class="fas fa-plus-circle"></i> Thêm Chiến Dịch Mới</h3>
-                <button class="tag-modal-close" onclick="closeCreateCampaignModal()">
-                    <i class="fas fa-times"></i>
-                </button>
+        <div class="tag-modal-content" style="max-width: 520px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(139,92,246,0.1);">
+            <!-- Header with gradient -->
+            <div style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%); padding: 20px 24px; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+                <div style="position: absolute; bottom: -30px; left: 30%; width: 60px; height: 60px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; position: relative;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                            <i class="fas fa-rocket" style="color: #fff; font-size: 18px;"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; color: #fff; font-size: 17px; font-weight: 700; letter-spacing: -0.3px;">Chiến Dịch Mới</h3>
+                            <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 2px;">Tạo chiến dịch livestream</div>
+                        </div>
+                    </div>
+                    <button onclick="closeCreateCampaignModal()" style="width: 32px; height: 32px; border-radius: 8px; border: none; background: rgba(255,255,255,0.15); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                        <i class="fas fa-times" style="font-size: 14px;"></i>
+                    </button>
+                </div>
             </div>
-            <div class="tag-modal-body" style="padding: 20px;">
+
+            <div style="padding: 24px;">
                 <!-- Campaign Name -->
-                <div style="margin-bottom: 20px;">
-                    <label style="font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-tag" style="color: #8b5cf6;"></i> Tên chiến dịch:
+                <div style="margin-bottom: 24px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-tag" style="color: #8b5cf6; margin-right: 4px;"></i> Tên chiến dịch
                     </label>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="newCampaignName" placeholder="VD: T11 NỔ ĐƠNNNNN"
-                            style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+                        <div style="flex: 1; position: relative;">
+                            <input type="text" id="newCampaignName" placeholder="VD: T11 SIÊU SALE SẬPPPPP"
+                                style="width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; font-weight: 600; color: #1f2937; transition: border-color 0.2s, box-shadow 0.2s; outline: none; background: #fafafa;"
+                                onfocus="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 0 0 3px rgba(139,92,246,0.1)'; this.style.background='#fff'"
+                                onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'; this.style.background='#fafafa'" />
+                        </div>
                         <button type="button" onclick="autoGenerateCampaignName()" title="Đổi tên khác"
-                            style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb; cursor: pointer; font-size: 16px; white-space: nowrap;">
+                            style="width: 44px; height: 44px; border: 2px solid #e5e7eb; border-radius: 10px; background: #fafafa; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0;"
+                            onmouseover="this.style.borderColor='#8b5cf6'; this.style.background='#f5f3ff'; this.style.transform='rotate(15deg) scale(1.05)'"
+                            onmouseout="this.style.borderColor='#e5e7eb'; this.style.background='#fafafa'; this.style.transform='none'">
                             🎲
                         </button>
                     </div>
                 </div>
 
-                <!-- Custom Date Range -->
-                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 8px; border: 2px solid #8b5cf6;">
-                    <label style="font-size: 13px; font-weight: 600; color: #7c3aed; display: block; margin-bottom: 12px;">
-                        <i class="fas fa-calendar-check" style="color: #8b5cf6;"></i> Khoảng thời gian lọc đơn:
+                <!-- Date Range Card -->
+                <div style="margin-bottom: 20px; padding: 18px; background: #faf5ff; border-radius: 12px; border: 1.5px solid #e9d5ff;">
+                    <label style="font-size: 12px; font-weight: 600; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 14px;">
+                        <i class="fas fa-calendar-alt" style="margin-right: 4px;"></i> Thời gian lọc đơn
                     </label>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 180px;">
-                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Từ ngày:</label>
+                        <div style="flex: 1; min-width: 170px;">
+                            <label style="font-size: 11px; color: #9333ea; font-weight: 500; display: block; margin-bottom: 6px;">Từ ngày</label>
                             <input type="datetime-local" id="newCampaignCustomStartDate"
-                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                                style="width: 100%; padding: 10px 12px; border: 1.5px solid #d8b4fe; border-radius: 8px; font-size: 13px; background: #fff; color: #374151; outline: none; transition: border-color 0.2s;"
+                                onfocus="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 0 0 2px rgba(139,92,246,0.1)'"
+                                onblur="this.style.borderColor='#d8b4fe'; this.style.boxShadow='none'" />
                         </div>
-                        <div style="flex: 1; min-width: 180px;">
-                            <label style="font-size: 11px; color: #7c3aed; display: block; margin-bottom: 4px;">Đến ngày:</label>
+                        <div style="flex: 1; min-width: 170px;">
+                            <label style="font-size: 11px; color: #9333ea; font-weight: 500; display: block; margin-bottom: 6px;">Đến ngày</label>
                             <input type="datetime-local" id="newCampaignCustomEndDate"
-                                style="width: 100%; padding: 8px 10px; border: 2px solid #8b5cf6; border-radius: 6px; font-size: 13px;" />
+                                style="width: 100%; padding: 10px 12px; border: 1.5px solid #d8b4fe; border-radius: 8px; font-size: 13px; background: #fff; color: #374151; outline: none; transition: border-color 0.2s;"
+                                onfocus="this.style.borderColor='#8b5cf6'; this.style.boxShadow='0 0 0 2px rgba(139,92,246,0.1)'"
+                                onblur="this.style.borderColor='#d8b4fe'; this.style.boxShadow='none'" />
                         </div>
                     </div>
-                    <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
-                        <i class="fas fa-info-circle" style="color: #8b5cf6;"></i> Đến ngày tự động = Từ ngày + 3 ngày
+                    <div style="margin-top: 10px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-magic" style="color: #c084fc; font-size: 10px;"></i> Đến ngày tự động = Từ ngày + 3 ngày
                     </div>
                 </div>
 
-                <!-- Info Box -->
-                <div style="padding: 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px;">
-                    <div style="font-size: 12px; color: #166534;">
-                        <i class="fas fa-info-circle"></i> Chiến dịch sẽ lưu lại khoảng thời gian lọc đơn.
-                        Bạn có thể chọn lại chiến dịch này sau để áp dụng nhanh.
+                <!-- Info -->
+                <div style="padding: 12px 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0; display: flex; align-items: flex-start; gap: 10px;">
+                    <i class="fas fa-lightbulb" style="color: #22c55e; font-size: 14px; margin-top: 1px; flex-shrink: 0;"></i>
+                    <div style="font-size: 12px; color: #166534; line-height: 1.5;">
+                        Chiến dịch lưu lại khoảng thời gian lọc đơn. Chọn lại bất cứ lúc nào để áp dụng nhanh.
                     </div>
                 </div>
             </div>
-            <div class="tag-modal-footer">
-                <button class="tag-btn-cancel" onclick="closeCreateCampaignModal()">
+
+            <!-- Footer -->
+            <div style="padding: 16px 24px 20px; display: flex; justify-content: flex-end; gap: 10px; background: #fafafa; border-top: 1px solid #f3f4f6;">
+                <button onclick="closeCreateCampaignModal()"
+                    style="padding: 10px 20px; border: 1.5px solid #e5e7eb; border-radius: 10px; background: #fff; color: #6b7280; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb'"
+                    onmouseout="this.style.borderColor='#e5e7eb'; this.style.background='#fff'">
                     Hủy
                 </button>
-                <button class="tag-btn-save" onclick="saveNewCampaign()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                    <i class="fas fa-save"></i> Lưu Chiến Dịch
+                <button onclick="saveNewCampaign()"
+                    style="padding: 10px 24px; border: none; border-radius: 10px; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(124,58,237,0.3);"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(124,58,237,0.4)'"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 2px 8px rgba(124,58,237,0.3)'">
+                    <i class="fas fa-rocket" style="margin-right: 6px;"></i> Tạo Chiến Dịch
                 </button>
             </div>
         </div>
