@@ -75,33 +75,13 @@ async function saveExpense() {
     }
 
     try {
-        const now = firebase.firestore.Timestamp.now();
-        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
-
         if (currentExpense) {
-            // Update existing
-            await otherExpensesRef.doc(currentExpense.id).update({
-                ngay,
-                loaiChi,
-                soTien,
-                ghiChu,
-                updatedAt: now,
-                updatedBy: userName
-            });
+            // Update existing via API
+            await otherExpensesApi.update(currentExpense.id, { ngay, loaiChi, soTien, ghiChu });
             window.notificationManager?.success('Da cap nhat chi phi');
         } else {
-            // Create new
-            const id = generateId('exp');
-            await otherExpensesRef.doc(id).set({
-                id,
-                ngay,
-                loaiChi,
-                soTien,
-                ghiChu,
-                createdAt: now,
-                updatedAt: now,
-                createdBy: userName
-            });
+            // Create new via API
+            await otherExpensesApi.create({ ngay, loaiChi, soTien, ghiChu });
             window.notificationManager?.success('Da them chi phi moi');
         }
 

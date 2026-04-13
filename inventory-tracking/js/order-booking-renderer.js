@@ -380,11 +380,8 @@ async function deleteBookingImage(bookingId, imageIndex) {
         const updatedImages = [...booking.anhHoaDon];
         updatedImages.splice(imageIndex, 1);
 
-        // Update in Firestore
-        await orderBookingsRef.doc(bookingId).update({
-            anhHoaDon: updatedImages,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Update via API
+        await orderBookingsApi.update(bookingId, { anhHoaDon: updatedImages });
 
         // Update local state
         booking.anhHoaDon = updatedImages;
@@ -425,11 +422,8 @@ async function updateBookingStatus(bookingId, newStatus) {
             return;
         }
 
-        // Update in Firestore
-        await orderBookingsRef.doc(bookingId).update({
-            trangThai: newStatus,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Update via API
+        await orderBookingsApi.updateStatus(bookingId, newStatus);
 
         // Update local state
         booking.trangThai = newStatus;
@@ -549,12 +543,10 @@ async function confirmLinkShipment() {
             linkedInvoiceIdx = parseInt(invoiceIdx, 10);
         }
 
-        // Update in Firestore
-        await orderBookingsRef.doc(bookingId).update({
+        // Update via API
+        await orderBookingsApi.update(bookingId, {
             trangThai: 'received',
-            linkedShipmentId: linkedShipmentId,
-            linkedInvoiceIdx: linkedInvoiceIdx,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            linkedDotHangId: linkedShipmentId
         });
 
         // Update local state

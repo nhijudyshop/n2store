@@ -14,25 +14,13 @@
  */
 async function logEditHistory(action, collection, docId, oldData = null, newData = null) {
     try {
-        const historyRef = db.collection(COLLECTIONS.EDIT_HISTORY);
-        const now = firebase.firestore.Timestamp.now();
-        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
-        const userId = authManager?.getUserId() || 'unknown';
+        const changes = oldData && newData ? getChanges(oldData, newData) : null;
 
-        const historyEntry = {
-            action,
-            collection,
-            docId,
-            oldData: oldData ? sanitizeForFirestore(oldData) : null,
-            newData: newData ? sanitizeForFirestore(newData) : null,
-            changes: oldData && newData ? getChanges(oldData, newData) : null,
-            createdAt: now,
-            createdBy: userName,
-            userId,
-            page: 'inventory-tracking'
-        };
-
-        await historyRef.add(historyEntry);
+        await editHistoryApi.log(action, collection, docId || '', null, {
+            oldData: oldData ? sanitizeData(oldData) : null,
+            newData: newData ? sanitizeData(newData) : null,
+            changes
+        });
         console.log('[HISTORY] Logged:', action, collection, docId);
 
     } catch (error) {
@@ -72,7 +60,7 @@ function getChanges(oldData, newData) {
 /**
  * Sanitize data for Firestore (remove undefined values)
  */
-function sanitizeForFirestore(data) {
+function sanitizeData(data) {
     if (!data) return null;
 
     const sanitized = {};
@@ -83,11 +71,11 @@ function sanitizeForFirestore(data) {
                 if (data[key].toDate) {
                     sanitized[key] = data[key].toDate().toISOString();
                 } else {
-                    sanitized[key] = sanitizeForFirestore(data[key]);
+                    sanitized[key] = sanitizeData(data[key]);
                 }
             } else if (Array.isArray(data[key])) {
                 sanitized[key] = data[key].map(item =>
-                    typeof item === 'object' ? sanitizeForFirestore(item) : item
+                    typeof item === 'object' ? sanitizeData(item) : item
                 );
             } else {
                 sanitized[key] = data[key];
@@ -102,17 +90,16 @@ function sanitizeForFirestore(data) {
  */
 async function getEditHistory(collection, docId) {
     try {
-        const historyRef = db.collection(COLLECTIONS.EDIT_HISTORY);
-        const snapshot = await historyRef
-            .where('collection', '==', collection)
-            .where('docId', '==', docId)
-            .orderBy('createdAt', 'desc')
-            .limit(50)
-            .get();
-
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+        const history = await editHistoryApi.getAll({ entityType: collection, limit: 50 });
+        // Filter by entity_id client-side (API may return all for entity_type)
+        return history.filter(h => !docId || h.entity_id === docId).map(h => ({
+            id: h.id,
+            action: h.action,
+            collection: h.entity_type,
+            docId: h.entity_id,
+            changes: typeof h.changes === 'string' ? JSON.parse(h.changes) : (h.changes?.changes || null),
+            createdBy: h.user_name,
+            createdAt: h.created_at
         }));
 
     } catch (error) {

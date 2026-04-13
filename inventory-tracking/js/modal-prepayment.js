@@ -65,31 +65,13 @@ async function savePrepayment() {
     }
 
     try {
-        const now = firebase.firestore.Timestamp.now();
-        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
-
         if (currentPrepayment) {
-            // Update existing
-            await prepaymentsRef.doc(currentPrepayment.id).update({
-                ngay,
-                soTien,
-                ghiChu,
-                updatedAt: now,
-                updatedBy: userName
-            });
+            // Update existing via API
+            await prepaymentsApi.update(currentPrepayment.id, { ngay, soTien, ghiChu });
             window.notificationManager?.success('Da cap nhat thanh toan');
         } else {
-            // Create new
-            const id = generateId('pay');
-            await prepaymentsRef.doc(id).set({
-                id,
-                ngay,
-                soTien,
-                ghiChu,
-                createdAt: now,
-                updatedAt: now,
-                createdBy: userName
-            });
+            // Create new via API
+            await prepaymentsApi.create({ ngay, soTien, ghiChu });
             window.notificationManager?.success('Da them thanh toan moi');
         }
 

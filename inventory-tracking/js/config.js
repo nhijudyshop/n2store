@@ -133,12 +133,8 @@ try {
     console.error('[CONFIG] Firebase initialization error:', error);
 }
 
-// Collection References
-// Note: shipmentsRef now stores NCC documents with datHang[] and dotHang[]
-const shipmentsRef = db?.collection(COLLECTIONS.SHIPMENTS);
-const prepaymentsRef = db?.collection(COLLECTIONS.PREPAYMENTS);
-const otherExpensesRef = db?.collection(COLLECTIONS.OTHER_EXPENSES);
-const editHistoryRef = db?.collection(COLLECTIONS.EDIT_HISTORY);
+// Collection References — only usersRef still used (for permissions from Firebase)
+// All other data now served via REST API (api-client.js → Render PostgreSQL)
 const usersRef = db?.collection(COLLECTIONS.USERS);
 
 console.log('[CONFIG] Configuration loaded successfully');

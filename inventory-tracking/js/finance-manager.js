@@ -234,12 +234,12 @@ async function deleteTransaction(type, id) {
     try {
         switch (type) {
             case TRANSACTION_TYPES.PREPAYMENT:
-                await prepaymentsRef.doc(id).delete();
+                await prepaymentsApi.delete(id);
                 window.notificationManager?.success('Đã xóa thanh toán');
                 break;
 
             case TRANSACTION_TYPES.OTHER_EXPENSE:
-                await otherExpensesRef.doc(id).delete();
+                await otherExpensesApi.delete(id);
                 window.notificationManager?.success('Đã xóa chi phí');
                 break;
         }

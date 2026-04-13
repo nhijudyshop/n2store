@@ -834,11 +834,8 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
             anhHoaDon: updatedImages
         };
 
-        // Update Firestore
-        await db.collection('inventory_tracking').doc(shipmentId).update({
-            hoaDon: updatedHoaDon,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Update via API — update the individual dotHang (invoice)
+        await shipmentsApi.update(invoice.id, { anhHoaDon: updatedImages });
 
         // Update local state
         shipment.hoaDon = updatedHoaDon;
@@ -1004,11 +1001,8 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
             }
         };
 
-        // Update Firestore
-        await db.collection('inventory_tracking').doc(shipmentId).update({
-            hoaDon: updatedHoaDon,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Update via API
+        await shipmentsApi.update(subInvoice.id, { anhHoaDon: updatedImages });
 
         // Update local state
         shipment.hoaDon = updatedHoaDon;

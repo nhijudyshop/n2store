@@ -1,35 +1,29 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // CRUD OPERATIONS - INVENTORY TRACKING
-// Restructured: dotHang[] nested in NCC documents
+// Migrated from Firestore SDK to REST API (api-client.js)
 // =====================================================
 
 /**
  * Create new shipment (dotHang entries for multiple NCCs)
- * data.hoaDon contains multiple invoice entries, each for a different NCC
  */
 async function createShipment(data) {
     console.log('[CRUD] Creating shipment...', data);
 
     try {
-        const now = new Date().toISOString();
-        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
         const ngayDiHang = data.ngayDiHang;
 
-        // Process each invoice (hoaDon) and save to respective NCC document
+        // Process each invoice (hoaDon) and save via API
         for (const invoice of (data.hoaDon || [])) {
             const sttNCC = parseInt(invoice.sttNCC, 10);
             if (!sttNCC) continue;
 
-            // Get or create NCC document
-            const ncc = await getOrCreateNCC(sttNCC);
-
-            // Create dotHang entry
             const newDotHang = {
                 id: generateId('dot'),
+                sttNCC: sttNCC,
                 ngayDiHang: ngayDiHang,
                 tenNCC: invoice.tenNCC || '',
-                kienHang: data.kienHang || [],  // Shared across all NCCs in this shipment
+                kienHang: data.kienHang || [],
                 tongKien: data.tongKien || 0,
                 tongKg: data.tongKg || 0,
                 sanPham: invoice.sanPham || [],
@@ -39,27 +33,18 @@ async function createShipment(data) {
                 ghiChuThieu: invoice.ghiChuThieu || '',
                 anhHoaDon: invoice.anhHoaDon || [],
                 ghiChu: invoice.ghiChu || '',
-                chiPhiHangVe: data.chiPhiHangVe || [],  // Shared
-                tongChiPhi: data.tongChiPhi || 0,
-                createdAt: now,
-                createdBy: userName,
-                updatedAt: now,
-                updatedBy: userName
+                chiPhiHangVe: data.chiPhiHangVe || [],
+                tongChiPhi: data.tongChiPhi || 0
             };
 
-            // Update NCC document - push to dotHang array
-            await shipmentsRef.doc(ncc.id).update({
-                dotHang: firebase.firestore.FieldValue.arrayUnion(newDotHang),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            // Save via API
+            const saved = await shipmentsApi.create(newDotHang);
 
             // Update local state
-            const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
-            if (nccIndex !== -1) {
-                if (!globalState.nccList[nccIndex].dotHang) {
-                    globalState.nccList[nccIndex].dotHang = [];
-                }
-                globalState.nccList[nccIndex].dotHang.push(newDotHang);
+            const ncc = getNCCById(sttNCC) || await getOrCreateNCC(sttNCC);
+            if (ncc) {
+                if (!ncc.dotHang) ncc.dotHang = [];
+                ncc.dotHang.push(pgToShipment(saved));
             }
 
             console.log(`[CRUD] Created dotHang for NCC ${sttNCC}:`, newDotHang.id);
@@ -82,78 +67,53 @@ async function createShipment(data) {
 }
 
 /**
- * Update existing shipment/dotHang
- * For the new structure, we update individual dotHang entries
+ * Update existing shipment/dotHang via API
  */
 async function updateShipment(id, data) {
     console.log('[CRUD] Updating shipment...', id, data);
 
     try {
-        const now = new Date().toISOString();
-        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
-
-        // Find the shipment in flattened data
         const existingShipment = globalState.shipments.find(s => s.id === id);
-
         if (!existingShipment) {
             throw new Error('Shipment not found');
         }
 
-        // For each hoaDon in the update, update the corresponding dotHang
         for (const invoice of (data.hoaDon || [])) {
             const sttNCC = parseInt(invoice.sttNCC, 10);
             if (!sttNCC) continue;
 
-            // Find NCC document
-            const ncc = globalState.nccList.find(n => n.sttNCC === sttNCC);
-            if (!ncc) continue;
+            const updateData = {
+                ngayDiHang: data.ngayDiHang,
+                tenNCC: invoice.tenNCC,
+                kienHang: data.kienHang,
+                tongKien: data.tongKien,
+                tongKg: data.tongKg,
+                sanPham: invoice.sanPham,
+                tongTienHD: invoice.tongTienHD,
+                tongMon: invoice.tongMon,
+                soMonThieu: invoice.soMonThieu,
+                ghiChuThieu: invoice.ghiChuThieu,
+                anhHoaDon: invoice.anhHoaDon,
+                ghiChu: invoice.ghiChu,
+                chiPhiHangVe: data.chiPhiHangVe,
+                tongChiPhi: data.tongChiPhi
+            };
 
-            // Find the dotHang entry by id
-            const dotHang = [...(ncc.dotHang || [])];
-            const dotHangIndex = dotHang.findIndex(d => d.id === invoice.id);
+            const saved = await shipmentsApi.update(invoice.id, updateData);
 
-            if (dotHangIndex !== -1) {
-                // Update existing dotHang
-                dotHang[dotHangIndex] = {
-                    ...dotHang[dotHangIndex],
-                    ngayDiHang: data.ngayDiHang,
-                    tenNCC: invoice.tenNCC || dotHang[dotHangIndex].tenNCC,
-                    kienHang: data.kienHang || dotHang[dotHangIndex].kienHang,
-                    tongKien: data.tongKien || dotHang[dotHangIndex].tongKien,
-                    tongKg: data.tongKg || dotHang[dotHangIndex].tongKg,
-                    sanPham: invoice.sanPham || dotHang[dotHangIndex].sanPham,
-                    tongTienHD: invoice.tongTienHD || dotHang[dotHangIndex].tongTienHD,
-                    tongMon: invoice.tongMon || dotHang[dotHangIndex].tongMon,
-                    soMonThieu: invoice.soMonThieu ?? dotHang[dotHangIndex].soMonThieu,
-                    ghiChuThieu: invoice.ghiChuThieu ?? dotHang[dotHangIndex].ghiChuThieu,
-                    anhHoaDon: invoice.anhHoaDon || dotHang[dotHangIndex].anhHoaDon,
-                    ghiChu: invoice.ghiChu ?? dotHang[dotHangIndex].ghiChu,
-                    chiPhiHangVe: data.chiPhiHangVe || dotHang[dotHangIndex].chiPhiHangVe,
-                    tongChiPhi: data.tongChiPhi || dotHang[dotHangIndex].tongChiPhi,
-                    updatedAt: now,
-                    updatedBy: userName
-                };
-
-                // Update Firestore
-                await shipmentsRef.doc(ncc.id).update({
-                    dotHang: dotHang,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // Update local state
-                const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
-                if (nccIndex !== -1) {
-                    globalState.nccList[nccIndex].dotHang = dotHang;
+            // Update local state
+            const ncc = getNCCById(sttNCC);
+            if (ncc) {
+                const idx = (ncc.dotHang || []).findIndex(d => d.id === invoice.id);
+                if (idx !== -1) {
+                    ncc.dotHang[idx] = pgToShipment(saved);
                 }
-
-                console.log(`[CRUD] Updated dotHang for NCC ${sttNCC}:`, invoice.id);
             }
+
+            console.log(`[CRUD] Updated dotHang for NCC ${sttNCC}:`, invoice.id);
         }
 
-        // Log edit history
         await logEditHistory('update', 'shipment', id, existingShipment, data);
-
-        // Refresh flattened data
         flattenNCCData();
 
         window.notificationManager?.success('Đã cập nhật đợt hàng');
@@ -177,38 +137,27 @@ async function deleteShipment(id) {
     console.log('[CRUD] Deleting shipment...', id);
 
     try {
-        // Find the shipment in flattened data
         const existingShipment = globalState.shipments.find(s => s.id === id);
         if (!existingShipment) {
             throw new Error('Shipment not found');
         }
 
-        // Get all dotHang IDs in this shipment
         const dotHangIds = (existingShipment.hoaDon || []).map(hd => hd.id);
 
-        // Remove from each NCC document
-        for (const ncc of globalState.nccList) {
-            const dotHang = (ncc.dotHang || []).filter(d => !dotHangIds.includes(d.id));
+        // Delete each dotHang via API
+        for (const dotId of dotHangIds) {
+            await shipmentsApi.delete(dotId);
 
-            if (dotHang.length !== (ncc.dotHang || []).length) {
-                // Some entries were removed, update Firestore
-                await shipmentsRef.doc(ncc.id).update({
-                    dotHang: dotHang,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // Update local state
-                const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
-                if (nccIndex !== -1) {
-                    globalState.nccList[nccIndex].dotHang = dotHang;
+            // Remove from local state
+            for (const ncc of globalState.nccList) {
+                const idx = (ncc.dotHang || []).findIndex(d => d.id === dotId);
+                if (idx !== -1) {
+                    ncc.dotHang.splice(idx, 1);
                 }
             }
         }
 
-        // Log edit history
         await logEditHistory('delete', 'shipment', id, existingShipment, null);
-
-        // Refresh flattened data
         flattenNCCData();
 
         window.notificationManager?.success('Đã xóa đợt hàng');
@@ -222,26 +171,16 @@ async function deleteShipment(id) {
 }
 
 /**
- * Delete a single invoice (dotHang) from shipment
+ * Delete a single invoice (dotHang) from shipment via API
  */
 async function deleteInvoiceFromShipment(sttNCC, dotHangId) {
     try {
-        const ncc = globalState.nccList.find(n => n.sttNCC === sttNCC);
-        if (!ncc) {
-            throw new Error('NCC not found');
-        }
-
-        const dotHang = (ncc.dotHang || []).filter(d => d.id !== dotHangId);
-
-        await shipmentsRef.doc(ncc.id).update({
-            dotHang: dotHang,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        await shipmentsApi.delete(dotHangId);
 
         // Update local state
-        const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
-        if (nccIndex !== -1) {
-            globalState.nccList[nccIndex].dotHang = dotHang;
+        const ncc = getNCCById(sttNCC);
+        if (ncc) {
+            ncc.dotHang = (ncc.dotHang || []).filter(d => d.id !== dotHangId);
         }
 
         flattenNCCData();
@@ -254,39 +193,23 @@ async function deleteInvoiceFromShipment(sttNCC, dotHangId) {
 }
 
 /**
- * Update shortage information for a dotHang
+ * Update shortage information for a dotHang via API
  */
 async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
     try {
-        const ncc = globalState.nccList.find(n => n.sttNCC === sttNCC);
-        if (!ncc) {
-            throw new Error('NCC not found');
-        }
-
-        const dotHang = [...(ncc.dotHang || [])];
-        const dotHangIndex = dotHang.findIndex(d => d.id === dotHangId);
-
-        if (dotHangIndex === -1) {
-            throw new Error('dotHang not found');
-        }
-
-        dotHang[dotHangIndex] = {
-            ...dotHang[dotHangIndex],
-            soMonThieu: shortageData.soMonThieu || 0,
-            ghiChuThieu: shortageData.ghiChuThieu || '',
-            updatedAt: new Date().toISOString(),
-            updatedBy: authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown'
-        };
-
-        await shipmentsRef.doc(ncc.id).update({
-            dotHang: dotHang,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        const saved = await shipmentsApi.updateShortage(
+            dotHangId,
+            shortageData.soMonThieu || 0,
+            shortageData.ghiChuThieu || ''
+        );
 
         // Update local state
-        const nccIndex = globalState.nccList.findIndex(n => n.id === ncc.id);
-        if (nccIndex !== -1) {
-            globalState.nccList[nccIndex].dotHang = dotHang;
+        const ncc = getNCCById(sttNCC);
+        if (ncc) {
+            const idx = (ncc.dotHang || []).findIndex(d => d.id === dotHangId);
+            if (idx !== -1) {
+                ncc.dotHang[idx] = pgToShipment(saved);
+            }
         }
 
         flattenNCCData();
@@ -329,24 +252,18 @@ function updateShortage(id) {
 }
 
 /**
- * Log edit history
+ * Log edit history via API
  */
 async function logEditHistory(action, type, id, oldData, newData) {
     try {
-        if (!editHistoryRef) return;
-
-        await editHistoryRef.add({
-            action,
-            type,
-            targetId: id,
+        await editHistoryApi.log(action, type, id || '', null, {
             oldData: oldData || null,
-            newData: newData || null,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            userName: authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown'
+            newData: newData || null
         });
     } catch (error) {
         console.error('[CRUD] Error logging edit history:', error);
+        // Don't throw - history logging should not break main operations
     }
 }
 
-console.log('[CRUD] CRUD operations initialized');
+console.log('[CRUD] CRUD operations initialized (API mode)');

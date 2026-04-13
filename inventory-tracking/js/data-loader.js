@@ -1,29 +1,29 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // DATA LOADER - INVENTORY TRACKING
-// Restructured: sttNCC as primary key
+// Migrated from Firestore SDK to REST API (api-client.js)
 // =====================================================
 
 /**
- * Load all NCC documents from Firestore
- * Each NCC document contains datHang[] and dotHang[]
+ * Load all NCC (supplier) data from PostgreSQL via API
+ * Builds nccList for backward compatibility
  */
 async function loadNCCData() {
-    console.log('[DATA] Loading NCC data...');
+    console.log('[DATA] Loading NCC data from API...');
 
     try {
         globalState.isLoading = true;
 
-        if (!shipmentsRef) {
-            console.warn('[DATA] Firestore not initialized');
-            return;
-        }
+        // Load suppliers from API
+        const suppliers = await suppliersApi.getAll();
 
-        const snapshot = await shipmentsRef.get();
-
-        globalState.nccList = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+        // Build nccList structure (backward compatible with old Firestore format)
+        globalState.nccList = suppliers.map(s => ({
+            id: `ncc_${s.stt_ncc}`,
+            sttNCC: s.stt_ncc,
+            tenNCC: s.ten_ncc,
+            datHang: [],
+            dotHang: []
         }));
 
         // Sort by sttNCC
@@ -31,6 +31,12 @@ async function loadNCCData() {
         globalState.filteredNCCList = [...globalState.nccList];
 
         console.log(`[DATA] Loaded ${globalState.nccList.length} NCC documents`);
+
+        // Load order bookings and shipments, then attach to nccList
+        await Promise.all([
+            loadAndAttachOrderBookings(),
+            loadAndAttachShipments()
+        ]);
 
         // Flatten data for backward compatibility
         flattenNCCData();
@@ -48,6 +54,50 @@ async function loadNCCData() {
         throw error;
     } finally {
         globalState.isLoading = false;
+    }
+}
+
+/**
+ * Load order bookings from API and attach to nccList
+ */
+async function loadAndAttachOrderBookings() {
+    try {
+        const result = await orderBookingsApi.getAll({ limit: 500 });
+        const bookings = result.data.map(pgToBooking);
+
+        // Attach to nccList
+        bookings.forEach(b => {
+            const ncc = globalState.nccList.find(n => n.sttNCC === b.sttNCC);
+            if (ncc) {
+                ncc.datHang.push(b);
+            }
+        });
+
+        console.log(`[DATA] Loaded ${bookings.length} order bookings`);
+    } catch (error) {
+        console.error('[DATA] Error loading order bookings:', error);
+    }
+}
+
+/**
+ * Load shipments from API and attach to nccList
+ */
+async function loadAndAttachShipments() {
+    try {
+        const result = await shipmentsApi.getAll({ limit: 500 });
+        const shipments = result.data.map(pgToShipment);
+
+        // Attach to nccList
+        shipments.forEach(s => {
+            const ncc = globalState.nccList.find(n => n.sttNCC === s.sttNCC);
+            if (ncc) {
+                ncc.dotHang.push(s);
+            }
+        });
+
+        console.log(`[DATA] Loaded ${shipments.length} shipments`);
+    } catch (error) {
+        console.error('[DATA] Error loading shipments:', error);
     }
 }
 
@@ -89,33 +139,27 @@ function getNCCByDocId(docId) {
 }
 
 /**
- * Get or create NCC document
+ * Get or create NCC document (via API)
  */
 async function getOrCreateNCC(sttNCC) {
-    const docId = `ncc_${sttNCC}`;
-    const docRef = shipmentsRef.doc(docId);
-    const doc = await docRef.get();
+    const existing = getNCCById(sttNCC);
+    if (existing) return existing;
 
-    if (!doc.exists) {
-        const newData = {
-            sttNCC: sttNCC,
-            datHang: [],
-            dotHang: [],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await docRef.set(newData);
+    // Create via API
+    await suppliersApi.create(sttNCC, null);
 
-        // Add to local state
-        const newNCC = { id: docId, ...newData };
-        globalState.nccList.push(newNCC);
-        globalState.nccList.sort((a, b) => (a.sttNCC || 0) - (b.sttNCC || 0));
+    const newNCC = {
+        id: `ncc_${sttNCC}`,
+        sttNCC: sttNCC,
+        datHang: [],
+        dotHang: []
+    };
 
-        console.log(`[DATA] Created new NCC document: ${docId}`);
-        return newNCC;
-    }
+    globalState.nccList.push(newNCC);
+    globalState.nccList.sort((a, b) => (a.sttNCC || 0) - (b.sttNCC || 0));
 
-    return { id: doc.id, ...doc.data() };
+    console.log(`[DATA] Created new NCC: ncc_${sttNCC}`);
+    return newNCC;
 }
 
 /**
@@ -129,7 +173,6 @@ function getAllDatHang() {
                 ...dh,
                 sttNCC: ncc.sttNCC,
                 nccDocId: ncc.id,
-                // For backward compatibility, use booking id as main id if no separate id
                 id: dh.id || `${ncc.id}_dh_${dh.ngayDatHang}`
             });
         });
@@ -139,7 +182,6 @@ function getAllDatHang() {
 
 /**
  * Get all dotHang (shipments) flattened from all NCCs
- * Returns in format compatible with old shipment structure
  */
 function getAllDotHang() {
     const all = [];
@@ -158,16 +200,13 @@ function getAllDotHang() {
 
 /**
  * Normalize product data to new structure with backward compatibility
- * Converts old product format to new format with moTa, mauSac array, tongSoLuong
  */
 function normalizeProductData(product) {
     if (!product) return product;
 
-    // Already has new structure (has mauSac field)
     if (product.mauSac !== undefined) {
         return {
             ...product,
-            // Ensure tongSoLuong is calculated if missing
             tongSoLuong: product.tongSoLuong ||
                         (product.mauSac && product.mauSac.length > 0
                             ? product.mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0)
@@ -175,30 +214,27 @@ function normalizeProductData(product) {
         };
     }
 
-    // Migrate old data to new structure
     return {
         maSP: product.maSP || '',
-        moTa: product.tenHang || '',           // Map old tenHang to moTa
-        mauSac: [],                            // Empty array for old data
-        tongSoLuong: product.soLuong || 0,     // Use old soLuong
-        soMau: product.soMau || 0,             // Keep legacy field
-        soLuong: product.soLuong || 0,         // Keep for backward compatibility
+        moTa: product.tenHang || '',
+        mauSac: [],
+        tongSoLuong: product.soLuong || 0,
+        soMau: product.soMau || 0,
+        soLuong: product.soLuong || 0,
         giaDonVi: product.giaDonVi || 0,
         thanhTien: product.thanhTien || 0,
         rawText: product.rawText || '',
-        dataSource: 'legacy',                  // Mark as migrated data
+        dataSource: 'legacy',
         aiExtracted: product.aiExtracted || false
     };
 }
 
 /**
  * Get all dotHang restructured as shipments (grouped by ngayDiHang)
- * This maintains backward compatibility with the old structure
  */
 function getAllDotHangAsShipments() {
     const allDotHang = getAllDotHang();
 
-    // Group by ngayDiHang to create shipment-like structure
     const byDate = {};
     allDotHang.forEach(dot => {
         const date = dot.ngayDiHang;
@@ -218,12 +254,11 @@ function getAllDotHangAsShipments() {
             };
         }
 
-        // Add as hoaDon entry with normalized products
         byDate[date].hoaDon.push({
             id: dot.id,
             sttNCC: dot.sttNCC,
             tenNCC: dot.tenNCC,
-            sanPham: (dot.sanPham || []).map(normalizeProductData),  // Normalize products
+            sanPham: (dot.sanPham || []).map(normalizeProductData),
             tongTienHD: dot.tongTienHD || 0,
             tongMon: dot.tongMon || 0,
             soMonThieu: dot.soMonThieu || 0,
@@ -232,18 +267,14 @@ function getAllDotHangAsShipments() {
             ghiChu: dot.ghiChu || ''
         });
 
-        // Merge kienHang if present
         if (dot.kienHang && dot.kienHang.length > 0) {
             byDate[date].kienHang.push(...dot.kienHang);
         }
-
-        // Merge chiPhiHangVe if present
         if (dot.chiPhiHangVe && dot.chiPhiHangVe.length > 0) {
             byDate[date].chiPhiHangVe.push(...dot.chiPhiHangVe);
         }
     });
 
-    // Calculate totals for each date
     const shipments = Object.values(byDate).map(ship => {
         ship.tongKien = ship.kienHang.length;
         ship.tongKg = ship.kienHang.reduce((sum, k) => sum + (k.soKg || 0), 0);
@@ -251,10 +282,7 @@ function getAllDotHangAsShipments() {
         ship.tongSoMon = ship.hoaDon.reduce((sum, hd) => sum + (hd.tongMon || 0), 0);
         ship.tongMonThieu = ship.hoaDon.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
         ship.tongChiPhi = ship.chiPhiHangVe.reduce((sum, c) => sum + (c.soTien || 0), 0);
-
-        // Re-number kienHang
         ship.kienHang = ship.kienHang.map((k, idx) => ({ ...k, stt: idx + 1 }));
-
         return ship;
     });
 
@@ -280,50 +308,28 @@ function findDotHang(sttNCC, dotHangId) {
 }
 
 /**
- * Load prepayments data
+ * Load prepayments data from API
  */
 async function loadPrepaymentsData() {
-    console.log('[DATA] Loading prepayments...');
-
+    console.log('[DATA] Loading prepayments from API...');
     try {
-        if (!prepaymentsRef) return;
-
-        const snapshot = await prepaymentsRef
-            .orderBy('ngay', 'desc')
-            .get();
-
-        globalState.prepayments = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
+        const rows = await prepaymentsApi.getAll();
+        globalState.prepayments = rows.map(pgToPrepayment);
         console.log(`[DATA] Loaded ${globalState.prepayments.length} prepayments`);
-
     } catch (error) {
         console.error('[DATA] Error loading prepayments:', error);
     }
 }
 
 /**
- * Load other expenses data
+ * Load other expenses data from API
  */
 async function loadOtherExpensesData() {
-    console.log('[DATA] Loading other expenses...');
-
+    console.log('[DATA] Loading other expenses from API...');
     try {
-        if (!otherExpensesRef) return;
-
-        const snapshot = await otherExpensesRef
-            .orderBy('ngay', 'desc')
-            .get();
-
-        globalState.otherExpenses = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
+        const rows = await otherExpensesApi.getAll();
+        globalState.otherExpenses = rows.map(pgToOtherExpense);
         console.log(`[DATA] Loaded ${globalState.otherExpenses.length} other expenses`);
-
     } catch (error) {
         console.error('[DATA] Error loading other expenses:', error);
     }
@@ -336,13 +342,11 @@ function updateNCCFilterOptions() {
     const filterNCC = document.getElementById('filterNCC');
     const filterBookingNCC = document.getElementById('filterBookingNCC');
 
-    // Get unique NCCs from nccList
     const nccs = globalState.nccList
         .map(ncc => ncc.sttNCC)
         .filter(Boolean)
         .sort((a, b) => a - b);
 
-    // Update main filter
     if (filterNCC) {
         const currentValue = filterNCC.value;
         filterNCC.innerHTML = '<option value="all">Tất cả</option>';
@@ -359,7 +363,6 @@ function updateNCCFilterOptions() {
         }
     }
 
-    // Update booking filter
     if (filterBookingNCC) {
         const currentValue = filterBookingNCC.value;
         filterBookingNCC.innerHTML = '<option value="all">Tất cả NCC</option>';
@@ -382,11 +385,9 @@ function updateNCCFilterOptions() {
  */
 function getNCCDisplayName(ncc) {
     if (!ncc) return '';
-
-    // Try to get tenNCC from most recent datHang or dotHang
+    if (ncc.tenNCC) return ncc.tenNCC;
     const lastDatHang = (ncc.datHang || []).slice(-1)[0];
     const lastDotHang = (ncc.dotHang || []).slice(-1)[0];
-
     return lastDatHang?.tenNCC || lastDotHang?.tenNCC || '';
 }
 
@@ -399,4 +400,4 @@ function generateId(prefix = 'id') {
     return `${prefix}_${timestamp}_${random}`;
 }
 
-console.log('[DATA] Data loader initialized');
+console.log('[DATA] Data loader initialized (API mode)');
