@@ -1304,26 +1304,21 @@
         const product = pageProducts.find(p => p.id === templateId);
         const name = product ? `${product.code} - ${product.name}` : `ID ${templateId}`;
 
-        if (!confirm(`Xóa sản phẩm "${name}"?\n\nSản phẩm sẽ bị đặt hết hiệu lực (Active = false) trên TPOS.`)) {
+        if (!confirm(`Xóa sản phẩm "${name}" khỏi TPOS?\n\nThao tác này sẽ xóa vĩnh viễn sản phẩm trên TPOS (giống nút Xóa trên trang TPOS).`)) {
             return;
         }
 
         try {
             showToast('Đang xóa...', 'info');
 
-            const detail = await fetchProductDetail(templateId);
-            const payload = { ...detail };
-            delete payload['@odata.context'];
-            payload.Active = false;
-
-            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.Unlink`;
             const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ ids: [templateId] })
             });
 
             if (!response.ok) {
