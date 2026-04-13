@@ -1228,7 +1228,7 @@ async function handleSubmitTicket() {
             t.status !== 'CANCELLED'
         );
         if (existingBoom) {
-            return alert(`Đơn hàng này đã có ticket Boom!\n\nMã ticket: ${existingBoom.code}\n\nMỗi đơn chỉ được tạo 1 ticket Boom.`);
+            return alert(`Đơn hàng này đã có ticket Boom!\n\nMã ticket: ${existingBoom.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Boom.`);
         }
     }
 
@@ -1240,7 +1240,7 @@ async function handleSubmitTicket() {
             t.status !== 'CANCELLED'
         );
         if (existingFixCod) {
-            return alert(`Đơn hàng này đã có ticket Fix COD!\n\nMã ticket: ${existingFixCod.code}\n\nMỗi đơn chỉ được tạo 1 ticket Fix COD.`);
+            return alert(`Đơn hàng này đã có ticket Fix COD!\n\nMã ticket: ${existingFixCod.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Fix COD.`);
         }
     }
 
