@@ -8,6 +8,13 @@
 
 ## 2026-04-13
 
+### [render][soluong][order-mgmt] Migrate product search từ TPOS Excel/OData → Render DB ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/web-warehouse.js`, `shared/js/warehouse-api.js` (NEW), `soluong-live/index.html`, `soluong-live/js/main.js`, `order-management/index.html`, `order-management/order-list.html`, `order-management/js/main.js`, `order-management/js/order-list.js` |
+| **Chi tiết** | Thêm 2 endpoints mới trên Render: `GET /search` (autocomplete với unaccent) và `GET /product/:tposProductId` (chi tiết + variants). Tạo `shared/js/warehouse-api.js` — shared client cho cả 2 trang. Migrate soluong-live và order-management: xóa XLSX.js dependency, xóa TPOS Excel API calls, xóa inline auth code, thay bằng WarehouseAPI calls tới Render DB. Product search giờ dùng debounced API call thay vì tải toàn bộ Excel file. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Fix overdue alert banner bị treo sau khi dismiss ✅
 | | |
 |---|---|

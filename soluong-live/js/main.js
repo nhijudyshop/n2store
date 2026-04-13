@@ -26,12 +26,7 @@ import {
     getAllSalesLogs
 } from '../firebase-helpers.js';
 
-// TPOS Proxy
-const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-
 // State variables
-let productsData = [];
-let isLoadingExcel = false;
 let soluongProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
 let filteredProductsInList = []; // For search in product list
 let listSearchKeyword = ''; // Current search keyword for product list
@@ -724,37 +719,6 @@ function initCartHistoryState() {
     }
 }
 
-// Token management - use shared TokenManager from compat.js
-let _tokenManagerInstance = null;
-
-function _getTokenManager() {
-    if (_tokenManagerInstance) return _tokenManagerInstance;
-    if (window.tokenManager) {
-        _tokenManagerInstance = window.tokenManager;
-        return _tokenManagerInstance;
-    }
-    if (window.TokenManager) {
-        _tokenManagerInstance = new window.TokenManager();
-        window.tokenManager = _tokenManagerInstance;
-        console.log('[Soluong] Created TokenManager instance');
-        return _tokenManagerInstance;
-    }
-    console.error('[Soluong] TokenManager not available');
-    return null;
-}
-
-async function getValidToken() {
-    const tm = _getTokenManager();
-    if (!tm) throw new Error('TokenManager not available');
-    return await tm.getToken();
-}
-
-async function authenticatedFetch(url, options = {}) {
-    const tm = _getTokenManager();
-    if (!tm) throw new Error('TokenManager not available');
-    return await tm.authenticatedFetch(url, options);
-}
-
 function logoutUser() {
     if (confirm('Bạn có chắc muốn đăng xuất?')) {
         // Clear all auth data
@@ -779,119 +743,21 @@ function removeVietnameseTones(str) {
     return str;
 }
 
-async function loadExcelData() {
-    if (isLoadingExcel || productsData.length > 0) return;
+// --- Product search via Render DB (WarehouseAPI) ---
+let _searchDebounceTimer = null;
 
-    isLoadingExcel = true;
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    loadingIndicator.style.display = 'block';
-
-    try {
-        const response = await authenticatedFetch(`${PROXY_URL}/api/Product/ExportFileWithVariantPrice`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: { Active: "true" },
-                ids: ""
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Không thể tải dữ liệu sản phẩm');
-        }
-
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-        productsData = jsonData.map(row => ({
-            id: row['Id sản phẩm (*)'],
-            name: row['Tên sản phẩm'],
-            nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
-            code: row['Mã sản phẩm']
-        }));
-
-        console.log(`Đã load ${productsData.length} sản phẩm`);
-    } catch (error) {
-        console.error('Error loading Excel:', error);
-        alert('Lỗi khi tải dữ liệu sản phẩm: ' + error.message);
-    } finally {
-        loadingIndicator.style.display = 'none';
-        isLoadingExcel = false;
-    }
+async function searchProductsFromAPI(searchText) {
+    if (!searchText || searchText.length < 1) return [];
+    const rows = await WarehouseAPI.search(searchText, 10);
+    return rows.map(row => WarehouseAPI.toSearchSuggestion(row));
 }
 
-function searchProducts(searchText) {
-    if (!searchText || searchText.length < 2) return [];
-
-    const searchLower = searchText.toLowerCase();
-    const searchNoSign = removeVietnameseTones(searchText);
-
-    // Filter products that match
-    const matchedProducts = productsData.filter(product => {
-        // Match in product name (no Vietnamese tones)
-        const matchName = product.nameNoSign.includes(searchNoSign);
-
-        // Match in original name (lowercase, for special chars like [Q5X1])
-        const matchNameOriginal = product.name && product.name.toLowerCase().includes(searchLower);
-
-        // Match in product code
-        const matchCode = product.code && product.code.toLowerCase().includes(searchLower);
-
-        return matchName || matchNameOriginal || matchCode;
-    });
-
-    // Sort by priority: match in [] first, then code, then name
-    matchedProducts.sort((a, b) => {
-        // Extract text within [] brackets
-        const extractBracket = (name) => {
-            const match = name?.match(/\[([^\]]+)\]/);
-            return match ? match[1].toLowerCase().trim() : '';
-        };
-
-        const aBracket = extractBracket(a.name);
-        const bBracket = extractBracket(b.name);
-
-        // Check if search term matches in brackets
-        const aMatchInBracket = aBracket && aBracket.includes(searchLower);
-        const bMatchInBracket = bBracket && bBracket.includes(searchLower);
-
-        // Priority 1: Match in brackets
-        if (aMatchInBracket && !bMatchInBracket) return -1;
-        if (!aMatchInBracket && bMatchInBracket) return 1;
-
-        // Priority 2: Among bracket matches, exact match comes first
-        if (aMatchInBracket && bMatchInBracket) {
-            const aExactMatch = aBracket === searchLower;
-            const bExactMatch = bBracket === searchLower;
-            if (aExactMatch && !bExactMatch) return -1;
-            if (!aExactMatch && bExactMatch) return 1;
-
-            // If both exact or both not exact, sort by bracket length (shorter first)
-            if (aBracket.length !== bBracket.length) {
-                return aBracket.length - bBracket.length;
-            }
-
-            // If same length, sort alphabetically
-            return aBracket.localeCompare(bBracket);
-        }
-
-        // Priority 3: Match in product code
-        const aMatchInCode = a.code && a.code.toLowerCase().includes(searchLower);
-        const bMatchInCode = b.code && b.code.toLowerCase().includes(searchLower);
-
-        if (aMatchInCode && !bMatchInCode) return -1;
-        if (!aMatchInCode && bMatchInCode) return 1;
-
-        // Priority 4: Sort alphabetically by product name
-        return a.name.localeCompare(b.name);
-    });
-
-    return matchedProducts.slice(0, 10);
+function debouncedSearch(searchText, callback, delay = 300) {
+    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(async () => {
+        const results = await searchProductsFromAPI(searchText);
+        callback(results);
+    }, delay);
 }
 
 function displaySuggestions(suggestions) {
@@ -912,7 +778,7 @@ function displaySuggestions(suggestions) {
 
     suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
         item.addEventListener('click', () => {
-            const productId = item.dataset.id;
+            const productId = parseInt(item.dataset.id);
             loadProductDetails(productId);
             suggestionsDiv.classList.remove('show');
             document.getElementById('productSearch').value = item.textContent.trim();
@@ -922,40 +788,20 @@ function displaySuggestions(suggestions) {
 
 async function loadProductDetails(productId) {
     try {
-        const response = await authenticatedFetch(
-            `${PROXY_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-        );
+        // Fetch product + variants from Render DB (replaces 2 TPOS OData calls)
+        const result = await WarehouseAPI.getProductAsTpos(productId);
 
-        if (!response.ok) {
-            throw new Error('Không thể tải thông tin sản phẩm');
+        if (!result || !result.product) {
+            throw new Error('Không tìm thấy sản phẩm');
         }
 
-        const productData = await response.json();
-        let imageUrl = productData.ImageUrl;
-        let templateData = null;
-
-        // Load template to get image and variants
-        if (productData.ProductTmplId) {
-            try {
-                const templateResponse = await authenticatedFetch(
-                    `${PROXY_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
-                );
-
-                if (templateResponse.ok) {
-                    templateData = await templateResponse.json();
-                    if (!imageUrl) {
-                        imageUrl = templateData.ImageUrl;
-                    }
-                }
-            } catch (fallbackError) {
-                console.error('Error loading template:', fallbackError);
-            }
-        }
+        const productData = result.product;
+        const imageUrl = productData.imageUrl || productData.ImageUrl || '';
 
         // Check if auto-add variants is enabled and variants exist
-        if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+        if (autoAddVariants && result.variants && result.variants.length > 0) {
             // Filter only active variants (Active === true)
-            const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+            const activeVariants = result.variants.filter(v => v.Active === true);
 
             // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
             const sortedVariants = sortVariants(activeVariants);
@@ -963,9 +809,7 @@ async function loadProductDetails(productId) {
             // Check if there are active variants after filtering
             if (sortedVariants.length === 0) {
                 // No active variants, fallback to single product
-                const tposQty = productData.QtyAvailable || 0;
-                // Auto-use TPOS quantity without prompting
-                const qtyAvailable = tposQty;
+                const qtyAvailable = productData.QtyAvailable || 0;
                 const addSuccess = await addProductToList({
                     Id: productData.Id,
                     NameGet: productData.NameGet,
@@ -981,15 +825,13 @@ async function loadProductDetails(productId) {
                 if (addSuccess) {
                     document.getElementById('productSearch').value = '';
                 }
-                return; // Exit early
+                return;
             }
 
             // Prepare all variants for batch add
             const variantsToAdd = sortedVariants.map(variant => {
-                const tposQty = variant.QtyAvailable || 0;
-                // Auto-use TPOS quantity without prompting
-                const qtyAvailable = tposQty;
-                const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
+                const qtyAvailable = variant.QtyAvailable || 0;
+                const variantImageUrl = variant.imageUrl || variant.ImageUrl || imageUrl;
 
                 return cleanProductForFirebase({
                     Id: variant.Id,
@@ -1001,7 +843,7 @@ async function loadProductDetails(productId) {
                     imageUrl: variantImageUrl,
                     soldQty: 0,
                     remainingQty: qtyAvailable,
-                    isHidden: false // Variants are visible
+                    isHidden: false
                 });
             });
 
@@ -1015,23 +857,21 @@ async function loadProductDetails(productId) {
                 const totalUpdated = result.updated;
 
                 if (totalAdded > 0 && totalUpdated > 0) {
-                    showNotificationMessage(`✅ Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                    showNotificationMessage(`Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
                 } else if (totalUpdated > 0) {
-                    showNotificationMessage(`🔄 Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                    showNotificationMessage(`Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
                 } else if (totalAdded > 0) {
-                    showNotificationMessage(`✅ Đã thêm ${totalAdded} biến thể sản phẩm`);
+                    showNotificationMessage(`Đã thêm ${totalAdded} biến thể sản phẩm`);
                 }
 
                 document.getElementById('productSearch').value = '';
             } catch (error) {
-                console.error('❌ Error saving variants to Firebase:', error);
-                showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
+                console.error('Error saving variants to Firebase:', error);
+                showNotificationMessage('Lỗi đồng bộ Firebase: ' + error.message);
             }
         } else {
             // Add single product (original behavior)
-            const tposQty = productData.QtyAvailable || 0;
-            // Auto-use TPOS quantity without prompting
-            const qtyAvailable = tposQty;
+            const qtyAvailable = productData.QtyAvailable || 0;
             const addSuccess = addProductToList({
                 Id: productData.Id,
                 NameGet: productData.NameGet,
@@ -1050,7 +890,7 @@ async function loadProductDetails(productId) {
         }
     } catch (error) {
         console.error('Error loading product:', error);
-        showNotificationMessage('❌ Lỗi: ' + error.message);
+        showNotificationMessage('Lỗi: ' + error.message);
     }
 }
 
@@ -1907,36 +1747,26 @@ document.getElementById('productSearch').addEventListener('input', (e) => {
     // If barcode scan detected, wait for completion then auto-search
     if (isBarcodeScan) {
         barcodeTimeout = setTimeout(() => {
-            if (productsData.length === 0) {
-                loadExcelData().then(() => {
-                    autoSearchExactMatch(searchText);
-                });
-            } else {
-                autoSearchExactMatch(searchText);
-            }
+            autoSearchExactMatch(searchText);
             isBarcodeScan = false;
         }, 100);
     } else {
-        // Manual typing - show suggestions
+        // Manual typing - show suggestions via Render API
         if (searchText.length >= 2) {
-            if (productsData.length === 0) {
-                loadExcelData().then(() => {
-                    const results = searchProducts(searchText);
-                    displaySuggestions(results);
-                });
-            } else {
-                const results = searchProducts(searchText);
+            debouncedSearch(searchText, (results) => {
                 displaySuggestions(results);
-            }
+            });
         } else {
             document.getElementById('suggestions').classList.remove('show');
         }
     }
 });
 
-function autoSearchExactMatch(searchText) {
-    // Try exact match first
-    const exactMatch = productsData.find(p =>
+async function autoSearchExactMatch(searchText) {
+    const results = await searchProductsFromAPI(searchText);
+
+    // Try exact match by code first
+    const exactMatch = results.find(p =>
         p.code && p.code.toLowerCase() === searchText.toLowerCase()
     );
 
@@ -1944,17 +1774,12 @@ function autoSearchExactMatch(searchText) {
         loadProductDetails(exactMatch.id);
         document.getElementById('suggestions').classList.remove('show');
         document.getElementById('productSearch').value = '';
-    } else {
-        // If no exact match, try fuzzy search
-        const results = searchProducts(searchText);
-        if (results.length === 1) {
-            loadProductDetails(results[0].id);
-            document.getElementById('suggestions').classList.remove('show');
-            document.getElementById('productSearch').value = '';
-        } else if (results.length > 1) {
-            // Multiple results, show suggestions
-            displaySuggestions(results);
-        }
+    } else if (results.length === 1) {
+        loadProductDetails(results[0].id);
+        document.getElementById('suggestions').classList.remove('show');
+        document.getElementById('productSearch').value = '';
+    } else if (results.length > 1) {
+        displaySuggestions(results);
     }
 }
 
@@ -1964,23 +1789,21 @@ document.addEventListener('click', (e) => {
     }
 });
 
-document.getElementById('productSearch').addEventListener('keypress', (e) => {
+document.getElementById('productSearch').addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
         const searchText = e.target.value.trim();
         if (searchText) {
-            const exactMatch = productsData.find(p =>
+            const results = await searchProductsFromAPI(searchText);
+            const exactMatch = results.find(p =>
                 p.code && p.code.toLowerCase() === searchText.toLowerCase()
             );
 
             if (exactMatch) {
                 loadProductDetails(exactMatch.id);
                 document.getElementById('suggestions').classList.remove('show');
-            } else {
-                const results = searchProducts(searchText);
-                if (results.length === 1) {
-                    loadProductDetails(results[0].id);
-                    document.getElementById('suggestions').classList.remove('show');
-                }
+            } else if (results.length === 1) {
+                loadProductDetails(results[0].id);
+                document.getElementById('suggestions').classList.remove('show');
             }
         }
     }
@@ -2232,9 +2055,6 @@ window.addEventListener('load', async () => {
     checkSyncMode();
 
     try {
-        await getValidToken();
-        await loadExcelData();
-
         // Load initial data from Firebase FIRST
         await loadInitialData();
 

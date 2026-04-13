@@ -65,6 +65,9 @@ let tableInitialized = false;
 async function ensureTable(db) {
     if (tableInitialized) return;
     try {
+        // Enable unaccent extension for Vietnamese diacritics-insensitive search
+        await db.query(`CREATE EXTENSION IF NOT EXISTS unaccent;`);
+
         // Migration: rename old tables if they exist (one-time, idempotent)
         await db.query(`
             DO $$ BEGIN
@@ -365,6 +368,101 @@ router.get('/', async (req, res) => {
         handleError(res, error, 'Failed to fetch web warehouse');
     }
 });
+
+// =====================================================
+// SEARCH & PRODUCT DETAIL (for soluong-live, order-management)
+// =====================================================
+
+/**
+ * GET /api/v2/web-warehouse/search
+ * Lightweight autocomplete search — returns minimal fields, no JOINs
+ * Used by soluong-live and order-management for product search
+ */
+router.get('/search', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { q, limit = 15 } = req.query;
+
+    if (!q || q.trim().length < 1) {
+        return res.json({ success: true, data: [] });
+    }
+
+    try {
+        const searchTerm = `%${q.trim()}%`;
+        const maxLimit = Math.min(parseInt(limit) || 15, 50);
+
+        const result = await db.query(`
+            SELECT tpos_product_id, tpos_template_id, product_code,
+                   product_name, name_get, image_url, selling_price,
+                   tpos_qty_available, parent_product_code, barcode,
+                   purchase_price, standard_price, uom_name, category, variant
+            FROM web_warehouse
+            WHERE active = true
+              AND (
+                  unaccent(product_name) ILIKE unaccent($1)
+                  OR product_code ILIKE $1
+                  OR unaccent(name_get) ILIKE unaccent($1)
+                  OR barcode ILIKE $1
+              )
+            ORDER BY product_name ASC
+            LIMIT $2
+        `, [searchTerm, maxLimit]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        handleError(res, error, 'Search failed');
+    }
+});
+
+/**
+ * GET /api/v2/web-warehouse/product/:tposProductId
+ * Get single product + all sibling variants (same parent_product_code)
+ * Replaces two TPOS OData calls: Product(id) + ProductTemplate(tmplId)?$expand=ProductVariants
+ */
+router.get('/product/:tposProductId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const tposProductId = parseInt(req.params.tposProductId);
+    if (!tposProductId) {
+        return res.status(400).json({ success: false, error: 'Invalid tposProductId' });
+    }
+
+    try {
+        // Find the product
+        const productResult = await db.query(
+            `SELECT * FROM web_warehouse WHERE tpos_product_id = $1 AND active = true LIMIT 1`,
+            [tposProductId]
+        );
+
+        if (productResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+
+        const product = productResult.rows[0];
+        let variants = [];
+
+        // If product has a parent, fetch all siblings (variants of same template)
+        if (product.parent_product_code) {
+            const variantsResult = await db.query(
+                `SELECT * FROM web_warehouse
+                 WHERE parent_product_code = $1 AND active = true
+                 ORDER BY name_get ASC`,
+                [product.parent_product_code]
+            );
+            variants = variantsResult.rows;
+        }
+
+        res.json({ success: true, product, variants });
+    } catch (error) {
+        handleError(res, error, 'Get product failed');
+    }
+});
+
+// =====================================================
+// ROUTES — BATCH & CRUD
+// =====================================================
 
 /**
  * POST /api/v2/web-warehouse/batch

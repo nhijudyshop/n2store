@@ -21,8 +21,6 @@ let currentCampaignId = localStorage.getItem('om_current_campaign_id') || null;
 let currentCampaignName = null;
 
 // Add product data
-let productsData = [];
-let isLoadingExcel = false;
 let autoAddVariants = true;
 
 // Optimization: Cache normalized product names for faster search
@@ -39,8 +37,6 @@ const FIREBASE_SYNC_DEBOUNCE_MS = 500; // Wait 500ms before syncing to Firebase
 const database = firebase.database();
 
 let isSyncingFromFirebase = false;
-let bearerToken = null;
-let tokenExpiry = null;
 
 function cleanProductForFirebase(product) {
     const cleanProduct = {
@@ -65,88 +61,7 @@ function cleanProductForFirebase(product) {
     return cleanProduct;
 }
 
-async function getAuthToken() {
-    try {
-        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `grant_type=password&username=${(window.ShopConfig?.getConfig?.()?.CompanyId || 1) === 2 ? 'nvktshop1' : 'nvktlive1'}&password=Aa%4028612345678&client_id=tmtWebApp`,
-        });
-
-        if (!response.ok) {
-            throw new Error('Không thể xác thực');
-        }
-
-        const data = await response.json();
-        bearerToken = data.access_token;
-        tokenExpiry = Date.now() + data.expires_in * 1000;
-        localStorage.setItem('bearerToken', bearerToken);
-        localStorage.setItem('tokenExpiry', tokenExpiry.toString());
-        console.log('✅ Đã xác thực thành công');
-        return bearerToken;
-    } catch (error) {
-        console.error('❌ Lỗi xác thực:', error);
-        throw error;
-    }
-}
-
-async function getValidToken() {
-    const storedToken = localStorage.getItem('bearerToken');
-    const storedExpiry = localStorage.getItem('tokenExpiry');
-
-    if (storedToken && storedExpiry) {
-        const expiry = parseInt(storedExpiry);
-        if (expiry > Date.now() + 300000) {
-            bearerToken = storedToken;
-            tokenExpiry = expiry;
-            console.log('✅ Sử dụng token đã lưu');
-            return bearerToken;
-        }
-    }
-
-    return await getAuthToken();
-}
-
-async function authenticatedFetch(url, options = {}) {
-    const token = await getValidToken();
-
-    const headers = {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'feature-version': '2',
-        tposappversion: '6.2.6.1',
-        ...options.headers,
-    };
-
-    const response = await fetch(url, {
-        ...options,
-        headers,
-    });
-
-    const needsRetry =
-        response.status === 401 ||
-        (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
-
-    if (needsRetry) {
-        const reason = response.status === 401 ? '401' : '200+HTML';
-        console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-        localStorage.removeItem('bearerToken');
-        localStorage.removeItem('tokenExpiry');
-        bearerToken = null;
-        tokenExpiry = null;
-        const newToken = await getAuthToken();
-        headers.Authorization = `Bearer ${newToken}`;
-
-        return fetch(url, {
-            ...options,
-            headers,
-        });
-    }
-
-    return response;
+// Auth functions removed — product data now fetched from Render DB via WarehouseAPI
 }
 
 function toggleSyncMode() {
@@ -1323,15 +1238,13 @@ async function refreshProduct(productId) {
     btnRefresh.disabled = true;
 
     try {
-        const response = await authenticatedFetch(
-            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-        );
-
-        if (!response.ok) {
-            throw new Error('Không thể tải thông tin sản phẩm từ TPOS');
+        // Fetch from Render DB instead of TPOS OData
+        const result = await WarehouseAPI.getProductAsTpos(productId);
+        if (!result || !result.product) {
+            throw new Error('Không tìm thấy sản phẩm trong kho');
         }
 
-        const productData = await response.json();
+        const productData = result.product;
         const productKey = `product_${productId}`;
         const product = orderProducts[productKey];
         if (!product) {
@@ -1341,27 +1254,12 @@ async function refreshProduct(productId) {
         const oldQtyAvailable = product.QtyAvailable;
         product.QtyAvailable = productData.QtyAvailable || 0;
 
-        // Update price information from API
+        // Update price information
         product.ListPrice = productData.ListPrice || 0;
         product.PriceVariant = productData.PriceVariant || 0;
 
-        // Update image URL from API
-        let newImageUrl = productData.ImageUrl;
-
-        // If no image, try to get from template
-        if (!newImageUrl && productData.ProductTmplId) {
-            try {
-                const templateResponse = await authenticatedFetch(
-                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
-                );
-                if (templateResponse.ok) {
-                    const templateData = await templateResponse.json();
-                    newImageUrl = templateData.ImageUrl;
-                }
-            } catch (err) {
-                console.warn('Could not load template image:', err);
-            }
-        }
+        // Update image URL
+        const newImageUrl = productData.imageUrl || productData.ImageUrl || '';
 
         // Update image if we got a new one
         if (newImageUrl) {
@@ -1863,7 +1761,6 @@ window.addEventListener('load', async () => {
     if (addProductInput) {
         addProductInput.addEventListener('focus', () => {
             addProductContainer.classList.add('active');
-            if (!productsData.length) loadExcelDataOL();
         });
 
         addProductInput.addEventListener('input', (e) => {
@@ -1877,18 +1774,18 @@ window.addEventListener('load', async () => {
                 return;
             }
 
-            addProductDebounceTimer = setTimeout(() => {
-                const results = searchProductsOL(value);
+            addProductDebounceTimer = setTimeout(async () => {
+                const results = await searchProductsFromAPI(value);
                 displayAddProductSuggestions(results);
             }, 300);
         });
 
-        addProductInput.addEventListener('keypress', (e) => {
+        addProductInput.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 if (addProductDebounceTimer) clearTimeout(addProductDebounceTimer);
                 const value = e.target.value.trim();
                 if (value.length >= 2) {
-                    const results = searchProductsOL(value);
+                    const results = await searchProductsFromAPI(value);
                     if (results.length === 1) {
                         loadProductDetailsOL(results[0].id);
                         addProductSuggestions.classList.remove('show');
@@ -1993,86 +1890,12 @@ function handleCampaignChangeOL() {
     }
 }
 
-// === Add Product Functions ===
-function removeVietnameseTonesOL(str) {
-    if (!str) return '';
-    str = str.toLowerCase();
-    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
-    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
-    str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
-    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
-    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
-    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
-    str = str.replace(/đ/g, 'd');
-    return str;
-}
+// === Add Product Functions (via Render DB / WarehouseAPI) ===
 
-async function loadExcelDataOL() {
-    if (isLoadingExcel || productsData.length > 0) return;
-    isLoadingExcel = true;
-
-    try {
-        const response = await authenticatedFetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice',
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: { Active: 'true' }, ids: '' }),
-            }
-        );
-
-        if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
-
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-        productsData = jsonData.map((row) => ({
-            id: row['Id sản phẩm (*)'],
-            name: row['Tên sản phẩm'],
-            nameNoSign: removeVietnameseTonesOL(row['Tên sản phẩm'] || ''),
-            code: row['Mã sản phẩm'],
-        }));
-
-        console.log(`[ADD-PRODUCT] Loaded ${productsData.length} products from Excel`);
-    } catch (error) {
-        console.error('[ADD-PRODUCT] Error loading Excel:', error);
-    } finally {
-        isLoadingExcel = false;
-    }
-}
-
-function searchProductsOL(searchText) {
-    if (!searchText || searchText.length < 2) return [];
-
-    const searchLower = searchText.toLowerCase();
-    const searchNoSign = removeVietnameseTonesOL(searchText);
-
-    const matched = productsData.filter((product) => {
-        const matchName = product.nameNoSign.includes(searchNoSign);
-        const matchNameOriginal = product.name && product.name.toLowerCase().includes(searchLower);
-        const matchCode = product.code && product.code.toLowerCase().includes(searchLower);
-        return matchName || matchNameOriginal || matchCode;
-    });
-
-    // Sort: bracket match first, then code, then name
-    matched.sort((a, b) => {
-        const extractBracket = (name) => {
-            const match = name?.match(/\[([^\]]+)\]/);
-            return match ? match[1].toLowerCase().trim() : '';
-        };
-        const aBracket = extractBracket(a.name);
-        const bBracket = extractBracket(b.name);
-        const aMatch = aBracket && aBracket.includes(searchLower);
-        const bMatch = bBracket && bBracket.includes(searchLower);
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return a.name.localeCompare(b.name);
-    });
-
-    return matched.slice(0, 10);
+async function searchProductsFromAPI(searchText) {
+    if (!searchText || searchText.length < 1) return [];
+    const rows = await WarehouseAPI.search(searchText, 10);
+    return rows.map(row => WarehouseAPI.toSearchSuggestion(row));
 }
 
 function displayAddProductSuggestions(suggestions) {
@@ -2096,7 +1919,7 @@ function displayAddProductSuggestions(suggestions) {
 
     suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item) => {
         item.addEventListener('click', () => {
-            const productId = item.dataset.id;
+            const productId = parseInt(item.dataset.id);
             loadProductDetailsOL(productId);
             suggestionsDiv.classList.remove('show');
             document.getElementById('addProductInput').value = '';
@@ -2126,36 +1949,17 @@ function sortVariantsOL(variants) {
 
 async function loadProductDetailsOL(productId) {
     try {
-        const response = await authenticatedFetch(
-            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-        );
-        if (!response.ok) throw new Error('Không thể tải thông tin sản phẩm');
-
-        const productData = await response.json();
-        let imageUrl = productData.ImageUrl;
-        let templateData = null;
-
-        if (productData.ProductTmplId) {
-            try {
-                const templateResponse = await authenticatedFetch(
-                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
-                );
-                if (templateResponse.ok) {
-                    templateData = await templateResponse.json();
-                    if (!imageUrl) imageUrl = templateData.ImageUrl;
-                }
-            } catch (e) {
-                console.error('Error loading template:', e);
-            }
+        // Fetch from Render DB instead of TPOS OData
+        const result = await WarehouseAPI.getProductAsTpos(productId);
+        if (!result || !result.product) {
+            throw new Error('Không tìm thấy sản phẩm');
         }
 
-        if (
-            autoAddVariants &&
-            templateData &&
-            templateData.ProductVariants &&
-            templateData.ProductVariants.length > 0
-        ) {
-            const activeVariants = templateData.ProductVariants.filter((v) => v.Active === true);
+        const productData = result.product;
+        const imageUrl = productData.imageUrl || productData.ImageUrl || '';
+
+        if (autoAddVariants && result.variants && result.variants.length > 0) {
+            const activeVariants = result.variants.filter((v) => v.Active === true);
             const sortedVariants = sortVariantsOL(activeVariants);
 
             if (sortedVariants.length === 0) {
@@ -2174,14 +1978,14 @@ async function loadProductDetailsOL(productId) {
                     ProductTmplId: productData.ProductTmplId,
                     ListPrice: variant.ListPrice || 0,
                     PriceVariant: variant.PriceVariant || 0,
-                    imageUrl: variant.ImageUrl || imageUrl,
+                    imageUrl: variant.imageUrl || variant.ImageUrl || imageUrl,
                     soldQty: 0,
                     remainingQty: 0,
                     isHidden: false,
                 });
             });
 
-            const result = await addProductsToFirebase(
+            const batchResult = await addProductsToFirebase(
                 database,
                 currentCampaignId,
                 variantsToAdd,
@@ -2189,14 +1993,14 @@ async function loadProductDetailsOL(productId) {
             );
             updateProductGrid();
             alert(
-                `✅ Đã thêm ${result.added} biến thể${result.updated ? `, cập nhật ${result.updated}` : ''}`
+                `Đã thêm ${batchResult.added} biến thể${batchResult.updated ? `, cập nhật ${batchResult.updated}` : ''}`
             );
         } else {
             await addSingleProductOL(productData, imageUrl);
         }
     } catch (error) {
         console.error('Error loading product:', error);
-        alert('❌ Lỗi: ' + error.message);
+        alert('Lỗi: ' + error.message);
     }
 }
 
