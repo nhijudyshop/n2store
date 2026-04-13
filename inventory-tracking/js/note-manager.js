@@ -71,7 +71,7 @@ const NoteManager = {
 
     // ==================== CELL RENDERING ====================
 
-    renderCell(invoiceId, legacyGhiChu) {
+    renderCell(invoiceId) {
         const notes = this._cache[invoiceId] || [];
         const currentUser = this._getUsername();
 
@@ -80,13 +80,6 @@ const NoteManager = {
         // Top-right: pencil for NEW note
         html += '<button class="note-add-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
         html += '<i data-lucide="pencil"></i></button>';
-
-        // Legacy note (TPOS) — no edit pencil
-        if (legacyGhiChu) {
-            html += '<div class="note-row">';
-            html += '<span class="note-text note-legacy">' + this._esc(legacyGhiChu) + '</span>';
-            html += '</div>';
-        }
 
         // User notes — each has edit pencil at end + image icon
         for (const n of notes) {
@@ -127,12 +120,8 @@ const NoteManager = {
         const cells = document.querySelectorAll('.note-cell[data-invoice-id]');
         cells.forEach(cell => {
             const invoiceId = cell.dataset.invoiceId;
-            // Find legacy ghiChu from first .note-legacy if exists
-            const legacyEl = cell.querySelector('.note-legacy');
-            const legacy = legacyEl ? legacyEl.textContent : '';
-            // Re-render inner content
             const tmp = document.createElement('div');
-            tmp.innerHTML = this.renderCell(invoiceId, legacy);
+            tmp.innerHTML = this.renderCell(invoiceId);
             const newCell = tmp.firstElementChild;
             cell.innerHTML = newCell.innerHTML;
         });

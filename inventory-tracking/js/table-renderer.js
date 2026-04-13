@@ -740,8 +740,8 @@ function renderProductRow(opts) {
                 </td>
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'
-                        ? NoteManager.renderCell(invoiceId, ghiChu)
-                        : (ghiChu ? `<span class="invoice-note-text">${ghiChu}</span>` : '')}
+                        ? NoteManager.renderCell(invoiceId)
+                        : ''}
                 </td>
             ` : ''}
             ${canViewCost ? `
