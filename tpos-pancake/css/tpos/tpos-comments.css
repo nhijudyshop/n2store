@@ -1,6 +1,6 @@
 /* =====================================================
-   TPOS COMMENTS — Modern Card-Based Design
-   Inspired by Social Commerce / Precision Dash UI
+   TPOS COMMENTS — Compact Live Commerce Cards
+   Designed for speed: scan → status → action
    ===================================================== */
 
 /* ---- Header ---- */
@@ -9,7 +9,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--gray-50);
+    background: #f8f9fb;
 }
 
 .tpos-merged-header {
@@ -136,10 +136,10 @@
 .tpos-conversation-list {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px;
+    padding: 8px 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
 }
 
 .tpos-conversation-list::-webkit-scrollbar { width: 4px; }
@@ -150,24 +150,26 @@
 
 .tpos-conversation-item {
     background: white;
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    border-left: 4px solid transparent;
-    transition: all 0.2s;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #eef0f4;
+    transition: all 0.15s;
     cursor: pointer;
-    display: flex;
-    gap: 12px;
+    position: relative;
 }
 
 .tpos-conversation-item:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    border-left-color: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+.tpos-conversation-item:hover .tpos-conv-actions {
+    opacity: 1;
 }
 
 .tpos-conversation-item.selected {
-    border-left-color: var(--primary);
-    background: #f8faff;
+    border-color: var(--primary);
+    background: #f6f7ff;
 }
 
 .tpos-conversation-item.is-hidden {
@@ -176,15 +178,20 @@
 
 .tpos-conversation-item.highlight {
     animation: highlight-flash 2s ease-out;
-    border-left-color: #10b981;
 }
 
 @keyframes highlight-flash {
-    0% { background: #dcfce7; }
-    100% { background: white; }
+    0% { background: #dcfce7; border-color: #86efac; }
+    100% { background: white; border-color: #eef0f4; }
 }
 
-/* ---- Avatar ---- */
+/* ---- Row 1: Header ---- */
+
+.tpos-conv-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
 .tpos-conv-avatar {
     position: relative;
@@ -192,35 +199,35 @@
 }
 
 .tpos-conv-avatar .avatar-img {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     object-fit: cover;
 }
 
 .tpos-conv-avatar .avatar-placeholder {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: 700;
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .session-index-badge {
     position: absolute;
     top: -4px;
     left: -4px;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    border-radius: 10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
     background: #10b981;
     color: white;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -233,8 +240,8 @@
     position: absolute;
     bottom: -2px;
     right: -2px;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     background: #1877f2;
     border-radius: 50%;
     display: flex;
@@ -243,11 +250,10 @@
     border: 2px solid white;
 }
 
-.channel-badge i { width: 8px; height: 8px; color: white; }
+.channel-badge i { width: 7px; height: 7px; color: white; }
 
-/* ---- Content ---- */
-
-.tpos-conv-content {
+/* Header info block */
+.tpos-conv-header-info {
     flex: 1;
     min-width: 0;
 }
@@ -255,7 +261,7 @@
 .tpos-conv-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
 }
 
@@ -265,95 +271,144 @@
     color: var(--gray-900);
     cursor: pointer;
     transition: color 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
 }
 
 .customer-name:hover {
     color: var(--primary);
 }
 
+.tpos-tag {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
 .order-code-badge {
-    background: #dbeafe;
-    color: #1d4ed8;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 4px;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
     font-weight: 700;
 }
 
-.tpos-tag {
+/* Status badge — prominent, next to name */
+.tpos-status-badge {
+    display: inline-flex;
+    align-items: center;
     font-size: 10px;
-    padding: 1px 6px;
+    font-weight: 700;
+    padding: 2px 7px;
     border-radius: 4px;
-    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: filter 0.15s;
 }
 
-/* Comment message bubble */
+.tpos-status-badge:hover {
+    filter: brightness(0.95);
+}
+
+/* Time — top right */
+.tpos-conv-time {
+    font-size: 10px;
+    color: var(--gray-400);
+    font-weight: 500;
+    white-space: nowrap;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ---- Row 2: Message ---- */
+
 .tpos-conv-message {
-    margin-top: 8px;
-    color: var(--gray-700);
+    margin-top: 6px;
+    color: #1e293b;
     font-size: 13px;
-    line-height: 1.5;
-    background: var(--gray-50);
-    padding: 10px 12px;
-    border-radius: 10px;
+    line-height: 1.4;
+    padding: 7px 10px;
+    background: #f8f9fb;
+    border-radius: 8px;
     border-left: 3px solid var(--primary);
 }
 
-/* Info row: status + phone + address */
+/* ---- Row 3: Contact Info ---- */
+
 .tpos-conv-info {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 10px;
+    gap: 4px;
+    margin-top: 6px;
     flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--gray-500);
 }
 
 .tpos-conv-info input {
-    padding: 4px 8px;
-    border: 1px solid var(--gray-200);
-    border-radius: 6px;
+    padding: 3px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
     font-size: 11px;
-    background: white;
-    transition: border-color 0.15s;
+    background: #f8f9fb;
+    transition: all 0.15s;
+    color: var(--gray-700);
+}
+
+.tpos-conv-info input:hover {
+    border-color: var(--gray-200);
 }
 
 .tpos-conv-info input:focus {
     outline: none;
     border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.08);
 }
 
 .debt-badge {
-    padding: 2px 8px;
+    padding: 1px 6px;
     background: #fef2f2;
     color: #dc2626;
-    border-radius: 6px;
-    font-size: 11px;
+    border-radius: 4px;
+    font-size: 10px;
     font-weight: 700;
     white-space: nowrap;
 }
 
-/* ---- Actions (hover to show) ---- */
+/* ---- Actions — float right, show on hover ---- */
 
 .tpos-conv-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     align-items: center;
-    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: white;
+    border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .tpos-action-btn {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     border: none;
-    background: var(--gray-50);
-    color: var(--gray-500);
-    border-radius: 8px;
+    background: transparent;
+    color: var(--gray-400);
+    border-radius: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.12s;
 }
 
 .tpos-action-btn:hover {
@@ -361,17 +416,44 @@
     color: white;
 }
 
-/* ---- Meta (time) ---- */
+/* ---- Meta (time) — handled inline now ---- */
 
 .tpos-conv-meta {
-    flex-shrink: 0;
-    align-self: flex-start;
+    display: none;
 }
 
-.tpos-conv-time {
-    font-size: 10px;
-    color: var(--gray-400);
-    font-weight: 500;
+/* ---- Inline Status Dropdown ---- */
+
+.inline-status-container {
+    position: relative;
+}
+
+.inline-status-option {
+    transition: background 0.1s;
+}
+
+.inline-status-option:hover {
+    background: var(--gray-50) !important;
+}
+
+/* Status dropdown panel */
+.tpos-status-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    min-width: 140px;
+    padding: 4px 0;
+    animation: slideDown 0.12s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ---- States ---- */
@@ -426,37 +508,27 @@
 
 .tpos-reply-input-row {
     display: flex;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--gray-50);
+    gap: 6px;
+    padding: 8px 10px;
+    background: #f8f9fb;
     border-top: 1px solid var(--gray-100);
     align-items: center;
-    border-radius: 0 0 12px 12px;
-    margin: 0 -16px -16px;
+    border-radius: 0 0 10px 10px;
+    margin: 6px -12px -10px;
 }
 
 .tpos-reply-input-row input {
     flex: 1;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid var(--gray-200);
-    border-radius: 8px;
-    font-size: 13px;
+    border-radius: 6px;
+    font-size: 12px;
     background: white;
 }
 
 .tpos-reply-input-row input:focus {
     outline: none;
     border-color: var(--primary);
-}
-
-/* ---- Inline Status ---- */
-
-.inline-status-container {
-    position: relative;
-}
-
-.inline-status-option:hover {
-    background: var(--gray-50) !important;
 }
 
 /* ---- Spin animation ---- */
