@@ -965,3 +965,27 @@
         max-width: 120px;
     }
 }
+
+/* =====================================================
+   ASSIGNMENT LOCK STATUS
+   ===================================================== */
+.dr-assignment-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    margin: 0 16px 8px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #166534;
+}
+
+.dr-assignment-status i.fa-lock {
+    color: #16a34a;
+}
+
+.dr-assignment-status i.fa-plus-circle {
+    color: #2563eb;
+}

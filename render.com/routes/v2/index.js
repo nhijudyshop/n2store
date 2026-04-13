@@ -31,6 +31,7 @@ const pendingWithdrawalsRouter = require('./pending-withdrawals');
 const webWarehouseRouter = require('./web-warehouse');
 const purchaseOrdersRouter = require('./purchase-orders');
 const inventoryTrackingRouter = require('./inventory-tracking');
+const deliveryAssignmentsRouter = require('./delivery-assignments');
 
 // Deprecation middleware for v1 endpoints (apply in main app)
 const addDeprecationWarning = (req, res, next) => {
@@ -54,6 +55,7 @@ router.use('/web-warehouse', webWarehouseRouter);
 router.use('/kho-di-cho', webWarehouseRouter); // backward compat — remove after 1 week
 router.use('/purchase-orders', purchaseOrdersRouter);
 router.use('/inventory-tracking', inventoryTrackingRouter);
+router.use('/delivery-assignments', deliveryAssignmentsRouter);
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -61,7 +63,7 @@ router.get('/health', (req, res) => {
         success: true,
         version: '2.0.0',
         timestamp: new Date().toISOString(),
-        modules: ['customers', 'wallets', 'tickets', 'balance-history', 'analytics', 'pending-withdrawals', 'web-warehouse', 'purchase-orders', 'inventory-tracking']
+        modules: ['customers', 'wallets', 'tickets', 'balance-history', 'analytics', 'pending-withdrawals', 'web-warehouse', 'purchase-orders', 'inventory-tracking', 'delivery-assignments']
     });
 });
 

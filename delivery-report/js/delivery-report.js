@@ -8,6 +8,7 @@
     'use strict';
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const RENDER_URL = 'https://n2store-fallback.onrender.com';
 
     // =====================================================
     // STATE
@@ -27,6 +28,10 @@
         scanFilter: 'unscanned', // 'unscanned' | 'scanned'
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
+        dbAssignments: {}, // { Number: groupName } — loaded from PostgreSQL (source of truth)
+        _dbAssignmentsLoaded: false,
+        _dbLockedCount: 0,
+        _dbNewCount: 0,
         lastScannedColumn: null, // 'tomato' | 'nap'
         _focusedGroup: null, // focused group in all-tab after scan
         _scannedListener: null,
@@ -241,6 +246,12 @@
             console.log('[DELIVERY-REPORT] Items with DeliveryNote:', withNote.length, withNote.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
             const returnItems = DeliveryReportState.allData.filter(i => isReturnItem(i));
             console.log('[DELIVERY-REPORT] Return items (THU VE):', returnItems.length, returnItems.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
+
+            // Reset DB assignment cache on each fetch (date may have changed)
+            DeliveryReportState._dbAssignmentsLoaded = false;
+            DeliveryReportState._provinceGroupsLoaded = false;
+            DeliveryReportState.dbAssignments = {};
+            DeliveryReportState.provinceGroups = {};
 
             await ensureProvinceGroups();
             renderTable();
@@ -980,7 +991,13 @@
     }
 
     // Determine which group an item belongs to (for "all" tab 5-column view)
+    // Priority: DB assignment (locked) > provinceGroups > carrier-based detection
     function getItemGroup(item) {
+        // Check DB locked assignment first (source of truth)
+        const dbGroup = DeliveryReportState.dbAssignments[item.Number];
+        if (dbGroup) return dbGroup;
+
+        // Fallback to carrier-based detection
         if (isReturnItem(item)) return 'return';
         const nc = normalizeCarrier(item.CarrierName);
         if (nc === 'THÀNH PHỐ') return 'city';
@@ -1080,6 +1097,71 @@
         }
         console.warn('[DELIVERY-REPORT] Firestore not available');
         return null;
+    }
+
+    // =====================================================
+    // DB ASSIGNMENTS — PostgreSQL as Source of Truth
+    // =====================================================
+    function getAssignmentDate() {
+        // Use the fromDate filter date (YYYY-MM-DD)
+        const fromDate = document.getElementById('drFilterFromDate')?.value;
+        if (fromDate) return fromDate;
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    async function loadAssignmentsFromDB() {
+        const date = getAssignmentDate();
+        try {
+            const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments?date=${date}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            if (result.success && result.data) {
+                DeliveryReportState.dbAssignments = result.data.assignments || {};
+                DeliveryReportState._dbAssignmentsLoaded = true;
+                DeliveryReportState._dbLockedCount = result.data.totalCount || 0;
+                console.log(`[DELIVERY-REPORT] DB: loaded ${result.data.totalCount} locked assignments for ${date}`);
+                return result.data.assignments;
+            }
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to load DB assignments, falling back to Firestore:', e.message);
+        }
+        return {};
+    }
+
+    async function saveAssignmentsToDB(items, groups) {
+        const date = getAssignmentDate();
+        const assignments = items.map(item => ({
+            orderNumber: item.Number,
+            groupName: groups[item.Number] || getItemGroup(item),
+            amountTotal: item.AmountTotal || 0,
+            cashOnDelivery: item.CashOnDelivery || 0,
+            carrierName: item.CarrierName || ''
+        }));
+
+        if (assignments.length === 0) return { inserted: 0, skipped: 0 };
+
+        try {
+            const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
+            const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-data': JSON.stringify({ userName: user })
+                },
+                body: JSON.stringify({ date, assignments })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            if (result.success) {
+                DeliveryReportState._dbNewCount = result.data.inserted || 0;
+                console.log(`[DELIVERY-REPORT] DB: saved ${result.data.inserted} new, ${result.data.skipped} already locked`);
+                return result.data;
+            }
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to save assignments to DB:', e.message);
+        }
+        return { inserted: 0, skipped: 0 };
     }
 
     async function loadProvinceGroups() {
@@ -1247,11 +1329,18 @@
             });
 
         // Listen for province groups changes from other machines
+        // Merge Firestore updates into local state but DB remains source of truth
         DeliveryReportState._groupsListener = db.collection('delivery_report')
             .doc('province_groups')
             .onSnapshot(doc => {
                 if (!doc.exists) return;
-                DeliveryReportState.provinceGroups = doc.data().groups || {};
+                const firestoreGroups = doc.data().groups || {};
+                // Merge: DB assignments take priority, Firestore fills gaps
+                for (const [key, val] of Object.entries(firestoreGroups)) {
+                    if (!DeliveryReportState.dbAssignments[key]) {
+                        DeliveryReportState.provinceGroups[key] = val;
+                    }
+                }
                 DeliveryReportState._provinceGroupsLoaded = true;
                 if (DeliveryReportState.traSoatMode) {
                     if (DeliveryReportState.activeTab === 'province') {
@@ -1291,24 +1380,79 @@
 
     async function ensureProvinceGroups() {
         const state = DeliveryReportState;
+        const allData = state.allData || [];
         const provinceData = getProvinceData();
 
-        if (!provinceData.length) return;
-
-        // Load saved groups from Firestore (once per session)
-        if (!state._provinceGroupsLoaded) {
-            state.provinceGroups = await loadProvinceGroups();
+        // Step 1: Load locked assignments from DB (source of truth)
+        if (!state._dbAssignmentsLoaded) {
+            const dbAssignments = await loadAssignmentsFromDB();
+            // Apply DB assignments to provinceGroups (for province items)
+            for (const [orderNumber, groupName] of Object.entries(dbAssignments)) {
+                if (groupName === 'tomato' || groupName === 'nap') {
+                    state.provinceGroups[orderNumber] = groupName;
+                }
+            }
+            state.dbAssignments = dbAssignments;
+            state._dbAssignmentsLoaded = true;
             state._provinceGroupsLoaded = true;
         }
 
-        // Find items without group assignment
-        const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
+        // Step 2: Fallback to Firestore for any province items not in DB
+        if (!state._provinceGroupsLoaded) {
+            const firestoreGroups = await loadProvinceGroups();
+            for (const [key, val] of Object.entries(firestoreGroups)) {
+                if (!state.provinceGroups[key]) {
+                    state.provinceGroups[key] = val;
+                }
+            }
+            state._provinceGroupsLoaded = true;
+        }
 
+        // Step 3: Assign TOMATO/NAP for truly new province items
+        const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, state.provinceGroups);
-            // Only save the newly assigned keys to avoid overwriting existing assignments
             const newKeys = unassigned.map(item => item.Number);
             await saveProvinceGroups(state.provinceGroups, newKeys);
+        }
+
+        // Step 4: Build full assignment list for ALL items (not just province)
+        // and save new ones to DB
+        const itemsToSave = [];
+        const allGroups = {};
+        for (const item of allData) {
+            const group = getItemGroup(item);
+            allGroups[item.Number] = group;
+            // Only save items NOT already in DB
+            if (!state.dbAssignments[item.Number]) {
+                itemsToSave.push(item);
+            }
+        }
+
+        // Step 5: Save new assignments to DB (ON CONFLICT DO NOTHING)
+        if (itemsToSave.length > 0) {
+            const result = await saveAssignmentsToDB(itemsToSave, allGroups);
+            // Update local state with what was actually saved
+            for (const item of itemsToSave) {
+                state.dbAssignments[item.Number] = allGroups[item.Number];
+            }
+            updateAssignmentStatus(Object.keys(state.dbAssignments).length - itemsToSave.length + (result.inserted || 0), result.inserted || 0);
+        } else {
+            updateAssignmentStatus(Object.keys(state.dbAssignments).length, 0);
+        }
+    }
+
+    function updateAssignmentStatus(lockedCount, newCount) {
+        const el = document.getElementById('drAssignmentStatus');
+        if (!el) return;
+        if (lockedCount > 0 || newCount > 0) {
+            const parts = [];
+            if (lockedCount > 0) parts.push(`<i class="fas fa-lock"></i> ${lockedCount} đã khóa`);
+            if (newCount > 0) parts.push(`<i class="fas fa-plus-circle"></i> ${newCount} mới`);
+            el.innerHTML = parts.join(' &middot; ');
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
         }
     }
 
