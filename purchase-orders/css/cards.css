@@ -111,17 +111,37 @@
     margin-top: 2px;
 }
 
-/* Card variants */
+/* Card color variants */
+.summary-card--blue .summary-card__icon {
+    background: hsl(217, 91%, 93%);
+    color: hsl(217, 91%, 50%);
+}
+.summary-card--green .summary-card__icon {
+    background: hsl(142, 76%, 92%);
+    color: hsl(142, 76%, 36%);
+}
+.summary-card--purple .summary-card__icon {
+    background: hsl(270, 60%, 93%);
+    color: hsl(270, 60%, 50%);
+}
+.summary-card--orange .summary-card__icon {
+    background: hsl(38, 92%, 92%);
+    color: hsl(38, 92%, 45%);
+}
+.summary-card--cyan .summary-card__icon {
+    background: hsl(190, 80%, 92%);
+    color: hsl(190, 80%, 35%);
+}
+
+/* Legacy variants */
 .summary-card--success .summary-card__icon {
     background: var(--color-success-light);
     color: var(--color-success);
 }
-
 .summary-card--warning .summary-card__icon {
     background: var(--color-warning-light);
     color: var(--color-warning);
 }
-
 .summary-card--info .summary-card__icon {
     background: var(--color-info-light);
     color: var(--color-info);

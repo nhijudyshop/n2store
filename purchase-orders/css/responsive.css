@@ -23,25 +23,12 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-    .main-content {
-        padding: var(--spacing-md);
-    }
-
-    .page-header {
-        flex-direction: column;
-        gap: var(--spacing-md);
-    }
-
-    .page-header__title {
-        font-size: 20px;
-    }
-
-    .page-header .btn {
-        width: 100%;
-    }
-
     .summary-cards {
         grid-template-columns: 1fr;
+    }
+
+    .tpos-stats__grid {
+        grid-template-columns: 1fr 1fr;
     }
 
     .tabs-nav {

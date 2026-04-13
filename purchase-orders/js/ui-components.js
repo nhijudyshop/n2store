@@ -598,8 +598,7 @@ class PurchaseOrderUIComponents {
                 // Outstanding debt (all open invoices)
                 window.TPOSClient.authenticatedFetch(
                     `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
-                    `?$top=999&$filter=(Type eq 'invoice' and State eq 'open')` +
-                    `&$select=Residual,AmountTotal`
+                    `?$top=999&$filter=(Type eq 'invoice' and State eq 'open')`
                 ).then(r => r.json())
             ]);
 
