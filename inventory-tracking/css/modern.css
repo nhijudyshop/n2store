@@ -675,119 +675,6 @@ body {
     min-height: 200px;
 }
 
-/* Date Group - Collapsible */
-.date-group {
-    background: white;
-    border: 1px solid var(--gray-200);
-    border-radius: var(--radius-lg);
-    margin-bottom: 16px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    transition: box-shadow 0.2s ease;
-}
-
-.date-group:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.date-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #ede9fe 100%);
-    border-left: 4px solid var(--primary);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.2s ease;
-}
-
-.date-group-header:hover {
-    background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #e0e7ff 100%);
-}
-
-.date-group-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    font-size: 1.4em;
-}
-
-.date-group-left > i {
-    width: 20px;
-    height: 20px;
-    color: var(--primary);
-    flex-shrink: 0;
-}
-
-.date-group-chevron {
-    transition: transform 0.25s ease;
-    transform: rotate(0deg);
-}
-
-.date-group:not(.collapsed) .date-group-chevron {
-    transform: rotate(90deg);
-}
-
-.date-group-date {
-    font-weight: 700;
-    color: var(--gray-800);
-}
-
-.date-group-separator {
-    color: var(--gray-400);
-    font-weight: 400;
-}
-
-.date-group-summary {
-    color: var(--gray-600);
-    font-weight: 500;
-}
-
-.date-group-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1.3em;
-}
-
-.date-group-count {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    background: var(--primary-light);
-    color: var(--primary);
-    border-radius: var(--radius);
-    font-weight: 600;
-    font-size: 0.85em;
-}
-
-.date-group-body {
-    border-top: 1px solid var(--gray-200);
-}
-
-.date-group-body.hidden {
-    display: none;
-}
-
-.date-group-body .shipment-card {
-    border-radius: 0;
-    border: none;
-    border-bottom: 1px solid var(--gray-100);
-    margin-bottom: 0;
-    box-shadow: none;
-}
-
-.date-group-body .shipment-card:last-child {
-    border-bottom: none;
-}
-
-.date-group-body .shipment-card:hover {
-    box-shadow: none;
-    background: var(--gray-50);
-}
-
 .shipment-card {
     background: white;
     border: 1px solid var(--gray-200);
@@ -811,6 +698,33 @@ body {
     background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #ede9fe 100%);
     border-left: 4px solid var(--info);
     border-bottom: 1px solid var(--gray-200);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.shipment-header:hover {
+    background: linear-gradient(135deg, #bae6fd 0%, #bfdbfe 50%, #ddd6fe 100%);
+}
+
+/* Chevron toggle icon */
+.shipment-chevron {
+    transition: transform 0.25s ease;
+    transform: rotate(0deg);
+}
+
+.shipment-card:not(.collapsed) .shipment-chevron {
+    transform: rotate(90deg);
+}
+
+/* Collapsed card: no bottom border on header */
+.shipment-card.collapsed .shipment-header {
+    border-bottom: none;
+}
+
+/* Hidden body */
+.shipment-body.hidden {
+    display: none;
 }
 
 /* Date and Packages Combined Header */
