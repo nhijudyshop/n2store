@@ -227,11 +227,30 @@ async function makeCall() {
 
   const options = {
     mediaConstraints: { audio: true, video: false },
-    pcConfig: { iceServers },
-    rtcOfferConstraints: { offerToReceiveAudio: true }
+    pcConfig: {
+      iceServers,
+      iceTransportPolicy: 'all'
+    },
+    rtcOfferConstraints: { offerToReceiveAudio: true },
+    sessionTimersExpires: 120
   };
 
+  addLog(`ICE servers: ${iceServers.length} entries`);
+
   const session = phone.call(`sip:${target}@${PBX_DOMAIN}`, options);
+
+  // Monitor ICE gathering — if stuck, log it
+  if (session.connection) {
+    session.connection.onicegatheringstatechange = () => {
+      addLog(`ICE gathering: ${session.connection.iceGatheringState}`);
+    };
+    // Force-complete ICE gathering after 5s if stuck
+    setTimeout(() => {
+      if (session.connection && session.connection.iceGatheringState !== 'complete') {
+        addLog('ICE gathering timeout 5s — check TURN servers', 'error');
+      }
+    }, 5000);
+  }
   handleSession(session);
 }
 
