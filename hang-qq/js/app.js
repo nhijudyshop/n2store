@@ -62,6 +62,7 @@
         cacheElements();
         bindEvents();
         initPasteSupport();
+        initMapImgModal();
         await loadData();
         renderAll();
     });
@@ -165,6 +166,7 @@
         $('#btnAdd').addEventListener('click', () => openModal());
         $('#btnImportExcel').addEventListener('click', () => openImportModal());
         $('#btnExport').addEventListener('click', exportToExcel);
+        $('#btnMapImages').addEventListener('click', () => openMapImgModal());
         $('#btnRefresh').addEventListener('click', async () => {
             await loadData();
             renderAll();
@@ -389,13 +391,22 @@
                 <div class="col-actions"></div>
             </div>`;
 
+            // Count STT for grouping highlight
+            const sttMap = {};
+            group.items.forEach(({ item }) => {
+                const s = (item.stt || '').trim();
+                if (s) sttMap[s] = (sttMap[s] || 0) + 1;
+            });
+
             group.items.forEach(({ item, globalIdx }) => {
                 const id = item.id;
                 const thieuVal = parseNum(item.thieu);
                 const cpVal = parseNum(item.chiPhi);
                 const slNhan = parseNum(item.slNhan);
+                const sttVal = (item.stt || '').trim();
+                const hasSttGroup = sttVal && sttMap[sttVal] > 1;
 
-                html += `<div class="dg-item ${item.done ? 'row-done' : ''}" data-id="${id}">
+                html += `<div class="dg-item ${item.done ? 'row-done' : ''} ${hasSttGroup ? 'stt-grouped' : ''}" data-id="${id}" data-stt="${escHtml(sttVal)}">
                     <div class="col-sl editable-cell" data-id="${id}" data-field="soLuong">${item.soLuong || ''}</div>
                     <div class="col-kg editable-cell" data-id="${id}" data-field="soKg">${item.soKg || ''}</div>
                     <div class="col-x"><input type="checkbox" class="done-check" data-id="${id}" ${item.done ? 'checked' : ''}></div>
@@ -1041,6 +1052,117 @@
         showToast('Đã xuất file Excel', 'success');
     }
 
+    // ===== Map Images by STT =====
+    let mapImgFiles = [];
+
+    function openMapImgModal() {
+        mapImgFiles = [];
+        $('#mapImgStt').value = '';
+        $('#mapImgPreview').innerHTML = '';
+        $('#mapImgMatches').innerHTML = '';
+        $('#mapImgOverlay').classList.add('active');
+        setTimeout(() => $('#mapImgStt').focus(), 250);
+    }
+
+    function closeMapImgModal() {
+        $('#mapImgOverlay').classList.remove('active');
+        mapImgFiles = [];
+    }
+
+    function initMapImgModal() {
+        $('#btnCloseMapImg').addEventListener('click', closeMapImgModal);
+        $('#btnCancelMapImg').addEventListener('click', closeMapImgModal);
+        $('#mapImgOverlay').addEventListener('click', (e) => {
+            if (e.target === $('#mapImgOverlay')) closeMapImgModal();
+        });
+
+        // File select
+        $('#mapImgFile').addEventListener('change', (e) => {
+            addMapImgFiles(Array.from(e.target.files));
+        });
+
+        // Show matching items on STT input
+        $('#mapImgStt').addEventListener('input', () => {
+            const stt = $('#mapImgStt').value.trim();
+            const matches = stt ? allData.filter((d) => String(d.stt).trim() === stt) : [];
+            const el = $('#mapImgMatches');
+            if (!stt) { el.innerHTML = ''; return; }
+            if (matches.length === 0) {
+                el.innerHTML = `<div class="map-img-matches-info">Không tìm thấy sản phẩm có STT "<strong>${escHtml(stt)}</strong>"</div>`;
+            } else {
+                el.innerHTML = `<div class="map-img-matches-info">Tìm thấy <strong>${matches.length}</strong> sản phẩm có STT "<strong>${escHtml(stt)}</strong>":</div>` +
+                    matches.map((m) => `<div style="font-size:12px;padding:4px 0;color:#0b1c30">• ${escHtml(m.moTa || '(trống)')} — ${formatDate(m.ngayDiHang)}</div>`).join('');
+            }
+        });
+
+        // Paste support
+        document.addEventListener('paste', (e) => {
+            if (!$('#mapImgOverlay').classList.contains('active')) return;
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            const files = [];
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const f = item.getAsFile();
+                    if (f) files.push(f);
+                }
+            }
+            if (files.length > 0) {
+                e.preventDefault();
+                addMapImgFiles(files);
+            }
+        });
+
+        // Save
+        $('#btnSaveMapImg').addEventListener('click', saveMapImages);
+    }
+
+    function addMapImgFiles(files) {
+        files.forEach((file) => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                mapImgFiles.push(ev.target.result);
+                renderMapImgPreview();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderMapImgPreview() {
+        $('#mapImgPreview').innerHTML = mapImgFiles.map((src, i) =>
+            `<div class="preview-item">
+                <img src="${src}" alt="Img ${i + 1}">
+                <button class="remove-img" onclick="HangQQ.removeMapImg(${i})">×</button>
+            </div>`
+        ).join('');
+    }
+
+    async function saveMapImages() {
+        const stt = $('#mapImgStt').value.trim();
+        if (!stt) { showToast('Nhập STT trước', 'error'); return; }
+        if (mapImgFiles.length === 0) { showToast('Chọn hình trước', 'error'); return; }
+
+        const matches = allData.filter((d) => String(d.stt).trim() === stt);
+        if (matches.length === 0) { showToast('Không tìm thấy STT: ' + stt, 'error'); return; }
+
+        let updated = 0;
+        for (const item of matches) {
+            const newImages = [...(item.productImages || []), ...mapImgFiles];
+            try {
+                await patchEntry(item.id, { productImages: newImages });
+                item.productImages = newImages;
+                updated++;
+            } catch (e) {
+                showToast('Lỗi gán hình id ' + item.id + ': ' + e.message, 'error');
+            }
+        }
+
+        saveToLocalStorage();
+        closeMapImgModal();
+        showToast(`Đã gán ${mapImgFiles.length} hình vào ${updated} sản phẩm (STT: ${stt})`, 'success');
+    }
+
     // ===== Utilities =====
     function parseNum(val) {
         if (val === null || val === undefined || val === '') return 0;
@@ -1126,6 +1248,7 @@
         },
         viewImg(src) { openImageViewer(src); },
         removeImg(type, idx) { removeImage(type, idx); },
+        removeMapImg(idx) { mapImgFiles.splice(idx, 1); renderMapImgPreview(); },
     };
 
     // FAB for mobile

@@ -29,10 +29,33 @@
     <div class="main-content" id="mainContent">
         <div class="hq-container">
 
-            <!-- Header (collapsible) -->
-            <div class="hq-top-toggle" id="topToggle">
-                <span class="material-symbols-outlined hq-toggle-arrow" id="topToggleArrow">expand_more</span>
-                <span class="hq-toggle-label">Hàng QQ</span>
+            <!-- Top bar: toggle + action buttons always visible -->
+            <div class="hq-topbar">
+                <div class="hq-top-toggle" id="topToggle">
+                    <span class="material-symbols-outlined hq-toggle-arrow" id="topToggleArrow">expand_more</span>
+                    <span class="hq-toggle-label">Hàng QQ</span>
+                </div>
+                <div class="hq-actions">
+                    <button class="hq-btn hq-btn-outline" id="btnExport">
+                        <span class="material-symbols-outlined">upload_file</span>
+                        <span>Xuất file</span>
+                    </button>
+                    <button class="hq-btn hq-btn-secondary" id="btnImportExcel">
+                        <span class="material-symbols-outlined">grid_on</span>
+                        <span>Import Excel</span>
+                    </button>
+                    <button class="hq-btn hq-btn-outline" id="btnMapImages" title="Gán hình theo STT">
+                        <span class="material-symbols-outlined">add_photo_alternate</span>
+                        <span>Gán hình</span>
+                    </button>
+                    <button class="hq-btn hq-btn-primary" id="btnAdd">
+                        <span class="material-symbols-outlined">add</span>
+                        <span>Thêm mới</span>
+                    </button>
+                    <button class="hq-btn hq-btn-icon" id="btnRefresh" title="Tải lại">
+                        <span class="material-symbols-outlined">refresh</span>
+                    </button>
+                </div>
             </div>
 
             <div class="hq-top-panel" id="topPanel" style="display:none">
@@ -40,23 +63,6 @@
                     <div>
                         <h2 class="hq-title">Quản lý hàng Hàng QQ</h2>
                         <p class="hq-subtitle">Quản lý hàng Hương Châu &bull; Theo dõi vận hành thời gian thực</p>
-                    </div>
-                    <div class="hq-actions">
-                        <button class="hq-btn hq-btn-outline" id="btnExport">
-                            <span class="material-symbols-outlined">upload_file</span>
-                            <span>Xuất file</span>
-                        </button>
-                        <button class="hq-btn hq-btn-secondary" id="btnImportExcel">
-                            <span class="material-symbols-outlined">grid_on</span>
-                            <span>Import Excel</span>
-                        </button>
-                        <button class="hq-btn hq-btn-primary" id="btnAdd">
-                            <span class="material-symbols-outlined">add</span>
-                            <span>Thêm mới</span>
-                        </button>
-                        <button class="hq-btn hq-btn-icon" id="btnRefresh" title="Tải lại">
-                            <span class="material-symbols-outlined">refresh</span>
-                        </button>
                     </div>
                 </header>
 
@@ -240,6 +246,41 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" id="btnCancelImport">Hủy</button>
                 <button class="btn hq-btn-secondary" id="btnConfirmImport" disabled>Import dữ liệu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Map Images by STT -->
+    <div class="modal-overlay" id="mapImgOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Gán hình theo STT</h2>
+                <button class="btn-close" id="btnCloseMapImg"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px">Nhập STT, chọn hoặc dán hình (Ctrl+V). Hình sẽ tự gán vào tất cả sản phẩm có cùng STT.</p>
+                <div class="map-img-form">
+                    <div class="map-img-row">
+                        <label>STT</label>
+                        <input type="text" id="mapImgStt" placeholder="VD: 43">
+                    </div>
+                    <div class="map-img-row">
+                        <label>Hình ảnh</label>
+                        <div class="image-upload" id="mapImgUpload">
+                            <input type="file" accept="image/*" id="mapImgFile" multiple>
+                            <div class="upload-placeholder">
+                                <span class="material-symbols-outlined" style="font-size:24px">add_photo_alternate</span>
+                                <span>Chọn hoặc Ctrl+V dán hình</span>
+                            </div>
+                            <div class="image-preview" id="mapImgPreview"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="mapImgMatches" style="margin-top:16px"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelMapImg">Hủy</button>
+                <button class="btn btn-primary" id="btnSaveMapImg">Gán hình</button>
             </div>
         </div>
     </div>
