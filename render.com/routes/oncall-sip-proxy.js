@@ -15,6 +15,21 @@ const PBX_PORT = parseInt(process.env.ONCALL_PBX_PORT || '9060', 10);
 // Track active WebSocket ↔ UDP socket pairs
 const activeSessions = new Map();
 
+// Debug log — recent SIP messages (ring buffer)
+const sipDebugLog = [];
+const MAX_DEBUG_LOG = 50;
+function logSip(direction, msg) {
+    const firstLine = msg.split('\r\n')[0] || msg.substring(0, 80);
+    const entry = {
+        time: new Date().toISOString(),
+        dir: direction,
+        first: firstLine,
+        full: msg.substring(0, 2000)
+    };
+    sipDebugLog.push(entry);
+    if (sipDebugLog.length > MAX_DEBUG_LOG) sipDebugLog.shift();
+}
+
 /**
  * Attach OnCallCX SIP proxy to existing WebSocket server
  * Filters connections by URL path: /api/oncall/ws
@@ -55,8 +70,11 @@ function attachSipProxy(server) {
             const sipResponse = msg.toString('utf8');
             console.log(`${MODULE} ← PBX (${rinfo.address}:${rinfo.port}): ${getFirstLine(sipResponse)}`);
 
+            logSip('← PBX', sipResponse);
+
             // Rewrite response: UDP → WSS (so JsSIP can match it)
             const rewrittenResponse = rewriteSipForWSS(sipResponse, lastOriginalVia);
+            logSip('← PBX (rewritten)', rewrittenResponse);
 
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(rewrittenResponse);
@@ -85,7 +103,9 @@ function attachSipProxy(server) {
             const viaMatch = sipMessage.match(/Via:\s*(.+)/i);
             if (viaMatch) lastOriginalVia = viaMatch[1].trim();
 
+            logSip('→ Browser RAW', sipMessage);
             const rewritten = rewriteSipForUDP(sipMessage, udpSocket);
+            logSip('→ PBX (rewritten)', rewritten);
 
             // Log first 3 lines of rewritten SIP for debugging
             const lines = rewritten.split('\r\n').slice(0, 4);
@@ -211,6 +231,14 @@ function createRouter() {
             status: 'ok',
             pbx: `${PBX_HOST}:${PBX_PORT}`,
             activeSessions: activeSessions.size
+        });
+    });
+
+    // Debug: recent SIP messages
+    router.get('/debug', (req, res) => {
+        res.json({
+            total: sipDebugLog.length,
+            messages: sipDebugLog.slice(-30)
         });
     });
 
