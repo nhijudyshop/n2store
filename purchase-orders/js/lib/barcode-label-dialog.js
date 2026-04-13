@@ -398,24 +398,32 @@ window.BarcodeLabelDialog = (function () {
      * Print via TPOS API — exact same PDF output as TPOS
      * Flow: POST save config → GET PDF binary → open in new tab
      */
+    /**
+     * Print via TPOS API — exact same PDF output as TPOS.
+     * Flow: POST save config (gets Id) → GET PDF binary → open in new tab.
+     * Verified from TPOS network capture:
+     *   POST /odata/BarcodeProductLabel → {Id:87480, BarcodeTemplateIds:[...]}
+     *   GET /BarcodeProductLabel/PrintBarcodePDF?id=87480 → PDF binary
+     */
     async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const fetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
+        const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
 
-        // Build Lines array with TPOS ProductId + Quantity
+        // Build Lines with TPOS ProductId (= ProductTemplate Id)
         const lines = items
             .filter(it => it.tposProductId)
             .map(it => ({ ProductId: it.tposProductId, Quantity: it.quantity }));
 
         if (!lines.length) throw new Error('No items with TPOS product ID');
 
-        // Step 1: Save barcode label config to TPOS
-        const saveResp = await fetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
+        // Step 1: Save barcode label config
+        // TPOS requires PriceListId=1 (not null), matches "Bảng giá mặc định"
+        const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8' },
             body: JSON.stringify({
                 PaperId: paper.id,
-                PriceListId: null,
+                PriceListId: 1,
                 ShowPrice: showPrice,
                 ShowBold: showBold,
                 ShowCurrency: showCurrency,
@@ -423,22 +431,26 @@ window.BarcodeLabelDialog = (function () {
                 Lines: lines
             })
         });
+
         const saveData = await saveResp.json();
         const labelId = saveData.Id;
-        if (!labelId) throw new Error('Failed to save label config: ' + JSON.stringify(saveData));
+        if (!labelId) {
+            console.error('[Barcode] TPOS save failed:', saveData);
+            throw new Error(saveData?.error?.message || 'TPOS save failed');
+        }
 
-        // Step 2: GET PDF binary from TPOS
-        const pdfResp = await fetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`, {
-            headers: { 'Accept': 'application/pdf' }
-        });
+        console.log('[Barcode] TPOS label saved, Id:', labelId);
+
+        // Step 2: GET PDF binary
+        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`);
 
         if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
 
         const pdfBlob = await pdfResp.blob();
-        const blobUrl = URL.createObjectURL(pdfBlob);
+        const blobUrl = URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' }));
         window.open(blobUrl, '_blank');
 
-        console.log('[Barcode] TPOS PDF generated, labelId:', labelId);
+        console.log('[Barcode] TPOS PDF opened, size:', pdfBlob.size);
     }
 
     function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
