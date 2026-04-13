@@ -933,9 +933,11 @@ body {
 .invoice-table .col-note { min-width: 100px; }
 
 /* Detail columns toggle (Mô tả & Chi tiết) */
-.invoice-table.detail-cols-hidden .col-desc,
-.invoice-table.detail-cols-hidden .col-colors {
-    display: none;
+.invoice-table.detail-cols-hidden th.col-desc,
+.invoice-table.detail-cols-hidden th.col-colors,
+.invoice-table.detail-cols-hidden td.col-desc,
+.invoice-table.detail-cols-hidden td.col-colors {
+    display: none !important;
 }
 
 .detail-toggle {
