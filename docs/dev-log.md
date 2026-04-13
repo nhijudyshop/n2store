@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-04-13
+
+### [render] Fix purchase-orders API 500 error — DB pool mismatch ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/purchase-orders.js` |
+| **Trước** | Dùng `const pool = require('../../db/pool')` — pool riêng không có fallback URL, gây 500 trên mọi endpoint |
+| **Sau** | Dùng `req.app.locals.chatDb` (shared pool từ server.js với fallback URL) — giống pattern của tất cả v2 routes khác |
+| **Status** | ✅ Done |
+
+### [orders] Tạo tài liệu TPOS FastPurchaseOrder + N2Store Architecture ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/docs/TPOS-FastPurchaseOrder-Analysis.md`, `purchase-orders/docs/N2Store-PurchaseOrders-Architecture.md` |
+| **Chi tiết** | Phân tích toàn diện 2 trang TPOS invoicelist/refundlist: 7 controllers, 30+ OData endpoints, entity model, state flow, report APIs, print templates. Tài liệu kiến trúc N2Store: 14 JS modules, data flows, window exports, backend API |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-12
 
 ### [orders] Chỉnh sửa sản phẩm đầy đủ trên Kho Sản Phẩm ✅
