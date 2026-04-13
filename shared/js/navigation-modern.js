@@ -3050,7 +3050,6 @@ class UnifiedNavigationManager {
         // Render + Firebase auto-pay → chỉ warning khi downgrade (check riêng via API)
         // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         const BILLING_SCHEDULE = [
-            { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
             { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
 
