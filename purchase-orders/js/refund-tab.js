@@ -11,6 +11,7 @@ window.PurchaseOrderRefunds = (function () {
 
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const PAGE_SIZE = 20;
+    const PRINT_URL = 'https://tomato.tpos.vn/FastPurchaseOrder/PrintRefund';
 
     let currentPage = 1;
     let totalCount = 0;
@@ -21,6 +22,7 @@ window.PurchaseOrderRefunds = (function () {
     let tableContainer = null;
     let paginationContainer = null;
     let filterContainer = null;
+    let summaryContainer = null;
 
     // Filter state
     let filterStartDate = null;
@@ -163,6 +165,7 @@ window.PurchaseOrderRefunds = (function () {
             const data = await response.json();
             totalCount = data['@odata.count'] || 0;
             currentData = data.value || [];
+            renderSummary(currentData);
             renderTable(currentData);
             renderPagination();
         } catch (error) {
@@ -178,10 +181,60 @@ window.PurchaseOrderRefunds = (function () {
         return new Intl.NumberFormat('vi-VN').format(value);
     }
 
+    function formatMoneyVND(value) {
+        if (!value && value !== 0) return '0 d';
+        return new Intl.NumberFormat('vi-VN').format(value) + ' \u0111';
+    }
+
+    function formatDateShort(isoStr) {
+        if (!isoStr) return '';
+        const d = new Date(isoStr);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
     function formatDate(isoStr) {
         if (!isoStr) return '';
         const d = new Date(isoStr);
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}\n${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function truncate(str, maxLen) {
+        if (!str) return '';
+        return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+    }
+
+    /**
+     * Render summary stats bar above the table
+     */
+    function renderSummary(items) {
+        // Remove old summary if exists
+        const existingSummary = document.getElementById('refundSummaryBar');
+        if (existingSummary) existingSummary.remove();
+
+        if (!tableContainer) return;
+
+        const pageTotal = (items || []).reduce((sum, item) => sum + (item.AmountTotal || 0), 0);
+
+        const summaryHtml = `
+            <div id="refundSummaryBar" class="refund-summary-bar" style="
+                display: flex; align-items: center; gap: 16px;
+                padding: 10px 16px; margin-bottom: 8px;
+                background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+                font-size: 13px; color: #991b1b;
+            ">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="undo-2" style="width: 16px; height: 16px;"></i>
+                    <strong>${totalCount}</strong> phi\u1EBFu tr\u1EA3
+                </span>
+                <span style="color: #b91c1c;">|</span>
+                <span>
+                    T\u1ED5ng trang n\u00E0y: <strong style="color: #dc2626;">${formatMoneyVND(pageTotal)}</strong>
+                </span>
+            </div>
+        `;
+
+        tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function renderTable(items) {
@@ -191,39 +244,50 @@ window.PurchaseOrderRefunds = (function () {
             tableContainer.innerHTML = `
                 <div class="table-empty">
                     <div class="table-empty__icon"><i data-lucide="undo-2"></i></div>
-                    <div class="table-empty__title">Không có phiếu trả hàng</div>
-                    <div class="table-empty__description">Không tìm thấy phiếu trả hàng NCC nào trong khoảng thời gian này</div>
+                    <div class="table-empty__title">Kh\u00F4ng c\u00F3 phi\u1EBFu tr\u1EA3 h\u00E0ng</div>
+                    <div class="table-empty__description">
+                        Kh\u00F4ng t\u00ECm th\u1EA5y phi\u1EBFu tr\u1EA3 h\u00E0ng NCC n\u00E0o trong kho\u1EA3ng th\u1EDDi gian n\u00E0y.<br>
+                        H\u00E3y th\u1EED thay \u0111\u1ED5i b\u1ED9 l\u1ECDc ng\u00E0y ho\u1EB7c tr\u1EA1ng th\u00E1i \u1EDF tr\u00EAn.
+                    </div>
                 </div>
             `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
 
+        const startIdx = (currentPage - 1) * PAGE_SIZE;
+
         const rows = items.map((item, idx) => {
-            const dateParts = formatDate(item.DateInvoice).split('\n');
+            const rowNum = startIdx + idx + 1;
             const isExpanded = !!expandedRows[item.Id];
             return `
                 <tr class="order-row ${idx === 0 ? 'order-row--first' : ''} ${isExpanded ? 'order-row--expanded' : ''}"
                     data-order-id="${item.Id}" style="border-top: ${idx > 0 ? '1px solid var(--color-border-light)' : 'none'}; cursor: pointer;">
+                    <td style="width: 36px; text-align: center; color: var(--color-text-muted); font-size: 12px;">${rowNum}</td>
+                    <td><span style="font-family: monospace; font-size: 13px;">${escapeHtml(item.Number || '')}</span></td>
                     <td>
                         <div class="cell-supplier">
-                            <span class="supplier-name">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                            <span class="supplier-name" title="${escapeHtml(item.PartnerDisplayName || '')}">${escapeHtml(truncate(item.PartnerDisplayName, 25))}</span>
                         </div>
                     </td>
                     <td>
-                        <div class="date-info">
-                            <span class="date-main">${dateParts[0] || ''}</span>
-                            <span class="date-time">${dateParts[1] || ''}</span>
-                        </div>
+                        <span style="font-size: 13px;">${formatDateShort(item.DateInvoice)}</span>
                     </td>
-                    <td><span style="font-family: monospace; font-size: 13px;">${escapeHtml(item.Number || '')}</span></td>
                     <td class="text-right"><span class="price-value" style="color: var(--color-danger);">-${formatMoney(item.AmountTotal)}</span></td>
                     <td>${renderState(item.ShowState, item.State)}</td>
+                    <td><span style="font-size: 12px; color: var(--color-text-muted);">${escapeHtml(item.Origin || '')}</span></td>
                     <td><span style="font-size: 13px;">${escapeHtml(item.UserName || '')}</span></td>
-                    <td><span style="font-size: 13px;">${escapeHtml(item.CompanyName || '')}</span></td>
+                    <td style="text-align: center;" onclick="event.stopPropagation();">
+                        <button class="btn-print-refund" data-id="${item.Id}" title="In phi\u1EBFu tr\u1EA3 h\u00E0ng"
+                                style="background: none; border: 1px solid var(--color-border); border-radius: 6px;
+                                       padding: 4px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+                                       font-size: 12px; color: var(--color-text-muted); transition: all 0.15s;">
+                            <i data-lucide="printer" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </td>
                 </tr>
                 <tr class="expand-row" id="refund-expand-${item.Id}" style="display: ${isExpanded ? 'table-row' : 'none'};">
-                    <td colspan="7" style="padding: 0; background: #fef2f2;">
+                    <td colspan="9" style="padding: 0; background: #fef2f2;">
                         <div class="expand-content" id="refund-expand-content-${item.Id}">
                             ${isExpanded ? renderExpandedContent(item.Id, item) : ''}
                         </div>
@@ -237,13 +301,15 @@ window.PurchaseOrderRefunds = (function () {
                 <table class="po-table">
                     <thead>
                         <tr>
-                            <th>Nhà cung cấp</th>
-                            <th style="width: 120px;">Ngày trả hàng</th>
-                            <th>Số phiếu</th>
-                            <th class="text-right">Số tiền trả</th>
-                            <th>Trạng thái</th>
-                            <th>Nhân viên</th>
-                            <th>Công ty</th>
+                            <th style="width: 36px;">#</th>
+                            <th>S\u1ED1 phi\u1EBFu</th>
+                            <th>NCC</th>
+                            <th style="width: 70px;">Ng\u00E0y</th>
+                            <th class="text-right">T\u1ED5ng ti\u1EC1n</th>
+                            <th>Tr\u1EA1ng th\u00E1i</th>
+                            <th>Phi\u1EBFu g\u1ED1c</th>
+                            <th>NV</th>
+                            <th style="width: 60px;">Thao t\u00E1c</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -253,9 +319,19 @@ window.PurchaseOrderRefunds = (function () {
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
+        // Row click to expand
         tableContainer.querySelectorAll('tr.order-row[data-order-id]').forEach(row => {
             row.addEventListener('click', () => {
                 toggleExpandRow(parseInt(row.dataset.orderId, 10));
+            });
+        });
+
+        // Print button click
+        tableContainer.querySelectorAll('.btn-print-refund').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                if (id) window.open(`${PRINT_URL}/${id}`, '_blank');
             });
         });
     }
@@ -275,7 +351,7 @@ window.PurchaseOrderRefunds = (function () {
 
         expandRow.style.display = 'table-row';
         mainRow?.classList.add('order-row--expanded');
-        contentDiv.innerHTML = '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Đang tải chi tiết...</div>';
+        contentDiv.innerHTML = '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">\u0110ang t\u1EA3i chi ti\u1EBFt...</div>';
 
         try {
             const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account`;
@@ -287,14 +363,14 @@ window.PurchaseOrderRefunds = (function () {
             contentDiv.innerHTML = renderExpandedContent(orderId, currentData.find(d => d.Id === orderId), lines);
         } catch (error) {
             console.error('[Refunds] Expand failed:', error);
-            contentDiv.innerHTML = `<div style="padding: 12px 16px; color: var(--color-danger); font-size: 13px;">Lỗi: ${escapeHtml(error.message)}</div>`;
+            contentDiv.innerHTML = `<div style="padding: 12px 16px; color: var(--color-danger); font-size: 13px;">L\u1ED7i: ${escapeHtml(error.message)}</div>`;
         }
     }
 
     function renderExpandedContent(orderId, item, lines) {
         if (!lines) lines = expandedRows[orderId];
         if (!lines || lines.length === 0) {
-            return '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Không có chi tiết sản phẩm</div>';
+            return '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Kh\u00F4ng c\u00F3 chi ti\u1EBFt s\u1EA3n ph\u1EA9m</div>';
         }
 
         const lineRows = lines.map((line, idx) => `
@@ -312,22 +388,23 @@ window.PurchaseOrderRefunds = (function () {
         return `
             <div style="padding: 8px 16px 12px;">
                 <div style="font-size: 12px; color: #991b1b; margin-bottom: 8px; font-weight: 600;">
-                    Phiếu trả hàng — ${escapeHtml(item?.PartnerDisplayName || '')}
+                    Phi\u1EBFu tr\u1EA3 h\u00E0ng \u2014 ${escapeHtml(item?.PartnerDisplayName || '')}
+                    ${item?.Origin ? `<span style="font-weight: 400; margin-left: 8px;">(G\u1ED1c: ${escapeHtml(item.Origin)})</span>` : ''}
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="background: #fecaca; font-weight: 600;">
                             <th style="padding: 6px 8px; text-align: center; width: 40px;">STT</th>
-                            <th style="padding: 6px 8px; text-align: left;">Sản phẩm</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 80px;">Số lượng</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 120px;">Đơn giá</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 120px;">Tổng</th>
+                            <th style="padding: 6px 8px; text-align: left;">S\u1EA3n ph\u1EA9m</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 80px;">S\u1ED1 l\u01B0\u1EE3ng</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 120px;">\u0110\u01A1n gi\u00E1</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 120px;">T\u1ED5ng</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${lineRows}
                         <tr style="border-top: 1px solid #fecaca;">
-                            <td colspan="4" style="padding: 6px 8px; text-align: right; font-weight: 600;">Tổng tiền trả:</td>
+                            <td colspan="4" style="padding: 6px 8px; text-align: right; font-weight: 600;">T\u1ED5ng ti\u1EC1n tr\u1EA3:</td>
                             <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #dc2626;">${formatMoney(totalAmount)}</td>
                         </tr>
                     </tbody>
@@ -338,12 +415,12 @@ window.PurchaseOrderRefunds = (function () {
 
     function renderState(showState, state) {
         const colors = {
-            'open': { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
-            'paid': { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
+            'open': { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
+            'paid': { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
             'draft': { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
             'cancel': { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }
         };
-        const c = colors[state] || colors['open'];
+        const c = colors[state] || colors['draft'];
         return `<span class="status-badge" style="background: ${c.bg}; color: ${c.text}; border: 1px solid ${c.border};">${escapeHtml(showState || state || '')}</span>`;
     }
 
@@ -358,7 +435,7 @@ window.PurchaseOrderRefunds = (function () {
 
         paginationContainer.innerHTML = `
             <div class="pagination">
-                <div class="pagination__info">Hiển thị ${startItem} - ${endItem} trong ${totalCount} phiếu trả hàng</div>
+                <div class="pagination__info">Hi\u1EC3n th\u1ECB ${startItem} - ${endItem} trong ${totalCount} phi\u1EBFu tr\u1EA3 h\u00E0ng</div>
                 <div class="pagination__controls">
                     ${totalPages > 1 ? `
                         <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>
@@ -402,10 +479,14 @@ window.PurchaseOrderRefunds = (function () {
 
     function renderLoading() {
         if (!tableContainer) return;
+        // Remove summary bar when loading
+        const existingSummary = document.getElementById('refundSummaryBar');
+        if (existingSummary) existingSummary.remove();
+
         tableContainer.innerHTML = `
             <div class="loading-state">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Đang tải phiếu trả hàng...</div>
+                <div class="loading-text">\u0110ang t\u1EA3i phi\u1EBFu tr\u1EA3 h\u00E0ng...</div>
             </div>
         `;
         if (paginationContainer) paginationContainer.innerHTML = '';
@@ -413,13 +494,17 @@ window.PurchaseOrderRefunds = (function () {
 
     function renderError(message) {
         if (!tableContainer) return;
+        // Remove summary bar on error
+        const existingSummary = document.getElementById('refundSummaryBar');
+        if (existingSummary) existingSummary.remove();
+
         tableContainer.innerHTML = `
             <div class="error-state">
                 <div class="error-state__icon"><i data-lucide="alert-circle"></i></div>
-                <div class="error-state__title">Không thể tải dữ liệu</div>
+                <div class="error-state__title">Kh\u00F4ng th\u1EC3 t\u1EA3i d\u1EEF li\u1EC7u</div>
                 <div class="error-state__description">${escapeHtml(message)}</div>
                 <button class="btn btn-outline" onclick="window.PurchaseOrderRefunds.reload()">
-                    <i data-lucide="refresh-cw"></i> Thử lại
+                    <i data-lucide="refresh-cw"></i> Th\u1EED l\u1EA1i
                 </button>
             </div>
         `;
@@ -430,7 +515,7 @@ window.PurchaseOrderRefunds = (function () {
         if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
             return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
         }
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
     }
 
     function encodeODataString(str) { return str.replace(/'/g, "''"); }
@@ -449,6 +534,9 @@ window.PurchaseOrderRefunds = (function () {
         searchTerm = '';
         filterState = '';
         Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
+        // Remove summary bar
+        const existingSummary = document.getElementById('refundSummaryBar');
+        if (existingSummary) existingSummary.remove();
     }
 
     return { init, destroy, reload };
