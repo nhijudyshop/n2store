@@ -444,20 +444,20 @@ window.BarcodeLabelDialog = (function () {
                 const labelStyle = labelStyleParts.join(';') + ';';
 
                 if (printType === 'new') {
-                    // TPOS Template: /BarcodeProductLabel/PrintNew
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0"><tr style="text-align:center;"><td style="width:50%; text-align:center; vertical-align:middle"><div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}</td><td style="width:50%; text-align:center; vertical-align:middle;"><div class="barcode-image" style="width:100%; padding:2px">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
+                    // PrintNew — 2-column table
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // TPOS Template: /BarcodeProductLabel/Print (Default)
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}text-align: center;margin-top:1px">`;
+                    // Default — vertical: name → barcode → code → price (matching TPOS PDF)
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}">${escapeHtml(label.name)}</div>`;
                     }
                     if (!hideBarcode && label.code) {
                         sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    sheetsHTML += `<div class="barcode-code">${escapeHtml(label.code)}</div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>`;
+                        sheetsHTML += `<div class="barcode-price">${displayPrice}${currencyStr}</div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
@@ -477,78 +477,61 @@ window.BarcodeLabelDialog = (function () {
 <html>
 <head>
 <style>
-/* === TPOS /Content/print_barcode.css — COMPLETE, UNMODIFIED === */
-* {
-    box-sizing: border-box;
-}
-
-@page {
-    margin: 0 !important;
-}
-
+/*
+ * Barcode label CSS — matched to TPOS actual PDF output (verified from PDF render).
+ * Font: 'Times New Roman' (TPOS PDF renders serif, not Arial as CSS states).
+ * Barcode image: fills available vertical space.
+ * Layout: 2 labels side by side on 66mm × 21mm sheet.
+ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: ${sheetW}mm ${sheetH}mm; margin: 0 !important; }
 html, body {
     padding: 0 !important;
     margin: 0 !important;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: bold;
 }
-
 .barcode-sheet {
+    width: ${sheetW}mm;
+    height: ${sheetH}mm;
     page-break-after: always;
+    display: flex;
+    overflow: hidden;
 }
-
-.barcodeCustom-sheet {
-    page-break-after: always;
-}
-
+.barcode-sheet:last-child { page-break-after: auto; }
 .barcode_label {
     box-sizing: border-box;
     text-align: center;
-    float: left;
-    display: flex;
-    flex-flow: column;
-    overflow: hidden;
-    font-size: 10px;
-    padding: 5px;
-    line-height: 10px;
-}
-
-.barcodeCustom_label {
-    box-sizing: border-box;
-    text-align: left;
-    display: flex;
-    overflow: hidden;
-    font-size: 5px;
-}
-
-.barcode_label div {
-    flex: 1 auto;
-}
-
-.barcodeCustom_label div {
-    flex: 1 auto;
-    font-size: 5px;
-    line-height: 5px;
-}
-
-.barcode-image img {
-    width: 100%;
-    height: 25px;
-}
-
-.fill-height-flex {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
 }
-
-.fill-height-flex > div {
+.barcode-pname {
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.barcode-image {
     flex: 1;
     display: flex;
+    align-items: center;
     justify-content: center;
-    flex-direction: column;
+    min-height: 0;
 }
-/* === END TPOS CSS === */
+.barcode-image img {
+    width: 90%;
+    height: 100%;
+    max-height: 8mm;
+    object-fit: contain;
+}
+.barcode-code { font-weight: bold; }
+.barcode-price { font-weight: bold; }
 
-/* Screen preview only (not printed) */
+/* Screen preview */
 @media screen {
     body {
         background: #e5e7eb;
@@ -563,6 +546,9 @@ html, body {
         box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         border: 1px solid #ccc;
     }
+}
+@media print {
+    body { background: none; }
 }
 </style>
 </head>
