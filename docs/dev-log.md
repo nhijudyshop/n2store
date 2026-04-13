@@ -8,6 +8,14 @@
 
 ## 2026-04-13
 
+### [issue-tracking] Fix "Mã ticket: undefined" trong alert duplicate BOOM/FIX_COD ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js` |
+| **Trước** | Alert hiển thị `existingBoom.code` / `existingFixCod.code` — property không tồn tại → "undefined" |
+| **Sau** | Sửa thành `existingBoom.ticketCode` / `existingFixCod.ticketCode` — đúng property từ API |
+| **Status** | ✅ Done |
+
 ### [render] Fix purchase-orders API 500 error — DB pool mismatch ✅
 | | |
 |---|---|
