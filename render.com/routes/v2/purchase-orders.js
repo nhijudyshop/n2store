@@ -20,8 +20,12 @@
 
 const express = require('express');
 const router = express.Router();
-const pool = require('../../db/pool');
 const { v4: uuidv4 } = require('uuid');
+
+// Use shared DB pool from app.locals (same as all other v2 routes)
+function getDb(req) {
+    return req.app.locals.chatDb;
+}
 
 // ========================================
 // HELPERS
@@ -87,6 +91,7 @@ function toSnakeOrder(row) {
 // ========================================
 router.get('/stats', async (req, res) => {
     try {
+        const pool = getDb(req);
         const result = await pool.query(`
             SELECT
                 status,
@@ -153,6 +158,7 @@ router.get('/stats', async (req, res) => {
 // ========================================
 router.get('/', async (req, res) => {
     try {
+        const pool = getDb(req);
         const {
             status,
             page = 1,
@@ -259,6 +265,7 @@ router.get('/', async (req, res) => {
 // ========================================
 router.get('/:id', async (req, res) => {
     try {
+        const pool = getDb(req);
         const result = await pool.query('SELECT * FROM purchase_orders WHERE id = $1', [req.params.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
@@ -275,6 +282,7 @@ router.get('/:id', async (req, res) => {
 // ========================================
 router.post('/generate-number', async (req, res) => {
     try {
+        const pool = getDb(req);
         const today = new Date();
         const datePrefix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
         const pattern = `PO-${datePrefix}-%`;
@@ -310,6 +318,7 @@ router.post('/generate-number', async (req, res) => {
 // ========================================
 router.post('/', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const data = req.body;
 
@@ -423,6 +432,7 @@ router.post('/', async (req, res) => {
 // ========================================
 router.put('/:id', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const data = req.body;
         const orderId = req.params.id;
@@ -513,6 +523,7 @@ router.put('/:id', async (req, res) => {
 // ========================================
 router.patch('/:id/status', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const { status: newStatus, reason } = req.body;
         const orderId = req.params.id;
@@ -553,6 +564,7 @@ router.patch('/:id/status', async (req, res) => {
 // ========================================
 router.delete('/:id', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const orderId = req.params.id;
 
@@ -591,6 +603,7 @@ router.delete('/:id', async (req, res) => {
 // ========================================
 router.post('/:id/restore', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const orderId = req.params.id;
 
@@ -635,6 +648,7 @@ router.post('/:id/restore', async (req, res) => {
 // ========================================
 router.delete('/:id/permanent', async (req, res) => {
     try {
+        const pool = getDb(req);
         const orderId = req.params.id;
 
         const existing = await pool.query('SELECT status FROM purchase_orders WHERE id = $1', [orderId]);
@@ -659,6 +673,7 @@ router.delete('/:id/permanent', async (req, res) => {
 // ========================================
 router.post('/:id/copy', async (req, res) => {
     try {
+        const pool = getDb(req);
         const user = getUserFromHeaders(req);
         const orderId = req.params.id;
 
@@ -760,6 +775,7 @@ router.post('/:id/copy', async (req, res) => {
 // ========================================
 router.post('/cleanup-trash', async (req, res) => {
     try {
+        const pool = getDb(req);
         const { retentionDays = 30 } = req.body;
 
         const result = await pool.query(
