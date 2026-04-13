@@ -1473,6 +1473,27 @@ body {
     border-bottom: 1px solid var(--gray-200);
 }
 
+/* Collapsible form sections */
+.form-section-collapsible .section-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+.form-section-collapsible .toggle-arrow {
+    margin-left: auto;
+    transition: transform 0.2s;
+}
+.form-section-collapsible.collapsed .toggle-arrow {
+    transform: rotate(-90deg);
+}
+.form-section-collapsible.collapsed .section-body {
+    display: none;
+}
+.form-section-collapsible.collapsed .section-toggle {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
 .form-section h4 i {
     width: 18px;
     height: 18px;

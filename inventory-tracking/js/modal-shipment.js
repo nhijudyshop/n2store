@@ -40,7 +40,8 @@ function openShipmentModal(shipment = null) {
  */
 function renderShipmentForm(shipment) {
     const isEdit = !!shipment;
-    const date = shipment?.ngayDiHang || new Date().toISOString().split('T')[0];
+    const cachedDate = localStorage.getItem('lastShipmentDate');
+    const date = shipment?.ngayDiHang || cachedDate || new Date().toISOString().split('T')[0];
     const packages = shipment?.kienHang || [];
     const invoices = shipment?.hoaDon || [];
     const costs = shipment?.chiPhiHangVe || [];
@@ -57,14 +58,19 @@ function renderShipmentForm(shipment) {
             <input type="date" id="shipmentDate" class="form-input" value="${date}">
         </div>
 
-        <div class="form-section">
-            <h4><i data-lucide="box"></i> Kiện Hàng</h4>
-            <div class="form-group">
-                <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
-                <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
-                <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
+        <div class="form-section form-section-collapsible ${isEdit || packagesString ? '' : 'collapsed'}">
+            <h4 class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                <i data-lucide="box"></i> Kiện Hàng
+                <i data-lucide="chevron-down" class="toggle-arrow"></i>
+            </h4>
+            <div class="section-body">
+                <div class="form-group">
+                    <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
+                    <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
+                    <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
+                </div>
+                <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
             </div>
-            <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
         </div>
 
         <div class="form-section">
@@ -541,6 +547,9 @@ async function saveShipment() {
             window.notificationManager?.warning('Vui lòng chọn ngày đi hàng');
             return;
         }
+
+        // Cache date for next time
+        localStorage.setItem('lastShipmentDate', ngayDiHang);
 
         // Collect packages from single input
         const packagesInput = document.getElementById('packagesInput');
