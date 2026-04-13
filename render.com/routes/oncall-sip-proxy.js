@@ -75,12 +75,18 @@ function attachSipProxy(server) {
 
             // Rewrite Via header to include our UDP socket's address
             // (PBX needs to know where to send responses)
-            const rewritten = rewriteViaHeader(sipMessage, udpSocket);
+            const rewritten = rewriteSipForUDP(sipMessage, udpSocket);
+
+            // Log first 3 lines of rewritten SIP for debugging
+            const lines = rewritten.split('\r\n').slice(0, 4);
+            console.log(`${MODULE} Rewritten SIP:`, lines.join(' | '));
 
             const buffer = Buffer.from(rewritten, 'utf8');
             udpSocket.send(buffer, 0, buffer.length, PBX_PORT, PBX_HOST, (err) => {
                 if (err) {
                     console.error(`${MODULE} UDP send error:`, err.message);
+                } else {
+                    console.log(`${MODULE} UDP sent ${buffer.length} bytes to ${PBX_HOST}:${PBX_PORT}`);
                 }
             });
         });
@@ -103,23 +109,36 @@ function attachSipProxy(server) {
 }
 
 /**
- * Rewrite SIP Via header to use the UDP socket's actual address
- * This ensures PBX sends responses back to our UDP socket
+ * Rewrite SIP headers for WSS→UDP proxy
+ * - Via: WSS → UDP, replace .invalid domain, add rport
+ * - Contact: replace ws transport with udp
  */
-function rewriteViaHeader(sipMessage, udpSocket) {
-    // JsSIP sends Via with WebSocket transport. We need to keep it as-is
-    // because the PBX needs to respond. The key is that our UDP socket
-    // will receive the response and forward it back via WSS.
-    //
-    // For SIP-over-UDP, the PBX uses the source IP:port of the UDP packet
-    // to send responses (rport mechanism). So we don't need to rewrite Via.
-    //
-    // However, if the SIP message has "transport=ws" in Via, the PBX won't
-    // understand it. We need to change transport to UDP.
-    return sipMessage.replace(
-        /Via:\s*SIP\/2\.0\/WS/gi,
-        'Via: SIP/2.0/UDP'
+function rewriteSipForUDP(sipMessage, udpSocket) {
+    let msg = sipMessage;
+
+    // 1. Via: SIP/2.0/WSS ... → SIP/2.0/UDP with rport
+    //    JsSIP sends: Via: SIP/2.0/WSS 19de78edhvof.invalid;branch=z9hG4bK...
+    //    PBX needs:   Via: SIP/2.0/UDP {some-ip};rport;branch=z9hG4bK...
+    msg = msg.replace(
+        /Via:\s*SIP\/2\.0\/WSS?\s+[^\s;]+/gi,
+        `Via: SIP/2.0/UDP ${PBX_HOST};rport`
     );
+
+    // Ensure rport is present (PBX uses source IP:port to respond)
+    if (msg.includes('Via: SIP/2.0/UDP') && !msg.includes('rport')) {
+        msg = msg.replace(
+            /Via:\s*SIP\/2\.0\/UDP\s+([^\r\n]+)/i,
+            'Via: SIP/2.0/UDP $1;rport'
+        );
+    }
+
+    // 2. Contact: replace transport=ws/wss with nothing (default = UDP)
+    msg = msg.replace(/;transport=wss?/gi, '');
+
+    // 3. Contact: replace .invalid domain with PBX domain
+    msg = msg.replace(/[a-z0-9]+\.invalid/gi, PBX_HOST);
+
+    return msg;
 }
 
 /**
