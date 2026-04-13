@@ -1292,7 +1292,10 @@
     function unscanAllTab() {
         if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         const tabData = getTabFilteredData();
-        tabData.forEach(item => {
+        const scannedInTab = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number));
+        if (scannedInTab.length === 0) return;
+        if (!confirm(`⚠️ Xóa tất cả ${scannedInTab.length} đơn đã quét?\n\nHành động này KHÔNG THỂ hoàn tác!`)) return;
+        scannedInTab.forEach(item => {
             DeliveryReportState.scannedNumbers.delete(item.Number);
         });
         saveScannedNumbers();
