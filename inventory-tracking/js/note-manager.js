@@ -137,59 +137,64 @@ const NoteManager = {
     showImgTooltip(event, key) {
         const urls = this._imgCache[key];
         if (!urls || urls.length === 0) return;
-        this.showTooltip(event, urls);
+
+        const el = this._tooltipEl;
+        if (!el) return;
+
+        el.innerHTML = urls.map(u => '<img src="' + u + '">').join('');
+        el.style.display = 'block';
+
+        // Position near the icon, above it if possible
+        const rect = event.currentTarget.getBoundingClientRect();
+        const tooltipW = 300;
+        const tooltipH = 220;
+        let x = rect.left;
+        let y = rect.top - tooltipH - 8;
+        // If goes above viewport, show below
+        if (y < 8) y = rect.bottom + 8;
+        // Keep within viewport horizontally
+        if (x + tooltipW > window.innerWidth - 8) x = window.innerWidth - tooltipW - 8;
+        if (x < 8) x = 8;
+
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+    },
+
+    hideTooltip() {
+        if (this._tooltipEl) this._tooltipEl.style.display = 'none';
     },
 
     openImgLightbox(key) {
         const urls = this._imgCache[key];
         if (!urls || urls.length === 0) return;
-        this.openLightbox(urls[0]);
-    },
-
-    showTooltip(event, urls) {
-        const el = this._tooltipEl;
-        if (!el) return;
-        const list = Array.isArray(urls) ? urls : [urls];
-        el.innerHTML = list.map(u => '<img src="' + u + '">').join('');
-        el.style.display = 'block';
-        this._positionTooltip(event);
-        // Track mouse
-        const target = event.currentTarget || event.target;
-        target._tooltipMove = (e) => this._positionTooltip(e);
-        event.target.addEventListener('mousemove', event.target._tooltipMove);
-    },
-
-    hideTooltip() {
-        if (this._tooltipEl) this._tooltipEl.style.display = 'none';
-        // Clean up mousemove
-        document.querySelectorAll('.note-img-icon').forEach(t => {
-            if (t._tooltipMove) {
-                t.removeEventListener('mousemove', t._tooltipMove);
-                delete t._tooltipMove;
-            }
-        });
-    },
-
-    _positionTooltip(event) {
-        const el = this._tooltipEl;
-        if (!el) return;
-        const x = Math.min(event.clientX + 12, window.innerWidth - 320);
-        const y = Math.min(event.clientY + 12, window.innerHeight - 320);
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
+        this._showLightbox(urls[0]);
     },
 
     // ==================== LIGHTBOX ====================
 
-    openLightbox(url) {
+    _showLightbox(url) {
+        // Remove existing lightbox if any
+        document.getElementById('noteLightbox')?.remove();
+
         const overlay = document.createElement('div');
-        overlay.className = 'note-lightbox';
-        overlay.innerHTML = '<img src="' + url + '"><button class="note-lightbox-close">&times;</button>';
-        overlay.onclick = (e) => {
-            if (e.target === overlay || e.target.classList.contains('note-lightbox-close')) {
+        overlay.id = 'noteLightbox';
+        overlay.innerHTML = '<div class="note-lightbox-bg"></div>' +
+            '<img class="note-lightbox-img" src="' + url + '">' +
+            '<button class="note-lightbox-close">&times;</button>';
+
+        // Close on click anywhere except image
+        overlay.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('note-lightbox-img')) {
                 overlay.remove();
             }
+        });
+
+        // Close on Escape
+        const escHandler = (e) => {
+            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
         };
+        document.addEventListener('keydown', escHandler);
+
         document.body.appendChild(overlay);
     },
 

@@ -3285,18 +3285,24 @@ body {
     border-radius: 4px;
 }
 
-/* Lightbox */
-.note-lightbox {
+/* Lightbox — id-based for specificity */
+#noteLightbox {
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     z-index: 10000;
-    background: rgba(0,0,0,0.85);
     display: flex;
     align-items: center;
     justify-content: center;
+}
+.note-lightbox-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
     cursor: pointer;
 }
-.note-lightbox img {
+.note-lightbox-img {
+    position: relative;
+    z-index: 1;
     max-width: 90vw;
     max-height: 90vh;
     object-fit: contain;
@@ -3305,6 +3311,7 @@ body {
 }
 .note-lightbox-close {
     position: absolute;
+    z-index: 2;
     top: 16px; right: 16px;
     width: 40px; height: 40px;
     border-radius: 50%;
