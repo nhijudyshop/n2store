@@ -1106,6 +1106,34 @@ body {font-size: 14px;
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
 
+/* Detail columns toggle (Mô tả & Chi tiết) */
+.invoice-table.detail-cols-hidden th.col-desc,
+.invoice-table.detail-cols-hidden th.col-colors,
+.invoice-table.detail-cols-hidden td.col-desc,
+.invoice-table.detail-cols-hidden td.col-colors {
+    display: none !important;
+}
+
+.detail-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--gray-500);
+    vertical-align: middle;
+    margin-left: 4px;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.detail-toggle:hover {
+    background-color: var(--gray-200);
+    color: var(--gray-700);
+}
+
 /* Alternating colors by INVOICE (not by row) */
 .invoice-table tbody tr.invoice-even {
     background-color: white;
