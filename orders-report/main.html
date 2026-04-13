@@ -226,8 +226,8 @@
         <style>
             /* Tab Navigation */
             .tab-navigation {
-                background: white;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                background: var(--ds-surface, white);
+                border-bottom: 1px solid var(--ds-border, #e5e7eb);
                 position: sticky;
                 top: 0;
                 z-index: 100;
@@ -236,19 +236,19 @@
             .tab-nav-content {
                 display: flex;
                 gap: 0;
-                padding: 0 var(--spacing-xl);
+                padding: 0 var(--ds-space-5, 20px);
             }
 
             .tab-button {
-                padding: 16px 24px;
+                padding: 14px 20px;
                 background: none;
                 border: none;
-                color: var(--text-secondary);
-                font-size: 15px;
+                color: var(--ds-text-secondary, #6b7280);
+                font-size: var(--ds-text-sm, 13px);
                 font-weight: 500;
                 cursor: pointer;
                 position: relative;
-                transition: all 0.2s;
+                transition: color 150ms ease;
                 display: flex;
                 align-items: center;
                 gap: 8px;
