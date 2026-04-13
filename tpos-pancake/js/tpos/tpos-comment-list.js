@@ -402,6 +402,7 @@ const TposCommentList = {
         const partner = state.partnerCache.get(fromId) || {};
         const statusText = partner.StatusText || '';
         const statusColor = this.getStatusColor(statusText);
+        const statusBg = statusColor ? `${statusColor}18` : '';
         const phone = partner.Phone || '';
         const address = partner.Street || '';
 
@@ -450,7 +451,7 @@ const TposCommentList = {
                     <div class="tpos-conv-message">${SharedUtils.escapeHtml(message)}</div>
                     <div class="tpos-conv-info" onclick="event.stopPropagation();">
                         <div class="inline-status-container">
-                            <button id="status-btn-${fromId}" class="tpos-filter-select" style="padding:3px 8px;font-size:11px;min-width:auto;${statusColor ? `color:${statusColor};font-weight:600;` : ''}"
+                            <button id="status-btn-${fromId}" class="tpos-filter-select" style="padding:3px 8px;font-size:11px;min-width:auto;border-radius:4px;${statusColor ? `color:${statusColor};font-weight:600;background:${statusBg};border-color:${statusColor}40;` : ''}"
                                 onclick="event.stopPropagation(); TposCommentList.toggleInlineStatusDropdown('${fromId}')">
                                 <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span> ▾
                             </button>
@@ -575,6 +576,8 @@ const TposCommentList = {
         if (statusBtn) {
             statusBtn.style.color = color || '';
             statusBtn.style.fontWeight = color ? '600' : '';
+            statusBtn.style.background = color ? `${color}18` : '';
+            statusBtn.style.borderColor = color ? `${color}40` : '';
         }
 
         // Get partner from cache
