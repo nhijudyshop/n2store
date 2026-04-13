@@ -461,9 +461,13 @@
             });
         });
 
-        // Bind inline edit
+        // Bind inline edit — single click to edit
         listEl.querySelectorAll('.editable-cell').forEach((cell) => {
-            cell.addEventListener('dblclick', () => startInlineEdit(cell));
+            cell.addEventListener('click', (e) => {
+                // Don't trigger if clicking inside an existing input
+                if (e.target.closest('.inline-input')) return;
+                startInlineEdit(cell);
+            });
         });
 
         // Bind done checkboxes
@@ -471,9 +475,9 @@
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
 
-        // Bind STT: hover preview + click gallery
+        // Bind STT: hover preview + dblclick gallery
         listEl.querySelectorAll('.col-stt.has-img').forEach((cell) => {
-            cell.addEventListener('click', (e) => {
+            cell.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 hideSttPreview();
                 openImageGallery(cell.dataset.id);
