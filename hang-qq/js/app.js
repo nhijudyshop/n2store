@@ -461,29 +461,32 @@
             });
         });
 
-        // Bind inline edit — single click to edit
+        // Bind inline edit — single click to edit (except STT with images)
         listEl.querySelectorAll('.editable-cell').forEach((cell) => {
+            if (cell.classList.contains('col-stt')) return; // STT handled separately
             cell.addEventListener('click', (e) => {
-                // Don't trigger if clicking inside an existing input
                 if (e.target.closest('.inline-input')) return;
                 startInlineEdit(cell);
             });
         });
 
-        // Bind done checkboxes
-        listEl.querySelectorAll('.done-check').forEach((cb) => {
-            cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
-        });
-
-        // Bind STT: hover preview + dblclick gallery
-        listEl.querySelectorAll('.col-stt.has-img').forEach((cell) => {
-            cell.addEventListener('dblclick', (e) => {
+        // Bind STT: click → gallery modal, hover → preview
+        listEl.querySelectorAll('.col-stt').forEach((cell) => {
+            cell.addEventListener('click', (e) => {
+                if (e.target.closest('.inline-input')) return;
                 e.stopPropagation();
                 hideSttPreview();
                 openImageGallery(cell.dataset.id);
             });
-            cell.addEventListener('mouseenter', (e) => showSttPreview(e, cell));
-            cell.addEventListener('mouseleave', hideSttPreview);
+            if (cell.classList.contains('has-img')) {
+                cell.addEventListener('mouseenter', (e) => showSttPreview(e, cell));
+                cell.addEventListener('mouseleave', hideSttPreview);
+            }
+        });
+
+        // Bind done checkboxes
+        listEl.querySelectorAll('.done-check').forEach((cb) => {
+            cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
     }
 
@@ -492,7 +495,6 @@
         const item = allData.find((d) => String(d.id) === String(id));
         if (!item) return;
         const images = [...(item.productImages || []), ...(item.invoiceImages || [])];
-        if (images.length === 0) return;
 
         const overlay = $('#imageViewerOverlay');
         const viewer = overlay.querySelector('.image-viewer');
@@ -501,11 +503,39 @@
             <button class="btn-close viewer-close" onclick="document.querySelector('#imageViewerOverlay').classList.remove('active')">
                 <span class="material-symbols-outlined">close</span>
             </button>
-            <div class="gallery-info">STT: ${escHtml(item.stt || '—')} &bull; ${escHtml(item.moTa || '')} &bull; ${images.length} ảnh</div>
-            <div class="gallery-grid">
-                ${images.map((src, i) => `<img src="${src}" alt="Ảnh ${i + 1}" onclick="HangQQ.viewSingleImg('${escAttr(src)}')">`).join('')}
+            <div class="gallery-header">
+                <div class="gallery-stt-edit">
+                    <label>STT</label>
+                    <input type="text" class="gallery-stt-input" value="${escAttr(String(item.stt || ''))}" data-id="${id}">
+                </div>
+                <div class="gallery-info">${escHtml(item.moTa || '')} &bull; ${images.length} ảnh</div>
             </div>
+            ${images.length > 0 ? `<div class="gallery-grid">
+                ${images.map((src, i) => `<img src="${src}" alt="Ảnh ${i + 1}" onclick="HangQQ.viewSingleImg('${escAttr(src)}')">`).join('')}
+            </div>` : '<div class="gallery-empty">Chưa có ảnh</div>'}
         `;
+
+        // Bind STT edit save on blur/enter
+        const sttInput = viewer.querySelector('.gallery-stt-input');
+        if (sttInput) {
+            const saveStt = async () => {
+                const newStt = sttInput.value.trim();
+                if (newStt === (item.stt || '').trim()) return;
+                try {
+                    await patchEntry(id, { stt: newStt });
+                    item.stt = newStt;
+                    saveToLocalStorage();
+                    renderAll();
+                } catch (e) {
+                    showToast('Lỗi: ' + e.message, 'error');
+                }
+            };
+            sttInput.addEventListener('blur', saveStt);
+            sttInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); sttInput.blur(); }
+            });
+        }
+
         overlay.classList.add('active');
     }
 
@@ -522,9 +552,9 @@
         hideSttPreview();
         sttPreviewEl = document.createElement('div');
         sttPreviewEl.className = 'stt-hover-preview';
-        sttPreviewEl.innerHTML = imgs.slice(0, 4).map((src) =>
+        sttPreviewEl.innerHTML = imgs.map((src) =>
             `<img src="${src}">`
-        ).join('') + (imgs.length > 4 ? `<span style="font-size:11px;color:#64748b;align-self:center">+${imgs.length - 4}</span>` : '');
+        ).join('');
 
         document.body.appendChild(sttPreviewEl);
         const rect = cell.getBoundingClientRect();
