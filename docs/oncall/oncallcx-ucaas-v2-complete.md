@@ -5,12 +5,12 @@
 > **Nguồn tổng hợp**:
 > - PDF V1.1: `oncallcxucaasuserguidevieforcustomerv112 (2).pdf` (75 trang)
 > - PDF V2.0: `VI-Huong-dan-quan-tri-TĐ-ONCALLCX-UCAAS--V2.0.pdf` (78 trang)
-> - Portal Live: `pbx-ucaas.oncallcx.vn` (fetched 2026-04-11)
+> - Portal Live: `pbx-ucaas.oncallcx.vn` (fetched 2026-04-11, **updated 2026-04-13** — crawl 17 trang via JSF navigation)
 >
 > **Nhà phát hành**: FPT Telecom — sản phẩm OnCallCX UCaaS
-> **Ngày tổng hợp**: 2026-04-11
+> **Ngày tổng hợp**: 2026-04-13
 
-Tài liệu kết hợp phân tích chi tiết từ 2 phiên bản PDF (V1.1 + V2.0) cùng dữ liệu thực từ PBX Portal. Bao gồm bảng tra cứu nhanh, cảnh báo pitfall, SIP config thật, và inventory 16+ trang portal.
+Tài liệu kết hợp phân tích chi tiết từ 2 phiên bản PDF (V1.1 + V2.0) cùng dữ liệu thực từ PBX Portal (17 trang crawled). Bao gồm bảng tra cứu nhanh, cảnh báo pitfall, SIP config thật, extensions/phones/add-ons inventory, và chi tiết từng trang portal.
 
 ---
 
@@ -32,7 +32,7 @@ Tài liệu kết hợp phân tích chi tiết từ 2 phiên bản PDF (V1.1 + V
 
 ## 0. PORTAL LIVE — THÔNG TIN PBX THẬT
 
-> Dữ liệu fetch trực tiếp từ `https://pbx-ucaas.oncallcx.vn/portal/` ngày 2026-04-11.
+> Dữ liệu fetch trực tiếp từ `https://pbx-ucaas.oncallcx.vn/portal/` ngày **2026-04-13** (crawl 17 trang qua JSF navigation).
 
 ### Account & PBX
 
@@ -52,30 +52,154 @@ Tài liệu kết hợp phân tích chi tiết từ 2 phiên bản PDF (V1.1 + V
 
 | Metric | Actual | Max |
 |---|---|---|
-| Extensions | 0 registered | 10 |
-| Service Extensions | — | 10 |
-| Phones | 0 registered | 0 configured |
-| External Channels | 0 | 10 |
-| Internal Calls | 0 | — |
-| External Calls | 0 | 10 |
-| Inbound / Outbound Calls | 0 / 0 | — |
-| VoiceMail | Good / 0 full | — |
+| PBX Extensions registered/configured | 0 | 10 |
+| Phones registered/configured | 0 | 0 |
+| VoiceMail status | Good (green) / 0 full | — |
+| TopStop status | Black (inactive) | — |
+| Internal calls actual | 0 | — |
+| External calls actual | 0 | 10 |
+| Inbound calls actual | 0 | — |
+| Outbound calls actual | 0 | — |
 
-### Extensions hiện có
-- Extension `101` — Distribution Mode: Phones
+### Extensions (10 configured, 0 registered)
+
+| Extension | Displayed Name | Public Dial In | Distribution Mode | Voicemail | Registration |
+|---|---|---|---|---|---|
+| 101 | 101 | 0963839208 | Phones | — | Not registered |
+| 102 | 102 | — | Phones | — | Not registered |
+| 103 | 103 | — | Phones | — | Not registered |
+| 104 | 104 | — | Phones | — | Not registered |
+| 105 | 105 | — | Phones | — | Not registered |
+| 106 | 106 | — | Phones | — | Not registered |
+| 107 | 107 | — | Phones | — | Not registered |
+| 108 | 108 | — | Phones | — | Not registered |
+| 109 | 109 | — | Phones | — | Not registered |
+| 110 | 110 | — | Phones | — | Not registered |
+
+> Extension types hỗ trợ: Extension, Call Distribution, Interactive Voice Response (IVR), Paging, Fax Server.
+
+### Public Numbers
+
+| Public Number | Name to Display | Destination | Valid From |
+|---|---|---|---|
+| 0963839208 | — | 101 | 13.04.2026 16:59 |
+
+> Chỉ có 1 public number, đang map vào extension 101.
+
+### Users
+
+| E-Mail | First Name | Last Name | Access (Role) | Blocked |
+|---|---|---|---|---|
+| carmelledung@gmail.com | — | — | UCaaS_HNCX01402 (PBX Administrator) | No |
+
+> Roles khả dụng: PBX Administrator, Department Administrator, PBX Member, Rest API.
+
+### Phones
+
+- **Chưa có phone nào được đăng ký**
+- Phone types hỗ trợ: anConnect, OnCallCX-Desktop, OnCallCX-Desktop mobile, OnCallCX-Mobile, Click to Call, phone, genericPhone
+- Yealink: CP 965, T19P E2, T20, T23, T27, T29, T30, T31, T33, T40P, T41-T49, T52-T58, VP59, CP930W, W53H/W56H/W59R/W73H/W74H/W78H/W80B/W90B, EXP43/EXP50, DD Phone
+- Snom: D3, D315, D335, D385, D7, D715, D717, D735, D785, D7C, A190, M25/M30/M65/M70/M80/M85/M90, DECT
+- Grandstream: GBX20, GRP2612-2615, GRP26xx, GXP1615/1625/1628/16xx, GXP2130/2135/2140/2160/2170/21xx, GXP2200EXT
+- Polycom: VVX, VVX450
+- Cisco SPA, Fanvil (Fanvil XxU), Gigaset
 
 ### Add-ons
-- DECT Add-ons
-- O365 Presence Add-ons (Setup/Remove wizard)
 
-### Portal Navigation Map (4 nhóm, 16+ trang)
-
-| Nhóm | Trang |
+| Add-on Type | Status |
 |---|---|
-| **Extension** (PBX Member) | Features, Phones, Calls, Call Analytics, Contacts, Blocked Numbers |
-| **Department** | Settings, Users, Holidays, Timetables, Calls, Contacts, Blocked Numbers |
-| **PBX** (UCaaS_HNCX01402) | Dashboard, Settings, Public Numbers, Extensions, Users, Add-ons, Phones, Holidays, Timetables, Calls, Live Calls, Call Analytics, Contacts, Blocked Numbers, Conference Rooms |
-| **Operations** | Dashboard, Public Numbers, OrgUnits, Users, PBX List, Logs, Calls, Pricelists, Phone Types, Add-on Types |
+| **DECT Manager** | Chưa có thiết bị. Device types: Yealink W60B, W70B, W80B, W90B. Provisioning: Auto/Manual URL. |
+| **O365 Presence** | Chưa setup. Cần: Azure AD app registration, domain, application identifier. |
+
+### Settings (PBX Configuration)
+
+| Section | Nội dung |
+|---|---|
+| **PBX** | Name, Description, Member of, Extensions (10), Service Extensions, External channels, CTI Device ID |
+| **Public Numbers** | Danh sách số public gắn với PBX |
+| **Properties** | Time Zone, Date Format, Time Format, Time mode |
+| **Client Trunks** | Name, Username, Registration Number, Registration Lifetime, Gateway, Registration, Expiration, Surveillance |
+| **Pickup Groups** | Name, Number, Members |
+
+### Holidays
+
+- **Chưa cấu hình holiday nào**
+- Fields: Date, Name, Types (Type1, Type2)
+- Dùng để cấu hình lịch nghỉ → ảnh hưởng Timetable routing
+
+### Timetables
+
+- **Chưa cấu hình timetable nào**
+- Columns: Name, OrgUnit Id, OrgUnit name
+- Dùng để cấu hình giờ làm việc → routing cuộc gọi theo giờ
+
+### Calls (Lịch sử cuộc gọi)
+
+- **Chưa có cuộc gọi nào**
+- Filter fields: Show detailed calls, Start from/until, From, Outbound Public Number, To, Duration from/until, SIP Status
+- Columns: Start, From, Outbound Public Number, Restricted, Connected, Duration, SIP Status
+- Call recording: "No call recording available"
+
+### Live Calls
+
+- **Không có cuộc gọi đang diễn ra**
+- Filter: Calling Number, Called Number, Terminal, Channel Direction (Calling/Called), Call State (Called in Progress, Calling in Progress, Connected, Held, Holding, Dropped, Queued)
+- Display modes: Compact, Extended
+- Columns: Calling Number, Called Number, Terminal, Channel Direction, Call State, Duration
+
+### Call Analytics
+
+- Filter: From/To date, Unit (Extension/Department/PBX), Call direction (All/Incoming/Outgoing)
+- Modes: Overview, Connected Summary, Connected Hourly, Not Connected Hourly
+- **Chưa có dữ liệu analytics**
+
+### Contacts
+
+- **Chưa có contact nào**
+- Columns: Name, Short Number, Number
+
+### Blocked Numbers
+
+- **Chưa block số nào**
+- Columns: Number, Description
+
+### Conference Rooms
+
+- **Chưa có phòng hội nghị nào**
+- Columns: Conference Room Number, Conference PIN, Owner, Conference Room Name
+
+### Operations — PBX List
+
+| Name | Description | Member of | PBX Administrators |
+|---|---|---|---|
+| UCaaS_HNCX01402 | HỘ KINH DOANH LÊ ÁNH DUNG - TOMATO HOUSE | UCaaS | carmelledung@gmail.com |
+
+### Operations — Logs
+
+- Log types: **Support**, **History**
+- Filter categories:
+  | Category | Mô tả |
+  |---|---|
+  | Registration | Entries related to SIP registration |
+  | Expired registration | Registrations expired (phone not re-registering) |
+  | call | All entries related to calls |
+  | channels | Channel information |
+  | charge | Messages related to TopStop |
+  | acd | Calls to ACD (Automatic Call Distribution) |
+  | ivr | Calls to IVR (Interactive Voice Response) |
+  | dtmf | DTMF selections for IVR |
+- Supports regex pattern filter
+
+### Portal Navigation Map (4 nhóm, 17 trang crawled)
+
+| Nhóm | Trang | URL Pattern |
+|---|---|---|
+| **PBX Member** | Features*, Phones*, Calls*, Call Analytics*, Contacts*, Blocked Numbers* | JSF menu navigate only |
+| **Department** | Settings*, Users*, Holidays*, Timetables*, Calls*, Contacts*, Blocked Numbers* | JSF menu navigate only |
+| **PBX** (UCaaS_HNCX01402) | Dashboard, Settings, Public Numbers, Extensions, Users, Add-ons, Phones, Holidays, Timetables, Calls, Live Calls, Call Analytics, Contacts, Blocked Numbers, Conference Rooms | pbxDashboard.xhtml, pbxSettings.xhtml, publicNumbers.xhtml, etc. |
+| **Operations** | PBX List, Logs | JSF menu navigate only |
+
+> \* PBX Member và Department pages cần navigate qua JSF form POST (không có direct URL). Một số trả CSP nonce error khi curl (cần browser context).
 
 ### SIP Configuration (V2.0 PDF trang 72 + Portal)
 
