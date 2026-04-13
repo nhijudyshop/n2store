@@ -1,5 +1,11 @@
+        :root {
+            --ov-primary: #667eea;
+            --ov-primary-dark: #764ba2;
+            --ov-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
         body {font-size: 20px;
-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+background: var(--ov-gradient);
             min-height: 100vh;
             padding: 20px;
             margin: 0;
@@ -12,20 +18,20 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
         .header {
             background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 16px;
         }
 
         .header h1 {
             margin: 0;
-            color: #667eea;
+            color: var(--ov-primary, #667eea);
             font-size: 28px;
             font-weight: 700;
             display: flex;
@@ -61,6 +67,12 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         .btn-action:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            filter: brightness(1.05);
+        }
+
+        .btn-action:active {
+            transform: translateY(0);
+            filter: brightness(0.95);
         }
 
         .btn-action:disabled {
@@ -186,10 +198,16 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
         .stat-card {
             background: white;
-            border-radius: 15px;
+            border-radius: 16px;
             padding: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.15);
         }
 
         .stat-card .stat-icon {
@@ -237,10 +255,11 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         /* Content Section */
         .content-section {
             background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.2s;
         }
 
         .content-section h2 {
@@ -424,16 +443,18 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
         .modal-overlay.show {
             display: flex;
+            animation: fadeIn 0.2s ease-out;
         }
 
         .modal-content {
             background: white;
-            border-radius: 15px;
+            border-radius: 16px;
             width: 90%;
             max-width: 900px;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
         }
 
         .modal-header {
@@ -446,7 +467,7 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
         .modal-header h3 {
             margin: 0;
-            color: #667eea;
+            color: var(--ov-primary, #667eea);
             font-size: 20px;
         }
 
@@ -456,10 +477,19 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-size: 24px;
             cursor: pointer;
             color: #999;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
         }
 
         .modal-close:hover {
             color: #333;
+            background: #f3f4f6;
+            transform: rotate(90deg);
         }
 
         .modal-body {
