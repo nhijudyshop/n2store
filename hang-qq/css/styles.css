@@ -472,31 +472,40 @@ body {
     cursor: pointer;
 }
 
-/* STT image tooltip */
-.stt-tooltip {
-    position: fixed;
-    z-index: 999;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    padding: 8px;
+/* Image gallery in viewer modal */
+.gallery-info {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.gallery-grid {
     display: flex;
-    gap: 6px;
-    max-width: 320px;
     flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
-.stt-tooltip img {
-    width: 64px;
-    height: 64px;
+.gallery-grid img {
+    width: 140px;
+    height: 140px;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: transform 150ms;
+    border: 3px solid rgba(255,255,255,0.3);
+    transition: all 150ms;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
-.stt-tooltip img:hover {
-    transform: scale(1.1);
+.gallery-grid img:hover {
+    transform: scale(1.05);
+    border-color: #fff;
 }
 
 /* STT grouped items — left accent bar */

@@ -466,36 +466,35 @@
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
 
-        // Bind STT hover to show images
+        // Bind STT click to open image gallery
         listEl.querySelectorAll('.col-stt.has-img').forEach((cell) => {
-            cell.addEventListener('mouseenter', (e) => showSttTooltip(e, cell));
-            cell.addEventListener('mouseleave', hideSttTooltip);
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openImageGallery(cell.dataset.id);
+            });
         });
     }
 
-    // ===== STT Image Tooltip =====
-    let sttTooltipEl = null;
-
-    function showSttTooltip(e, cell) {
-        const id = cell.dataset.id;
+    // ===== STT Image Gallery =====
+    function openImageGallery(id) {
         const item = allData.find((d) => String(d.id) === String(id));
-        if (!item || !item.productImages || item.productImages.length === 0) return;
+        if (!item) return;
+        const images = [...(item.productImages || []), ...(item.invoiceImages || [])];
+        if (images.length === 0) return;
 
-        hideSttTooltip();
-        sttTooltipEl = document.createElement('div');
-        sttTooltipEl.className = 'stt-tooltip';
-        sttTooltipEl.innerHTML = item.productImages.map((src) =>
-            `<img src="${src}" onclick="HangQQ.viewImg('${escAttr(src)}')">`
-        ).join('');
+        const overlay = $('#imageViewerOverlay');
+        const viewer = overlay.querySelector('.image-viewer');
 
-        document.body.appendChild(sttTooltipEl);
-        const rect = cell.getBoundingClientRect();
-        sttTooltipEl.style.top = (rect.bottom + 6) + 'px';
-        sttTooltipEl.style.left = rect.left + 'px';
-    }
-
-    function hideSttTooltip() {
-        if (sttTooltipEl) { sttTooltipEl.remove(); sttTooltipEl = null; }
+        viewer.innerHTML = `
+            <button class="btn-close viewer-close" onclick="document.querySelector('#imageViewerOverlay').classList.remove('active')">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <div class="gallery-info">STT: ${escHtml(item.stt || '—')} &bull; ${escHtml(item.moTa || '')} &bull; ${images.length} ảnh</div>
+            <div class="gallery-grid">
+                ${images.map((src, i) => `<img src="${src}" alt="Ảnh ${i + 1}" onclick="HangQQ.viewSingleImg('${escAttr(src)}')">`).join('')}
+            </div>
+        `;
+        overlay.classList.add('active');
     }
 
     let addingRow = false;
@@ -1317,6 +1316,11 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
         viewImg(src) { openImageViewer(src); },
+        viewSingleImg(src) {
+            // Close gallery, open single image viewer
+            $('#imageViewerOverlay').classList.remove('active');
+            setTimeout(() => openImageViewer(src), 200);
+        },
         removeImg(type, idx) { removeImage(type, idx); },
         removeMapImg(idx) { mapImgFiles.splice(idx, 1); renderMapImgPreview(); },
     };
