@@ -294,15 +294,41 @@ body {
 }
 
 .assignment-row {
-    transition: background 0.2s;
+    transition: background 0.15s ease;
+}
+
+/* Zebra striping — even rows get subtle tint */
+.assignment-row:nth-child(even) {
+    background: var(--ds-gray-50, #f9fafb);
+}
+
+.assignment-row:nth-child(even) .stt-chips-container {
+    background: var(--ds-gray-100, #f3f4f6);
+}
+
+.assignment-row:nth-child(even) .stt-chips-container.has-items {
+    background: var(--ds-primary-light, #eff6ff);
+}
+
+.assignment-row:nth-child(even) .stt-input {
+    background: var(--ds-gray-100, #f3f4f6);
 }
 
 .assignment-row:hover {
-    background: var(--gray-50);
+    background: var(--ds-primary-light, #eff6ff) !important;
 }
 
 .assignment-row td {
     overflow: visible;
+}
+
+/* Left accent border on even rows for extra distinction */
+.assignment-row:nth-child(even) td:first-child {
+    border-left: 3px solid var(--ds-gray-200, #e5e7eb);
+}
+
+.assignment-row:nth-child(odd) td:first-child {
+    border-left: 3px solid transparent;
 }
 
 .product-cell {
