@@ -216,8 +216,10 @@ export async function savePreferences(prefs) {
 const MAX_CALL_LOG = 50;
 
 const DEFAULT_ONCALL_SETTINGS = {
-  extension: '',
+  extension: '101',
   autoConfirm: false,
+  sipAuthId: 'LRmeWThKCcC63CZk',
+  sipPassword: '0We6H7AB15Boci0D',
 };
 
 /**
