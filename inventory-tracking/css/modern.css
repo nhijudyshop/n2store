@@ -3156,21 +3156,27 @@ body {
 
 /* Cell layout */
 .note-cell {
-    position: relative;
     font-size: 12px;
     line-height: 1.5;
-    padding-right: 22px;
 }
 
-/* Top-right pencil for adding new note */
+.note-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 20px;
+}
+
+.note-row-new {
+    justify-content: flex-end;
+}
+
+/* Add new note button */
 .note-add-btn {
-    position: absolute;
-    top: 2px;
-    right: 0;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     padding: 0;
-    border: none;
+    border: 1px dashed var(--gray-300);
     background: none;
     cursor: pointer;
     color: var(--gray-400);
@@ -3179,15 +3185,8 @@ body {
     justify-content: center;
     border-radius: 4px;
 }
-.note-add-btn i { width: 13px; height: 13px; }
-.note-add-btn:hover { color: var(--primary); background: var(--gray-100); }
-
-.note-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 20px;
-}
+.note-add-btn i { width: 12px; height: 12px; }
+.note-add-btn:hover { color: var(--primary); border-color: var(--primary); background: rgba(59,130,246,0.05); }
 
 .note-text { flex: 1; min-width: 0; word-break: break-word; }
 .note-admin { color: var(--gray-800); }
@@ -3209,7 +3208,9 @@ body {
     justify-content: center;
     border-radius: 4px;
 }
-.note-row-btn i { width: 13px; height: 13px; }
+.note-row-btn i { width: 12px; height: 12px; }
+.note-row-btn { opacity: 0.3; }
+.note-row:hover .note-row-btn { opacity: 1; }
 .note-row-btn:hover { color: var(--primary); background: var(--gray-100); }
 
 /* Image icon indicator (not the actual image) */

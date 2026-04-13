@@ -25,9 +25,8 @@ const NoteManager = {
     },
 
     _getUsername() {
-        return authManager?.getUserInfo()?.username
-            || authManager?.getAuthState()?.userType?.split('-')[0]
-            || 'unknown';
+        const info = authManager?.getUserInfo();
+        return info?.displayName || info?.username || 'unknown';
     },
 
     _isAdmin() {
@@ -77,10 +76,6 @@ const NoteManager = {
 
         let html = '<div class="note-cell" data-invoice-id="' + invoiceId + '">';
 
-        // Top-right: pencil for NEW note
-        html += '<button class="note-add-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
-        html += '<i data-lucide="pencil"></i></button>';
-
         // User notes — each has edit pencil at end + image icon
         for (const n of notes) {
             const cls = n.is_admin ? 'note-admin' : 'note-user';
@@ -107,10 +102,16 @@ const NoteManager = {
             // Edit pencil at end of each note row (only own notes)
             if (isOwn) {
                 html += '<button class="note-row-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',' + n.id + '); event.stopPropagation();" title="Sửa ghi chú">';
-                html += '<i data-lucide="pencil"></i></button>';
+                html += '<i data-lucide="pencil-line"></i></button>';
             }
             html += '</div>';
         }
+
+        // Bottom row: pencil for new note
+        html += '<div class="note-row note-row-new">';
+        html += '<button class="note-add-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
+        html += '<i data-lucide="plus"></i></button>';
+        html += '</div>';
 
         html += '</div>';
         return html;
