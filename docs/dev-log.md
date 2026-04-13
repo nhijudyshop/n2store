@@ -15,6 +15,13 @@
 | **Chi tiết** | Thêm 2 endpoints mới trên Render: `GET /search` (autocomplete với unaccent) và `GET /product/:tposProductId` (chi tiết + variants). Tạo `shared/js/warehouse-api.js` — shared client cho cả 2 trang. Migrate soluong-live và order-management: xóa XLSX.js dependency, xóa TPOS Excel API calls, xóa inline auth code, thay bằng WarehouseAPI calls tới Render DB. Product search giờ dùng debounced API call thay vì tải toàn bộ Excel file. |
 | **Status** | ✅ Done |
 
+### [soluong][order-mgmt] Cleanup TPOS auth code còn sót — soluong-list, hidden pages ✅
+| | |
+|---|---|
+| **Files** | `soluong-live/soluong-list.html`, `soluong-live/js/soluong-list.js`, `soluong-live/js/hidden-soluong.js`, `order-management/js/hidden-products.js` |
+| **Chi tiết** | Xóa toàn bộ inline TPOS auth code (getAuthToken, getValidToken, authenticatedFetch, bearerToken) từ soluong-list.js, hidden-soluong.js, hidden-products.js. Migrate `refreshProduct()` trong soluong-list.js sang WarehouseAPI. Thêm warehouse-api.js script tag vào soluong-list.html. social-sales.html và sales-report.html không có TPOS code — đã clean sẵn. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Fix overdue alert banner bị treo sau khi dismiss ✅
 | | |
 |---|---|

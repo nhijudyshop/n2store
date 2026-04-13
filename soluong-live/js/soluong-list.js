@@ -37,8 +37,6 @@
         const database = firebase.database();
 
         let isSyncingFromFirebase = false;
-        let bearerToken = null;
-        let tokenExpiry = null;
 
         // Staff info for logging sales
         const authManager = new AuthManager({ redirectUrl: '../index.html' });
@@ -55,89 +53,6 @@
                 console.log('👤 Staff logged in:', staffName);
             }
         })();
-
-        async function getAuthToken() {
-            try {
-                const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `grant_type=password&username=${(window.ShopConfig?.getConfig?.()?.CompanyId || 1) === 2 ? 'nvktshop1' : 'nvktlive1'}&password=Aa%4028612345678&client_id=tmtWebApp`
-                });
-
-                if (!response.ok) {
-                    throw new Error('Không thể xác thực');
-                }
-
-                const data = await response.json();
-                bearerToken = data.access_token;
-                tokenExpiry = Date.now() + (data.expires_in * 1000);
-                localStorage.setItem('bearerToken', bearerToken);
-                localStorage.setItem('tokenExpiry', tokenExpiry.toString());
-                console.log('✅ Đã xác thực thành công');
-                return bearerToken;
-            } catch (error) {
-                console.error('❌ Lỗi xác thực:', error);
-                throw error;
-            }
-        }
-
-        async function getValidToken() {
-            const storedToken = localStorage.getItem('bearerToken');
-            const storedExpiry = localStorage.getItem('tokenExpiry');
-
-            if (storedToken && storedExpiry) {
-                const expiry = parseInt(storedExpiry);
-                if (expiry > Date.now() + 300000) {
-                    bearerToken = storedToken;
-                    tokenExpiry = expiry;
-                    console.log('✅ Sử dụng token đã lưu');
-                    return bearerToken;
-                }
-            }
-
-            return await getAuthToken();
-        }
-
-        async function authenticatedFetch(url, options = {}) {
-            const token = await getValidToken();
-
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'feature-version': '2',
-                'tposappversion': '6.2.6.1',
-                ...options.headers
-            };
-
-            const response = await fetch(url, {
-                ...options,
-                headers
-            });
-
-            const needsRetry = response.status === 401 ||
-                (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
-
-            if (needsRetry) {
-                const reason = response.status === 401 ? '401' : '200+HTML';
-                console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-                localStorage.removeItem('bearerToken');
-                localStorage.removeItem('tokenExpiry');
-                bearerToken = null;
-                tokenExpiry = null;
-                const newToken = await getAuthToken();
-                headers.Authorization = `Bearer ${newToken}`;
-
-                return fetch(url, {
-                    ...options,
-                    headers
-                });
-            }
-
-            return response;
-        }
 
         function toggleSyncMode() {
             isSyncMode = !isSyncMode;
@@ -1055,15 +970,13 @@
             btnRefresh.disabled = true;
 
             try {
-                const response = await authenticatedFetch(
-                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-                );
-
-                if (!response.ok) {
-                    throw new Error('Không thể tải thông tin sản phẩm từ TPOS');
+                // Fetch from Render DB instead of TPOS OData
+                const result = await WarehouseAPI.getProductAsTpos(productId);
+                if (!result || !result.product) {
+                    throw new Error('Không tìm thấy sản phẩm trong kho');
                 }
 
-                const productData = await response.json();
+                const productData = result.product;
                 const productKey = `product_${productId}`;
                 const product = soluongProducts[productKey];
                 if (!product) {
@@ -1074,27 +987,12 @@
                 product.QtyAvailable = productData.QtyAvailable || 0;
                 product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
 
-                // Update price information from API
+                // Update price information
                 product.ListPrice = productData.ListPrice || 0;
                 product.PriceVariant = productData.PriceVariant || 0;
 
-                // Update image URL from API
-                let newImageUrl = productData.ImageUrl;
-
-                // If no image, try to get from template
-                if (!newImageUrl && productData.ProductTmplId) {
-                    try {
-                        const templateResponse = await authenticatedFetch(
-                            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
-                        );
-                        if (templateResponse.ok) {
-                            const templateData = await templateResponse.json();
-                            newImageUrl = templateData.ImageUrl;
-                        }
-                    } catch (err) {
-                        console.warn('Could not load template image:', err);
-                    }
-                }
+                // Update image URL
+                const newImageUrl = productData.imageUrl || productData.ImageUrl || '';
 
                 // Update image if we got a new one
                 if (newImageUrl) {
