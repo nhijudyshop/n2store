@@ -139,6 +139,17 @@
       min-width: 120px;
     }
     .setting-select:focus { outline: none; border-color: #4caf50; }
+    .setting-input {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: #333;
+      min-width: 180px;
+      font-family: monospace;
+    }
+    .setting-input:focus { outline: none; border-color: #4caf50; }
     .setting-note {
       padding: 8px 12px;
       font-size: 11px;
@@ -372,8 +383,24 @@
         </label>
       </div>
 
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">SIP Auth ID</div>
+          <div class="setting-desc">Register Name từ PBX Portal (Phone Setup)</div>
+        </div>
+        <input type="text" id="oncallAuthId" class="setting-input" placeholder="LRmeWTh..." autocomplete="off">
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">SIP Password</div>
+          <div class="setting-desc">Auth Password từ PBX Portal (Phone Setup)</div>
+        </div>
+        <input type="password" id="oncallPassword" class="setting-input" placeholder="********" autocomplete="off">
+      </div>
+
       <div class="setting-note">
-        &#9432; Cần cài anConnect Desktop hoặc Zoiper làm ứng dụng gọi mặc định trên máy tính.
+        &#9432; Gọi trực tiếp từ browser qua OnCallCX PBX. Không cần cài app.
       </div>
     </div>
 

@@ -85,6 +85,8 @@ async function saveSettings() {
   const oncallSettings = {
     extension: document.getElementById('oncallExtension').value,
     autoConfirm: document.getElementById('oncallAutoConfirm').checked,
+    sipAuthId: document.getElementById('oncallAuthId').value.trim(),
+    sipPassword: document.getElementById('oncallPassword').value.trim(),
   };
 
   try {
@@ -143,6 +145,8 @@ async function loadOnCallSettings() {
     if (!settings) return;
     document.getElementById('oncallExtension').value = settings.extension || '';
     document.getElementById('oncallAutoConfirm').checked = settings.autoConfirm === true;
+    document.getElementById('oncallAuthId').value = settings.sipAuthId || '';
+    document.getElementById('oncallPassword').value = settings.sipPassword || '';
   } catch {
     // OnCallCX settings not available
   }

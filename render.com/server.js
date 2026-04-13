@@ -237,6 +237,7 @@ const v2Router = require('./routes/v2');  // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
+const { attachSipProxy, createRouter: createOncallRouter } = require('./routes/oncall-sip-proxy');
 const tposTokenManager = require('./services/tpos-token-manager');
 const { createAuthTokenStore } = require('./services/auth-token-store');
 const authTokenStore = createAuthTokenStore(chatDbPool);
@@ -317,6 +318,9 @@ app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/fb-ads', fbAdsRoutes);
 app.use('/api/hang-qq', require('./routes/hang-qq'));
 app.use('/api/tpos/order-buffer', require('./routes/tpos-order-buffer'));
+
+// OnCallCX SIP Proxy (REST endpoints)
+app.use('/api/oncall', createOncallRouter());
 
 // Facebook Global ID Cache — share resolved (psid → globalUserId) across all clients
 const fbGlobalIdCacheRoutes = require('./routes/fb-global-id-cache');
@@ -1218,8 +1222,24 @@ const http = require('http');
 // Create HTTP server from Express app
 const server = http.createServer(app);
 
-// Create WebSocket Server for Frontend Clients
-const wss = new WebSocket.Server({ server });
+// Create WebSocket Server for Frontend Clients (exclude /api/oncall/ws path)
+const wss = new WebSocket.Server({ noServer: true });
+
+// Attach OnCallCX SIP Proxy WebSocket handler
+const sipWss = attachSipProxy(server);
+
+// Route WebSocket upgrades: /api/oncall/ws → SIP proxy, others → default wss
+server.on('upgrade', (request, socket, head) => {
+    const pathname = require('url').parse(request.url).pathname;
+    if (pathname === '/api/oncall/ws') {
+        // Handled by attachSipProxy
+        return;
+    }
+    // Default WebSocket for frontend clients
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
+});
 
 // ============== TPOS EVENT LOGGER ==============
 const tposEventLog = {

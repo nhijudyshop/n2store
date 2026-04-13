@@ -46,6 +46,7 @@
     'ADD_CALL_LOG',
     'GET_CALL_LOG',
     'GET_ONCALL_SETTINGS',
+    'OPEN_PHONE',
   ]);
 
   // Message types to forward from service worker → page

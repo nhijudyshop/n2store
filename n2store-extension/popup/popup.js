@@ -389,8 +389,15 @@ function quickDial(phone, customerName) {
   const confirmed = confirm(`Gọi cho ${displayName} (${normalized})?`);
   if (!confirmed) return;
 
-  // Open tel: URI
-  window.open(`tel:${normalized}`, '_self');
+  // Open floating phone window via service worker
+  chrome.runtime.sendMessage({
+    type: 'OPEN_PHONE',
+    phone: normalized,
+    customerName: customerName || ''
+  }).catch(() => {
+    // Fallback: tel: protocol
+    window.open(`tel:${normalized}`, '_self');
+  });
 
   // Log the call
   chrome.runtime.sendMessage({
@@ -398,8 +405,8 @@ function quickDial(phone, customerName) {
     entry: { phone: normalized, customerName: customerName || '', timestamp: Date.now() }
   }).catch(() => {});
 
-  // Reload call log after a short delay
-  setTimeout(() => loadCallLog(), 500);
+  // Close popup
+  window.close();
 }
 
 // === HELPERS ===

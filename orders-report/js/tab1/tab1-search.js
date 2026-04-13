@@ -501,10 +501,19 @@ function initiateCall(phone, customerName, orderCode) {
     const confirmed = confirm(`📞 Gọi cho ${displayName} (${normalized})?${orderInfo}`);
     if (!confirmed) return;
 
-    // Open tel: URI to trigger softphone
-    window.open(`tel:${normalized}`, '_self');
+    // Open phone window via extension (WebRTC softphone)
+    try {
+        window.postMessage({
+            type: 'OPEN_PHONE',
+            phone: normalized,
+            customerName: customerName || ''
+        }, '*');
+    } catch (e) {
+        // Extension not available — fallback to tel: protocol
+        window.open(`tel:${normalized}`, '_self');
+    }
 
-    // Log call via extension bridge (if available)
+    // Log call via extension bridge
     try {
         window.postMessage({
             type: 'ADD_CALL_LOG',

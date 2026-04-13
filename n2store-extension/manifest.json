@@ -56,7 +56,8 @@
     "*://p-upload.facebook.com/*",
     "https://*.nhijudyshop.workers.dev/*",
     "https://nhijudyshop.github.io/*",
-    "*://tomato.tpos.vn/*"
+    "*://tomato.tpos.vn/*",
+    "https://n2store-fallback.onrender.com/*"
   ],
   "declarative_net_request": {
     "rule_resources": [
