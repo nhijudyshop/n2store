@@ -17,6 +17,7 @@ import {
   initStorage, getStatus, resetBadge, getActivity, clearActivity,
   getPreferences, savePreferences, incrementMessagesSent,
   getNotifications, markAllRead, getUnreadCount,
+  getOnCallSettings, saveOnCallSettings, addCallLog, getCallLog, clearCallLog,
 } from './sync/storage.js';
 
 const MODULE = 'SW';
@@ -324,6 +325,30 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
     case MSG.GET_PACK_STICKERS:
     case MSG.BATCH_GET_GLOBAL_ID:
       sendResponse({ type: `${type}_FAILURE`, taskId: msg.taskId, error: 'Chua ho tro' });
+      break;
+
+    // === OnCallCX ===
+    case 'GET_ONCALL_SETTINGS':
+      sendResponse({ settings: await getOnCallSettings() });
+      break;
+
+    case 'SAVE_ONCALL_SETTINGS':
+      await saveOnCallSettings(msg.settings);
+      sendResponse({ success: true });
+      break;
+
+    case 'GET_CALL_LOG':
+      sendResponse({ callLog: await getCallLog(msg.limit || 30) });
+      break;
+
+    case 'ADD_CALL_LOG':
+      await addCallLog(msg.entry || msg);
+      sendResponse({ success: true });
+      break;
+
+    case 'CLEAR_CALL_LOG':
+      await clearCallLog();
+      sendResponse({ success: true });
       break;
 
     // === TPOS Interceptor Events ===

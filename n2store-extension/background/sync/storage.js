@@ -211,6 +211,75 @@ export async function savePreferences(prefs) {
   await chrome.storage.local.set({ notifPrefs: { ...DEFAULT_PREFS, ...prefs } });
 }
 
+// === ONCALLCX SETTINGS & CALL LOG ===
+
+const MAX_CALL_LOG = 50;
+
+const DEFAULT_ONCALL_SETTINGS = {
+  extension: '',
+  autoConfirm: false,
+};
+
+/**
+ * Get OnCallCX settings
+ */
+export async function getOnCallSettings() {
+  try {
+    const data = await chrome.storage.local.get('oncallSettings');
+    return { ...DEFAULT_ONCALL_SETTINGS, ...(data.oncallSettings || {}) };
+  } catch (err) {
+    return DEFAULT_ONCALL_SETTINGS;
+  }
+}
+
+/**
+ * Save OnCallCX settings
+ */
+export async function saveOnCallSettings(settings) {
+  await chrome.storage.local.set({ oncallSettings: { ...DEFAULT_ONCALL_SETTINGS, ...settings } });
+}
+
+/**
+ * Add a call log entry
+ */
+export async function addCallLog(entry) {
+  try {
+    const data = await chrome.storage.local.get('callLog');
+    const list = data.callLog || [];
+    list.push({
+      phone: entry.phone,
+      customerName: entry.customerName || '',
+      orderCode: entry.orderCode || '',
+      timestamp: entry.timestamp || Date.now(),
+    });
+    if (list.length > MAX_CALL_LOG) {
+      list.splice(0, list.length - MAX_CALL_LOG);
+    }
+    await chrome.storage.local.set({ callLog: list });
+  } catch (err) {
+    log.debug(MODULE, 'Add call log error:', err.message);
+  }
+}
+
+/**
+ * Get call log
+ */
+export async function getCallLog(limit = 30) {
+  try {
+    const data = await chrome.storage.local.get('callLog');
+    return (data.callLog || []).slice(-limit);
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Clear call log
+ */
+export async function clearCallLog() {
+  await chrome.storage.local.set({ callLog: [] });
+}
+
 // === STATUS ===
 
 /**

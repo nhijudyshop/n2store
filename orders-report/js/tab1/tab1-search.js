@@ -490,6 +490,36 @@ function copyPhoneNumber(phone) {
     });
 }
 
+// OnCallCX - Initiate phone call via tel: protocol
+function initiateCall(phone, customerName, orderCode) {
+    if (!phone) return;
+    const normalized = phone.replace(/[\s\-()]/g, '');
+    if (normalized.length < 4) return;
+
+    const displayName = customerName || normalized;
+    const orderInfo = orderCode ? ` — Đơn #${orderCode}` : '';
+    const confirmed = confirm(`📞 Gọi cho ${displayName} (${normalized})?${orderInfo}`);
+    if (!confirmed) return;
+
+    // Open tel: URI to trigger softphone
+    window.open(`tel:${normalized}`, '_self');
+
+    // Log call via extension bridge (if available)
+    try {
+        window.postMessage({
+            type: 'ADD_CALL_LOG',
+            entry: {
+                phone: normalized,
+                customerName: customerName || '',
+                orderCode: orderCode || '',
+                timestamp: Date.now()
+            }
+        }, '*');
+    } catch (e) {
+        // Extension not available — ignore
+    }
+}
+
 function highlightSearchText(text, query) {
     if (!query || !text) return text;
     const regex = new RegExp(`(${escapeRegex(query)})`, "gi");

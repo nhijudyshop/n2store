@@ -87,9 +87,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadActivity();
   });
 
+  // Call tab - quick dial
+  document.getElementById('callBtn').addEventListener('click', () => {
+    const phone = document.getElementById('callInput').value.trim();
+    if (phone) quickDial(phone);
+  });
+
+  document.getElementById('callInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const phone = e.target.value.trim();
+      if (phone) quickDial(phone);
+    }
+  });
+
+  document.getElementById('clearCallLogBtn').addEventListener('click', async () => {
+    await chrome.runtime.sendMessage({ type: 'CLEAR_CALL_LOG' });
+    await loadCallLog();
+  });
+
   // Load notification and activity tabs
   await loadNotifications();
   await loadActivity();
+  await loadCallTab();
 });
 
 // === TAB SWITCHING ===
@@ -307,6 +326,80 @@ async function loadActivity() {
   } catch (err) {
     console.log('Load activity error:', err);
   }
+}
+
+// === CALL TAB ===
+
+async function loadCallTab() {
+  try {
+    const { settings } = await chrome.runtime.sendMessage({ type: 'GET_ONCALL_SETTINGS' });
+    const extLabel = document.getElementById('callExtLabel');
+    if (settings?.extension) {
+      extLabel.textContent = `Ext: ${settings.extension}`;
+    } else {
+      extLabel.textContent = 'Ext: chưa cấu hình';
+    }
+  } catch {
+    // Settings not available yet
+  }
+  await loadCallLog();
+}
+
+async function loadCallLog() {
+  try {
+    const { callLog } = await chrome.runtime.sendMessage({ type: 'GET_CALL_LOG', limit: 30 });
+    const container = document.getElementById('callLogList');
+
+    if (!callLog || callLog.length === 0) {
+      container.innerHTML = '<div class="empty-state">Chưa có cuộc gọi nào</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    [...callLog].reverse().forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'call-log-item';
+      const time = formatTimeAgo(entry.timestamp);
+      const name = entry.customerName || 'Không rõ';
+      div.innerHTML = `
+        <span class="call-log-icon">&#128222;</span>
+        <div class="call-log-info">
+          <div class="call-log-name">${escapeHtml(name)}${entry.orderCode ? ` #${escapeHtml(entry.orderCode)}` : ''}</div>
+          <div class="call-log-phone">${escapeHtml(entry.phone)}</div>
+        </div>
+        <span class="call-log-time">${time}</span>
+      `;
+      // Click to redial
+      div.addEventListener('click', () => {
+        document.getElementById('callInput').value = entry.phone;
+        quickDial(entry.phone, entry.customerName);
+      });
+      container.appendChild(div);
+    });
+  } catch {
+    // ignore
+  }
+}
+
+function quickDial(phone, customerName) {
+  const normalized = phone.replace(/[\s\-()]/g, '');
+  if (!normalized || normalized.length < 4) return;
+
+  const displayName = customerName || normalized;
+  const confirmed = confirm(`Gọi cho ${displayName} (${normalized})?`);
+  if (!confirmed) return;
+
+  // Open tel: URI
+  window.open(`tel:${normalized}`, '_self');
+
+  // Log the call
+  chrome.runtime.sendMessage({
+    type: 'ADD_CALL_LOG',
+    entry: { phone: normalized, customerName: customerName || '', timestamp: Date.now() }
+  }).catch(() => {});
+
+  // Reload call log after a short delay
+  setTimeout(() => loadCallLog(), 500);
 }
 
 // === HELPERS ===
