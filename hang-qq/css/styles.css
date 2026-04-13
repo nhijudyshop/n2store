@@ -526,16 +526,25 @@ body {
     color: var(--error) !important;
 }
 
-/* New row highlight */
+/* New row highlight — full input appearance */
 .row-new {
     background: rgba(0, 64, 161, 0.04);
-    outline: 2px dashed rgba(0, 64, 161, 0.15);
+    outline: 2px dashed rgba(0, 64, 161, 0.2);
     outline-offset: -2px;
 }
 
+.row-new .editable-cell {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--outline-variant);
+    border-radius: 6px;
+    min-height: 30px;
+    padding: 4px 6px;
+}
+
 .row-new .editable-cell:empty::after {
-    content: '·';
+    content: '...';
     color: #cbd5e1;
+    font-size: 11px;
 }
 
 /* ===== Map Images modal ===== */

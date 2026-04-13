@@ -391,6 +391,19 @@
                 <div class="col-actions"></div>
             </div>`;
 
+            // Sort items within group by STT (same STT adjacent), new row first
+            group.items.sort((a, b) => {
+                // Newly added row always first
+                if (newlyAddedId && a.item.id === newlyAddedId) return -1;
+                if (newlyAddedId && b.item.id === newlyAddedId) return 1;
+                const sA = (a.item.stt || '').trim();
+                const sB = (b.item.stt || '').trim();
+                if (sA && sB) return sA.localeCompare(sB, undefined, { numeric: true });
+                if (sA) return -1;
+                if (sB) return 1;
+                return (a.item.id || 0) - (b.item.id || 0);
+            });
+
             // Count STT for grouping highlight
             const sttMap = {};
             group.items.forEach(({ item }) => {
@@ -486,11 +499,12 @@
     }
 
     let addingRow = false;
+    let newlyAddedId = null; // track to render at top of group
+
     async function addRowInGroup(dateKey) {
         if (addingRow) return;
         addingRow = true;
 
-        // Ensure group stays expanded
         collapsedDates.delete(dateKey);
 
         const entry = {
@@ -504,26 +518,25 @@
         try {
             const saved = await saveEntry(entry);
             allData.push(saved);
+            newlyAddedId = saved.id;
             saveToLocalStorage();
             renderAll();
 
-            // Scroll to new row, highlight it, and auto-focus product field
             requestAnimationFrame(() => {
                 const newRow = document.querySelector(`.dg-item[data-id="${saved.id}"]`);
                 if (newRow) {
                     newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     newRow.classList.add('row-new');
-
-                    // Auto start inline edit on STT cell first
+                    // Auto focus STT
                     const sttCell = newRow.querySelector('[data-field="stt"]');
-                    if (sttCell) {
-                        setTimeout(() => startInlineEdit(sttCell), 300);
-                    }
+                    if (sttCell) setTimeout(() => startInlineEdit(sttCell), 300);
                 }
+                newlyAddedId = null;
             });
         } catch (e) {
             console.error('addRowInGroup error:', e);
             showToast('Lỗi thêm dòng: ' + e.message, 'error');
+            newlyAddedId = null;
         } finally {
             addingRow = false;
         }
