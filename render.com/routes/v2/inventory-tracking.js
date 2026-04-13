@@ -720,94 +720,86 @@ router.post('/edit-history', async (req, res) => {
 });
 
 // =====================================================
-// INLINE NOTES (Multi-user Thiếu & Ghi Chú — append mode)
-// Multiple entries per user per shipment (like mini comments)
+// NOTES (Multi-user Ghi Chú per invoice)
 // =====================================================
 
-/**
- * GET /inline-notes?shipment_ids=id1,id2,id3
- * Returns all inline notes for given shipment IDs (batch)
- */
-router.get('/inline-notes', async (req, res) => {
+router.get('/notes', async (req, res) => {
     try {
         const db = getDb(req);
-        const { shipment_ids } = req.query;
+        const { invoice_ids } = req.query;
+        if (!invoice_ids) return res.json({ success: true, data: [] });
 
-        if (!shipment_ids) {
-            return res.json({ success: true, data: [] });
-        }
-
-        const ids = shipment_ids.split(',').filter(Boolean);
-        if (ids.length === 0) {
-            return res.json({ success: true, data: [] });
-        }
+        const ids = invoice_ids.split(',').filter(Boolean);
+        if (ids.length === 0) return res.json({ success: true, data: [] });
 
         const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
         const result = await db.query(
-            `SELECT * FROM inventory_inline_notes WHERE shipment_id IN (${placeholders}) ORDER BY created_at ASC`,
+            `SELECT * FROM inventory_notes WHERE invoice_id IN (${placeholders}) ORDER BY created_at ASC`,
             ids
         );
-
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        console.error('[inventory] GET /inline-notes error:', err.message);
+        console.error('[inventory] GET /notes error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-/**
- * POST /inline-notes
- * Create a new inline note (append, not upsert)
- */
-router.post('/inline-notes', async (req, res) => {
+router.post('/notes', async (req, res) => {
     try {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
-        const { shipment_id, thieu_value, ghichu_text, ghichu_images, is_admin = false } = req.body;
+        const { invoice_id, note_text, note_images, is_admin = false } = req.body;
 
-        if (!shipment_id) {
-            return res.status(400).json({ success: false, error: 'shipment_id required' });
-        }
-
-        // Skip empty notes (no text, no images, no thieu)
-        if (!ghichu_text && (!ghichu_images || ghichu_images.length === 0) && !thieu_value) {
+        if (!invoice_id) return res.status(400).json({ success: false, error: 'invoice_id required' });
+        if (!note_text && (!note_images || note_images.length === 0)) {
             return res.status(400).json({ success: false, error: 'Note content required' });
         }
 
         const result = await db.query(`
-            INSERT INTO inventory_inline_notes (shipment_id, username, is_admin, thieu_value, ghichu_text, ghichu_images)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-        `, [shipment_id, user, is_admin, thieu_value || 0, ghichu_text || '', ghichu_images || []]);
+            INSERT INTO inventory_notes (invoice_id, username, is_admin, note_text, note_images)
+            VALUES ($1, $2, $3, $4, $5) RETURNING *
+        `, [invoice_id, user, is_admin, note_text || '', note_images || []]);
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        console.error('[inventory] POST /inline-notes error:', err.message);
+        console.error('[inventory] POST /notes error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-/**
- * DELETE /inline-notes/:id
- * Delete a specific inline note by ID (only own notes)
- */
-router.delete('/inline-notes/:id', async (req, res) => {
+router.put('/notes/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const user = getUserFromHeaders(req);
+        const { note_text, note_images } = req.body;
+
+        const result = await db.query(`
+            UPDATE inventory_notes SET note_text = $3, note_images = $4
+            WHERE id = $1 AND username = $2 RETURNING *
+        `, [req.params.id, user, note_text || '', note_images || []]);
+
+        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found or not owned' });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error('[inventory] PUT /notes/:id error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.delete('/notes/:id', async (req, res) => {
     try {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
 
         const result = await db.query(
-            'DELETE FROM inventory_inline_notes WHERE id = $1 AND username = $2 RETURNING id',
+            'DELETE FROM inventory_notes WHERE id = $1 AND username = $2 RETURNING id',
             [req.params.id, user]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Note not found or not owned by you' });
-        }
-
+        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found or not owned' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
-        console.error('[inventory] DELETE /inline-notes/:id error:', err.message);
+        console.error('[inventory] DELETE /notes/:id error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

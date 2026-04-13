@@ -3236,3 +3236,201 @@ body {
     }
 }
 
+/* =====================================================
+   NOTES - Multi-user ghi chú per invoice
+   ===================================================== */
+
+/* Cell layout */
+.note-cell {
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.note-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 22px;
+}
+
+.note-row-new {
+    justify-content: flex-end;
+}
+
+.note-text { flex: 1; min-width: 0; word-break: break-word; }
+.note-admin { color: var(--gray-800); }
+.note-user  { color: #dc2626; }
+.note-legacy { color: var(--gray-500); font-style: italic; }
+.note-username { font-weight: 600; }
+
+/* Pencil button per row */
+.note-row-btn {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+.note-row-btn i { width: 13px; height: 13px; }
+.note-row-btn:hover { color: var(--primary); background: var(--gray-100); }
+
+/* Inline image thumbnails (16px) */
+.note-thumb {
+    width: 16px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    cursor: pointer;
+    border: 1px solid var(--gray-300);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* JS-driven fixed tooltip */
+#noteTooltip {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    display: none;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 4px;
+}
+#noteTooltip img {
+    max-width: 300px;
+    max-height: 300px;
+    display: block;
+    border-radius: 4px;
+}
+
+/* Lightbox */
+.note-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.note-lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.note-lightbox-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.note-lightbox-close:hover { background: rgba(255,255,255,0.4); }
+
+/* Modal form */
+.note-modal-form { display: flex; flex-direction: column; gap: 12px; }
+.note-modal-label { font-weight: 600; font-size: 14px; color: var(--gray-700); }
+.note-modal-textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 14px;
+    resize: vertical;
+    font-family: inherit;
+}
+.note-modal-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+.note-modal-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.note-preview-item {
+    position: relative;
+    width: 64px;
+    height: 64px;
+}
+.note-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+}
+.note-preview-remove {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: var(--danger);
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.note-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.note-modal-attach {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--gray-500);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+.note-modal-attach:hover { background: var(--gray-100); color: var(--primary); }
+.note-modal-attach i { width: 16px; height: 16px; }
+
+.note-modal-upload-status { font-size: 12px; color: var(--primary); }
+
+.btn-danger-outline {
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.btn-danger-outline:hover { background: #fef2f2; }
+

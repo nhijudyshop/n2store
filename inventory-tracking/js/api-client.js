@@ -416,41 +416,42 @@ function pgToOtherExpense(row) {
 }
 
 // =====================================================
-// INLINE NOTES API (Multi-user Thiếu & Ghi Chú — append mode)
+// NOTES API (Multi-user Ghi Chú per invoice)
 // =====================================================
 
-const inlineNotesApi = {
-    /**
-     * Fetch all inline notes for given shipment IDs (batch)
-     */
-    async getByShipmentIds(shipmentIds) {
-        if (!shipmentIds || shipmentIds.length === 0) return [];
-        const result = await apiFetch(`/inline-notes?shipment_ids=${shipmentIds.join(',')}`);
+const notesApi = {
+    async getByInvoiceIds(ids) {
+        if (!ids || ids.length === 0) return [];
+        const result = await apiFetch(`/notes?invoice_ids=${ids.join(',')}`);
         return result.data;
     },
 
-    /**
-     * Create a new inline note (append, not upsert)
-     */
-    async create(shipmentId, { thieuValue, ghichuText, ghichuImages, isAdmin }) {
-        const result = await apiFetch('/inline-notes', {
+    async create(invoiceId, { noteText, noteImages, isAdmin }) {
+        const result = await apiFetch('/notes', {
             method: 'POST',
             body: JSON.stringify({
-                shipment_id: shipmentId,
-                thieu_value: thieuValue || 0,
-                ghichu_text: ghichuText || '',
-                ghichu_images: ghichuImages || [],
+                invoice_id: invoiceId,
+                note_text: noteText || '',
+                note_images: noteImages || [],
                 is_admin: isAdmin || false
             })
         });
         return result.data;
     },
 
-    /**
-     * Delete a specific note by ID
-     */
+    async update(noteId, { noteText, noteImages }) {
+        const result = await apiFetch(`/notes/${noteId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                note_text: noteText || '',
+                note_images: noteImages || []
+            })
+        });
+        return result.data;
+    },
+
     async deleteNote(noteId) {
-        await apiFetch(`/inline-notes/${noteId}`, { method: 'DELETE' });
+        await apiFetch(`/notes/${noteId}`, { method: 'DELETE' });
         return true;
     }
 };
