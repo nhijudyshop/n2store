@@ -396,16 +396,30 @@ window.BarcodeLabelDialog = (function () {
      */
     function buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
-        const topMargin = paper.topMargin || 0;
-        const leftMargin = paper.leftMargin || 0;
-        const bottomMargin = paper.bottomMargin || 0;
-        const rightMargin = paper.rightMargin || 0;
-        const hSpacing = paper.hSpacing || 0;
-        const vSpacing = paper.vSpacing || 0;
 
-        const lineH = fontSize + 1;
-        const nameMaxH = fontSize * 2;
+        // TPOS style_label() only sets padding/margin when value is not null
         const fs = fontSize || 9;
+        const lineH = fs + 1; // TPOS: FontSize * 1 + 1
+        const nameMaxH = fs * 2; // TPOS: FontSize * 2
+
+        // Build style_label() exactly like TPOS controller
+        // Only include properties when not null (TPOS skips null values)
+        let labelStyleParts = [
+            `width:${labelW}mm`,
+            `height:${labelH}mm`,
+            `overflow:hidden`,
+            `font-size:${fs}px`,
+            `line-height:${lineH}px`
+        ];
+        if (paper.topMargin != null) labelStyleParts.push(`padding-top:${paper.topMargin}mm`);
+        if (paper.leftMargin != null) labelStyleParts.push(`padding-left:${paper.leftMargin}mm`);
+        if (paper.bottomMargin != null) labelStyleParts.push(`padding-bottom:${paper.bottomMargin}mm`);
+        if (paper.rightMargin != null) labelStyleParts.push(`padding-right:${paper.rightMargin}mm`);
+        if (paper.hSpacing != null) labelStyleParts.push(`margin-right:${paper.hSpacing}mm`);
+        if (paper.vSpacing != null) labelStyleParts.push(`margin-bottom:${paper.vSpacing}mm`);
+
+        // TPOS style_name
+        const nameStyle = `max-height:${nameMaxH}px;overflow:hidden;margin-bottom:2px;`;
 
         // Group labels into sheets (cols labels per sheet)
         const sheets = [];
@@ -417,126 +431,143 @@ window.BarcodeLabelDialog = (function () {
 
         let sheetsHTML = '';
         for (const sheet of sheets) {
+            // TPOS: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
             sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;">`;
             for (const label of sheet) {
                 const displayPrice = formatPrice(label.price);
-
-                // Dynamic inline style matching TPOS style_label()
-                const labelStyle = `width:${labelW}mm;height:${labelH}mm;overflow:hidden;padding-top:${topMargin}mm;padding-left:${leftMargin}mm;padding-bottom:${bottomMargin}mm;padding-right:${rightMargin}mm;margin-right:${hSpacing}mm;margin-bottom:${vSpacing}mm;font-size:${fs}px;line-height:${lineH}px;`;
-
-                // Dynamic name style matching TPOS style_name
-                const nameStyle = `max-height:${nameMaxH}px;overflow:hidden;margin-bottom:2px;`;
-
-                // Use TPOS barcode image server (exact same as TPOS uses)
-                const barcodeImg = `<img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(label.code)}&width=600&height=100" onerror="this.style.display='none'" />`;
                 const currencyStr = showCurrency ? ' đ' : '';
 
+                // TPOS barcode image: /Web/Barcode?type=Code 128&value={code}&width=600&height=100
+                const barcodeImg = `<img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(label.code)}&width=600&height=100" onerror="this.style.display='none'" />`;
+
+                // TPOS: ng-style="data.style_label()"
+                const labelStyle = labelStyleParts.join(';') + ';';
+
                 if (printType === 'new') {
-                    // Template B: PrintNew — 2-column table
-                    sheetsHTML += `
-                        <div class="barcode_label" style="${labelStyle}">
-                            <table border="0">
-                                <tr style="text-align:center;">
-                                    <td style="width:50%;text-align:center;vertical-align:middle">
-                                        <div class="barcode-pname" style="${nameStyle}">
-                                            <${bTag}>${escapeHtml(label.code)}</${bTag}>
-                                        </div>
-                                        ${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}
-                                    </td>
-                                    <td style="width:50%;text-align:center;vertical-align:middle;">
-                                        <div class="barcode-image" style="width:100%;padding:2px">
-                                            ${!hideBarcode ? barcodeImg : ''}
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    `;
+                    // TPOS Template: /BarcodeProductLabel/PrintNew
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0"><tr style="text-align:center;"><td style="width:50%; text-align:center; vertical-align:middle"><div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}</td><td style="width:50%; text-align:center; vertical-align:middle;"><div class="barcode-image" style="width:100%; padding:2px">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // Template A: Print (Default) — vertical stack
-                    sheetsHTML += `
-                        <div class="barcode_label" style="${labelStyle}text-align:center;margin-top:1px;">
-                            ${showProductName ? `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>` : ''}
-                            ${!hideBarcode ? `<div class="barcode-image">${barcodeImg}</div>` : ''}
-                            <div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>
-                            ${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}
-                        </div>
-                    `;
+                    // TPOS Template: /BarcodeProductLabel/Print (Default)
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}text-align: center;margin-top:1px">`;
+                    if (showProductName) {
+                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                    }
+                    if (!hideBarcode && label.code) {
+                        sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
+                    }
+                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    if (showPrice) {
+                        sheetsHTML += `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>`;
+                    }
+                    sheetsHTML += `</div>`;
                 }
             }
             sheetsHTML += '</div>';
         }
 
-        // Full HTML document matching TPOS print iframe structure
-        // CSS from TPOS /Content/print_barcode.css (exact copy)
-        return `<!DOCTYPE html>
+        // TPOS print iframe structure (exact):
+        // <!doctype html><html><head>
+        //   <link href="/Content/themes/angulr/bower_components/bootstrap/dist/css/bootstrap.css" /> (404 on tomato.tpos.vn)
+        //   <link href="/Content/print_barcode.css" />
+        // </head><body onload="printAndRemove();">{html}</body></html>
+        //
+        // We inline the CSS since we can't link to TPOS server.
+        // CSS below is the COMPLETE /Content/print_barcode.css from tomato.tpos.vn (verified 2026-04-13)
+        return `<!doctype html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>In mã vạch</title>
 <style>
-    /* === TPOS /Content/print_barcode.css (exact) === */
-    * { box-sizing: border-box; }
-    @page { margin: 0 !important; }
-    html, body {
-        padding: 0 !important;
-        margin: 0 !important;
-        font-family: Arial, Helvetica, sans-serif;
+/* === TPOS /Content/print_barcode.css — COMPLETE, UNMODIFIED === */
+* {
+    box-sizing: border-box;
+}
+
+@page {
+    margin: 0 !important;
+}
+
+html, body {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.barcode-sheet {
+    page-break-after: always;
+}
+
+.barcodeCustom-sheet {
+    page-break-after: always;
+}
+
+.barcode_label {
+    box-sizing: border-box;
+    text-align: center;
+    float: left;
+    display: flex;
+    flex-flow: column;
+    overflow: hidden;
+    font-size: 10px;
+    padding: 5px;
+    line-height: 10px;
+}
+
+.barcodeCustom_label {
+    box-sizing: border-box;
+    text-align: left;
+    display: flex;
+    overflow: hidden;
+    font-size: 5px;
+}
+
+.barcode_label div {
+    flex: 1 auto;
+}
+
+.barcodeCustom_label div {
+    flex: 1 auto;
+    font-size: 5px;
+    line-height: 5px;
+}
+
+.barcode-image img {
+    width: 100%;
+    height: 25px;
+}
+
+.fill-height-flex {
+    display: flex;
+    flex-direction: column;
+}
+
+.fill-height-flex > div {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+}
+/* === END TPOS CSS === */
+
+/* Screen preview only (not printed) */
+@media screen {
+    body {
+        background: #e5e7eb;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
     }
     .barcode-sheet {
-        page-break-after: always;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        border: 1px solid #ccc;
     }
-    .barcode-sheet:last-child {
-        page-break-after: auto;
-    }
-    .barcode_label {
-        box-sizing: border-box;
-        text-align: center;
-        float: left;
-        display: flex;
-        flex-flow: column;
-        overflow: hidden;
-        font-size: 10px;
-        padding: 5px;
-        line-height: 10px;
-    }
-    .barcode_label div {
-        flex: 1 auto;
-    }
-    .barcode-image img,
-    .barcode-image svg {
-        width: 100%;
-        height: 25px;
-    }
-
-    /* === Screen preview === */
-    @media screen {
-        body {
-            background: #e5e7eb;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-        .barcode-sheet {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-            border: 1px solid #ccc;
-            display: flex;
-            overflow: hidden;
-        }
-    }
-
-    @media print {
-        body { background: none; display: block; padding: 0; }
-        .barcode-sheet { display: block; }
-    }
+}
 </style>
 </head>
 <body>
 ${sheetsHTML}
-<!-- Barcode images loaded from TPOS server (gc-statics.tpos.vn) -->
 </body>
 </html>`;
     }
