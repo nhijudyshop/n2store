@@ -8,6 +8,20 @@
 
 ## 2026-04-13
 
+### [issue-tracking] Fix overdue alert banner bị treo sau khi dismiss ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js` |
+| **Chi tiết** | Banner "Thu về quá 20 ngày" bị hiện lại ngay sau khi bấm × vì Firebase data update trigger lại `checkOverdueTickets()`. Thêm `dataset.dismissed` flag giữ trạng thái dismiss trong session, chỉ hiện lại khi số overdue thay đổi. Thêm null check cho button elements tránh crash. |
+| **Status** | ✅ Done |
+
+### [render][delivery] Khóa cứng phân chia đơn giao hàng — DB source of truth ✅
+| | |
+|---|---|
+| **Files** | `render.com/migrations/048_create_delivery_assignments.sql`, `render.com/routes/v2/delivery-assignments.js`, `render.com/routes/v2/index.js`, `delivery-report/js/delivery-report.js`, `delivery-report/index.html`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | Tạo bảng `delivery_assignments` (PostgreSQL) khóa cứng phân chia đơn theo ngày. API v2 endpoints (GET/POST/PUT/DELETE). Frontend load từ DB trước → chỉ assign đơn mới → ON CONFLICT DO NOTHING. Firestore vẫn giữ cho real-time, DB là source of truth. UI hiển thị số đơn đã khóa / mới. Fix bug F5 refresh thay đổi phân chia giữa các máy. |
+| **Status** | ✅ Done |
+
 ### [shared] Visual refresh toàn bộ design system CSS ✅
 | | |
 |---|---|
