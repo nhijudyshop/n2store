@@ -1137,7 +1137,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-auth-data': JSON.stringify({ userName: user })
+                    'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user }))))
                 },
                 body: JSON.stringify({ date, assignments })
             });
@@ -1182,7 +1182,7 @@
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
             await fetch(`${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}?date=${date}`, {
                 method: 'PATCH',
-                headers: { 'x-auth-data': JSON.stringify({ userName: user }) }
+                headers: { 'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user })))) }
             });
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to hide order in DB:', e.message);
@@ -1200,7 +1200,7 @@
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
             await fetch(`${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}?date=${date}`, {
                 method: 'PATCH',
-                headers: { 'x-auth-data': JSON.stringify({ userName: user }) }
+                headers: { 'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user })))) }
             });
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to save scan to DB:', e.message);

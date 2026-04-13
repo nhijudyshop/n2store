@@ -53,7 +53,13 @@ function getUserFromHeaders(req) {
     try {
         const authData = req.headers['x-auth-data'];
         if (authData) {
-            const parsed = JSON.parse(authData);
+            let jsonStr;
+            try {
+                jsonStr = decodeURIComponent(escape(Buffer.from(authData, 'base64').toString('binary')));
+            } catch (_) {
+                jsonStr = authData;
+            }
+            const parsed = JSON.parse(jsonStr);
             return parsed.userName || parsed.userId || 'anonymous';
         }
     } catch (_) { /* ignore */ }
