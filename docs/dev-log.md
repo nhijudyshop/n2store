@@ -8,6 +8,13 @@
 
 ## 2026-04-13
 
+### [orders] Upgrade refund tab with better columns, summary bar, and print action ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/refund-tab.js` |
+| **Chi tiết** | Nâng cấp refund tab: thêm cột # (row number), Số phiếu, NCC (truncated 25 chars), Ngày (dd/mm), Tổng tiền, Trạng thái (color-coded badge), Phiếu gốc (Origin), NV, Thao tác (Print button). Thêm summary stats bar hiển thị tổng phiếu trả + tổng tiền VND. Print button mở TPOS PrintRefund trong tab mới. Empty state có hướng dẫn điều chỉnh filter. |
+| **Status** | ✅ Done |
+
 ### [orders] Add TPOS live stats cards to purchase-orders dashboard ✅
 | | |
 |---|---|
