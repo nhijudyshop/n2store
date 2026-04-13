@@ -157,34 +157,40 @@ async function initPhone() {
     phone.on('newRTCSession', (e) => {
       addLog(`newRTCSession: ${e.session.direction} ${e.request?.method || ''}`, 'success');
     });
-    phone.on('sipEvent', (e) => {
-      addLog(`sipEvent: ${JSON.stringify(e).substring(0, 100)}`);
-    });
 
-    // Intercept WebSocket to log SIP INVITE and responses
-    const rawWs = socket._ws;
-    if (rawWs) {
-      const origOnMsg = rawWs.onmessage;
-      rawWs.onmessage = function(evt) {
-        if (typeof evt.data === 'string') {
-          const first = evt.data.substring(0, 40);
-          if (!first.includes('REGISTER')) {
-            addLog(`← PBX: ${first.replace(/\r\n/g, ' | ')}`);
-            console.log('=== PBX RESPONSE ===\n' + evt.data.substring(0, 1000));
+    // Attach WebSocket interceptor AFTER connection (socket._ws only exists after connect)
+    phone.on('connected', () => {
+      const rawWs = socket._ws;
+      if (rawWs && !rawWs._n2intercepted) {
+        rawWs._n2intercepted = true;
+
+        const origOnMsg = rawWs.onmessage;
+        rawWs.onmessage = function(evt) {
+          if (typeof evt.data === 'string') {
+            const first = evt.data.substring(0, 50);
+            if (!first.includes('REGISTER')) {
+              addLog(`← PBX: ${first.replace(/\r\n/g, ' | ')}`);
+              console.log('=== PBX RESPONSE ===\n' + evt.data.substring(0, 1500));
+            }
           }
-        }
-        if (origOnMsg) origOnMsg.call(this, evt);
-      };
+          if (origOnMsg) origOnMsg.call(this, evt);
+        };
 
-      const origSend = rawWs.send.bind(rawWs);
-      rawWs.send = function(data) {
-        if (typeof data === 'string' && data.startsWith('INVITE ')) {
-          addLog(`→ PBX: INVITE sent (${data.length} bytes)`);
-          console.log('=== SIP INVITE ===\n' + data.substring(0, 1500));
-        }
-        return origSend(data);
-      };
-    }
+        const origSend = rawWs.send.bind(rawWs);
+        rawWs.send = function(data) {
+          if (typeof data === 'string') {
+            if (data.startsWith('INVITE ')) {
+              addLog(`→ PBX: INVITE sent (${data.length} bytes)`);
+              console.log('=== SIP INVITE ===\n' + data.substring(0, 2000));
+            } else if (data.startsWith('ACK ') || data.startsWith('CANCEL ') || data.startsWith('BYE ')) {
+              addLog(`→ PBX: ${data.substring(0, 30)}`);
+            }
+          }
+          return origSend(data);
+        };
+        addLog('SIP traffic interceptor attached', 'success');
+      }
+    });
 
     // Start
     phone.start();
