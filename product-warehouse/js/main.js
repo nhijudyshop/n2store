@@ -977,6 +977,20 @@
         });
         setupImageUpload();
 
+        // Delete product — click delete button
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.btn-action-delete');
+            if (deleteBtn) {
+                e.stopPropagation();
+                const row = deleteBtn.closest('tr[data-template-id]');
+                if (row) {
+                    const templateId = parseInt(row.dataset.templateId, 10);
+                    if (templateId) deleteProduct(templateId);
+                }
+                return;
+            }
+        });
+
         // Variant expand — click expand button or click on row
         $('#productTableBody')?.addEventListener('click', (e) => {
             // Expand button click
@@ -1279,6 +1293,49 @@
         } catch (err) {
             console.error('[Edit] Save failed:', err);
             showToast('Lỗi lưu: ' + err.message, 'error');
+        }
+    }
+
+    // =====================================================
+    // DELETE PRODUCT
+    // =====================================================
+
+    async function deleteProduct(templateId) {
+        const product = pageProducts.find(p => p.id === templateId);
+        const name = product ? `${product.code} - ${product.name}` : `ID ${templateId}`;
+
+        if (!confirm(`Xóa sản phẩm "${name}"?\n\nSản phẩm sẽ bị đặt hết hiệu lực (Active = false) trên TPOS.`)) {
+            return;
+        }
+
+        try {
+            showToast('Đang xóa...', 'info');
+
+            const detail = await fetchProductDetail(templateId);
+            const payload = { ...detail };
+            delete payload['@odata.context'];
+            payload.Active = false;
+
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${response.status}`);
+            }
+
+            showToast(`Đã xóa "${name}"`, 'success');
+            fetchProducts(true);
+        } catch (err) {
+            console.error('[Delete] Failed:', err);
+            showToast('Lỗi xóa: ' + err.message, 'error');
         }
     }
 
