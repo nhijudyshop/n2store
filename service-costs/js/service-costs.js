@@ -749,8 +749,8 @@
         // showDays: how many days to keep showing after billing day
         // Render + Firebase auto-pay → chỉ warning khi downgrade (check via API)
         // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
+        // Cloudflare Workers auto-pay via Stripe → không cần nhắc
         const BILLING_SCHEDULE = [
-            { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
             { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
 
