@@ -260,15 +260,15 @@
                 bottom: 0;
                 left: 50%;
                 right: 50%;
-                height: 3px;
-                background: linear-gradient(90deg, var(--primary) 0%, var(--secondary, #8b5cf6) 100%);
-                border-radius: 3px 3px 0 0;
+                height: 2px;
+                background: var(--ds-primary, #3b82f6);
+                border-radius: 2px 2px 0 0;
                 transition: left 0.25s ease, right 0.25s ease;
             }
 
             .tab-button:hover {
-                color: var(--primary);
-                background: var(--gray-50);
+                color: var(--ds-primary, #3b82f6);
+                background: var(--ds-gray-50, #f9fafb);
             }
 
             .tab-button:hover::after {
@@ -277,7 +277,7 @@
             }
 
             .tab-button.active {
-                color: var(--primary);
+                color: var(--ds-primary, #3b82f6);
                 font-weight: 600;
             }
 
