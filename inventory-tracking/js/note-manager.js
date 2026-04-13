@@ -73,20 +73,25 @@ const NoteManager = {
 
     renderCell(invoiceId, legacyGhiChu) {
         const notes = this._cache[invoiceId] || [];
+        const currentUser = this._getUsername();
 
         let html = '<div class="note-cell" data-invoice-id="' + invoiceId + '">';
 
-        // Legacy note (TPOS)
+        // Top-right: pencil for NEW note
+        html += '<button class="note-add-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
+        html += '<i data-lucide="pencil"></i></button>';
+
+        // Legacy note (TPOS) — no edit pencil
         if (legacyGhiChu) {
             html += '<div class="note-row">';
             html += '<span class="note-text note-legacy">' + this._esc(legacyGhiChu) + '</span>';
             html += '</div>';
         }
 
-        // User notes
+        // User notes — each has edit pencil at end + image icon
         for (const n of notes) {
             const cls = n.is_admin ? 'note-admin' : 'note-user';
-            const isOwn = n.username === this._getUsername();
+            const isOwn = n.username === currentUser;
             const imgCount = (n.note_images || []).length;
             const imgs = imgCount > 0
                 ? '<span class="note-img-icon" ' +
@@ -106,18 +111,13 @@ const NoteManager = {
             html += this._esc(n.note_text || '');
             html += '</span>';
             html += imgs;
+            // Edit pencil at end of each note row (only own notes)
             if (isOwn) {
-                html += '<button class="note-row-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',' + n.id + '); event.stopPropagation();" title="Sửa">';
+                html += '<button class="note-row-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',' + n.id + '); event.stopPropagation();" title="Sửa ghi chú">';
                 html += '<i data-lucide="pencil"></i></button>';
             }
             html += '</div>';
         }
-
-        // New note button (always present)
-        html += '<div class="note-row note-row-new">';
-        html += '<button class="note-row-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
-        html += '<i data-lucide="pencil"></i></button>';
-        html += '</div>';
 
         html += '</div>';
         return html;
