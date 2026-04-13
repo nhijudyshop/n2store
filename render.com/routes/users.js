@@ -162,6 +162,34 @@ router.post('/verify-session', verifyToken, (req, res) => {
     res.json({ valid: true, user: req.user });
 });
 
+// PUT /me/display-name - User updates own display name
+router.put('/me/display-name', verifyToken, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const { displayName } = req.body;
+        const username = req.user.username;
+
+        if (!displayName || displayName.trim().length < 2) {
+            return res.status(400).json({ error: 'Display name must be at least 2 characters' });
+        }
+
+        const trimmed = displayName.trim();
+        if (trimmed.length > 100) {
+            return res.status(400).json({ error: 'Display name must be 100 characters or less' });
+        }
+
+        await pool.query(
+            'UPDATE app_users SET display_name = $1, updated_at = NOW(), updated_by = $2 WHERE username = $2',
+            [trimmed, username]
+        );
+
+        res.json({ success: true, displayName: trimmed });
+    } catch (error) {
+        console.error('[USERS] Update display name error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // =====================================================
 // USER CRUD ENDPOINTS
 // =====================================================

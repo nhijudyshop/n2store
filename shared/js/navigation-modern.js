@@ -3998,32 +3998,35 @@ class UnifiedNavigationManager {
                 return false;
             }
 
-            const username = authData.username;
+            // Save to PostgreSQL via API (source of truth for login)
+            const apiBase = window.location.hostname === 'localhost'
+                ? 'http://localhost:3000/api/users'
+                : 'https://n2store-fallback.onrender.com/api/users';
 
-            // Update Firebase
-            if (typeof firebase !== "undefined" && firebase.firestore) {
-                const db = firebase.firestore();
-                await db.collection("users").doc(username).update({
-                    displayName: newDisplayName,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
+            const response = await fetch(`${apiBase}/me/display-name`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authData.token}`
+                },
+                body: JSON.stringify({ displayName: newDisplayName })
+            });
 
-            } else {
-                this.showToast("Không thể kết nối Firebase!", "error");
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                this.showToast(errData.error || "Lỗi khi cập nhật tên!", "error");
                 return false;
             }
 
-            // Update storage (both localStorage and sessionStorage)
+            // Update local storage cache so UI reflects immediately
             authData.displayName = newDisplayName;
-
             const authDataString = JSON.stringify(authData);
 
-            // Update localStorage if exists
             if (localStorage.getItem("loginindex_auth")) {
                 localStorage.setItem("loginindex_auth", authDataString);
+                localStorage.setItem("displayName", newDisplayName);
             }
 
-            // Update sessionStorage if exists
             if (sessionStorage.getItem("loginindex_auth")) {
                 sessionStorage.setItem("loginindex_auth", authDataString);
             }
