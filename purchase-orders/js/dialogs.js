@@ -2715,11 +2715,7 @@ class InventoryPickerDialog {
             // Auto-search with debounce for instant results
             searchTimeout = setTimeout(() => {
                 hideSuggestions();
-                // Auto-detect mode: if input looks like a code (short, alphanumeric), use code mode
-                const trimmed = term.trim();
-                const looksLikeCode = trimmed.length <= 8 && /^[a-zA-Z0-9]+$/.test(trimmed);
-                const autoMode = looksLikeCode ? 'code' : 'name';
-                this.filterProducts(term, autoMode);
+                this.filterProducts(term, 'all');
             }, 250);
             // Also show suggestions dropdown for manual mode selection
             if (term.trim().length >= 2) {
