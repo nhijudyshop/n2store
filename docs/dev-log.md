@@ -8,6 +8,20 @@
 
 ## 2026-04-13
 
+### [orders] UI polish — header, cards, responsive, TPOS stats fix ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/css/layout.css`, `purchase-orders/css/cards.css`, `purchase-orders/css/responsive.css`, `purchase-orders/js/ui-components.js` |
+| **Chi tiết** | Page header gradient + Manrope font. Summary card color variants (blue/green/purple/orange/cyan). TPOS stats fix $select. Responsive TPOS grid. Max-width container 1600px. |
+| **Status** | ✅ Done |
+
+### [orders] Migration Firebase → PostgreSQL + Fix API 500 + Date parsing ✅
+| | |
+|---|---|
+| **Files** | `render.com/scripts/migrate-purchase-orders-firestore-to-pg.js`, `render.com/routes/v2/purchase-orders.js`, `purchase-orders/js/table-renderer.js` |
+| **Chi tiết** | Migrate 282 purchase orders từ Firestore → PostgreSQL (0 errors). Fix API 500: đổi từ standalone pool sang shared `req.app.locals.chatDb`. Fix date parsing: string dates from PostgreSQL → Date objects in formatDateFull/Short/TimeOnly. |
+| **Status** | ✅ Done |
+
 ### [orders] Upgrade history tab with better columns, stats bar, print & done toggle ✅
 | | |
 |---|---|
