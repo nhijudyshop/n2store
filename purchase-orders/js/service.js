@@ -1,20 +1,20 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * PURCHASE ORDERS MODULE - FIREBASE SERVICE LAYER
+ * PURCHASE ORDERS MODULE - REST API SERVICE LAYER
  * File: service.js
- * Purpose: CRUD operations for purchase orders using Firestore
+ * Purpose: CRUD operations for purchase orders via Render PostgreSQL API
+ * Migrated from Firestore → PostgreSQL for faster queries
  */
 
 // ========================================
-// FIREBASE SERVICE CLASS
+// REST API SERVICE CLASS
 // ========================================
 class PurchaseOrderService {
     constructor() {
-        this.db = null;
-        this.storage = null;
+        this.API_BASE = 'https://n2store-fallback.onrender.com/api/v2/purchase-orders';
         this.currentUser = null;
         this.initialized = false;
-        this.COLLECTION = 'purchase_orders';
+        this.storage = null; // Firebase Storage still used for images
         this.PAGE_SIZE = 20;
     }
 
@@ -22,32 +22,10 @@ class PurchaseOrderService {
     // INITIALIZATION
     // ========================================
 
-    /**
-     * Initialize Firebase connection
-     * @returns {Promise<void>}
-     */
     async initialize() {
         if (this.initialized) return;
 
         try {
-            // Check if Firebase is loaded
-            if (typeof firebase === 'undefined') {
-                throw new Error('Firebase SDK not loaded');
-            }
-
-            // Check if Firebase is already initialized
-            if (!firebase.apps.length) {
-                // Initialize Firebase using global config
-                const config = window.FIREBASE_CONFIG;
-                if (!config) {
-                    throw new Error('Firebase config not found');
-                }
-                firebase.initializeApp(config);
-            }
-
-            this.db = firebase.firestore();
-            this.storage = firebase.storage();
-
             // Get current user from shared authManager
             if (window.authManager) {
                 const authState = window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
@@ -60,38 +38,70 @@ class PurchaseOrderService {
                 }
             }
 
+            // Initialize Firebase Storage for image uploads (still needed)
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps.length) {
+                    const config = window.FIREBASE_CONFIG;
+                    if (config) firebase.initializeApp(config);
+                }
+                this.storage = firebase.storage();
+            }
+
             this.initialized = true;
-            console.log('[PurchaseOrderService] Initialized successfully');
+            console.log('[PurchaseOrderService] Initialized (REST API mode)');
         } catch (error) {
             console.error('[PurchaseOrderService] Initialization failed:', error);
             throw new window.PurchaseOrderValidation.ServiceException(
                 'INIT_FAILED',
-                'Không thể kết nối đến cơ sở dữ liệu. Vui lòng tải lại trang.'
+                'Không thể khởi tạo service. Vui lòng tải lại trang.'
             );
         }
     }
 
-    /**
-     * Set current user
-     * @param {Object} user - User data { uid, displayName, email }
-     */
+    // ========================================
+    // HTTP HELPERS
+    // ========================================
+
+    _getHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.currentUser) {
+            headers['X-Auth-Data'] = JSON.stringify({
+                userId: this.currentUser.uid,
+                userName: this.currentUser.displayName,
+                email: this.currentUser.email
+            });
+        }
+        return headers;
+    }
+
+    async _fetch(path, options = {}) {
+        const url = `${this.API_BASE}${path}`;
+        const response = await fetch(url, {
+            headers: this._getHeaders(),
+            ...options
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new window.PurchaseOrderValidation.ServiceException(
+                'API_ERROR',
+                data.error || `API error: ${response.status}`
+            );
+        }
+        return data;
+    }
+
+    // ========================================
+    // USER MANAGEMENT
+    // ========================================
+
     setCurrentUser(user) {
         this.currentUser = user;
     }
 
-    /**
-     * Get user snapshot for audit trail
-     * @returns {Object}
-     */
     getUserSnapshot() {
         if (!this.currentUser) {
-            return {
-                uid: 'anonymous',
-                displayName: 'Anonymous',
-                email: ''
-            };
+            return { uid: 'anonymous', displayName: 'Anonymous', email: '' };
         }
-
         return {
             uid: this.currentUser.uid || this.currentUser.id,
             displayName: this.currentUser.displayName || this.currentUser.name || 'Unknown',
@@ -103,11 +113,6 @@ class PurchaseOrderService {
     // CREATE OPERATIONS
     // ========================================
 
-    /**
-     * Create new purchase order
-     * @param {Object} orderData - Order data without id and timestamps
-     * @returns {Promise<string>} Document ID
-     */
     async createOrder(orderData) {
         await this.initialize();
 
@@ -115,7 +120,7 @@ class PurchaseOrderService {
         const validation = window.PurchaseOrderValidation;
 
         try {
-            // Validate order data - relax validation for DRAFT orders
+            // Validate order data
             const isDraft = orderData.status === config.OrderStatus.DRAFT;
             const validationOptions = isDraft ? { skipItems: true, skipFinancials: true } : {};
             const validationResult = validation.validateOrder(orderData, validationOptions);
@@ -123,199 +128,25 @@ class PurchaseOrderService {
                 throw new validation.ValidationException(validationResult.errors);
             }
 
-            // Calculate totals
-            const totalAmount = this.calculateTotalAmount(orderData.items);
-            const finalAmount = totalAmount - (orderData.discountAmount || 0) + (orderData.shippingFee || 0);
+            const data = await this._fetch('', {
+                method: 'POST',
+                body: JSON.stringify(orderData)
+            });
 
-            // Generate order number
-            const orderNumber = await this.generateOrderNumber();
-
-            // Get user snapshot
-            const userSnapshot = this.getUserSnapshot();
-
-            // Prepare document data
-            const docData = {
-                orderNumber,
-                orderType: orderData.orderType || 'NJD SHOP',
-                orderDate: orderData.orderDate || firebase.firestore.Timestamp.now(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-
-                status: orderData.status || config.OrderStatus.DRAFT,
-                statusHistory: [{
-                    from: null,
-                    to: orderData.status || config.OrderStatus.DRAFT,
-                    changedAt: firebase.firestore.Timestamp.now(),
-                    changedBy: userSnapshot
-                }],
-
-                supplier: orderData.supplier || null,
-
-                invoiceAmount: orderData.invoiceAmount || 0,
-                totalAmount,
-                discountAmount: orderData.discountAmount || 0,
-                shippingFee: orderData.shippingFee || 0,
-                finalAmount,
-
-                invoiceImages: this.filterFirebaseUrls(orderData.invoiceImages || []),
-                notes: orderData.notes || '',
-
-                items: this.prepareItems(orderData.items),
-
-                totalItems: orderData.items.length,
-                totalQuantity: orderData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
-
-                createdBy: userSnapshot,
-                lastModifiedBy: userSnapshot
-            };
-
-            // Check document size before writing (Firestore limit: 1MB)
-            const estimatedSize = new Blob([JSON.stringify(docData)]).size;
-            if (estimatedSize > 900000) {
-                console.error(`[PurchaseOrderService] Document too large: ${(estimatedSize / 1024).toFixed(0)}KB`);
-                throw new validation.ServiceException('DOC_TOO_LARGE',
-                    `Dữ liệu đơn hàng quá lớn (${(estimatedSize / 1024).toFixed(0)}KB). Hãy giảm số lượng hoặc kích thước ảnh.`);
-            }
-            console.log(`[PurchaseOrderService] Document size: ${(estimatedSize / 1024).toFixed(0)}KB`);
-
-            // Create document
-            const docRef = await this.db.collection(this.COLLECTION).add(docData);
-
-            console.log('[PurchaseOrderService] Order created:', docRef.id);
-            return docRef.id;
+            console.log('[PurchaseOrderService] Order created:', data.id);
+            return data.id;
         } catch (error) {
             if (error instanceof validation.ValidationException) throw error;
+            if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Create failed:', error);
             throw new validation.ServiceException('CREATE_FAILED', 'Không thể tạo đơn hàng. Vui lòng thử lại.');
         }
-    }
-
-    /**
-     * Prepare items with calculated subtotals
-     * @param {Array} items - Array of order items
-     * @returns {Array}
-     */
-    prepareItems(items) {
-        const config = window.PurchaseOrderConfig;
-
-        return items.map((item, index) => {
-            const prepared = {
-                id: item.id || config.generateUUID(),
-                position: index + 1,
-                productCode: item.productCode || '',
-                productName: item.productName || '',
-                variant: item.variant || '',
-                selectedAttributeValueIds: item.selectedAttributeValueIds || [],
-                productImages: this.filterFirebaseUrls(item.productImages || []),
-                priceImages: this.filterFirebaseUrls(item.priceImages || []),
-                purchasePrice: item.purchasePrice || 0,
-                sellingPrice: item.sellingPrice || 0,
-                quantity: item.quantity || 1,
-                subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
-                notes: item.notes || '',
-                tposSyncStatus: item.tposSyncStatus || null,
-                tposProductId: item.tposProductId || null,
-                tposProductTmplId: item.tposProductTmplId || null,
-                tposSynced: item.tposSynced || false
-            };
-            console.log(`[PrepareItems] Item ${index + 1}: variant="${prepared.variant}", attrIds=${prepared.selectedAttributeValueIds.length}`);
-            return prepared;
-        });
-    }
-
-    /**
-     * Calculate total amount from items
-     * @param {Array} items - Array of order items
-     * @returns {number}
-     */
-    /**
-     * Filter out base64 data URLs, keep only Firebase Storage URLs
-     * Safety net to prevent oversized Firestore documents
-     */
-    filterFirebaseUrls(urls) {
-        if (!Array.isArray(urls)) return [];
-        const filtered = urls.filter(url => typeof url === 'string' && !url.startsWith('data:'));
-        if (filtered.length < urls.length) {
-            console.warn(`[PurchaseOrderService] Stripped ${urls.length - filtered.length} data URL(s) — images not uploaded`);
-        }
-        return filtered;
-    }
-
-    calculateTotalAmount(items) {
-        if (!items || !Array.isArray(items)) return 0;
-        return items.reduce((sum, item) => {
-            return sum + (item.purchasePrice || 0) * (item.quantity || 1);
-        }, 0);
-    }
-
-    /**
-     * Generate order number for today
-     * @returns {Promise<string>}
-     */
-    async generateOrderNumber() {
-        const config = window.PurchaseOrderConfig;
-        const today = new Date();
-        const datePrefix = this.formatDateForOrderNumber(today);
-
-        try {
-            // Query today's orders to get the next sequence
-            const startOfDay = new Date(today);
-            startOfDay.setHours(0, 0, 0, 0);
-
-            const endOfDay = new Date(today);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            const snapshot = await this.db.collection(this.COLLECTION)
-                .where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
-                .where('createdAt', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
-                .orderBy('createdAt', 'desc')
-                .limit(1)
-                .get();
-
-            let sequence = 1;
-            if (!snapshot.empty) {
-                const lastOrder = snapshot.docs[0].data();
-                if (lastOrder.orderNumber) {
-                    const parts = lastOrder.orderNumber.split('-');
-                    if (parts.length >= 3) {
-                        const lastSeq = parseInt(parts[2], 10);
-                        if (!isNaN(lastSeq)) {
-                            sequence = lastSeq + 1;
-                        }
-                    }
-                }
-            }
-
-            return `PO-${datePrefix}-${String(sequence).padStart(3, '0')}`;
-        } catch (error) {
-            // Fallback with timestamp
-            console.warn('[PurchaseOrderService] Order number generation fallback:', error);
-            return `PO-${datePrefix}-${Date.now().toString().slice(-4)}`;
-        }
-    }
-
-    /**
-     * Format date for order number
-     * @param {Date} date
-     * @returns {string}
-     */
-    formatDateForOrderNumber(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}${month}${day}`;
     }
 
     // ========================================
     // READ OPERATIONS
     // ========================================
 
-    /**
-     * Get orders by status with pagination
-     * @param {string|Array} status - Order status or array of statuses
-     * @param {Object} options - Query options
-     * @returns {Promise<Object>} { orders, lastDoc, hasMore }
-     */
     async getOrdersByStatus(status, options = {}) {
         await this.initialize();
 
@@ -325,74 +156,29 @@ class PurchaseOrderService {
             startDate = null,
             endDate = null,
             searchTerm = null,
-            orderBy = 'createdAt',
-            orderDirection = 'desc'
+            page = 1
         } = options;
 
         try {
-            let query = this.db.collection(this.COLLECTION);
-
-            // Filter by status
+            const params = new URLSearchParams();
             if (status) {
-                if (Array.isArray(status)) {
-                    query = query.where('status', 'in', status);
-                } else {
-                    query = query.where('status', '==', status);
-                }
+                params.set('status', Array.isArray(status) ? status.join(',') : status);
             }
+            params.set('pageSize', pageSize);
+            params.set('page', lastDoc ? (lastDoc._page || 1) + 1 : page);
+            if (startDate) params.set('startDate', startDate instanceof Date ? startDate.toISOString() : startDate);
+            if (endDate) params.set('endDate', endDate instanceof Date ? endDate.toISOString() : endDate);
+            if (searchTerm) params.set('search', searchTerm);
 
-            // Filter by date range
-            if (startDate) {
-                const start = firebase.firestore.Timestamp.fromDate(startDate);
-                query = query.where('orderDate', '>=', start);
-            }
-            if (endDate) {
-                const end = firebase.firestore.Timestamp.fromDate(endDate);
-                query = query.where('orderDate', '<=', end);
-            }
+            const data = await this._fetch(`?${params.toString()}`);
 
-            // Order and limit
-            query = query.orderBy(orderBy, orderDirection).limit(pageSize + 1);
-
-            // Pagination
-            if (lastDoc) {
-                query = query.startAfter(lastDoc);
-            }
-
-            const snapshot = await query.get();
-            const docs = snapshot.docs;
-            const hasMore = docs.length > pageSize;
-
-            let orders = docs.slice(0, pageSize).map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
-            // Client-side search filter (Firestore doesn't support full-text search)
-            if (searchTerm) {
-                const search = searchTerm.toLowerCase();
-                orders = orders.filter(order => {
-                    // Search in supplier
-                    if (order.supplier?.code?.toLowerCase().includes(search)) return true;
-                    if (order.supplier?.name?.toLowerCase().includes(search)) return true;
-
-                    // Search in order number
-                    if (order.orderNumber?.toLowerCase().includes(search)) return true;
-
-                    // Search in items
-                    if (order.items?.some(item =>
-                        item.productCode?.toLowerCase().includes(search) ||
-                        item.productName?.toLowerCase().includes(search)
-                    )) return true;
-
-                    return false;
-                });
-            }
+            // Create a pagination cursor compatible with existing data-manager
+            const currentPage = data.page || 1;
 
             return {
-                orders,
-                lastDoc: docs.length > 0 ? docs[Math.min(docs.length - 1, pageSize - 1)] : null,
-                hasMore
+                orders: data.orders,
+                lastDoc: data.hasMore ? { _page: currentPage } : null,
+                hasMore: data.hasMore
             };
         } catch (error) {
             console.error('[PurchaseOrderService] Fetch failed:', error);
@@ -403,107 +189,30 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Get single order by ID
-     * @param {string} orderId - Document ID
-     * @returns {Promise<Object|null>}
-     */
     async getOrderById(orderId) {
         await this.initialize();
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                return null;
-            }
-
-            return {
-                id: docSnap.id,
-                ...docSnap.data()
-            };
+            const data = await this._fetch(`/${orderId}`);
+            return data.order;
         } catch (error) {
             console.error('[PurchaseOrderService] Get order failed:', error);
-            throw new window.PurchaseOrderValidation.ServiceException(
-                'FETCH_FAILED',
-                'Không thể tải thông tin đơn hàng.'
-            );
+            return null;
         }
     }
 
-    /**
-     * Get order statistics
-     * @returns {Promise<Object>}
-     */
-    /**
-     * Load all docs once, return both stats and status counts.
-     * Replaces separate getOrderStats() + getStatusCounts() to avoid 3 full-collection reads.
-     * @returns {Promise<{stats: Object, counts: Object}>}
-     */
+    // ========================================
+    // STATS (single query)
+    // ========================================
+
     async getStatsAndCounts() {
         await this.initialize();
 
-        const config = window.PurchaseOrderConfig;
-
         try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayMs = today.getTime();
-
-            const counts = {};
-            Object.values(config.OrderStatus).forEach(status => {
-                counts[status] = 0;
-            });
-
-            let totalOrders = 0;
-            let totalValue = 0;
-            let todayOrders = 0;
-            let todayValue = 0;
-            let tposSyncedCount = 0;
-
-            const snapshot = await this.db.collection(this.COLLECTION).get();
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const status = data.status;
-
-                // Count by status
-                if (counts[status] !== undefined) {
-                    counts[status]++;
-                }
-
-                // Stats (exclude CANCELLED and DELETED)
-                if (status !== 'CANCELLED' && status !== 'DELETED') {
-                    totalOrders++;
-                    totalValue += data.finalAmount || 0;
-
-                    // Check TPOS sync
-                    if (data.items?.every(item => item.tposSyncStatus === 'success')) {
-                        tposSyncedCount++;
-                    }
-
-                    // Check if created today
-                    const createdAt = data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : null);
-                    if (createdAt && createdAt.getTime() >= todayMs) {
-                        todayOrders++;
-                        todayValue += data.finalAmount || 0;
-                    }
-                }
-            });
-
-            return {
-                stats: {
-                    totalOrders,
-                    totalValue,
-                    todayOrders,
-                    todayValue,
-                    tposSyncRate: totalOrders > 0 ? Math.round((tposSyncedCount / totalOrders) * 100) : 0
-                },
-                counts
-            };
+            const data = await this._fetch('/stats');
+            return { stats: data.stats, counts: data.counts };
         } catch (error) {
-            console.error('[PurchaseOrderService] Stats+Counts failed:', error);
+            console.error('[PurchaseOrderService] Stats failed:', error);
             return {
                 stats: { totalOrders: 0, totalValue: 0, todayOrders: 0, todayValue: 0, tposSyncRate: 0 },
                 counts: {}
@@ -511,13 +220,13 @@ class PurchaseOrderService {
         }
     }
 
-    /** @deprecated Use getStatsAndCounts() instead */
+    /** @deprecated Use getStatsAndCounts() */
     async getOrderStats() {
         const { stats } = await this.getStatsAndCounts();
         return stats;
     }
 
-    /** @deprecated Use getStatsAndCounts() instead */
+    /** @deprecated Use getStatsAndCounts() */
     async getStatusCounts() {
         const { counts } = await this.getStatsAndCounts();
         return counts;
@@ -527,88 +236,16 @@ class PurchaseOrderService {
     // UPDATE OPERATIONS
     // ========================================
 
-    /**
-     * Update order
-     * @param {string} orderId - Document ID
-     * @param {Object} updateData - Fields to update
-     * @returns {Promise<void>}
-     */
     async updateOrder(orderId, updateData) {
         await this.initialize();
 
         const validation = window.PurchaseOrderValidation;
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
-            }
-
-            const currentData = docSnap.data();
-
-            // Check if editable
-            const editCheck = validation.validateCanEdit(currentData);
-            if (!editCheck.canEdit) {
-                throw new validation.ServiceException('EDIT_FORBIDDEN', editCheck.error);
-            }
-
-            // Calculate totals if items are updated
-            let calculatedFields = {};
-            if (updateData.items) {
-                const totalAmount = this.calculateTotalAmount(updateData.items);
-                const discountAmount = updateData.discountAmount ?? currentData.discountAmount ?? 0;
-                const shippingFee = updateData.shippingFee ?? currentData.shippingFee ?? 0;
-                const finalAmount = totalAmount - discountAmount + shippingFee;
-
-                calculatedFields = {
-                    totalAmount,
-                    discountAmount,
-                    shippingFee,
-                    finalAmount,
-                    totalItems: updateData.items.length,
-                    totalQuantity: updateData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
-                    items: this.prepareItems(updateData.items)
-                };
-            }
-
-            // Strip any remaining data URLs from invoice images
-            if (updateData.invoiceImages) {
-                updateData.invoiceImages = this.filterFirebaseUrls(updateData.invoiceImages);
-            }
-
-            // Prepare update
-            const userSnapshot = this.getUserSnapshot();
-            const update = {
-                ...updateData,
-                ...calculatedFields,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastModifiedBy: userSnapshot
-            };
-
-            // Remove undefined values
-            Object.keys(update).forEach(key => {
-                if (update[key] === undefined) {
-                    delete update[key];
-                }
+            await this._fetch(`/${orderId}`, {
+                method: 'PUT',
+                body: JSON.stringify(updateData)
             });
-
-            // Ensure notes is included
-            if (updateData.notes !== undefined) {
-                update.notes = updateData.notes;
-            }
-
-            console.log('[PurchaseOrderService] Saving update:', {
-                discountAmount: update.discountAmount,
-                shippingFee: update.shippingFee,
-                notes: update.notes,
-                finalAmount: update.finalAmount,
-                totalAmount: update.totalAmount,
-                itemCount: (update.items || []).length
-            });
-
-            await docRef.update(update);
 
             console.log('[PurchaseOrderService] Order updated:', orderId);
         } catch (error) {
@@ -618,13 +255,6 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Update order status
-     * @param {string} orderId - Document ID
-     * @param {string} newStatus - Target status
-     * @param {string} reason - Optional reason for status change
-     * @returns {Promise<void>}
-     */
     async updateOrderStatus(orderId, newStatus, reason = '') {
         await this.initialize();
 
@@ -632,41 +262,22 @@ class PurchaseOrderService {
         const validation = window.PurchaseOrderValidation;
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
+            // Client-side transition validation (server also validates)
+            // Get current order to validate transition
+            const order = await this.getOrderById(orderId);
+            if (order) {
+                const transitionCheck = validation.validateStatusTransition(order.status, newStatus);
+                if (!transitionCheck.isValid) {
+                    throw new validation.ServiceException('INVALID_TRANSITION', transitionCheck.error);
+                }
             }
 
-            const currentData = docSnap.data();
-            const currentStatus = currentData.status;
-
-            // Validate transition
-            const transitionCheck = validation.validateStatusTransition(currentStatus, newStatus);
-            if (!transitionCheck.isValid) {
-                throw new validation.ServiceException('INVALID_TRANSITION', transitionCheck.error);
-            }
-
-            // Prepare status change record
-            const userSnapshot = this.getUserSnapshot();
-            const statusChange = {
-                from: currentStatus,
-                to: newStatus,
-                changedAt: firebase.firestore.Timestamp.now(),
-                changedBy: userSnapshot,
-                reason: reason || null
-            };
-
-            // Update document
-            await docRef.update({
-                status: newStatus,
-                statusHistory: firebase.firestore.FieldValue.arrayUnion(statusChange),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastModifiedBy: userSnapshot
+            await this._fetch(`/${orderId}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: newStatus, reason })
             });
 
-            console.log('[PurchaseOrderService] Status updated:', orderId, currentStatus, '->', newStatus);
+            console.log('[PurchaseOrderService] Status updated:', orderId, '->', newStatus);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Status update failed:', error);
@@ -678,50 +289,12 @@ class PurchaseOrderService {
     // DELETE OPERATIONS
     // ========================================
 
-    /**
-     * Soft delete order — moves to trash (status = DELETED)
-     * @param {string} orderId - Document ID
-     * @returns {Promise<void>}
-     */
     async deleteOrder(orderId) {
         await this.initialize();
-
-        const config = window.PurchaseOrderConfig;
         const validation = window.PurchaseOrderValidation;
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
-            }
-
-            const currentData = docSnap.data();
-
-            // Check if deletable
-            const deleteCheck = validation.validateCanDelete(currentData);
-            if (!deleteCheck.canDelete) {
-                throw new validation.ServiceException('DELETE_FORBIDDEN', deleteCheck.error);
-            }
-
-            const userSnapshot = this.getUserSnapshot();
-
-            // Soft delete: set status to DELETED, save previous status for restore
-            await docRef.update({
-                status: config.OrderStatus.DELETED,
-                deletedAt: firebase.firestore.Timestamp.now(),
-                previousStatus: currentData.status,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastModifiedBy: userSnapshot,
-                statusHistory: firebase.firestore.FieldValue.arrayUnion({
-                    from: currentData.status,
-                    to: config.OrderStatus.DELETED,
-                    changedAt: firebase.firestore.Timestamp.now(),
-                    changedBy: userSnapshot
-                })
-            });
-
+            await this._fetch(`/${orderId}`, { method: 'DELETE' });
             console.log('[PurchaseOrderService] Order soft-deleted:', orderId);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
@@ -730,50 +303,13 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Restore order from trash — reverts to previous status
-     * @param {string} orderId - Document ID
-     * @returns {Promise<void>}
-     */
     async restoreOrder(orderId) {
         await this.initialize();
-
-        const config = window.PurchaseOrderConfig;
         const validation = window.PurchaseOrderValidation;
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
-            }
-
-            const currentData = docSnap.data();
-
-            if (currentData.status !== config.OrderStatus.DELETED) {
-                throw new validation.ServiceException('RESTORE_FORBIDDEN', 'Đơn hàng không nằm trong thùng rác.');
-            }
-
-            const restoreStatus = currentData.previousStatus || config.OrderStatus.DRAFT;
-            const userSnapshot = this.getUserSnapshot();
-
-            await docRef.update({
-                status: restoreStatus,
-                deletedAt: firebase.firestore.FieldValue.delete(),
-                previousStatus: firebase.firestore.FieldValue.delete(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastModifiedBy: userSnapshot,
-                statusHistory: firebase.firestore.FieldValue.arrayUnion({
-                    from: config.OrderStatus.DELETED,
-                    to: restoreStatus,
-                    changedAt: firebase.firestore.Timestamp.now(),
-                    changedBy: userSnapshot,
-                    reason: 'Khôi phục từ thùng rác'
-                })
-            });
-
-            console.log('[PurchaseOrderService] Order restored:', orderId, '->', restoreStatus);
+            await this._fetch(`/${orderId}/restore`, { method: 'POST' });
+            console.log('[PurchaseOrderService] Order restored:', orderId);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Restore failed:', error);
@@ -781,33 +317,12 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Permanently delete order from Firestore
-     * @param {string} orderId - Document ID
-     * @returns {Promise<void>}
-     */
     async permanentDeleteOrder(orderId) {
         await this.initialize();
-
-        const config = window.PurchaseOrderConfig;
         const validation = window.PurchaseOrderValidation;
 
         try {
-            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
-            const docSnap = await docRef.get();
-
-            if (!docSnap.exists) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
-            }
-
-            const currentData = docSnap.data();
-
-            if (currentData.status !== config.OrderStatus.DELETED) {
-                throw new validation.ServiceException('DELETE_FORBIDDEN', 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác.');
-            }
-
-            await docRef.delete();
-
+            await this._fetch(`/${orderId}/permanent`, { method: 'DELETE' });
             console.log('[PurchaseOrderService] Order permanently deleted:', orderId);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
@@ -816,35 +331,19 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Auto-cleanup: permanently delete orders in trash older than retention period
-     * @returns {Promise<number>} Number of orders deleted
-     */
     async cleanupTrash() {
         await this.initialize();
-
         const config = window.PurchaseOrderConfig;
 
         try {
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - config.TRASH_RETENTION_DAYS);
-            const cutoffTimestamp = firebase.firestore.Timestamp.fromDate(cutoffDate);
-
-            const snapshot = await this.db.collection(this.COLLECTION)
-                .where('status', '==', config.OrderStatus.DELETED)
-                .where('deletedAt', '<=', cutoffTimestamp)
-                .get();
-
-            if (snapshot.empty) return 0;
-
-            let deletedCount = 0;
-            for (const doc of snapshot.docs) {
-                await doc.ref.delete();
-                deletedCount++;
+            const data = await this._fetch('/cleanup-trash', {
+                method: 'POST',
+                body: JSON.stringify({ retentionDays: config.TRASH_RETENTION_DAYS || 30 })
+            });
+            if (data.deletedCount > 0) {
+                console.log(`[PurchaseOrderService] Trash cleanup: deleted ${data.deletedCount} orders`);
             }
-
-            console.log(`[PurchaseOrderService] Trash cleanup: permanently deleted ${deletedCount} orders`);
-            return deletedCount;
+            return data.deletedCount;
         } catch (error) {
             console.error('[PurchaseOrderService] Trash cleanup failed:', error);
             return 0;
@@ -852,20 +351,130 @@ class PurchaseOrderService {
     }
 
     // ========================================
-    // IMAGE CLEANUP (runs daily on page load)
+    // COPY OPERATIONS
     // ========================================
 
-    /**
-     * Delete a file from Firebase Storage by its download URL.
-     * @param {string} downloadUrl - Firebase Storage download URL
-     */
+    async copyOrder(sourceOrderId) {
+        await this.initialize();
+        const validation = window.PurchaseOrderValidation;
+
+        try {
+            const data = await this._fetch(`/${sourceOrderId}/copy`, { method: 'POST' });
+            console.log('[PurchaseOrderService] Order copied:', sourceOrderId, '->', data.id);
+            return data.id;
+        } catch (error) {
+            if (error instanceof validation.ServiceException) throw error;
+            console.error('[PurchaseOrderService] Copy failed:', error);
+            throw new validation.ServiceException('COPY_FAILED', 'Không thể sao chép đơn hàng. Vui lòng thử lại.');
+        }
+    }
+
+    // ========================================
+    // HELPER METHODS
+    // ========================================
+
+    prepareItems(items) {
+        const config = window.PurchaseOrderConfig;
+        return items.map((item, index) => ({
+            id: item.id || config.generateUUID(),
+            position: index + 1,
+            productCode: item.productCode || '',
+            productName: item.productName || '',
+            variant: item.variant || '',
+            selectedAttributeValueIds: item.selectedAttributeValueIds || [],
+            productImages: this.filterFirebaseUrls(item.productImages || []),
+            priceImages: this.filterFirebaseUrls(item.priceImages || []),
+            purchasePrice: item.purchasePrice || 0,
+            sellingPrice: item.sellingPrice || 0,
+            quantity: item.quantity || 1,
+            subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
+            notes: item.notes || '',
+            tposSyncStatus: item.tposSyncStatus || null,
+            tposProductId: item.tposProductId || null,
+            tposProductTmplId: item.tposProductTmplId || null,
+            tposSynced: item.tposSynced || false
+        }));
+    }
+
+    filterFirebaseUrls(urls) {
+        if (!Array.isArray(urls)) return [];
+        return urls.filter(url => typeof url === 'string' && !url.startsWith('data:'));
+    }
+
+    calculateTotalAmount(items) {
+        if (!items || !Array.isArray(items)) return 0;
+        return items.reduce((sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 1), 0);
+    }
+
+    async generateOrderNumber() {
+        try {
+            const data = await this._fetch('/generate-number', { method: 'POST' });
+            return data.orderNumber;
+        } catch (error) {
+            // Fallback
+            const today = new Date();
+            const datePrefix = this.formatDateForOrderNumber(today);
+            return `PO-${datePrefix}-${Date.now().toString().slice(-4)}`;
+        }
+    }
+
+    formatDateForOrderNumber(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}${month}${day}`;
+    }
+
+    // ========================================
+    // IMAGE UPLOAD (still uses Firebase Storage)
+    // ========================================
+
+    async uploadImage(file, folder = 'purchase-orders') {
+        await this.initialize();
+
+        if (!this.storage) {
+            throw new window.PurchaseOrderValidation.ServiceException(
+                'UPLOAD_FAILED', 'Firebase Storage chưa khởi tạo.'
+            );
+        }
+
+        try {
+            const timestamp = Date.now();
+            const extension = file.name.split('.').pop() || 'jpg';
+            const filename = `${folder}/${timestamp}_${Math.random().toString(36).substring(7)}.${extension}`;
+            const ref = this.storage.ref().child(filename);
+            const snapshot = await ref.put(file);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+            console.log('[PurchaseOrderService] Image uploaded:', downloadURL);
+            return downloadURL;
+        } catch (error) {
+            console.error('[PurchaseOrderService] Upload failed:', error);
+            throw new window.PurchaseOrderValidation.ServiceException(
+                'UPLOAD_FAILED', 'Không thể tải lên hình ảnh. Vui lòng thử lại.'
+            );
+        }
+    }
+
+    async uploadImages(files, folder = 'purchase-orders') {
+        const urls = [];
+        for (const file of files) {
+            const url = await this.uploadImage(file, folder);
+            urls.push(url);
+        }
+        return urls;
+    }
+
+    // ========================================
+    // IMAGE CLEANUP (runs daily - non-blocking)
+    // ========================================
+
     async deleteStorageFile(downloadUrl) {
         try {
+            if (!this.storage) return false;
             const ref = this.storage.refFromURL(downloadUrl);
             await ref.delete();
             return true;
         } catch (error) {
-            // File may already be deleted or URL invalid
             if (error.code !== 'storage/object-not-found') {
                 console.warn('[Cleanup] Failed to delete:', downloadUrl, error.message);
             }
@@ -873,56 +482,41 @@ class PurchaseOrderService {
         }
     }
 
-    /**
-     * Clean up Firebase Storage images for orders older than 10 days
-     * in AWAITING_PURCHASE / AWAITING_DELIVERY statuses.
-     * Replaces productImages with tposImageUrl to free storage space.
-     * Runs once per day (tracked via localStorage).
-     */
     async cleanupOldFirebaseImages() {
         const STORAGE_KEY = 'po_image_cleanup_last_run';
         const DAYS_THRESHOLD = 10;
 
         try {
-            // Check if already ran today
             const lastRun = localStorage.getItem(STORAGE_KEY);
             const today = new Date().toDateString();
             if (lastRun === today) return;
 
             console.log('[Cleanup] Starting daily Firebase image cleanup...');
 
+            // Fetch orders in target statuses that are old
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - DAYS_THRESHOLD);
-            const cutoffTimestamp = firebase.firestore.Timestamp.fromDate(cutoffDate);
 
-            // Query orders in target statuses created before cutoff
-            const statuses = ['AWAITING_PURCHASE', 'AWAITING_DELIVERY'];
-            const snapshot = await this.db.collection(this.COLLECTION)
-                .where('status', 'in', statuses)
-                .where('createdAt', '<=', cutoffTimestamp)
-                .get();
+            const params = new URLSearchParams({
+                status: 'AWAITING_PURCHASE,AWAITING_DELIVERY',
+                pageSize: '100',
+                endDate: cutoffDate.toISOString()
+            });
 
-            if (snapshot.empty) {
-                console.log('[Cleanup] No old orders to clean up');
-                localStorage.setItem(STORAGE_KEY, today);
-                return;
-            }
+            const data = await this._fetch(`?${params.toString()}`);
+            const orders = data.orders || [];
 
             let totalDeleted = 0;
             let totalOrders = 0;
 
-            for (const doc of snapshot.docs) {
-                const order = doc.data();
+            for (const order of orders) {
                 const items = order.items || [];
                 let orderChanged = false;
 
                 for (const item of items) {
-                    // Skip if no Firebase images to clean
                     if (!item.productImages || item.productImages.length === 0) continue;
-                    // Skip if no tposImageUrl fallback
                     if (!item.tposImageUrl) continue;
 
-                    // Delete Firebase Storage files
                     const firebaseUrls = item.productImages.filter(url =>
                         typeof url === 'string' && url.includes('firebasestorage.googleapis.com')
                     );
@@ -932,15 +526,14 @@ class PurchaseOrderService {
                         if (deleted) totalDeleted++;
                     }
 
-                    // Replace with tposImageUrl
                     item.productImages = [];
                     orderChanged = true;
                 }
 
                 if (orderChanged) {
-                    await doc.ref.update({
-                        items,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    await this._fetch(`/${order.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ items })
                     });
                     totalOrders++;
                 }
@@ -950,124 +543,7 @@ class PurchaseOrderService {
             console.log(`[Cleanup] Done. Deleted ${totalDeleted} files from ${totalOrders} orders.`);
         } catch (error) {
             console.error('[Cleanup] Image cleanup failed:', error);
-            // Don't throw - cleanup is non-critical
         }
-    }
-
-    // ========================================
-    // COPY OPERATIONS
-    // ========================================
-
-    /**
-     * Copy order (create draft from existing order)
-     * productImages are preserved as Firebase URLs (no re-upload needed).
-     * @param {string} sourceOrderId - Source document ID
-     * @returns {Promise<string>} New document ID
-     */
-    async copyOrder(sourceOrderId) {
-        await this.initialize();
-
-        const config = window.PurchaseOrderConfig;
-        const validation = window.PurchaseOrderValidation;
-
-        try {
-            const sourceOrder = await this.getOrderById(sourceOrderId);
-
-            if (!sourceOrder) {
-                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng nguồn không tồn tại.');
-            }
-
-            // Clone items with new IDs and cleared TPOS sync status
-            // Restore productCode to parentProductCode if it was changed by TPOS sync
-            const newItems = sourceOrder.items.map(item => ({
-                ...item,
-                id: config.generateUUID(),
-                productCode: item.parentProductCode || item.productCode,
-                parentProductCode: null,
-                tposSyncStatus: null,
-                tposProductId: null,
-                tposProductTmplId: null,
-                tposSynced: false,
-                tposSyncError: null,
-                tposImageUrl: null
-            }));
-
-            // Create new draft from source
-            const newOrderData = {
-                orderDate: firebase.firestore.Timestamp.now(),
-                status: config.OrderStatus.DRAFT,
-                supplier: sourceOrder.supplier,
-                invoiceAmount: 0,
-                discountAmount: 0,
-                shippingFee: 0,
-                invoiceImages: [],
-                notes: sourceOrder.notes ? `[Sao chép từ ${sourceOrder.orderNumber}] ${sourceOrder.notes}` : `Sao chép từ ${sourceOrder.orderNumber}`,
-                items: newItems
-            };
-
-            const newOrderId = await this.createOrder(newOrderData);
-
-            console.log('[PurchaseOrderService] Order copied:', sourceOrderId, '->', newOrderId);
-            return newOrderId;
-        } catch (error) {
-            if (error instanceof validation.ServiceException) throw error;
-            console.error('[PurchaseOrderService] Copy failed:', error);
-            throw new validation.ServiceException('COPY_FAILED', 'Không thể sao chép đơn hàng. Vui lòng thử lại.');
-        }
-    }
-
-    // ========================================
-    // IMAGE UPLOAD
-    // ========================================
-
-    /**
-     * Upload image to Firebase Storage
-     * @param {File} file - File to upload
-     * @param {string} folder - Storage folder (e.g., 'invoices', 'products')
-     * @returns {Promise<string>} Download URL
-     */
-    async uploadImage(file, folder = 'purchase-orders') {
-        await this.initialize();
-
-        try {
-            const timestamp = Date.now();
-            const extension = file.name.split('.').pop() || 'jpg';
-            const filename = `${folder}/${timestamp}_${Math.random().toString(36).substring(7)}.${extension}`;
-
-            const ref = this.storage.ref().child(filename);
-
-            // Upload file
-            const snapshot = await ref.put(file);
-
-            // Get download URL
-            const downloadURL = await snapshot.ref.getDownloadURL();
-
-            console.log('[PurchaseOrderService] Image uploaded:', downloadURL);
-            return downloadURL;
-        } catch (error) {
-            console.error('[PurchaseOrderService] Upload failed:', error);
-            throw new window.PurchaseOrderValidation.ServiceException(
-                'UPLOAD_FAILED',
-                'Không thể tải lên hình ảnh. Vui lòng thử lại.'
-            );
-        }
-    }
-
-    /**
-     * Upload multiple images
-     * @param {FileList|Array} files - Files to upload
-     * @param {string} folder - Storage folder
-     * @returns {Promise<Array>} Array of download URLs
-     */
-    async uploadImages(files, folder = 'purchase-orders') {
-        const urls = [];
-
-        for (const file of files) {
-            const url = await this.uploadImage(file, folder);
-            urls.push(url);
-        }
-
-        return urls;
     }
 }
 
@@ -1076,4 +552,4 @@ class PurchaseOrderService {
 // ========================================
 window.purchaseOrderService = new PurchaseOrderService();
 
-console.log('[Purchase Orders] Service layer loaded successfully');
+console.log('[Purchase Orders] Service layer loaded (REST API mode)');
