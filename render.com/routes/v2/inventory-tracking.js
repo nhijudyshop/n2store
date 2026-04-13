@@ -720,7 +720,8 @@ router.post('/edit-history', async (req, res) => {
 });
 
 // =====================================================
-// INLINE NOTES (Multi-user Thiếu & Ghi Chú)
+// INLINE NOTES (Multi-user Thiếu & Ghi Chú — append mode)
+// Multiple entries per user per shipment (like mini comments)
 // =====================================================
 
 /**
@@ -741,10 +742,9 @@ router.get('/inline-notes', async (req, res) => {
             return res.json({ success: true, data: [] });
         }
 
-        // Build parameterized query for IN clause
         const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
         const result = await db.query(
-            `SELECT * FROM inventory_inline_notes WHERE shipment_id IN (${placeholders}) ORDER BY updated_at DESC`,
+            `SELECT * FROM inventory_inline_notes WHERE shipment_id IN (${placeholders}) ORDER BY created_at ASC`,
             ids
         );
 
@@ -756,10 +756,10 @@ router.get('/inline-notes', async (req, res) => {
 });
 
 /**
- * PUT /inline-notes
- * Upsert an inline note entry (one per user per shipment)
+ * POST /inline-notes
+ * Create a new inline note (append, not upsert)
  */
-router.put('/inline-notes', async (req, res) => {
+router.post('/inline-notes', async (req, res) => {
     try {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
@@ -769,85 +769,45 @@ router.put('/inline-notes', async (req, res) => {
             return res.status(400).json({ success: false, error: 'shipment_id required' });
         }
 
+        // Skip empty notes (no text, no images, no thieu)
+        if (!ghichu_text && (!ghichu_images || ghichu_images.length === 0) && !thieu_value) {
+            return res.status(400).json({ success: false, error: 'Note content required' });
+        }
+
         const result = await db.query(`
             INSERT INTO inventory_inline_notes (shipment_id, username, is_admin, thieu_value, ghichu_text, ghichu_images)
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (shipment_id, username) DO UPDATE SET
-                is_admin = EXCLUDED.is_admin,
-                thieu_value = EXCLUDED.thieu_value,
-                ghichu_text = EXCLUDED.ghichu_text,
-                ghichu_images = EXCLUDED.ghichu_images,
-                updated_at = NOW()
             RETURNING *
         `, [shipment_id, user, is_admin, thieu_value || 0, ghichu_text || '', ghichu_images || []]);
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        console.error('[inventory] PUT /inline-notes error:', err.message);
+        console.error('[inventory] POST /inline-notes error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
 /**
- * PATCH /inline-notes/image
- * Add an image to a user's inline note
+ * DELETE /inline-notes/:id
+ * Delete a specific inline note by ID (only own notes)
  */
-router.patch('/inline-notes/image', async (req, res) => {
+router.delete('/inline-notes/:id', async (req, res) => {
     try {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
-        const { shipment_id, image_url, is_admin = false } = req.body;
 
-        if (!shipment_id || !image_url) {
-            return res.status(400).json({ success: false, error: 'shipment_id and image_url required' });
-        }
-
-        // Upsert row then append image
-        const result = await db.query(`
-            INSERT INTO inventory_inline_notes (shipment_id, username, is_admin, ghichu_images)
-            VALUES ($1, $2, $3, ARRAY[$4])
-            ON CONFLICT (shipment_id, username) DO UPDATE SET
-                is_admin = EXCLUDED.is_admin,
-                ghichu_images = array_append(inventory_inline_notes.ghichu_images, $4),
-                updated_at = NOW()
-            RETURNING *
-        `, [shipment_id, user, is_admin, image_url]);
-
-        res.json({ success: true, data: result.rows[0] });
-    } catch (err) {
-        console.error('[inventory] PATCH /inline-notes/image error:', err.message);
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-/**
- * DELETE /inline-notes/image
- * Remove an image from a user's inline note
- */
-router.delete('/inline-notes/image', async (req, res) => {
-    try {
-        const db = getDb(req);
-        const user = getUserFromHeaders(req);
-        const { shipment_id, image_url } = req.body;
-
-        if (!shipment_id || !image_url) {
-            return res.status(400).json({ success: false, error: 'shipment_id and image_url required' });
-        }
-
-        const result = await db.query(`
-            UPDATE inventory_inline_notes
-            SET ghichu_images = array_remove(ghichu_images, $3), updated_at = NOW()
-            WHERE shipment_id = $1 AND username = $2
-            RETURNING *
-        `, [shipment_id, user, image_url]);
+        const result = await db.query(
+            'DELETE FROM inventory_inline_notes WHERE id = $1 AND username = $2 RETURNING id',
+            [req.params.id, user]
+        );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Note not found' });
+            return res.status(404).json({ success: false, error: 'Note not found or not owned by you' });
         }
 
-        res.json({ success: true, data: result.rows[0] });
+        res.json({ success: true, deleted: req.params.id });
     } catch (err) {
-        console.error('[inventory] DELETE /inline-notes/image error:', err.message);
+        console.error('[inventory] DELETE /inline-notes/:id error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

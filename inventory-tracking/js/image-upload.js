@@ -29,8 +29,8 @@ async function uploadImage(file, path) {
     // Convert file to base64
     const base64 = await fileToBase64(file);
 
-    // Upload via dedicated upload endpoint (uses shared Firebase Storage service)
-    const serverUrl = 'https://n2shop.onrender.com/api/upload/image';
+    // Upload via server endpoint (same server as API_BASE)
+    const serverUrl = (typeof API_BASE !== 'undefined' ? API_BASE.replace('/api/v2/inventory-tracking', '') : 'https://n2store-fallback.onrender.com') + '/api/upload/image';
 
     const response = await fetch(serverUrl, {
         method: 'POST',

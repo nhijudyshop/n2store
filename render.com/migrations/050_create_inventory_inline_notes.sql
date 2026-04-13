@@ -1,6 +1,7 @@
 -- Migration 050: Create inventory inline notes table
 -- Multi-user inline editing for Thiếu (shortage) & Ghi Chú (notes) columns
--- Each user can independently enter values; admin entries shown in black, others in red
+-- Append mode: multiple entries per user per shipment (like mini comments)
+-- Admin entries shown in black, other users in red
 
 BEGIN;
 
@@ -10,18 +11,16 @@ CREATE TABLE IF NOT EXISTS inventory_inline_notes (
     username TEXT NOT NULL,                         -- User who wrote this entry
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,        -- Whether user is admin (for color coding)
 
-    -- Thiếu value
+    -- Thiếu value (optional per entry)
     thieu_value INTEGER DEFAULT 0,
 
-    -- Ghi Chú text + images
+    -- Ghi Chú text + images (optional per entry)
     ghichu_text TEXT DEFAULT '',
     ghichu_images TEXT[] DEFAULT '{}',              -- Firebase Storage URLs
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    -- Each user has one entry per shipment
-    UNIQUE(shipment_id, username)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- NO unique constraint: allows multiple entries per user per shipment
 );
 
 CREATE INDEX IF NOT EXISTS idx_inv_inline_shipment ON inventory_inline_notes(shipment_id);

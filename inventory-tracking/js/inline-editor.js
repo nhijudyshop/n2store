@@ -1,57 +1,45 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
-// INLINE EDITOR - Multi-user real-time inline editing
-// Thiếu & Ghi Chú columns with image paste support
-// Uses REST API (PostgreSQL) + polling for real-time sync
+// INLINE EDITOR - Multi-user append-mode notes
+// Thiếu & Ghi Chú columns — each save appends a new entry
+// Admin = black text, other users = red text
 // =====================================================
 
 const InlineEditor = {
-    _cache: new Map(),          // shipmentId -> { [username]: noteRow }
-    _debounceTimers: new Map(),
+    _cache: new Map(),          // shipmentId -> [noteRows]
     _pollTimer: null,
-    _pollInterval: 5000,        // Poll every 5 seconds
+    _pollInterval: 5000,
     _activeShipmentIds: new Set(),
+    _saving: false,
 
-    /**
-     * Get current username
-     */
     _getUsername() {
         return authManager?.getUserInfo()?.username
             || authManager?.getAuthState()?.userType?.split('-')[0]
             || 'unknown';
     },
 
-    /**
-     * Check if current user is admin
-     */
     _isAdmin() {
         return authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
     },
 
-    /**
-     * Collect all visible shipment IDs from the DOM and start polling
-     */
+    // ==================== LIFECYCLE ====================
+
     setupAllListeners() {
         this.cleanup();
-
         const cells = document.querySelectorAll('[data-dot-hang-id]');
         const ids = new Set();
         cells.forEach(cell => {
             const id = cell.dataset.dotHangId;
             if (id) ids.add(id);
         });
-
         this._activeShipmentIds = ids;
 
         if (ids.size > 0) {
             this._fetchAndRender();
-            this._startPolling();
+            this._pollTimer = setInterval(() => this._fetchAndRender(), this._pollInterval);
         }
     },
 
-    /**
-     * Cleanup polling
-     */
     cleanup() {
         if (this._pollTimer) {
             clearInterval(this._pollTimer);
@@ -60,274 +48,211 @@ const InlineEditor = {
         this._activeShipmentIds.clear();
     },
 
-    /**
-     * Start polling for real-time updates
-     */
-    _startPolling() {
-        if (this._pollTimer) clearInterval(this._pollTimer);
-        this._pollTimer = setInterval(() => this._fetchAndRender(), this._pollInterval);
-    },
-
-    /**
-     * Fetch all inline notes for active shipments and render
-     */
     async _fetchAndRender() {
-        if (this._activeShipmentIds.size === 0) return;
-
+        if (this._activeShipmentIds.size === 0 || this._saving) return;
         try {
             const ids = [...this._activeShipmentIds];
             const rows = await inlineNotesApi.getByShipmentIds(ids);
 
             // Group by shipment_id
             const grouped = new Map();
+            for (const id of ids) grouped.set(id, []);
             for (const row of rows) {
-                if (!grouped.has(row.shipment_id)) {
-                    grouped.set(row.shipment_id, {});
+                if (grouped.has(row.shipment_id)) {
+                    grouped.get(row.shipment_id).push(row);
                 }
-                grouped.get(row.shipment_id)[row.username] = row;
             }
 
-            // Update cache and render
-            for (const id of ids) {
-                const entries = grouped.get(id) || {};
-                this._cache.set(id, entries);
-                this._renderEntries(id, entries);
+            for (const [id, notes] of grouped) {
+                this._cache.set(id, notes);
+                this._renderAll(id, notes);
             }
         } catch (err) {
-            console.warn('[INLINE] Polling error:', err.message);
+            console.warn('[INLINE] Poll error:', err.message);
         }
     },
 
-    // ==================== THIẾU ====================
+    // ==================== SAVE THIẾU ====================
 
-    /**
-     * Save thiếu value (debounced)
-     */
-    saveThieu(dotHangId, value) {
-        const key = `thieu_${dotHangId}`;
-        clearTimeout(this._debounceTimers.get(key));
-        this._debounceTimers.set(key, setTimeout(() => {
-            this._saveNow(dotHangId);
-        }, 800));
-    },
+    async saveThieu(dotHangId) {
+        const input = document.querySelector(`.inline-thieu-input[data-dot-hang-id="${dotHangId}"]`);
+        const value = parseInt(input?.value, 10);
+        if (!value || value <= 0) return;
 
-    // ==================== GHI CHÚ ====================
-
-    /**
-     * Save ghi chú text (debounced)
-     */
-    saveGhiChu(dotHangId, text) {
-        const key = `ghichu_${dotHangId}`;
-        clearTimeout(this._debounceTimers.get(key));
-        this._debounceTimers.set(key, setTimeout(() => {
-            this._saveNow(dotHangId);
-        }, 800));
-    },
-
-    /**
-     * Save current user's thieu + ghichu to server
-     */
-    async _saveNow(dotHangId) {
-        const username = this._getUsername();
-        const isAdmin = this._isAdmin();
-
-        // Read current input values from DOM
-        const thieuInput = document.querySelector(`.inline-thieu-input[data-dot-hang-id="${dotHangId}"]`);
-        const ghichuInput = document.querySelector(`.inline-ghichu-input[data-dot-hang-id="${dotHangId}"]`);
-
-        const thieuValue = parseInt(thieuInput?.value, 10) || 0;
-        const ghichuText = ghichuInput?.value || '';
-
-        // Preserve existing images from cache
-        const cached = this._cache.get(dotHangId);
-        const existing = cached?.[username];
-        const ghichuImages = existing?.ghichu_images || [];
-
+        this._saving = true;
         try {
-            await inlineNotesApi.upsert(dotHangId, {
-                thieuValue,
-                ghichuText,
-                ghichuImages,
-                isAdmin
+            await inlineNotesApi.create(dotHangId, {
+                thieuValue: value,
+                isAdmin: this._isAdmin()
             });
+            input.value = '';
+            await this._fetchAndRender();
         } catch (err) {
-            console.error('[INLINE] Error saving:', err);
+            console.error('[INLINE] Save thiếu error:', err);
             window.notificationManager?.error('Không thể lưu');
+        } finally {
+            this._saving = false;
         }
     },
 
-    // ==================== IMAGE PASTE ====================
+    // ==================== SAVE GHI CHÚ ====================
 
-    /**
-     * Handle paste event on ghi chú input
-     */
+    async saveGhiChu(dotHangId) {
+        const input = document.querySelector(`.inline-ghichu-input[data-dot-hang-id="${dotHangId}"]`);
+        const text = input?.value?.trim();
+        if (!text) return;
+
+        this._saving = true;
+        try {
+            await inlineNotesApi.create(dotHangId, {
+                ghichuText: text,
+                isAdmin: this._isAdmin()
+            });
+            input.value = '';
+            await this._fetchAndRender();
+        } catch (err) {
+            console.error('[INLINE] Save ghichu error:', err);
+            window.notificationManager?.error('Không thể lưu');
+        } finally {
+            this._saving = false;
+        }
+    },
+
+    // ==================== KEY HANDLER ====================
+
+    handleKeyDown(event, type, dotHangId) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (type === 'thieu') {
+                this.saveThieu(dotHangId);
+            } else {
+                this.saveGhiChu(dotHangId);
+            }
+        }
+    },
+
+    // ==================== IMAGE PASTE / UPLOAD ====================
+
     async handlePaste(event, dotHangId) {
         const items = event.clipboardData?.items;
         if (!items) return;
-
         for (const item of items) {
             if (item.type.startsWith('image/')) {
                 event.preventDefault();
                 const file = item.getAsFile();
-                if (file) {
-                    await this._uploadAndAttach(dotHangId, file);
-                }
+                if (file) await this._uploadImage(dotHangId, file);
                 return;
             }
         }
     },
 
-    /**
-     * Handle file input change for image attachment
-     */
     async handleFileSelect(event, dotHangId) {
         const file = event.target.files?.[0];
         if (file && file.type.startsWith('image/')) {
-            await this._uploadAndAttach(dotHangId, file);
+            await this._uploadImage(dotHangId, file);
         }
         event.target.value = '';
     },
 
-    /**
-     * Upload image and attach to ghi chú via REST API
-     */
-    async _uploadAndAttach(dotHangId, file) {
+    async _uploadImage(dotHangId, file) {
         const cell = document.querySelector(`.inline-ghichu-cell[data-dot-hang-id="${dotHangId}"]`);
-        const uploadIndicator = cell?.querySelector('.inline-upload-indicator');
+        const indicator = cell?.querySelector('.inline-upload-indicator');
 
+        this._saving = true;
         try {
-            if (uploadIndicator) {
-                uploadIndicator.style.display = 'flex';
-                uploadIndicator.textContent = 'Đang tải...';
+            if (indicator) {
+                indicator.style.display = 'flex';
+                indicator.textContent = 'Đang tải ảnh...';
             }
 
-            // Upload to Firebase Storage via existing server endpoint
             const url = await uploadImage(file, `inline-notes/${dotHangId}`);
 
-            // Add image to note via REST API
-            await inlineNotesApi.addImage(dotHangId, url, this._isAdmin());
+            // Create a note entry with the image
+            await inlineNotesApi.create(dotHangId, {
+                ghichuImages: [url],
+                isAdmin: this._isAdmin()
+            });
 
-            // Refresh display
             await this._fetchAndRender();
-
-            window.notificationManager?.success('Đã tải ảnh lên');
+            window.notificationManager?.success('Đã tải ảnh');
         } catch (err) {
-            console.error('[INLINE] Error uploading image:', err);
-            window.notificationManager?.error('Không thể tải ảnh: ' + err.message);
+            console.error('[INLINE] Upload error:', err);
+            window.notificationManager?.error('Lỗi tải ảnh: ' + err.message);
         } finally {
-            if (uploadIndicator) {
-                uploadIndicator.style.display = 'none';
-            }
+            this._saving = false;
+            if (indicator) indicator.style.display = 'none';
         }
     },
 
-    /**
-     * Remove an image from ghi chú
-     */
-    async removeImage(dotHangId, imageUrl) {
+    // ==================== DELETE NOTE ====================
+
+    async deleteNote(noteId, dotHangId) {
+        if (!confirm('Xóa ghi chú này?')) return;
         try {
-            await inlineNotesApi.removeImage(dotHangId, imageUrl);
+            await inlineNotesApi.deleteNote(noteId);
             await this._fetchAndRender();
         } catch (err) {
-            console.error('[INLINE] Error removing image:', err);
+            console.error('[INLINE] Delete error:', err);
         }
     },
 
     // ==================== RENDERING ====================
 
-    /**
-     * Render all entries for a shipment into the table cells
-     */
-    _renderEntries(dotHangId, entries) {
-        this._renderThieuEntries(dotHangId, entries);
-        this._renderGhiChuEntries(dotHangId, entries);
+    _renderAll(dotHangId, notes) {
+        this._renderThieu(dotHangId, notes);
+        this._renderGhiChu(dotHangId, notes);
     },
 
-    /**
-     * Render thiếu entries (display area only, not the input)
-     */
-    _renderThieuEntries(dotHangId, entries) {
+    _renderThieu(dotHangId, notes) {
         const container = document.querySelector(`.inline-thieu-entries[data-dot-hang-id="${dotHangId}"]`);
         if (!container) return;
 
-        const currentUser = this._getUsername();
+        const thieuNotes = notes.filter(n => n.thieu_value > 0);
+        if (thieuNotes.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
 
-        let html = '';
-        for (const [username, row] of Object.entries(entries)) {
-            if (username === currentUser) continue; // Skip own entry (shown in input)
-            if (!row.thieu_value || row.thieu_value <= 0) continue;
-
-            const colorClass = row.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
-            html += `<div class="inline-entry ${colorClass}" title="${username}">
-                <span class="inline-entry-value">${row.thieu_value}</span>
-                <span class="inline-entry-name">${username}</span>
+        container.innerHTML = thieuNotes.map(n => {
+            const colorClass = n.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
+            const isOwn = n.username === this._getUsername();
+            const deleteBtn = isOwn ? `<button class="inline-delete-btn" onclick="InlineEditor.deleteNote(${n.id}, '${dotHangId}')" title="Xóa">&times;</button>` : '';
+            return `<div class="inline-entry ${colorClass}">
+                <span class="inline-entry-value">${n.thieu_value}</span>
+                <span class="inline-entry-name">${n.username}</span>
+                ${deleteBtn}
             </div>`;
-        }
-        container.innerHTML = html;
-
-        // Update own input value from cache (if not focused)
-        const input = document.querySelector(`.inline-thieu-input[data-dot-hang-id="${dotHangId}"]`);
-        if (input && document.activeElement !== input) {
-            const ownEntry = entries[currentUser];
-            if (ownEntry?.thieu_value) {
-                input.value = ownEntry.thieu_value;
-            }
-        }
+        }).join('');
     },
 
-    /**
-     * Render ghi chú entries
-     */
-    _renderGhiChuEntries(dotHangId, entries) {
+    _renderGhiChu(dotHangId, notes) {
         const container = document.querySelector(`.inline-ghichu-entries[data-dot-hang-id="${dotHangId}"]`);
         if (!container) return;
 
-        const currentUser = this._getUsername();
+        const ghichuNotes = notes.filter(n => n.ghichu_text || (n.ghichu_images && n.ghichu_images.length > 0));
+        if (ghichuNotes.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
 
-        // Render other users' entries
-        let html = '';
-        for (const [username, row] of Object.entries(entries)) {
-            if (username === currentUser) continue;
-            const hasContent = row.ghichu_text || (row.ghichu_images && row.ghichu_images.length > 0);
-            if (!hasContent) continue;
+        container.innerHTML = ghichuNotes.map(n => {
+            const colorClass = n.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
+            const isOwn = n.username === this._getUsername();
+            const deleteBtn = isOwn ? `<button class="inline-delete-btn" onclick="InlineEditor.deleteNote(${n.id}, '${dotHangId}')" title="Xóa">&times;</button>` : '';
 
-            const colorClass = row.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
-            const imagesHtml = (row.ghichu_images || []).map(url =>
+            const imagesHtml = (n.ghichu_images || []).map(url =>
                 `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')" title="Click để xem">`
             ).join('');
-            html += `<div class="inline-entry ${colorClass}" title="${username}">
-                <span class="inline-entry-name">${username}:</span>
-                <span class="inline-entry-text">${this._escapeHtml(row.ghichu_text || '')}</span>
+
+            return `<div class="inline-entry ${colorClass}">
+                <span class="inline-entry-name">${n.username}:</span>
+                ${n.ghichu_text ? `<span class="inline-entry-text">${this._escapeHtml(n.ghichu_text)}</span>` : ''}
                 ${imagesHtml ? `<div class="inline-note-images">${imagesHtml}</div>` : ''}
+                ${deleteBtn}
             </div>`;
-        }
-        container.innerHTML = html;
-
-        // Update own input (if not focused)
-        const input = document.querySelector(`.inline-ghichu-input[data-dot-hang-id="${dotHangId}"]`);
-        if (input && document.activeElement !== input) {
-            const ownEntry = entries[currentUser];
-            if (ownEntry?.ghichu_text) {
-                input.value = ownEntry.ghichu_text;
-            }
-        }
-
-        // Render own images
-        const ownImagesContainer = document.querySelector(`.inline-own-images[data-dot-hang-id="${dotHangId}"]`);
-        if (ownImagesContainer) {
-            const ownImages = entries[currentUser]?.ghichu_images || [];
-            ownImagesContainer.innerHTML = ownImages.map(url =>
-                `<div class="inline-own-image-wrap">
-                    <img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')">
-                    <button class="inline-remove-img" onclick="InlineEditor.removeImage('${dotHangId}', '${url}')" title="Xóa ảnh">&times;</button>
-                </div>`
-            ).join('');
-        }
+        }).join('');
     },
 
-    /**
-     * View image in lightbox
-     */
     viewImage(url) {
         const overlay = document.createElement('div');
         overlay.className = 'inline-image-lightbox';
@@ -340,9 +265,6 @@ const InlineEditor = {
         document.body.appendChild(overlay);
     },
 
-    /**
-     * Escape HTML to prevent XSS
-     */
     _escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -350,4 +272,4 @@ const InlineEditor = {
     }
 };
 
-console.log('[INLINE] Inline editor initialized (REST API mode)');
+console.log('[INLINE] Inline editor initialized (REST API append mode)');

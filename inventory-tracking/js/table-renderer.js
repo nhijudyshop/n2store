@@ -650,7 +650,7 @@ function renderInvoicesSection(shipment) {
 
 /**
  * Render inline thiếu cell content
- * Shows input for current user + other users' entries
+ * Enter to save, appends new entry each time
  */
 function renderInlineThieu(dotHangId, legacyValue) {
     const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
@@ -661,7 +661,7 @@ function renderInlineThieu(dotHangId, legacyValue) {
             <input type="number" class="inline-thieu-input ${inputColorClass}"
                    data-dot-hang-id="${dotHangId}"
                    placeholder="${legacyValue > 0 ? legacyValue : '0'}"
-                   oninput="InlineEditor.saveThieu('${dotHangId}', this.value)"
+                   onkeydown="InlineEditor.handleKeyDown(event, 'thieu', '${dotHangId}')"
                    onclick="event.stopPropagation()">
             <div class="inline-thieu-entries" data-dot-hang-id="${dotHangId}"></div>
         </div>
@@ -670,7 +670,7 @@ function renderInlineThieu(dotHangId, legacyValue) {
 
 /**
  * Render inline ghi chú cell content
- * Shows input + image paste for current user + other users' entries
+ * Enter to save, Ctrl+V to paste image, appends new entry each time
  */
 function renderInlineGhiChu(dotHangId, legacyNote) {
     const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
@@ -681,17 +681,16 @@ function renderInlineGhiChu(dotHangId, legacyNote) {
             <div class="inline-ghichu-input-row">
                 <input type="text" class="inline-ghichu-input ${inputColorClass}"
                        data-dot-hang-id="${dotHangId}"
-                       placeholder="${legacyNote || 'Ghi chú...'}"
-                       oninput="InlineEditor.saveGhiChu('${dotHangId}', this.value)"
+                       placeholder="Ghi chú... (Enter để lưu)"
+                       onkeydown="InlineEditor.handleKeyDown(event, 'ghichu', '${dotHangId}')"
                        onpaste="InlineEditor.handlePaste(event, '${dotHangId}')"
                        onclick="event.stopPropagation()">
-                <label class="inline-attach-btn" title="Đính kèm ảnh">
+                <label class="inline-attach-btn" title="Đính kèm ảnh (hoặc Ctrl+V)">
                     <i data-lucide="image-plus" style="width:14px;height:14px"></i>
                     <input type="file" accept="image/*" style="display:none"
                            onchange="InlineEditor.handleFileSelect(event, '${dotHangId}')">
                 </label>
             </div>
-            <div class="inline-own-images" data-dot-hang-id="${dotHangId}"></div>
             <div class="inline-upload-indicator" style="display:none"></div>
             <div class="inline-ghichu-entries" data-dot-hang-id="${dotHangId}"></div>
         </div>

@@ -416,14 +416,12 @@ function pgToOtherExpense(row) {
 }
 
 // =====================================================
-// INLINE NOTES API (Multi-user Thiếu & Ghi Chú)
+// INLINE NOTES API (Multi-user Thiếu & Ghi Chú — append mode)
 // =====================================================
 
 const inlineNotesApi = {
     /**
      * Fetch all inline notes for given shipment IDs (batch)
-     * @param {string[]} shipmentIds
-     * @returns {Promise<Object[]>} Array of note rows
      */
     async getByShipmentIds(shipmentIds) {
         if (!shipmentIds || shipmentIds.length === 0) return [];
@@ -432,49 +430,28 @@ const inlineNotesApi = {
     },
 
     /**
-     * Upsert inline note (thieu + ghichu) for current user
+     * Create a new inline note (append, not upsert)
      */
-    async upsert(shipmentId, { thieuValue, ghichuText, ghichuImages, isAdmin }) {
+    async create(shipmentId, { thieuValue, ghichuText, ghichuImages, isAdmin }) {
         const result = await apiFetch('/inline-notes', {
-            method: 'PUT',
+            method: 'POST',
             body: JSON.stringify({
                 shipment_id: shipmentId,
-                thieu_value: thieuValue,
-                ghichu_text: ghichuText,
-                ghichu_images: ghichuImages,
-                is_admin: isAdmin
+                thieu_value: thieuValue || 0,
+                ghichu_text: ghichuText || '',
+                ghichu_images: ghichuImages || [],
+                is_admin: isAdmin || false
             })
         });
         return result.data;
     },
 
     /**
-     * Add image to inline note
+     * Delete a specific note by ID
      */
-    async addImage(shipmentId, imageUrl, isAdmin) {
-        const result = await apiFetch('/inline-notes/image', {
-            method: 'PATCH',
-            body: JSON.stringify({
-                shipment_id: shipmentId,
-                image_url: imageUrl,
-                is_admin: isAdmin
-            })
-        });
-        return result.data;
-    },
-
-    /**
-     * Remove image from inline note
-     */
-    async removeImage(shipmentId, imageUrl) {
-        const result = await apiFetch('/inline-notes/image', {
-            method: 'DELETE',
-            body: JSON.stringify({
-                shipment_id: shipmentId,
-                image_url: imageUrl
-            })
-        });
-        return result.data;
+    async deleteNote(noteId) {
+        await apiFetch(`/inline-notes/${noteId}`, { method: 'DELETE' });
+        return true;
     }
 };
 
