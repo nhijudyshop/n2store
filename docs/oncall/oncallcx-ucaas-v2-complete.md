@@ -162,6 +162,8 @@ Khi đã có extension + department, PBX được "kích hoạt" để:
 | **Internal Number** | Số nội bộ — **tối đa 10 chữ số** |
 | **Dial In Number of** | Số public (DID) cho phép gọi vào extension |
 | **Display Public Number** | Số hiển thị khi gọi ra ngoài (CLI outbound) |
+| **Outbound Public Number** | Số public hiển thị khi gọi ra (V2.0 — có thể khác Display Public Number) |
+| **Display Public Number Group** | Toggle bật/tắt nhóm số hiển thị (V2.0) |
 | **PIN** | Mã PIN của extension (nếu cần) |
 | **International / National / National VAS** | 1 trong 3 quy tắc: `Allowed`, `Blocked`, `PIN required`. Phân loại số này dựa trên **bảng giá cước** gán vào PBX |
 | **E-Mail / First / Last Name / Language** | Thông tin tài khoản người dùng |
@@ -216,6 +218,14 @@ Khi đã có extension + department, PBX được "kích hoạt" để:
 | **DND** — Do Not Disturb | Từ chối tất cả cuộc gọi đến | `*26` | `#26` | `*#26` | Do Not Disturb |
 | **ACR** — Anonymous Call Reject | Từ chối cuộc gọi giấu số | `*99` | `#99` | `*#99` | Reject Anonymous Calls |
 
+#### b2) Account settings (V2.0 bổ sung)
+- **Forward call to 'On Busy'** — chuyển tiếp khi bận
+- **Suppress own Number** — ẩn số khi gọi ra
+- **Reject Anonymous Calls** — từ chối cuộc gọi ẩn danh
+- **Call waiting** — báo cuộc gọi chờ
+- **Ring 'On not Available'** — đổ chuông khi extension không available (V2.0 mới)
+- **Distribution Mode** — dropdown: All Phones / ACD / IVR / Phones / Paging
+
 #### c) Connection-oriented
 
 | Tính năng | Mô tả | Code |
@@ -269,7 +279,7 @@ Khi đã có extension + department, PBX được "kích hoạt" để:
 #### c) Manual SIP credentials
 1. Admin tạo phone với `Provisioning Option = Manual configuration of SIP-Credentials`.
 2. Admin gửi user các giá trị (xuất hiện trong panel Provisioning Instructions):
-   - `Server IP/Address` = `pbx.oncallcx.vn`
+   - `Server IP/Address` = `pbx-ucaas.oncallcx.vn` (port `9060`)
    - `Port`
    - `Display Name (and Label)`
    - `User Name/Number`
