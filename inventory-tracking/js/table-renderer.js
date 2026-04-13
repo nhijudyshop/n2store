@@ -373,7 +373,41 @@ function formatColors(mauSac) {
 }
 
 /**
- * Render shipments list
+ * Group shipments by ngayDiHang date
+ */
+function groupShipmentsByDate(shipments) {
+    const grouped = {};
+    shipments.forEach(shipment => {
+        const date = shipment.ngayDiHang || 'unknown';
+        if (!grouped[date]) {
+            grouped[date] = [];
+        }
+        grouped[date].push(shipment);
+    });
+    return grouped;
+}
+
+/**
+ * Toggle date group expand/collapse
+ */
+function toggleDateGroup(dateGroupEl) {
+    const body = dateGroupEl.querySelector('.date-group-body');
+    const chevron = dateGroupEl.querySelector('.date-group-chevron');
+    const isCollapsed = body.classList.contains('hidden');
+
+    if (isCollapsed) {
+        body.classList.remove('hidden');
+        dateGroupEl.classList.remove('collapsed');
+        if (chevron) chevron.style.transform = 'rotate(90deg)';
+    } else {
+        body.classList.add('hidden');
+        dateGroupEl.classList.add('collapsed');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+/**
+ * Render shipments list - grouped by date, collapsed by default
  */
 function renderShipments(shipments) {
     const container = document.getElementById('shipmentsContainer');
@@ -386,7 +420,7 @@ function renderShipments(shipments) {
     if (loadingState) loadingState.classList.add('hidden');
 
     // Clear previous content (except loading/empty states)
-    const cards = container.querySelectorAll('.shipment-card');
+    const cards = container.querySelectorAll('.shipment-card, .date-group');
     cards.forEach(card => card.remove());
 
     // Show empty state if no data
@@ -397,17 +431,77 @@ function renderShipments(shipments) {
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    // Render each shipment
-    shipments.forEach(shipment => {
-        const card = createShipmentCard(shipment);
-        container.appendChild(card);
-    });
+    // Group shipments by date
+    const groupedByDate = groupShipmentsByDate(shipments);
+
+    // Render each date group, sorted descending
+    Object.keys(groupedByDate)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .forEach(date => {
+            const dateGroup = createDateGroup(date, groupedByDate[date]);
+            container.appendChild(dateGroup);
+        });
 
     // Re-initialize icons
     if (window.lucide) {
         lucide.createIcons();
     }
+}
 
+/**
+ * Create a collapsible date group element
+ */
+function createDateGroup(date, shipments) {
+    const group = document.createElement('div');
+    group.className = 'date-group collapsed';
+    group.dataset.date = date;
+
+    // Calculate summary for header
+    const totalPackages = shipments.reduce((sum, s) => sum + (s.kienHang || []).length, 0);
+    const totalKg = shipments.reduce((sum, s) => {
+        return sum + (s.kienHang || []).reduce((kgSum, p) => kgSum + (p.soKg || 0), 0);
+    }, 0);
+    const orderCount = shipments.reduce((sum, s) => sum + (s.hoaDon || []).length, 0);
+
+    // Build summary text
+    const summaryParts = [];
+    if (totalPackages > 0) summaryParts.push(`${totalPackages} Kiện`);
+    if (totalKg > 0) summaryParts.push(`${formatNumber(totalKg)} KG`);
+    if (orderCount > 0) summaryParts.push(`${orderCount} đơn hàng`);
+    const summaryText = summaryParts.join(' · ');
+
+    // Header (always visible, clickable)
+    const header = document.createElement('div');
+    header.className = 'date-group-header';
+    header.innerHTML = `
+        <div class="date-group-left">
+            <i data-lucide="chevron-right" class="date-group-chevron"></i>
+            <i data-lucide="calendar"></i>
+            <span class="date-group-date">Ngày giao: ${formatDateDisplay(date)}</span>
+            ${summaryText ? `
+                <span class="date-group-separator">—</span>
+                <span class="date-group-summary">${summaryText}</span>
+            ` : ''}
+        </div>
+        <div class="date-group-right">
+            <span class="date-group-count">${shipments.length} đợt hàng</span>
+        </div>
+    `;
+    header.addEventListener('click', () => toggleDateGroup(group));
+
+    // Body (hidden by default)
+    const body = document.createElement('div');
+    body.className = 'date-group-body hidden';
+
+    shipments.forEach(shipment => {
+        const card = createShipmentCard(shipment);
+        body.appendChild(card);
+    });
+
+    group.appendChild(header);
+    group.appendChild(body);
+
+    return group;
 }
 
 /**
