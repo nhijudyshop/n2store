@@ -1,14 +1,23 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * BarcodeLabelDialog - Custom HTML barcode label printing
- * Generates barcode labels matching TPOS "2 Tem" format:
- * - Product name on top
- * - Barcode (CODE128) in middle
- * - Product code + price at bottom
- * Paper: 66mm × 21mm sheet, 25mm × 21mm labels, 2 per row
+ * BarcodeLabelDialog - Barcode label printing matching TPOS format
+ * Supports 3 paper sizes and 2 print types (Default, New)
+ * Default paper: "2 Tem" (66mm × 21mm, 2 labels per row)
  */
 window.BarcodeLabelDialog = (function () {
     let overlay = null;
+
+    // Paper presets matching TPOS ProductLabelPaper
+    const PAPERS = [
+        { id: 7, name: '2 Tem (66×21mm)', sheetW: 66, sheetH: 21, labelW: 25, labelH: 21, cols: 2, fontSize: 6, topMargin: 0.5, leftMargin: 0.5, bottomMargin: 0.5, rightMargin: 0.5, hSpacing: 8, vSpacing: 0 },
+        { id: 8, name: '1 Tem (65×22mm)', sheetW: 65, sheetH: 22, labelW: 27, labelH: 21, cols: 2, fontSize: 7, topMargin: 0.5, leftMargin: 0.5, bottomMargin: 0.5, rightMargin: 0.5, hSpacing: 5, vSpacing: 0 },
+        { id: 9, name: 'Tem 35×22mm', sheetW: 70, sheetH: 22, labelW: 35, labelH: 22, cols: 2, fontSize: 8, topMargin: 0.5, leftMargin: 0.5, bottomMargin: 0.5, rightMargin: 0.5, hSpacing: 0, vSpacing: 0 }
+    ];
+
+    const PRINT_TYPES = [
+        { id: 'default', name: 'Mặc định (dọc)' },
+        { id: 'new', name: '2 cột (ngang)' }
+    ];
 
     function open(order) {
         if (!order?.items?.length) return;
@@ -27,14 +36,18 @@ window.BarcodeLabelDialog = (function () {
     }
 
     function showSelectionModal(order, items) {
-        // Remove existing
         if (overlay) overlay.remove();
+
+        let selectedPaper = PAPERS[0];
+        let selectedPrintType = PRINT_TYPES[0];
+        let showPrice = true;
+        let showBold = true;
 
         overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
         const modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;border-radius:8px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+        modal.style.cssText = 'background:#fff;border-radius:12px;width:90%;max-width:750px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
 
         // Header
         const header = document.createElement('div');
@@ -48,9 +61,38 @@ window.BarcodeLabelDialog = (function () {
         const body = document.createElement('div');
         body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;';
 
+        // Settings row (paper, print type, options)
+        const settingsRow = document.createElement('div');
+        settingsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;';
+        settingsRow.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;">Khổ giấy</label>
+                <select id="bld-paper" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:160px;">
+                    ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;">Kiểu in</label>
+                <select id="bld-print-type" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:140px;">
+                    ${PRINT_TYPES.map((t, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${t.name}</option>`).join('')}
+                </select>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;padding-bottom:2px;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="bld-show-price" checked style="width:15px;height:15px;cursor:pointer;">
+                    Hiện giá
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="bld-show-bold" checked style="width:15px;height:15px;cursor:pointer;">
+                    In đậm
+                </label>
+            </div>
+        `;
+        body.appendChild(settingsRow);
+
         // Select all checkbox
         const selectAllDiv = document.createElement('div');
-        selectAllDiv.style.cssText = 'margin-bottom:12px;padding:8px 0;border-bottom:1px solid #f3f4f6;';
+        selectAllDiv.style.cssText = 'margin-bottom:8px;padding:8px 0;border-bottom:1px solid #f3f4f6;';
         selectAllDiv.innerHTML = `
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;font-size:14px;">
                 <input type="checkbox" id="bld-select-all" checked style="width:16px;height:16px;cursor:pointer;">
@@ -88,8 +130,8 @@ window.BarcodeLabelDialog = (function () {
                     <span style="font-weight:500;">${stripBrackets(item.name)}</span>
                     ${variantText}
                 </td>
-                <td style="padding:6px;font-family:monospace;font-size:12px;">${item.code}</td>
-                <td style="padding:6px;text-align:center;">${item.quantity}</td>
+                <td style="padding:6px;font-family:monospace;font-size:12px;">${escapeHtml(item.code)}</td>
+                <td style="padding:6px;text-align:center;"><input type="number" class="bld-qty" data-index="${i}" value="${item.quantity}" min="1" max="999" style="width:45px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:2px;font-size:13px;"></td>
                 <td style="padding:6px;text-align:right;">${formatPrice(item.price)}</td>
             `;
             tbody.appendChild(tr);
@@ -104,20 +146,11 @@ window.BarcodeLabelDialog = (function () {
         btnCancel.textContent = 'Hủy';
         btnCancel.style.cssText = 'padding:8px 16px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:13px;';
 
-        // "In tem TPOS" button if order has tposPoId
-        let btnTpos = null;
-        if (order.tposPoId) {
-            btnTpos = document.createElement('button');
-            btnTpos.textContent = 'In tem TPOS';
-            btnTpos.style.cssText = 'padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;';
-        }
-
         const btnPrint = document.createElement('button');
         btnPrint.id = 'bld-btn-print';
-        btnPrint.style.cssText = 'padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;';
+        btnPrint.style.cssText = 'padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;';
 
         footer.appendChild(btnCancel);
-        if (btnTpos) footer.appendChild(btnTpos);
         footer.appendChild(btnPrint);
 
         modal.append(header, body, footer);
@@ -132,7 +165,21 @@ window.BarcodeLabelDialog = (function () {
         }
         updateCount();
 
-        // Event: select all
+        // Settings events
+        settingsRow.querySelector('#bld-paper').addEventListener('change', (e) => {
+            selectedPaper = PAPERS[parseInt(e.target.value)];
+        });
+        settingsRow.querySelector('#bld-print-type').addEventListener('change', (e) => {
+            selectedPrintType = PRINT_TYPES[parseInt(e.target.value)];
+        });
+        settingsRow.querySelector('#bld-show-price').addEventListener('change', (e) => {
+            showPrice = e.target.checked;
+        });
+        settingsRow.querySelector('#bld-show-bold').addEventListener('change', (e) => {
+            showBold = e.target.checked;
+        });
+
+        // Select all
         const selectAllCheckbox = document.getElementById('bld-select-all');
         selectAllCheckbox.addEventListener('change', () => {
             const val = selectAllCheckbox.checked;
@@ -141,46 +188,37 @@ window.BarcodeLabelDialog = (function () {
             updateCount();
         });
 
-        // Event: individual checkboxes
+        // Individual checkboxes
         body.addEventListener('change', (e) => {
             if (e.target.classList.contains('bld-item-check')) {
                 const idx = parseInt(e.target.dataset.index);
                 items[idx].checked = e.target.checked;
-                // Update select-all state
                 selectAllCheckbox.checked = items.every(it => it.checked);
+                updateCount();
+            }
+            if (e.target.classList.contains('bld-qty')) {
+                const idx = parseInt(e.target.dataset.index);
+                items[idx].quantity = Math.max(1, parseInt(e.target.value) || 1);
                 updateCount();
             }
         });
 
-        // Event: close
+        // Close
         const closeModal = () => { overlay.remove(); overlay = null; };
         header.querySelector('#bld-close').addEventListener('click', closeModal);
         btnCancel.addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-        // Event: print TPOS (existing flow)
-        if (btnTpos) {
-            btnTpos.addEventListener('click', async () => {
-                closeModal();
-                try {
-                    await window.TPOSPurchase.printBarcodeFromOrder(order);
-                } catch (err) {
-                    console.error('[BarcodeLabelDialog] TPOS print failed:', err);
-                }
-            });
-        }
-
-        // Event: print local
+        // Print
         btnPrint.addEventListener('click', () => {
             const selected = items.filter(it => it.checked);
             if (!selected.length) return;
             closeModal();
-            generateAndPrint(selected);
+            generateAndPrint(selected, selectedPaper, selectedPrintType.id, showPrice, showBold);
         });
     }
 
-    function generateAndPrint(items) {
-        // Build label data: each item × quantity
+    function generateAndPrint(items, paper, printType, showPrice, showBold) {
         const labels = [];
         for (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
@@ -192,42 +230,68 @@ window.BarcodeLabelDialog = (function () {
             }
         }
 
-        // Build HTML document for printing
-        const html = buildLabelHTML(labels);
-
-        // Show in overlay with iframe
+        const html = buildLabelHTML(labels, paper, printType, showPrice, showBold);
         showPrintOverlay(html);
     }
 
-    function buildLabelHTML(labels) {
-        // Paper: 66mm × 21mm, Label: 25mm × 21mm, 2 per row
-        // Margins: 0.5mm all sides, FontSize: 6pt
-        const labelRows = [];
-        for (let i = 0; i < labels.length; i += 2) {
-            const pair = [labels[i]];
-            if (labels[i + 1]) pair.push(labels[i + 1]);
-            labelRows.push(pair);
+    function buildLabelHTML(labels, paper, printType, showPrice, showBold) {
+        const { sheetW, sheetH, labelW, labelH, cols, fontSize, topMargin, leftMargin, bottomMargin, rightMargin, hSpacing, vSpacing } = paper;
+
+        // Group labels into sheets
+        const sheets = [];
+        for (let i = 0; i < labels.length; i += cols) {
+            const sheet = labels.slice(i, i + cols);
+            sheets.push(sheet);
         }
 
-        let labelsHTML = '';
-        for (const row of labelRows) {
-            labelsHTML += '<div class="label-row">';
-            for (const label of row) {
+        const nameMaxH = fontSize * 2;
+        const lineH = fontSize + 1;
+        const bTag = showBold ? 'strong' : 'span';
+
+        let sheetsHTML = '';
+        for (const sheet of sheets) {
+            sheetsHTML += `<div class="barcode-sheet">`;
+            for (const label of sheet) {
                 const displayPrice = formatPrice(label.price);
-                labelsHTML += `
-                    <div class="label">
-                        <div class="label-name">${escapeHtml(label.name)}</div>
-                        <div class="label-barcode">
-                            <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
+
+                if (printType === 'new') {
+                    // 2-column layout: left=text+price, right=barcode image
+                    sheetsHTML += `
+                        <div class="barcode_label">
+                            <table border="0" style="width:100%;height:100%;">
+                                <tr>
+                                    <td style="width:50%;text-align:center;vertical-align:middle;">
+                                        <div class="barcode-pname">${escapeHtml(label.code)}</div>
+                                        ${showPrice ? `<div><strong class="barcode-price">${displayPrice}</strong></div>` : ''}
+                                    </td>
+                                    <td style="width:50%;text-align:center;vertical-align:middle;">
+                                        <div class="barcode-image" style="width:100%;padding:2px;">
+                                            <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
-                        <div class="label-footer">
-                            <div class="label-code">${escapeHtml(label.code)}</div>
-                            <div class="label-price">${displayPrice}</div>
+                    `;
+                } else {
+                    // Default vertical layout (TPOS Default)
+                    sheetsHTML += `
+                        <div class="barcode_label" style="text-align:center;margin-top:1px;">
+                            <div class="barcode-pname">
+                                <${bTag}>${escapeHtml(label.name)}</${bTag}>
+                            </div>
+                            <div class="barcode-image">
+                                <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
+                            </div>
+                            <div>
+                                <${bTag}>${escapeHtml(label.code)}</${bTag}>
+                            </div>
+                            ${showPrice ? `<div><strong class="barcode-price">${displayPrice}</strong></div>` : ''}
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             }
-            labelsHTML += '</div>';
+            sheetsHTML += '</div>';
         }
 
         return `<!DOCTYPE html>
@@ -239,7 +303,7 @@ window.BarcodeLabelDialog = (function () {
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     @page {
-        size: 66mm 21mm;
+        size: ${sheetW}mm ${sheetH}mm;
         margin: 0;
     }
 
@@ -249,72 +313,65 @@ window.BarcodeLabelDialog = (function () {
         print-color-adjust: exact;
     }
 
-    .label-row {
+    .barcode-sheet {
+        width: ${sheetW}mm;
+        height: ${sheetH}mm;
         display: flex;
-        width: 66mm;
-        height: 21mm;
         page-break-after: always;
         overflow: hidden;
     }
 
-    .label-row:last-child {
+    .barcode-sheet:last-child {
         page-break-after: auto;
     }
 
-    .label {
-        width: 33mm;
-        height: 21mm;
-        padding: 3mm 1.5mm;
+    .barcode_label {
+        width: ${labelW}mm;
+        height: ${labelH}mm;
+        overflow: hidden;
+        padding-top: ${topMargin}mm;
+        padding-left: ${leftMargin}mm;
+        padding-bottom: ${bottomMargin}mm;
+        padding-right: ${rightMargin}mm;
+        margin-right: ${hSpacing}mm;
+        margin-bottom: ${vSpacing}mm;
+        font-size: ${fontSize}px;
+        line-height: ${lineH}px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        overflow: hidden;
+        justify-content: center;
     }
 
-    .label-name {
-        font-size: 6pt;
-        font-weight: bold;
-        text-align: center;
-        line-height: 1.2;
-        height: 3mm;
+    .barcode-pname {
+        max-height: ${nameMaxH}px;
         overflow: hidden;
+        margin-bottom: 2px;
+        text-align: center;
         width: 100%;
         word-break: break-word;
     }
 
-    .label-barcode {
-        height: 7.5mm;
+    .barcode-image {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
-        overflow: hidden;
+        flex: 1;
+        min-height: 0;
     }
 
-    .label-barcode svg {
-        width: 70%;
+    .barcode-image svg {
+        width: 80%;
         height: 100%;
+        max-height: ${Math.floor(labelH * 0.4)}mm;
     }
 
-    .label-footer {
-        height: 4.5mm;
-        text-align: center;
-        width: 100%;
-        font-weight: bold;
-        line-height: 1.15;
+    .barcode-price {
+        font-size: ${Math.max(fontSize, 7)}px;
     }
 
-    .label-code {
-        font-size: 6pt;
-        font-weight: bold;
-    }
-
-    .label-price {
-        font-size: 6pt;
-        font-weight: bold;
-    }
-
-    /* Screen preview styles */
+    /* Screen preview */
     @media screen {
         body {
             background: #e5e7eb;
@@ -324,7 +381,7 @@ window.BarcodeLabelDialog = (function () {
             align-items: center;
             gap: 8px;
         }
-        .label-row {
+        .barcode-sheet {
             background: #fff;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
             border: 1px solid #d1d5db;
@@ -333,7 +390,7 @@ window.BarcodeLabelDialog = (function () {
 </style>
 </head>
 <body>
-${labelsHTML}
+${sheetsHTML}
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
 <script>
     document.querySelectorAll('.barcode').forEach(function(svg) {
@@ -351,8 +408,10 @@ ${labelsHTML}
                 var h = svg.getAttribute('height');
                 svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
                 svg.setAttribute('preserveAspectRatio', 'none');
-                svg.setAttribute('width', '70%');
-                svg.setAttribute('height', '7.5mm');
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '80%';
+                svg.style.height = '100%';
             } catch(e) {
                 console.warn('Barcode error for:', code, e);
             }
@@ -368,20 +427,19 @@ ${labelsHTML}
         printOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
 
         const toolbar = document.createElement('div');
-        toolbar.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:8px 16px;background:#333;';
+        toolbar.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:8px 16px;background:#1f2937;';
 
         const btnPrint = document.createElement('button');
-        btnPrint.textContent = 'In';
-        btnPrint.style.cssText = 'padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+        btnPrint.innerHTML = '🖨 In';
+        btnPrint.style.cssText = 'padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;';
 
         const btnClose = document.createElement('button');
         btnClose.textContent = 'Đóng';
-        btnClose.style.cssText = 'padding:6px 16px;background:#666;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+        btnClose.style.cssText = 'padding:8px 16px;background:#4b5563;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;';
 
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'flex:1;border:none;background:#e5e7eb;';
 
-        // Write HTML to iframe
         const blob = new Blob([html], { type: 'text/html' });
         const blobUrl = URL.createObjectURL(blob);
         iframe.src = blobUrl;
@@ -389,8 +447,9 @@ ${labelsHTML}
         btnPrint.onclick = () => {
             try { iframe.contentWindow.print(); } catch (e) { console.error('Print error:', e); }
         };
-        btnClose.onclick = () => { printOverlay.remove(); URL.revokeObjectURL(blobUrl); };
-        printOverlay.onclick = (e) => { if (e.target === printOverlay) { printOverlay.remove(); URL.revokeObjectURL(blobUrl); } };
+        const closePrint = () => { printOverlay.remove(); URL.revokeObjectURL(blobUrl); };
+        btnClose.onclick = closePrint;
+        printOverlay.onclick = (e) => { if (e.target === printOverlay) closePrint(); };
 
         toolbar.append(btnPrint, btnClose);
         printOverlay.append(toolbar, iframe);

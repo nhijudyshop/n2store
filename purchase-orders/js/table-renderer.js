@@ -482,10 +482,7 @@ class PurchaseOrderTableRenderer {
         const isDraft = order.status === 'DRAFT';
         const isAwaitingDelivery = order.status === 'AWAITING_DELIVERY';
         const items = order.items || [];
-        const canPrintBarcode = items.length > 0 && (
-            (isDraft && items.every(item => !!item.tposProductId)) ||
-            (isAwaitingDelivery && (order.tposPoId || items.some(item => !!item.productCode)))
-        );
+        const canPrintBarcode = items.length > 0 && items.some(item => !!item.productCode);
 
         return `
             <td class="col-actions" rowspan="${rowSpan}">
