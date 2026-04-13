@@ -2855,14 +2855,13 @@ class PurchaseOrderFormModal {
         }
 
         try {
-            // "Tạo đơn hàng" skips Firebase image upload
-            // TPOS will provide ImageUrl after product sync
-            // Clear pending images (data URLs will be stripped by filterFirebaseUrls)
-            this.pendingImages = {
-                invoice: [],
-                products: {},
-                prices: {}
-            };
+            // Upload pending images before saving
+            if (this.hasPendingImages()) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đang tải ảnh lên...', 'info');
+                }
+                await this.uploadPendingImages();
+            }
 
             const orderData = this.getFormData();
             orderData.status = 'AWAITING_PURCHASE';
