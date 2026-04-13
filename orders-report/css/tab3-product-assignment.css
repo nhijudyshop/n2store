@@ -295,6 +295,11 @@ body {
 
 .assignment-row {
     transition: background 0.15s ease;
+    border-bottom: 1px solid var(--ds-border, #e5e7eb);
+}
+
+.assignment-row:last-child {
+    border-bottom: none;
 }
 
 /* Zebra striping — even rows get subtle tint */
