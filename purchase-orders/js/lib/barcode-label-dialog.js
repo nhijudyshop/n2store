@@ -142,11 +142,22 @@ window.BarcodeLabelDialog = (function () {
         body.appendChild(tabBar);
 
         // Table: Sản phẩm | Số lượng | (delete icon)
+        // Select all
+        const selectAllDiv = document.createElement('div');
+        selectAllDiv.style.cssText = 'margin-bottom:4px;';
+        selectAllDiv.innerHTML = `
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;">
+                <input type="checkbox" id="bld-select-all" checked style="width:16px;height:16px;accent-color:#2563eb;"> Chọn tất cả
+            </label>
+        `;
+        body.appendChild(selectAllDiv);
+
         const table = document.createElement('table');
         table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
         table.innerHTML = `
             <thead>
                 <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:10px 6px;width:32px;"></th>
                     <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;">Sản phẩm</th>
                     <th style="padding:10px 8px;text-align:center;width:120px;font-weight:600;color:#374151;">Số lượng</th>
                     <th style="width:40px;"></th>
@@ -162,14 +173,18 @@ window.BarcodeLabelDialog = (function () {
             displayItems.forEach((item) => {
                 const origIdx = items.indexOf(item);
                 const variantText = item.variant ? ` (${item.variant})` : '';
+                const isChecked = item.checked !== false;
                 const tr = document.createElement('tr');
-                tr.style.cssText = 'border-bottom:1px solid #f3f4f6;';
+                tr.style.cssText = `border-bottom:1px solid #f3f4f6;${!isChecked ? 'opacity:0.45;' : ''}`;
                 tr.innerHTML = `
+                    <td style="padding:8px 6px;text-align:center;">
+                        <input type="checkbox" class="bld-item-check" data-index="${origIdx}" ${isChecked ? 'checked' : ''} style="width:16px;height:16px;accent-color:#2563eb;cursor:pointer;">
+                    </td>
                     <td style="padding:10px 8px;">
                         [${escapeHtml(item.code || '?')}] ${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}
                     </td>
                     <td style="padding:8px;text-align:center;">
-                        <input type="number" class="bld-qty" data-index="${origIdx}" value="${item.quantity}" min="1" max="999" style="width:80px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:13px;">
+                        <input type="number" class="bld-qty" data-index="${origIdx}" value="${item.quantity}" min="1" max="999" style="width:80px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:13px;" ${!isChecked ? 'disabled' : ''}>
                     </td>
                     <td style="padding:8px;text-align:center;">
                         <button class="bld-remove" data-index="${origIdx}" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;padding:4px;" title="Xóa">🗑</button>
@@ -179,9 +194,13 @@ window.BarcodeLabelDialog = (function () {
             });
             if (displayItems.length === 0) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;">Không có sản phẩm</td>`;
+                tr.innerHTML = `<td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">Không có sản phẩm</td>`;
                 tbody.appendChild(tr);
             }
+            // Update select-all state
+            const allChecked = displayItems.length > 0 && displayItems.every(i => i.checked !== false);
+            const selectAll = document.getElementById('bld-select-all');
+            if (selectAll) selectAll.checked = allChecked;
         }
         renderTableRows();
         body.appendChild(table);
@@ -227,8 +246,9 @@ window.BarcodeLabelDialog = (function () {
         let hideBarcode = false;
 
         function updateCount() {
-            const totalLabels = items.filter(i => i.code).reduce((sum, it) => sum + it.quantity, 0);
-            btnPrint.textContent = `In bằng pdf`;
+            const checked = items.filter(i => i.code && i.checked !== false);
+            const totalLabels = checked.reduce((sum, it) => sum + it.quantity, 0);
+            btnPrint.textContent = totalLabels > 0 ? `In bằng pdf (${totalLabels})` : 'In bằng pdf';
         }
         updateCount();
 
@@ -248,8 +268,23 @@ window.BarcodeLabelDialog = (function () {
             updateCount();
         });
 
-        // Qty change + remove in table
+        // Select all
+        document.getElementById('bld-select-all').addEventListener('change', (e) => {
+            const val = e.target.checked;
+            const displayItems = activeTab === 'barcode' ? withBarcode : withoutBarcode;
+            displayItems.forEach(it => { it.checked = val; });
+            renderTableRows();
+            updateCount();
+        });
+
+        // Checkbox, qty, remove in table
         body.addEventListener('change', (e) => {
+            if (e.target.classList.contains('bld-item-check')) {
+                const idx = parseInt(e.target.dataset.index);
+                items[idx].checked = e.target.checked;
+                renderTableRows();
+                updateCount();
+            }
             if (e.target.classList.contains('bld-qty')) {
                 const idx = parseInt(e.target.dataset.index);
                 items[idx].quantity = Math.max(1, parseInt(e.target.value) || 1);
@@ -260,6 +295,10 @@ window.BarcodeLabelDialog = (function () {
             if (e.target.classList.contains('bld-remove')) {
                 const idx = parseInt(e.target.dataset.index);
                 items.splice(idx, 1);
+                // Rebuild withBarcode/withoutBarcode
+                withBarcode.length = 0;
+                withoutBarcode.length = 0;
+                items.forEach(i => { (i.code ? withBarcode : withoutBarcode).push(i); });
                 renderTableRows();
                 updateCount();
             }
@@ -278,7 +317,7 @@ window.BarcodeLabelDialog = (function () {
         body.appendChild(previewArea);
 
         function updatePreview() {
-            const printItems = items.filter(it => it.code && it.quantity > 0);
+            const printItems = items.filter(it => it.code && it.checked !== false && it.quantity > 0);
             if (!printItems.length) {
                 previewArea.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:12px;font-size:13px;">Không có sản phẩm để in</div>';
                 return;
@@ -326,7 +365,7 @@ window.BarcodeLabelDialog = (function () {
 
         // Print
         btnPrint.addEventListener('click', () => {
-            const printItems = items.filter(it => it.code && it.quantity > 0);
+            const printItems = items.filter(it => it.code && it.checked !== false && it.quantity > 0);
             if (!printItems.length) return;
             closeModal();
             generateAndPrint(printItems, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
