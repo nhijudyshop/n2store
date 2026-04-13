@@ -1847,37 +1847,6 @@ class InventoryPickerDialog {
                         font-size: 14px;
                         box-sizing: border-box;
                     ">
-                    <!-- Search suggestions dropdown -->
-                    <div id="searchSuggestionsDropdown" style="
-                        display: none;
-                        position: absolute;
-                        left: 20px;
-                        right: 20px;
-                        top: 52px;
-                        background: white;
-                        border: 1px solid #d1d5db;
-                        border-radius: 0 0 8px 8px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                        z-index: 10;
-                        overflow: hidden;
-                    ">
-                        <div class="search-suggestion-item" data-search-mode="name" style="
-                            padding: 10px 14px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            background: #5b6abf;
-                            color: white;
-                        ">
-                            Tìm kiếm <em>Tên</em> Cho: <strong id="suggestionTermName"></strong>
-                        </div>
-                        <div class="search-suggestion-item" data-search-mode="code" style="
-                            padding: 10px 14px;
-                            cursor: pointer;
-                            font-size: 14px;
-                        ">
-                            Tìm kiếm <em>Mã</em> Cho: <strong id="suggestionTermCode"></strong>
-                        </div>
-                    </div>
                     <p id="productCountText" style="margin: 8px 0 0; font-size: 13px; color: #6b7280;">
                         Có ${this.products.length} sản phẩm trong kho
                     </p>
@@ -2666,105 +2635,23 @@ class InventoryPickerDialog {
         };
         document.addEventListener('keydown', escHandler);
 
-        // Search with suggestions dropdown
+        // Search input with debounce
         let searchTimeout;
         const searchInput = this.modalElement.querySelector('#inventorySearchInput');
-        const suggestionsDropdown = this.modalElement.querySelector('#searchSuggestionsDropdown');
-        const suggestionItems = this.modalElement.querySelectorAll('.search-suggestion-item');
-        const suggestionTermName = this.modalElement.querySelector('#suggestionTermName');
-        const suggestionTermCode = this.modalElement.querySelector('#suggestionTermCode');
-        let activeSuggestionIndex = 0; // 0 = name (default), 1 = code
-
-        const updateSuggestionHighlight = () => {
-            suggestionItems.forEach((item, i) => {
-                if (i === activeSuggestionIndex) {
-                    item.style.background = '#5b6abf';
-                    item.style.color = 'white';
-                } else {
-                    item.style.background = 'white';
-                    item.style.color = '#333';
-                }
-            });
-        };
-
-        const hideSuggestions = () => {
-            if (suggestionsDropdown) suggestionsDropdown.style.display = 'none';
-        };
-
-        const showSuggestions = (term) => {
-            if (!suggestionsDropdown || term.trim().length === 0) {
-                hideSuggestions();
-                return;
-            }
-            if (suggestionTermName) suggestionTermName.textContent = term;
-            if (suggestionTermCode) suggestionTermCode.textContent = term;
-            activeSuggestionIndex = 0;
-            updateSuggestionHighlight();
-            suggestionsDropdown.style.display = 'block';
-        };
-
-        const executeSearch = (mode) => {
-            const term = searchInput?.value || '';
-            hideSuggestions();
-            this.filterProducts(term, mode);
-        };
 
         searchInput?.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const term = e.target.value;
-            // Auto-search with debounce for instant results
             searchTimeout = setTimeout(() => {
-                hideSuggestions();
                 this.filterProducts(term, 'all');
             }, 250);
-            // Also show suggestions dropdown for manual mode selection
-            if (term.trim().length >= 2) {
-                showSuggestions(term);
-            } else {
-                hideSuggestions();
-            }
         });
 
         searchInput?.addEventListener('keydown', (e) => {
-            if (suggestionsDropdown?.style.display === 'block') {
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, suggestionItems.length - 1);
-                    updateSuggestionHighlight();
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
-                    updateSuggestionHighlight();
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const mode = activeSuggestionIndex === 0 ? 'name' : 'code';
-                    executeSearch(mode);
-                } else if (e.key === 'Escape') {
-                    hideSuggestions();
-                }
-            } else if (e.key === 'Enter') {
-                // If suggestions not visible, default search by name
+            if (e.key === 'Enter') {
                 e.preventDefault();
-                executeSearch('name');
-            }
-        });
-
-        // Click on suggestion items
-        suggestionItems.forEach((item, i) => {
-            item.addEventListener('mouseenter', () => {
-                activeSuggestionIndex = i;
-                updateSuggestionHighlight();
-            });
-            item.addEventListener('click', () => {
-                const mode = item.dataset.searchMode;
-                executeSearch(mode);
-            });
-        });
-
-        // Hide suggestions when clicking outside
-        this.modalElement.addEventListener('click', (e) => {
-            if (!e.target.closest('#inventorySearchInput') && !e.target.closest('#searchSuggestionsDropdown')) {
-                hideSuggestions();
+                clearTimeout(searchTimeout);
+                this.filterProducts(searchInput.value, 'all');
             }
         });
 
