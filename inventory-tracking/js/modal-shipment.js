@@ -205,8 +205,24 @@ function setupShipmentFormListeners() {
         }
     });
 
-    // Paste handler for images (on the modal body)
-    document.getElementById('modalShipmentBody')?.addEventListener('paste', (e) => {
+    // Track hovered upload area so paste works on hover (no click needed)
+    let _hoveredUploadArea = null;
+    const modalBody = document.getElementById('modalShipmentBody');
+    modalBody?.addEventListener('mouseover', (e) => {
+        const area = e.target.closest('.image-upload-area');
+        if (area) _hoveredUploadArea = area;
+    });
+    modalBody?.addEventListener('mouseout', (e) => {
+        const area = e.target.closest('.image-upload-area');
+        if (area && area === _hoveredUploadArea) _hoveredUploadArea = null;
+    });
+
+    // Paste handler for images — works on hover OR focus
+    document.addEventListener('paste', (e) => {
+        // Only handle when modal is open
+        if (!modalBody || modalBody.closest('.modal[style*="display: none"]')) return;
+        if (!modalBody.closest('.modal')?.classList.contains('show') && !modalBody.offsetParent) return;
+
         const items = e.clipboardData?.items;
         if (!items) return;
 
@@ -219,15 +235,16 @@ function setupShipmentFormListeners() {
         }
 
         if (imageFiles.length === 0) return;
-        e.preventDefault();
 
-        // Find the closest invoice form's upload area, or the last one
+        // Prefer hovered area, then focused area, then last invoice form
         const focused = document.activeElement;
         const invoiceForm = focused?.closest('.invoice-form');
-        const area = invoiceForm?.querySelector('.image-upload-area')
-            || document.querySelector('.invoice-form:last-child .image-upload-area');
+        const area = _hoveredUploadArea
+            || invoiceForm?.querySelector('.image-upload-area')
+            || modalBody.querySelector('.invoice-form:last-child .image-upload-area');
 
         if (area) {
+            e.preventDefault();
             handleInvoiceImageFiles(area, imageFiles);
         }
     });
