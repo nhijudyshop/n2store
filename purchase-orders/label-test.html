@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+<style>
+* { box-sizing: border-box; }
+@page { margin: 0 !important; }
+html, body {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.barcode-sheet { page-break-after: always; }
+.barcode-sheet:last-child { page-break-after: auto; }
+.barcode_label {
+    box-sizing: border-box;
+    text-align: center;
+    float: left;
+    display: flex;
+    flex-flow: column;
+    overflow: hidden;
+    font-size: 10px;
+    padding: 5px;
+    line-height: 10px;
+}
+.barcode_label div { flex: 1 auto; }
+.barcode-image img { width: 100%; height: 25px; }
+</style>
+</head>
+<body>
+<div class="barcode-sheet" style="width:66mm;height:21mm;">
+    <div class="barcode_label" style="width:25mm;height:21mm;overflow:hidden;padding-top:0.5mm;padding-left:0.5mm;padding-bottom:0.5mm;padding-right:0.5mm;font-size:6px;line-height:7px;text-align:center;margin-top:1px">
+        <div class="barcode-pname" style="max-height:12px;overflow:hidden;margin-bottom:2px;"><strong>1204 B48 SET ÁO XOẮN + Q.SUÔNG Đen</strong></div>
+        <div class="barcode-image"><img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=B1463D&width=600&height=100" /></div>
+        <div><strong>B1463D</strong></div>
+        <div><strong class="barcode-price">290.000</strong></div>
+    </div>
+    <div class="barcode_label" style="width:25mm;height:21mm;overflow:hidden;padding-top:0.5mm;padding-left:0.5mm;padding-bottom:0.5mm;padding-right:0.5mm;font-size:6px;line-height:7px;text-align:center;margin-top:1px">
+        <div class="barcode-pname" style="max-height:12px;overflow:hidden;margin-bottom:2px;"><strong>1204 B48 SET ÁO XOẮN + Q.SUÔNG Xám</strong></div>
+        <div class="barcode-image"><img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=B1463X&width=600&height=100" /></div>
+        <div><strong>B1463X</strong></div>
+        <div><strong class="barcode-price">290.000</strong></div>
+    </div>
+</div>
+</body>
+</html>

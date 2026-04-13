@@ -53,6 +53,9 @@ dynamic-headers.json
 # Secrets file (NEVER commit)
 serect_dont_push.txt
 
+# MCP config (contains API keys)
+.mcp.json
+
 # Windows reserved filenames
 nul
 
