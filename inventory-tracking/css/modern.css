@@ -2981,7 +2981,8 @@ body {
     object-fit: cover;
 }
 
-.btn-remove-image {
+.btn-remove-image,
+.btn-remove-preview-image {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -2995,6 +2996,76 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+}
+
+.btn-remove-preview-image svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Upload area paste/drop enhancements */
+.image-upload-area:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.upload-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.paste-hint {
+    color: var(--gray-400);
+    font-size: 13px;
+}
+
+/* Upload spinner */
+.image-preview-item.uploading {
+    opacity: 0.6;
+}
+
+.upload-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Upload failed state */
+.image-preview-item.upload-failed {
+    background: var(--red-50, #fef2f2);
+    border-color: var(--red-300, #fca5a5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--red-500, #ef4444);
+    font-size: 11px;
+}
+
+.upload-error svg {
+    width: 16px;
+    height: 16px;
 }
 
 .btn-remove-image i {

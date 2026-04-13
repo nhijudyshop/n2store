@@ -143,11 +143,14 @@ function renderInvoiceForm(invoice, index) {
             </div>
             <div class="form-group">
                 <label>Ảnh hóa đơn</label>
-                <div class="image-upload-area" data-invoice="${index}">
+                <div class="image-upload-area" data-invoice="${index}" data-urls="[]" tabindex="0">
                     <input type="file" class="image-input" multiple accept="image/*" style="display: none;">
-                    <button type="button" class="btn btn-sm btn-outline btn-upload">
-                        <i data-lucide="upload"></i> Chọn file
-                    </button>
+                    <div class="upload-actions">
+                        <button type="button" class="btn btn-sm btn-outline btn-upload">
+                            <i data-lucide="upload"></i> Chọn file
+                        </button>
+                        <span class="paste-hint">hoặc Ctrl+V để dán ảnh</span>
+                    </div>
                     <div class="image-preview-list"></div>
                 </div>
             </div>
@@ -182,6 +185,50 @@ function setupShipmentFormListeners() {
         }
         if (e.target.closest('.btn-upload')) {
             e.target.closest('.image-upload-area')?.querySelector('.image-input')?.click();
+        }
+        if (e.target.closest('.btn-remove-preview-image')) {
+            const item = e.target.closest('.image-preview-item');
+            const area = item?.closest('.image-upload-area');
+            item?.remove();
+            syncUploadAreaUrls(area);
+        }
+    });
+
+    // File input change handler (delegation)
+    document.getElementById('modalShipmentBody')?.addEventListener('change', (e) => {
+        if (e.target.classList.contains('image-input')) {
+            const area = e.target.closest('.image-upload-area');
+            if (area && e.target.files?.length > 0) {
+                handleInvoiceImageFiles(area, Array.from(e.target.files));
+                e.target.value = '';
+            }
+        }
+    });
+
+    // Paste handler for images (on the modal body)
+    document.getElementById('modalShipmentBody')?.addEventListener('paste', (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        const imageFiles = [];
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) imageFiles.push(file);
+            }
+        }
+
+        if (imageFiles.length === 0) return;
+        e.preventDefault();
+
+        // Find the closest invoice form's upload area, or the last one
+        const focused = document.activeElement;
+        const invoiceForm = focused?.closest('.invoice-form');
+        const area = invoiceForm?.querySelector('.image-upload-area')
+            || document.querySelector('.invoice-form:last-child .image-upload-area');
+
+        if (area) {
+            handleInvoiceImageFiles(area, imageFiles);
         }
     });
 
@@ -362,6 +409,112 @@ function updateInvoicePreview(invoiceForm) {
     if (totalItems) totalItems.textContent = formatNumber(totals.tongMon);
 }
 
+// =====================================================
+// IMAGE UPLOAD & PASTE HELPERS
+// =====================================================
+
+/**
+ * Handle image files for an invoice upload area (from file input or paste)
+ */
+async function handleInvoiceImageFiles(uploadArea, files) {
+    const previewList = uploadArea.querySelector('.image-preview-list');
+    if (!previewList) return;
+
+    const validFiles = [];
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+            window.notificationManager?.warning(`Bỏ qua "${file.name}" — không phải ảnh`);
+            continue;
+        }
+        if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) {
+            window.notificationManager?.warning(`Bỏ qua "${file.name}" — vượt quá 5MB`);
+            continue;
+        }
+        validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+
+    // Show local previews immediately (before upload)
+    const placeholders = validFiles.map(file => {
+        const localUrl = URL.createObjectURL(file);
+        const item = document.createElement('div');
+        item.className = 'image-preview-item uploading';
+        item.innerHTML = `
+            <img src="${localUrl}" alt="Preview">
+            <div class="upload-spinner"></div>
+        `;
+        previewList.appendChild(item);
+        return { file, element: item, localUrl };
+    });
+
+    window.notificationManager?.info(`Đang tải ${validFiles.length} ảnh lên...`);
+
+    let successCount = 0;
+    for (const ph of placeholders) {
+        try {
+            const url = await uploadImage(ph.file, 'invoices');
+            ph.element.classList.remove('uploading');
+            ph.element.innerHTML = `
+                <img src="${url}" alt="Invoice">
+                <button type="button" class="btn-remove-preview-image" title="Xóa ảnh">
+                    <i data-lucide="x"></i>
+                </button>
+            `;
+            ph.element.dataset.url = url;
+            successCount++;
+        } catch (err) {
+            console.error('[UPLOAD] Failed:', ph.file.name, err);
+            ph.element.classList.remove('uploading');
+            ph.element.classList.add('upload-failed');
+            ph.element.innerHTML = `
+                <div class="upload-error">
+                    <i data-lucide="alert-circle"></i>
+                    <span>Lỗi</span>
+                </div>
+                <button type="button" class="btn-remove-preview-image" title="Xóa">
+                    <i data-lucide="x"></i>
+                </button>
+            `;
+        }
+        URL.revokeObjectURL(ph.localUrl);
+    }
+
+    // Sync data-urls attribute
+    syncUploadAreaUrls(uploadArea);
+
+    if (window.lucide) lucide.createIcons();
+
+    if (successCount > 0) {
+        window.notificationManager?.success(`Đã tải ${successCount}/${validFiles.length} ảnh`);
+    } else {
+        window.notificationManager?.error('Không tải được ảnh nào');
+    }
+}
+
+/**
+ * Sync the data-urls attribute from preview items
+ */
+function syncUploadAreaUrls(uploadArea) {
+    if (!uploadArea) return;
+    const items = uploadArea.querySelectorAll('.image-preview-item[data-url]');
+    const urls = Array.from(items).map(el => el.dataset.url).filter(Boolean);
+    uploadArea.dataset.urls = JSON.stringify(urls);
+}
+
+/**
+ * Get uploaded image URLs from an invoice form
+ */
+function getInvoiceImageUrls(invoiceForm) {
+    const area = invoiceForm?.querySelector('.image-upload-area');
+    if (!area) return [];
+    try {
+        return JSON.parse(area.dataset.urls || '[]');
+    } catch (_) {
+        return [];
+    }
+}
+
 async function saveShipment() {
     try {
         // Validate date
@@ -398,6 +551,11 @@ async function saveShipment() {
             // Get existing invoice data if editing
             const existingInvoice = currentShipmentData?.hoaDon?.[invoiceIndex];
 
+            // Collect uploaded image URLs from the upload area
+            const newImages = getInvoiceImageUrls(form);
+            const existingImages = existingInvoice?.anhHoaDon || [];
+            const anhHoaDon = [...existingImages, ...newImages];
+
             hoaDon.push({
                 id: existingInvoice?.id || generateId('hd'),
                 sttNCC: sttNCC,
@@ -407,7 +565,7 @@ async function saveShipment() {
                 tongMon: totals.tongMon,
                 soMonThieu: existingInvoice?.soMonThieu || 0,
                 ghiChuThieu: existingInvoice?.ghiChuThieu || '',
-                anhHoaDon: existingInvoice?.anhHoaDon || []
+                anhHoaDon: anhHoaDon
             });
 
             invoiceIndex++;
