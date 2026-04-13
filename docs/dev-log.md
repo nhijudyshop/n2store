@@ -8,6 +8,13 @@
 
 ## 2026-04-13
 
+### [orders] Upgrade history tab with better columns, stats bar, print & done toggle ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/history-tab.js`, `purchase-orders/css/table.css` |
+| **Chi tiết** | Nâng cấp history tab: reorder columns (#, Số phiếu, NCC 25ch, Ngày dd/mm, Tổng tiền, Còn nợ, Trạng thái, NV 10ch, Thao tác). Thêm payment status badge (Đã TT/TT 1 phần/Chưa TT). Summary stats bar (phiếu count + tổng tiền + nợ). Print button mở TPOS Print URL. Done toggle thay checkbox bằng styled button. Expand view thêm product thumbnail, mã SP, layout tốt hơn. |
+| **Status** | ✅ Done |
+
 ### [orders] Upgrade refund tab with better columns, summary bar, and print action ✅
 | | |
 |---|---|
