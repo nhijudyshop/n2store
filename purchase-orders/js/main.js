@@ -319,11 +319,8 @@ class PurchaseOrderController {
         const validTabs = [...Object.values(this.config.OrderStatus), 'HISTORY', 'REFUNDS', 'PRODUCTS', 'NOTES'];
         this.currentTab = validTabs.includes(hash) ? hash : this.config.OrderStatus.DRAFT;
 
-        // Load stats & counts (always needed for summary cards + tab badges)
-        await Promise.all([
-            this.dataManager.loadStats(),
-            this.dataManager.loadStatusCounts()
-        ]);
+        // Load stats & counts in single Firestore read
+        await this.dataManager.loadStatsAndCounts();
 
         if (this.currentTab === 'HISTORY') {
             if (window.PurchaseOrderHistory) {

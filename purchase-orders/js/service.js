@@ -436,34 +436,45 @@ class PurchaseOrderService {
      * Get order statistics
      * @returns {Promise<Object>}
      */
-    async getOrderStats() {
+    /**
+     * Load all docs once, return both stats and status counts.
+     * Replaces separate getOrderStats() + getStatusCounts() to avoid 3 full-collection reads.
+     * @returns {Promise<{stats: Object, counts: Object}>}
+     */
+    async getStatsAndCounts() {
         await this.initialize();
+
+        const config = window.PurchaseOrderConfig;
 
         try {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const todayTimestamp = firebase.firestore.Timestamp.fromDate(today);
+            const todayMs = today.getTime();
 
-            // Get all non-cancelled orders
-            const allOrdersSnapshot = await this.db.collection(this.COLLECTION)
-                .where('status', '!=', 'CANCELLED')
-                .get();
+            const counts = {};
+            Object.values(config.OrderStatus).forEach(status => {
+                counts[status] = 0;
+            });
 
-            // Get today's orders
-            const todayOrdersSnapshot = await this.db.collection(this.COLLECTION)
-                .where('createdAt', '>=', todayTimestamp)
-                .get();
-
-            // Calculate totals
             let totalOrders = 0;
             let totalValue = 0;
             let todayOrders = 0;
             let todayValue = 0;
             let tposSyncedCount = 0;
 
-            allOrdersSnapshot.docs.forEach(doc => {
+            const snapshot = await this.db.collection(this.COLLECTION).get();
+
+            snapshot.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.status !== 'CANCELLED' && data.status !== 'DELETED') {
+                const status = data.status;
+
+                // Count by status
+                if (counts[status] !== undefined) {
+                    counts[status]++;
+                }
+
+                // Stats (exclude CANCELLED and DELETED)
+                if (status !== 'CANCELLED' && status !== 'DELETED') {
                     totalOrders++;
                     totalValue += data.finalAmount || 0;
 
@@ -471,67 +482,45 @@ class PurchaseOrderService {
                     if (data.items?.every(item => item.tposSyncStatus === 'success')) {
                         tposSyncedCount++;
                     }
-                }
-            });
 
-            todayOrdersSnapshot.docs.forEach(doc => {
-                const data = doc.data();
-                if (data.status !== 'CANCELLED' && data.status !== 'DELETED') {
-                    todayOrders++;
-                    todayValue += data.finalAmount || 0;
+                    // Check if created today
+                    const createdAt = data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : null);
+                    if (createdAt && createdAt.getTime() >= todayMs) {
+                        todayOrders++;
+                        todayValue += data.finalAmount || 0;
+                    }
                 }
             });
 
             return {
-                totalOrders,
-                totalValue,
-                todayOrders,
-                todayValue,
-                tposSyncRate: totalOrders > 0 ? Math.round((tposSyncedCount / totalOrders) * 100) : 0
+                stats: {
+                    totalOrders,
+                    totalValue,
+                    todayOrders,
+                    todayValue,
+                    tposSyncRate: totalOrders > 0 ? Math.round((tposSyncedCount / totalOrders) * 100) : 0
+                },
+                counts
             };
         } catch (error) {
-            console.error('[PurchaseOrderService] Stats failed:', error);
+            console.error('[PurchaseOrderService] Stats+Counts failed:', error);
             return {
-                totalOrders: 0,
-                totalValue: 0,
-                todayOrders: 0,
-                todayValue: 0,
-                tposSyncRate: 0
+                stats: { totalOrders: 0, totalValue: 0, todayOrders: 0, todayValue: 0, tposSyncRate: 0 },
+                counts: {}
             };
         }
     }
 
-    /**
-     * Get counts by status for tabs
-     * @returns {Promise<Object>}
-     */
+    /** @deprecated Use getStatsAndCounts() instead */
+    async getOrderStats() {
+        const { stats } = await this.getStatsAndCounts();
+        return stats;
+    }
+
+    /** @deprecated Use getStatsAndCounts() instead */
     async getStatusCounts() {
-        await this.initialize();
-
-        const config = window.PurchaseOrderConfig;
-
-        try {
-            const counts = {};
-
-            // Initialize all statuses with 0
-            Object.values(config.OrderStatus).forEach(status => {
-                counts[status] = 0;
-            });
-
-            const snapshot = await this.db.collection(this.COLLECTION).get();
-
-            snapshot.docs.forEach(doc => {
-                const status = doc.data().status;
-                if (counts[status] !== undefined) {
-                    counts[status]++;
-                }
-            });
-
-            return counts;
-        } catch (error) {
-            console.error('[PurchaseOrderService] Count failed:', error);
-            return {};
-        }
+        const { counts } = await this.getStatsAndCounts();
+        return counts;
     }
 
     // ========================================

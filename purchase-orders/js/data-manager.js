@@ -188,40 +188,33 @@ class PurchaseOrderDataManager {
     async refresh() {
         await Promise.all([
             this.loadOrders(this.currentStatus, true),
-            this.loadStats(),
-            this.loadStatusCounts()
+            this.loadStatsAndCounts()
         ]);
     }
 
     /**
-     * Load statistics
+     * Load stats + status counts in a single Firestore read
      * @returns {Promise<void>}
      */
-    async loadStats() {
+    async loadStatsAndCounts() {
         const service = window.purchaseOrderService;
 
         try {
-            this.stats = await service.getOrderStats();
+            const { stats, counts } = await service.getStatsAndCounts();
+            this.stats = stats;
+            this.statusCounts = counts;
             this.emit('statsChange', this.stats);
-        } catch (error) {
-            console.error('[DataManager] Load stats failed:', error);
-        }
-    }
-
-    /**
-     * Load status counts for tabs
-     * @returns {Promise<void>}
-     */
-    async loadStatusCounts() {
-        const service = window.purchaseOrderService;
-
-        try {
-            this.statusCounts = await service.getStatusCounts();
             this.emit('statusCountsChange', this.statusCounts);
         } catch (error) {
-            console.error('[DataManager] Load status counts failed:', error);
+            console.error('[DataManager] Load stats+counts failed:', error);
         }
     }
+
+    /** @deprecated Use loadStatsAndCounts() */
+    async loadStats() { await this.loadStatsAndCounts(); }
+
+    /** @deprecated Use loadStatsAndCounts() */
+    async loadStatusCounts() { await this.loadStatsAndCounts(); }
 
     // ========================================
     // FILTER MANAGEMENT
@@ -437,8 +430,7 @@ class PurchaseOrderDataManager {
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
-            await this.loadStatusCounts();
-            await this.loadStats();
+            await this.loadStatsAndCounts();
 
             this.emit('orderDeleted', orderId);
         } catch (error) {
@@ -466,8 +458,7 @@ class PurchaseOrderDataManager {
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
-            await this.loadStatusCounts();
-            await this.loadStats();
+            await this.loadStatsAndCounts();
 
             this.emit('orderRestored', orderId);
         } catch (error) {
@@ -495,7 +486,7 @@ class PurchaseOrderDataManager {
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
-            await this.loadStatusCounts();
+            await this.loadStatsAndCounts();
 
             this.emit('orderPermanentDeleted', orderId);
         } catch (error) {
