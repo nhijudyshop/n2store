@@ -401,6 +401,7 @@ const TposCommentList = {
         // Partner info from cache
         const partner = state.partnerCache.get(fromId) || {};
         const statusText = partner.StatusText || '';
+        const statusColor = this.getStatusColor(statusText);
         const phone = partner.Phone || '';
         const address = partner.Street || '';
 
@@ -419,7 +420,7 @@ const TposCommentList = {
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
         const statusDropdownHtml = statusOptions.map(opt =>
-            `<div class="inline-status-option" style="padding: 6px 10px; cursor: pointer; font-size: 12px;"
+            `<div class="inline-status-option" style="padding: 6px 10px; cursor: pointer; font-size: 12px; color: ${opt.color}; font-weight: 600;"
                  onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
                  onclick="event.stopPropagation(); TposCommentList.selectInlineStatus('${fromId}', '${opt.value}', '${opt.text}')">
                 ${opt.text}
@@ -449,7 +450,7 @@ const TposCommentList = {
                     <div class="tpos-conv-message">${SharedUtils.escapeHtml(message)}</div>
                     <div class="tpos-conv-info" onclick="event.stopPropagation();">
                         <div class="inline-status-container">
-                            <button id="status-btn-${fromId}" class="tpos-filter-select" style="padding:3px 8px;font-size:11px;min-width:auto;"
+                            <button id="status-btn-${fromId}" class="tpos-filter-select" style="padding:3px 8px;font-size:11px;min-width:auto;${statusColor ? `color:${statusColor};font-weight:600;` : ''}"
                                 onclick="event.stopPropagation(); TposCommentList.toggleInlineStatusDropdown('${fromId}')">
                                 <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span> ▾
                             </button>
@@ -498,6 +499,17 @@ const TposCommentList = {
      * Status options for partner
      * @returns {Array<{value: string, text: string, color: string}>}
      */
+    /**
+     * Get color for a status text
+     * @param {string} statusText
+     * @returns {string} color hex or empty
+     */
+    getStatusColor(statusText) {
+        if (!statusText) return '';
+        const opt = this.getStatusOptions().find(o => o.text === statusText);
+        return opt ? opt.color : '';
+    },
+
     getStatusOptions() {
         return [
             { value: '#5cb85c_Bình thường', text: 'Bình thường', color: '#5cb85c' },
@@ -558,6 +570,12 @@ const TposCommentList = {
         // Update UI immediately
         const statusTextEl = document.getElementById(`status-text-${userId}`);
         if (statusTextEl) statusTextEl.textContent = text;
+        const statusBtn = document.getElementById(`status-btn-${userId}`);
+        const color = this.getStatusColor(text);
+        if (statusBtn) {
+            statusBtn.style.color = color || '';
+            statusBtn.style.fontWeight = color ? '600' : '';
+        }
 
         // Get partner from cache
         const partner = state.partnerCache.get(userId);
