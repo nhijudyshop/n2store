@@ -1,18 +1,19 @@
 /* =====================================================
    GLOBAL TYPOGRAPHY — Single Source of Truth
-   Import LAST (sau tất cả CSS module) để override.
+   Import LAST (sau tat ca CSS module) de override.
    ===================================================== */
 
 :root {
-    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-headline: "Manrope", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-size-base: 20px;
-    --font-weight-base: 600;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-headline: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-size-base: 14px;
+    --font-weight-base: 400;
 }
 
 html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -20,14 +21,25 @@ body {
     font-size: var(--font-size-base) !important;
     font-weight: var(--font-weight-base) !important;
     line-height: 1.5;
+    color: var(--gray-800, #1e293b);
+    letter-spacing: -0.006em;
 }
 
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-headline) !important;
-    font-weight: 700;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--gray-900, #0f172a);
 }
 
 button, input, select, textarea {
     font-family: inherit;
     font-weight: inherit;
+}
+
+/* Tabular numbers for prices/quantities */
+.td-price, .td-qty, .td-date,
+[data-col="price"], [data-col="qtyActual"], [data-col="qtyForecast"],
+[data-col="defaultBuyPrice"], [data-col="costPrice"] {
+    font-variant-numeric: tabular-nums;
 }
