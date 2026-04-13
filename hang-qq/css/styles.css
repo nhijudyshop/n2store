@@ -409,16 +409,11 @@ body {
     box-shadow: 0 2px 8px rgba(0, 64, 161, 0.04);
 }
 
-/* Done item */
+/* Done item — only fade SL and SỐ KG */
 .dg-item.row-done { background: rgba(160, 243, 153, 0.08); }
-.dg-item.row-done .col-product,
-.dg-item.row-done .col-money,
-.dg-item.row-done .col-slnhan,
-.dg-item.row-done .col-cp,
-.dg-item.row-done .col-note {
+.dg-item.row-done .col-sl,
+.dg-item.row-done .col-kg {
     opacity: 0.35;
-    text-decoration: line-through;
-    text-decoration-color: #94a3b8;
 }
 
 /* Grid columns */
