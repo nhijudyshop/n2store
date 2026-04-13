@@ -3257,6 +3257,7 @@ body {
     color: var(--primary);
     background: var(--gray-100);
 }
+.note-img-icon i, .note-img-icon span { pointer-events: none; }
 .note-img-icon i { width: 14px; height: 14px; }
 .note-img-count {
     font-size: 10px;

@@ -8,6 +8,7 @@
 const NoteManager = {
     _cache: {},             // { invoiceId: [noteRow, ...] }
     _tooltipEl: null,       // Fixed-position image preview tooltip
+    _imgCache: {},          // { key: [urls] } for inline event handlers
     _currentInvoiceId: null,
     _currentNoteId: null,   // null = create, number = edit
     _pendingImages: [],     // Images being uploaded in modal
@@ -81,12 +82,14 @@ const NoteManager = {
             const cls = n.is_admin ? 'note-admin' : 'note-user';
             const isOwn = n.username === currentUser;
             const imgCount = (n.note_images || []).length;
+            // Store URLs in a global lookup so inline handlers work regardless of click target
+            const imgKey = 'note_imgs_' + n.id;
+            if (imgCount > 0) NoteManager._imgCache[imgKey] = n.note_images;
             const imgs = imgCount > 0
                 ? '<span class="note-img-icon" ' +
-                  'data-urls=\'' + JSON.stringify(n.note_images) + '\' ' +
-                  'onmouseenter="NoteManager.showTooltip(event, this.dataset.urls)" ' +
+                  'onmouseenter="NoteManager.showImgTooltip(event,\'' + imgKey + '\')" ' +
                   'onmouseleave="NoteManager.hideTooltip()" ' +
-                  'onclick="NoteManager.openLightbox(JSON.parse(this.dataset.urls)[0]); event.stopPropagation();" ' +
+                  'onclick="NoteManager.openImgLightbox(\'' + imgKey + '\'); event.stopPropagation();" ' +
                   'title="' + imgCount + ' ảnh đính kèm">' +
                   '<i data-lucide="image"></i>' +
                   (imgCount > 1 ? '<span class="note-img-count">' + imgCount + '</span>' : '') +
@@ -131,15 +134,23 @@ const NoteManager = {
 
     // ==================== TOOLTIP ====================
 
-    showTooltip(event, urlsJson) {
+    showImgTooltip(event, key) {
+        const urls = this._imgCache[key];
+        if (!urls || urls.length === 0) return;
+        this.showTooltip(event, urls);
+    },
+
+    openImgLightbox(key) {
+        const urls = this._imgCache[key];
+        if (!urls || urls.length === 0) return;
+        this.openLightbox(urls[0]);
+    },
+
+    showTooltip(event, urls) {
         const el = this._tooltipEl;
         if (!el) return;
-        try {
-            const urls = typeof urlsJson === 'string' ? JSON.parse(urlsJson) : [urlsJson];
-            el.innerHTML = urls.map(u => '<img src="' + u + '">').join('');
-        } catch (e) {
-            el.innerHTML = '<img src="' + urlsJson + '">';
-        }
+        const list = Array.isArray(urls) ? urls : [urls];
+        el.innerHTML = list.map(u => '<img src="' + u + '">').join('');
         el.style.display = 'block';
         this._positionTooltip(event);
         // Track mouse
