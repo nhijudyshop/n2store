@@ -743,14 +743,15 @@ color: #333;
 
 .tag-modal-content {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     width: 90%;
     max-width: 700px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
     animation: slideUp 0.3s ease-out;
+    overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -776,7 +777,7 @@ color: #333;
 }
 
 .tag-modal-header {
-    padding: 8px 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid #e5e7eb;
     display: flex;
     justify-content: space-between;
@@ -818,6 +819,7 @@ color: #333;
 .tag-modal-close:hover {
     background: #f3f4f6;
     color: #111827;
+    transform: rotate(90deg);
 }
 
 .tag-settings-btn {
@@ -1111,15 +1113,16 @@ color: #333;
 
 .tag-modal-footer {
     padding: 16px 24px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid #f3f4f6;
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+    background: #fafafa;
 }
 
 .tag-modal-footer button {
-    padding: 8px 20px;
-    border-radius: 6px;
+    padding: 10px 20px;
+    border-radius: 10px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
@@ -1134,16 +1137,24 @@ color: #333;
 
 .tag-btn-cancel:hover {
     background: #f9fafb;
+    border-color: #d1d5db;
 }
 
 .tag-btn-save {
     background: #3b82f6;
     border: none;
     color: white;
+    transition: all 0.2s;
 }
 
 .tag-btn-save:hover {
     background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.tag-btn-save:active {
+    transform: translateY(0);
 }
 
 .no-tags-message {
