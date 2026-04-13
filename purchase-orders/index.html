@@ -80,15 +80,27 @@
             </button>
         </header>
 
-        <!-- Summary Cards -->
-        <section class="summary-cards" id="summaryCards" aria-label="Thống kê đơn hàng">
-            <!-- Cards rendered by JS -->
-        </section>
+        <!-- Stats Toggle -->
+        <div class="stats-toggle-bar">
+            <button class="stats-toggle-btn" id="btnToggleStats" aria-expanded="false" aria-controls="statsPanel">
+                <i data-lucide="bar-chart-3"></i>
+                <span>Thống kê</span>
+                <i data-lucide="chevron-down" class="stats-toggle-chevron"></i>
+            </button>
+        </div>
 
-        <!-- TPOS Live Stats -->
-        <section class="tpos-stats" id="tposStatsContainer" aria-label="Thống kê TPOS">
-            <!-- Rendered by JS -->
-        </section>
+        <!-- Collapsible Stats Panel (hidden by default) -->
+        <div class="stats-panel" id="statsPanel" hidden>
+            <!-- Summary Cards -->
+            <section class="summary-cards" id="summaryCards" aria-label="Thống kê đơn hàng">
+                <!-- Cards rendered by JS -->
+            </section>
+
+            <!-- TPOS Live Stats -->
+            <section class="tpos-stats" id="tposStatsContainer" aria-label="Thống kê TPOS">
+                <!-- Rendered by JS -->
+            </section>
+        </div>
 
         <!-- Tabs -->
         <nav class="tabs-container" aria-label="Phân loại đơn hàng">

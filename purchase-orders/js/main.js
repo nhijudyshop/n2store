@@ -193,6 +193,10 @@ class PurchaseOrderController {
             // Header
             createBtn: document.getElementById('btnCreateOrder'),
 
+            // Stats toggle
+            statsToggleBtn: document.getElementById('btnToggleStats'),
+            statsPanel: document.getElementById('statsPanel'),
+
             // Summary cards
             summaryContainer: document.getElementById('summaryCards'),
 
@@ -295,6 +299,22 @@ class PurchaseOrderController {
      * Bind UI event handlers
      */
     bindEvents() {
+        // Stats toggle
+        this.elements.statsToggleBtn?.addEventListener('click', () => {
+            const panel = this.elements.statsPanel;
+            const btn = this.elements.statsToggleBtn;
+            const isHidden = panel.hidden;
+            panel.hidden = !isHidden;
+            btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+            localStorage.setItem('po_stats_visible', isHidden ? '1' : '0');
+        });
+
+        // Restore stats panel state (default: hidden)
+        if (localStorage.getItem('po_stats_visible') === '1') {
+            this.elements.statsPanel.hidden = false;
+            this.elements.statsToggleBtn?.setAttribute('aria-expanded', 'true');
+        }
+
         // Create button
         this.elements.createBtn?.addEventListener('click', () => {
             this.handleCreateOrder();

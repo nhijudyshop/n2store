@@ -4,6 +4,55 @@
  * Purpose: Summary card component styles (matching React app design)
  */
 
+/* Stats Toggle Bar */
+.stats-toggle-bar {
+    margin-bottom: var(--spacing-sm);
+}
+
+.stats-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.stats-toggle-btn:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+
+.stats-toggle-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.stats-toggle-chevron {
+    transition: transform var(--transition-normal);
+}
+
+.stats-toggle-btn[aria-expanded="true"] .stats-toggle-chevron {
+    transform: rotate(180deg);
+}
+
+/* Stats Panel */
+.stats-panel {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.stats-panel[hidden] {
+    display: none;
+}
+
 .summary-cards {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
