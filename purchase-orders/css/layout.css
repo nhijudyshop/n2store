@@ -7,9 +7,11 @@
 /* Main Content */
 .main-content {
     min-height: 100vh;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl);
     width: 100%;
     box-sizing: border-box;
+    max-width: 1600px;
+    margin: 0 auto;
 }
 
 /* Page Header */
@@ -17,30 +19,62 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: linear-gradient(135deg, hsl(217, 91%, 97%), hsl(217, 60%, 95%));
-    border-radius: var(--radius-xl);
-    border: 1px solid hsl(217, 60%, 90%);
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: var(--gradient-header);
+    border-radius: var(--radius-lg);
+    border: 1px solid hsl(220, 50%, 92%);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    opacity: 0.7;
+}
+
+.page-header__info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
 }
 
 .page-header__title {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
     color: var(--color-text-primary);
-    margin: 0 0 2px 0;
-    font-family: var(--font-heading, 'Manrope', 'Inter', sans-serif);
+    margin: 0;
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+    line-height: var(--leading-tight);
 }
 
 .page-header__description {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--color-text-secondary);
     margin: 0;
+    line-height: var(--leading-normal);
 }
 
+/* Responsive: tablet */
+@media (max-width: 1024px) {
+    .main-content {
+        padding: var(--spacing-lg);
+    }
+}
+
+/* Responsive: mobile */
 @media (max-width: 640px) {
     .main-content {
-        padding: var(--spacing-md);
+        padding: var(--spacing-md) var(--spacing-sm);
     }
 
     .page-header {
@@ -48,6 +82,11 @@
         gap: var(--spacing-md);
         align-items: stretch;
         text-align: center;
+        padding: var(--spacing-lg) var(--spacing-lg);
+    }
+
+    .page-header__title {
+        font-size: var(--text-xl);
     }
 
     .page-header .btn {

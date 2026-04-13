@@ -1,26 +1,36 @@
 /**
  * FILTER BAR
  * File: filters.css
- * Purpose: Filter bar component styles (matching React app design)
+ * Purpose: Inline filter bar — no card wrapper, clean inputs in a row
  */
+
+/* ========================================
+   FILTER BAR — inline layout, no card
+   ======================================== */
 
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    background: var(--color-bg-card);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
+    padding: var(--spacing-sm) 0;
     margin-bottom: var(--spacing-md);
-    box-shadow: var(--shadow-soft);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--spacing-md);
 }
+
+/* ========================================
+   FILTER GROUPS
+   ======================================== */
 
 .filter-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
 }
 
 .filter-group--search {
@@ -38,80 +48,109 @@
 
 .filter-group--actions {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-end;
     gap: var(--spacing-sm);
     margin-left: auto;
 }
 
+/* ========================================
+   LABELS — small, uppercase, tracked
+   ======================================== */
+
 .filter-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.8px;
 }
 
-/* Input and Select base styles */
+/* ========================================
+   INPUT & SELECT — taller, colored focus
+   ======================================== */
+
 .filter-input,
 .filter-select {
-    height: 36px;
-    padding: 0 12px;
+    height: 40px;
+    padding: 0 14px;
     font-size: 14px;
     font-family: inherit;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--color-bg-card);
     color: var(--color-text-primary);
-    transition: all var(--transition-fast);
+    transition: border-color 0.2s ease, outline 0.15s ease, background 0.15s ease;
+    outline: 2px solid transparent;
+    outline-offset: -1px;
 }
 
 .filter-input:hover,
 .filter-select:hover {
     border-color: var(--color-text-muted);
+    background: hsl(0 0% 0% / 0.01);
 }
 
 .filter-input:focus,
 .filter-select:focus {
-    outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px hsl(217 91% 60% / 0.15);
+    outline: 2px solid hsl(217 91% 60% / 0.25);
+    background: var(--color-bg-card);
 }
 
 .filter-input::placeholder {
     color: var(--color-text-muted);
+    font-size: 13px;
 }
 
-/* Select styling */
+/* ========================================
+   SELECT — custom arrow, hover bg
+   ======================================== */
+
 .filter-select {
     appearance: none;
-    padding-right: 32px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 10px center;
+    background-position: right 12px center;
     cursor: pointer;
 }
 
-/* Input with icon */
+.filter-select:hover {
+    background-color: hsl(0 0% 97%);
+}
+
+/* ========================================
+   INPUT WITH ICON
+   ======================================== */
+
 .input-icon {
     position: relative;
 }
 
 .input-icon svg {
     position: absolute;
-    left: 12px;
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
     height: 16px;
     color: var(--color-text-muted);
     pointer-events: none;
+    transition: color 0.15s ease;
+}
+
+.input-icon:focus-within svg {
+    color: var(--color-primary);
 }
 
 .input-icon .filter-input {
-    padding-left: 38px;
+    padding-left: 40px;
 }
 
-/* Date range picker */
+/* ========================================
+   DATE RANGE PICKER
+   ======================================== */
+
 .date-range {
     display: flex;
     align-items: center;
@@ -121,28 +160,32 @@
 .date-range__separator {
     color: var(--color-text-muted);
     font-size: 13px;
+    user-select: none;
 }
 
 .date-range .filter-input {
     width: 140px;
 }
 
-/* Quick filter buttons */
+/* ========================================
+   QUICK FILTER BUTTONS
+   ======================================== */
+
 .quick-filters {
     display: flex;
     gap: 4px;
 }
 
 .quick-filter-btn {
-    padding: 6px 12px;
+    padding: 8px 14px;
     font-size: 12px;
     font-weight: 500;
     color: var(--color-text-secondary);
     background: var(--color-muted);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
     white-space: nowrap;
 }
 
@@ -151,36 +194,53 @@
     color: var(--color-text-primary);
 }
 
+.quick-filter-btn:active {
+    transform: scale(0.97);
+}
+
 .quick-filter-btn.active {
     background: var(--color-primary);
     color: var(--color-primary-foreground);
 }
 
-/* Filter actions */
+/* ========================================
+   FILTER ACTIONS
+   ======================================== */
+
 .filter-actions {
     display: flex;
     gap: var(--spacing-sm);
 }
 
-/* Export buttons */
+/* ========================================
+   EXPORT / ACTION BUTTONS — icon-friendly
+   ======================================== */
+
 .export-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-xs);
     padding: 8px 12px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--color-text-primary);
-    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    background: transparent;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    position: relative;
 }
 
 .export-btn:hover {
+    color: var(--color-text-primary);
     background: var(--color-muted);
     border-color: var(--color-text-muted);
+}
+
+.export-btn:active {
+    transform: scale(0.96);
 }
 
 .export-btn svg {
@@ -196,13 +256,55 @@
 
 .export-btn--success:hover {
     background: var(--color-success-light);
+    border-color: var(--color-success);
 }
 
-/* Responsive */
+/* Tooltip for icon-only buttons */
+.export-btn[title] {
+    position: relative;
+}
+
+.export-btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #fff;
+    background: hsl(0 0% 20%);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.export-btn[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: hsl(0 0% 20%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* ========================================
+   RESPONSIVE — stack on mobile
+   ======================================== */
+
 @media (max-width: 768px) {
     .filter-bar {
         flex-direction: column;
         align-items: stretch;
+        gap: var(--spacing-sm);
+        border-bottom: none;
+        padding-bottom: var(--spacing-sm);
+        border-bottom: 1px solid var(--color-border);
     }
 
     .filter-group {
@@ -215,7 +317,12 @@
 
     .filter-group--actions {
         margin-left: 0;
-        justify-content: space-between;
+        justify-content: flex-end;
+    }
+
+    .filter-input,
+    .filter-select {
+        width: 100%;
     }
 
     .date-range {
@@ -231,5 +338,10 @@
         overflow-x: auto;
         padding-bottom: 4px;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .quick-filters::-webkit-scrollbar {
+        display: none;
     }
 }

@@ -1,7 +1,9 @@
 /**
  * RESPONSIVE
  * File: responsive.css
- * Purpose: Responsive breakpoint styles
+ * Purpose: Cross-component responsive overrides
+ * Note: Most responsive rules are now in their respective component CSS files.
+ *       This file handles cross-cutting concerns only.
  */
 
 /* Tablet and smaller */
@@ -10,14 +12,14 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .tpos-stats__grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     /* Table horizontal scroll */
     .table-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-
-    .table {
-        min-width: 800px;
     }
 }
 
@@ -34,22 +36,6 @@
     .tabs-nav {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-
-    .tab-btn {
-        white-space: nowrap;
-    }
-
-    .filter-bar {
-        flex-direction: column;
-    }
-
-    .filter-group {
-        width: 100%;
-    }
-
-    .filter-group--search {
-        flex: none;
     }
 
     .form-row {
@@ -83,20 +69,6 @@
         padding: var(--spacing-md);
     }
 
-    /* Pagination */
-    .pagination {
-        flex-direction: column;
-        gap: var(--spacing-md);
-    }
-
-    .pagination__info {
-        text-align: center;
-    }
-
-    .pagination__controls {
-        justify-content: center;
-    }
-
     /* Detail dialog */
     .detail-info-grid {
         grid-template-columns: 1fr;
@@ -110,18 +82,6 @@
 
 /* Small mobile */
 @media (max-width: 480px) {
-    .main-content {
-        padding: var(--spacing-sm);
-    }
-
-    .page-header__title {
-        font-size: 18px;
-    }
-
-    .summary-card {
-        padding: var(--spacing-sm);
-    }
-
     .summary-card__value {
         font-size: 18px;
     }
@@ -133,7 +93,6 @@
         display: none;
     }
 
-    /* Simplified actions */
     .item-actions {
         flex-direction: column;
     }

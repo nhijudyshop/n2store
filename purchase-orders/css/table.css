@@ -12,9 +12,9 @@
 .table-wrapper {
     background: var(--color-bg-card);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border);
+    border: 1px solid hsl(220, 13%, 91%);
     overflow-x: auto;
-    box-shadow: var(--shadow-soft);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 /* ========================================
@@ -24,33 +24,34 @@
 .po-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .po-table thead {
-    background: linear-gradient(180deg, hsl(214, 32%, 97%), hsl(214, 32%, 95%));
+    background: hsl(220, 14%, 97.5%);
     position: sticky;
     top: 0;
     z-index: 10;
+    box-shadow: 0 1px 0 hsl(220, 13%, 89%);
 }
 
 .po-table th {
-    padding: 12px 16px;
+    padding: 10px 12px;
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-primary);
-    border-bottom: 2px solid var(--color-border);
+    color: hsl(220, 9%, 46%);
+    border-bottom: 1px solid hsl(220, 13%, 89%);
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.05em;
 }
 
 .po-table td {
-    padding: 12px 16px;
+    padding: 10px 12px;
     vertical-align: top;
-    border-bottom: 1px solid var(--color-border-light);
-    border-right: 1px solid var(--color-border-light);
+    border-bottom: 1px solid hsl(220, 13%, 94%);
+    border-right: 1px solid hsl(220, 13%, 95%);
 }
 
 .po-table td:last-child {
@@ -79,24 +80,28 @@
    ======================================== */
 
 .order-row {
-    transition: background-color 0.15s ease;
+    transition: background-color 0.2s ease;
+}
+
+.order-row:nth-child(even) {
+    background-color: hsl(220, 14%, 98.5%);
 }
 
 .order-row:hover {
-    background-color: hsl(214, 32%, 97%);
+    background-color: hsl(220, 20%, 96%);
 }
 
 .order-row.selected {
-    background-color: hsl(217, 91%, 95%);
+    background-color: hsl(217, 91%, 96%);
 }
 
 .order-row.selected:hover {
-    background-color: hsl(217, 91%, 92%);
+    background-color: hsl(217, 91%, 93%);
 }
 
 /* First row of each order (has spanned cells) */
 .order-row--first {
-    border-top: 2px solid var(--color-border);
+    border-top: 1.5px solid hsl(220, 13%, 85%);
 }
 
 .po-table tbody tr:first-child.order-row--first {
@@ -128,13 +133,13 @@
 .cell-date {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
 }
 
 .cell-date .cell-icon {
-    width: 16px;
-    height: 16px;
-    color: var(--color-text-muted);
+    width: 15px;
+    height: 15px;
+    color: hsl(220, 9%, 60%);
     flex-shrink: 0;
     margin-top: 2px;
 }
@@ -142,40 +147,44 @@
 .date-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
 .date-main {
     font-weight: 500;
     color: var(--color-text-primary);
+    font-size: 13px;
 }
 
 .date-time {
-    font-size: 12px;
-    color: var(--color-text-muted);
+    font-size: 11px;
+    color: hsl(220, 9%, 56%);
 }
 
 /* Supplier cell */
 .cell-supplier {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .supplier-name {
     font-weight: 500;
     color: var(--color-text-primary);
+    font-size: 13px;
+    line-height: 1.3;
 }
 
 .supplier-meta {
-    font-size: 12px;
+    font-size: 11px;
+    color: hsl(220, 9%, 56%);
 }
 
 /* Invoice cell */
 .cell-invoice {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     position: relative;
 }
 
@@ -188,11 +197,11 @@
 .invoice-amount--main {
     font-weight: 600;
     color: var(--color-primary);
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .invoice-amount--calculated {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--color-danger);
 }
@@ -207,27 +216,30 @@
 .cell-product {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .product-name {
     font-weight: 500;
     color: var(--color-text-primary);
-    line-height: 1.4;
+    line-height: 1.35;
+    font-size: 13px;
 }
 
 .product-code {
-    font-family: monospace;
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    background: var(--color-muted);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    color: hsl(220, 9%, 50%);
+    background: hsl(220, 14%, 95%);
+    padding: 1px 5px;
+    border-radius: 3px;
+    display: inline-block;
+    width: fit-content;
 }
 
 /* Variant badge */
 .variant-badge {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--color-text-secondary);
 }
 
@@ -237,6 +249,7 @@
     color: var(--color-text-primary);
     display: block;
     text-align: center;
+    font-size: 13px;
 }
 
 /* Price cells */
@@ -244,13 +257,15 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
+    gap: 3px;
 }
 
 .price-value {
     font-weight: 500;
     color: var(--color-text-primary);
     text-align: right;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Notes */
@@ -259,16 +274,17 @@
 }
 
 .notes-text {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
     color: var(--color-text-primary);
+    line-height: 1.4;
 }
 
 /* Status cell */
 .cell-status {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     align-items: flex-start;
 }
 
@@ -280,7 +296,7 @@
 .invoice-thumb {
     width: 80px;
     height: 80px;
-    border-radius: var(--radius-md);
+    border-radius: 8px;
     overflow: visible;
     cursor: pointer;
     position: relative;
@@ -290,30 +306,32 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: var(--radius-md);
-    transition: transform 0.2s ease;
+    border-radius: 8px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
 }
 
 .invoice-thumb--empty {
     width: 80px;
     height: 80px;
-    background: var(--color-muted);
+    background: hsl(220, 14%, 95%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
-    border-radius: var(--radius-md);
+    color: hsl(220, 9%, 70%);
+    border-radius: 8px;
+    border: 1px dashed hsl(220, 13%, 88%);
 }
 
 .thumb-count {
     position: absolute;
     bottom: 4px;
     right: 4px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.65);
     color: white;
     font-size: 10px;
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
 /* Mini thumbnails for price/product images */
@@ -329,10 +347,10 @@
     width: 32px;
     height: 32px;
     object-fit: cover;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    border: 1px solid hsl(220, 13%, 90%);
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
 }
 
 /* ========================================
@@ -345,7 +363,7 @@
 }
 
 .zoomable-image {
-    transition: transform 0.2s ease, z-index 0s;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s, box-shadow 0.25s ease;
     transform-origin: left center;
 }
 
@@ -354,7 +372,7 @@
     transform: scale(7);
     z-index: 100;
     position: relative;
-    box-shadow: var(--shadow-xl);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     border-radius: var(--radius-md);
 }
 
@@ -363,7 +381,7 @@
     transform: scale(14);
     z-index: 100;
     position: relative;
-    box-shadow: var(--shadow-xl);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     transform-origin: left center;
 }
 
@@ -413,15 +431,18 @@ td:has(.mini-thumb:hover) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
+    padding: 3px 9px;
+    border-radius: 999px;
     font-size: 11px;
     font-weight: 500;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
 }
 
 .sync-badge--processing {
-    background: var(--color-muted);
-    color: var(--color-text-secondary);
+    background: hsl(220, 14%, 95%);
+    color: hsl(220, 9%, 46%);
+    border-color: hsl(220, 13%, 90%);
 }
 
 .sync-badge--processing .spin {
@@ -429,8 +450,9 @@ td:has(.mini-thumb:hover) {
 }
 
 .sync-badge--failed {
-    background: var(--color-danger-light);
-    color: var(--color-danger);
+    background: hsl(0, 86%, 97%);
+    color: hsl(0, 72%, 51%);
+    border-color: hsl(0, 70%, 90%);
 }
 
 @keyframes spin {
@@ -450,37 +472,42 @@ td:has(.mini-thumb:hover) {
 
 .action-buttons {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    flex-wrap: wrap;
 }
 
 .action-buttons .btn-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-md);
+    border-radius: 6px;
     border: none;
     background: transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .action-buttons .btn-icon:hover:not(:disabled) {
-    background: var(--color-muted);
+    background: hsl(220, 14%, 93%);
+}
+
+.action-buttons .btn-icon:active:not(:disabled) {
+    background: hsl(220, 14%, 89%);
 }
 
 .action-buttons .btn-icon:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: not-allowed;
 }
 
 .action-buttons .btn-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
 }
 
 /* Action icon colors */
@@ -502,14 +529,14 @@ td:has(.mini-thumb:hover) {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 6px;
     cursor: pointer;
-    border-radius: var(--radius-md);
+    border-radius: 6px;
     transition: background-color 0.15s ease;
 }
 
 .checkbox-wrapper:hover {
-    background: var(--color-muted);
+    background: hsl(220, 14%, 94%);
 }
 
 .checkbox-wrapper.disabled {
@@ -522,10 +549,11 @@ td:has(.mini-thumb:hover) {
 }
 
 .checkbox-wrapper input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     accent-color: var(--color-primary);
+    border-radius: 3px;
 }
 
 /* ========================================
@@ -536,45 +564,50 @@ td:has(.mini-thumb:hover) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, var(--color-primary), hsl(217, 91%, 55%));
+    padding: 10px 16px;
+    background: linear-gradient(135deg, hsl(217, 91%, 50%), hsl(217, 91%, 58%));
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     color: white;
     margin-bottom: -1px;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
 }
 
 .bulk-action-toolbar__info {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .bulk-action-toolbar__count {
     background: rgba(255, 255, 255, 0.2);
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: var(--radius-full);
     font-weight: 600;
+    font-size: 12px;
+    backdrop-filter: blur(4px);
 }
 
 .bulk-action-toolbar__actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .bulk-action-toolbar .btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     color: white;
+    font-size: 12px;
+    padding: 6px 12px;
 }
 
 .bulk-action-toolbar .btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .bulk-action-toolbar .btn-danger {
-    background: rgba(239, 68, 68, 0.8);
+    background: rgba(239, 68, 68, 0.85);
     border-color: transparent;
 }
 
@@ -595,10 +628,13 @@ td:has(.mini-thumb:hover) {
     display: inline-flex;
     align-items: center;
     padding: 4px 10px;
-    border-radius: var(--radius-full);
-    font-size: 12px;
-    font-weight: 500;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
     white-space: nowrap;
+    letter-spacing: 0.01em;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    border: 1px solid transparent;
 }
 
 /* ========================================
@@ -607,56 +643,61 @@ td:has(.mini-thumb:hover) {
 
 .table-empty {
     text-align: center;
-    padding: 60px 20px;
+    padding: 72px 24px;
     background: var(--color-bg-card);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border);
+    border: 1px solid hsl(220, 13%, 91%);
 }
 
 .table-empty__icon {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 16px;
-    background: var(--color-muted);
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 20px;
+    background: hsl(220, 14%, 95%);
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
+    color: hsl(220, 9%, 62%);
 }
 
 .table-empty__icon svg {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
 }
 
 .table-empty__title {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--color-text-primary);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .table-empty__description {
-    color: var(--color-text-secondary);
-    font-size: 14px;
+    color: hsl(220, 9%, 56%);
+    font-size: 13px;
 }
 
 /* Skeleton loading */
 .skeleton-row td {
-    padding: 16px;
+    padding: 12px;
 }
 
 .skeleton {
-    background: linear-gradient(90deg, var(--color-muted) 25%, hsl(214, 32%, 90%) 50%, var(--color-muted) 75%);
-    background-size: 200% 100%;
-    animation: skeleton-loading 1.5s infinite;
+    background: linear-gradient(
+        90deg,
+        hsl(220, 14%, 94%) 0%,
+        hsl(220, 14%, 88%) 40%,
+        hsl(220, 14%, 94%) 80%
+    );
+    background-size: 300% 100%;
+    animation: skeleton-loading 1.8s ease-in-out infinite;
     border-radius: var(--radius-sm);
 }
 
 @keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% { background-position: 300% 0; }
+    100% { background-position: -300% 0; }
 }
 
 /* ========================================
@@ -668,7 +709,7 @@ td:has(.mini-thumb:hover) {
 }
 
 .text-xs {
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .text-center {
@@ -754,8 +795,8 @@ td:has(.mini-thumb:hover) {
     align-items: center;
     cursor: pointer;
     margin-left: 4px;
-    opacity: 0.5;
-    transition: opacity 0.15s;
+    opacity: 0.45;
+    transition: opacity 0.15s ease;
     vertical-align: middle;
 }
 
@@ -769,29 +810,29 @@ td:has(.mini-thumb:hover) {
     left: 0;
     z-index: 100;
     background: #fff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid hsl(220, 13%, 90%);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
     min-width: 150px;
     padding: 4px 0;
     margin-top: 4px;
 }
 
 .th-filter-option {
-    padding: 8px 14px;
+    padding: 7px 14px;
     font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
     color: #374151;
-    transition: background 0.1s;
+    transition: background 0.1s ease;
 }
 
 .th-filter-option:hover {
-    background: #f3f4f6;
+    background: hsl(220, 14%, 96%);
 }
 
 .th-filter-option.active {
-    background: #eff6ff;
+    background: hsl(217, 91%, 96%);
     color: #2563eb;
     font-weight: 600;
 }
@@ -881,7 +922,7 @@ td:has(.mini-thumb:hover) {
     justify-content: center;
     width: 28px;
     height: 28px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid hsl(220, 13%, 90%);
     border-radius: 6px;
     background: #fff;
     cursor: pointer;
@@ -891,15 +932,15 @@ td:has(.mini-thumb:hover) {
 }
 
 .btn-icon-sm:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+    background: hsl(220, 14%, 96%);
+    border-color: hsl(220, 13%, 84%);
     color: #374151;
 }
 
 /* History table compact adjustments */
 .history-table th {
-    font-size: 12px;
-    padding: 10px 8px;
+    font-size: 11px;
+    padding: 9px 8px;
 }
 
 .history-table td {
@@ -909,7 +950,7 @@ td:has(.mini-thumb:hover) {
 
 /* Expanded line row hover */
 .expand-line-row:hover {
-    background: #f1f5f9;
+    background: hsl(220, 14%, 97%);
 }
 
 /* Keep actions column opaque even on done rows */

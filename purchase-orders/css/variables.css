@@ -5,77 +5,136 @@
  */
 
 :root {
-    /* Primary Colors - Professional Blue */
-    --color-primary: hsl(217, 91%, 60%);
-    --color-primary-hover: hsl(217, 91%, 55%);
-    --color-primary-light: hsl(217, 91%, 95%);
+    /* Primary Colors - Rich Professional Blue */
+    --color-primary: hsl(220, 85%, 54%);
+    --color-primary-hover: hsl(220, 85%, 46%);
+    --color-primary-light: hsl(220, 80%, 96%);
     --color-primary-foreground: #ffffff;
+    --color-primary-50: hsl(220, 80%, 97%);
+    --color-primary-100: hsl(220, 80%, 92%);
+    --color-primary-200: hsl(220, 80%, 84%);
+    --color-primary-500: hsl(220, 85%, 54%);
+    --color-primary-600: hsl(220, 85%, 46%);
+    --color-primary-700: hsl(220, 85%, 38%);
 
     /* Accent/Success - Green */
-    --color-success: hsl(142, 76%, 36%);
-    --color-success-light: hsl(142, 76%, 95%);
+    --color-success: hsl(152, 69%, 36%);
+    --color-success-hover: hsl(152, 69%, 30%);
+    --color-success-light: hsl(152, 60%, 95%);
     --color-success-foreground: #ffffff;
+    --color-success-50: hsl(152, 60%, 96%);
+    --color-success-500: hsl(152, 69%, 36%);
 
-    /* Warning - Orange/Amber */
-    --color-warning: hsl(38, 92%, 50%);
-    --color-warning-light: hsl(38, 92%, 95%);
-    --color-warning-foreground: #000000;
+    /* Warning - Warm Amber */
+    --color-warning: hsl(36, 95%, 50%);
+    --color-warning-hover: hsl(36, 95%, 42%);
+    --color-warning-light: hsl(36, 90%, 95%);
+    --color-warning-foreground: hsl(36, 95%, 12%);
+    --color-warning-50: hsl(36, 90%, 96%);
+    --color-warning-500: hsl(36, 95%, 50%);
 
     /* Destructive/Danger - Red */
-    --color-danger: hsl(0, 84%, 60%);
-    --color-danger-light: hsl(0, 84%, 95%);
+    --color-danger: hsl(4, 76%, 56%);
+    --color-danger-hover: hsl(4, 76%, 48%);
+    --color-danger-light: hsl(4, 70%, 96%);
     --color-danger-foreground: #ffffff;
+    --color-danger-50: hsl(4, 70%, 96%);
+    --color-danger-500: hsl(4, 76%, 56%);
 
-    /* Info - Blue */
-    --color-info: hsl(217, 91%, 60%);
-    --color-info-light: hsl(217, 91%, 95%);
+    /* Info - Teal Blue */
+    --color-info: hsl(200, 80%, 50%);
+    --color-info-hover: hsl(200, 80%, 42%);
+    --color-info-light: hsl(200, 70%, 95%);
+    --color-info-50: hsl(200, 70%, 96%);
 
-    /* Neutrals */
-    --color-bg: hsl(210, 20%, 98%);
+    /* Status Accent Colors */
+    --color-status-draft: hsl(215, 16%, 62%);
+    --color-status-pending: hsl(36, 95%, 50%);
+    --color-status-confirmed: hsl(220, 85%, 54%);
+    --color-status-shipping: hsl(265, 60%, 56%);
+    --color-status-completed: hsl(152, 69%, 36%);
+    --color-status-cancelled: hsl(4, 76%, 56%);
+
+    /* Neutrals - Warm tones */
+    --color-bg: hsl(220, 16%, 97%);
     --color-bg-card: #ffffff;
-    --color-border: hsl(214, 32%, 88%);
-    --color-border-light: hsl(214, 32%, 95%);
-    --color-muted: hsl(214, 32%, 95%);
-    --color-muted-foreground: hsl(215, 16%, 47%);
+    --color-bg-elevated: hsl(220, 16%, 99%);
+    --color-bg-hover: hsl(220, 14%, 95%);
+    --color-bg-active: hsl(220, 14%, 92%);
+    --color-border: hsl(220, 18%, 87%);
+    --color-border-light: hsl(220, 14%, 93%);
+    --color-border-strong: hsl(220, 18%, 78%);
+    --color-muted: hsl(220, 14%, 95%);
+    --color-muted-foreground: hsl(220, 12%, 46%);
 
     /* Text Colors */
-    --color-text-primary: hsl(215, 25%, 27%);
-    --color-text-secondary: hsl(215, 16%, 47%);
-    --color-text-muted: hsl(215, 16%, 65%);
+    --color-text-primary: hsl(222, 28%, 20%);
+    --color-text-secondary: hsl(220, 14%, 46%);
+    --color-text-muted: hsl(220, 10%, 62%);
+    --color-text-inverse: #ffffff;
 
-    /* Shadows - Soft Design System */
-    --shadow-soft: 0 2px 8px -2px hsl(215 25% 27% / 0.08);
-    --shadow-medium: 0 4px 16px -4px hsl(215 25% 27% / 0.12);
-    --shadow-strong: 0 8px 32px -8px hsl(215 25% 27% / 0.16);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    /* Shadows - Layered elevation system */
+    --shadow-color: 220 18% 50%;
+
+    --shadow-sm:
+        0 1px 2px hsl(var(--shadow-color) / 0.04),
+        0 1px 3px hsl(var(--shadow-color) / 0.06);
+    --shadow-md:
+        0 2px 4px hsl(var(--shadow-color) / 0.04),
+        0 4px 8px hsl(var(--shadow-color) / 0.06),
+        0 1px 2px hsl(var(--shadow-color) / 0.04);
+    --shadow-lg:
+        0 4px 8px hsl(var(--shadow-color) / 0.04),
+        0 8px 16px hsl(var(--shadow-color) / 0.06),
+        0 16px 32px hsl(var(--shadow-color) / 0.08);
+    --shadow-xl:
+        0 8px 16px hsl(var(--shadow-color) / 0.04),
+        0 16px 32px hsl(var(--shadow-color) / 0.08),
+        0 32px 64px hsl(var(--shadow-color) / 0.12);
+
+    /* Legacy shadow aliases */
+    --shadow-soft: var(--shadow-sm);
+    --shadow-medium: var(--shadow-md);
+    --shadow-strong: var(--shadow-lg);
+
+    /* Focus ring */
+    --focus-ring: 0 0 0 2px var(--color-bg-card), 0 0 0 4px var(--color-primary);
+    --focus-ring-inset: inset 0 0 0 2px var(--color-primary);
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(217, 91%, 70%));
-    --gradient-success: linear-gradient(135deg, hsl(142, 76%, 36%), hsl(142, 76%, 46%));
-    --gradient-card: linear-gradient(180deg, #ffffff, hsl(214, 32%, 98%));
+    --gradient-primary: linear-gradient(135deg, hsl(220, 85%, 54%), hsl(220, 75%, 62%));
+    --gradient-success: linear-gradient(135deg, hsl(152, 69%, 36%), hsl(152, 60%, 44%));
+    --gradient-card: linear-gradient(180deg, #ffffff, hsl(220, 14%, 98%));
+    --gradient-header: linear-gradient(135deg, hsl(220, 80%, 97%), hsl(220, 50%, 95%), hsl(235, 40%, 96%));
 
-    /* Spacing */
+    /* Spacing - Granular scale */
+    --spacing-2xs: 2px;
     --spacing-xs: 4px;
     --spacing-sm: 8px;
-    --spacing-md: 16px;
-    --spacing-lg: 24px;
-    --spacing-xl: 32px;
-    --spacing-2xl: 48px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    --spacing-2xl: 32px;
+    --spacing-3xl: 48px;
 
-    /* Border radius */
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
+    /* Border radius - Modern, slightly larger */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
     --radius-full: 9999px;
 
-    /* Transitions */
-    --transition-fast: 150ms ease;
-    --transition-normal: 200ms ease;
-    --transition-slow: 300ms ease;
+    /* Transitions - Smooth cubic-bezier */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --transition-fast: 120ms var(--ease-out);
+    --transition-normal: 200ms var(--ease-out);
+    --transition-slow: 320ms var(--ease-out);
+    --transition-color: 150ms var(--ease-in-out);
 
     /* Layout */
     --sidebar-width: 260px;
@@ -84,7 +143,31 @@
 
     /* Font */
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-heading: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* Font sizes - Harmonious scale */
+    --text-2xs: 0.6875rem;   /* 11px */
+    --text-xs: 0.75rem;      /* 12px */
+    --text-sm: 0.8125rem;    /* 13px */
+    --text-base: 0.875rem;   /* 14px */
+    --text-md: 0.9375rem;    /* 15px */
+    --text-lg: 1.0625rem;    /* 17px */
+    --text-xl: 1.25rem;      /* 20px */
+    --text-2xl: 1.5rem;      /* 24px */
+    --text-3xl: 1.875rem;    /* 30px */
+
+    /* Font weights */
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    /* Line heights */
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
 
     /* Z-index scale */
     --z-dropdown: 100;
@@ -100,12 +183,16 @@
 /* Dark mode support (optional) */
 @media (prefers-color-scheme: dark) {
     :root.dark {
-        --color-bg: hsl(215, 25%, 10%);
-        --color-bg-card: hsl(215, 25%, 15%);
-        --color-border: hsl(215, 25%, 25%);
-        --color-border-light: hsl(215, 25%, 20%);
-        --color-text-primary: hsl(210, 20%, 98%);
-        --color-text-secondary: hsl(215, 16%, 65%);
-        --color-text-muted: hsl(215, 16%, 47%);
+        --color-bg: hsl(222, 28%, 10%);
+        --color-bg-card: hsl(222, 24%, 14%);
+        --color-bg-elevated: hsl(222, 24%, 16%);
+        --color-bg-hover: hsl(222, 22%, 18%);
+        --color-border: hsl(222, 20%, 24%);
+        --color-border-light: hsl(222, 20%, 20%);
+        --color-border-strong: hsl(222, 20%, 30%);
+        --color-text-primary: hsl(220, 16%, 96%);
+        --color-text-secondary: hsl(220, 12%, 65%);
+        --color-text-muted: hsl(220, 10%, 48%);
+        --shadow-color: 222 28% 6%;
     }
 }

@@ -1,22 +1,36 @@
 /**
  * TABS
  * File: tabs.css
- * Purpose: Tab navigation component styles (matching React app - shadcn/ui style)
+ * Purpose: Tab navigation — bottom-border indicator style
  */
 
 .tabs-container {
     margin-bottom: var(--spacing-md);
 }
 
-/* Tab List - rounded pill style */
+/* ========================================
+   TAB NAV — bottom border style
+   ======================================== */
+
 .tabs-nav {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
-    background: var(--color-muted);
-    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
 }
+
+.tabs-nav::-webkit-scrollbar {
+    display: none;
+}
+
+/* ========================================
+   TAB BUTTON
+   ======================================== */
 
 .tab-btn {
     display: inline-flex;
@@ -28,49 +42,59 @@
     color: var(--color-text-secondary);
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: color 0.2s ease, background 0.15s ease, border-color 0.2s ease;
     white-space: nowrap;
+    position: relative;
 }
 
 .tab-btn:hover {
     color: var(--color-text-primary);
-    background: var(--color-bg-card);
+    background: hsl(0 0% 0% / 0.03);
 }
 
 .tab-btn.active {
-    color: var(--color-text-primary);
-    background: var(--color-bg-card);
-    box-shadow: var(--shadow-soft);
+    color: var(--color-primary);
+    font-weight: 600;
+    border-bottom-color: var(--color-primary);
+    background: transparent;
 }
 
 .tab-btn svg {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
 }
 
-/* Tab Badge */
+/* ========================================
+   TAB BADGE — small pill
+   ======================================== */
+
 .tab-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 20px;
-    height: 20px;
+    min-width: 18px;
+    height: 18px;
     padding: 0 6px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    background: var(--color-bg-card);
+    font-variant-numeric: tabular-nums;
+    background: var(--color-muted);
     border-radius: var(--radius-full);
     color: var(--color-text-secondary);
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
 .tab-btn.active .tab-badge {
-    background: var(--color-primary-light);
+    background: hsl(217 91% 60% / 0.12);
     color: var(--color-primary);
 }
 
-/* Tab status colors */
+/* Tab status color badges */
 .tab-btn[data-status="draft"] .tab-badge {
     background: var(--color-warning-light);
     color: var(--color-warning);
@@ -86,7 +110,10 @@
     color: var(--color-primary);
 }
 
-/* Tab Content */
+/* ========================================
+   TAB CONTENT
+   ======================================== */
+
 .tab-content {
     display: none;
     padding-top: var(--spacing-md);
@@ -96,7 +123,10 @@
     display: block;
 }
 
-/* Tab Card - content wrapper */
+/* ========================================
+   TAB CARD — content wrapper
+   ======================================== */
+
 .tab-card {
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
@@ -127,7 +157,10 @@
     padding: var(--spacing-md);
 }
 
-/* Bulk action toolbar */
+/* ========================================
+   BULK ACTION TOOLBAR
+   ======================================== */
+
 .bulk-toolbar {
     display: flex;
     align-items: center;
@@ -149,15 +182,25 @@
     margin-left: auto;
 }
 
-/* Trash tab */
+/* ========================================
+   TRASH TAB — right-aligned, danger accent
+   ======================================== */
+
 .tab-btn--trash {
     margin-left: auto;
-    opacity: 0.7;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.tab-btn--trash:hover,
+.tab-btn--trash:hover {
+    opacity: 1;
+    color: #dc2626;
+}
+
 .tab-btn--trash.active {
     opacity: 1;
+    color: #dc2626;
+    border-bottom-color: #dc2626;
 }
 
 .tab-badge--trash {
@@ -170,24 +213,25 @@
     color: #991b1b;
 }
 
-/* Mobile responsive */
+/* ========================================
+   MOBILE RESPONSIVE
+   ======================================== */
+
 @media (max-width: 768px) {
     .tabs-nav {
-        width: 100%;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-
-    .tabs-nav::-webkit-scrollbar {
-        display: none;
+        gap: 0;
     }
 
     .tab-btn {
-        flex: 1;
-        justify-content: center;
-        padding: var(--spacing-sm);
+        flex: 0 0 auto;
+        padding: var(--spacing-sm) 12px;
         font-size: 13px;
+    }
+
+    .tab-badge {
+        min-width: 16px;
+        height: 16px;
+        padding: 0 5px;
+        font-size: 9px;
     }
 }

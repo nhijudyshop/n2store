@@ -1,57 +1,76 @@
 /**
  * SUMMARY CARDS
  * File: cards.css
- * Purpose: Summary card component styles (matching React app design)
+ * Purpose: Summary card component styles (polished design with accent borders, smooth transitions)
  */
 
-/* Stats Toggle Bar */
+/* ========================================
+   STATS TOGGLE BAR
+   ======================================== */
+
 .stats-toggle-bar {
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
 }
 
 .stats-toggle-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: 8px;
+    padding: 8px 18px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text-secondary);
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    user-select: none;
 }
 
 .stats-toggle-btn:hover {
-    color: var(--color-text-primary);
+    color: var(--color-primary);
     border-color: var(--color-primary);
     background: var(--color-primary-light);
+    box-shadow: 0 1px 4px hsl(217 91% 60% / 0.1);
 }
 
 .stats-toggle-btn svg {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
 }
 
 .stats-toggle-chevron {
-    transition: transform var(--transition-normal);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .stats-toggle-btn[aria-expanded="true"] .stats-toggle-chevron {
     transform: rotate(180deg);
 }
 
-/* Stats Panel */
+.stats-toggle-btn[aria-expanded="true"] {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+
+/* ========================================
+   STATS PANEL
+   ======================================== */
+
 .stats-panel {
     overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.2s ease;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
 }
 
 .stats-panel[hidden] {
     display: none;
 }
+
+/* ========================================
+   SUMMARY CARDS GRID
+   ======================================== */
 
 .summary-cards {
     display: grid;
@@ -72,20 +91,27 @@
     }
 }
 
+/* ========================================
+   SUMMARY CARD
+   ======================================== */
+
 .summary-card {
     display: flex;
     flex-direction: column;
-    padding: var(--spacing-md);
-    background: var(--gradient-card);
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) calc(var(--spacing-md) - 1px);
+    background: linear-gradient(135deg, var(--color-bg-card) 0%, hsl(0 0% 99%) 100%);
     border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-border);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-soft);
-    transition: all var(--transition-normal);
+    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
 }
 
 .summary-card:hover {
-    box-shadow: var(--shadow-medium);
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 20px hsl(0 0% 0% / 0.08), 0 2px 6px hsl(0 0% 0% / 0.04);
 }
 
 .summary-card__header {
@@ -96,28 +122,33 @@
 }
 
 .summary-card__title {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 11px;
+    font-weight: 600;
     color: var(--color-text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
 }
 
 @media (min-width: 768px) {
     .summary-card__title {
-        font-size: 14px;
+        font-size: 12px;
     }
 }
 
 .summary-card__icon {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-md);
     background: var(--color-primary-light);
     color: var(--color-primary);
+    transition: transform 0.2s ease;
+}
+
+.summary-card:hover .summary-card__icon {
+    transform: scale(1.08);
 }
 
 .summary-card__icon svg {
@@ -146,6 +177,9 @@
     font-weight: 700;
     color: var(--color-text-primary);
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
 @media (min-width: 768px) {
@@ -154,49 +188,92 @@
     }
 }
 
-.summary-card__subtitle {
+.summary-card__label {
     font-size: 11px;
-    color: var(--color-text-muted);
+    font-weight: 500;
+    color: var(--color-text-secondary);
     margin-top: 2px;
 }
 
-/* Card color variants */
+.summary-card__subtitle {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
+/* ========================================
+   CARD COLOR VARIANTS — left border accent + icon
+   ======================================== */
+
+.summary-card--blue {
+    border-left-color: hsl(217, 91%, 55%);
+}
 .summary-card--blue .summary-card__icon {
-    background: hsl(217, 91%, 93%);
+    background: hsl(217, 91%, 95%);
     color: hsl(217, 91%, 50%);
 }
+
+.summary-card--green {
+    border-left-color: hsl(142, 76%, 40%);
+}
 .summary-card--green .summary-card__icon {
-    background: hsl(142, 76%, 92%);
+    background: hsl(142, 76%, 94%);
     color: hsl(142, 76%, 36%);
 }
+
+.summary-card--purple {
+    border-left-color: hsl(270, 60%, 55%);
+}
 .summary-card--purple .summary-card__icon {
-    background: hsl(270, 60%, 93%);
+    background: hsl(270, 60%, 95%);
     color: hsl(270, 60%, 50%);
 }
+
+.summary-card--orange {
+    border-left-color: hsl(38, 92%, 50%);
+}
 .summary-card--orange .summary-card__icon {
-    background: hsl(38, 92%, 92%);
+    background: hsl(38, 92%, 94%);
     color: hsl(38, 92%, 45%);
 }
+
+.summary-card--cyan {
+    border-left-color: hsl(190, 80%, 40%);
+}
 .summary-card--cyan .summary-card__icon {
-    background: hsl(190, 80%, 92%);
+    background: hsl(190, 80%, 94%);
     color: hsl(190, 80%, 35%);
 }
 
 /* Legacy variants */
+.summary-card--success {
+    border-left-color: var(--color-success);
+}
 .summary-card--success .summary-card__icon {
     background: var(--color-success-light);
     color: var(--color-success);
 }
+
+.summary-card--warning {
+    border-left-color: var(--color-warning);
+}
 .summary-card--warning .summary-card__icon {
     background: var(--color-warning-light);
     color: var(--color-warning);
+}
+
+.summary-card--info {
+    border-left-color: var(--color-info);
 }
 .summary-card--info .summary-card__icon {
     background: var(--color-info-light);
     color: var(--color-info);
 }
 
-/* Sync status card */
+/* ========================================
+   SYNC STATUS CARD
+   ======================================== */
+
 .summary-card--sync .summary-card__value {
     display: flex;
     align-items: baseline;
@@ -209,17 +286,22 @@
 }
 
 .summary-card--sync .sync-percent {
-    font-size: 12px;
-    padding: 2px 6px;
+    font-size: 11px;
+    padding: 2px 8px;
     background: var(--color-success-light);
     color: var(--color-success);
     border-radius: var(--radius-full);
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Skeleton loading */
+/* ========================================
+   SKELETON LOADING
+   ======================================== */
+
 .summary-card--skeleton {
     pointer-events: none;
+    border-left-color: var(--color-border);
 }
 
 .summary-card--skeleton .skeleton {
@@ -268,11 +350,13 @@
     align-items: center;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-md);
-    font-size: 13px;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 12px;
     font-weight: 600;
     color: var(--color-text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
 }
 
 .tpos-stats__header svg {
@@ -283,13 +367,19 @@
 
 .tpos-stats__header .tpos-stats__badge {
     font-size: 10px;
-    font-weight: 500;
-    padding: 2px 8px;
+    font-weight: 600;
+    padding: 3px 10px;
     border-radius: var(--radius-full);
-    background: var(--color-primary-light);
-    color: var(--color-primary);
+    background: hsl(142, 76%, 92%);
+    color: hsl(142, 76%, 36%);
     text-transform: none;
     letter-spacing: 0;
+    animation: pulse-badge 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
 }
 
 .tpos-stats__grid {
@@ -310,21 +400,27 @@
     }
 }
 
+/* ========================================
+   TPOS STAT CARD
+   ======================================== */
+
 .tpos-stat-card {
     display: flex;
     flex-direction: column;
     padding: var(--spacing-md);
-    background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-muted) 100%);
+    background: var(--color-bg-card);
     border: 1px solid var(--color-border);
-    border-left: 4px solid transparent;
+    border-left: 3px solid transparent;
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-soft);
-    transition: all var(--transition-normal);
+    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
 }
 
 .tpos-stat-card:hover {
-    box-shadow: var(--shadow-medium);
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 20px hsl(0 0% 0% / 0.08), 0 2px 6px hsl(0 0% 0% / 0.04);
 }
 
 /* Color accent variants */
@@ -372,6 +468,11 @@
     justify-content: center;
     border-radius: var(--radius-md);
     margin-bottom: var(--spacing-sm);
+    transition: transform 0.2s ease;
+}
+
+.tpos-stat-card:hover .tpos-stat-card__icon {
+    transform: scale(1.08);
 }
 
 .tpos-stat-card__icon svg {
@@ -393,10 +494,10 @@
 
 .tpos-stat-card__label {
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
     margin-bottom: 4px;
 }
 
@@ -411,6 +512,9 @@
     font-weight: 700;
     color: var(--color-text-primary);
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
 @media (min-width: 768px) {
@@ -422,6 +526,7 @@
 /* Skeleton for TPOS stats */
 .tpos-stat-card--skeleton {
     pointer-events: none;
+    border-left-color: var(--color-border);
 }
 
 .tpos-stat-card--skeleton .skeleton {
@@ -445,6 +550,7 @@
     color: var(--color-text-secondary);
     background: var(--color-muted);
     border-radius: var(--radius-md);
+    border-left: 3px solid var(--color-warning);
 }
 
 .tpos-stats__error svg {

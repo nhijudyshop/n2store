@@ -1,62 +1,61 @@
 /**
  * PAGINATION
  * File: pagination.css
- * Purpose: Pagination component styles
+ * Purpose: Pagination component styles (polished)
  */
 
 .pagination {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-md);
-    background: var(--color-bg-card);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-top: var(--spacing-sm);
 }
 
 .pagination__info {
-    font-size: 13px;
-    color: var(--color-text-secondary);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
 }
 
 .pagination__controls {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: 2px;
 }
 
 .pagination__btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 var(--spacing-sm);
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
+    min-width: 32px;
+    height: 32px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
     cursor: pointer;
-    transition: var(--transition-fast);
+    transition: all 0.15s ease;
+    font-variant-numeric: tabular-nums;
 }
 
 .pagination__btn:hover:not(.disabled):not(.active) {
-    background: var(--color-primary-light);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
+    background: var(--color-muted);
+    color: var(--color-text-primary);
 }
 
 .pagination__btn.active {
     background: var(--color-primary);
-    border-color: var(--color-primary);
     color: white;
+    font-weight: 600;
+    box-shadow: 0 1px 3px hsl(220 70% 50% / 0.3);
 }
 
 .pagination__btn.disabled {
-    opacity: 0.5;
+    opacity: 0.35;
     cursor: not-allowed;
 }
 
@@ -69,8 +68,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    height: 36px;
+    min-width: 28px;
+    height: 32px;
     color: var(--color-text-muted);
-    font-size: 14px;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .pagination {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    .pagination__info {
+        text-align: center;
+    }
 }
