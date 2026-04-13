@@ -478,18 +478,20 @@ window.BarcodeLabelDialog = (function () {
 <head>
 <style>
 /*
- * Barcode label CSS — matched to TPOS actual PDF output (verified from PDF render).
- * Font: 'Times New Roman' (TPOS PDF renders serif, not Arial as CSS states).
- * Barcode image: fills available vertical space.
- * Layout: 2 labels side by side on 66mm × 21mm sheet.
+ * Barcode label CSS — pixel-matched to TPOS actual PDF output.
+ * Verified against: 60f44828-559f-4232-b0d7-41d58d4a30a4.pdf
+ * Page: 66mm × 21mm (187pt × 60pt), 2 labels per sheet
+ * Font: Times New Roman Bold (TPOS PDF actual output)
  */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 @page { size: ${sheetW}mm ${sheetH}mm; margin: 0 !important; }
 html, body {
-    padding: 0 !important;
     margin: 0 !important;
+    padding: 0 !important;
     font-family: 'Times New Roman', Times, serif;
     font-weight: bold;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 .barcode-sheet {
     width: ${sheetW}mm;
@@ -499,39 +501,56 @@ html, body {
     overflow: hidden;
 }
 .barcode-sheet:last-child { page-break-after: auto; }
+
 .barcode_label {
     box-sizing: border-box;
     text-align: center;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: space-between;
     overflow: hidden;
+    padding: 0.8mm 0.5mm 0.3mm;
 }
+
+/* Product name: bold, 2 lines max, tight leading */
 .barcode-pname {
+    width: 100%;
     font-weight: bold;
     overflow: hidden;
-    text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    line-height: 1.15;
 }
+
+/* Barcode: fills middle space, image stretches wide */
 .barcode-image {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
     min-height: 0;
+    padding: 0.3mm 0;
 }
 .barcode-image img {
-    width: 90%;
+    width: 95%;
     height: 100%;
-    max-height: 8mm;
-    object-fit: contain;
+    object-fit: fill;
 }
-.barcode-code { font-weight: bold; }
-.barcode-price { font-weight: bold; }
 
-/* Screen preview */
+/* Code + price: bold, tight at bottom */
+.barcode-code {
+    font-weight: bold;
+    line-height: 1.2;
+}
+.barcode-price {
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+/* Screen preview only */
 @media screen {
     body {
         background: #e5e7eb;
@@ -543,12 +562,12 @@ html, body {
     }
     .barcode-sheet {
         background: #fff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        box-shadow: 0 1px 3px rgba(0,0,0,.15);
         border: 1px solid #ccc;
     }
 }
 @media print {
-    body { background: none; }
+    body { background: none; display: block; }
 }
 </style>
 </head>
