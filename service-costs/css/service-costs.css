@@ -309,6 +309,25 @@ body {
     background: rgba(239, 68, 68, 0.25);
 }
 
+.billing-alert-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: auto;
+}
+
+.billing-alert-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
 /* Payment details panel */
 .billing-payment-details {
     display: flex;

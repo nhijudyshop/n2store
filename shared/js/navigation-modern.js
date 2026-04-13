@@ -3115,6 +3115,9 @@ class UnifiedNavigationManager {
         const alerts = this.getBillingAlerts();
         if (alerts.length === 0) return;
 
+        // Don't show if dismissed this session
+        if (sessionStorage.getItem('billing_alert_dismissed')) return;
+
         // Don't duplicate
         if (document.querySelector('.nav-billing-banner')) return;
 
@@ -3200,9 +3203,13 @@ class UnifiedNavigationManager {
             });
         });
 
-        // Close button
+        // Close button — dismiss for this session (persists across F5, resets on tab close)
         banner.querySelector('.nav-billing-close').addEventListener('click', () => {
+            sessionStorage.setItem('billing_alert_dismissed', '1');
             banner.remove();
+            // Also remove the service-costs page billing alert if present
+            const pageBanner = document.querySelector('.billing-alert-banner');
+            if (pageBanner) pageBanner.remove();
         });
 
         // Inject styles

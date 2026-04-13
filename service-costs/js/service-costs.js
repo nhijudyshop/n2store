@@ -795,6 +795,9 @@
         const alerts = getBillingAlerts();
         if (alerts.length === 0) return;
 
+        // Don't show if dismissed this session
+        if (sessionStorage.getItem('billing_alert_dismissed')) return;
+
         const contentArea = document.querySelector('.content-area');
         if (!contentArea) return;
 
@@ -828,6 +831,7 @@
                     </div>
                 </div>
                 ${paymentAlerts.length > 0 ? '<button class="billing-alert-toggle" id="billingToggle"><i data-lucide="chevron-down"></i> Chi ti\u1EBFt thanh to\u00E1n</button>' : ''}
+                <button class="billing-alert-close" id="billingAlertClose" title="Đóng">✕</button>
             </div>
             ${paymentAlerts.length > 0 ? `
             <div class="billing-payment-details" id="billingPaymentDetails" style="display:none">
@@ -867,6 +871,18 @@
                     ? '<i data-lucide="chevron-down"></i> Chi ti\u1EBFt thanh to\u00E1n'
                     : '<i data-lucide="chevron-up"></i> Thu g\u1ECDn';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+        // Close button — dismiss for this session
+        const closeBtn = banner.querySelector('#billingAlertClose');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                sessionStorage.setItem('billing_alert_dismissed', '1');
+                banner.remove();
+                // Also remove the nav billing banner if present
+                const navBanner = document.querySelector('.nav-billing-banner');
+                if (navBanner) navBanner.remove();
             });
         }
 
