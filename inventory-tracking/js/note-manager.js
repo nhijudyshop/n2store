@@ -212,21 +212,20 @@ const NoteManager = {
     _renderModalCreate(body) {
         body.innerHTML = `
             <div class="note-modal-form">
-                <label class="note-modal-label">Ghi chú mới</label>
-                <textarea id="noteTextInput" class="note-modal-textarea" rows="3"
-                    placeholder="Nhập ghi chú..."
+                <textarea id="noteTextInput" class="note-modal-textarea" rows="4"
+                    placeholder="Nhập ghi chú... (Ctrl+V để dán ảnh)"
                     onpaste="NoteManager.handlePaste(event)"></textarea>
                 <div class="note-modal-images" id="noteImagePreview"></div>
-                <div class="note-modal-actions">
-                    <label class="note-modal-attach" title="Đính kèm ảnh (hoặc Ctrl+V)">
-                        <i data-lucide="image-plus"></i> Ảnh
+                <div class="note-modal-bar">
+                    <label class="note-modal-attach" title="Đính kèm ảnh">
+                        <i data-lucide="image-plus"></i>
                         <input type="file" accept="image/*" multiple style="display:none"
                                onchange="NoteManager.handleFileSelect(event)">
                     </label>
-                    <div class="note-modal-upload-status" id="noteUploadStatus"></div>
+                    <span class="note-modal-upload-status" id="noteUploadStatus"></span>
                     <div style="flex:1"></div>
-                    <button class="btn btn-outline" onclick="closeModal('modalNote')">Hủy</button>
-                    <button class="btn btn-primary" onclick="NoteManager.saveNote()">
+                    <button class="btn btn-outline btn-sm" onclick="closeModal('modalNote')">Hủy</button>
+                    <button class="btn btn-primary btn-sm" onclick="NoteManager.saveNote()">
                         <i data-lucide="send"></i> Lưu
                     </button>
                 </div>
@@ -244,23 +243,23 @@ const NoteManager = {
 
         body.innerHTML = `
             <div class="note-modal-form">
-                <label class="note-modal-label">Sửa ghi chú</label>
-                <textarea id="noteTextInput" class="note-modal-textarea" rows="3"
+                <textarea id="noteTextInput" class="note-modal-textarea" rows="4"
+                    placeholder="Nhập ghi chú... (Ctrl+V để dán ảnh)"
                     onpaste="NoteManager.handlePaste(event)">${this._esc(note.note_text || '')}</textarea>
                 <div class="note-modal-images" id="noteImagePreview">${imagesHtml}</div>
-                <div class="note-modal-actions">
-                    <label class="note-modal-attach" title="Đính kèm ảnh (hoặc Ctrl+V)">
-                        <i data-lucide="image-plus"></i> Ảnh
+                <div class="note-modal-bar">
+                    <label class="note-modal-attach" title="Đính kèm ảnh">
+                        <i data-lucide="image-plus"></i>
                         <input type="file" accept="image/*" multiple style="display:none"
                                onchange="NoteManager.handleFileSelect(event)">
                     </label>
-                    <div class="note-modal-upload-status" id="noteUploadStatus"></div>
+                    <span class="note-modal-upload-status" id="noteUploadStatus"></span>
                     <div style="flex:1"></div>
-                    <button class="btn btn-danger-outline" onclick="NoteManager.deleteNote()">
+                    <button class="btn btn-danger-outline btn-sm" onclick="NoteManager.deleteNote()">
                         <i data-lucide="trash-2"></i> Xóa
                     </button>
-                    <button class="btn btn-outline" onclick="closeModal('modalNote')">Hủy</button>
-                    <button class="btn btn-primary" onclick="NoteManager.saveNote()">
+                    <button class="btn btn-outline btn-sm" onclick="closeModal('modalNote')">Hủy</button>
+                    <button class="btn btn-primary btn-sm" onclick="NoteManager.saveNote()">
                         <i data-lucide="save"></i> Lưu
                     </button>
                 </div>

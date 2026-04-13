@@ -3260,17 +3260,19 @@ body {
 .note-lightbox-close:hover { background: rgba(255,255,255,0.4); }
 
 /* Modal form */
-.note-modal-form { display: flex; flex-direction: column; gap: 12px; }
-.note-modal-label { font-weight: 600; font-size: 14px; color: var(--gray-700); }
+/* Modal form */
+.note-modal-form { display: flex; flex-direction: column; gap: 8px; }
+
 .note-modal-textarea {
     width: 100%;
-    min-height: 60px;
+    min-height: 80px;
     padding: 10px 12px;
     border: 1px solid var(--gray-300);
     border-radius: 8px;
     font-size: 14px;
     resize: vertical;
     font-family: inherit;
+    box-sizing: border-box;
 }
 .note-modal-textarea:focus {
     outline: none;
@@ -3283,7 +3285,6 @@ body {
     flex-wrap: wrap;
     gap: 8px;
 }
-
 .note-preview-item {
     position: relative;
     width: 64px;
@@ -3311,26 +3312,28 @@ body {
     justify-content: center;
 }
 
-.note-modal-actions {
+/* Bottom bar: attach + buttons on same row */
+.note-modal-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    padding-top: 4px;
+    border-top: 1px solid var(--gray-100);
 }
 
 .note-modal-attach {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
-    color: var(--gray-500);
-    font-size: 13px;
-    padding: 6px 10px;
+    color: var(--gray-400);
     border-radius: 6px;
     transition: all 0.15s;
 }
 .note-modal-attach:hover { background: var(--gray-100); color: var(--primary); }
-.note-modal-attach i { width: 16px; height: 16px; }
+.note-modal-attach i { width: 18px; height: 18px; }
 
 .note-modal-upload-status { font-size: 12px; color: var(--primary); }
 
