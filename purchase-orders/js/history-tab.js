@@ -10,6 +10,7 @@ window.PurchaseOrderHistory = (function () {
 
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const PAGE_SIZE = 20;
+    const VND_FORMAT = new Intl.NumberFormat('vi-VN');
 
     let currentPage = 1;
     let totalCount = 0;
@@ -26,12 +27,17 @@ window.PurchaseOrderHistory = (function () {
     let tableContainer = null;
     let paginationContainer = null;
     let filterContainer = null;
+    let statsContainer = null;
 
     // Filter state
     let filterStartDate = null;
     let filterEndDate = null;
     let searchTerm = '';
     let filterState = ''; // '', 'open', 'paid', 'draft', 'cancel'
+
+    // Summary stats (accumulated from all pages via @odata.count and current page)
+    let summaryTotalAmount = 0;
+    let summaryTotalResidual = 0;
 
     /**
      * Initialize with default date range (current month)
@@ -128,6 +134,7 @@ window.PurchaseOrderHistory = (function () {
         };
 
         filterContainer.innerHTML = `
+            <div class="history-stats-bar" id="historyStatsBar"></div>
             <div class="filter-bar">
                 <div class="filter-group">
                     <label class="filter-label">Từ ngày</label>
@@ -173,6 +180,8 @@ window.PurchaseOrderHistory = (function () {
             </div>
         `;
 
+        statsContainer = document.getElementById('historyStatsBar');
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         const applyFilters = () => {
@@ -205,6 +214,30 @@ window.PurchaseOrderHistory = (function () {
                 loadPage(1);
             }
         });
+    }
+
+    /**
+     * Render the summary stats bar above the table
+     */
+    function renderStatsBar() {
+        if (!statsContainer) return;
+        statsContainer.innerHTML = `
+            <div class="history-stats">
+                <span class="history-stats__item">
+                    <i data-lucide="file-text" style="width:14px;height:14px;"></i>
+                    <strong>${VND_FORMAT.format(totalCount)}</strong> phiếu
+                </span>
+                <span class="history-stats__sep">|</span>
+                <span class="history-stats__item">
+                    Tổng: <strong>${formatMoney(summaryTotalAmount)} đ</strong>
+                </span>
+                <span class="history-stats__sep">|</span>
+                <span class="history-stats__item history-stats__item--debt">
+                    Nợ: <strong>${formatMoney(summaryTotalResidual)} đ</strong>
+                </span>
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     /**
@@ -241,11 +274,11 @@ window.PurchaseOrderHistory = (function () {
     }
 
     /**
-     * Convert date to UTC ISO string for OData filter (offset +07:00 → subtract 7h)
+     * Convert date to UTC ISO string for OData filter (offset +07:00 -> subtract 7h)
      */
     function toUTCISOString(date) {
         const utc = new Date(date.getTime() - 7 * 60 * 60 * 1000);
-        // Encode special chars: + → %2B, : → %3A (OData URL requires this)
+        // Encode special chars: + -> %2B, : -> %3A (OData URL requires this)
         return utc.toISOString().replace('Z', '%2B00%3A00').replaceAll(':', '%3A');
     }
 
@@ -275,6 +308,11 @@ window.PurchaseOrderHistory = (function () {
             totalCount = data['@odata.count'] || 0;
             currentData = data.value || [];
 
+            // Compute summary stats from current page data
+            summaryTotalAmount = currentData.reduce((sum, item) => sum + (item.AmountTotal || 0), 0);
+            summaryTotalResidual = currentData.reduce((sum, item) => sum + (item.Residual || 0), 0);
+
+            renderStatsBar();
             renderTable(currentData);
             renderPagination();
         } catch (error) {
@@ -289,12 +327,23 @@ window.PurchaseOrderHistory = (function () {
      * Format number as VND (with dot separator)
      */
     function formatMoney(value) {
-        if (!value && value !== 0) return '';
-        return new Intl.NumberFormat('vi-VN').format(value);
+        if (!value && value !== 0) return '0';
+        return VND_FORMAT.format(value);
     }
 
     /**
-     * Format date from ISO string
+     * Format date from ISO string - short dd/mm format
+     */
+    function formatDateShort(isoStr) {
+        if (!isoStr) return '';
+        const d = new Date(isoStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        return `${day}/${month}`;
+    }
+
+    /**
+     * Format date from ISO string - full format
      */
     function formatDate(isoStr) {
         if (!isoStr) return '';
@@ -305,6 +354,27 @@ window.PurchaseOrderHistory = (function () {
         const hours = String(d.getHours()).padStart(2, '0');
         const minutes = String(d.getMinutes()).padStart(2, '0');
         return `${day}/${month}/${year}\n${hours}:${minutes}`;
+    }
+
+    /**
+     * Truncate string to maxLen chars with ellipsis
+     */
+    function truncate(str, maxLen) {
+        if (!str) return '';
+        return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+    }
+
+    /**
+     * Render payment status badge
+     */
+    function renderPaymentBadge(residual, amountTotal) {
+        if (residual === 0 || residual == null) {
+            return '<span class="status-badge" style="background:#d1fae5;color:#059669;border:1px solid #a7f3d0;font-size:11px;">Đã TT</span>';
+        }
+        if (residual > 0 && residual < amountTotal) {
+            return '<span class="status-badge" style="background:#fef3c7;color:#d97706;border:1px solid #fde68a;font-size:11px;">TT 1 phần</span>';
+        }
+        return '<span class="status-badge" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:11px;">Chưa TT</span>';
     }
 
     /**
@@ -325,37 +395,52 @@ window.PurchaseOrderHistory = (function () {
             return;
         }
 
+        const startIdx = (currentPage - 1) * PAGE_SIZE;
+
         const rows = items.map((item, idx) => {
-            const dateFormatted = formatDate(item.DateInvoice);
-            const dateParts = dateFormatted.split('\n');
+            const rowNum = startIdx + idx + 1;
             const isExpanded = !!expandedRows[item.Id];
             const isDone = doneRows.has(item.Id);
+            const residual = item.Residual ?? 0;
+            const amountTotal = item.AmountTotal || 0;
+            const residualColor = residual > 0 ? 'var(--color-danger, #dc2626)' : 'var(--color-success, #22c55e)';
+
             return `
                 <tr class="order-row ${idx === 0 ? 'order-row--first' : ''} ${isExpanded ? 'order-row--expanded' : ''} ${isDone ? 'order-row--done' : ''}"
                     data-order-id="${item.Id}" style="border-top: ${idx > 0 ? '1px solid var(--color-border-light)' : 'none'}; cursor: pointer; position: relative;">
-                    <td style="width: 36px; text-align: center;" onclick="event.stopPropagation();">
-                        <input type="checkbox" class="history-done-cb" data-id="${item.Id}" ${isDone ? 'checked' : ''}
-                               style="width: 16px; height: 16px; cursor: pointer; accent-color: #22c55e;">
+                    <td style="width:32px;text-align:center;font-size:12px;color:var(--color-text-muted);">${rowNum}</td>
+                    <td>
+                        <span style="font-family:monospace;font-size:12px;color:var(--color-text-secondary);" title="${escapeHtml(item.Number || '')}">${escapeHtml(item.Number || '')}</span>
                     </td>
                     <td>
-                        <div class="cell-supplier">
-                            <span class="supplier-name">${escapeHtml(item.PartnerDisplayName || '')}</span>
-                        </div>
+                        <span class="supplier-name" title="${escapeHtml(item.PartnerDisplayName || '')}">${escapeHtml(truncate(item.PartnerDisplayName || '', 25))}</span>
                     </td>
-                    <td>
-                        <div class="date-info">
-                            <span class="date-main">${dateParts[0] || ''}</span>
-                            <span class="date-time">${dateParts[1] || ''}</span>
-                        </div>
+                    <td style="text-align:center;">
+                        <span class="date-main">${formatDateShort(item.DateInvoice)}</span>
                     </td>
-                    <td><span style="font-family: monospace; font-size: 13px;">${escapeHtml(item.Number || '')}</span></td>
-                    <td class="text-right"><span class="price-value">${formatMoney(item.AmountTotal)}</span></td>
+                    <td class="text-right"><span class="price-value">${formatMoney(amountTotal)}</span></td>
+                    <td class="text-right">
+                        <span style="font-weight:600;color:${residualColor};">${formatMoney(residual)}</span>
+                        <div style="margin-top:2px;">${renderPaymentBadge(residual, amountTotal)}</div>
+                    </td>
                     <td class="td-status ${isDone ? 'td-status--done' : ''}">${renderState(item.ShowState, item.State)}${isDone ? '<span class="done-check-icon">✓</span>' : ''}</td>
-                    <td><span style="font-size: 13px;">${escapeHtml(item.UserName || '')}</span></td>
-                    <td><span style="font-size: 13px;">${escapeHtml(item.CompanyName || '')}</span></td>
+                    <td><span style="font-size:12px;" title="${escapeHtml(item.UserName || '')}">${escapeHtml(truncate(item.UserName || '', 10))}</span></td>
+                    <td style="white-space:nowrap;" onclick="event.stopPropagation();">
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <button class="btn-icon-sm history-print-btn" data-id="${item.Id}" title="In phiếu">
+                                <i data-lucide="printer" style="width:14px;height:14px;"></i>
+                            </button>
+                            <label class="history-done-toggle" title="${isDone ? 'Bỏ đánh dấu Done' : 'Đánh dấu Done'}">
+                                <input type="checkbox" class="history-done-cb" data-id="${item.Id}" ${isDone ? 'checked' : ''}>
+                                <span class="history-done-toggle__indicator ${isDone ? 'history-done-toggle__indicator--on' : ''}">
+                                    ${isDone ? '✓' : ''}
+                                </span>
+                            </label>
+                        </div>
+                    </td>
                 </tr>
                 <tr class="expand-row" id="expand-${item.Id}" style="display: ${isExpanded ? 'table-row' : 'none'};">
-                    <td colspan="8" style="padding: 0; background: #f8fafc;">
+                    <td colspan="9" style="padding: 0; background: #f8fafc;">
                         <div class="expand-content" id="expand-content-${item.Id}">
                             ${isExpanded ? renderExpandedContent(item.Id, item) : ''}
                         </div>
@@ -366,15 +451,16 @@ window.PurchaseOrderHistory = (function () {
 
         tableContainer.innerHTML = `
             <div class="table-wrapper">
-                <table class="po-table">
+                <table class="po-table history-table">
                     <thead>
                         <tr>
-                            <th style="width: 36px;"></th>
-                            <th>Nhà cung cấp</th>
-                            <th style="width: 120px;">Ngày đơn hàng</th>
-                            <th>Số</th>
+                            <th style="width:32px;text-align:center;">#</th>
+                            <th>Số phiếu</th>
+                            <th>NCC</th>
+                            <th style="width:60px;text-align:center;">Ngày</th>
                             <th class="text-right">Tổng tiền</th>
-                            <th class="th-filter-wrap">
+                            <th class="text-right" style="width:120px;">Còn nợ</th>
+                            <th class="th-filter-wrap" style="width:110px;">
                                 <span>Trạng thái</span>
                                 <span class="th-filter-icon" id="thStatusFilterBtn" title="Lọc trạng thái">
                                     <i data-lucide="filter" style="width:14px;height:14px;"></i>
@@ -387,8 +473,8 @@ window.PurchaseOrderHistory = (function () {
                                     <div class="th-filter-option ${filterState === 'cancel' ? 'active' : ''}" data-state="cancel">Hủy bỏ</div>
                                 </div>
                             </th>
-                            <th>Nhân viên</th>
-                            <th>Công ty</th>
+                            <th style="width:70px;">NV</th>
+                            <th style="width:80px;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -408,12 +494,22 @@ window.PurchaseOrderHistory = (function () {
             });
         });
 
+        // Bind print buttons
+        tableContainer.querySelectorAll('.history-print-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                window.open(`https://tomato.tpos.vn/FastPurchaseOrder/Print/${id}`, '_blank');
+            });
+        });
+
         // Bind checkbox for Done watermark (persisted to Firestore)
         tableContainer.querySelectorAll('.history-done-cb').forEach(cb => {
             cb.addEventListener('change', () => {
                 const id = parseInt(cb.dataset.id, 10);
                 const row = tableContainer.querySelector(`tr.order-row[data-order-id="${id}"]`);
                 const statusTd = row?.querySelector('.td-status');
+                const indicator = cb.closest('.history-done-toggle')?.querySelector('.history-done-toggle__indicator');
                 if (cb.checked) {
                     doneRows.add(id);
                     row?.classList.add('order-row--done');
@@ -421,11 +517,19 @@ window.PurchaseOrderHistory = (function () {
                     if (statusTd && !statusTd.querySelector('.done-check-icon')) {
                         statusTd.insertAdjacentHTML('beforeend', '<span class="done-check-icon">✓</span>');
                     }
+                    if (indicator) {
+                        indicator.classList.add('history-done-toggle__indicator--on');
+                        indicator.textContent = '✓';
+                    }
                 } else {
                     doneRows.delete(id);
                     row?.classList.remove('order-row--done');
                     statusTd?.classList.remove('td-status--done');
                     statusTd?.querySelector('.done-check-icon')?.remove();
+                    if (indicator) {
+                        indicator.classList.remove('history-done-toggle__indicator--on');
+                        indicator.textContent = '';
+                    }
                 }
                 saveDoneRows();
             });
@@ -502,7 +606,22 @@ window.PurchaseOrderHistory = (function () {
     }
 
     /**
-     * Render expanded detail content (order lines table)
+     * Get product thumbnail URL (128px version)
+     */
+    function getProductThumb(line) {
+        // Product.Thumbnails is typically an array: [0]=64px, [1]=128px
+        const thumbnails = line.Product?.Thumbnails;
+        if (thumbnails && thumbnails.length > 1) {
+            return thumbnails[1];
+        }
+        if (thumbnails && thumbnails.length > 0) {
+            return thumbnails[0];
+        }
+        return null;
+    }
+
+    /**
+     * Render expanded detail content (order lines table with product images)
      */
     function renderExpandedContent(orderId, item, lines) {
         if (!lines) lines = expandedRows[orderId];
@@ -514,20 +633,33 @@ window.PurchaseOrderHistory = (function () {
         const lineRows = lines.map((line, idx) => {
             const lineKey = `${orderId}_${line.Id}`;
             const alreadyInNotes = window.PurchaseOrderNotes?.hasKey?.(lineKey) || false;
+            const thumbUrl = getProductThumb(line);
+            const productCode = line.ProductBarcode || line.Product?.DefaultCode || '';
+            const productName = line.Name || line.ProductNameGet || line.ProductName || '';
+
             return `
-            <tr${alreadyInNotes ? ' style="opacity: 0.5;"' : ''}>
+            <tr class="expand-line-row"${alreadyInNotes ? ' style="opacity: 0.5;"' : ''}>
                 <td style="text-align: center; width: 40px;">${idx + 1}</td>
-                <td style="font-weight: 500;">${escapeHtml(line.Name || line.ProductNameGet || line.ProductName || '')}</td>
-                <td style="text-align: right; width: 80px;">${line.ProductQty ?? ''}</td>
-                <td style="text-align: right; width: 120px;">${formatMoney(line.PriceUnit)}</td>
-                <td style="text-align: right; width: 120px;">${formatMoney(line.PriceSubTotal)}</td>
+                <td style="width:48px;text-align:center;">
+                    ${thumbUrl
+                        ? `<img src="${escapeHtml(thumbUrl)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;">`
+                        : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;">N/A</div>'
+                    }
+                </td>
+                <td style="width:100px;">
+                    <span style="font-family:monospace;font-size:12px;color:var(--color-text-secondary);background:#f1f5f9;padding:1px 4px;border-radius:3px;">${escapeHtml(productCode)}</span>
+                </td>
+                <td style="font-weight: 500;">${escapeHtml(productName)}</td>
+                <td style="text-align: right; width: 60px; font-weight:600;">${line.ProductQty ?? ''}</td>
+                <td style="text-align: right; width: 100px;">${formatMoney(line.PriceUnit)}</td>
+                <td style="text-align: right; width: 110px; font-weight:600;">${formatMoney(line.PriceSubTotal)}</td>
                 <td style="text-align: center; width: 36px;">
                     <input type="checkbox" class="note-product-cb" title="Thêm vào Ghi chú"
                            data-key="${lineKey}"
                            data-order-id="${orderId}"
                            data-line-id="${line.Id}"
-                           data-product-name="${escapeHtml(line.Name || line.ProductNameGet || line.ProductName || '')}"
-                           data-product-code="${escapeHtml(line.ProductBarcode || line.Product?.DefaultCode || '')}"
+                           data-product-name="${escapeHtml(productName)}"
+                           data-product-code="${escapeHtml(productCode)}"
                            data-supplier="${escapeHtml(supplierName)}"
                            data-qty="${line.ProductQty || 0}"
                            data-price="${line.PriceUnit || 0}"
@@ -541,27 +673,31 @@ window.PurchaseOrderHistory = (function () {
         const residual = item?.Residual ?? totalAmount;
 
         return `
-            <div style="padding: 8px 16px 12px 36px;">
+            <div style="padding: 8px 16px 12px 16px;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="background: #e2e8f0; font-weight: 600;">
                             <th style="padding: 6px 8px; text-align: center; width: 40px;">STT</th>
+                            <th style="padding: 6px 8px; text-align: center; width: 48px;">Ảnh</th>
+                            <th style="padding: 6px 8px; text-align: left; width: 100px;">Mã SP</th>
                             <th style="padding: 6px 8px; text-align: left;">Sản phẩm</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 80px;">Số lượng</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 120px;">Đơn giá</th>
-                            <th style="padding: 6px 8px; text-align: right; width: 120px;">Tổng</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 60px;">SL</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 100px;">Đơn giá</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 110px;">Tổng</th>
                             <th style="padding: 6px 8px; text-align: center; width: 36px;" title="Ghi chú">📝</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${lineRows}
-                        <tr style="border-top: 1px solid #cbd5e1;">
-                            <td colspan="5" style="padding: 6px 8px; text-align: right; font-weight: 600;">Tổng tiền:</td>
-                            <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${formatMoney(totalAmount)}</td>
+                        <tr style="border-top: 2px solid #cbd5e1;">
+                            <td colspan="6" style="padding: 6px 8px; text-align: right; font-weight: 600;">Tổng tiền:</td>
+                            <td style="padding: 6px 8px; text-align: right; font-weight: 700; font-size:14px;">${formatMoney(totalAmount)} đ</td>
+                            <td></td>
                         </tr>
                         <tr>
-                            <td colspan="5" style="padding: 6px 8px; text-align: right; font-weight: 600;">Còn nợ:</td>
-                            <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: ${residual > 0 ? 'var(--color-danger)' : 'var(--color-success)'};">${formatMoney(residual)}</td>
+                            <td colspan="6" style="padding: 6px 8px; text-align: right; font-weight: 600;">Còn nợ:</td>
+                            <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: ${residual > 0 ? 'var(--color-danger)' : 'var(--color-success)'};">${formatMoney(residual)} đ</td>
+                            <td></td>
                         </tr>
                     </tbody>
                 </table>
@@ -791,6 +927,8 @@ window.PurchaseOrderHistory = (function () {
         totalCount = 0;
         searchTerm = '';
         filterState = '';
+        summaryTotalAmount = 0;
+        summaryTotalResidual = 0;
         // Clear expanded state
         Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
         // Unsubscribe real-time listener
