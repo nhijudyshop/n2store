@@ -8,6 +8,13 @@
 
 ## 2026-04-13
 
+### [product-warehouse] Migrate product list + search + variants từ TPOS OData → Render DB ✅
+| | |
+|---|---|
+| **Files** | `product-warehouse/index.html`, `product-warehouse/js/main.js`, `render.com/routes/v2/web-warehouse.js` |
+| **Chi tiết** | Rewrite `fetchProducts()` từ TPOS OData (GetViewV2) sang Render `GET /api/v2/web-warehouse` (có search, sort, pagination, filter). Replace Excel suggestion system (XLSX.js) với `WarehouseAPI.search()` debounced API. Replace `fetchVariants()` và `loadVariantImages()` với `WarehouseAPI.getProduct()`. Xóa XLSX.js dependency. Giữ TPOS auth (tokenManager) chỉ cho edit/save modal (write operations). Thêm sort fields mới vào Render endpoint. |
+| **Status** | ✅ Done |
+
 ### [render][soluong][order-mgmt] Migrate product search từ TPOS Excel/OData → Render DB ✅
 | | |
 |---|---|

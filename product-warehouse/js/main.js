@@ -4,8 +4,8 @@
    Main JS - UI with all columns, column visibility,
    search with Excel suggestions, filter, sort,
    server-side pagination, variant images
-   Data from TPOS OData API via Cloudflare proxy
-   + SSE real-time updates (shared with web-warehouse)
+   Data from Render PostgreSQL (web_warehouse table)
+   + SSE real-time updates
    ===================================================== */
 
 (function () {
@@ -42,21 +42,21 @@
 
     const STORAGE_KEY = 'n2store_warehouse_columns';
 
-    // OData sort field mapping (local key → API field)
+    // Sort field mapping (local key → Render DB column)
     const SORT_FIELD_MAP = {
-        code: 'DefaultCode',
-        name: 'Name',
-        group: 'CategCompleteName',
-        price: 'ListPrice',
-        defaultBuyPrice: 'PurchasePrice',
-        costPrice: 'StandardPrice',
-        qtyActual: 'QtyAvailable',
-        qtyForecast: 'VirtualAvailable',
-        active: 'Active',
-        createdAt: 'DateCreated',
+        code: 'product_code',
+        name: 'product_name',
+        group: 'category',
+        price: 'selling_price',
+        defaultBuyPrice: 'purchase_price',
+        costPrice: 'standard_price',
+        qtyActual: 'tpos_qty_available',
+        active: 'active',
+        createdAt: 'created_at',
     };
 
-    const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const RENDER_API = 'https://n2store-fallback.onrender.com/api/v2/web-warehouse';
+    const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev'; // kept for edit/save operations
 
     // =====================================================
     // STATE
@@ -70,9 +70,8 @@
     let selectedIds = new Set();
     let isLoading = false;
 
-    // Excel suggestion state (same pattern as soluong-live)
-    let excelProducts = [];
-    let isLoadingExcel = false;
+    // Search debounce
+    let _searchDebounceTimer = null;
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -98,114 +97,21 @@
     const removeVietnameseTones = WS.removeVietnameseTones;
 
     // =====================================================
-    // EXCEL SUGGESTION SYSTEM
+    // SEARCH SUGGESTION SYSTEM (via Render DB)
     // =====================================================
 
     /**
-     * Load product data from TPOS Excel export API.
-     * Used for fast client-side search suggestions.
+     * Search products from Render DB for suggestions.
+     * Uses the /search endpoint with server-side unaccent.
      */
-    async function loadExcelData() {
-        if (isLoadingExcel || excelProducts.length > 0) return;
-
-        isLoadingExcel = true;
-        console.log('[Warehouse] Loading Excel data...');
-
-        try {
-            const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/ProductTemplate/ExportFileV2?Active=true&priceId=0&DefaultCodeView=&company_id=&all_company=false`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'feature-version': '2'
-                    },
-                    body: JSON.stringify({
-                        data: JSON.stringify({"Filter":{"logic":"and","filters":[{"field":"Active","operator":"eq","value":true}]}}),
-                        ids: []
-                    })
-                }
-            );
-
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-
-            const blob = await response.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-            excelProducts = jsonData.map(row => {
-                const name = row['Tên sản phẩm'] || '';
-                let code = row['Mã sản phẩm'] || '';
-                if (!code) {
-                    const bracketMatch = name.match(/\[([^\]]+)\]/);
-                    if (bracketMatch) code = bracketMatch[1];
-                }
-                return {
-                    id: row['Id sản phẩm (*)'] || row['Id'],
-                    name: name,
-                    nameNoSign: removeVietnameseTones(name),
-                    code: code
-                };
-            });
-
-            console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
-        } catch (error) {
-            console.error('[Warehouse] Excel load error:', error);
-        } finally {
-            isLoadingExcel = false;
-        }
-    }
-
-    /**
-     * Search products from Excel data for suggestions.
-     * Matches by code, name (with and without Vietnamese tones).
-     */
-    function searchProductsSuggestion(searchText) {
-        if (!searchText || searchText.length < 2 || excelProducts.length === 0) return [];
-
-        const searchLower = searchText.toLowerCase();
-        const searchNoSign = removeVietnameseTones(searchText);
-
-        const matched = excelProducts.filter(p => {
-            const matchName = p.nameNoSign.includes(searchNoSign);
-            const matchNameOriginal = p.name.toLowerCase().includes(searchLower);
-            const matchCode = p.code.toLowerCase().includes(searchLower);
-            return matchName || matchNameOriginal || matchCode;
-        });
-
-        // Sort: bracket match first, then code match, then alphabetical
-        matched.sort((a, b) => {
-            const extractBracket = (name) => {
-                const m = name?.match(/\[([^\]]+)\]/);
-                return m ? m[1].toLowerCase().trim() : '';
-            };
-
-            const aBracket = extractBracket(a.name);
-            const bBracket = extractBracket(b.name);
-            const aInBracket = aBracket && aBracket.includes(searchLower);
-            const bInBracket = bBracket && bBracket.includes(searchLower);
-
-            if (aInBracket && !bInBracket) return -1;
-            if (!aInBracket && bInBracket) return 1;
-
-            if (aInBracket && bInBracket) {
-                if (aBracket === searchLower && bBracket !== searchLower) return -1;
-                if (aBracket !== searchLower && bBracket === searchLower) return 1;
-                if (aBracket.length !== bBracket.length) return aBracket.length - bBracket.length;
-                return aBracket.localeCompare(bBracket);
-            }
-
-            const aCode = a.code.toLowerCase().includes(searchLower);
-            const bCode = b.code.toLowerCase().includes(searchLower);
-            if (aCode && !bCode) return -1;
-            if (!aCode && bCode) return 1;
-
-            return a.name.localeCompare(b.name);
-        });
-
-        return matched.slice(0, 10);
+    async function searchProductsSuggestion(searchText) {
+        if (!searchText || searchText.length < 2) return [];
+        const rows = await WarehouseAPI.search(searchText, 10);
+        return rows.map(row => ({
+            id: row.tpos_template_id || row.tpos_product_id,
+            name: row.name_get || row.product_name,
+            code: row.product_code,
+        }));
     }
 
     /**
@@ -250,36 +156,29 @@
     // =====================================================
 
     /**
-     * Load variant images for a product template from TPOS API.
+     * Load variant images for a product template from Render DB.
      * Updates the table row image in-place.
      */
     async function loadVariantImages(templateId, rowElement) {
         if (!templateId || imageCache[templateId] !== undefined) return;
 
         try {
-            const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=Images,ProductVariants`;
-            const response = await window.tokenManager.authenticatedFetch(url, {
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (!response.ok) return;
-
-            const data = await response.json();
-
-            // Try template ImageUrl, then Images array, then first variant ImageUrl
-            let imgUrl = data.ImageUrl || '';
-            if (!imgUrl && data.Images && data.Images.length > 0) {
-                imgUrl = data.Images[0].Url || data.Images[0].ImageUrl || '';
+            const result = await WarehouseAPI.getProduct(templateId);
+            if (!result || !result.product) {
+                imageCache[templateId] = null;
+                return;
             }
-            if (!imgUrl && data.ProductVariants) {
-                for (const v of data.ProductVariants) {
-                    if (v.ImageUrl) { imgUrl = v.ImageUrl; break; }
+
+            let imgUrl = result.product.image_url || '';
+            // Try variant images if template has none
+            if (!imgUrl && result.variants) {
+                for (const v of result.variants) {
+                    if (v.image_url) { imgUrl = v.image_url; break; }
                 }
             }
 
             imageCache[templateId] = imgUrl || null;
 
-            // Update the row's image cell if we found an image
             if (imgUrl && rowElement) {
                 const imgCell = rowElement.querySelector('.product-image-cell');
                 if (imgCell) {
@@ -356,17 +255,27 @@
     async function fetchVariants(templateId) {
         if (variantCache[templateId]) return variantCache[templateId];
 
-        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants($expand=AttributeValues)`;
-        const response = await window.tokenManager.authenticatedFetch(url, {
-            headers: { 'Accept': 'application/json' }
-        });
+        const result = await WarehouseAPI.getProduct(templateId);
+        if (!result || !result.variants) return [];
 
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        // Map Render DB rows to TPOS-compatible variant objects for rendering
+        const variants = result.variants
+            .filter(v => v.active !== false)
+            .map(v => ({
+                Id: v.tpos_product_id,
+                DefaultCode: v.product_code,
+                NameGet: v.name_get || v.product_name,
+                QtyAvailable: parseFloat(v.tpos_qty_available) || 0,
+                ListPrice: parseFloat(v.selling_price) || 0,
+                PriceVariant: parseFloat(v.selling_price) || 0,
+                StandardPrice: parseFloat(v.standard_price) || 0,
+                ImageUrl: v.image_url || '',
+                Barcode: v.barcode || v.product_code,
+                Active: v.active !== false,
+                AttributeValues: v.variant ? [{ Name: v.variant }] : [],
+            }));
 
-        const data = await response.json();
-        const variants = (data.ProductVariants || []).filter(v => v.Active === true);
         const sorted = sortVariants(variants);
-
         variantCache[templateId] = sorted;
         return sorted;
     }
@@ -468,67 +377,69 @@
     }
 
     // =====================================================
-    // API - Map TPOS response to local product format
+    // API - Map Render DB row to local product format
     // =====================================================
-    function mapProduct(item) {
-        // Check image cache for this template
-        const cachedImg = imageCache[item.Id];
+    function mapProduct(row) {
+        const cachedImg = imageCache[row.tpos_template_id];
         return {
-            id: item.Id,
-            code: item.DefaultCode || '',
-            name: item.Name || '',
-            group: item.CategCompleteName || '',
-            price: item.ListPrice || 0,
-            defaultBuyPrice: item.PurchasePrice || 0,
-            costPrice: item.StandardPrice || 0,
-            qtyActual: item.QtyAvailable || 0,
-            qtyForecast: item.VirtualAvailable || 0,
-            unit: item.UOMName || '',
-            label: !!item.Tags,
-            active: item.Active,
-            allCompany: item.EnableAll,
-            note: item.DescriptionSale || '',
-            createdAt: item.DateCreated ? item.DateCreated.split('T')[0] : '',
-            company: item.CompanyName || '',
-            creator: item.CreatedByName || '',
-            image: item.ImageUrl || cachedImg || '',
+            id: row.tpos_template_id || row.tpos_product_id,
+            code: row.product_code || '',
+            name: row.product_name || '',
+            group: row.category || '',
+            price: parseFloat(row.selling_price) || 0,
+            defaultBuyPrice: parseFloat(row.purchase_price) || 0,
+            costPrice: parseFloat(row.standard_price) || 0,
+            qtyActual: parseFloat(row.tpos_qty_available) || 0,
+            qtyForecast: 0, // not stored in Render DB
+            unit: row.uom_name || '',
+            label: false,
+            active: row.active !== false,
+            allCompany: false,
+            note: '',
+            createdAt: row.created_at ? row.created_at.split('T')[0] : '',
+            company: '',
+            creator: '',
+            image: row.image_url || cachedImg || '',
         };
     }
 
     // =====================================================
-    // API - Build OData filter string
+    // API - Build filter params for Render GET /
     // =====================================================
-    function buildODataFilter() {
-        const filters = [];
+    function buildRenderParams() {
+        const params = new URLSearchParams();
 
-        // Status filter (Active)
+        params.set('page', String(currentPage));
+        params.set('limit', String(pageSize));
+
+        // Sort
+        const dbField = SORT_FIELD_MAP[sortField] || 'created_at';
+        params.set('sort_by', dbField);
+        params.set('sort_order', sortDirection.toUpperCase());
+
+        // Search
+        const searchQuery = ($('#searchInput')?.value || '').trim();
+        if (searchQuery) params.set('search', searchQuery);
+
+        // Status filter
         const statusFilter = $('#filterStatus')?.value || 'all';
-        if (statusFilter === 'active') filters.push('Active eq true');
-        else if (statusFilter === 'inactive') filters.push('Active eq false');
+        if (statusFilter === 'active') params.set('active', 'true');
+        else if (statusFilter === 'inactive') params.set('active', 'false');
 
-        // Stock filter (QtyAvailable)
+        // Stock filter
         const stockFilter = $('#filterStock')?.value || 'all';
-        if (stockFilter === 'in-stock') filters.push('QtyAvailable gt 0');
-        else if (stockFilter === 'low-stock') filters.push('QtyAvailable gt 0 and QtyAvailable le 5');
-        else if (stockFilter === 'out-of-stock') filters.push('QtyAvailable le 0');
+        if (stockFilter === 'in-stock') params.set('has_inventory', 'true');
+        else if (stockFilter === 'out-of-stock') params.set('has_inventory', 'false');
 
-        // Search is handled via DefaultCode param in fetchProducts, not in $filter
+        // Category filter
+        const categoryFilter = ($('[data-filter="group"]')?.value || '').trim();
+        if (categoryFilter) params.set('category', categoryFilter);
 
-        // Column-level filters
-        const codeFilter = ($('[data-filter="code"]')?.value || '').trim();
-        if (codeFilter) {
-            filters.push(`contains(DefaultCode,'${codeFilter.replace(/'/g, "''")}')`);
-        }
-        const nameFilter = ($('[data-filter="name"]')?.value || '').trim();
-        if (nameFilter) {
-            filters.push(`contains(Name,'${nameFilter.replace(/'/g, "''")}')`);
-        }
-
-        return filters.length > 0 ? filters.join(' and ') : '';
+        return params;
     }
 
     // =====================================================
-    // API - Fetch products from TPOS OData
+    // API - Fetch products from Render DB
     // =====================================================
     async function fetchProducts(silent = false) {
         if (isLoading) return;
@@ -536,80 +447,17 @@
         if (!silent) showLoading(true);
 
         try {
-            const skip = (currentPage - 1) * pageSize;
+            const params = buildRenderParams();
+            const url = `${RENDER_API}?${params.toString()}`;
 
-            // Build OData orderby
-            const odataField = SORT_FIELD_MAP[sortField] || 'DateCreated';
-            const orderby = `${odataField} ${sortDirection}`;
-
-            // Search by DefaultCode as top-level param
-            const searchQuery = ($('#searchInput')?.value || '').trim();
-
-            // Build common params
-            function buildParams(endpoint) {
-                const params = new URLSearchParams();
-                params.set('Active', 'true');
-                if (endpoint === 'ProductTemplate') {
-                    params.set('priceId', '0');
-                }
-                if (searchQuery) {
-                    params.set('DefaultCode', searchQuery);
-                }
-                params.set('$top', String(pageSize));
-                params.set('$skip', String(skip));
-                params.set('$orderby', orderby);
-                params.set('$count', 'true');
-                if (endpoint === 'ProductTemplate') {
-                    const filterStr = buildODataFilter();
-                    const fullFilter = filterStr ? `Active eq true and ${filterStr}` : 'Active eq true';
-                    params.set('$filter', fullFilter);
-                }
-                return params;
-            }
-
-            // Try ProductTemplate first
-            const templateParams = buildParams('ProductTemplate');
-            const templateUrl = API_CONFIG.buildUrl.tposOData(
-                'ProductTemplate/ODataService.GetViewV2',
-                templateParams.toString()
-            );
-
-            console.log('[Warehouse] Fetching:', templateUrl);
-
-            const response = await window.tokenManager.authenticatedFetch(templateUrl, {
-                headers: { 'Accept': 'application/json' }
-            });
-
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            let data = await response.json();
-            totalCount = data['@odata.count'] || 0;
-
-            // Fallback: if searching and no template results, try variant endpoint
-            if (totalCount === 0 && searchQuery) {
-                console.log('[Warehouse] No template results, fallback to variant search...');
-                const variantParams = buildParams('Product');
-                const variantUrl = API_CONFIG.buildUrl.tposOData(
-                    'Product/OdataService.GetViewV2',
-                    variantParams.toString()
-                );
-
-                console.log('[Warehouse] Variant fallback:', variantUrl);
-
-                const variantResponse = await window.tokenManager.authenticatedFetch(variantUrl, {
-                    headers: { 'Accept': 'application/json' }
-                });
-
-                if (variantResponse.ok) {
-                    data = await variantResponse.json();
-                    totalCount = data['@odata.count'] || 0;
-                    console.log('[Warehouse] Variant fallback found:', totalCount, 'results');
-                }
-            }
-
-            pageProducts = (data.value || []).map(mapProduct);
+            const result = await response.json();
+            totalCount = result.pagination?.total || 0;
+            pageProducts = (result.data || []).map(mapProduct);
 
             console.log('[Warehouse] Loaded', pageProducts.length, 'products, total:', totalCount);
         } catch (error) {
@@ -621,7 +469,6 @@
             isLoading = false;
             if (!silent) showLoading(false);
             render();
-            // Lazy-load images for products without ImageUrl
             lazyLoadImages();
         }
     }
@@ -843,15 +690,11 @@
                 const searchText = e.target.value.trim();
 
                 if (searchText.length >= 2) {
-                    if (excelProducts.length === 0) {
-                        loadExcelData().then(() => {
-                            const results = searchProductsSuggestion(searchText);
-                            displaySuggestions(results);
-                        });
-                    } else {
-                        const results = searchProductsSuggestion(searchText);
+                    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+                    _searchDebounceTimer = setTimeout(async () => {
+                        const results = await searchProductsSuggestion(searchText);
                         displaySuggestions(results);
-                    }
+                    }, 300);
                 } else {
                     hideSuggestions();
                 }
@@ -1414,14 +1257,8 @@
 
         WS.initIcons();
 
-        // Wait for TokenManager then fetch first page
-        if (window.tokenManager) {
-            await window.tokenManager.waitForFirebaseAndInit();
-        }
+        // Fetch first page from Render DB
         await fetchProducts();
-
-        // Preload Excel data for search suggestions (after token is ready)
-        loadExcelData();
 
         // SSE real-time: auto-refresh when TPOS products change
         sseCtrl = WS.setupSSE({

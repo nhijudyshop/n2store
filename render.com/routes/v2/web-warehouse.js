@@ -321,7 +321,13 @@ router.get('/', async (req, res) => {
         const total = parseInt(countResult.rows[0].count);
 
         // Sort
-        const allowedSorts = ['stt', 'product_code', 'product_name', 'quantity', 'purchase_price', 'selling_price', 'created_at', 'updated_at', 'available_qty', 'category', 'tpos_qty_available'];
+        const allowedSorts = [
+            'stt', 'product_code', 'product_name', 'quantity',
+            'purchase_price', 'selling_price', 'standard_price',
+            'created_at', 'updated_at', 'available_qty',
+            'category', 'tpos_qty_available', 'uom_name',
+            'barcode', 'name_get', 'active', 'last_synced_at',
+        ];
         const sortField = allowedSorts.includes(sort_by) ? sort_by : 'stt';
         const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
