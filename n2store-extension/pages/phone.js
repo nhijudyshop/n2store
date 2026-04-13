@@ -47,6 +47,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => makeCall(), 1500); // Wait for registration
   }
 
+  // Dialpad buttons
+  document.getElementById('dialpad').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-key]');
+    if (btn) pressKey(btn.dataset.key);
+  });
+
+  // Action buttons
+  document.getElementById('btnCall').addEventListener('click', () => makeCall());
+  document.getElementById('btnHangup').addEventListener('click', () => hangup());
+  document.getElementById('btnMute').addEventListener('click', () => toggleMute());
+
   // Listen for messages from service worker (new call requests)
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'DIAL_NUMBER') {

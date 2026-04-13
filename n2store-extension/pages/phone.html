@@ -120,25 +120,25 @@
 
     <input type="tel" class="dialpad-input" id="phoneInput" placeholder="Nhap so dien thoai..." maxlength="15">
 
-    <div class="dialpad">
-      <button class="dialpad-btn" onclick="pressKey('1')">1</button>
-      <button class="dialpad-btn" onclick="pressKey('2')">2<span class="dialpad-sub">ABC</span></button>
-      <button class="dialpad-btn" onclick="pressKey('3')">3<span class="dialpad-sub">DEF</span></button>
-      <button class="dialpad-btn" onclick="pressKey('4')">4<span class="dialpad-sub">GHI</span></button>
-      <button class="dialpad-btn" onclick="pressKey('5')">5<span class="dialpad-sub">JKL</span></button>
-      <button class="dialpad-btn" onclick="pressKey('6')">6<span class="dialpad-sub">MNO</span></button>
-      <button class="dialpad-btn" onclick="pressKey('7')">7<span class="dialpad-sub">PQRS</span></button>
-      <button class="dialpad-btn" onclick="pressKey('8')">8<span class="dialpad-sub">TUV</span></button>
-      <button class="dialpad-btn" onclick="pressKey('9')">9<span class="dialpad-sub">WXYZ</span></button>
-      <button class="dialpad-btn" onclick="pressKey('*')">*</button>
-      <button class="dialpad-btn" onclick="pressKey('0')">0<span class="dialpad-sub">+</span></button>
-      <button class="dialpad-btn" onclick="pressKey('#')">#</button>
+    <div class="dialpad" id="dialpad">
+      <button class="dialpad-btn" data-key="1">1</button>
+      <button class="dialpad-btn" data-key="2">2<span class="dialpad-sub">ABC</span></button>
+      <button class="dialpad-btn" data-key="3">3<span class="dialpad-sub">DEF</span></button>
+      <button class="dialpad-btn" data-key="4">4<span class="dialpad-sub">GHI</span></button>
+      <button class="dialpad-btn" data-key="5">5<span class="dialpad-sub">JKL</span></button>
+      <button class="dialpad-btn" data-key="6">6<span class="dialpad-sub">MNO</span></button>
+      <button class="dialpad-btn" data-key="7">7<span class="dialpad-sub">PQRS</span></button>
+      <button class="dialpad-btn" data-key="8">8<span class="dialpad-sub">TUV</span></button>
+      <button class="dialpad-btn" data-key="9">9<span class="dialpad-sub">WXYZ</span></button>
+      <button class="dialpad-btn" data-key="*">*</button>
+      <button class="dialpad-btn" data-key="0">0<span class="dialpad-sub">+</span></button>
+      <button class="dialpad-btn" data-key="#">#</button>
     </div>
 
     <div class="actions">
-      <button class="action-btn btn-mute" id="btnMute" onclick="toggleMute()" title="Tat tieng">&#128263;</button>
-      <button class="action-btn btn-call" id="btnCall" onclick="makeCall()" title="Goi">&#128222;</button>
-      <button class="action-btn btn-hangup" id="btnHangup" onclick="hangup()" title="Ngat">&#128308;</button>
+      <button class="action-btn btn-mute" id="btnMute" title="Tat tieng">&#128263;</button>
+      <button class="action-btn btn-call" id="btnCall" title="Goi">&#128222;</button>
+      <button class="action-btn btn-hangup" id="btnHangup" title="Ngat">&#128308;</button>
     </div>
 
     <div class="log-section" id="logSection"></div>
