@@ -10,8 +10,7 @@
     padding: var(--spacing-xl);
     width: 100%;
     box-sizing: border-box;
-    max-width: 1600px;
-    margin: 0 auto;
+    margin: 0;
 }
 
 /* Page Header */
