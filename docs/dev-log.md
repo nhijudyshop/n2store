@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-11
+
+### [docs] Tổng hợp hoàn chỉnh OnCallCX UCaaS V1.1 + V2.0 + Portal Live
+| | |
+|---|---|
+| **Files** | `orders-report/oncallcx-ucaas-v2-complete.md` (new, 852 dòng) |
+| **Chi tiết** | Đọc đầy đủ 2 PDF: V1.1 (75 trang) + V2.0 (78 trang). Fetch portal live `pbx-ucaas.oncallcx.vn` qua session cookie (Dashboard, Settings, Extensions, Phones, Add-ons — 6 trang HTML parsed). Tạo file markdown tổng hợp 11 sections (§0–§10): §0 Portal Live data (PBX UCaaS_HNCX01402, SĐT 0963839208, SIP `pbx-ucaas.oncallcx.vn:9060`, 16+ trang portal navigation map), §1–5 giữ từ V1.1 analysis, §6 anConnect/anMeet (V1.1), §7 Lịch sử cuộc gọi (V2.0 rename), §8 Cài đặt thiết bị đầu cuối V2.0 (5 sub-sections mới: MS Teams, Desktop app, IP Phone Yealink + Zoiper SIP config chi tiết, QR cho mobile, tổng hợp 6 Provisioning Options gồm Click-to-Call mới), §9 Cheatsheet codes, §10 Pitfalls (thêm 4 pitfall mới V2.0: port 9060, Click-to-Call chưa có doc, email bắt buộc cho desktop provisioning, Auth ID khác extension number). |
+| **Status** | Done |
+
+---
+
 ## 2026-04-13
 
 ### [product-warehouse] Migrate product list + search + variants từ TPOS OData → Render DB ✅
