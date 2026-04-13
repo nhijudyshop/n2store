@@ -4,7 +4,7 @@
 // Abstraction layer: Replaces Firestore SDK with REST API calls to Render server
 // =====================================================
 
-const API_BASE = 'https://n2shop.onrender.com/api/v2/inventory-tracking';
+const API_BASE = 'https://n2store-fallback.onrender.com/api/v2/inventory-tracking';
 
 /**
  * Core fetch wrapper with auth headers
