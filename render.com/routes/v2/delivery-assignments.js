@@ -1,13 +1,18 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * DELIVERY ASSIGNMENTS API v2
- * Khóa cứng phân chia đơn giao hàng theo ngày → đồng bộ giữa các máy
+ * Source of truth cho phân chia đơn giao hàng — thay thế hoàn toàn Firestore
  *
  * Endpoints:
- *   GET    /                    - List assignments by date
- *   POST   /                    - Bulk upsert assignments (chỉ thêm mới, không ghi đè)
- *   DELETE /:orderNumber        - Remove single assignment (admin only)
- *   DELETE /                    - Remove all assignments for a date (admin only)
+ *   GET    /                          - Load all assignments (groups + scanned + hidden) for a date
+ *   POST   /                          - Bulk upsert assignments (ON CONFLICT DO NOTHING)
+ *   PUT    /:orderNumber              - Update group for single order (admin move)
+ *   DELETE /:orderNumber              - Remove single assignment
+ *
+ *   PATCH  /scan/:orderNumber         - Mark order as scanned
+ *   PATCH  /unscan/:orderNumber       - Unmark order scan
+ *   PATCH  /unscan-bulk               - Unmark multiple orders (bulk unscan)
+ *   PATCH  /hide/:orderNumber         - Hide order (cancel approved)
  */
 
 const express = require('express');
@@ -30,7 +35,7 @@ function getUserFromHeaders(req) {
 
 // =====================================================
 // GET / — Load all assignments for a date
-// Query: ?date=2026-04-12
+// Returns: assignments map, scanned set, hidden set
 // =====================================================
 router.get('/', async (req, res) => {
     try {
@@ -42,19 +47,24 @@ router.get('/', async (req, res) => {
         }
 
         const result = await db.query(
-            `SELECT order_number, group_name, amount_total, cash_on_delivery, carrier_name, assigned_by, created_at
+            `SELECT order_number, group_name, amount_total, cash_on_delivery, carrier_name,
+                    is_scanned, is_hidden, scanned_by, assigned_by, created_at
              FROM delivery_assignments
              WHERE assignment_date = $1
              ORDER BY created_at ASC`,
             [date]
         );
 
-        // Return as a map { orderNumber: groupName } for easy frontend consumption
         const assignments = {};
-        const details = [];
+        const scannedNumbers = [];
+        const hiddenNumbers = [];
+
         for (const row of result.rows) {
-            assignments[row.order_number] = row.group_name;
-            details.push(row);
+            if (!row.is_hidden) {
+                assignments[row.order_number] = row.group_name;
+            }
+            if (row.is_scanned) scannedNumbers.push(row.order_number);
+            if (row.is_hidden) hiddenNumbers.push(row.order_number);
         }
 
         res.json({
@@ -62,8 +72,11 @@ router.get('/', async (req, res) => {
             data: {
                 date,
                 assignments,
-                details,
-                totalCount: result.rows.length
+                scannedNumbers,
+                hiddenNumbers,
+                totalCount: result.rows.length,
+                scannedCount: scannedNumbers.length,
+                hiddenCount: hiddenNumbers.length
             }
         });
     } catch (err) {
@@ -74,8 +87,6 @@ router.get('/', async (req, res) => {
 
 // =====================================================
 // POST / — Bulk insert assignments (ON CONFLICT DO NOTHING)
-// Body: { date, assignments: [{ orderNumber, groupName, amountTotal, cashOnDelivery, carrierName }] }
-// Đơn đã có trong DB sẽ KHÔNG bị ghi đè
 // =====================================================
 router.post('/', async (req, res) => {
     try {
@@ -87,7 +98,6 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Missing date or assignments array' });
         }
 
-        // Build bulk insert with ON CONFLICT DO NOTHING
         const values = [];
         const params = [];
         let paramIndex = 1;
@@ -111,7 +121,6 @@ router.post('/', async (req, res) => {
             return res.json({ success: true, data: { inserted: 0, skipped: 0 } });
         }
 
-        // ON CONFLICT DO NOTHING = đơn đã chia trước đó không bị thay đổi
         const query = `
             INSERT INTO delivery_assignments (assignment_date, order_number, group_name, amount_total, cash_on_delivery, carrier_name, assigned_by)
             VALUES ${values.join(', ')}
@@ -127,11 +136,7 @@ router.post('/', async (req, res) => {
 
         res.json({
             success: true,
-            data: {
-                inserted,
-                skipped,
-                insertedOrders: result.rows.map(r => r.order_number)
-            }
+            data: { inserted, skipped, insertedOrders: result.rows.map(r => r.order_number) }
         });
     } catch (err) {
         console.error('[delivery-assignments] POST / error:', err.message);
@@ -140,9 +145,125 @@ router.post('/', async (req, res) => {
 });
 
 // =====================================================
-// PUT /:orderNumber — Update group for single order (admin move)
-// Query: ?date=2026-04-12
-// Body: { groupName }
+// PATCH /scan/:orderNumber — Mark as scanned
+// =====================================================
+router.patch('/scan/:orderNumber', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { orderNumber } = req.params;
+        const { date } = req.query;
+        const user = getUserFromHeaders(req);
+
+        if (!date) {
+            return res.status(400).json({ success: false, error: 'Missing date parameter' });
+        }
+
+        const result = await db.query(
+            `UPDATE delivery_assignments
+             SET is_scanned = TRUE, scanned_at = NOW(), scanned_by = $1, updated_at = NOW()
+             WHERE assignment_date = $2 AND order_number = $3
+             RETURNING order_number, is_scanned`,
+            [user, date, orderNumber]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Order not found for this date' });
+        }
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error('[delivery-assignments] PATCH /scan error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
+// PATCH /unscan/:orderNumber — Unmark scan
+// =====================================================
+router.patch('/unscan/:orderNumber', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { orderNumber } = req.params;
+        const { date } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ success: false, error: 'Missing date parameter' });
+        }
+
+        const result = await db.query(
+            `UPDATE delivery_assignments
+             SET is_scanned = FALSE, scanned_at = NULL, scanned_by = NULL, updated_at = NOW()
+             WHERE assignment_date = $1 AND order_number = $2
+             RETURNING order_number`,
+            [date, orderNumber]
+        );
+
+        res.json({ success: true, data: { unscanned: result.rows.length > 0 } });
+    } catch (err) {
+        console.error('[delivery-assignments] PATCH /unscan error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
+// PATCH /unscan-bulk — Bulk unscan (for "Xóa tất cả" or group unscan)
+// Body: { date, orderNumbers: [...] }
+// =====================================================
+router.patch('/unscan-bulk', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, orderNumbers } = req.body;
+
+        if (!date || !orderNumbers || !Array.isArray(orderNumbers) || orderNumbers.length === 0) {
+            return res.status(400).json({ success: false, error: 'Missing date or orderNumbers' });
+        }
+
+        const placeholders = orderNumbers.map((_, i) => `$${i + 2}`).join(', ');
+        const result = await db.query(
+            `UPDATE delivery_assignments
+             SET is_scanned = FALSE, scanned_at = NULL, scanned_by = NULL, updated_at = NOW()
+             WHERE assignment_date = $1 AND order_number IN (${placeholders})
+             RETURNING order_number`,
+            [date, ...orderNumbers]
+        );
+
+        res.json({ success: true, data: { unscanned: result.rows.length } });
+    } catch (err) {
+        console.error('[delivery-assignments] PATCH /unscan-bulk error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
+// PATCH /hide/:orderNumber — Hide order (cancel approved)
+// =====================================================
+router.patch('/hide/:orderNumber', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { orderNumber } = req.params;
+        const { date } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ success: false, error: 'Missing date parameter' });
+        }
+
+        const result = await db.query(
+            `UPDATE delivery_assignments
+             SET is_hidden = TRUE, is_scanned = FALSE, updated_at = NOW()
+             WHERE assignment_date = $1 AND order_number = $2
+             RETURNING order_number`,
+            [date, orderNumber]
+        );
+
+        res.json({ success: true, data: { hidden: result.rows.length > 0 } });
+    } catch (err) {
+        console.error('[delivery-assignments] PATCH /hide error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
+// PUT /:orderNumber — Update group (admin move)
 // =====================================================
 router.put('/:orderNumber', async (req, res) => {
     try {
@@ -182,7 +303,6 @@ router.put('/:orderNumber', async (req, res) => {
 
 // =====================================================
 // DELETE /:orderNumber — Remove single assignment
-// Query: ?date=2026-04-12
 // =====================================================
 router.delete('/:orderNumber', async (req, res) => {
     try {
@@ -199,10 +319,7 @@ router.delete('/:orderNumber', async (req, res) => {
             [date, orderNumber]
         );
 
-        res.json({
-            success: true,
-            data: { deleted: result.rows.length > 0 }
-        });
+        res.json({ success: true, data: { deleted: result.rows.length > 0 } });
     } catch (err) {
         console.error('[delivery-assignments] DELETE error:', err.message);
         res.status(500).json({ success: false, error: err.message });

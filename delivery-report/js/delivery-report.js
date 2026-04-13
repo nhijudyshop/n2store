@@ -857,13 +857,14 @@
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
 
-            // Load scanned numbers + province groups from server
+            // Load scanned numbers + province groups from DB
             await loadScannedNumbers();
             await ensureProvinceGroups();
 
             updateTabUI();
             updateProvinceExportButtons();
             document.addEventListener('keydown', onBarcodeKeydown);
+            startSyncPolling();
             renderAllGroupsView();
             updateScanCount();
         } else {
@@ -883,6 +884,7 @@
             if (tableWrapper) tableWrapper.style.display = '';
 
 
+            stopSyncPolling();
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
             state.scanFilter = 'unscanned';
@@ -1082,23 +1084,6 @@
         });
     }
 
-    function getFirestoreDB() {
-        // Use shared getFirestore() which handles initialization
-        if (typeof getFirestore === 'function') {
-            return getFirestore();
-        }
-        // Fallback: direct Firebase access
-        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
-            return firebase.firestore();
-        }
-        // Last resort: try to initialize
-        if (typeof initializeFirestore === 'function') {
-            return initializeFirestore();
-        }
-        console.warn('[DELIVERY-REPORT] Firestore not available');
-        return null;
-    }
-
     // =====================================================
     // DB ASSIGNMENTS — PostgreSQL as Source of Truth
     // =====================================================
@@ -1120,11 +1105,16 @@
                 DeliveryReportState.dbAssignments = result.data.assignments || {};
                 DeliveryReportState._dbAssignmentsLoaded = true;
                 DeliveryReportState._dbLockedCount = result.data.totalCount || 0;
-                console.log(`[DELIVERY-REPORT] DB: loaded ${result.data.totalCount} locked assignments for ${date}`);
+
+                // Load scanned + hidden from same response
+                DeliveryReportState.scannedNumbers = new Set(result.data.scannedNumbers || []);
+                DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
+
+                console.log(`[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${date}`);
                 return result.data.assignments;
             }
         } catch (e) {
-            console.warn('[DELIVERY-REPORT] Failed to load DB assignments, falling back to Firestore:', e.message);
+            console.warn('[DELIVERY-REPORT] Failed to load DB assignments:', e.message);
         }
         return {};
     }
@@ -1164,141 +1154,100 @@
         return { inserted: 0, skipped: 0 };
     }
 
-    async function loadProvinceGroups() {
-        const db = getFirestoreDB();
-        if (!db) {
-            console.warn('[DELIVERY-REPORT] No Firestore DB for loading province groups');
-            return {};
-        }
-
-        try {
-            const doc = await db.collection('delivery_report').doc('province_groups').get();
-            if (doc.exists) {
-                console.log('[DELIVERY-REPORT] Loaded province groups from Firestore');
-                return doc.data().groups || {};
-            }
-        } catch (e) {
-            console.warn('[DELIVERY-REPORT] Failed to load province groups:', e);
-        }
-        return {};
-    }
-
-    async function saveProvinceGroups(groups, onlyKeys) {
-        const db = getFirestoreDB();
-        if (!db) {
-            console.warn('[DELIVERY-REPORT] No Firestore DB for saving province groups');
-            return;
-        }
-
-        try {
-            const docRef = db.collection('delivery_report').doc('province_groups');
-            // Use dot-notation to update only specific keys, preventing overwrites
-            // from concurrent saves on other machines
-            const updateData = { lastUpdated: Date.now() };
-            const keysToSave = onlyKeys || Object.keys(groups);
-            keysToSave.forEach(key => {
-                updateData[`groups.${key}`] = groups[key];
-            });
-
-            // Try update first (doc must exist), fallback to set if doc doesn't exist
-            try {
-                await docRef.update(updateData);
-            } catch (updateErr) {
-                // Document doesn't exist yet, create it
-                if (updateErr.code === 'not-found') {
-                    await docRef.set({ groups: groups, lastUpdated: Date.now() });
-                } else {
-                    throw updateErr;
-                }
-            }
-            console.log('[DELIVERY-REPORT] Province groups saved to Firestore');
-        } catch (e) {
-            console.warn('[DELIVERY-REPORT] Failed to save province groups:', e);
-        }
-    }
-
     // =====================================================
-    // SCANNED NUMBERS - Firestore Sync
+    // SCANNED / HIDDEN — PostgreSQL via Render API
     // =====================================================
     async function loadScannedNumbers() {
-        const db = getFirestoreDB();
-        if (!db) return;
-
-        try {
-            const doc = await db.collection('delivery_report').doc('scanned_numbers').get();
-            if (doc.exists) {
-                const numbers = doc.data().numbers || [];
-                DeliveryReportState.scannedNumbers = new Set(numbers);
-            }
-        } catch (e) {
-            console.warn('[DELIVERY-REPORT] Failed to load scanned numbers:', e);
-        }
+        // Scanned numbers are loaded together with assignments in loadAssignmentsFromDB()
+        // This function is kept for backward compatibility with traSoat() flow
+        if (DeliveryReportState._dbAssignmentsLoaded) return;
+        await loadAssignmentsFromDB();
     }
 
     async function loadHiddenNumbers() {
-        const db = getFirestoreDB();
-        if (!db) return;
-        try {
-            const doc = await db.collection('delivery_report').doc('hidden_numbers').get();
-            if (doc.exists) {
-                const numbers = doc.data().numbers || [];
-                DeliveryReportState.hiddenNumbers = new Set(numbers);
-            }
-        } catch (e) {
-            console.warn('[DELIVERY-REPORT] Failed to load hidden numbers:', e);
-        }
+        // Hidden numbers are loaded together with assignments in loadAssignmentsFromDB()
+        if (DeliveryReportState._dbAssignmentsLoaded) return;
+        await loadAssignmentsFromDB();
     }
 
-    function saveHiddenNumbers() {
-        const db = getFirestoreDB();
-        if (!db) return;
-        db.collection('delivery_report').doc('hidden_numbers').set({
-            numbers: [...DeliveryReportState.hiddenNumbers],
-            lastUpdated: Date.now()
-        }).catch(e => console.warn('[DELIVERY-REPORT] Failed to save hidden numbers:', e));
-    }
-
-    function hideOrder(number) {
+    async function hideOrder(number) {
         if (!number) return;
+        const date = getAssignmentDate();
         DeliveryReportState.hiddenNumbers.add(number);
         DeliveryReportState.scannedNumbers.delete(number);
         DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(i => i.Number !== number);
-        saveHiddenNumbers();
-        saveScannedNumbers();
+
+        // Save to DB
+        try {
+            const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
+            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}?date=${date}`, {
+                method: 'PATCH',
+                headers: { 'x-auth-data': JSON.stringify({ userName: user }) }
+            });
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to hide order in DB:', e.message);
+        }
+
         renderTable();
         renderStats();
         renderPagination();
         if (DeliveryReportState.traSoatMode) updateScanCount();
     }
 
-    function saveScannedNumbers() {
-        const db = getFirestoreDB();
-        if (!db) return;
-
-        db.collection('delivery_report').doc('scanned_numbers').set({
-            numbers: [...DeliveryReportState.scannedNumbers],
-            lastUpdated: Date.now()
-        }).catch(e => console.warn('[DELIVERY-REPORT] Failed to save scanned numbers:', e));
+    async function saveScannedNumber(orderNumber) {
+        const date = getAssignmentDate();
+        try {
+            const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
+            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}?date=${date}`, {
+                method: 'PATCH',
+                headers: { 'x-auth-data': JSON.stringify({ userName: user }) }
+            });
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to save scan to DB:', e.message);
+        }
     }
 
-    function unscanItem(number) {
+    async function unscanNumberInDB(orderNumber) {
+        const date = getAssignmentDate();
+        try {
+            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}?date=${date}`, {
+                method: 'PATCH'
+            });
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to unscan in DB:', e.message);
+        }
+    }
+
+    async function unscanBulkInDB(orderNumbers) {
+        const date = getAssignmentDate();
+        try {
+            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan-bulk`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, orderNumbers })
+            });
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to bulk unscan in DB:', e.message);
+        }
+    }
+
+    async function unscanItem(number) {
         if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         if (!confirm(`Chắc chắn đơn ${number} đã được đưa vào kho xử lý?`)) return;
         DeliveryReportState.scannedNumbers.delete(number);
-        saveScannedNumbers();
+        await unscanNumberInDB(number);
         refreshTraSoatView();
     }
 
-    function unscanAllTab() {
+    async function unscanAllTab() {
         if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         const tabData = getTabFilteredData();
         const scannedInTab = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number));
         if (scannedInTab.length === 0) return;
         if (!confirm(`⚠️ Xóa tất cả ${scannedInTab.length} đơn đã quét?\n\nHành động này KHÔNG THỂ hoàn tác!`)) return;
-        scannedInTab.forEach(item => {
-            DeliveryReportState.scannedNumbers.delete(item.Number);
-        });
-        saveScannedNumbers();
+        const numbers = scannedInTab.map(item => item.Number);
+        numbers.forEach(n => DeliveryReportState.scannedNumbers.delete(n));
+        await unscanBulkInDB(numbers);
         refreshTraSoatView();
     }
 
@@ -1309,62 +1258,47 @@
         const items = allData.filter(item => getItemGroup(item) === groupKey && scanned.has(item.Number));
         if (items.length === 0) return;
         if (!confirm(`Xóa tất cả ${items.length} đơn đã quét trong nhóm ${GROUP_LABELS[groupKey] || groupKey}?`)) return;
-        items.forEach(item => scanned.delete(item.Number));
-        saveScannedNumbers();
+        const numbers = items.map(item => item.Number);
+        numbers.forEach(n => scanned.delete(n));
+        unscanBulkInDB(numbers);
         refreshTraSoatView();
     }
 
     // =====================================================
-    // REALTIME SYNC - Cross-machine sync via Firestore listeners
+    // CROSS-MACHINE SYNC — Polling from PostgreSQL
     // =====================================================
-    function setupRealtimeSync() {
-        const db = getFirestoreDB();
-        if (!db) return;
+    let _syncInterval = null;
 
-        // Listen for scanned numbers changes from other machines
-        DeliveryReportState._scannedListener = db.collection('delivery_report')
-            .doc('scanned_numbers')
-            .onSnapshot(doc => {
-                if (!doc.exists || !DeliveryReportState.traSoatMode) return;
-                const numbers = doc.data().numbers || [];
-                DeliveryReportState.scannedNumbers = new Set(numbers);
-                refreshTraSoatView();
-            });
+    function startSyncPolling() {
+        stopSyncPolling();
+        // Poll every 5 seconds for changes from other machines
+        _syncInterval = setInterval(async () => {
+            if (!DeliveryReportState.traSoatMode) return;
+            try {
+                const date = getAssignmentDate();
+                const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments?date=${date}`);
+                if (!resp.ok) return;
+                const result = await resp.json();
+                if (!result.success) return;
 
-        // Listen for province groups changes from other machines
-        // Merge Firestore updates into local state but DB remains source of truth
-        DeliveryReportState._groupsListener = db.collection('delivery_report')
-            .doc('province_groups')
-            .onSnapshot(doc => {
-                if (!doc.exists) return;
-                const firestoreGroups = doc.data().groups || {};
-                // Merge: DB assignments take priority, Firestore fills gaps
-                for (const [key, val] of Object.entries(firestoreGroups)) {
-                    if (!DeliveryReportState.dbAssignments[key]) {
-                        DeliveryReportState.provinceGroups[key] = val;
-                    }
+                const newScanned = new Set(result.data.scannedNumbers || []);
+                const oldScanned = DeliveryReportState.scannedNumbers;
+
+                // Only refresh if scanned set changed
+                if (newScanned.size !== oldScanned.size || [...newScanned].some(n => !oldScanned.has(n))) {
+                    DeliveryReportState.scannedNumbers = newScanned;
+                    DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
+                    refreshTraSoatView();
+                    console.log('[DELIVERY-REPORT] Sync: updated from DB');
                 }
-                DeliveryReportState._provinceGroupsLoaded = true;
-                if (DeliveryReportState.traSoatMode) {
-                    if (DeliveryReportState.activeTab === 'province') {
-                        renderProvinceView();
-                        updateScanCount();
-                    } else if (DeliveryReportState.activeTab === 'all') {
-                        renderAllGroupsView();
-                        updateScanCount();
-                    }
-                }
-            });
+            } catch (_) { /* silent fail for polling */ }
+        }, 5000);
     }
 
-    function teardownRealtimeSync() {
-        if (DeliveryReportState._scannedListener) {
-            DeliveryReportState._scannedListener();
-            DeliveryReportState._scannedListener = null;
-        }
-        if (DeliveryReportState._groupsListener) {
-            DeliveryReportState._groupsListener();
-            DeliveryReportState._groupsListener = null;
+    function stopSyncPolling() {
+        if (_syncInterval) {
+            clearInterval(_syncInterval);
+            _syncInterval = null;
         }
     }
 
@@ -1389,7 +1323,6 @@
         // Step 1: Load locked assignments from DB (source of truth)
         if (!state._dbAssignmentsLoaded) {
             const dbAssignments = await loadAssignmentsFromDB();
-            // Apply DB assignments to provinceGroups (for province items)
             for (const [orderNumber, groupName] of Object.entries(dbAssignments)) {
                 if (groupName === 'tomato' || groupName === 'nap') {
                     state.provinceGroups[orderNumber] = groupName;
@@ -1400,42 +1333,26 @@
             state._provinceGroupsLoaded = true;
         }
 
-        // Step 2: Fallback to Firestore for any province items not in DB
-        if (!state._provinceGroupsLoaded) {
-            const firestoreGroups = await loadProvinceGroups();
-            for (const [key, val] of Object.entries(firestoreGroups)) {
-                if (!state.provinceGroups[key]) {
-                    state.provinceGroups[key] = val;
-                }
-            }
-            state._provinceGroupsLoaded = true;
-        }
-
-        // Step 3: Assign TOMATO/NAP for truly new province items
+        // Step 2: Assign TOMATO/NAP for new province items not in DB
         const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, state.provinceGroups);
-            const newKeys = unassigned.map(item => item.Number);
-            await saveProvinceGroups(state.provinceGroups, newKeys);
         }
 
-        // Step 4: Build full assignment list for ALL items (not just province)
-        // and save new ones to DB
+        // Step 3: Build full assignment list and save new ones to DB
         const itemsToSave = [];
         const allGroups = {};
         for (const item of allData) {
             const group = getItemGroup(item);
             allGroups[item.Number] = group;
-            // Only save items NOT already in DB
             if (!state.dbAssignments[item.Number]) {
                 itemsToSave.push(item);
             }
         }
 
-        // Step 5: Save new assignments to DB (ON CONFLICT DO NOTHING)
+        // Step 4: Save new assignments to DB (ON CONFLICT DO NOTHING)
         if (itemsToSave.length > 0) {
             const result = await saveAssignmentsToDB(itemsToSave, allGroups);
-            // Update local state with what was actually saved
             for (const item of itemsToSave) {
                 state.dbAssignments[item.Number] = allGroups[item.Number];
             }
@@ -1486,8 +1403,10 @@
         const unassigned = provinceData.filter(item => !groups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, groups);
-            const newKeys = unassigned.map(item => item.Number);
-            saveProvinceGroups(groups, newKeys);
+            // Save to DB in background
+            const allGroups = {};
+            unassigned.forEach(item => { allGroups[item.Number] = groups[item.Number]; });
+            saveAssignmentsToDB(unassigned, allGroups);
         }
 
         const allTomato = provinceData.filter(item => groups[item.Number] === 'tomato');
@@ -1812,8 +1731,8 @@
         // Mark as scanned
         state.scannedNumbers.add(match.Number);
 
-        // Save to Firestore
-        saveScannedNumbers();
+        // Save to DB
+        saveScannedNumber(match.Number);
 
         // Update view based on active tab
         const customerName = match.PartnerDisplayName || '';
