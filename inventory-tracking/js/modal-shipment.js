@@ -78,7 +78,7 @@ function renderShipmentForm(shipment) {
                 </div>
             </div>
         ` : `
-            <div class="form-section form-section-collapsible ${isEdit || packagesString ? '' : 'collapsed'}">
+            <div class="form-section form-section-collapsible">
                 <h4 class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                     <i data-lucide="box"></i> Kiện Hàng
                     <i data-lucide="chevron-down" class="toggle-arrow"></i>
@@ -146,6 +146,18 @@ function renderInvoiceForm(invoice, index) {
     const products = invoice?.sanPham || [];
     const productLines = products.map(p => p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`).join('\n');
 
+    // Pre-populate existing images when editing
+    const existingImages = invoice?.anhHoaDon || [];
+    const existingUrlsJson = JSON.stringify(existingImages);
+    const existingPreviewsHtml = existingImages.map(url =>
+        `<div class="image-preview-item" data-url="${url}">
+            <img src="${url}" alt="Preview">
+            <button type="button" class="btn-remove-image" data-url="${url}">
+                <i data-lucide="x"></i>
+            </button>
+        </div>`
+    ).join('');
+
     return `
         <div class="invoice-form" data-index="${index}">
             <div class="invoice-header">
@@ -170,7 +182,7 @@ function renderInvoiceForm(invoice, index) {
             </div>
             <div class="form-group">
                 <label>Ảnh hóa đơn</label>
-                <div class="image-upload-area" data-invoice="${index}" data-urls="[]" tabindex="0">
+                <div class="image-upload-area" data-invoice="${index}" data-urls='${existingUrlsJson}' tabindex="0">
                     <input type="file" class="image-input" multiple accept="image/*" style="display: none;">
                     <div class="upload-actions">
                         <button type="button" class="btn btn-sm btn-outline btn-upload">
@@ -178,7 +190,7 @@ function renderInvoiceForm(invoice, index) {
                         </button>
                         <span class="paste-hint">hoặc Ctrl+V để dán ảnh</span>
                     </div>
-                    <div class="image-preview-list"></div>
+                    <div class="image-preview-list">${existingPreviewsHtml}</div>
                 </div>
             </div>
         </div>
@@ -300,20 +312,7 @@ function setupShipmentFormListeners() {
         }
     });
 
-    // Auto-fill tenNCC when sttNCC changes
-    document.getElementById('modalShipmentBody')?.addEventListener('change', (e) => {
-        if (e.target.classList.contains('invoice-ncc')) {
-            const form = e.target.closest('.invoice-form');
-            const tenNCCInput = form?.querySelector('.invoice-ten-ncc');
-            const sttNCC = parseInt(e.target.value, 10);
-            if (sttNCC && tenNCCInput && !tenNCCInput.value && typeof getSuggestedTenNCC === 'function') {
-                const suggestedName = getSuggestedTenNCC(sttNCC);
-                if (suggestedName) {
-                    tenNCCInput.value = suggestedName;
-                }
-            }
-        }
-    });
+    // Note: Removed auto-fill tenNCC — user enters manually
 
     // Save button
     document.getElementById('btnSaveShipment')?.addEventListener('click', saveShipment);
@@ -612,10 +611,8 @@ async function saveShipment() {
             // Get existing invoice data if editing
             const existingInvoice = currentShipmentData?.hoaDon?.[invoiceIndex];
 
-            // Collect uploaded image URLs from the upload area
-            const newImages = getInvoiceImageUrls(form);
-            const existingImages = existingInvoice?.anhHoaDon || [];
-            const anhHoaDon = [...existingImages, ...newImages];
+            // Get all image URLs from upload area (includes existing + newly uploaded)
+            const anhHoaDon = getInvoiceImageUrls(form);
 
             hoaDon.push({
                 id: existingInvoice?.id || generateId('hd'),
