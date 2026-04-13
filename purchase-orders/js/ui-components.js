@@ -545,6 +545,216 @@ class PurchaseOrderUIComponents {
     }
 
     // ========================================
+    // TPOS LIVE STATS
+    // ========================================
+
+    /**
+     * Render TPOS live purchase stats for current month
+     * Fetches data from TPOS OData API via proxy
+     * @param {HTMLElement} container - Container element (#tposStatsContainer)
+     */
+    async renderTPOSStats(container) {
+        if (!container) return;
+
+        const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        // Show skeleton while loading
+        this._renderTPOSStatsSkeleton(container);
+
+        try {
+            if (!window.TPOSClient?.authenticatedFetch) {
+                throw new Error('TPOSClient not available');
+            }
+
+            // Build date range for current month (Vietnam timezone UTC+7)
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+            const formatDate = (date) => {
+                const utc = new Date(date.getTime() - 7 * 60 * 60 * 1000);
+                return utc.toISOString().replace('Z', '%2B00%3A00').replaceAll(':', '%3A');
+            };
+
+            const firstDayStr = formatDate(firstDay);
+            const lastDayStr = formatDate(lastDay);
+
+            // Fetch invoice count + total, refund count, and open debt in parallel
+            const [invoiceData, refundData, debtData] = await Promise.all([
+                // Invoice stats this month (count + sum)
+                window.TPOSClient.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
+                    `?$top=0&$count=true` +
+                    `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
+                ).then(r => r.json()),
+
+                // Refund count this month
+                window.TPOSClient.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
+                    `?$top=0&$count=true` +
+                    `&$filter=(Type eq 'refund' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
+                ).then(r => r.json()),
+
+                // Outstanding debt (all open invoices)
+                window.TPOSClient.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
+                    `?$top=999&$filter=(Type eq 'invoice' and State eq 'open')` +
+                    `&$select=Residual,AmountTotal`
+                ).then(r => r.json())
+            ]);
+
+            // Calculate totals
+            const invoiceCount = invoiceData['@odata.count'] || 0;
+
+            // For total amount, we need a separate request with actual data
+            let totalAmount = 0;
+            if (invoiceCount > 0) {
+                const amountResp = await window.TPOSClient.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
+                    `?$top=999` +
+                    `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})` +
+                    `&$select=AmountTotal`
+                ).then(r => r.json());
+
+                totalAmount = (amountResp.value || []).reduce((sum, inv) => sum + (inv.AmountTotal || 0), 0);
+            }
+
+            const refundCount = refundData['@odata.count'] || 0;
+
+            const outstandingDebt = (debtData.value || []).reduce(
+                (sum, inv) => sum + (inv.Residual || 0), 0
+            );
+
+            // Get current month label
+            const monthLabel = `T${now.getMonth() + 1}/${now.getFullYear()}`;
+
+            // Render cards
+            this._renderTPOSStatsCards(container, {
+                invoiceCount,
+                totalAmount,
+                refundCount,
+                outstandingDebt,
+                monthLabel
+            });
+
+        } catch (error) {
+            console.error('[TPOS Stats] Failed to load:', error);
+            this._renderTPOSStatsError(container, error.message);
+        }
+    }
+
+    /**
+     * Render TPOS stats cards with data
+     * @private
+     */
+    _renderTPOSStatsCards(container, stats) {
+        const config = window.PurchaseOrderConfig;
+
+        const cards = [
+            {
+                icon: 'file-check',
+                label: `Mua hàng TPOS (${stats.monthLabel})`,
+                value: stats.invoiceCount,
+                format: 'number',
+                color: 'blue'
+            },
+            {
+                icon: 'banknote',
+                label: 'Tổng tiền mua',
+                value: stats.totalAmount,
+                format: 'currency',
+                color: 'green'
+            },
+            {
+                icon: 'undo-2',
+                label: 'Trả hàng',
+                value: stats.refundCount,
+                format: 'number',
+                color: 'orange'
+            },
+            {
+                icon: 'alert-circle',
+                label: 'Công nợ NCC',
+                value: stats.outstandingDebt,
+                format: 'currency',
+                color: 'red'
+            }
+        ];
+
+        container.innerHTML = `
+            <div class="tpos-stats__header">
+                <i data-lucide="database"></i>
+                <span>Dữ liệu TPOS tháng này</span>
+                <span class="tpos-stats__badge">Live</span>
+            </div>
+            <div class="tpos-stats__grid">
+                ${cards.map(card => `
+                    <div class="tpos-stat-card tpos-stat-card--${card.color}">
+                        <div class="tpos-stat-card__icon">
+                            <i data-lucide="${card.icon}"></i>
+                        </div>
+                        <div class="tpos-stat-card__label">${card.label}</div>
+                        <div class="tpos-stat-card__value">${this.formatCardValue(card.value, card.format)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Render skeleton loading for TPOS stats
+     * @private
+     */
+    _renderTPOSStatsSkeleton(container) {
+        const skeletons = Array(4).fill(0).map(() => `
+            <div class="tpos-stat-card tpos-stat-card--skeleton">
+                <div class="tpos-stat-card__icon skeleton" style="width: 32px; height: 32px;"></div>
+                <div class="tpos-stat-card__label skeleton" style="width: 90px; height: 12px;"></div>
+                <div class="tpos-stat-card__value skeleton" style="width: 110px; height: 22px;"></div>
+            </div>
+        `).join('');
+
+        container.innerHTML = `
+            <div class="tpos-stats__header">
+                <i data-lucide="database"></i>
+                <span>Dữ liệu TPOS tháng này</span>
+                <span class="tpos-stats__badge">Live</span>
+            </div>
+            <div class="tpos-stats__grid">${skeletons}</div>
+        `;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Render error state for TPOS stats
+     * @private
+     */
+    _renderTPOSStatsError(container, message) {
+        container.innerHTML = `
+            <div class="tpos-stats__header">
+                <i data-lucide="database"></i>
+                <span>Dữ liệu TPOS tháng này</span>
+            </div>
+            <div class="tpos-stats__error">
+                <i data-lucide="wifi-off"></i>
+                <span>Không thể tải dữ liệu TPOS${message ? `: ${message}` : ''}</span>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    // ========================================
     // LOADING & EMPTY STATES
     // ========================================
 

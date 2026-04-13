@@ -8,6 +8,13 @@
 
 ## 2026-04-13
 
+### [orders] Add TPOS live stats cards to purchase-orders dashboard ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/ui-components.js`, `purchase-orders/css/cards.css`, `purchase-orders/index.html`, `purchase-orders/js/main.js` |
+| **Chi tiết** | Thêm section "Dữ liệu TPOS tháng này" với 4 cards: Mua hàng TPOS (count), Tổng tiền mua, Trả hàng, Công nợ NCC. Fetch từ TPOS OData API qua proxy, fire-and-forget non-blocking. Skeleton loading + error state. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Fix "Mã ticket: undefined" trong alert duplicate BOOM/FIX_COD ✅
 | | |
 |---|---|

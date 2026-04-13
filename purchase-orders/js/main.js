@@ -196,6 +196,9 @@ class PurchaseOrderController {
             // Summary cards
             summaryContainer: document.getElementById('summaryCards'),
 
+            // TPOS live stats
+            tposStatsContainer: document.getElementById('tposStatsContainer'),
+
             // Tabs
             tabsContainer: document.getElementById('tabsContainer'),
 
@@ -313,6 +316,9 @@ class PurchaseOrderController {
         // Show loading
         this.ui.renderSummaryCardsSkeleton(this.elements.summaryContainer);
         this.tableRenderer.renderSkeleton();
+
+        // Fire-and-forget: load TPOS live stats (non-blocking)
+        this.ui.renderTPOSStats(this.elements.tposStatsContainer);
 
         // Restore tab from URL hash, default to DRAFT
         const hash = window.location.hash.replace('#', '');
