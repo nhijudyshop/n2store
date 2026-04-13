@@ -391,16 +391,21 @@
                 <div class="col-actions"></div>
             </div>`;
 
-            // Sort items within group by STT (same STT adjacent), new row first
+            // Sort: new row first → group by STT → within same STT, rows with SL/KG first
             group.items.sort((a, b) => {
-                // Newly added row always first
                 if (newlyAddedId && a.item.id === newlyAddedId) return -1;
                 if (newlyAddedId && b.item.id === newlyAddedId) return 1;
                 const sA = (a.item.stt || '').trim();
                 const sB = (b.item.stt || '').trim();
-                if (sA && sB) return sA.localeCompare(sB, undefined, { numeric: true });
-                if (sA) return -1;
-                if (sB) return 1;
+                // Group by STT
+                if (sA && sB && sA !== sB) return sA.localeCompare(sB, undefined, { numeric: true });
+                if (sA && !sB) return -1;
+                if (!sA && sB) return 1;
+                // Same STT: rows with SL or KG come first
+                const hasSlA = parseNum(a.item.soLuong) > 0 || parseNum(a.item.soKg) > 0;
+                const hasSlB = parseNum(b.item.soLuong) > 0 || parseNum(b.item.soKg) > 0;
+                if (hasSlA && !hasSlB) return -1;
+                if (!hasSlA && hasSlB) return 1;
                 return (a.item.id || 0) - (b.item.id || 0);
             });
 
@@ -466,12 +471,15 @@
             cb.addEventListener('change', () => toggleDone(cb.dataset.id, cb.checked));
         });
 
-        // Bind STT click to open image gallery
+        // Bind STT: hover preview + click gallery
         listEl.querySelectorAll('.col-stt.has-img').forEach((cell) => {
             cell.addEventListener('click', (e) => {
                 e.stopPropagation();
+                hideSttPreview();
                 openImageGallery(cell.dataset.id);
             });
+            cell.addEventListener('mouseenter', (e) => showSttPreview(e, cell));
+            cell.addEventListener('mouseleave', hideSttPreview);
         });
     }
 
@@ -495,6 +503,33 @@
             </div>
         `;
         overlay.classList.add('active');
+    }
+
+    // ===== STT Hover Preview =====
+    let sttPreviewEl = null;
+
+    function showSttPreview(e, cell) {
+        const id = cell.dataset.id;
+        const item = allData.find((d) => String(d.id) === String(id));
+        if (!item) return;
+        const imgs = [...(item.productImages || []), ...(item.invoiceImages || [])];
+        if (imgs.length === 0) return;
+
+        hideSttPreview();
+        sttPreviewEl = document.createElement('div');
+        sttPreviewEl.className = 'stt-hover-preview';
+        sttPreviewEl.innerHTML = imgs.slice(0, 4).map((src) =>
+            `<img src="${src}">`
+        ).join('') + (imgs.length > 4 ? `<span style="font-size:11px;color:#64748b;align-self:center">+${imgs.length - 4}</span>` : '');
+
+        document.body.appendChild(sttPreviewEl);
+        const rect = cell.getBoundingClientRect();
+        sttPreviewEl.style.top = (rect.bottom + 8) + 'px';
+        sttPreviewEl.style.left = Math.min(rect.left, window.innerWidth - 420) + 'px';
+    }
+
+    function hideSttPreview() {
+        if (sttPreviewEl) { sttPreviewEl.remove(); sttPreviewEl = null; }
     }
 
     let addingRow = false;

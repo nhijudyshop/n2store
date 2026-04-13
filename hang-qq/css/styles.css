@@ -485,17 +485,19 @@ body {
 .gallery-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
     justify-content: center;
-    max-width: 600px;
-    max-height: 70vh;
+    max-width: 90vw;
+    max-height: 75vh;
     overflow-y: auto;
+    padding: 8px;
 }
 
 .gallery-grid img {
-    width: 140px;
-    height: 140px;
-    object-fit: cover;
+    width: 420px;
+    max-width: 85vw;
+    height: auto;
+    object-fit: contain;
     border-radius: 12px;
     cursor: pointer;
     border: 3px solid rgba(255,255,255,0.3);
@@ -504,8 +506,30 @@ body {
 }
 
 .gallery-grid img:hover {
-    transform: scale(1.05);
+    transform: scale(1.02);
     border-color: #fff;
+}
+
+/* STT hover preview tooltip */
+.stt-hover-preview {
+    position: fixed;
+    z-index: 999;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    padding: 6px;
+    display: flex;
+    gap: 6px;
+    max-width: 400px;
+    flex-wrap: wrap;
+    pointer-events: none;
+}
+
+.stt-hover-preview img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
 }
 
 /* STT grouped items — left accent bar */
