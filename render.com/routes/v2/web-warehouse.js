@@ -1266,6 +1266,71 @@ router.get('/sales', async (req, res) => {
 });
 
 // =====================================================
+// IMAGE PROXY — serve TPOS product images with auth
+// =====================================================
+
+/**
+ * GET /api/v2/web-warehouse/image/:tposProductId
+ * Proxy TPOS product image through Render (avoids CORS/auth issues on client).
+ * Caches with 7-day Cache-Control for CDN/browser caching.
+ */
+router.get('/image/:tposProductId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const tposProductId = parseInt(req.params.tposProductId);
+    if (!tposProductId) {
+        return res.status(400).json({ success: false, error: 'Invalid tposProductId' });
+    }
+
+    try {
+        // Look up image_url from DB
+        const result = await db.query(
+            `SELECT image_url FROM web_warehouse WHERE tpos_product_id = $1 AND image_url IS NOT NULL LIMIT 1`,
+            [tposProductId]
+        );
+
+        if (result.rows.length === 0 || !result.rows[0].image_url) {
+            return res.status(404).json({ success: false, error: 'No image found' });
+        }
+
+        const imageUrl = result.rows[0].image_url;
+
+        // Build full URL if relative
+        const fullUrl = imageUrl.startsWith('http')
+            ? imageUrl
+            : `https://tomato.tpos.vn${imageUrl}`;
+
+        // Fetch image from TPOS with auth token
+        const tokenManager = req.app.locals.tposTokenManager;
+        const token = tokenManager ? await tokenManager.getToken() : null;
+
+        const headers = { 'Accept': 'image/*' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const imageResponse = await fetch(fullUrl, { headers });
+
+        if (!imageResponse.ok) {
+            return res.status(imageResponse.status).json({ success: false, error: 'TPOS image fetch failed' });
+        }
+
+        // Stream the image back with caching headers
+        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        res.set({
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=604800', // 7 days
+            'Access-Control-Allow-Origin': '*',
+        });
+
+        const buffer = await imageResponse.arrayBuffer();
+        res.send(Buffer.from(buffer));
+    } catch (error) {
+        console.error('[WebWarehouse] Image proxy error:', error.message);
+        res.status(500).json({ success: false, error: 'Image proxy failed' });
+    }
+});
+
+// =====================================================
 // ROUTES — TPOS SYNC
 // =====================================================
 

@@ -111,7 +111,7 @@
             id: row.tpos_template_id || row.tpos_product_id,
             name: row.name_get || row.product_name,
             code: row.product_code,
-            image: row.image_url || '',
+            image: WarehouseAPI.proxyImageUrl(row),
             qty: parseFloat(row.tpos_qty_available) || 0,
             price: parseFloat(row.selling_price) || 0,
         }));
@@ -182,14 +182,13 @@
                 return;
             }
 
-            let imgUrl = result.product.image_url || '';
-            // Try variant images if template has none
-            if (!imgUrl && result.variants) {
-                for (const v of result.variants) {
-                    if (v.image_url) { imgUrl = v.image_url; break; }
-                }
+            // Find the row with an image_url to proxy
+            let imgRow = result.product.image_url ? result.product : null;
+            if (!imgRow && result.variants) {
+                imgRow = result.variants.find(v => v.image_url);
             }
 
+            const imgUrl = imgRow ? WarehouseAPI.proxyImageUrl(imgRow) : null;
             imageCache[templateId] = imgUrl || null;
 
             if (imgUrl && rowElement) {
@@ -394,6 +393,10 @@
     // =====================================================
     function mapProduct(row) {
         const cachedImg = imageCache[row.tpos_template_id];
+        // Use proxied image URL to avoid CORS/auth issues with TPOS images
+        const img = (row.image_url && row.tpos_product_id)
+            ? `${RENDER_API}/image/${row.tpos_product_id}`
+            : (cachedImg || '');
         return {
             id: row.tpos_template_id || row.tpos_product_id,
             code: row.product_code || '',
@@ -403,7 +406,7 @@
             defaultBuyPrice: parseFloat(row.purchase_price) || 0,
             costPrice: parseFloat(row.standard_price) || 0,
             qtyActual: parseFloat(row.tpos_qty_available) || 0,
-            qtyForecast: 0, // not stored in Render DB
+            qtyForecast: 0,
             unit: row.uom_name || '',
             label: false,
             active: row.active !== false,
@@ -412,7 +415,7 @@
             createdAt: row.created_at ? row.created_at.split('T')[0] : '',
             company: '',
             creator: '',
-            image: row.image_url || cachedImg || '',
+            image: img,
         };
     }
 

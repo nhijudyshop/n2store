@@ -14,11 +14,22 @@
     const BASE_URL = 'https://n2store-fallback.onrender.com/api/v2/web-warehouse';
 
     /**
+     * Build proxied image URL for a product.
+     * TPOS images require auth — proxy through Render to avoid CORS/auth issues.
+     */
+    function proxyImageUrl(row) {
+        if (!row.image_url) return '';
+        if (!row.tpos_product_id) return row.image_url;
+        return `${BASE_URL}/image/${row.tpos_product_id}`;
+    }
+
+    /**
      * Map a web_warehouse DB row to a TPOS-compatible product object.
      * This keeps downstream code (Firebase cart, UI rendering) working
      * without changes — they still expect TPOS field names.
      */
     function toProductObject(row) {
+        const img = proxyImageUrl(row);
         return {
             Id: row.tpos_product_id,
             NameGet: row.name_get || row.product_name,
@@ -29,8 +40,8 @@
             PriceVariant: parseFloat(row.selling_price) || 0,
             PurchasePrice: parseFloat(row.purchase_price) || 0,
             StandardPrice: parseFloat(row.standard_price) || 0,
-            imageUrl: row.image_url || '',
-            ImageUrl: row.image_url || '',
+            imageUrl: img,
+            ImageUrl: img,
             ProductTmplId: row.tpos_template_id,
             Active: row.active !== false,
             Barcode: row.barcode || '',
@@ -51,7 +62,7 @@
             templateId: row.tpos_template_id,
             name: row.name_get || row.product_name,
             code: row.product_code,
-            image: row.image_url || '',
+            image: proxyImageUrl(row),
             price: parseFloat(row.selling_price) || 0,
             qty: parseFloat(row.tpos_qty_available) || 0,
             barcode: row.barcode || '',
@@ -60,6 +71,7 @@
 
     const WarehouseAPI = {
         BASE_URL,
+        proxyImageUrl,
         toProductObject,
         toSearchSuggestion,
 
