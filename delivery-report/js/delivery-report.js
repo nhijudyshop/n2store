@@ -1628,8 +1628,7 @@
         try {
             const token = await getToken();
             if (!token) return null;
-            const encoded = encodeURIComponent(orderNumber);
-            const url = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?&$top=1&$filter=(Type+eq+'invoice'+and+contains(Number,'${encoded}'))&$select=Number,StateCode`;
+            const url = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?&$top=1&$filter=(Type+eq+'invoice'+and+contains(Number,'${orderNumber}'))&$select=Number,StateCode`;
             const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
