@@ -47,13 +47,19 @@ function attachSipProxy(server) {
 
         activeSessions.set(sessionId, { ws, udpSocket, clientIp });
 
-        // UDP socket receives SIP responses from PBX → forward to browser via WSS
+        // Track original Via info for response rewriting
+        let lastOriginalVia = '';
+
+        // UDP socket receives SIP responses from PBX → rewrite → forward to browser via WSS
         udpSocket.on('message', (msg, rinfo) => {
             const sipResponse = msg.toString('utf8');
             console.log(`${MODULE} ← PBX (${rinfo.address}:${rinfo.port}): ${getFirstLine(sipResponse)}`);
 
+            // Rewrite response: UDP → WSS (so JsSIP can match it)
+            const rewrittenResponse = rewriteSipForWSS(sipResponse, lastOriginalVia);
+
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(sipResponse);
+                ws.send(rewrittenResponse);
             }
         });
 
@@ -75,6 +81,10 @@ function attachSipProxy(server) {
 
             // Rewrite Via header to include our UDP socket's address
             // (PBX needs to know where to send responses)
+            // Save original Via for response rewriting
+            const viaMatch = sipMessage.match(/Via:\s*(.+)/i);
+            if (viaMatch) lastOriginalVia = viaMatch[1].trim();
+
             const rewritten = rewriteSipForUDP(sipMessage, udpSocket);
 
             // Log first 3 lines of rewritten SIP for debugging
@@ -137,6 +147,32 @@ function rewriteSipForUDP(sipMessage, udpSocket) {
 
     // 3. Contact: replace .invalid domain with PBX domain
     msg = msg.replace(/[a-z0-9]+\.invalid/gi, PBX_HOST);
+
+    return msg;
+}
+
+/**
+ * Rewrite SIP response headers from PBX (UDP) back to WSS for JsSIP
+ * JsSIP matches responses by Via branch — transport must match original
+ */
+function rewriteSipForWSS(sipResponse, originalVia) {
+    let msg = sipResponse;
+
+    // Replace the Via header from PBX (UDP) with original browser Via (WSS)
+    // PBX sends: Via: SIP/2.0/UDP pbx-ucaas.oncallcx.vn;rport;received=...;branch=z9hG4bK...
+    // JsSIP expects: Via: SIP/2.0/WSS <original-domain>;branch=z9hG4bK...
+    if (originalVia) {
+        msg = msg.replace(
+            /Via:\s*SIP\/2\.0\/UDP\s+[^\r\n]+/i,
+            `Via: ${originalVia}`
+        );
+    } else {
+        // Fallback: just change transport back to WSS
+        msg = msg.replace(
+            /Via:\s*SIP\/2\.0\/UDP/gi,
+            'Via: SIP/2.0/WSS'
+        );
+    }
 
     return msg;
 }
