@@ -16,11 +16,15 @@
  *   POST   /:id/copy          - Copy order as new draft
  *   POST   /generate-number   - Generate next order number
  *   POST   /cleanup-trash     - Auto-cleanup old trash
+ *   POST   /images            - Upload image (multipart/form-data)
+ *   GET    /images/:id        - Serve image binary
+ *   DELETE /images/:id        - Delete image
  */
 
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
 
 // Use shared DB pool from app.locals (same as all other v2 routes)
 function getDb(req) {
@@ -257,6 +261,145 @@ router.get('/', async (req, res) => {
     } catch (error) {
         console.error('[PO API] List error:', error);
         res.status(500).json({ success: false, error: 'Không thể tải danh sách đơn hàng' });
+    }
+});
+
+// ========================================
+// IMAGE UPLOAD — multer config
+// ========================================
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_FILE_SIZE },
+    fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Loại file không hợp lệ: ${file.mimetype}. Chỉ chấp nhận JPEG, PNG, WebP, GIF.`));
+        }
+    }
+});
+
+const BASE_URL = 'https://n2store-fallback.onrender.com';
+
+// CORS preflight for image routes
+router.options('/images', (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Auth-Data');
+    res.sendStatus(204);
+});
+
+router.options('/images/:id', (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Auth-Data');
+    res.sendStatus(204);
+});
+
+// ========================================
+// POST /images — Upload image
+// ========================================
+router.post('/images', (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).json({ success: false, error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
+            }
+            return res.status(400).json({ success: false, error: err.message });
+        }
+        if (err) {
+            return res.status(400).json({ success: false, error: err.message });
+        }
+        next();
+    });
+}, async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'Không có file được upload. Sử dụng field name "image".' });
+        }
+
+        const pool = getDb(req);
+        const { buffer, mimetype, originalname, size } = req.file;
+
+        const result = await pool.query(
+            `INSERT INTO purchase_order_images (data, content_type, filename, size_bytes)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, content_type, filename, size_bytes, created_at`,
+            [buffer, mimetype, originalname || null, size || buffer.length]
+        );
+
+        const row = result.rows[0];
+        res.json({
+            success: true,
+            url: `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`,
+            image: {
+                id: row.id,
+                contentType: row.content_type,
+                filename: row.filename,
+                sizeBytes: row.size_bytes,
+                createdAt: row.created_at
+            }
+        });
+    } catch (error) {
+        console.error('[PO API] Image upload error:', error);
+        res.status(500).json({ success: false, error: 'Không thể upload ảnh' });
+    }
+});
+
+// ========================================
+// GET /images/:id — Serve image
+// ========================================
+router.get('/images/:id', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const result = await pool.query(
+            'SELECT data, content_type, filename FROM purchase_order_images WHERE id = $1',
+            [req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
+        }
+
+        const { data, content_type, filename } = result.rows[0];
+
+        res.setHeader('Content-Type', content_type);
+        res.setHeader('Content-Length', data.length);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        if (filename) {
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        }
+
+        res.send(data);
+    } catch (error) {
+        console.error('[PO API] Image serve error:', error);
+        res.status(500).json({ success: false, error: 'Không thể tải ảnh' });
+    }
+});
+
+// ========================================
+// DELETE /images/:id — Delete image
+// ========================================
+router.delete('/images/:id', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const result = await pool.query(
+            'DELETE FROM purchase_order_images WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[PO API] Image delete error:', error);
+        res.status(500).json({ success: false, error: 'Không thể xóa ảnh' });
     }
 });
 
