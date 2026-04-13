@@ -632,12 +632,12 @@ function renderInvoicesSection(shipment) {
     return `
         <div class="shipment-section shipment-table-section">
             <div class="table-container">
-                <table class="invoice-table invoice-table-bordered">
+                <table class="invoice-table invoice-table-bordered detail-cols-hidden">
                     <thead>
                         <tr>
                             <th class="col-ncc">NCC</th>
                             <th class="col-stt">STT</th>
-                            <th class="col-sku">Mã hàng</th>
+                            <th class="col-sku">Mã hàng <span class="detail-toggle" onclick="toggleDetailColumns(this)" title="Hiện/Ẩn Mô tả & Chi tiết">&#9654;</span></th>
                             <th class="col-desc">Mô tả</th>
                             <th class="col-colors">Chi tiết màu sắc</th>
                             <th class="col-qty text-center">Tổng SL</th>
@@ -656,7 +656,7 @@ function renderInvoicesSection(shipment) {
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="7" class="text-right"><strong>TỔNG:</strong></td>
+                            <td class="tfoot-total-label text-right" colspan="5"><strong>TỔNG:</strong></td>
                             <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
                             <td class="text-center total-shortage-cell"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
@@ -759,6 +759,22 @@ function renderProductRow(opts) {
     `;
 }
 
+
+/**
+ * Toggle visibility of Mô tả & Chi tiết màu sắc columns
+ */
+function toggleDetailColumns(btn) {
+    const table = btn.closest('table');
+    if (!table) return;
+    const isHidden = table.classList.toggle('detail-cols-hidden');
+    // Update arrow direction
+    btn.innerHTML = isHidden ? '&#9654;' : '&#9664;';
+    // Update tfoot colspan
+    const tfootLabel = table.querySelector('.tfoot-total-label');
+    if (tfootLabel) {
+        tfootLabel.setAttribute('colspan', isHidden ? '5' : '7');
+    }
+}
 
 /**
  * Render admin note section
