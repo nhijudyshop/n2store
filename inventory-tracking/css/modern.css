@@ -923,7 +923,9 @@ body {
 .invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
-.invoice-table .col-shortage { width: 60px; vertical-align: middle; }
+.invoice-table .col-shortage { width: 60px; vertical-align: middle; cursor: pointer; }
+.invoice-table .col-shortage:hover { background-color: rgba(74, 124, 255, 0.08); }
+.invoice-table tfoot .total-row td { cursor: default; }
 .invoice-table .col-image { width: 50px; vertical-align: middle; }
 .invoice-table .col-invoice-note { vertical-align: middle; }
 .invoice-table .col-cost { width: 100px; }

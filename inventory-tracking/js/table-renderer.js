@@ -659,7 +659,7 @@ function renderInvoicesSection(shipment) {
                             <td colspan="7" class="text-right"><strong>TỔNG:</strong></td>
                             <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
-                            <td class="text-center"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
+                            <td class="text-center total-shortage-cell"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
                             <td></td>
                             <td></td>
                             ${canViewCost ? `<td class="text-right cost-total-cell"><strong class="total-cost">${formatNumber(totalCost)}</strong></td>` : ''}
@@ -727,7 +727,10 @@ function renderProductRow(opts) {
                 <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
+                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}"
+                    data-shipment-id="${shipmentId}" data-invoice-id="${invoiceId}" data-stt-ncc="${sttNCC}"
+                    data-raw-value="${soMonThieu || 0}" data-tong-mon="${tongMon}"
+                    onclick="startInlineShortage(this)" title="Click để sửa">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
                 <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
@@ -1055,6 +1058,117 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
     }
 }
 
+// =====================================================
+// INLINE SHORTAGE EDITING
+// =====================================================
+
+/**
+ * Start inline editing for shortage cell
+ */
+function startInlineShortage(td) {
+    // Already editing
+    if (td.querySelector('.shortage-inline-input')) return;
+
+    const rawValue = parseInt(td.dataset.rawValue) || 0;
+    const tongMon = parseInt(td.dataset.tongMon) || 0;
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'shortage-inline-input';
+    input.value = rawValue || '';
+    input.placeholder = '0';
+    input.min = '0';
+    input.max = String(tongMon);
+    input.style.cssText = 'width: 60px; text-align: center; font-weight: 700; font-size: inherit; padding: 2px 4px; border: 2px solid var(--primary, #4a7cff); border-radius: 4px; outline: none;';
+
+    // Replace content
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    // Stop click from re-triggering
+    input.addEventListener('click', e => e.stopPropagation());
+
+    // Save on blur or Enter
+    input.addEventListener('blur', () => commitInlineShortage(td, input));
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { cancelInlineShortage(td); }
+    });
+}
+
+/**
+ * Cancel inline editing - restore original value
+ */
+function cancelInlineShortage(td) {
+    const rawValue = parseInt(td.dataset.rawValue) || 0;
+    td.innerHTML = `<strong class="shortage-value">${rawValue > 0 ? formatNumber(rawValue) : '-'}</strong>`;
+}
+
+/**
+ * Commit inline shortage edit
+ */
+async function commitInlineShortage(td, input) {
+    const newValue = parseInt(input.value) || 0;
+    const oldValue = parseInt(td.dataset.rawValue) || 0;
+
+    // No change - restore display
+    if (newValue === oldValue) {
+        cancelInlineShortage(td);
+        return;
+    }
+
+    const shipmentId = td.dataset.shipmentId;
+    const invoiceId = td.dataset.invoiceId;
+    const sttNCC = td.dataset.sttNcc;
+
+    // Show saving state
+    td.innerHTML = '<span style="color: var(--gray-400); font-size: 12px;">...</span>';
+
+    try {
+        await updateDotHangShortage(parseInt(sttNCC), invoiceId, {
+            soMonThieu: newValue,
+            ghiChuThieu: ''
+        });
+
+        // Update data attribute
+        td.dataset.rawValue = String(newValue);
+
+        // Show new value
+        td.innerHTML = `<strong class="shortage-value">${newValue > 0 ? formatNumber(newValue) : '-'}</strong>`;
+
+        // Update footer total
+        updateShortageFooterTotal(td);
+
+    } catch (error) {
+        console.error('[SHORTAGE] Inline save error:', error);
+        // Restore old value on error
+        td.dataset.rawValue = String(oldValue);
+        td.innerHTML = `<strong class="shortage-value">${oldValue > 0 ? formatNumber(oldValue) : '-'}</strong>`;
+        window.notificationManager?.error('Không thể lưu số thiếu');
+    }
+}
+
+/**
+ * Recalculate and update footer total shortage
+ */
+function updateShortageFooterTotal(td) {
+    const table = td.closest('table');
+    if (!table) return;
+
+    const shortageCells = table.querySelectorAll('tbody .col-shortage');
+    let total = 0;
+    shortageCells.forEach(cell => {
+        total += parseInt(cell.dataset.rawValue) || 0;
+    });
+
+    const footerCell = table.querySelector('tfoot .total-shortage-cell');
+    if (footerCell) {
+        footerCell.innerHTML = `<strong>${total > 0 ? formatNumber(total) : '-'}</strong>`;
+    }
+}
+
 console.log('[RENDERER] Table renderer initialized');
 
 // Expose functions to global scope for onclick handlers
@@ -1064,3 +1178,4 @@ window.viewSubInvoiceImages = viewSubInvoiceImages;
 window.deleteSubInvoiceImage = deleteSubInvoiceImage;
 window.viewInvoiceImages = viewInvoiceImages;
 window.deleteInvoiceImage = deleteInvoiceImage;
+window.startInlineShortage = startInlineShortage;
