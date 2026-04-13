@@ -2,22 +2,15 @@
 // =====================================================
 // INLINE EDITOR - Multi-user real-time inline editing
 // Thiếu & Ghi Chú columns with image paste support
+// Uses REST API (PostgreSQL) + polling for real-time sync
 // =====================================================
 
-/**
- * Firestore collection: inventory_inline_notes
- * Document key: dotHangId (e.g. "dot_xxx")
- * Structure:
- * {
- *   thieu: { [username]: { value: number, updatedAt: string } },
- *   ghichu: { [username]: { text: string, images: [url], updatedAt: string } }
- * }
- */
-
 const InlineEditor = {
-    _listeners: new Map(),  // dotHangId -> unsubscribe function
-    _cache: new Map(),      // dotHangId -> document data
+    _cache: new Map(),          // shipmentId -> { [username]: noteRow }
     _debounceTimers: new Map(),
+    _pollTimer: null,
+    _pollInterval: 5000,        // Poll every 5 seconds
+    _activeShipmentIds: new Set(),
 
     /**
      * Get current username
@@ -36,68 +29,73 @@ const InlineEditor = {
     },
 
     /**
-     * Check if a given username is admin (cached from Firestore users doc)
-     */
-    _adminUsersCache: null,
-    async _isUserAdmin(username) {
-        if (!this._adminUsersCache) {
-            this._adminUsersCache = new Map();
-            try {
-                const snapshot = await usersRef?.get();
-                snapshot?.forEach(doc => {
-                    const data = doc.data();
-                    const isAdmin = data.isAdmin === true
-                        || data.roleTemplate === 'admin'
-                        || data.detailedPermissions?.inventoryTracking?.edit_soMonThieu === true;
-                    this._adminUsersCache.set(doc.id, isAdmin);
-                });
-            } catch (e) {
-                console.warn('[INLINE] Could not load admin users cache:', e);
-            }
-        }
-        return this._adminUsersCache.get(username) || false;
-    },
-
-    /**
-     * Setup real-time listener for a dotHang document
-     */
-    setupListener(dotHangId) {
-        if (this._listeners.has(dotHangId) || !inlineNotesRef) return;
-
-        const unsubscribe = inlineNotesRef.doc(dotHangId).onSnapshot(snapshot => {
-            const data = snapshot.exists ? snapshot.data() : { thieu: {}, ghichu: {} };
-            this._cache.set(dotHangId, data);
-            this._renderEntries(dotHangId, data);
-        }, err => {
-            console.warn('[INLINE] Listener error for', dotHangId, err);
-        });
-
-        this._listeners.set(dotHangId, unsubscribe);
-    },
-
-    /**
-     * Cleanup all listeners
-     */
-    cleanup() {
-        this._listeners.forEach(unsub => unsub());
-        this._listeners.clear();
-        this._cache.clear();
-    },
-
-    /**
-     * Setup listeners for all visible dotHang entries
+     * Collect all visible shipment IDs from the DOM and start polling
      */
     setupAllListeners() {
         this.cleanup();
+
         const cells = document.querySelectorAll('[data-dot-hang-id]');
         const ids = new Set();
         cells.forEach(cell => {
             const id = cell.dataset.dotHangId;
-            if (id && !ids.has(id)) {
-                ids.add(id);
-                this.setupListener(id);
-            }
+            if (id) ids.add(id);
         });
+
+        this._activeShipmentIds = ids;
+
+        if (ids.size > 0) {
+            this._fetchAndRender();
+            this._startPolling();
+        }
+    },
+
+    /**
+     * Cleanup polling
+     */
+    cleanup() {
+        if (this._pollTimer) {
+            clearInterval(this._pollTimer);
+            this._pollTimer = null;
+        }
+        this._activeShipmentIds.clear();
+    },
+
+    /**
+     * Start polling for real-time updates
+     */
+    _startPolling() {
+        if (this._pollTimer) clearInterval(this._pollTimer);
+        this._pollTimer = setInterval(() => this._fetchAndRender(), this._pollInterval);
+    },
+
+    /**
+     * Fetch all inline notes for active shipments and render
+     */
+    async _fetchAndRender() {
+        if (this._activeShipmentIds.size === 0) return;
+
+        try {
+            const ids = [...this._activeShipmentIds];
+            const rows = await inlineNotesApi.getByShipmentIds(ids);
+
+            // Group by shipment_id
+            const grouped = new Map();
+            for (const row of rows) {
+                if (!grouped.has(row.shipment_id)) {
+                    grouped.set(row.shipment_id, {});
+                }
+                grouped.get(row.shipment_id)[row.username] = row;
+            }
+
+            // Update cache and render
+            for (const id of ids) {
+                const entries = grouped.get(id) || {};
+                this._cache.set(id, entries);
+                this._renderEntries(id, entries);
+            }
+        } catch (err) {
+            console.warn('[INLINE] Polling error:', err.message);
+        }
     },
 
     // ==================== THIẾU ====================
@@ -109,28 +107,8 @@ const InlineEditor = {
         const key = `thieu_${dotHangId}`;
         clearTimeout(this._debounceTimers.get(key));
         this._debounceTimers.set(key, setTimeout(() => {
-            this._saveThieuNow(dotHangId, value);
-        }, 500));
-    },
-
-    async _saveThieuNow(dotHangId, value) {
-        const username = this._getUsername();
-        const numValue = parseInt(value, 10) || 0;
-
-        try {
-            const docRef = inlineNotesRef.doc(dotHangId);
-            await docRef.set({
-                thieu: {
-                    [username]: {
-                        value: numValue,
-                        updatedAt: new Date().toISOString()
-                    }
-                }
-            }, { merge: true });
-        } catch (err) {
-            console.error('[INLINE] Error saving thiếu:', err);
-            window.notificationManager?.error('Không thể lưu số thiếu');
-        }
+            this._saveNow(dotHangId);
+        }, 800));
     },
 
     // ==================== GHI CHÚ ====================
@@ -142,29 +120,39 @@ const InlineEditor = {
         const key = `ghichu_${dotHangId}`;
         clearTimeout(this._debounceTimers.get(key));
         this._debounceTimers.set(key, setTimeout(() => {
-            this._saveGhiChuNow(dotHangId, text);
-        }, 500));
+            this._saveNow(dotHangId);
+        }, 800));
     },
 
-    async _saveGhiChuNow(dotHangId, text) {
+    /**
+     * Save current user's thieu + ghichu to server
+     */
+    async _saveNow(dotHangId) {
         const username = this._getUsername();
+        const isAdmin = this._isAdmin();
+
+        // Read current input values from DOM
+        const thieuInput = document.querySelector(`.inline-thieu-input[data-dot-hang-id="${dotHangId}"]`);
+        const ghichuInput = document.querySelector(`.inline-ghichu-input[data-dot-hang-id="${dotHangId}"]`);
+
+        const thieuValue = parseInt(thieuInput?.value, 10) || 0;
+        const ghichuText = ghichuInput?.value || '';
+
+        // Preserve existing images from cache
         const cached = this._cache.get(dotHangId);
-        const existing = cached?.ghichu?.[username] || {};
+        const existing = cached?.[username];
+        const ghichuImages = existing?.ghichu_images || [];
 
         try {
-            const docRef = inlineNotesRef.doc(dotHangId);
-            await docRef.set({
-                ghichu: {
-                    [username]: {
-                        text: text,
-                        images: existing.images || [],
-                        updatedAt: new Date().toISOString()
-                    }
-                }
-            }, { merge: true });
+            await inlineNotesApi.upsert(dotHangId, {
+                thieuValue,
+                ghichuText,
+                ghichuImages,
+                isAdmin
+            });
         } catch (err) {
-            console.error('[INLINE] Error saving ghi chú:', err);
-            window.notificationManager?.error('Không thể lưu ghi chú');
+            console.error('[INLINE] Error saving:', err);
+            window.notificationManager?.error('Không thể lưu');
         }
     },
 
@@ -201,10 +189,9 @@ const InlineEditor = {
     },
 
     /**
-     * Upload image and attach to ghi chú
+     * Upload image and attach to ghi chú via REST API
      */
     async _uploadAndAttach(dotHangId, file) {
-        const username = this._getUsername();
         const cell = document.querySelector(`.inline-ghichu-cell[data-dot-hang-id="${dotHangId}"]`);
         const uploadIndicator = cell?.querySelector('.inline-upload-indicator');
 
@@ -214,24 +201,14 @@ const InlineEditor = {
                 uploadIndicator.textContent = 'Đang tải...';
             }
 
+            // Upload to Firebase Storage via existing server endpoint
             const url = await uploadImage(file, `inline-notes/${dotHangId}`);
 
-            // Get existing images
-            const cached = this._cache.get(dotHangId);
-            const existing = cached?.ghichu?.[username] || {};
-            const images = [...(existing.images || []), url];
+            // Add image to note via REST API
+            await inlineNotesApi.addImage(dotHangId, url, this._isAdmin());
 
-            // Save to Firestore
-            const docRef = inlineNotesRef.doc(dotHangId);
-            await docRef.set({
-                ghichu: {
-                    [username]: {
-                        text: existing.text || '',
-                        images: images,
-                        updatedAt: new Date().toISOString()
-                    }
-                }
-            }, { merge: true });
+            // Refresh display
+            await this._fetchAndRender();
 
             window.notificationManager?.success('Đã tải ảnh lên');
         } catch (err) {
@@ -248,22 +225,9 @@ const InlineEditor = {
      * Remove an image from ghi chú
      */
     async removeImage(dotHangId, imageUrl) {
-        const username = this._getUsername();
-        const cached = this._cache.get(dotHangId);
-        const existing = cached?.ghichu?.[username] || {};
-        const images = (existing.images || []).filter(url => url !== imageUrl);
-
         try {
-            const docRef = inlineNotesRef.doc(dotHangId);
-            await docRef.set({
-                ghichu: {
-                    [username]: {
-                        text: existing.text || '',
-                        images: images,
-                        updatedAt: new Date().toISOString()
-                    }
-                }
-            }, { merge: true });
+            await inlineNotesApi.removeImage(dotHangId, imageUrl);
+            await this._fetchAndRender();
         } catch (err) {
             console.error('[INLINE] Error removing image:', err);
         }
@@ -272,84 +236,86 @@ const InlineEditor = {
     // ==================== RENDERING ====================
 
     /**
-     * Render all entries for a dotHang into the table cells
+     * Render all entries for a shipment into the table cells
      */
-    async _renderEntries(dotHangId, data) {
-        await this._renderThieuEntries(dotHangId, data.thieu || {});
-        await this._renderGhiChuEntries(dotHangId, data.ghichu || {});
+    _renderEntries(dotHangId, entries) {
+        this._renderThieuEntries(dotHangId, entries);
+        this._renderGhiChuEntries(dotHangId, entries);
     },
 
     /**
      * Render thiếu entries (display area only, not the input)
      */
-    async _renderThieuEntries(dotHangId, thieu) {
+    _renderThieuEntries(dotHangId, entries) {
         const container = document.querySelector(`.inline-thieu-entries[data-dot-hang-id="${dotHangId}"]`);
         if (!container) return;
 
         const currentUser = this._getUsername();
-        const entries = Object.entries(thieu).filter(([, v]) => v.value > 0);
-
-        if (entries.length === 0) {
-            container.innerHTML = '';
-            return;
-        }
 
         let html = '';
-        for (const [username, entry] of entries) {
+        for (const [username, row] of Object.entries(entries)) {
             if (username === currentUser) continue; // Skip own entry (shown in input)
-            const isAdmin = await this._isUserAdmin(username);
-            const colorClass = isAdmin ? 'inline-entry-admin' : 'inline-entry-user';
+            if (!row.thieu_value || row.thieu_value <= 0) continue;
+
+            const colorClass = row.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
             html += `<div class="inline-entry ${colorClass}" title="${username}">
-                <span class="inline-entry-value">${entry.value}</span>
+                <span class="inline-entry-value">${row.thieu_value}</span>
                 <span class="inline-entry-name">${username}</span>
             </div>`;
         }
         container.innerHTML = html;
 
-        // Update own input value from cache
+        // Update own input value from cache (if not focused)
         const input = document.querySelector(`.inline-thieu-input[data-dot-hang-id="${dotHangId}"]`);
         if (input && document.activeElement !== input) {
-            input.value = thieu[currentUser]?.value || '';
+            const ownEntry = entries[currentUser];
+            if (ownEntry?.thieu_value) {
+                input.value = ownEntry.thieu_value;
+            }
         }
     },
 
     /**
      * Render ghi chú entries
      */
-    async _renderGhiChuEntries(dotHangId, ghichu) {
+    _renderGhiChuEntries(dotHangId, entries) {
         const container = document.querySelector(`.inline-ghichu-entries[data-dot-hang-id="${dotHangId}"]`);
         if (!container) return;
 
         const currentUser = this._getUsername();
-        const entries = Object.entries(ghichu).filter(([, v]) => v.text || (v.images && v.images.length > 0));
 
         // Render other users' entries
         let html = '';
-        for (const [username, entry] of entries) {
+        for (const [username, row] of Object.entries(entries)) {
             if (username === currentUser) continue;
-            const isAdmin = await this._isUserAdmin(username);
-            const colorClass = isAdmin ? 'inline-entry-admin' : 'inline-entry-user';
-            const imagesHtml = (entry.images || []).map(url =>
+            const hasContent = row.ghichu_text || (row.ghichu_images && row.ghichu_images.length > 0);
+            if (!hasContent) continue;
+
+            const colorClass = row.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
+            const imagesHtml = (row.ghichu_images || []).map(url =>
                 `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')" title="Click để xem">`
             ).join('');
             html += `<div class="inline-entry ${colorClass}" title="${username}">
                 <span class="inline-entry-name">${username}:</span>
-                <span class="inline-entry-text">${this._escapeHtml(entry.text || '')}</span>
+                <span class="inline-entry-text">${this._escapeHtml(row.ghichu_text || '')}</span>
                 ${imagesHtml ? `<div class="inline-note-images">${imagesHtml}</div>` : ''}
             </div>`;
         }
         container.innerHTML = html;
 
-        // Update own input
+        // Update own input (if not focused)
         const input = document.querySelector(`.inline-ghichu-input[data-dot-hang-id="${dotHangId}"]`);
         if (input && document.activeElement !== input) {
-            input.value = ghichu[currentUser]?.text || '';
+            const ownEntry = entries[currentUser];
+            if (ownEntry?.ghichu_text) {
+                input.value = ownEntry.ghichu_text;
+            }
         }
 
         // Render own images
         const ownImagesContainer = document.querySelector(`.inline-own-images[data-dot-hang-id="${dotHangId}"]`);
         if (ownImagesContainer) {
-            const ownImages = ghichu[currentUser]?.images || [];
+            const ownImages = entries[currentUser]?.ghichu_images || [];
             ownImagesContainer.innerHTML = ownImages.map(url =>
                 `<div class="inline-own-image-wrap">
                     <img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}')">
@@ -384,4 +350,4 @@ const InlineEditor = {
     }
 };
 
-console.log('[INLINE] Inline editor initialized');
+console.log('[INLINE] Inline editor initialized (REST API mode)');

@@ -135,8 +135,7 @@ try {
 }
 
 // Collection References — most data now served via REST API (api-client.js → Render PostgreSQL)
-// usersRef: permissions from Firebase | inlineNotesRef: real-time multi-user inline notes
-const inlineNotesRef = db?.collection(COLLECTIONS.INLINE_NOTES);
+// usersRef: permissions from Firebase (only remaining Firestore ref)
 const usersRef = db?.collection(COLLECTIONS.USERS);
 
 console.log('[CONFIG] Configuration loaded successfully');

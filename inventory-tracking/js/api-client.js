@@ -415,4 +415,67 @@ function pgToOtherExpense(row) {
     };
 }
 
+// =====================================================
+// INLINE NOTES API (Multi-user Thiếu & Ghi Chú)
+// =====================================================
+
+const inlineNotesApi = {
+    /**
+     * Fetch all inline notes for given shipment IDs (batch)
+     * @param {string[]} shipmentIds
+     * @returns {Promise<Object[]>} Array of note rows
+     */
+    async getByShipmentIds(shipmentIds) {
+        if (!shipmentIds || shipmentIds.length === 0) return [];
+        const result = await apiFetch(`/inline-notes?shipment_ids=${shipmentIds.join(',')}`);
+        return result.data;
+    },
+
+    /**
+     * Upsert inline note (thieu + ghichu) for current user
+     */
+    async upsert(shipmentId, { thieuValue, ghichuText, ghichuImages, isAdmin }) {
+        const result = await apiFetch('/inline-notes', {
+            method: 'PUT',
+            body: JSON.stringify({
+                shipment_id: shipmentId,
+                thieu_value: thieuValue,
+                ghichu_text: ghichuText,
+                ghichu_images: ghichuImages,
+                is_admin: isAdmin
+            })
+        });
+        return result.data;
+    },
+
+    /**
+     * Add image to inline note
+     */
+    async addImage(shipmentId, imageUrl, isAdmin) {
+        const result = await apiFetch('/inline-notes/image', {
+            method: 'PATCH',
+            body: JSON.stringify({
+                shipment_id: shipmentId,
+                image_url: imageUrl,
+                is_admin: isAdmin
+            })
+        });
+        return result.data;
+    },
+
+    /**
+     * Remove image from inline note
+     */
+    async removeImage(shipmentId, imageUrl) {
+        const result = await apiFetch('/inline-notes/image', {
+            method: 'DELETE',
+            body: JSON.stringify({
+                shipment_id: shipmentId,
+                image_url: imageUrl
+            })
+        });
+        return result.data;
+    }
+};
+
 console.log('[API-CLIENT] Inventory tracking API client initialized');
