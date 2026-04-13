@@ -8,6 +8,23 @@
 
 ## 2026-04-13
 
+### [shared] Visual refresh toàn bộ design system CSS ✅
+| | |
+|---|---|
+| **Files** | `shared/css/variables.css`, `shared/css/typography.css`, `shared/css/base.css`, `shared/css/components.css`, `shared/css/modern.css` |
+| **Typography** | Font-size 20px→14px, weight 600→400, dùng Inter, thêm tabular-nums |
+| **Colors** | Primary richer (#4f46e5), slate gray scale, deeper status colors |
+| **Components** | Buttons box-shadow, modal backdrop-blur, table uppercase headers, focus-visible ring |
+| **Scope** | Ảnh hưởng 10+ trang dùng shared CSS |
+| **Status** | ✅ Done |
+
+### [orders] Thêm chức năng xóa sản phẩm (TPOS Unlink) ✅
+| | |
+|---|---|
+| **Files** | `product-warehouse/js/main.js` |
+| **Chi tiết** | Nút trash → confirm → `ProductTemplate/ODataService.Unlink` → xóa vĩnh viễn trên TPOS |
+| **Status** | ✅ Done |
+
 ### [orders] UI polish — header, cards, responsive, TPOS stats fix ✅
 | | |
 |---|---|
