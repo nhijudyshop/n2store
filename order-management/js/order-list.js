@@ -1906,13 +1906,21 @@ function displayAddProductSuggestions(suggestions) {
     }
 
     suggestionsDiv.innerHTML = suggestions
-        .map(
-            (product) => `
-                <div class="suggestion-item" data-id="${product.id}">
-                    <strong>${product.code || ''}</strong> - ${product.name}
+        .map((product) => {
+            const imgHtml = product.image
+                ? `<img class="suggestion-img" src="${product.image}" alt="" loading="lazy">`
+                : `<span class="suggestion-img-empty"></span>`;
+            const qtyClass = (product.qty || 0) <= 0 ? ' suggestion-qty-zero' : '';
+            return `<div class="suggestion-item" data-id="${product.id}">
+                ${imgHtml}
+                <div class="suggestion-info">
+                    <div class="suggestion-name"><strong>${product.code || ''}</strong> — ${product.name}</div>
+                    <div class="suggestion-meta">
+                        <span class="suggestion-qty${qtyClass}">Tồn: ${product.qty || 0}</span>
+                    </div>
                 </div>
-            `
-        )
+            </div>`;
+        })
         .join('');
 
     suggestionsDiv.classList.add('show');

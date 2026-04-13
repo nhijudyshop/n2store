@@ -111,11 +111,14 @@
             id: row.tpos_template_id || row.tpos_product_id,
             name: row.name_get || row.product_name,
             code: row.product_code,
+            image: row.image_url || '',
+            qty: parseFloat(row.tpos_qty_available) || 0,
+            price: parseFloat(row.selling_price) || 0,
         }));
     }
 
     /**
-     * Display suggestion dropdown below search input.
+     * Display suggestion dropdown with product images.
      */
     function displaySuggestions(suggestions) {
         const suggestionsDiv = $('#searchSuggestions');
@@ -126,15 +129,25 @@
             return;
         }
 
-        suggestionsDiv.innerHTML = suggestions.map(p => `
-            <div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
-                <strong>${escapeHtml(p.code)}</strong> - ${escapeHtml(p.name)}
-            </div>
-        `).join('');
+        suggestionsDiv.innerHTML = suggestions.map(p => {
+            const imgHtml = p.image
+                ? `<img class="suggestion-img" src="${escapeHtml(p.image)}" alt="" loading="lazy">`
+                : `<span class="suggestion-img suggestion-img-empty"></span>`;
+            const qtyClass = p.qty <= 0 ? ' suggestion-qty-zero' : '';
+            return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
+                ${imgHtml}
+                <div class="suggestion-info">
+                    <div class="suggestion-name"><strong>${escapeHtml(p.code)}</strong> — ${escapeHtml(p.name)}</div>
+                    <div class="suggestion-meta">
+                        <span class="suggestion-price">${formatPrice(p.price)}</span>
+                        <span class="suggestion-qty${qtyClass}">Tồn: ${formatQty(p.qty)}</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
 
         suggestionsDiv.classList.add('show');
 
-        // Click handlers for suggestion items
         suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
             item.addEventListener('click', () => {
                 const code = item.dataset.code;
