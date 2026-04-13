@@ -36,6 +36,7 @@ window.BarcodeLabelDialog = (function () {
             variant: item.variant || '',
             quantity: item.quantity || 1,
             price: item.sellingPrice || 0,
+            tposProductId: item.tposProductId || null,
             checked: true
         }));
 
@@ -363,13 +364,81 @@ window.BarcodeLabelDialog = (function () {
         body.querySelector('#bld-show-currency').addEventListener('change', refreshPreview);
         body.querySelector('#bld-hide-barcode').addEventListener('change', refreshPreview);
 
-        // Print
-        btnPrint.addEventListener('click', () => {
+        // Print via TPOS API (produces exact same PDF as TPOS)
+        btnPrint.addEventListener('click', async () => {
             const printItems = items.filter(it => it.code && it.checked !== false && it.quantity > 0);
             if (!printItems.length) return;
+
+            // Check if items have TPOS product IDs — if yes, use TPOS PDF API
+            const hasTposIds = printItems.some(it => it.tposProductId);
+
+            if (hasTposIds && window.TPOSClient?.authenticatedFetch) {
+                btnPrint.disabled = true;
+                btnPrint.textContent = 'Đang tạo PDF...';
+                try {
+                    await printViaTPOS(printItems, selectedPaper, showPrice, showBold, showCurrency, showProductName);
+                    closeModal();
+                    return;
+                } catch (err) {
+                    console.warn('[Barcode] TPOS PDF failed, falling back to local:', err.message);
+                    // Fall through to local print
+                } finally {
+                    btnPrint.disabled = false;
+                    updateCount();
+                }
+            }
+
+            // Fallback: local HTML print
             closeModal();
             generateAndPrint(printItems, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
         });
+    }
+
+    /**
+     * Print via TPOS API — exact same PDF output as TPOS
+     * Flow: POST save config → GET PDF binary → open in new tab
+     */
+    async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName) {
+        const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const fetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
+
+        // Build Lines array with TPOS ProductId + Quantity
+        const lines = items
+            .filter(it => it.tposProductId)
+            .map(it => ({ ProductId: it.tposProductId, Quantity: it.quantity }));
+
+        if (!lines.length) throw new Error('No items with TPOS product ID');
+
+        // Step 1: Save barcode label config to TPOS
+        const saveResp = await fetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8' },
+            body: JSON.stringify({
+                PaperId: paper.id,
+                PriceListId: null,
+                ShowPrice: showPrice,
+                ShowBold: showBold,
+                ShowCurrency: showCurrency,
+                ShowProductName: showProductName,
+                Lines: lines
+            })
+        });
+        const saveData = await saveResp.json();
+        const labelId = saveData.Id;
+        if (!labelId) throw new Error('Failed to save label config: ' + JSON.stringify(saveData));
+
+        // Step 2: GET PDF binary from TPOS
+        const pdfResp = await fetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`, {
+            headers: { 'Accept': 'application/pdf' }
+        });
+
+        if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
+
+        const pdfBlob = await pdfResp.blob();
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        window.open(blobUrl, '_blank');
+
+        console.log('[Barcode] TPOS PDF generated, labelId:', labelId);
     }
 
     function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
