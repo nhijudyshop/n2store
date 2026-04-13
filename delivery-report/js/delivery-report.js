@@ -1610,7 +1610,10 @@
         if (e.key === 'Enter') {
             e.preventDefault();
             if (barcodeBuffer.length > 0) {
-                processScan(barcodeBuffer.trim());
+                const scanned = barcodeBuffer.trim().toUpperCase();
+                const kwInput = document.getElementById('drFilterKeyword');
+                if (kwInput) kwInput.value = scanned;
+                processScan(scanned);
                 barcodeBuffer = '';
             }
             return;
