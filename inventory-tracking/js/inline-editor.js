@@ -99,7 +99,7 @@ const InlineEditor = {
                 ghichuContainer.innerHTML = ghichuNotes.map(n => {
                     const cls = n.is_admin ? 'inline-entry-admin' : 'inline-entry-user';
                     const imgs = (n.ghichu_images || []).map(url =>
-                        `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}'); event.stopPropagation();">`
+                        `<img src="${url}" class="inline-note-thumb" onclick="InlineEditor.viewImage('${url}'); event.stopPropagation();" onmouseenter="InlineEditor.showPreview(event,'${url}')" onmouseleave="InlineEditor.hidePreview()">`
                     ).join('');
                     return `<div class="inline-entry ${cls}">
                         <span class="inline-entry-name">${n.username}:</span>
@@ -272,6 +272,27 @@ const InlineEditor = {
     },
 
     // ==================== HELPERS ====================
+
+    _previewEl: null,
+
+    showPreview(event, url) {
+        this.hidePreview();
+        const img = document.createElement('img');
+        img.src = url;
+        img.className = 'inline-hover-preview';
+        const rect = event.target.getBoundingClientRect();
+        img.style.top = (rect.bottom + 6) + 'px';
+        img.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+        document.body.appendChild(img);
+        this._previewEl = img;
+    },
+
+    hidePreview() {
+        if (this._previewEl) {
+            this._previewEl.remove();
+            this._previewEl = null;
+        }
+    },
 
     viewImage(url) {
         const overlay = document.createElement('div');
