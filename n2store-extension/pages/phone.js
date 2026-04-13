@@ -77,15 +77,8 @@ async function initPhone() {
       return;
     }
 
-    // Fetch TURN config from Render
-    let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
-    try {
-      const resp = await fetch(`${RENDER_API_URL}/turn-config`);
-      const config = await resp.json();
-      if (config.iceServers) iceServers = config.iceServers;
-    } catch (e) {
-      addLog('TURN config fetch failed, using STUN only', 'error');
-    }
+    // Fetch TURN/ICE servers from metered.ca API
+    let iceServers = await fetchIceServers();
 
     addLog(`Connecting to ${RENDER_WS_URL}...`);
 
@@ -179,13 +172,8 @@ async function makeCall() {
   callNumberEl.textContent = target;
   setStatus('calling', 'Calling...');
 
-  // Fetch TURN config
-  let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
-  try {
-    const resp = await fetch(`${RENDER_API_URL}/turn-config`);
-    const config = await resp.json();
-    if (config.iceServers) iceServers = config.iceServers;
-  } catch {}
+  // Fetch TURN/ICE servers
+  let iceServers = await fetchIceServers();
 
   const options = {
     mediaConstraints: { audio: true, video: false },
@@ -350,6 +338,23 @@ function stopTimer() {
     clearInterval(callTimerInterval);
     callTimerInterval = null;
   }
+}
+
+// === ICE/TURN SERVERS ===
+const METERED_API_KEY = '61239134d00b315f4db5888a720950acc22d';
+
+async function fetchIceServers() {
+  try {
+    const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
+    const servers = await resp.json();
+    if (Array.isArray(servers) && servers.length > 0) {
+      addLog(`ICE servers loaded: ${servers.length} entries`, 'success');
+      return servers;
+    }
+  } catch (e) {
+    addLog('TURN fetch failed, using STUN only', 'error');
+  }
+  return [{ urls: 'stun:stun.l.google.com:19302' }];
 }
 
 // === UI HELPERS ===
