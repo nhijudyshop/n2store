@@ -460,6 +460,32 @@ body.ds {
     flex-shrink: 0;
 }
 
+/* Modal header color variants */
+.ds-modal-header-primary { background: var(--ds-primary); color: var(--ds-text-inverse); }
+.ds-modal-header-primary h3, .ds-modal-header-primary .ds-modal-title { color: var(--ds-text-inverse); }
+.ds-modal-header-primary .ds-modal-close, .ds-modal-header-primary .tag-modal-close { color: rgba(255,255,255,0.7); }
+.ds-modal-header-primary .ds-modal-close:hover, .ds-modal-header-primary .tag-modal-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
+.ds-modal-header-danger { background: var(--ds-danger); color: var(--ds-text-inverse); }
+.ds-modal-header-danger h3, .ds-modal-header-danger .ds-modal-title { color: var(--ds-text-inverse); }
+.ds-modal-header-danger .ds-modal-close, .ds-modal-header-danger .tag-modal-close { color: rgba(255,255,255,0.7); }
+.ds-modal-header-danger .ds-modal-close:hover, .ds-modal-header-danger .tag-modal-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
+.ds-modal-header-info { background: var(--ds-info); color: var(--ds-text-inverse); }
+.ds-modal-header-info h3, .ds-modal-header-info .ds-modal-title { color: var(--ds-text-inverse); }
+.ds-modal-header-info .ds-modal-close, .ds-modal-header-info .tag-modal-close { color: rgba(255,255,255,0.7); }
+.ds-modal-header-info .ds-modal-close:hover, .ds-modal-header-info .tag-modal-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
+.ds-modal-header-warning { background: var(--ds-warning); color: var(--ds-text-inverse); }
+.ds-modal-header-warning h3, .ds-modal-header-warning .ds-modal-title { color: var(--ds-text-inverse); }
+.ds-modal-header-warning .ds-modal-close, .ds-modal-header-warning .tag-modal-close { color: rgba(255,255,255,0.7); }
+.ds-modal-header-warning .ds-modal-close:hover, .ds-modal-header-warning .tag-modal-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
+.ds-modal-header-success { background: var(--ds-success); color: var(--ds-text-inverse); }
+.ds-modal-header-success h3, .ds-modal-header-success .ds-modal-title { color: var(--ds-text-inverse); }
+.ds-modal-header-success .ds-modal-close, .ds-modal-header-success .tag-modal-close { color: rgba(255,255,255,0.7); }
+.ds-modal-header-success .ds-modal-close:hover, .ds-modal-header-success .tag-modal-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
 /* Modal scrollbar */
 .ds-modal-body::-webkit-scrollbar { width: 5px; }
 .ds-modal-body::-webkit-scrollbar-track { background: transparent; }

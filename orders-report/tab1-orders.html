@@ -132,19 +132,19 @@
             </div>
 
             <button class="btn-primary" id="employeeSettingsBtn" onclick="toggleEmployeeDrawer()"
-                style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                
                 title="Cài đặt phân chia nhân viên">
                 <i class="fas fa-users-cog"></i>
                 Cài đặt phân chia nhân viên
             </button>
             <button class="btn-primary" id="toggleEmployeeViewBtn" onclick="toggleEmployeeViewMode()"
-                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                
                 title="Chuyển sang xem phân chia nhân viên">
                 <i class="fas fa-layer-group"></i>
                 Xem phân chia nhân viên
             </button>
             <button class="btn-primary" id="campaignSettingsBtn" onclick="openCampaignSettingsModal()"
-                style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
+                
                 title="Cài đặt chiến dịch, ngày tải, realtime, Pancake API">
                 <i class="fas fa-bullhorn"></i>
                 Cài Đặt Chiến Dịch
@@ -154,19 +154,19 @@
                 Xóa Cache
             </button>
             <button class="btn-primary" id="mergeProductsBtn" onclick="showMergeDuplicateOrdersModal()"
-                style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)"
+                
                 title="Gộp sản phẩm từ các đơn có cùng SĐT vào đơn STT lớn nhất">
                 <i class="fas fa-compress-arrows-alt"></i>
                 Gộp sản phẩm đơn trùng SĐT
             </button>
             <button class="btn-primary" id="bulkTagModalBtn" onclick="showBulkTagModal()"
-                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                
                 title="Gán tag hàng loạt cho nhiều đơn hàng">
                 <i class="fas fa-tags"></i>
                 Gán Tag Hàng Loạt
             </button>
             <button class="btn-primary" id="bulkTagDeleteModalBtn" onclick="showBulkTagDeleteModal()"
-                style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                
                 title="Xóa tag hàng loạt khỏi nhiều đơn hàng">
                 <i class="fas fa-tags"></i>
                 Xóa Tag Hàng Loạt
@@ -176,18 +176,18 @@
                 <i class="fas fa-boxes-stacked"></i> Kiểm tra tồn kho
             </button>
             <button class="btn-stock-check" id="btnZeroStock" onclick="window.StockStatusEngine.showZeroStock()"
-                style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                
                 title="Xem danh sách sản phẩm tồn kho = 0 trong các đơn chiến dịch">
                 <i class="fas fa-box-open"></i> Tồn kho = 0
             </button>
             <button class="btn-primary" id="billTemplateSettingsBtn" onclick="openBillTemplateSettings()"
-                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+                
                 title="Cài đặt mẫu hóa đơn/bill">
                 <i class="fas fa-file-invoice"></i>
                 Cài Đặt Bill
             </button>
             <button class="btn-primary" id="tposAccountBtn" onclick="openTposAccountModal()"
-                style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                
                 title="Cài đặt tài khoản TPOS cho tạo bill">
                 <i class="fas fa-user-cog"></i>
                 Tài khoản TPOS
@@ -252,7 +252,7 @@
             </button>
             <button class="btn-action-compact btn-action-sale" id="packingSlipBtn" onclick="openPackingSlipModal()"
                 title="Tạo phiếu soạn hàng từ đơn đã chọn"
-                style="display:none; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                style="display:none">
                 <i class="fas fa-clipboard-list"></i>
                 Phiếu Soạn Hàng
             </button>
@@ -264,21 +264,21 @@
             <button class="btn-action-compact" id="bulkPrintBillBtn"
                 onclick="bulkPrintSelectedBills()"
                 title="In hàng loạt phiếu bán hàng cho các đơn đã chọn"
-                style="display: none; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: white;">
+                style="display: none;  color: white">
                 <i class="fas fa-print"></i>
                 In hàng loạt PBH
             </button>
             <button class="btn-action-compact" id="bulkRemoveTagBtn"
                 onclick="showBulkRemoveTagForSelectedModal()"
                 title="Xóa tất cả tag của các đơn đang chọn"
-                style="display: none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                style="display: none;  color: white">
                 <i class="fas fa-times-circle"></i>
                 Xóa Tag
             </button>
             <button class="btn-action-compact" id="bulkRemoveTagHistoryBtn"
                 onclick="showBulkRemoveAllTagsHistoryModal()"
                 title="Xem lịch sử xóa tất cả tag"
-                style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white;">
+                style="color: white">
                 <i class="fas fa-history"></i>
                 LS Xóa Tag
             </button>
@@ -1384,7 +1384,7 @@
     <div class="merge-modal" id="mergeHistoryModal">
         <div class="merge-modal-content" style="max-width: 1400px;">
             <!-- Header -->
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+            <div class="merge-modal-header ds-modal-header-primary">
                 <div class="merge-header-info">
                     <h3><i class="fas fa-history"></i> Lịch Sử Gộp Đơn Hàng</h3>
                     <p id="mergeHistoryModalSubtitle">Xem lại các lần gộp đơn trước đây</p>
@@ -1491,7 +1491,7 @@
     <div class="bulk-tag-modal" id="bulkTagHistoryModal">
         <div class="bulk-tag-modal-content" style="max-width: 1000px;">
             <!-- Header -->
-            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+            <div class="bulk-tag-modal-header ds-modal-header-primary">
                 <div class="bulk-tag-header-info">
                     <h3><i class="fas fa-history"></i> Lịch Sử Gán Tag Hàng Loạt</h3>
                     <p id="bulkTagHistoryModalSubtitle">Xem lại các lần gán tag trước đây</p>
@@ -1524,7 +1524,7 @@
     <div class="bulk-tag-modal bulk-tag-delete-modal" id="bulkTagDeleteModal">
         <div class="bulk-tag-modal-content">
             <!-- Header -->
-            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <div class="bulk-tag-modal-header ds-modal-header-danger">
                 <div class="bulk-tag-header-info">
                     <h3><i class="fas fa-tags"></i> Xóa Tag Hàng Loạt</h3>
                     <p id="bulkTagDeleteModalSubtitle">Thêm tag và nhập STT đơn hàng cần xóa tag</p>
@@ -1598,7 +1598,7 @@
     <div class="bulk-tag-modal" id="bulkTagDeleteHistoryModal">
         <div class="bulk-tag-modal-content" style="max-width: 1000px;">
             <!-- Header -->
-            <div class="bulk-tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <div class="bulk-tag-modal-header ds-modal-header-danger">
                 <div class="bulk-tag-header-info">
                     <h3><i class="fas fa-history"></i> Lịch Sử Xóa Tag Hàng Loạt</h3>
                     <p id="bulkTagDeleteHistoryModalSubtitle">Xem lại các lần xóa tag trước đây</p>
@@ -1630,7 +1630,7 @@
     <!-- Onboarding Modal: No Campaigns Exist -->
     <div class="tag-modal" id="noCampaignsModal" style="display: none;">
         <div class="tag-modal-content" style="max-width: 450px;">
-            <div class="tag-modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+            <div class="tag-modal-header ds-modal-header-info">
                 <h3 style="color: white;"><i class="fas fa-rocket"></i> Bắt Đầu Sử Dụng</h3>
             </div>
             <div class="tag-modal-body" style="padding: 24px; text-align: center;">
@@ -1643,7 +1643,7 @@
             </div>
             <div class="tag-modal-footer" style="justify-content: center;">
                 <button class="btn-primary" onclick="closeNoCampaignsModal(); openCreateCampaignModal();"
-                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 12px 24px; font-size: 15px;">
+                    style="padding: 12px 24px; font-size: 15px">
                     <i class="fas fa-plus"></i> Tạo Chiến Dịch Đầu Tiên
                 </button>
             </div>
@@ -1653,7 +1653,7 @@
     <!-- Onboarding Modal: Select Campaign -->
     <div class="tag-modal" id="selectCampaignModal" style="display: none;">
         <div class="tag-modal-content" style="max-width: 450px;">
-            <div class="tag-modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+            <div class="tag-modal-header ds-modal-header-info">
                 <h3 style="color: white;"><i class="fas fa-bullseye"></i> Chọn Chiến Dịch</h3>
             </div>
             <div class="tag-modal-body" style="padding: 24px;">
@@ -1675,7 +1675,7 @@
                     <i class="fas fa-plus"></i> Tạo mới
                 </button>
                 <button class="btn-primary" onclick="confirmSelectCampaign()"
-                    style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    >
                     <i class="fas fa-check"></i> Chọn
                 </button>
             </div>
@@ -1685,7 +1685,7 @@
     <!-- Campaign Deleted Notification Modal -->
     <div class="tag-modal" id="campaignDeletedModal" style="display: none;">
         <div class="tag-modal-content" style="max-width: 450px;">
-            <div class="tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <div class="tag-modal-header ds-modal-header-danger">
                 <h3 style="color: white;"><i class="fas fa-exclamation-triangle"></i> Chiến Dịch Đã Bị Xóa</h3>
             </div>
             <div class="tag-modal-body" style="padding: 24px; text-align: center;">
@@ -1697,7 +1697,7 @@
             </div>
             <div class="tag-modal-footer" style="justify-content: center;">
                 <button class="btn-primary" onclick="closeCampaignDeletedModal(); showSelectCampaignModal();"
-                    style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 12px 24px;">
+                    style="padding: 12px 24px">
                     <i class="fas fa-hand-pointer"></i> Chọn Chiến Dịch Khác
                 </button>
             </div>
@@ -1707,7 +1707,7 @@
     <!-- Campaign No Dates Modal - When campaign has no start date -->
     <div class="tag-modal" id="campaignNoDatesModal" style="display: none; z-index: 10150;">
         <div class="tag-modal-content" style="max-width: 500px;">
-            <div class="tag-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            <div class="tag-modal-header ds-modal-header-warning">
                 <h3 style="color: white;"><i class="fas fa-calendar-times"></i> Chiến Dịch Chưa Có Ngày</h3>
                 <button class="tag-modal-close" onclick="closeCampaignNoDatesModal()" style="color: white;">
                     <i class="fas fa-times"></i>
@@ -1747,7 +1747,7 @@
                 <button class="tag-btn-cancel" onclick="closeCampaignNoDatesModal()">
                     Hủy
                 </button>
-                <button class="tag-btn-save" onclick="saveCampaignDatesAndContinue()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <button class="tag-btn-save ds-btn ds-btn-success" onclick="saveCampaignDatesAndContinue()" >
                     <i class="fas fa-check"></i> Lưu và Tiếp Tục
                 </button>
             </div>
@@ -1865,7 +1865,7 @@
                                 <i class="fas fa-cog"></i>
                             </button>
                             <button class="btn-primary" onclick="openCreateCampaignModal()"
-                                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 10px 12px; white-space: nowrap;"
+                                style="padding: 10px 12px; white-space: nowrap"
                                 title="Thêm chiến dịch mới">
                                 <i class="fas fa-plus"></i> THÊM
                             </button>
@@ -2023,7 +2023,7 @@
                 </div>
 
                 <!-- Info -->
-                <div style="padding: 12px 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0; display: flex; align-items: flex-start; gap: 10px;">
+                <div style="padding: 12px 14px;  border-radius: 10px; border: 1px solid #bbf7d0; display: flex; align-items: flex-start; gap: 10px">
                     <i class="fas fa-lightbulb" style="color: #22c55e; font-size: 14px; margin-top: 1px; flex-shrink: 0;"></i>
                     <div style="font-size: 12px; color: #166534; line-height: 1.5;">
                         Chiến dịch lưu lại khoảng thời gian lọc đơn. Chọn lại bất cứ lúc nào để áp dụng nhanh.
@@ -2040,7 +2040,7 @@
                     Hủy
                 </button>
                 <button onclick="saveNewCampaign()"
-                    style="padding: 10px 24px; border: none; border-radius: 10px; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(124,58,237,0.3);"
+                    style="padding: 10px 24px; border: none; border-radius: 10px;  color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(124,58,237,0.3)"
                     onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(124,58,237,0.4)'"
                     onmouseout="this.style.transform='none'; this.style.boxShadow='0 2px 8px rgba(124,58,237,0.3)'">
                     <i class="fas fa-rocket" style="margin-right: 6px;"></i> Tạo Chiến Dịch
@@ -2549,7 +2549,7 @@
         <div class="modal-content"
             style="background: white; max-width: 420px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
             <div class="modal-header"
-                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                style="color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center">
                 <h3 style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-qrcode"></i> QR Chuyển Khoản
                 </h3>
@@ -2866,7 +2866,7 @@
     <div class="merge-modal" id="fastSaleModal">
         <div class="merge-modal-content" style="max-width: 1200px;">
             <!-- Header -->
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            <div class="merge-modal-header ds-modal-header-primary">
                 <div class="merge-header-info">
                     <h3><i class="fas fa-file-invoice-dollar"></i> Thêm hóa đơn nhanh</h3>
                     <p id="fastSaleModalSubtitle">Tạo phiếu bán hàng từ các đơn đã chọn</p>
@@ -2909,7 +2909,7 @@
                         <i class="fas fa-times"></i> Đóng
                     </button>
                     <button class="merge-btn-confirm" id="confirmAndCheckFastSaleBtn" onclick="confirmAndCheckFastSale()"
-                        style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                        >
                         <i class="fas fa-check-double"></i> Lưu xác nhận
                     </button>
                 </div>
@@ -2927,7 +2927,7 @@
     <div class="merge-modal" id="fastSaleResultsModal">
         <div class="merge-modal-content" style="max-width: 1400px;">
             <!-- Header -->
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <div class="merge-modal-header ds-modal-header-danger">
                 <div class="merge-header-info">
                     <h3><i class="fas fa-poll"></i> Kết quả đơn hàng</h3>
                 </div>
@@ -2959,7 +2959,7 @@
                         <div id="forcedOrdersTable"></div>
                         <div style="margin-top: 20px;">
                             <button class="merge-btn-confirm" id="createForcedBtn" onclick="createForcedOrders()"
-                                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                                >
                                 <i class="fas fa-bolt"></i> Tạo cưỡng bức
                             </button>
                         </div>
@@ -2979,11 +2979,11 @@
                         <div id="successOrdersTable"></div>
                         <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="merge-btn-confirm" id="printInvoiceBtn" onclick="printSuccessOrders('invoice')"
-                                style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                                >
                                 <i class="fas fa-print"></i> In hóa đơn
                             </button>
                             <button class="merge-btn-confirm" id="sendBillBatchBtn" onclick="window.sendBillBatch()"
-                                style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                                >
                                 <i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt
                             </button>
                         </div>
@@ -3003,7 +3003,7 @@
     <!-- TPOS Account Settings Modal -->
     <div class="merge-modal" id="tposAccountModal">
         <div class="merge-modal-content" style="max-width: 500px;">
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+            <div class="merge-modal-header ds-modal-header-primary">
                 <div class="merge-header-info">
                     <h3><i class="fas fa-user-cog"></i> Tài khoản TPOS</h3>
                     <p style="font-size: 13px; opacity: 0.9;">Cài đặt tài khoản TPOS cho tạo bill</p>
@@ -3072,7 +3072,7 @@
                     <button class="merge-btn-cancel" onclick="testTposAccount()">
                         <i class="fas fa-vial"></i> Test
                     </button>
-                    <button class="merge-btn-confirm" onclick="saveTposAccount()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                    <button class="merge-btn-confirm ds-btn-primary" onclick="saveTposAccount()" >
                         <i class="fas fa-save"></i> Lưu
                     </button>
                 </div>
@@ -3083,7 +3083,7 @@
     <!-- Bill Preview Modal (before sending) -->
     <div class="merge-modal" id="billPreviewSendModal">
         <div class="merge-modal-content" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+            <div class="merge-modal-header ds-modal-header-primary">
                 <div class="merge-header-info">
                     <h3><i class="fab fa-facebook-messenger"></i> Xem trước bill</h3>
                     <p style="font-size: 13px; opacity: 0.9;">Kiểm tra trước khi gửi cho khách</p>
@@ -3103,13 +3103,13 @@
             </div>
             <div class="merge-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button class="merge-btn-cancel" onclick="closeBillPreviewSendModal()"><i class="fas fa-times"></i> Hủy</button>
-                <button class="merge-btn-confirm" id="billPreviewPrintBtn" onclick="printBillFromPreview()" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                <button class="merge-btn-confirm ds-btn-info" id="billPreviewPrintBtn" onclick="printBillFromPreview()" >
                     <i class="fas fa-print"></i> In bill
                 </button>
-                <button class="merge-btn-confirm" id="billPreviewPrintSendBtn" onclick="printAndSendBillFromPreview()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <button class="merge-btn-confirm ds-btn-warning" id="billPreviewPrintSendBtn" onclick="printAndSendBillFromPreview()" >
                     <i class="fas fa-print"></i> In & Gửi
                 </button>
-                <button class="merge-btn-confirm" id="billPreviewSendBtn" onclick="confirmSendBillFromPreview()" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                <button class="merge-btn-confirm ds-btn-primary" id="billPreviewSendBtn" onclick="confirmSendBillFromPreview()" >
                     <i class="fab fa-facebook-messenger"></i> Gửi bill
                 </button>
             </div>
@@ -3119,7 +3119,7 @@
     <!-- Bill Template Settings Modal -->
     <div class="merge-modal" id="billTemplateSettingsModal" style="z-index: 1001;">
         <div class="merge-modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
-            <div class="merge-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            <div class="merge-modal-header ds-modal-header-warning">
                 <div class="merge-header-info">
                     <h3><i class="fas fa-file-invoice"></i> Cài Đặt Mẫu Bill</h3>
                     <p style="font-size: 13px; opacity: 0.9;">Tùy chỉnh nội dung và bố cục hóa đơn</p>
@@ -3243,7 +3243,7 @@
                 </div>
                 <!-- Preview Tab -->
                 <div class="bill-settings-content" id="billSettingsPreview" style="display: none;">
-                    <button class="btn-primary" onclick="previewBillTemplate()" style="margin-bottom: 15px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    <button class="btn-primary ds-btn ds-btn-primary" onclick="previewBillTemplate()" style="margin-bottom: 15px;">
                         <i class="fas fa-sync-alt"></i> Cập nhật xem trước
                     </button>
                     <div id="billPreviewContainer" style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb; min-height: 300px; overflow: auto; max-height: 500px;">
@@ -3255,7 +3255,7 @@
                 <button class="merge-btn-cancel" onclick="resetBillTemplateSettings()" style="background: #ef4444;"><i class="fas fa-undo"></i> Đặt lại mặc định</button>
                 <div style="display: flex; gap: 10px;">
                     <button class="merge-btn-cancel" onclick="closeBillTemplateSettings()"><i class="fas fa-times"></i> Hủy</button>
-                    <button class="merge-btn-confirm" onclick="saveBillTemplateSettings()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"><i class="fas fa-save"></i> Lưu</button>
+                    <button class="merge-btn-confirm ds-btn-success" onclick="saveBillTemplateSettings()" ><i class="fas fa-save"></i> Lưu</button>
                 </div>
             </div>
         </div>
@@ -3265,7 +3265,7 @@
     <!-- Bulk Remove All Tags History Modal -->
     <div id="bulkRemoveAllTagsHistoryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
         <div style="background: white; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
-            <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center">
                 <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-history"></i>
                     Lịch Sử Xóa Tất Cả Tag
@@ -3374,7 +3374,7 @@
     <div id="packingSlipModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
         <div style="background:#fff; border-radius:12px; width:95%; max-width:700px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
             <!-- Header -->
-            <div style="padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius:12px 12px 0 0; color:#fff;">
+            <div style="padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between;  border-radius:12px 12px 0 0; color:#fff">
                 <h3 style="margin:0; font-size:16px;"><i class="fas fa-clipboard-list" style="margin-right:8px;"></i>Phiếu Soạn Hàng</h3>
                 <button onclick="closePackingSlipModal()" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer; padding:4px 8px;"><i class="fas fa-times"></i></button>
             </div>
@@ -3403,7 +3403,7 @@
             <!-- Footer -->
             <div style="padding:14px 20px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:10px; background:#f9fafb; border-radius:0 0 12px 12px;">
                 <button onclick="closePackingSlipModal()" style="padding:8px 18px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; font-size:13px;">Hủy</button>
-                <button onclick="printPackingSlip()" style="padding:8px 18px; border:none; border-radius:6px; background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; cursor:pointer; font-size:13px; font-weight:600;">
+                <button onclick="printPackingSlip()" style="padding:8px 18px; border:none; border-radius:6px;  color:#fff; cursor:pointer; font-size:13px; font-weight:600">
                     <i class="fas fa-print" style="margin-right:6px;"></i>In Phiếu Soạn Hàng
                 </button>
             </div>
