@@ -69,183 +69,218 @@ window.BarcodeLabelDialog = (function () {
         const body = document.createElement('div');
         body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;';
 
-        // Settings (matching TPOS layout)
-        const settingsRow = document.createElement('div');
-        settingsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;';
-        settingsRow.innerHTML = `
-            <div style="display:flex;flex-direction:column;gap:4px;min-width:160px;">
-                <label style="font-size:12px;font-weight:600;color:#374151;">Giấy in</label>
-                <select id="bld-paper" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;">
-                    ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
+        // === TPOS-matching settings layout ===
+
+        // Row 1: Bảng giá (left) + Áp dụng nhanh SL (right)
+        const row1 = document.createElement('div');
+        row1.style.cssText = 'display:flex;align-items:flex-end;gap:16px;margin-bottom:12px;';
+        row1.innerHTML = `
+            <div style="flex:1;">
+                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Bảng giá</label>
+                <select id="bld-price-list" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;background:#eef2ff;color:#374151;">
+                    <option>Bảng giá mặc định</option>
                 </select>
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px;min-width:140px;">
-                <label style="font-size:12px;font-weight:600;color:#374151;">Kiểu in</label>
-                <select id="bld-print-type" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;">
-                    ${PRINT_TYPES.map((t, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${t.name}</option>`).join('')}
-                </select>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;padding-bottom:2px;">
-                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                    <input type="checkbox" id="bld-show-price" checked style="width:15px;height:15px;accent-color:#2563eb;">
-                    Hiện giá
-                </label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                    <input type="checkbox" id="bld-show-bold" checked style="width:15px;height:15px;accent-color:#2563eb;">
-                    Chữ đậm
-                </label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                    <input type="checkbox" id="bld-show-name" checked style="width:15px;height:15px;accent-color:#2563eb;">
-                    Hiển thị Tên sản phẩm
-                </label>
-            </div>
-            <div style="display:flex;align-items:flex-end;gap:8px;margin-left:auto;">
-                <button id="bld-apply-qty" style="padding:7px 14px;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">Áp dụng nhanh SL</button>
-                <input type="number" id="bld-quick-qty" value="1" min="1" max="999" style="width:55px;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:7px 4px;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button id="bld-apply-qty" style="padding:8px 16px;background:#22c55e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">Áp dụng nhanh số lượng</button>
+                <input type="number" id="bld-quick-qty" value="1" min="1" max="999" style="width:60px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:8px 4px;font-size:13px;">
             </div>
         `;
-        body.appendChild(settingsRow);
+        body.appendChild(row1);
 
-        // Tabs (matching TPOS: "Sản phẩm có mã vạch" / "Sản phẩm không có mã vạch")
-        const withBarcode = items.filter(i => i.code);
-        const withoutBarcode = items.filter(i => !i.code);
+        // Row 2: Giấy in
+        const row2 = document.createElement('div');
+        row2.style.cssText = 'margin-bottom:12px;';
+        row2.innerHTML = `
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Giấy in</label>
+            <select id="bld-paper" style="width:100%;max-width:300px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;background:#eef2ff;color:#374151;">
+                ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+        `;
+        body.appendChild(row2);
 
-        // Items table
-        const selectAllDiv = document.createElement('div');
-        selectAllDiv.style.cssText = 'margin-bottom:8px;padding:6px 0;';
-        selectAllDiv.innerHTML = `
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;font-size:13px;">
-                <input type="checkbox" id="bld-select-all" checked style="width:16px;height:16px;accent-color:#2563eb;">
-                Chọn tất cả
+        // Row 3: Checkboxes (matching TPOS exactly)
+        const row3 = document.createElement('div');
+        row3.style.cssText = 'display:flex;flex-wrap:wrap;gap:20px;margin-bottom:10px;';
+        row3.innerHTML = `
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="bld-show-price" checked style="width:16px;height:16px;accent-color:#2563eb;"> Hiện giá
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="bld-show-bold" checked style="width:16px;height:16px;accent-color:#2563eb;"> Chữ đậm
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="bld-show-currency" style="width:16px;height:16px;accent-color:#2563eb;"> Hiện đơn vị tiền tệ
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="bld-show-name" checked style="width:16px;height:16px;accent-color:#2563eb;"> Hiển thị Tên sản phẩm
             </label>
         `;
-        body.appendChild(selectAllDiv);
+        body.appendChild(row3);
 
+        // Row 4: Ẩn mã vạch
+        const row4 = document.createElement('div');
+        row4.style.cssText = 'margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;';
+        row4.innerHTML = `
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="bld-hide-barcode" style="width:16px;height:16px;accent-color:#2563eb;"> Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)
+            </label>
+        `;
+        body.appendChild(row4);
+
+        // Tabs: "Sản phẩm có mã vạch" | "Sản phẩm không có mã vạch"
+        const withBarcode = items.filter(i => i.code);
+        const withoutBarcode = items.filter(i => !i.code);
+        let activeTab = 'barcode';
+
+        const tabBar = document.createElement('div');
+        tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #e5e7eb;';
+        tabBar.innerHTML = `
+            <button class="bld-tab active" data-tab="barcode" style="padding:8px 16px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid #374151;color:#374151;">Sản phẩm có mã vạch</button>
+            <button class="bld-tab" data-tab="nobarcode" style="padding:8px 16px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#22c55e;">Sản phẩm không có mã vạch</button>
+        `;
+        body.appendChild(tabBar);
+
+        // Table: Sản phẩm | Số lượng | (delete icon)
         const table = document.createElement('table');
         table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
         table.innerHTML = `
             <thead>
-                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
-                    <th style="padding:8px 6px;text-align:center;width:32px;"></th>
-                    <th style="padding:8px 6px;text-align:left;">Sản phẩm</th>
-                    <th style="padding:8px 6px;text-align:left;width:80px;">Mã SP</th>
-                    <th style="padding:8px 6px;text-align:center;width:70px;">Số lượng</th>
-                    <th style="padding:8px 6px;text-align:right;width:90px;">Giá</th>
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;">Sản phẩm</th>
+                    <th style="padding:10px 8px;text-align:center;width:120px;font-weight:600;color:#374151;">Số lượng</th>
+                    <th style="width:40px;"></th>
                 </tr>
             </thead>
             <tbody id="bld-items-body"></tbody>
         `;
 
-        const tbody = table.querySelector('#bld-items-body');
-        items.forEach((item, i) => {
-            const tr = document.createElement('tr');
-            tr.style.cssText = 'border-bottom:1px solid #f3f4f6;';
-            const variantText = item.variant ? ` <span style="color:#6b7280;font-size:11px;">(${item.variant})</span>` : '';
-            tr.innerHTML = `
-                <td style="padding:6px;text-align:center;">
-                    <input type="checkbox" class="bld-item-check" data-index="${i}" ${item.code ? 'checked' : ''} style="width:15px;height:15px;accent-color:#2563eb;">
-                </td>
-                <td style="padding:8px 6px;">
-                    <span style="font-weight:500;">[${escapeHtml(item.code)}] ${escapeHtml(stripBrackets(item.name))}</span>${variantText}
-                </td>
-                <td style="padding:6px;font-family:monospace;font-size:12px;color:#6b7280;">${escapeHtml(item.code)}</td>
-                <td style="padding:6px;text-align:center;">
-                    <input type="number" class="bld-qty" data-index="${i}" value="${item.quantity}" min="1" max="999" style="width:55px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:4px;font-size:13px;">
-                </td>
-                <td style="padding:6px;text-align:right;font-weight:500;">${formatPrice(item.price)}</td>
-            `;
-            if (!item.code) {
-                items[i].checked = false;
-            } else {
-                items[i].checked = true;
+        function renderTableRows() {
+            const tbody = table.querySelector('#bld-items-body');
+            tbody.innerHTML = '';
+            const displayItems = activeTab === 'barcode' ? withBarcode : withoutBarcode;
+            displayItems.forEach((item) => {
+                const origIdx = items.indexOf(item);
+                const variantText = item.variant ? ` (${item.variant})` : '';
+                const tr = document.createElement('tr');
+                tr.style.cssText = 'border-bottom:1px solid #f3f4f6;';
+                tr.innerHTML = `
+                    <td style="padding:10px 8px;">
+                        [${escapeHtml(item.code || '?')}] ${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}
+                    </td>
+                    <td style="padding:8px;text-align:center;">
+                        <input type="number" class="bld-qty" data-index="${origIdx}" value="${item.quantity}" min="1" max="999" style="width:80px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:13px;">
+                    </td>
+                    <td style="padding:8px;text-align:center;">
+                        <button class="bld-remove" data-index="${origIdx}" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;padding:4px;" title="Xóa">🗑</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            if (displayItems.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;">Không có sản phẩm</td>`;
+                tbody.appendChild(tr);
             }
-            tbody.appendChild(tr);
-        });
+        }
+        renderTableRows();
         body.appendChild(table);
 
-        // Footer
-        const footer = document.createElement('div');
-        footer.style.cssText = 'padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;';
-        footer.innerHTML = `
-            <span style="font-size:12px;color:#6b7280;" id="bld-no-barcode-info">${withoutBarcode.length > 0 ? `⚠ ${withoutBarcode.length} SP không có mã vạch` : ''}</span>
-            <div style="display:flex;gap:8px;"></div>
-        `;
-        const footerActions = footer.querySelector('div:last-child');
+        // Tab switching
+        tabBar.addEventListener('click', (e) => {
+            const btn = e.target.closest('.bld-tab');
+            if (!btn) return;
+            activeTab = btn.dataset.tab;
+            tabBar.querySelectorAll('.bld-tab').forEach(b => {
+                b.style.borderBottomColor = b === btn ? '#374151' : 'transparent';
+                b.style.color = b === btn ? '#374151' : '#22c55e';
+            });
+            renderTableRows();
+        });
 
-        const btnCancel = document.createElement('button');
-        btnCancel.textContent = 'Đóng';
-        btnCancel.style.cssText = 'padding:8px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:13px;';
+        // Separator
+        const sep = document.createElement('hr');
+        sep.style.cssText = 'border:none;border-top:3px solid #2563eb;margin:16px 0 12px;';
+        body.appendChild(sep);
+
+        // Footer (matching TPOS: "In bằng pdf" green/blue button + "Đóng" gray button)
+        const footer = document.createElement('div');
+        footer.style.cssText = 'padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;';
 
         const btnPrint = document.createElement('button');
         btnPrint.id = 'bld-btn-print';
-        btnPrint.style.cssText = 'padding:8px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;';
+        btnPrint.style.cssText = 'padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
 
-        footerActions.appendChild(btnCancel);
-        footerActions.appendChild(btnPrint);
+        const btnCancel = document.createElement('button');
+        btnCancel.textContent = 'Đóng';
+        btnCancel.style.cssText = 'padding:8px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:13px;';
+
+        footer.appendChild(btnPrint);
+        footer.appendChild(btnCancel);
 
         modal.append(header, body, footer);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        // Count
+        // Count + update button
+        let showCurrency = false;
+        let hideBarcode = false;
+
         function updateCount() {
-            const checked = items.filter(it => it.checked);
-            const totalLabels = checked.reduce((sum, it) => sum + it.quantity, 0);
-            btnPrint.textContent = `In bằng pdf (${totalLabels})`;
+            const totalLabels = items.filter(i => i.code).reduce((sum, it) => sum + it.quantity, 0);
+            btnPrint.textContent = `In bằng pdf`;
         }
         updateCount();
 
-        // Events
-        settingsRow.querySelector('#bld-paper').addEventListener('change', (e) => { selectedPaper = PAPERS[parseInt(e.target.value)]; });
-        settingsRow.querySelector('#bld-print-type').addEventListener('change', (e) => { selectedPrintType = PRINT_TYPES[parseInt(e.target.value)]; });
-        settingsRow.querySelector('#bld-show-price').addEventListener('change', (e) => { showPrice = e.target.checked; });
-        settingsRow.querySelector('#bld-show-bold').addEventListener('change', (e) => { showBold = e.target.checked; });
-        settingsRow.querySelector('#bld-show-name').addEventListener('change', (e) => { showProductName = e.target.checked; });
+        // Settings events
+        body.querySelector('#bld-paper').addEventListener('change', (e) => { selectedPaper = PAPERS[parseInt(e.target.value)]; });
+        body.querySelector('#bld-show-price').addEventListener('change', (e) => { showPrice = e.target.checked; });
+        body.querySelector('#bld-show-bold').addEventListener('change', (e) => { showBold = e.target.checked; });
+        body.querySelector('#bld-show-name').addEventListener('change', (e) => { showProductName = e.target.checked; });
+        body.querySelector('#bld-show-currency').addEventListener('change', (e) => { showCurrency = e.target.checked; });
+        body.querySelector('#bld-hide-barcode').addEventListener('change', (e) => { hideBarcode = e.target.checked; });
 
         // Quick apply qty
-        settingsRow.querySelector('#bld-apply-qty').addEventListener('click', () => {
-            const qty = Math.max(1, parseInt(settingsRow.querySelector('#bld-quick-qty').value) || 1);
-            items.forEach((it, i) => { it.quantity = qty; });
-            body.querySelectorAll('.bld-qty').forEach(input => { input.value = qty; });
+        body.querySelector('#bld-apply-qty').addEventListener('click', () => {
+            const qty = Math.max(1, parseInt(body.querySelector('#bld-quick-qty').value) || 1);
+            items.forEach(it => { it.quantity = qty; });
+            renderTableRows();
             updateCount();
         });
 
-        const selectAllCheckbox = document.getElementById('bld-select-all');
-        selectAllCheckbox.addEventListener('change', () => {
-            const val = selectAllCheckbox.checked;
-            items.forEach(it => it.checked = val);
-            body.querySelectorAll('.bld-item-check').forEach(cb => cb.checked = val);
-            updateCount();
-        });
-
+        // Qty change + remove in table
         body.addEventListener('change', (e) => {
-            if (e.target.classList.contains('bld-item-check')) {
-                const idx = parseInt(e.target.dataset.index);
-                items[idx].checked = e.target.checked;
-                selectAllCheckbox.checked = items.every(it => it.checked);
-                updateCount();
-            }
             if (e.target.classList.contains('bld-qty')) {
                 const idx = parseInt(e.target.dataset.index);
                 items[idx].quantity = Math.max(1, parseInt(e.target.value) || 1);
                 updateCount();
             }
         });
+        body.addEventListener('click', (e) => {
+            if (e.target.classList.contains('bld-remove')) {
+                const idx = parseInt(e.target.dataset.index);
+                items.splice(idx, 1);
+                renderTableRows();
+                updateCount();
+            }
+        });
 
+        // Close
         const closeModal = () => { overlay.remove(); overlay = null; };
         header.querySelector('#bld-close').addEventListener('click', closeModal);
         btnCancel.addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
+        // Print
         btnPrint.addEventListener('click', () => {
-            const selected = items.filter(it => it.checked && it.code);
-            if (!selected.length) return;
+            const printItems = items.filter(it => it.code && it.quantity > 0);
+            if (!printItems.length) return;
             closeModal();
-            generateAndPrint(selected, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName);
+            generateAndPrint(printItems, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
         });
     }
 
-    function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName) {
+    function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
         const labels = [];
         for (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
@@ -256,7 +291,7 @@ window.BarcodeLabelDialog = (function () {
                 });
             }
         }
-        const html = buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName);
+        const html = buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode);
         showPrintOverlay(html);
     }
 
@@ -267,7 +302,7 @@ window.BarcodeLabelDialog = (function () {
      * - Dynamic styles from BarcodeProducLabelPrintController
      * - Barcode: JsBarcode CODE128 (instead of TPOS server /Web/Barcode)
      */
-    function buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName) {
+    function buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
         const topMargin = paper.topMargin || 0;
         const leftMargin = paper.leftMargin || 0;
@@ -320,14 +355,13 @@ window.BarcodeLabelDialog = (function () {
                     `;
                 } else {
                     // Default template — matches TPOS /BarcodeProductLabel/Print exactly
+                    const currencyStr = showCurrency ? ' đ' : '';
                     sheetsHTML += `
                         <div class="barcode_label" style="${labelStyle}text-align:center;margin-top:1px;">
                             ${showProductName ? `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>` : ''}
-                            <div class="barcode-image">
-                                <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
-                            </div>
+                            ${!hideBarcode ? `<div class="barcode-image"><svg class="barcode" data-code="${escapeHtml(label.code)}"></svg></div>` : ''}
                             <div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>
-                            ${showPrice ? `<div><strong class="barcode-price">${displayPrice}</strong></div>` : ''}
+                            ${showPrice ? `<div><strong class="barcode-price">${displayPrice}${currencyStr}</strong></div>` : ''}
                         </div>
                     `;
                 }
