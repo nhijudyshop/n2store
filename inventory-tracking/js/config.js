@@ -21,7 +21,6 @@ const COLLECTIONS = {
     SHIPMENTS: 'inventory_tracking',  // Now stores NCC documents with datHang[] and dotHang[]
     PREPAYMENTS: 'inventory_prepayments',
     OTHER_EXPENSES: 'inventory_other_expenses',
-    INLINE_NOTES: 'inventory_inline_notes',  // Multi-user inline notes for Thiếu & Ghi Chú
     EDIT_HISTORY: 'edit_history',
     USERS: 'users',
 };

@@ -408,10 +408,6 @@ function renderShipments(shipments) {
         lucide.createIcons();
     }
 
-    // Setup inline editor listeners for real-time multi-user editing
-    if (typeof InlineEditor !== 'undefined') {
-        InlineEditor.setupAllListeners();
-    }
 }
 
 /**
@@ -649,35 +645,6 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
- * Render thiếu cell — display entries only
- */
-function renderInlineThieu(dotHangId, legacyValue) {
-    return `
-        <div class="inline-thieu-wrap">
-            <div class="inline-thieu-entries" data-dot-hang-id="${dotHangId}">
-                ${legacyValue > 0 ? `<span class="shortage-value">${formatNumber(legacyValue)}</span>` : '-'}
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render ghi chú cell — display entries + pencil button to open modal
- */
-function renderInlineGhiChu(dotHangId, legacyNote) {
-    return `
-        <div class="inline-ghichu-wrap">
-            <div class="inline-ghichu-entries" data-dot-hang-id="${dotHangId}">
-                ${legacyNote ? `<span class="inline-entry-text">${legacyNote}</span>` : ''}
-            </div>
-            <button class="inline-edit-btn" onclick="InlineEditor.openNoteModal('${dotHangId}'); event.stopPropagation();" title="Thêm / Sửa ghi chú">
-                <i data-lucide="pencil" style="width:13px;height:13px"></i>
-            </button>
-        </div>
-    `;
-}
-
-/**
  * Render a single product row
  */
 function renderProductRow(opts) {
@@ -732,8 +699,8 @@ function renderProductRow(opts) {
                 <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center ${rowspanBorderClass} inline-thieu-cell" rowspan="${rowSpan}" data-dot-hang-id="${invoiceId}">
-                    ${renderInlineThieu(invoiceId, soMonThieu)}
+                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
+                    <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
                 <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${imageCount > 0 ? `
@@ -743,8 +710,8 @@ function renderProductRow(opts) {
                         </span>
                     ` : '-'}
                 </td>
-                <td class="col-invoice-note ${rowspanBorderClass} inline-ghichu-cell" rowspan="${rowSpan}" data-dot-hang-id="${invoiceId}">
-                    ${renderInlineGhiChu(invoiceId, ghiChu)}
+                <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
+                    ${ghiChu ? `<span class="invoice-note-text">${ghiChu}</span>` : ''}
                 </td>
             ` : ''}
             ${canViewCost ? `
