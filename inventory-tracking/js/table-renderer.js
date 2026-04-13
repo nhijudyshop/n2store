@@ -649,50 +649,30 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
- * Render inline thiếu cell content
- * Enter to save, appends new entry each time
+ * Render thiếu cell — display entries only
  */
 function renderInlineThieu(dotHangId, legacyValue) {
-    const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
-    const inputColorClass = isCurrentAdmin ? 'inline-input-admin' : 'inline-input-user';
-
     return `
         <div class="inline-thieu-wrap">
-            <input type="number" class="inline-thieu-input ${inputColorClass}"
-                   data-dot-hang-id="${dotHangId}"
-                   placeholder="${legacyValue > 0 ? legacyValue : '0'}"
-                   onkeydown="InlineEditor.handleKeyDown(event, 'thieu', '${dotHangId}')"
-                   onclick="event.stopPropagation()">
-            <div class="inline-thieu-entries" data-dot-hang-id="${dotHangId}"></div>
+            <div class="inline-thieu-entries" data-dot-hang-id="${dotHangId}">
+                ${legacyValue > 0 ? `<span class="shortage-value">${formatNumber(legacyValue)}</span>` : '-'}
+            </div>
         </div>
     `;
 }
 
 /**
- * Render inline ghi chú cell content
- * Enter to save, Ctrl+V to paste image, appends new entry each time
+ * Render ghi chú cell — display entries + pencil button to open modal
  */
 function renderInlineGhiChu(dotHangId, legacyNote) {
-    const isCurrentAdmin = authManager?.isAdmin() || authManager?.isAdminTemplate() || false;
-    const inputColorClass = isCurrentAdmin ? 'inline-input-admin' : 'inline-input-user';
-
     return `
         <div class="inline-ghichu-wrap">
-            <div class="inline-ghichu-input-row">
-                <input type="text" class="inline-ghichu-input ${inputColorClass}"
-                       data-dot-hang-id="${dotHangId}"
-                       placeholder="Ghi chú... (Enter để lưu)"
-                       onkeydown="InlineEditor.handleKeyDown(event, 'ghichu', '${dotHangId}')"
-                       onpaste="InlineEditor.handlePaste(event, '${dotHangId}')"
-                       onclick="event.stopPropagation()">
-                <label class="inline-attach-btn" title="Đính kèm ảnh (hoặc Ctrl+V)">
-                    <i data-lucide="image-plus" style="width:14px;height:14px"></i>
-                    <input type="file" accept="image/*" style="display:none"
-                           onchange="InlineEditor.handleFileSelect(event, '${dotHangId}')">
-                </label>
+            <div class="inline-ghichu-entries" data-dot-hang-id="${dotHangId}">
+                ${legacyNote ? `<span class="inline-entry-text">${legacyNote}</span>` : ''}
             </div>
-            <div class="inline-upload-indicator" style="display:none"></div>
-            <div class="inline-ghichu-entries" data-dot-hang-id="${dotHangId}"></div>
+            <button class="inline-edit-btn" onclick="InlineEditor.openNoteModal('${dotHangId}'); event.stopPropagation();" title="Thêm / Sửa ghi chú">
+                <i data-lucide="pencil" style="width:13px;height:13px"></i>
+            </button>
         </div>
     `;
 }
