@@ -1284,54 +1284,58 @@ class PancakeTokenManager {
      * @returns {Promise<string|null>} - New token or null
      */
     async generatePageAccessToken(pageId) {
-        try {
-            // Auto-load token if not in memory
-            if (!this.currentToken) {
-                await this.getToken();
+        // Auto-load token if not in memory
+        if (!this.currentToken) {
+            await this.getToken();
+        }
+
+        // Collect accounts to try: active first, then all others
+        const tokensToTry = [];
+        if (this.currentToken) {
+            tokensToTry.push({ token: this.currentToken, name: this.accounts[this.activeAccountId]?.name || 'active', id: this.activeAccountId });
+        }
+        for (const [id, acc] of Object.entries(this.accounts)) {
+            if (id !== this.activeAccountId && acc.token && !this.isTokenExpired(acc.exp)) {
+                tokensToTry.push({ token: acc.token, name: acc.name, id });
             }
-            if (!this.currentToken) {
-                throw new Error('Cần đăng nhập Pancake trước');
-            }
+        }
 
-            console.log('[PANCAKE-TOKEN] ========================================');
-            console.log('[PANCAKE-TOKEN] Generating page_access_token for page:', pageId);
-            console.log('[PANCAKE-TOKEN] Using access_token (JWT):', this.currentToken.substring(0, 50) + '...');
-
-            // Use worker proxy to avoid CORS
-            // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
-            const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/generate_page_access_token`,
-                `access_token=${this.currentToken}`
-            );
-
-            console.log('[PANCAKE-TOKEN] API URL:', url);
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const result = await response.json();
-            console.log('[PANCAKE-TOKEN] API Response:', result);
-
-            if (result.success && result.page_access_token) {
-                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated:', result.page_access_token.substring(0, 50) + '...');
-                console.log('[PANCAKE-TOKEN] ========================================');
-
-                // Save to cache + Render DB
-                await this.savePageAccessToken(pageId, result.page_access_token);
-                return result.page_access_token;
-            } else {
-                throw new Error(result.message || 'Failed to generate token');
-            }
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] ❌ Error generating page_access_token:', error);
-            console.log('[PANCAKE-TOKEN] ========================================');
+        if (tokensToTry.length === 0) {
+            console.error('[PANCAKE-TOKEN] No accounts available to generate page_access_token');
             return null;
         }
+
+        for (const account of tokensToTry) {
+            try {
+                console.log('[PANCAKE-TOKEN] Generating PAT for page:', pageId, '| account:', account.name);
+
+                const url = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${pageId}/generate_page_access_token`,
+                    `access_token=${account.token}`
+                );
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.page_access_token) {
+                    console.log('[PANCAKE-TOKEN] ✅ PAT generated via account:', account.name);
+                    await this.savePageAccessToken(pageId, result.page_access_token);
+                    return result.page_access_token;
+                }
+
+                // Permission error → try next account
+                console.warn('[PANCAKE-TOKEN] Account', account.name, 'failed:', result.message || 'no token');
+            } catch (error) {
+                console.warn('[PANCAKE-TOKEN] Account', account.name, 'error:', error.message);
+            }
+        }
+
+        console.error('[PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page:', pageId);
+        return null;
     }
 
     /**

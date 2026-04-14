@@ -1332,7 +1332,7 @@ router.get('/:id/notes', async (req, res) => {
             SELECT id, content, is_pinned, category, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_notes
-            WHERE phone = $1 OR customer_id = $1
+            WHERE phone = $1
             ORDER BY is_pinned DESC, created_at DESC
         `, [id]);
 
