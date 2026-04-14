@@ -117,7 +117,14 @@ function renderInfoTab(data) {
         <div class="info-card">
             <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
             <div class="info-grid">
-                <div class="info-field"><div class="info-label">Tên khách hàng</div><div class="info-value highlight">${data.Name || ""}</div></div>
+                <div class="info-field">
+                    <div class="info-label">Tên khách hàng</div>
+                    <div class="info-value">
+                        <input type="text" class="form-control" value="${(data.Name || "").replace(/"/g, '&quot;')}"
+                            onchange="updateOrderInfo('Name', this.value)"
+                            style="width: 100%; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; color: #3b82f6; font-weight: 600;">
+                    </div>
+                </div>
                 <div class="info-field">
                     <div class="info-label">Điện thoại</div>
                     <div class="info-value">
