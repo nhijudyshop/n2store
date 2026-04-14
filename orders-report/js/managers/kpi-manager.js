@@ -10,12 +10,12 @@
  * 4. NET KPI = chỉ tính SP MỚI (không trong BASE), net = add - remove (min 0)
  * 5. Tổng KPI = SUM(net per product) × 5,000 VNĐ
  *
- * Storage: Render PostgreSQL via REST API
+ * Storage: 100% Render PostgreSQL via REST API (NO Firebase)
  * - kpi_base (key: order_code)
  * - kpi_audit_log (key: order_code)
  * - kpi_statistics (key: user_id + stat_date)
- *
- * Employee Ranges: Firebase settings (admin panel - read only)
+ * - report_order_details (key: table_name) — product data for BASE snapshots
+ * - campaign_employee_ranges (key: campaign_name) — STT → employee mapping
  */
 
 (function () {
@@ -118,14 +118,14 @@
             campaignName = window.campaignManager.activeCampaign.name || window.campaignManager.activeCampaign.displayName;
         }
 
-        // Load report_order_details for product data + STT + Code
+        // Load report_order_details for product data + STT + Code (from Render PostgreSQL)
         let reportOrdersMap = {};
         try {
-            if (window.firebase?.firestore && campaignName) {
+            if (campaignName) {
                 const safeTable = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                const doc = await window.firebase.firestore().collection('report_order_details').doc(safeTable).get();
-                if (doc.exists) {
-                    (doc.data().orders || []).forEach(o => {
+                const result = await kpiAPI('GET', `/report-order-details/${encodeURIComponent(safeTable)}`);
+                if (result.exists && Array.isArray(result.orders)) {
+                    result.orders.forEach(o => {
                         const oid = o.Id || o.id;
                         if (oid) reportOrdersMap[oid] = o;
                     });
@@ -425,42 +425,45 @@
     }
 
     // ========================================
-    // Employee Range Lookup (still Firebase for admin panel)
+    // Employee Range Lookup (Render PostgreSQL)
     // ========================================
+    const CAMPAIGNS_API = 'https://n2store-fallback.onrender.com/api/campaigns';
+    let _employeeRangesCache = null;
+    let _employeeRangesCacheTime = 0;
+    const RANGES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     async function getAssignedEmployeeForSTT(stt, campaignName) {
         const unassigned = { userId: 'unassigned', userName: 'Chưa phân' };
         if (!stt && stt !== 0) return unassigned;
 
         try {
-            if (!window.firebase?.firestore) return unassigned;
-            const db = window.firebase.firestore();
             const sttNum = Number(stt);
 
             // 1. Campaign-specific ranges (priority)
             if (campaignName) {
                 try {
-                    const doc = await db.collection('settings').doc('employee_ranges_by_campaign').get();
-                    if (doc.exists) {
-                        const data = doc.data();
-                        const ranges = data[campaignName] || data[campaignName.replace(/[.$#\[\]\/]/g, '_')];
-                        if (ranges) {
-                            const found = _findInRanges(ranges, sttNum);
-                            if (found) return found;
-                        }
+                    const safeName = campaignName.replace(/[.$#\[\]\/]/g, '_');
+                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(safeName)}`).then(r => r.json());
+                    if (result.success && Array.isArray(result.employeeRanges) && result.employeeRanges.length > 0) {
+                        const found = _findInRanges(result.employeeRanges, sttNum);
+                        if (found) return found;
                     }
                 } catch (e) {}
             }
 
-            // 2. General ranges
+            // 2. General ranges (all campaigns, cached)
             try {
-                const doc = await db.collection('settings').doc('employee_ranges').get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    if (Array.isArray(data.ranges)) {
-                        const found = _findInRanges(data.ranges, sttNum);
-                        if (found) return found;
-                    } else {
-                        const found = _findInRanges(data, sttNum);
+                const now = Date.now();
+                if (!_employeeRangesCache || (now - _employeeRangesCacheTime) > RANGES_CACHE_TTL) {
+                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges`).then(r => r.json());
+                    if (result.success) {
+                        _employeeRangesCache = result.rangesByCampaign || {};
+                        _employeeRangesCacheTime = now;
+                    }
+                }
+                if (_employeeRangesCache) {
+                    for (const ranges of Object.values(_employeeRangesCache)) {
+                        const found = _findInRanges(ranges, sttNum);
                         if (found) return found;
                     }
                 }

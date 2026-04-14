@@ -8,6 +8,13 @@
 
 ## 2026-04-14
 
+### [orders][render] KPI Hoa Hồng: chuyển 100% sang Render PostgreSQL, bỏ Firebase
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/kpi-manager.js`, `render.com/routes/realtime-db.js` |
+| **Chi tiết** | Xóa 2 dependency Firebase cuối cùng trong KPI: (1) `report_order_details` Firestore → Render API `GET /api/realtime/report-order-details/:tableName`, (2) `employee_ranges` Firestore → Render API `GET /api/campaigns/employee-ranges`. Thêm cache 5 phút cho employee ranges. KPI giờ 100% Render PostgreSQL. |
+| **Status** | ✅ Done |
+
 ### [render] Hàng rớt xả: chỉ hiện 2 campaign mới nhất + auto-cleanup 60 ngày
 | | |
 |---|---|

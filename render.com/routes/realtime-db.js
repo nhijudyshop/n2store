@@ -737,6 +737,35 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
 });
 
 // =====================================================
+// REPORT ORDER DETAILS API
+// =====================================================
+
+/**
+ * GET /api/realtime/report-order-details/:tableName
+ * Get cached order details for a specific campaign/table
+ */
+router.get('/report-order-details/:tableName', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            'SELECT orders FROM report_order_details WHERE table_name = $1',
+            [req.params.tableName]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ exists: false, orders: [] });
+        }
+
+        res.json({ exists: true, orders: result.rows[0].orders || [] });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /report-order-details error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // KPI STATISTICS API
 // =====================================================
 
