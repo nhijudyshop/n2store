@@ -1021,6 +1021,13 @@ router.get('/dropped-products', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
+        // Fetch 2 latest campaigns (always needed for the label)
+        const campaignResult = await pool.query(
+            'SELECT id, name FROM campaigns ORDER BY created_at DESC LIMIT 2'
+        );
+        const latestCampaigns = campaignResult.rows;
+        const latestIds = latestCampaigns.map(c => c.id);
+
         let result;
         if (req.query.all === '1') {
             result = await pool.query(
@@ -1028,20 +1035,14 @@ router.get('/dropped-products', async (req, res) => {
             );
         } else {
             // Only return products from the 2 most recent campaigns
-            // (ranked by campaigns.created_at from the campaigns table)
             result = await pool.query(`
-                WITH latest_campaigns AS (
-                    SELECT id FROM campaigns
-                    ORDER BY created_at DESC
-                    LIMIT 2
-                )
-                SELECT dp.* FROM dropped_products dp
-                WHERE dp.campaign_id IS NULL
-                   OR dp.campaign_id = ''
-                   OR dp.campaign_id IN (SELECT id FROM latest_campaigns)
-                ORDER BY dp.created_at DESC
+                SELECT * FROM dropped_products
+                WHERE campaign_id IS NULL
+                   OR campaign_id = ''
+                   OR campaign_id = ANY($1)
+                ORDER BY created_at DESC
                 LIMIT 500
-            `);
+            `, [latestIds]);
         }
 
         // Return Firebase-like structure: { [id]: { ...data } }
@@ -1050,7 +1051,10 @@ router.get('/dropped-products', async (req, res) => {
             products[row.id] = droppedRowToObj(row);
         });
 
-        res.json(products);
+        res.json({
+            products,
+            latestCampaigns: latestCampaigns.map(c => ({ id: c.id, name: c.name }))
+        });
     } catch (error) {
         console.error('[REALTIME-DB] GET /dropped-products error:', error);
         res.status(500).json({ error: error.message });

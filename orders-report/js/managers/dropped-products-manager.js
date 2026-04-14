@@ -100,6 +100,7 @@
     // Campaign filter state for dropped products
     let currentCampaignFilter = 'all'; // 'all' | specific campaignId
     let hasAutoSelectedCampaignFilter = false; // Flag to auto-select active campaign once
+    let latestCampaignNames = []; // Names of the 2 latest campaigns (from API)
 
     // Debounce timer for render functions
     let renderDebounceTimer = null;
@@ -213,7 +214,11 @@
 
             const data = await response.json();
 
-            droppedProducts = Object.entries(data).map(([id, item]) => ({
+            // New format: { products: {...}, latestCampaigns: [...] }
+            const productsMap = data.products || data;
+            latestCampaignNames = (data.latestCampaigns || []).map(c => c.name);
+
+            droppedProducts = Object.entries(productsMap).map(([id, item]) => ({
                 id,
                 ...item,
                 ProductId: parseInt(item.ProductId) || item.ProductId,
@@ -221,7 +226,7 @@
 
             isFirstLoad = false;
             debouncedRenderAndUpdate();
-            console.log(`[DROPPED] Loaded ${droppedProducts.length} dropped products`);
+            console.log(`[DROPPED] Loaded ${droppedProducts.length} dropped products (campaigns: ${latestCampaignNames.join(', ')})`);
         } catch (error) {
             console.error('[DROPPED] Error loading from API:', error);
         }
@@ -941,6 +946,10 @@
                     <div class="dropped-pills">
                         ${pills.map((p) => `<button type="button" class="dropped-pill ${_droppedCategoryFilter === p.id ? 'active' : ''}" data-cat="${p.id}">${p.label}</button>`).join('')}
                     </div>
+                    <div id="droppedCampaignLabel" style="
+                        font-size: 11px; color: #64748b; padding: 2px 8px;
+                        background: #f1f5f9; border-radius: 6px; text-align: center;
+                    "></div>
                 </div>
                 <div class="dropped-grid" id="droppedGridContainer"></div>
             `;
@@ -955,6 +964,13 @@
     async function _renderDroppedGridOnly(filteredProducts = null) {
         const grid = document.getElementById('droppedGridContainer');
         if (!grid) return;
+        // Update campaign label
+        const campaignLabel = document.getElementById('droppedCampaignLabel');
+        if (campaignLabel) {
+            campaignLabel.textContent = latestCampaignNames.length
+                ? `Chiến dịch: ${latestCampaignNames.join(' + ')}`
+                : '';
+        }
         // Ẩn hover preview cũ — tránh overlay kẹt lại sau khi grid re-render (block clicks)
         _hideHoverPreview();
 
