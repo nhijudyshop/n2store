@@ -331,10 +331,10 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
             });
         }
 
-        // Fetch DB notes (customer_notes table)
+        // Fetch DB notes (customer_notes table) from Render DB
         if (phone) {
-            const workerUrl = window.WORKER_URL || window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            fetch(`${workerUrl}/api/v2/customers/${phone}/notes`).then(r => r.json()).then(data => {
+            const renderUrl = window.API_CONFIG?.RENDER_URL || 'https://n2store-fallback.onrender.com';
+            fetch(`${renderUrl}/api/v2/customers/${phone}/notes`).then(r => r.json()).then(data => {
                 if (data.success && data.data?.length) {
                     for (const n of data.data) {
                         // Avoid duplicates

@@ -1319,6 +1319,31 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
+ * GET /api/v2/customers/:id/notes
+ * Get notes for a customer (by phone or customer_id)
+ */
+router.get('/:id/notes', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    if (!db) return res.status(503).json({ success: false, error: 'DB not available' });
+
+    try {
+        const result = await db.query(`
+            SELECT id, content, is_pinned, category, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM customer_notes
+            WHERE phone = $1 OR customer_id = $1
+            ORDER BY is_pinned DESC, created_at DESC
+        `, [id]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        console.error('[customers] GET /:id/notes error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * POST /api/v2/customers/:id/notes
  * Add note to customer
  */
