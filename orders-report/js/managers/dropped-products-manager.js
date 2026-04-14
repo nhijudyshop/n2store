@@ -497,7 +497,7 @@
 
     /**
      * Add product to dropped list (hàng rớt xả)
-     * Called when product is removed from an order
+     * Auto-collects all context: campaign, order, user info
      */
     window.addToDroppedProducts = async function (
         product,
@@ -507,16 +507,29 @@
         metadata = null
     ) {
         try {
+            // Auto-collect context from current state
+            const order = window.currentChatOrderData;
+            const cm = window.campaignManager;
+            const campaignId = cm?.activeCampaignId || null;
+            const campaignName = cm?.activeCampaign?.name || cm?.activeCampaign?.displayName
+                || order?.LiveCampaignName || '';
+            const authState = window.authManager?.getAuthState?.();
+            const removedBy = metadata?.removedBy || authState?.displayName || authState?.userType?.split('-')[0] || '';
+            const removedFromOrderSTT = metadata?.removedFromOrderSTT || order?.SessionIndex || '';
+            const removedFromCustomer = metadata?.removedFromCustomer || order?.Partner?.Name || window.currentCustomerName || '';
+            const removedAt = metadata?.removedAt || Date.now();
+
             const existing = droppedProducts.find((p) => p.ProductId === product.ProductId);
 
             if (existing && existing.id) {
-                const body = { change: quantity, reason };
-                if (metadata) {
-                    if (metadata.removedBy) body.removedBy = metadata.removedBy;
-                    if (metadata.removedFromOrderSTT) body.removedFromOrderSTT = metadata.removedFromOrderSTT;
-                    if (metadata.removedFromCustomer) body.removedFromCustomer = metadata.removedFromCustomer;
-                    body.removedAt = metadata.removedAt || Date.now();
-                }
+                const body = {
+                    change: quantity,
+                    reason,
+                    removedBy,
+                    removedFromOrderSTT: String(removedFromOrderSTT),
+                    removedFromCustomer,
+                    removedAt,
+                };
 
                 const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${existing.id}/quantity`, {
                     method: 'PATCH',
@@ -525,10 +538,6 @@
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             } else {
-                const activeCampaignId = window.campaignManager?.activeCampaignId || null;
-                const activeCampaignName = window.campaignManager?.activeCampaign?.name
-                    || window.campaignManager?.activeCampaign?.displayName || '';
-
                 const newItem = {
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
@@ -538,16 +547,15 @@
                     Price: product.Price,
                     Quantity: quantity,
                     UOMName: product.UOMName || 'Cái',
-                    reason: reason,
-                    campaignId: activeCampaignId,
-                    campaignName: activeCampaignName,
+                    reason,
+                    campaignId,
+                    campaignName,
+                    removedBy,
+                    removedFromOrderSTT: String(removedFromOrderSTT),
+                    removedFromCustomer,
+                    removedAt,
+                    addedDate: new Date().toLocaleDateString('vi-VN'),
                 };
-                if (metadata) {
-                    if (metadata.removedBy) newItem.removedBy = metadata.removedBy;
-                    if (metadata.removedFromOrderSTT) newItem.removedFromOrderSTT = metadata.removedFromOrderSTT;
-                    if (metadata.removedFromCustomer) newItem.removedFromCustomer = metadata.removedFromCustomer;
-                    newItem.removedAt = metadata.removedAt || Date.now();
-                }
 
                 const id = 'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
                 const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${id}`, {
