@@ -357,6 +357,20 @@ class PancakeTokenManager {
                 console.warn('[PANCAKE-TOKEN] Render DB load timeout/error, using localStorage:', e.message);
             }
 
+            // SAFETY NET: if still no token after all attempts, try cookie as last resort
+            if (!this.currentToken) {
+                const cookieToken = this.getTokenFromCookie();
+                if (cookieToken) {
+                    const payload = this.decodeToken(cookieToken);
+                    if (payload && !this.isTokenExpired(payload.exp)) {
+                        this.currentToken = cookieToken;
+                        this.currentTokenExpiry = payload.exp;
+                        this.saveTokenToLocalStorage(cookieToken, payload.exp);
+                        console.log('[PANCAKE-TOKEN] ✅ Recovered token from cookie (last resort)');
+                    }
+                }
+            }
+
             console.log('[PANCAKE-TOKEN] ✅ Initialized (accounts:', Object.keys(this.accounts).length, ', token:', this.currentToken ? 'YES' : 'NO', ')');
             return true;
         } catch (error) {
@@ -415,17 +429,34 @@ class PancakeTokenManager {
             const preferredId = localStorage.getItem('tpos_pancake_active_account_id');
             const activeId = (preferredId && accounts[preferredId]) ? preferredId : Object.keys(accounts)[0];
 
-            if (activeId && accounts[activeId]) {
-                const acc = accounts[activeId];
-                if (!this.isTokenExpired(acc.exp)) {
-                    this.activeAccountId = activeId;
-                    this.currentToken = acc.token;
-                    this.currentTokenExpiry = acc.exp;
-                    localStorage.setItem('tpos_pancake_active_account_id', activeId);
-                    this.saveTokenToLocalStorage(acc.token, acc.exp);
-                    console.log('[PANCAKE-TOKEN] ✅ Active account:', acc.name, '(', activeId.substring(0, 8), ')');
-                } else {
-                    console.warn('[PANCAKE-TOKEN] Active account token expired:', acc.name);
+            // Try preferred account first, then fallback to any valid account
+            let activated = false;
+            if (activeId && accounts[activeId] && !this.isTokenExpired(accounts[activeId].exp)) {
+                this.activeAccountId = activeId;
+                this.currentToken = accounts[activeId].token;
+                this.currentTokenExpiry = accounts[activeId].exp;
+                localStorage.setItem('tpos_pancake_active_account_id', activeId);
+                this.saveTokenToLocalStorage(accounts[activeId].token, accounts[activeId].exp);
+                console.log('[PANCAKE-TOKEN] ✅ Active account:', accounts[activeId].name, '(', activeId.substring(0, 8), ')');
+                activated = true;
+            }
+
+            // Preferred expired → try any valid account
+            if (!activated) {
+                for (const [id, acc] of Object.entries(accounts)) {
+                    if (acc.token && !this.isTokenExpired(acc.exp)) {
+                        this.activeAccountId = id;
+                        this.currentToken = acc.token;
+                        this.currentTokenExpiry = acc.exp;
+                        localStorage.setItem('tpos_pancake_active_account_id', id);
+                        this.saveTokenToLocalStorage(acc.token, acc.exp);
+                        console.log('[PANCAKE-TOKEN] ✅ Fallback account:', acc.name, '(', id.substring(0, 8), ')');
+                        activated = true;
+                        break;
+                    }
+                }
+                if (!activated) {
+                    console.warn('[PANCAKE-TOKEN] All accounts expired!');
                 }
             }
 
@@ -481,6 +512,13 @@ class PancakeTokenManager {
             console.log('[PANCAKE-TOKEN] ✅ JWT token loaded from localStorage');
         }
 
+        // Load accounts from localStorage (fallback when Render DB is slow/down)
+        const lsAccounts = this.getAllAccountsFromLocalStorage();
+        if (Object.keys(lsAccounts).length > 0) {
+            this.accounts = lsAccounts;
+            console.log('[PANCAKE-TOKEN] ✅ Accounts loaded from localStorage:', Object.keys(lsAccounts).length);
+        }
+
         // Load page access tokens from IndexedDB (can be large)
         try {
             const storageTokens = await this.getPageAccessTokensFromStorage();
@@ -494,6 +532,31 @@ class PancakeTokenManager {
 
         // Load active account ID
         this.activeAccountId = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID);
+
+        // If no JWT in localStorage but have accounts, pick one
+        if (!this.currentToken && Object.keys(this.accounts).length > 0) {
+            const activeId = this.activeAccountId || Object.keys(this.accounts)[0];
+            const acc = this.accounts[activeId];
+            if (acc?.token && !this.isTokenExpired(acc.exp)) {
+                this.currentToken = acc.token;
+                this.currentTokenExpiry = acc.exp;
+                this.activeAccountId = activeId;
+                this.saveTokenToLocalStorage(acc.token, acc.exp);
+                console.log('[PANCAKE-TOKEN] ✅ Recovered token from localStorage accounts:', acc.name);
+            } else {
+                // Try any valid account
+                for (const [id, a] of Object.entries(this.accounts)) {
+                    if (a.token && !this.isTokenExpired(a.exp)) {
+                        this.currentToken = a.token;
+                        this.currentTokenExpiry = a.exp;
+                        this.activeAccountId = id;
+                        this.saveTokenToLocalStorage(a.token, a.exp);
+                        console.log('[PANCAKE-TOKEN] ✅ Recovered token from localStorage account:', a.name);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -634,9 +697,17 @@ class PancakeTokenManager {
      */
     async getTokenFromAccounts() {
         try {
-            // If no accounts in memory, try loading from Render DB
+            // If no accounts in memory, try Render DB then localStorage
             if (Object.keys(this.accounts).length === 0) {
-                await this._loadAccountsFromRenderDB();
+                const loaded = await this._loadAccountsFromRenderDB();
+                if (!loaded) {
+                    // Render DB failed — fallback to localStorage accounts
+                    const lsAccounts = this.getAllAccountsFromLocalStorage();
+                    if (Object.keys(lsAccounts).length > 0) {
+                        this.accounts = lsAccounts;
+                        console.log('[PANCAKE-TOKEN] Fallback: loaded accounts from localStorage');
+                    }
+                }
             }
 
             // Try active account first
@@ -1214,6 +1285,10 @@ class PancakeTokenManager {
      */
     async generatePageAccessToken(pageId) {
         try {
+            // Auto-load token if not in memory
+            if (!this.currentToken) {
+                await this.getToken();
+            }
             if (!this.currentToken) {
                 throw new Error('Cần đăng nhập Pancake trước');
             }
@@ -1246,7 +1321,7 @@ class PancakeTokenManager {
                 console.log('[PANCAKE-TOKEN] ✅ page_access_token generated:', result.page_access_token.substring(0, 50) + '...');
                 console.log('[PANCAKE-TOKEN] ========================================');
 
-                // Save to Firebase
+                // Save to cache + Render DB
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
             } else {
