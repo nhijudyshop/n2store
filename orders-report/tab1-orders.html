@@ -187,10 +187,16 @@
                 Cài Đặt Bill
             </button>
             <button class="btn-primary" id="tposAccountBtn" onclick="openTposAccountModal()"
-                
+
                 title="Cài đặt tài khoản TPOS cho tạo bill">
                 <i class="fas fa-user-cog"></i>
                 Tài khoản TPOS
+            </button>
+            <button class="btn-primary" id="kpiBaseAllBtn" onclick="handleKpiBaseAll()"
+                style="display: none; background: #059669;"
+                title="Đánh KPI Base cho toàn bộ đơn hàng hiện tại (chỉ admin)">
+                <i class="fas fa-chart-line"></i>
+                Đánh KPI Base
             </button>
 
             <!-- Hidden elements - moved to Campaign Settings Modal -->
@@ -1206,6 +1212,7 @@
     <script src="js/managers/dropped-products-manager.js"></script>
     <script src="js/managers/held-products-manager.js"></script>
     <script src="js/managers/kpi-manager.js"></script>
+    <script src="js/tab1/tab1-kpi-base-button.js"></script>
     <script src="js/utils/search-functions.js"></script>
     <script src="js/managers/column-visibility-manager.js"></script>
     <script src="js/managers/realtime-manager.js"></script>
