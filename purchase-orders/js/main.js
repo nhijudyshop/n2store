@@ -737,19 +737,32 @@ class PurchaseOrderController {
                 await this.dataManager.updateOrder(orderId, orderData);
                 this.ui.showToast('Cập nhật đơn hàng thành công!', 'success');
 
-                // Sync products to TPOS if order is confirmed
-                const isConfirmed = orderData.status === 'AWAITING_PURCHASE' || order.status === 'AWAITING_PURCHASE';
-                if (isConfirmed && window.TPOSProductCreator) {
+                // Always sync products to TPOS and move to Chờ mua
+                if (window.TPOSProductCreator) {
                     this.ui.showToast('Đang đồng bộ sản phẩm lên TPOS...', 'info');
                     const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
 
-                    if (syncResult?.failCount > 0) {
-                        this.ui.showToast('Đồng bộ TPOS có lỗi — một số SP chưa có mã variant', 'warning');
+                    if (syncResult?.failCount === 0 && syncResult?.successCount > 0) {
+                        // All synced OK → move to Chờ mua
+                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
+                        this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
+                    } else if (syncResult?.failCount > 0) {
+                        // Partial fail → stay current tab, show warning
+                        this.ui.showToast('Đồng bộ TPOS có lỗi — đơn giữ lại để thử lại', 'warning');
+                        this.switchOrRefreshTab(this.currentTab);
+                    } else {
+                        // No items to sync → move to Chờ mua directly
+                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
+                        this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                     }
+                } else {
+                    // TPOSProductCreator not available → move to Chờ mua without sync
+                    await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                    this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
+                    this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                 }
-
-                // Refresh table to show updated codes
-                this.dataManager.loadOrders(this.currentTab, true);
             },
             onCancel: () => {
                 // Nothing to do
