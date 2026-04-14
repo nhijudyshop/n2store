@@ -381,7 +381,7 @@ async function loadCallLog() {
   }
 }
 
-function quickDial(phone, customerName) {
+async function quickDial(phone, customerName) {
   const normalized = phone.replace(/[\s\-()]/g, '');
   if (!normalized || normalized.length < 4) return;
 
@@ -389,15 +389,22 @@ function quickDial(phone, customerName) {
   const confirmed = confirm(`Gọi cho ${displayName} (${normalized})?`);
   if (!confirmed) return;
 
-  // Open floating phone window via service worker
-  chrome.runtime.sendMessage({
-    type: 'OPEN_PHONE',
-    phone: normalized,
-    customerName: customerName || ''
-  }).catch(() => {
-    // Fallback: tel: protocol
+  // Check user preference: WebRTC phone window or tel: protocol
+  let useWebRTC = false;
+  try {
+    const { settings } = await chrome.runtime.sendMessage({ type: 'GET_ONCALL_SETTINGS' });
+    useWebRTC = settings?.useWebRTC === true;
+  } catch {}
+
+  if (useWebRTC) {
+    // WebRTC: Open floating phone window
+    chrome.runtime.sendMessage({
+      type: 'OPEN_PHONE', phone: normalized, customerName: customerName || ''
+    }).catch(() => window.open(`tel:${normalized}`, '_self'));
+  } else {
+    // Default: tel: protocol (Zoiper/anConnect desktop handles it)
     window.open(`tel:${normalized}`, '_self');
-  });
+  }
 
   // Log the call
   chrome.runtime.sendMessage({
@@ -405,7 +412,6 @@ function quickDial(phone, customerName) {
     entry: { phone: normalized, customerName: customerName || '', timestamp: Date.now() }
   }).catch(() => {});
 
-  // Close popup
   window.close();
 }
 
