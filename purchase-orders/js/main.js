@@ -1568,41 +1568,23 @@ class PurchaseOrderController {
                                     }
                                 }
 
-                                // 2c. Auto-update status (AWAITING_PURCHASE → AWAITING_DELIVERY)
-                                const config = window.PurchaseOrderConfig;
-                                if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
-                                    const userSnapshot = window.purchaseOrderService?.getUserSnapshot?.()
-                                        || { uid: 'system', displayName: 'System', email: '' };
-                                    updateData.status = config.OrderStatus.AWAITING_DELIVERY;
-                                    updateData.statusHistory = firebase.firestore.FieldValue.arrayUnion({
-                                        from: singleOrder.status,
-                                        to: config.OrderStatus.AWAITING_DELIVERY,
-                                        changedAt: firebase.firestore.Timestamp.now(),
-                                        changedBy: userSnapshot,
-                                        reason: null
-                                    });
-                                    updateData.lastModifiedBy = userSnapshot;
-                                }
-
-                                // Single Firestore write (was 3 separate writes)
+                                // Save TPOS data + items via REST API
                                 if (Object.keys(updateData).length > 0) {
-                                    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                                    const db = firebase.firestore();
-                                    await db.collection('purchase_orders').doc(singleOrder.id).update(updateData);
-                                    console.log('[TPOSPurchase] Saved all TPOS data to Firebase in 1 write');
+                                    await this.dataManager.updateOrder(singleOrder.id, updateData);
+                                    console.log('[TPOSPurchase] Saved TPOS data via REST API');
                                 }
-
-                                // UI feedback
                                 if (updateData.items) {
                                     this.ui.showToast(`Đã cập nhật mã biến thể từ TPOS`, 'info');
                                 }
-                                if (updateData.status) {
-                                    this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
-                                }
 
-                                // Refresh table once
-                                if (this.dataManager?.loadOrders) {
-                                    this.dataManager.loadOrders(this.currentTab, true);
+                                // Auto-update status (AWAITING_PURCHASE → AWAITING_DELIVERY)
+                                const config = window.PurchaseOrderConfig;
+                                if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                                    await this.dataManager.updateOrderStatus(singleOrder.id, config.OrderStatus.AWAITING_DELIVERY);
+                                    this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'success');
+                                    this.switchOrRefreshTab(config.OrderStatus.AWAITING_DELIVERY);
+                                } else {
+                                    this.switchOrRefreshTab(this.currentTab);
                                 }
                             })().catch(err => console.error('[TPOSPurchase] Firebase update failed:', err))
                         );
