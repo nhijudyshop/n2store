@@ -1285,16 +1285,50 @@ class PancakeTokenManager {
      * @returns {Promise<string|null>} - New token or null
      */
     async generatePageAccessToken(pageId) {
-        try {
-            if (!this.currentToken) {
-                throw new Error('Cần đăng nhập Pancake trước');
-            }
+        // Try current account token first
+        const token = await this._tryGenerateWithToken(pageId, this.currentToken);
+        if (token) return token;
 
-            // Use worker proxy to avoid CORS
-            // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
+        // Current account failed — try other accounts from Render DB
+        console.warn('[PANCAKE-TOKEN] Current account failed for page', pageId, '— trying other accounts...');
+        try {
+            const r = await fetch('https://n2store-fallback.onrender.com/api/pancake-accounts?active=true');
+            if (r.ok) {
+                const data = await r.json();
+                const accounts = data.accounts || [];
+                for (const acc of accounts) {
+                    if (!acc.token || acc.token === this.currentToken) continue;
+                    // Check if account has this page
+                    const pages = acc.pages || [];
+                    const hasPage = pages.some(p => String(p.id || p.pageId) === String(pageId));
+                    if (!hasPage) continue;
+
+                    const result = await this._tryGenerateWithToken(pageId, acc.token);
+                    if (result) {
+                        console.log(`[PANCAKE-TOKEN] ✅ Account "${acc.name}" succeeded for page ${pageId} — cached`);
+                        return result;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] Fallback accounts fetch failed:', e.message);
+        }
+
+        console.error('[PANCAKE-TOKEN] ❌ All accounts failed for page', pageId);
+        return null;
+    }
+
+    /**
+     * Try generating page_access_token with a specific JWT token
+     * @returns {string|null} page_access_token or null
+     */
+    async _tryGenerateWithToken(pageId, accountToken) {
+        try {
+            if (!accountToken) return null;
+
             const url = window.API_CONFIG.buildUrl.pancake(
                 `pages/${pageId}/generate_page_access_token`,
-                `access_token=${this.currentToken}`
+                `access_token=${accountToken}`
             );
 
             const response = await fetch(url, {
@@ -1308,14 +1342,11 @@ class PancakeTokenManager {
             const result = await response.json();
 
             if (result.success && result.page_access_token) {
-                // Save to Firebase
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
-            } else {
-                throw new Error(result.message || 'Failed to generate token');
             }
+            return null;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error generating page_access_token:', error);
             return null;
         }
     }
