@@ -1043,9 +1043,26 @@ function _formatTime(date) {
     if (!date) return '';
     if (!(date instanceof Date)) date = new Date(date);
     if (isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat('vi-VN', {
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
-    }).format(date);
+
+    const tz = 'Asia/Ho_Chi_Minh';
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(date);
+    const get = type => parts.find(p => p.type === type)?.value || '';
+
+    const nowParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const getN = type => nowParts.find(p => p.type === type)?.value || '';
+
+    const sameDay = get('year') === getN('year') && get('month') === getN('month') && get('day') === getN('day');
+    const sameYear = get('year') === getN('year');
+
+    const time = `${get('hour')}:${get('minute')}`;
+    if (sameDay) return time;
+    if (sameYear) return `${get('day')}/${get('month')} ${time}`;
+    return `${get('day')}/${get('month')}/${get('year')} ${time}`;
 }
 
 function _formatDate(date) {
