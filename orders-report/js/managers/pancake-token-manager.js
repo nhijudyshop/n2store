@@ -259,16 +259,29 @@ class PancakeTokenManager {
             // PRIORITY 1: Load from storage first (instant, no network)
             await this.loadFromLocalStorage();
 
-            // PRIORITY 2: Load accounts from Render DB (shared across machines)
-            await this.loadAccounts();
-
-            // PRIORITY 3: Load page access tokens from Render DB
-            await this.loadPageAccessTokens();
+            // PRIORITY 2: Load from Render DB in background (non-blocking)
+            // localStorage already has data for immediate use
+            this._loadFromRenderDB();
 
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error initializing:', error);
             return this.currentToken !== null;
+        }
+    }
+
+    /**
+     * Background load from Render DB — merges with localStorage data
+     * Non-blocking: does not delay initialize()
+     */
+    async _loadFromRenderDB() {
+        try {
+            await Promise.allSettled([
+                this.loadAccounts(),
+                this.loadPageAccessTokens()
+            ]);
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] Render DB background load failed:', e.message);
         }
     }
 
@@ -302,12 +315,11 @@ class PancakeTokenManager {
      */
     async loadAccounts() {
         try {
-            // Load from Render DB (source of truth)
+            // Load from Render DB (merge into existing accounts)
             const r = await fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`);
             if (r.ok) {
                 const data = await r.json();
                 const dbAccounts = data.accounts || [];
-                // Convert array to { accountId: { token, exp, uid, name, savedAt } }
                 for (const acc of dbAccounts) {
                     if (!acc.token) continue;
                     this.accounts[acc.account_id] = {
@@ -321,29 +333,25 @@ class PancakeTokenManager {
                 console.log(`[PANCAKE-TOKEN] Loaded ${dbAccounts.length} accounts from Render DB`);
             }
 
-            // Load active account ID from localStorage (per-device)
-            this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
-
-            // If active account is set, load its token
-            if (this.activeAccountId && this.accounts[this.activeAccountId]) {
-                const account = this.accounts[this.activeAccountId];
-                this.currentToken = account.token;
-                this.currentTokenExpiry = account.exp;
-
-                // Sync to localStorage for fast access next time
-                this.saveTokenToLocalStorage(account.token, account.exp);
-            } else if (Object.keys(this.accounts).length > 0) {
-                // Auto-select first account if no active account set
-                const firstAccountId = Object.keys(this.accounts)[0];
-                await this.setActiveAccount(firstAccountId);
+            // Only update active account if not already set from localStorage
+            if (!this.currentToken) {
+                this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
+                if (this.activeAccountId && this.accounts[this.activeAccountId]) {
+                    const account = this.accounts[this.activeAccountId];
+                    this.currentToken = account.token;
+                    this.currentTokenExpiry = account.exp;
+                    this.saveTokenToLocalStorage(account.token, account.exp);
+                } else if (Object.keys(this.accounts).length > 0) {
+                    const firstAccountId = Object.keys(this.accounts)[0];
+                    await this.setActiveAccount(firstAccountId);
+                }
             }
 
             // Save all accounts to localStorage for multi-account sending
             this.saveAllAccountsToLocalStorage();
-
             return true;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
+            console.warn('[PANCAKE-TOKEN] Render DB accounts load failed:', error.message);
             return false;
         }
     }
