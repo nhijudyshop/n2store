@@ -337,6 +337,11 @@ const pancakeAccountPagesRoutes = require('./routes/pancake-account-pages');
 pancakeAccountPagesRoutes.init(chatDbPool);
 app.use('/api/pancake-account-pages', pancakeAccountPagesRoutes);
 
+// Pancake Page Access Tokens — cache page_access_tokens on Render DB (replaces Firebase)
+const pancakePageTokensRoutes = require('./routes/pancake-page-tokens');
+pancakePageTokensRoutes.init(chatDbPool);
+app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
+
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(

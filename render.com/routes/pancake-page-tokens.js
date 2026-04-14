@@ -1,0 +1,89 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
+// =====================================================
+// Pancake Page Access Tokens API
+// Store & retrieve page_access_tokens in PostgreSQL
+// Replaces Firestore pancake_tokens/page_access_tokens
+// =====================================================
+
+const express = require('express');
+const router = express.Router();
+
+let dbPool = null;
+
+router.init = async (pool) => {
+    dbPool = pool;
+    console.log('[PANCAKE-PAGE-TOKENS] Route initialized');
+};
+
+// =====================================================
+// GET /api/pancake-page-tokens
+// Returns all cached page_access_tokens
+// =====================================================
+router.get('/', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+    try {
+        const r = await dbPool.query('SELECT * FROM pancake_page_access_tokens ORDER BY updated_at DESC');
+        const tokens = {};
+        for (const row of r.rows) {
+            tokens[row.page_id] = {
+                token: row.token,
+                pageId: row.page_id,
+                pageName: row.page_name || '',
+                timestamp: row.timestamp ? Number(row.timestamp) : null,
+                savedAt: row.saved_at ? Number(row.saved_at) : null,
+                generatedBy: row.generated_by || ''
+            };
+        }
+        res.json({ success: true, tokens });
+    } catch (e) {
+        console.error('[PANCAKE-PAGE-TOKENS] GET error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// PUT /api/pancake-page-tokens/:pageId
+// Upsert a page_access_token
+// Body: { token, pageName?, timestamp?, generatedBy? }
+// =====================================================
+router.put('/:pageId', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+    const { pageId } = req.params;
+    const { token, pageName, timestamp, generatedBy } = req.body || {};
+    if (!token) return res.status(400).json({ error: 'token required' });
+
+    try {
+        await dbPool.query(`
+            INSERT INTO pancake_page_access_tokens (page_id, token, page_name, timestamp, saved_at, generated_by, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (page_id) DO UPDATE SET
+                token = EXCLUDED.token,
+                page_name = COALESCE(EXCLUDED.page_name, pancake_page_access_tokens.page_name),
+                timestamp = EXCLUDED.timestamp,
+                saved_at = EXCLUDED.saved_at,
+                generated_by = EXCLUDED.generated_by,
+                updated_at = NOW()
+        `, [pageId, token, pageName || null, timestamp || null, Date.now(), generatedBy || null]);
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[PANCAKE-PAGE-TOKENS] PUT error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// DELETE /api/pancake-page-tokens/:pageId
+// Delete a page_access_token
+// =====================================================
+router.delete('/:pageId', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+    try {
+        await dbPool.query('DELETE FROM pancake_page_access_tokens WHERE page_id = $1', [req.params.pageId]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+module.exports = router;
