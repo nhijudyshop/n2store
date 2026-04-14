@@ -525,6 +525,10 @@
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             } else {
+                const activeCampaignId = window.campaignManager?.activeCampaignId || null;
+                const activeCampaignName = window.campaignManager?.activeCampaign?.name
+                    || window.campaignManager?.activeCampaign?.displayName || '';
+
                 const newItem = {
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
@@ -535,6 +539,8 @@
                     Quantity: quantity,
                     UOMName: product.UOMName || 'Cái',
                     reason: reason,
+                    campaignId: activeCampaignId,
+                    campaignName: activeCampaignName,
                 };
                 if (metadata) {
                     if (metadata.removedBy) newItem.removedBy = metadata.removedBy;
