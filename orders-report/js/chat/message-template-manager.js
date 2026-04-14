@@ -1280,26 +1280,53 @@
                 // 3. Build extConvData with thread_id + global_id
                 const raw = { from_psid: psid };
                 let msgCustomers = [];
-                try {
-                    const msgData = await pdm.fetchMessages(channelId, conv.id);
-                    if (msgData.conversation) {
-                        if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
-                        if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
-                    }
-                    if (msgData.customers?.length) msgCustomers = msgData.customers;
-                    if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
-                    if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
-                        if (!raw.page_customer) raw.page_customer = {};
-                        raw.page_customer.global_id = conv.page_customer.global_id;
-                    }
-                } catch (e) { /* ignore fetch error */ }
 
-                // Fallback: lấy global_id từ conv.customers[] (cache)
-                if (!raw.page_customer?.global_id && conv.customers?.length) {
-                    const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
-                    if (custGlobal) {
-                        if (!raw.page_customer) raw.page_customer = {};
-                        raw.page_customer.global_id = custGlobal;
+                // Try server cache first — skip fetchMessages if global_id already cached
+                let cachedGlobalId = window._globalIdCache?.[conv.id] || window._globalIdCache?.[`${channelId}_${psid}`] || null;
+                if (!cachedGlobalId) {
+                    try {
+                        const params = new URLSearchParams({ pageId: channelId, psid });
+                        const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
+                        if (r.ok) {
+                            const data = await r.json();
+                            if (data.found && data.globalUserId) {
+                                cachedGlobalId = data.globalUserId;
+                                // Also populate in-memory cache for sendViaExtension
+                                if (!window._globalIdCache) window._globalIdCache = {};
+                                window._globalIdCache[conv.id] = cachedGlobalId;
+                                window._globalIdCache[`${channelId}_${psid}`] = cachedGlobalId;
+                            }
+                        }
+                    } catch (e) { /* server cache unavailable */ }
+                }
+
+                if (cachedGlobalId) {
+                    // global_id found in cache — skip expensive fetchMessages
+                    raw.page_customer = { global_id: cachedGlobalId };
+                    if (conv.thread_id) raw.thread_id = conv.thread_id;
+                } else {
+                    // No cache — need fetchMessages for thread_id + global_id
+                    try {
+                        const msgData = await pdm.fetchMessages(channelId, conv.id);
+                        if (msgData.conversation) {
+                            if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
+                            if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                        }
+                        if (msgData.customers?.length) msgCustomers = msgData.customers;
+                        if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                        if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                            if (!raw.page_customer) raw.page_customer = {};
+                            raw.page_customer.global_id = conv.page_customer.global_id;
+                        }
+                    } catch (e) { /* ignore fetch error */ }
+
+                    // Fallback: lấy global_id từ conv.customers[] (cache)
+                    if (!raw.page_customer?.global_id && conv.customers?.length) {
+                        const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
+                        if (custGlobal) {
+                            if (!raw.page_customer) raw.page_customer = {};
+                            raw.page_customer.global_id = custGlobal;
+                        }
                     }
                 }
 
