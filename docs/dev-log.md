@@ -12,7 +12,14 @@
 | | |
 |---|---|
 | **Files** | `render.com/routes/realtime-db.js`, `render.com/cron/scheduler.js` |
-| **Chi tiết** | GET `/api/realtime/dropped-products` giờ chỉ trả products từ 2 campaign mới nhất (ranked by `MAX(created_at)`). Products không có `campaign_id` vẫn hiện. Thêm `?all=1` để bypass filter. Thêm cron job chạy 5AM hàng ngày xóa dropped_products cũ hơn 60 ngày. |
+| **Chi tiết** | GET `/api/realtime/dropped-products` giờ chỉ trả products từ 2 campaign mới nhất (từ bảng `campaigns`). Products không có `campaign_id` vẫn hiện. Thêm `?all=1` để bypass filter. Thêm cron job chạy 5AM hàng ngày xóa dropped_products cũ hơn 60 ngày. Backend trả kèm `latestCampaigns[]` để frontend hiển thị tên chiến dịch. |
+| **Status** | ✅ Done |
+
+### [render][chat] Hàng rớt xả: lưu đầy đủ context đơn hàng (order_context JSONB)
+| | |
+|---|---|
+| **Files** | `render.com/routes/realtime-db.js`, `render.com/migrations/041_add_order_context_to_dropped.sql`, `orders-report/js/managers/dropped-products-manager.js` |
+| **Chi tiết** | Thêm cột `order_context JSONB` vào `dropped_products`. Khi xả SP, tự động lưu: orderId, orderCode, stt, customerName, customerPhone, fbUserId, fbUserName, userName (NV), liveCampaignId, liveCampaignName, totalAmount, source. Auto-collect từ `currentChatOrderData`, `campaignManager`, `authManager` — caller không cần truyền metadata. |
 | **Status** | ✅ Done |
 
 ---

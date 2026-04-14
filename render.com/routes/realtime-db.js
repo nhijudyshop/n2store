@@ -1007,6 +1007,7 @@ function droppedRowToObj(row) {
         removedAt: row.removed_at,
         addedDate: row.added_date,
         addedAt: row.created_at ? new Date(row.created_at).getTime() : null,
+        orderContext: row.order_context || null,
     };
 }
 
@@ -1077,12 +1078,14 @@ router.put('/dropped-products/:id', async (req, res) => {
                 id, product_id, product_code, product_name, product_name_get,
                 image_url, price, quantity, uom_name, reason,
                 campaign_id, campaign_name, removed_by, removed_from_order_stt,
-                removed_from_customer, removed_at, added_date, created_at, updated_at
+                removed_from_customer, removed_at, added_date, order_context,
+                created_at, updated_at
             ) VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, $8, $9, $10,
                 $11, $12, $13, $14,
-                $15, $16, $17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                $15, $16, $17, $18,
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
             ON CONFLICT (id) DO UPDATE SET
                 product_id = COALESCE($2, dropped_products.product_id),
@@ -1101,6 +1104,7 @@ router.put('/dropped-products/:id', async (req, res) => {
                 removed_from_customer = COALESCE($15, dropped_products.removed_from_customer),
                 removed_at = COALESCE($16, dropped_products.removed_at),
                 added_date = COALESCE($17, dropped_products.added_date),
+                order_context = COALESCE($18, dropped_products.order_context),
                 updated_at = CURRENT_TIMESTAMP
         `, [
             id,
@@ -1120,6 +1124,7 @@ router.put('/dropped-products/:id', async (req, res) => {
             b.removedFromCustomer || null,
             b.removedAt || b.removedAt === 0 ? b.removedAt : null,
             b.addedDate || new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+            b.orderContext ? JSON.stringify(b.orderContext) : null,
         ]);
 
         const sseData = { id, ...b };

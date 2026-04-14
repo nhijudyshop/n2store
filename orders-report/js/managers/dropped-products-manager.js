@@ -538,6 +538,22 @@
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             } else {
+                // Collect full order context
+                const orderContext = order ? {
+                    orderId: order.Id || null,
+                    orderCode: order.Code || null,
+                    stt: order.SessionIndex || null,
+                    customerName: order.PartnerName || order.Name || null,
+                    customerPhone: order.Telephone || order.PartnerPhone || null,
+                    fbUserId: order.Facebook_ASUserId || order.Facebook_UserId || null,
+                    fbUserName: order.Facebook_UserName || null,
+                    userName: order.UserName || null,
+                    liveCampaignId: order.LiveCampaignId || null,
+                    liveCampaignName: order.LiveCampaignName || null,
+                    totalAmount: order.TotalAmount || null,
+                    source: order.Source || null,
+                } : null;
+
                 const newItem = {
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
@@ -555,6 +571,7 @@
                     removedFromCustomer,
                     removedAt,
                     addedDate: new Date().toLocaleDateString('vi-VN'),
+                    orderContext,
                 };
 
                 const id = 'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
