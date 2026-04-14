@@ -1012,16 +1012,40 @@ function droppedRowToObj(row) {
 
 /**
  * GET /api/realtime/dropped-products
- * Get all dropped products (shared data)
+ * Only returns products from the 2 most recent campaigns.
+ * Products without a campaign_id are always included.
+ * Use ?all=1 to bypass the filter and return everything.
  */
 router.get('/dropped-products', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        const result = await pool.query(
-            'SELECT * FROM dropped_products ORDER BY created_at DESC LIMIT 500'
-        );
+        let result;
+        if (req.query.all === '1') {
+            result = await pool.query(
+                'SELECT * FROM dropped_products ORDER BY created_at DESC LIMIT 500'
+            );
+        } else {
+            // Only return products from the 2 most recent campaigns
+            // (ranked by each campaign's newest product created_at)
+            result = await pool.query(`
+                WITH latest_campaigns AS (
+                    SELECT campaign_id, MAX(created_at) AS last_added
+                    FROM dropped_products
+                    WHERE campaign_id IS NOT NULL AND campaign_id != ''
+                    GROUP BY campaign_id
+                    ORDER BY last_added DESC
+                    LIMIT 2
+                )
+                SELECT dp.* FROM dropped_products dp
+                WHERE dp.campaign_id IS NULL
+                   OR dp.campaign_id = ''
+                   OR dp.campaign_id IN (SELECT campaign_id FROM latest_campaigns)
+                ORDER BY dp.created_at DESC
+                LIMIT 500
+            `);
+        }
 
         // Return Firebase-like structure: { [id]: { ...data } }
         const products = {};

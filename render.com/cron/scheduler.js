@@ -240,6 +240,19 @@ cron.schedule('0 4 * * *', async () => {
     }
 });
 
+// Clean up dropped products older than 60 days (runs daily at 5 AM)
+cron.schedule('0 5 * * *', async () => {
+    console.log('[CRON] Running cleanup dropped_products > 60 days...');
+    try {
+        const result = await db.query(
+            `DELETE FROM dropped_products WHERE created_at < NOW() - INTERVAL '60 days' RETURNING id`
+        );
+        console.log(`[CRON] ✅ Deleted ${result.rowCount} dropped products older than 60 days`);
+    } catch (error) {
+        console.error('[CRON] ❌ Error cleaning up dropped_products:', error.message);
+    }
+});
+
 console.log('[CRON] Scheduler started');
 
 // =====================================================

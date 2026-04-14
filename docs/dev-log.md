@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-14
+
+### [render] Hàng rớt xả: chỉ hiện 2 campaign mới nhất + auto-cleanup 60 ngày
+| | |
+|---|---|
+| **Files** | `render.com/routes/realtime-db.js`, `render.com/cron/scheduler.js` |
+| **Chi tiết** | GET `/api/realtime/dropped-products` giờ chỉ trả products từ 2 campaign mới nhất (ranked by `MAX(created_at)`). Products không có `campaign_id` vẫn hiện. Thêm `?all=1` để bypass filter. Thêm cron job chạy 5AM hàng ngày xóa dropped_products cũ hơn 60 ngày. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-11
 
 ### [docs] Tổng hợp hoàn chỉnh OnCallCX UCaaS V1.1 + V2.0 + Portal Live
