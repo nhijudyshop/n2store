@@ -1211,187 +1211,9 @@
     }
 
     // =====================================================
-    // EXTENSION-ONLY MODE - Concurrent pipeline (prepare + send immediately)
-    // Each worker: pick order → prepare data → send via extension → next
-    // Multiple workers run in parallel for maximum throughput
+    // EXTENSION-ONLY MODE - Build queue for all orders (skip Pancake API)
     // =====================================================
 
-    const EXT_MAX_CONCURRENCY = 5; // Max concurrent extension sends
-
-    async function _extensionConcurrentPipeline(orders, template, sendingState) {
-        const pdm = window.pancakeDataManager;
-        const templateContent = template.Content || template.BodyPlain || template.content || '';
-        const totalOrders = orders.length;
-        let cursor = 0; // Shared cursor — each worker atomically takes next order
-        let done = 0;
-
-        sendingState.totalProcessed = 0;
-        sendingState.totalToProcess = totalOrders;
-
-        function _updateExtProgress() {
-            done++;
-            sendingState.totalProcessed = done;
-            const progressText = document.getElementById('msgProgressText');
-            if (progressText) {
-                progressText.textContent = `Extension: ${done}/${totalOrders} (✓${sendingState.successOrders.length} ✗${sendingState.errorOrders.length})`;
-            }
-            if (typeof sendingState.onProgress === 'function') {
-                sendingState.onProgress(done, totalOrders, totalOrders, sendingState.successOrders.length, sendingState.errorOrders.length);
-            }
-        }
-
-        // Prepare one order: build message parts + conversation data
-        async function _prepareOrder(order) {
-            // 1. Build order data + replace placeholders
-            let orderData;
-            if (_needsFullData(templateContent)) {
-                let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
-                if (fullOrder && fullOrder._fromExcel) {
-                    const storeOrder = window.OrderStore?.get(order.orderId);
-                    if (storeOrder?.Details?.length && fullOrder.Details?.length) {
-                        for (const detail of fullOrder.Details) {
-                            const match = storeOrder.Details.find(d =>
-                                (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
-                                (d.ProductNameGet || '').includes(detail.ProductCode)
-                            );
-                            if (match?.Note) detail.Note = match.Note;
-                        }
-                    }
-                }
-                if (!fullOrder && window.getOrderDetails) {
-                    fullOrder = await window.getOrderDetails(order.orderId).catch(() => null);
-                }
-                if (!fullOrder?.Details?.length) {
-                    const storeOrder = window.OrderStore?.get(order.orderId);
-                    if (storeOrder?.Details?.length) fullOrder = storeOrder;
-                }
-                orderData = fullOrder ? _convertOrderData(fullOrder) : {
-                    code: order.Code || '', customerName: order.customerName || '',
-                    phone: order.Phone || '', address: order.Address || '',
-                    totalAmount: order.AmountTotal || 0, products: []
-                };
-            } else {
-                orderData = {
-                    code: order.Code || '', customerName: order.customerName || '',
-                    phone: order.Phone || '', address: order.Address || '',
-                    totalAmount: order.AmountTotal || 0, products: []
-                };
-            }
-
-            const messageContent = _replacePlaceholders(templateContent, orderData);
-            const parts = _splitMessageIntoParts(messageContent);
-
-            // 2. Find conversation
-            const channelId = order.channelId || order.pageId;
-            const psid = order.psid;
-            if (!channelId || !psid) throw new Error('Thiếu channelId/psid');
-
-            let conv = pdm?.inboxMapByPSID?.get(String(psid));
-            if (!conv && pdm?.fetchConversationsByCustomerFbId) {
-                await pdm.fetchConversationsByCustomerFbId(channelId, psid).catch(() => {});
-                conv = pdm?.inboxMapByPSID?.get(String(psid));
-            }
-            if (!conv) throw new Error('Không tìm thấy conversation cho psid: ' + psid);
-
-            // 3. Build extConvData with thread_id + global_id
-            const raw = { from_psid: psid };
-            let msgCustomers = [];
-            try {
-                const msgData = await pdm.fetchMessages(channelId, conv.id);
-                if (msgData.conversation) {
-                    if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
-                    if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
-                }
-                if (msgData.customers?.length) msgCustomers = msgData.customers;
-                if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
-                if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
-                    if (!raw.page_customer) raw.page_customer = {};
-                    raw.page_customer.global_id = conv.page_customer.global_id;
-                }
-            } catch (e) { /* ignore fetch error */ }
-
-            if (!raw.page_customer?.global_id && conv.customers?.length) {
-                const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
-                if (custGlobal) {
-                    if (!raw.page_customer) raw.page_customer = {};
-                    raw.page_customer.global_id = custGlobal;
-                }
-            }
-
-            const customers = msgCustomers.length ? msgCustomers : (conv.customers || []);
-            return {
-                parts,
-                convData: {
-                    pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                    customers, _messagesData: { customers },
-                    updated_at: conv.updated_at || null,
-                    customerName: order.customerName || conv.from?.name || '',
-                    type: conv.type || 'INBOX', from: conv.from || null,
-                }
-            };
-        }
-
-        // Send one order via extension (with retry on global_id failure)
-        async function _sendOrder(order, parts, convData) {
-            try {
-                for (const part of parts) {
-                    await window.sendViaExtension(part, convData);
-                }
-                return true;
-            } catch (extErr) {
-                if (extErr.message.includes('Global Facebook ID') && window.buildConvData) {
-                    console.log('[TemplateMgr] Retry with buildConvData:', order.Code);
-                    const enrichedConv = window.buildConvData(convData.pageId, convData.psid);
-                    for (const part of parts) {
-                        await window.sendViaExtension(part, enrichedConv);
-                    }
-                    return true;
-                }
-                throw extErr;
-            }
-        }
-
-        // Worker: pick next order → prepare → send → repeat
-        async function _worker(workerId) {
-            while (sendingState.isSending) {
-                const idx = cursor++;
-                if (idx >= totalOrders) break;
-                const order = orders[idx];
-
-                try {
-                    const { parts, convData } = await _prepareOrder(order);
-                    await _sendOrder(order, parts, convData);
-                    markOrderSent(order.orderId, false);
-                    sendingState.successOrders.push({
-                        Id: order.orderId, code: order.Code || '',
-                        customerName: order.customerName || '',
-                        account: 'Extension', usedTag: null
-                    });
-                } catch (err) {
-                    console.error(`[TemplateMgr] Worker${workerId} failed:`, order.Code, err.message);
-                    sendingState.errorOrders.push({
-                        orderId: order.orderId, code: order.Code || '',
-                        customerName: order.customerName || '',
-                        error: err.message || 'Extension gửi thất bại',
-                        is24HourError: err.message?.includes('Global Facebook ID') || false,
-                        Facebook_PostId: order.Facebook_PostId || '',
-                        Facebook_CommentId: order.Facebook_CommentId || ''
-                    });
-                    markOrderFailed(order.orderId, err.message);
-                }
-
-                _updateExtProgress();
-            }
-        }
-
-        // Launch N concurrent workers
-        const concurrency = Math.min(EXT_MAX_CONCURRENCY, totalOrders);
-        console.log(`[TemplateMgr] Starting ${concurrency} concurrent workers for ${totalOrders} orders`);
-        const workers = Array.from({ length: concurrency }, (_, i) => _worker(i));
-        await Promise.all(workers);
-    }
-
-    // Legacy wrappers kept for Pancake API mode (unchanged)
     async function _buildExtensionQueueForAll(orders, template, sendingState) {
         const pdm = window.pancakeDataManager;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
@@ -1402,9 +1224,12 @@
             if (progressText) progressText.textContent = `Chuẩn bị: ${sendingState.extQueue.length + sendingState.errorOrders.length}/${orders.length}...`;
 
             try {
+                // 1. Build order data + replace placeholders
                 let orderData;
                 if (_needsFullData(templateContent)) {
+                    // Use pre-fetched cache first
                     let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+                    // Enrich Excel data with Note from OrderStore (for discount info)
                     if (fullOrder && fullOrder._fromExcel) {
                         const storeOrder = window.OrderStore?.get(order.orderId);
                         if (storeOrder?.Details?.length && fullOrder.Details?.length) {
@@ -1440,6 +1265,7 @@
                 const messageContent = _replacePlaceholders(templateContent, orderData);
                 const parts = _splitMessageIntoParts(messageContent);
 
+                // 2. Find conversation
                 const channelId = order.channelId || order.pageId;
                 const psid = order.psid;
                 if (!channelId || !psid) throw new Error('Thiếu channelId/psid');
@@ -1451,6 +1277,7 @@
                 }
                 if (!conv) throw new Error('Không tìm thấy conversation cho psid: ' + psid);
 
+                // 3. Build extConvData with thread_id + global_id
                 const raw = { from_psid: psid };
                 let msgCustomers = [];
                 try {
@@ -1467,6 +1294,7 @@
                     }
                 } catch (e) { /* ignore fetch error */ }
 
+                // Fallback: lấy global_id từ conv.customers[] (cache)
                 if (!raw.page_customer?.global_id && conv.customers?.length) {
                     const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
                     if (custGlobal) {
@@ -1484,6 +1312,7 @@
                     type: conv.type || 'INBOX', from: conv.from || null,
                 };
 
+                // 4. Queue for extension sending
                 sendingState.extQueue.push({ order, parts, convData: extConvData });
                 sendingState.successOrders.push({
                     Id: order.orderId, code: order.Code || '',
@@ -1503,11 +1332,16 @@
             }
         }
 
+        // Reset counters — actual sending tracked by _processExtensionQueue
         sendingState.totalProcessed = 0;
         sendingState.totalToProcess = sendingState.extQueue.length;
     }
 
-    // EXTENSION QUEUE - Sequential processing (used by Pancake API mode fallback only)
+    // =====================================================
+    // EXTENSION QUEUE - Background processing (sequential)
+    // Extension processes one message at a time, so run after all API sends complete.
+    // =====================================================
+
     async function _processExtensionQueue(sendingState) {
         const queue = sendingState.extQueue || [];
         if (queue.length === 0) return;
@@ -1523,9 +1357,10 @@
                 }
                 markOrderSent(item.order.orderId, false);
             } catch (extErr) {
+                // Retry: nếu lỗi global_id → thử buildConvData (cách modal chat)
                 if (extErr.message.includes('Global Facebook ID') && window.buildConvData) {
                     try {
-                        console.log('[TemplateMgr] Retry with buildConvData:', item.order.Code);
+                        console.log('[TemplateMgr] 🔄 Retry with buildConvData:', item.order.Code);
                         const enrichedConv = window.buildConvData(item.convData.pageId, item.convData.psid);
                         for (const part of item.parts) {
                             await window.sendViaExtension(part, enrichedConv);
@@ -1542,7 +1377,8 @@
                         extErr = retryErr;
                     }
                 }
-                console.error('[TemplateMgr] Extension failed:', item.order.Code, extErr.message);
+                console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
+                // Move from success to error
                 const idx = sendingState.successOrders.findIndex(s => s.Id === item.order.orderId);
                 if (idx >= 0) sendingState.successOrders.splice(idx, 1);
                 sendingState.errorOrders.push({
@@ -1559,14 +1395,20 @@
 
             extDone++;
             sendingState.totalProcessed++;
+
+            // Update progress with extension-specific text
             const progressText = document.getElementById('msgProgressText');
             if (progressText) {
                 progressText.textContent = `Extension: ${extDone}/${extTotal} (✓${sendingState.successOrders.length} ✗${sendingState.errorOrders.length})`;
             }
             if (typeof sendingState.onProgress === 'function') {
-                sendingState.onProgress(sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess, sendingState.successOrders.length, sendingState.errorOrders.length);
+                sendingState.onProgress(
+                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
+                    sendingState.successOrders.length, sendingState.errorOrders.length
+                );
             }
         }
+
     }
 
     // =====================================================
@@ -2333,9 +2175,15 @@
                     throw new Error('Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.');
                 }
 
-                // Extension-only mode: concurrent pipeline (prepare + send in parallel)
-                document.getElementById('msgProgressText').textContent = `Extension: 0/${orders.length}...`;
-                await _extensionConcurrentPipeline(orders, template, sendingState);
+                // Extension-only mode: build queue for all orders, then send sequentially
+                document.getElementById('msgProgressText').textContent = 'Chuẩn bị dữ liệu Extension...';
+                await _buildExtensionQueueForAll(orders, template, sendingState);
+
+                if (sendingState.extQueue.length > 0) {
+                    document.getElementById('msgProgressText').textContent =
+                        `Extension: 0/${sendingState.extQueue.length}...`;
+                    await _processExtensionQueue(sendingState);
+                }
             } else {
                 // Pancake API mode (existing flow)
                 // Pre-fetch page access tokens

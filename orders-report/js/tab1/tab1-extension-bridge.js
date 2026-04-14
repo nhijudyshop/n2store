@@ -102,10 +102,6 @@ function initExtensionPages(pageIds) {
     }
 }
 
-// Unique task ID counter — avoids collision when concurrent sends use Date.now()
-let _extTaskIdCounter = 0;
-function _uniqueTaskId() { return Date.now() * 1000 + (++_extTaskIdCounter % 1000); }
-
 /**
  * Send message via Pancake Extension (bypass 24h)
  * EXACT copy of inbox-chat.js _sendViaExtension (lines 2181-2334)
@@ -162,7 +158,7 @@ async function sendViaExtension(text, conv) {
     const custName = conv.customerName || conv.from?.name || '';
 
     if (!globalUserId && (fbThreadId || custName)) {
-        const taskId = _uniqueTaskId();
+        const taskId = Date.now();
 
         globalUserId = await new Promise((resolve) => {
             const timeout = setTimeout(() => {
@@ -228,7 +224,7 @@ async function sendViaExtension(text, conv) {
     }
 
     // ===== Send REPLY_INBOX_PHOTO (exact same payload as inbox-chat.js) =====
-    const sendTaskId = _uniqueTaskId();
+    const sendTaskId = Date.now();
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -370,8 +366,8 @@ async function uploadImageViaExtension(file, pageId) {
     const blobUrl = URL.createObjectURL(blob);
 
     // Extension needs a fetchable URL. Data URLs work in extension context.
-    const taskId = _uniqueTaskId();
-    const uploadId = `upload_${taskId}`;
+    const taskId = Date.now() + Math.random();
+    const uploadId = `upload_${Date.now()}`;
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -471,7 +467,7 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
     // Try GET_GLOBAL_ID_FOR_CONV
     const fbThreadId = raw.thread_id || null;
     if (!globalUserId && fbThreadId) {
-        const taskId = _uniqueTaskId();
+        const taskId = Date.now();
         globalUserId = await new Promise((resolve) => {
             const timeout = setTimeout(() => { window.removeEventListener('message', h); resolve(null); }, 60000);
             const h = (e) => {
@@ -501,7 +497,7 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
     }
 
     // Send REPLY_INBOX_PHOTO with attachments
-    const sendTaskId = _uniqueTaskId();
+    const sendTaskId = Date.now();
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension timeout (60s)')); }, 60000);
@@ -551,7 +547,7 @@ async function sendCommentViaExtension(text, pageId, postId, commentId) {
         throw new Error('Extension chưa kết nối');
     }
 
-    const taskId = _uniqueTaskId();
+    const taskId = Date.now() + Math.random();
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension comment timeout (30s)')); }, 30000);
@@ -587,7 +583,7 @@ async function sendPrivateReplyViaExtension(text, pageId, commentId) {
         throw new Error('Extension chưa kết nối');
     }
 
-    const taskId = _uniqueTaskId();
+    const taskId = Date.now() + Math.random();
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension private reply timeout (30s)')); }, 30000);
