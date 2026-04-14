@@ -190,6 +190,11 @@ function initTabs() {
         btn.addEventListener('click', () => {
             elements.tabs.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            // Reset type sub-filter to "Tất cả loại" when switching tabs
+            const typeTabBtns = document.querySelectorAll('#type-tabs .type-tab-btn');
+            typeTabBtns.forEach(b => b.classList.remove('active'));
+            const allTypeBtn = document.querySelector('#type-tabs .type-tab-btn[data-type="all"]');
+            if (allTypeBtn) allTypeBtn.classList.add('active');
             renderDashboard(btn.dataset.tab);
         });
     });
@@ -2119,6 +2124,19 @@ function renderDashboard(tabName, searchTerm = '') {
         };
         const stateDisplay = getOrderStateDisplay();
 
+        // Status badge for "Tất cả" tab - show which tab each ticket belongs to
+        const getStatusBadge = () => {
+            if (tabName !== 'all') return '';
+            const statusMap = {
+                'PENDING_GOODS': { label: 'Chờ Hàng Về', bg: '#fef3c7', color: '#92400e' },
+                'PENDING_FINANCE': { label: 'Chờ Đối Soát', bg: '#dbeafe', color: '#1e40af' },
+                'COMPLETED': { label: 'Hoàn Tất', bg: '#d1fae5', color: '#065f46' }
+            };
+            const s = statusMap[t.status];
+            if (!s) return '';
+            return `<div style="font-size:10px;font-weight:600;color:${s.color};background:${s.bg};padding:1px 6px;border-radius:4px;display:inline-block;margin-top:2px;">${s.label}</div>`;
+        };
+
         tr.innerHTML = `
             <td>
                 <div style="font-weight:bold;font-size:13px;${stateDisplay.isError ? 'color:#ef4444;' : ''}">
@@ -2129,6 +2147,7 @@ function renderDashboard(tabName, searchTerm = '') {
                 </div>
                 <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
                 ${stateDisplay.text ? `<div style="font-size:10px;color:${stateDisplay.color};font-weight:500;">${stateDisplay.text}</div>` : ''}
+                ${getStatusBadge()}
             </td>
             <td>
                 <div style="font-weight:500;color:#1e293b;">${customerName}</div>
