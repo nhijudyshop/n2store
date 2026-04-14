@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load current preferences
   await loadPreferences();
-  await loadOnCallSettings();
   await loadStatus();
 
   // Save button
@@ -81,17 +80,8 @@ async function saveSettings() {
     disabledTypes,
   };
 
-  // Save OnCallCX settings too
-  const oncallSettings = {
-    extension: document.getElementById('oncallExtension').value,
-    autoConfirm: document.getElementById('oncallAutoConfirm').checked,
-    sipAuthId: document.getElementById('oncallAuthId').value.trim(),
-    sipPassword: document.getElementById('oncallPassword').value.trim(),
-  };
-
   try {
     await chrome.runtime.sendMessage({ type: 'SAVE_PREFERENCES', prefs });
-    await chrome.runtime.sendMessage({ type: 'SAVE_ONCALL_SETTINGS', settings: oncallSettings });
     showToast('Đã lưu cài đặt!');
   } catch (err) {
     console.error('Save error:', err);
@@ -136,19 +126,6 @@ async function loadStatus() {
     tabText.textContent = `Tabs: ${tabs.length} tab đang mở`;
   } catch (err) {
     console.error('Status error:', err);
-  }
-}
-
-async function loadOnCallSettings() {
-  try {
-    const { settings } = await chrome.runtime.sendMessage({ type: 'GET_ONCALL_SETTINGS' });
-    if (!settings) return;
-    document.getElementById('oncallExtension').value = settings.extension || '';
-    document.getElementById('oncallAutoConfirm').checked = settings.autoConfirm === true;
-    document.getElementById('oncallAuthId').value = settings.sipAuthId || '';
-    document.getElementById('oncallPassword').value = settings.sipPassword || '';
-  } catch {
-    // OnCallCX settings not available
   }
 }
 

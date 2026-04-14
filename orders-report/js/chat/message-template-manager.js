@@ -1017,67 +1017,38 @@
             // [Fallback 1] Extension Bypass → queue for background (don't block main loop)
             // Queue ALL failed orders for extension (not just 24h — user: "bị lỗi gì cứ đưa vào queue")
             if (lastError && window.sendViaExtension && window.pancakeExtension?.connected) {
-                // Lazily build ext conv data — check server cache before fetchMessages
+                // Lazily build ext conv data (fetch messages for thread_id & global_id)
                 if (!_extConvData) {
                     const raw = { from_psid: psid };
-                    let cachedGlobalId = window._globalIdCache?.[conv.id] || window._globalIdCache?.[`${channelId}_${psid}`] || null;
-                    if (!cachedGlobalId) {
-                        try {
-                            const params = new URLSearchParams({ pageId: channelId, psid });
-                            const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
-                            if (r.ok) {
-                                const data = await r.json();
-                                if (data.found && data.globalUserId) {
-                                    cachedGlobalId = data.globalUserId;
-                                    if (!window._globalIdCache) window._globalIdCache = {};
-                                    window._globalIdCache[conv.id] = cachedGlobalId;
-                                    window._globalIdCache[`${channelId}_${psid}`] = cachedGlobalId;
-                                }
-                            }
-                        } catch (e) { /* server cache unavailable */ }
-                    }
-
-                    if (cachedGlobalId) {
-                        raw.page_customer = { global_id: cachedGlobalId };
-                        if (conv.thread_id) raw.thread_id = conv.thread_id;
+                    try {
+                        const msgData = await pdm.fetchMessages(channelId, conv.id);
+                        if (msgData.conversation) {
+                            const mc = msgData.conversation;
+                            if (mc.thread_id) raw.thread_id = mc.thread_id;
+                            if (mc.page_customer) raw.page_customer = mc.page_customer;
+                        }
+                        if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                        if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                            if (!raw.page_customer) raw.page_customer = {};
+                            raw.page_customer.global_id = conv.page_customer.global_id;
+                        }
                         _extConvData = {
                             pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                            customers: conv.customers || [], _messagesData: { customers: conv.customers || [] },
+                            customers: msgData.customers || [],
+                            _messagesData: { customers: msgData.customers || [] },
                             updated_at: conv.updated_at || null,
                             customerName: order.customerName || conv.from?.name || '',
                             type: conv.type || 'INBOX', from: conv.from || null,
                         };
-                    } else {
-                        try {
-                            const msgData = await pdm.fetchMessages(channelId, conv.id);
-                            if (msgData.conversation) {
-                                const mc = msgData.conversation;
-                                if (mc.thread_id) raw.thread_id = mc.thread_id;
-                                if (mc.page_customer) raw.page_customer = mc.page_customer;
-                            }
-                            if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
-                            if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
-                                if (!raw.page_customer) raw.page_customer = {};
-                                raw.page_customer.global_id = conv.page_customer.global_id;
-                            }
-                            _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                                customers: msgData.customers || [],
-                                _messagesData: { customers: msgData.customers || [] },
-                                updated_at: conv.updated_at || null,
-                                customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
-                            };
-                        } catch (e) {
-                            console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
-                            _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                                customers: [], _messagesData: { customers: [] },
-                                updated_at: conv.updated_at || null,
-                                customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
-                            };
-                        }
+                    } catch (e) {
+                        console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
+                        _extConvData = {
+                            pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                            customers: [], _messagesData: { customers: [] },
+                            updated_at: conv.updated_at || null,
+                            customerName: order.customerName || conv.from?.name || '',
+                            type: conv.type || 'INBOX', from: conv.from || null,
+                        };
                     }
                 }
                 // Queue ALL remaining parts for background extension processing
@@ -1141,36 +1112,9 @@
                             const pdm = window.pancakeDataManager;
                             const raw = { from_psid: order.psid };
                             let extConvData;
+                            // Try to fetch thread_id/global_id for extension
                             const conv = pdm?.inboxMapByPSID?.get(String(order.psid));
-
-                            // Check server cache first — skip fetchMessages if global_id cached
-                            let cachedGlobalId = window._globalIdCache?.[conv?.id] || window._globalIdCache?.[`${order.channelId}_${order.psid}`] || null;
-                            if (!cachedGlobalId) {
-                                try {
-                                    const params = new URLSearchParams({ pageId: order.channelId, psid: order.psid });
-                                    const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
-                                    if (r.ok) {
-                                        const data = await r.json();
-                                        if (data.found && data.globalUserId) {
-                                            cachedGlobalId = data.globalUserId;
-                                            if (!window._globalIdCache) window._globalIdCache = {};
-                                            if (conv?.id) window._globalIdCache[conv.id] = cachedGlobalId;
-                                            window._globalIdCache[`${order.channelId}_${order.psid}`] = cachedGlobalId;
-                                        }
-                                    }
-                                } catch (e) { /* server cache unavailable */ }
-                            }
-
-                            if (cachedGlobalId) {
-                                raw.page_customer = { global_id: cachedGlobalId };
-                                if (conv?.thread_id) raw.thread_id = conv.thread_id;
-                                extConvData = {
-                                    pageId: order.channelId, psid: order.psid, conversationId: conv?.id || '', _raw: raw,
-                                    customers: conv?.customers || [], _messagesData: { customers: conv?.customers || [] },
-                                    updated_at: conv?.updated_at || null, customerName: order.customerName || '',
-                                    type: conv?.type || 'INBOX', from: conv?.from || null,
-                                };
-                            } else if (conv && pdm?.fetchMessages) {
+                            if (conv && pdm?.fetchMessages) {
                                 try {
                                     const msgData = await pdm.fetchMessages(order.channelId, conv.id);
                                     if (msgData.conversation) {
@@ -1336,53 +1280,26 @@
                 // 3. Build extConvData with thread_id + global_id
                 const raw = { from_psid: psid };
                 let msgCustomers = [];
+                try {
+                    const msgData = await pdm.fetchMessages(channelId, conv.id);
+                    if (msgData.conversation) {
+                        if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
+                        if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                    }
+                    if (msgData.customers?.length) msgCustomers = msgData.customers;
+                    if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                    if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                        if (!raw.page_customer) raw.page_customer = {};
+                        raw.page_customer.global_id = conv.page_customer.global_id;
+                    }
+                } catch (e) { /* ignore fetch error */ }
 
-                // Try server cache first — skip fetchMessages if global_id already cached
-                let cachedGlobalId = window._globalIdCache?.[conv.id] || window._globalIdCache?.[`${channelId}_${psid}`] || null;
-                if (!cachedGlobalId) {
-                    try {
-                        const params = new URLSearchParams({ pageId: channelId, psid });
-                        const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
-                        if (r.ok) {
-                            const data = await r.json();
-                            if (data.found && data.globalUserId) {
-                                cachedGlobalId = data.globalUserId;
-                                // Also populate in-memory cache for sendViaExtension
-                                if (!window._globalIdCache) window._globalIdCache = {};
-                                window._globalIdCache[conv.id] = cachedGlobalId;
-                                window._globalIdCache[`${channelId}_${psid}`] = cachedGlobalId;
-                            }
-                        }
-                    } catch (e) { /* server cache unavailable */ }
-                }
-
-                if (cachedGlobalId) {
-                    // global_id found in cache — skip expensive fetchMessages
-                    raw.page_customer = { global_id: cachedGlobalId };
-                    if (conv.thread_id) raw.thread_id = conv.thread_id;
-                } else {
-                    // No cache — need fetchMessages for thread_id + global_id
-                    try {
-                        const msgData = await pdm.fetchMessages(channelId, conv.id);
-                        if (msgData.conversation) {
-                            if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
-                            if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
-                        }
-                        if (msgData.customers?.length) msgCustomers = msgData.customers;
-                        if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
-                        if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
-                            if (!raw.page_customer) raw.page_customer = {};
-                            raw.page_customer.global_id = conv.page_customer.global_id;
-                        }
-                    } catch (e) { /* ignore fetch error */ }
-
-                    // Fallback: lấy global_id từ conv.customers[] (cache)
-                    if (!raw.page_customer?.global_id && conv.customers?.length) {
-                        const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
-                        if (custGlobal) {
-                            if (!raw.page_customer) raw.page_customer = {};
-                            raw.page_customer.global_id = custGlobal;
-                        }
+                // Fallback: lấy global_id từ conv.customers[] (cache)
+                if (!raw.page_customer?.global_id && conv.customers?.length) {
+                    const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
+                    if (custGlobal) {
+                        if (!raw.page_customer) raw.page_customer = {};
+                        raw.page_customer.global_id = custGlobal;
                     }
                 }
 
@@ -2252,36 +2169,48 @@
                 await _prefetchOrderDetails(orders);
             }
 
-            // Unified flow: Pancake API concurrent → Extension fallback queue
-            // N2Store mode validates extension is available for fallback
-            if (useExtension && (!window.pancakeExtension?.connected || !window.sendViaExtension)) {
-                throw new Error('Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.');
-            }
+            if (useExtension) {
+                // Validate extension is connected
+                if (!window.pancakeExtension?.connected || !window.sendViaExtension) {
+                    throw new Error('Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.');
+                }
 
-            // Pre-fetch page access tokens
-            await _prefetchPageAccessTokens(orders);
+                // Extension-only mode: build queue for all orders, then send sequentially
+                document.getElementById('msgProgressText').textContent = 'Chuẩn bị dữ liệu Extension...';
+                await _buildExtensionQueueForAll(orders, template, sendingState);
 
-            // Distribute orders to accounts (page-aware round-robin)
-            const accountQueues = _distributeOrdersToAccounts(orders, accounts);
+                if (sendingState.extQueue.length > 0) {
+                    document.getElementById('msgProgressText').textContent =
+                        `Extension: 0/${sendingState.extQueue.length}...`;
+                    await _processExtensionQueue(sendingState);
+                }
+            } else {
+                // Pancake API mode (existing flow)
+                // Pre-fetch page access tokens
+                await _prefetchPageAccessTokens(orders);
 
-            // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
-            const workers = accounts.map((account, idx) =>
-                _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
-            );
-            await Promise.all(workers);
+                // Distribute orders to accounts (page-aware round-robin)
+                const accountQueues = _distributeOrdersToAccounts(orders, accounts);
 
-            // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
-            if (sendingState.extQueue.length > 0) {
-                const extCount = sendingState.extQueue.length;
-                // Adjust progress: subtract ext-queued orders so bar reflects real completion
-                sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
-                _updateProgress(
-                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
-                    sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
+                const workers = accounts.map((account, idx) =>
+                    _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
                 );
-                document.getElementById('msgProgressText').textContent =
-                    `Extension: 0/${extCount}...`;
-                await _processExtensionQueue(sendingState);
+                await Promise.all(workers);
+
+                // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
+                if (sendingState.extQueue.length > 0) {
+                    const extCount = sendingState.extQueue.length;
+                    // Adjust progress: subtract ext-queued orders so bar reflects real completion
+                    sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
+                    _updateProgress(
+                        sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
+                        sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                    );
+                    document.getElementById('msgProgressText').textContent =
+                        `Extension: 0/${extCount}...`;
+                    await _processExtensionQueue(sendingState);
+                }
             }
         } catch (error) {
             console.error('[TemplateMgr] Send error:', error);

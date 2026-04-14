@@ -127,36 +127,6 @@
     .dot.yellow { background: #ff9800; }
     .dot.red { background: #f44336; }
 
-    /* OnCallCX */
-    .setting-select {
-      padding: 6px 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 13px;
-      background: #fff;
-      color: #333;
-      cursor: pointer;
-      min-width: 120px;
-    }
-    .setting-select:focus { outline: none; border-color: #4caf50; }
-    .setting-input {
-      padding: 6px 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 13px;
-      background: #fff;
-      color: #333;
-      min-width: 180px;
-      font-family: monospace;
-    }
-    .setting-input:focus { outline: none; border-color: #4caf50; }
-    .setting-note {
-      padding: 8px 12px;
-      font-size: 11px;
-      color: #888;
-      line-height: 1.4;
-    }
-
     .saved-toast {
       position: fixed;
       bottom: 20px;
@@ -345,62 +315,6 @@
           <input type="checkbox" class="notif-type" data-type="processing_update" checked>
           <span class="slider"></span>
         </label>
-      </div>
-    </div>
-
-    <!-- OnCallCX Settings -->
-    <div class="section">
-      <div class="section-title">OnCallCX / Tổng đài</div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Số máy nhánh (Extension)</div>
-          <div class="setting-desc">Chọn extension đã đăng ký trên PBX</div>
-        </div>
-        <select id="oncallExtension" class="setting-select">
-          <option value="">-- Chưa chọn --</option>
-          <option value="101">101</option>
-          <option value="102">102</option>
-          <option value="103">103</option>
-          <option value="104">104</option>
-          <option value="105">105</option>
-          <option value="106">106</option>
-          <option value="107">107</option>
-          <option value="108">108</option>
-          <option value="109">109</option>
-          <option value="110">110</option>
-        </select>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">Tự động gọi (không xác nhận)</div>
-          <div class="setting-desc">Bỏ qua hộp thoại xác nhận khi bấm gọi</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="oncallAutoConfirm">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">SIP Auth ID</div>
-          <div class="setting-desc">Register Name từ PBX Portal (Phone Setup)</div>
-        </div>
-        <input type="text" id="oncallAuthId" class="setting-input" placeholder="LRmeWTh..." autocomplete="off">
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-label">SIP Password</div>
-          <div class="setting-desc">Auth Password từ PBX Portal (Phone Setup)</div>
-        </div>
-        <input type="password" id="oncallPassword" class="setting-input" placeholder="********" autocomplete="off">
-      </div>
-
-      <div class="setting-note">
-        &#9432; Gọi trực tiếp từ browser qua OnCallCX PBX. Không cần cài app.
       </div>
     </div>
 

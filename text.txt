@@ -1,0 +1,96 @@
+fetch('https://n2store-fallback.onrender.com/api/oncall/health').then(r=>r.json()).then(d=>console.log(d));
+
+Promise {<pending>}
+VM2197:1 {status: 'ok', pbx: 'pbx-ucaas.oncallcx.vn:9060', activeSessions: 1}
+realtime-manager.js:275 [PHOENIX] 📨 Event: viewing_conversation:remove 
+realtime-manager.js:275 [PHOENIX] 📨 Event: viewing_conversation:append 
+realtime-manager.js:275 [PHOENIX] 📨 Event: pages:seen_conversation "0918727780 ba lỗ đen vs"
+realtime-manager.js:275 [PHOENIX] 📨 Event: pages:update_conversation "Số 71 Nguyễn Hiền KDC 91B, Phường An Khánh, Quận N"
+realtime-manager.js:275 [PHOENIX] 📨 Event: pages:update_conversation "********** ba lỗ đen vs"
+// Đợi 10 giây sau khi gọi, rồi fetch debug
+setTimeout(() => {
+  fetch('https://n2store-fallback.onrender.com/api/oncall/debug')
+    .then(r => r.json())
+    .then(d => {
+      console.log('Messages:', d.total);
+      d.messages.forEach(m => console.log(`[${m.dir}] ${m.first}`));
+      d.messages.filter(m => !m.first.includes('REGISTER')).forEach(m => {
+        console.log('\n' + m.dir + ':\n' + m.full.substring(0, 800));
+      });
+    });
+}, 10000);
+console.log('Fetching debug in 10s...');
+
+VM2200:13 Fetching debug in 10s...
+undefined
+realtime-manager.js:275 [PHOENIX] 📨 Event: pages:update_conversation "dạ c vẫn ở địa chỉ này ạ  
+Nv Hạnh ฅ ฅ"
+tab1-tpos-realtime.js:151 [TPOS-RT] Order updated: 260402381
+tab1-table.js:9 [UPDATE] Updating order in table: a4840000-5d51-0015-ba4f-08de99649aef
+tab1-table.js:28 [UPDATE] ✅ Updated via OrderStore O(1)
+tab1-table.js:38 [UPDATE] Updated in allData at index: 0
+tab1-table.js:45 [UPDATE] Updated in filteredData at index: 0
+tab1-table.js:52 [UPDATE] Updated in displayedData at index: 0
+tab1-table.js:395 [RENDER] Initial 50/592 orders
+tab1-table.js:79 [UPDATE] ✓ Table updated successfully
+tab1-tpos-realtime.js:167 [TPOS-RT] Updated order in table: 260402381
+new-messages-notifier.js?v=3:126 [NOTIFIER] reapply: 739 pending, 50 rows, 48 matched
+VM2200:6 Messages: 8
+VM2200:7 [→ Browser RAW] REGISTER sip:pbx-ucaas.oncallcx.vn SIP/2.0
+VM2200:7 [→ PBX (rewritten)] REGISTER sip:pbx-ucaas.oncallcx.vn SIP/2.0
+VM2200:7 [← PBX] SIP/2.0 401 Unauthorized
+VM2200:7 [← PBX (rewritten)] SIP/2.0 401 Unauthorized
+VM2200:7 [→ Browser RAW] REGISTER sip:pbx-ucaas.oncallcx.vn SIP/2.0
+VM2200:7 [→ PBX (rewritten)] REGISTER sip:pbx-ucaas.oncallcx.vn SIP/2.0
+VM2200:7 [← PBX] SIP/2.0 200 OK
+VM2200:7 [← PBX (rewritten)] SIP/2.0 200 OK
+VM2200:9 
+← PBX:
+SIP/2.0 401 Unauthorized
+From: "101"<sip:101@pbx-ucaas.oncallcx.vn>;tag=3i4v8qibpk
+To: <sip:101@pbx-ucaas.oncallcx.vn>;tag=cc2fti4prod-d76a89d183c93b2a
+Call-ID: sb4uqe8srgja8pl5bfb7e4
+CSeq: 4 REGISTER
+User-Agent: aareswitch/7.22.3
+Via: SIP/2.0/UDP pbx-ucaas.oncallcx.vn;rport;received=74.220.52.254;received-port=40057;branch=z9hG4bK6354610
+WWW-Authenticate: Digest realm="42.112.59.145",nonce="69dcf6e01f855928219f8a756f0cdb6f84f1beeb"
+Content-Length: 0
+
+
+VM2200:9 
+← PBX (rewritten):
+SIP/2.0 401 Unauthorized
+From: "101"<sip:101@pbx-ucaas.oncallcx.vn>;tag=3i4v8qibpk
+To: <sip:101@pbx-ucaas.oncallcx.vn>;tag=cc2fti4prod-d76a89d183c93b2a
+Call-ID: sb4uqe8srgja8pl5bfb7e4
+CSeq: 4 REGISTER
+User-Agent: aareswitch/7.22.3
+Via: SIP/2.0/WSS q74fh0peqmit.invalid;branch=z9hG4bK6354610
+WWW-Authenticate: Digest realm="42.112.59.145",nonce="69dcf6e01f855928219f8a756f0cdb6f84f1beeb"
+Content-Length: 0
+
+
+VM2200:9 
+← PBX:
+SIP/2.0 200 OK
+From: "101"<sip:101@pbx-ucaas.oncallcx.vn>;tag=3i4v8qibpk
+To: <sip:101@pbx-ucaas.oncallcx.vn>;tag=cc2fti4prod-c85ed46beb197305
+Call-ID: sb4uqe8srgja8pl5bfb7e4
+CSeq: 5 REGISTER
+Via: SIP/2.0/UDP pbx-ucaas.oncallcx.vn;rport;received=74.220.52.254;received-port=40057;branch=z9hG4bK7828187
+Contact: <sip:bu90lekr@pbx-ucaas.oncallcx.vn>;expires=120;reg-id=1;+sip.instance="<urn:uuid:90dcc7a3-7ffb-4c18-9472-ed9b6ea854ab>"
+Content-Length: 0
+
+
+VM2200:9 
+← PBX (rewritten):
+SIP/2.0 200 OK
+From: "101"<sip:101@pbx-ucaas.oncallcx.vn>;tag=3i4v8qibpk
+To: <sip:101@pbx-ucaas.oncallcx.vn>;tag=cc2fti4prod-c85ed46beb197305
+Call-ID: sb4uqe8srgja8pl5bfb7e4
+CSeq: 5 REGISTER
+Via: SIP/2.0/WSS q74fh0peqmit.invalid;branch=z9hG4bK7828187
+Contact: <sip:bu90lekr@pbx-ucaas.oncallcx.vn>;expires=120;reg-id=1;+sip.instance="<urn:uuid:90dcc7a3-7ffb-4c18-9472-ed9b6ea854ab>"
+Content-Length: 0
+
+
