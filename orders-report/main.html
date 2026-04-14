@@ -736,7 +736,9 @@
                     type === 'SEND_COMMENT_SUCCESS' ||
                     type === 'SEND_COMMENT_FAILURE' ||
                     type === 'SEND_PRIVATE_REPLY_SUCCESS' ||
-                    type === 'SEND_PRIVATE_REPLY_FAILURE'
+                    type === 'SEND_PRIVATE_REPLY_FAILURE' ||
+                    type === 'ADD_CALL_LOG_SUCCESS' ||
+                    type === 'ADD_CALL_LOG_FAILURE'
                 );
 
                 if (isExtResponse) {
@@ -772,6 +774,8 @@
                     type === 'BATCH_GET_GLOBAL_ID' ||
                     type === 'SEND_COMMENT' ||
                     type === 'SEND_PRIVATE_REPLY' ||
+                    type === 'ADD_CALL_LOG' ||
+                    type === 'OPEN_PHONE' ||
                     type === 'CHECK_EXTENSION' ||
                     type === 'EXT_BRIDGE_PROBE'
                 );

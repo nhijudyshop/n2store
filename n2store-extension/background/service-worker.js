@@ -17,6 +17,7 @@ import {
   initStorage, getStatus, resetBadge, getActivity, clearActivity,
   getPreferences, savePreferences, incrementMessagesSent,
   getNotifications, markAllRead, getUnreadCount,
+  getOnCallSettings, saveOnCallSettings, addCallLog, getCallLog, clearCallLog,
 } from './sync/storage.js';
 
 const MODULE = 'SW';
@@ -48,6 +49,56 @@ chrome.alarms.create('keepAlive', { periodInMinutes: CONFIG.ALARM_INTERVAL_MIN }
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'keepAlive') {
     log.debug(MODULE, 'Keep-alive alarm fired');
+  }
+});
+
+// === ONCALLCX PHONE WINDOW ===
+
+let phoneWindowId = null;
+
+async function openPhoneWindow(phone, customerName) {
+  // If window already open, focus it and send dial command
+  if (phoneWindowId !== null) {
+    try {
+      await chrome.windows.update(phoneWindowId, { focused: true });
+      // Send dial command to existing window
+      if (phone) {
+        const tabs = await chrome.tabs.query({ windowId: phoneWindowId });
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'DIAL_NUMBER', phone, customerName
+          }).catch(() => {});
+        }
+      }
+      return;
+    } catch {
+      phoneWindowId = null; // Window was closed
+    }
+  }
+
+  // Build URL with params
+  let url = chrome.runtime.getURL('pages/phone.html');
+  const params = new URLSearchParams();
+  if (phone) params.set('phone', phone);
+  if (customerName) params.set('name', customerName);
+  if (params.toString()) url += '?' + params.toString();
+
+  // Create floating window
+  const win = await chrome.windows.create({
+    url,
+    type: 'popup',
+    width: 320,
+    height: 540,
+    focused: true
+  });
+  phoneWindowId = win.id;
+  log.info(MODULE, `Phone window opened: ${phoneWindowId}`);
+}
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === phoneWindowId) {
+    phoneWindowId = null;
+    log.info(MODULE, 'Phone window closed');
   }
 });
 
@@ -324,6 +375,36 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
     case MSG.GET_PACK_STICKERS:
     case MSG.BATCH_GET_GLOBAL_ID:
       sendResponse({ type: `${type}_FAILURE`, taskId: msg.taskId, error: 'Chua ho tro' });
+      break;
+
+    // === OnCallCX Phone Window ===
+    case 'OPEN_PHONE':
+      openPhoneWindow(msg.phone, msg.customerName);
+      sendResponse({ success: true });
+      break;
+
+    // === OnCallCX ===
+    case 'GET_ONCALL_SETTINGS':
+      sendResponse({ settings: await getOnCallSettings() });
+      break;
+
+    case 'SAVE_ONCALL_SETTINGS':
+      await saveOnCallSettings(msg.settings);
+      sendResponse({ success: true });
+      break;
+
+    case 'GET_CALL_LOG':
+      sendResponse({ callLog: await getCallLog(msg.limit || 30) });
+      break;
+
+    case 'ADD_CALL_LOG':
+      await addCallLog(msg.entry || msg);
+      sendResponse({ success: true });
+      break;
+
+    case 'CLEAR_CALL_LOG':
+      await clearCallLog();
+      sendResponse({ success: true });
       break;
 
     // === TPOS Interceptor Events ===

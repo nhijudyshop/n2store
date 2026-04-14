@@ -259,33 +259,29 @@ class PancakeTokenManager {
             // PRIORITY 1: Load from storage first (instant, no network)
             await this.loadFromLocalStorage();
 
-            if (!window.firebase || !window.firebase.firestore) {
-                console.warn('[PANCAKE-TOKEN] Firestore not available, using localStorage only');
-                return true; // Still return true if we have localStorage data
-            }
-
-            // Firestore structure (migrated from Realtime Database)
-            const db = window.firebase.firestore();
-            this.firestoreRef = db.collection('pancake_tokens');
-            this.accountsRef = this.firestoreRef.doc('accounts');
-            this.pageTokensRef = this.firestoreRef.doc('page_access_tokens');
-
-            // Load accounts and active account from Firestore (may update localStorage)
-            await this.loadAccounts();
-
-            // Migrate from Realtime Database if Firestore is empty
-            if (Object.keys(this.accounts).length === 0) {
-                await this.migrateFromRealtimeDB();
-            }
-
-            // Load page access tokens from Firestore (merge with localStorage)
-            await this.loadPageAccessTokens();
+            // PRIORITY 2: Load from Render DB in background (non-blocking)
+            // localStorage already has data for immediate use
+            this._loadFromRenderDB();
 
             return true;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error initializing Firebase:', error);
-            // Even if Firebase fails, we might have localStorage data
+            console.error('[PANCAKE-TOKEN] Error initializing:', error);
             return this.currentToken !== null;
+        }
+    }
+
+    /**
+     * Background load from Render DB — merges with localStorage data
+     * Non-blocking: does not delay initialize()
+     */
+    async _loadFromRenderDB() {
+        try {
+            await Promise.allSettled([
+                this.loadAccounts(),
+                this.loadPageAccessTokens()
+            ]);
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] Render DB background load failed:', e.message);
         }
     }
 
@@ -319,32 +315,43 @@ class PancakeTokenManager {
      */
     async loadAccounts() {
         try {
-            const doc = await this.accountsRef.get();
-            this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
+            // Load from Render DB (merge into existing accounts)
+            const r = await fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`);
+            if (r.ok) {
+                const data = await r.json();
+                const dbAccounts = data.accounts || [];
+                for (const acc of dbAccounts) {
+                    if (!acc.token) continue;
+                    this.accounts[acc.account_id] = {
+                        token: acc.token,
+                        exp: acc.token_exp ? Number(acc.token_exp) : null,
+                        uid: acc.uid,
+                        name: acc.name || acc.fb_name || 'Unknown',
+                        savedAt: acc.saved_at ? Number(acc.saved_at) : Date.now()
+                    };
+                }
+                console.log(`[PANCAKE-TOKEN] Loaded ${dbAccounts.length} accounts from Render DB`);
+            }
 
-            // Load active account ID from localStorage (per-device)
-            this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
-
-            // If active account is set, load its token
-            if (this.activeAccountId && this.accounts[this.activeAccountId]) {
-                const account = this.accounts[this.activeAccountId];
-                this.currentToken = account.token;
-                this.currentTokenExpiry = account.exp;
-
-                // Sync to localStorage for fast access next time
-                this.saveTokenToLocalStorage(account.token, account.exp);
-            } else if (Object.keys(this.accounts).length > 0) {
-                // Auto-select first account if no active account set
-                const firstAccountId = Object.keys(this.accounts)[0];
-                await this.setActiveAccount(firstAccountId);
+            // Only update active account if not already set from localStorage
+            if (!this.currentToken) {
+                this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
+                if (this.activeAccountId && this.accounts[this.activeAccountId]) {
+                    const account = this.accounts[this.activeAccountId];
+                    this.currentToken = account.token;
+                    this.currentTokenExpiry = account.exp;
+                    this.saveTokenToLocalStorage(account.token, account.exp);
+                } else if (Object.keys(this.accounts).length > 0) {
+                    const firstAccountId = Object.keys(this.accounts)[0];
+                    await this.setActiveAccount(firstAccountId);
+                }
             }
 
             // Save all accounts to localStorage for multi-account sending
             this.saveAllAccountsToLocalStorage();
-
             return true;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
+            console.warn('[PANCAKE-TOKEN] Render DB accounts load failed:', error.message);
             return false;
         }
     }
@@ -515,61 +522,50 @@ class PancakeTokenManager {
     }
 
     /**
-     * Lấy token từ Firestore (active account)
+     * Lấy token từ Render DB (active account)
      * @returns {Promise<string|null>}
      */
     async getTokenFromFirestore() {
         try {
-            if (!this.accountsRef) {
-                console.warn('[PANCAKE-TOKEN] Firestore not initialized');
-                return null;
-            }
+            if (!this.activeAccountId) return null;
 
-            // Use local activeAccountId (from localStorage)
-            if (!this.activeAccountId) {
-                return null;
-            }
-
-            // Get from in-memory cache first (already loaded from Firestore)
+            // Get from in-memory cache first (already loaded from Render DB)
             let data = this.accounts[this.activeAccountId];
 
-            // If not in memory, fetch from Firestore
+            // If not in memory, fetch from Render DB
             if (!data) {
-                const doc = await this.accountsRef.get();
-                if (doc.exists) {
-                    const allAccounts = doc.data()?.data || {};
-                    data = allAccounts[this.activeAccountId];
-                    // Update memory cache
-                    this.accounts = allAccounts;
-                }
+                try {
+                    const r = await fetch(`${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`);
+                    if (r.ok) {
+                        const resp = await r.json();
+                        if (resp.account?.token) {
+                            data = {
+                                token: resp.account.token,
+                                exp: resp.account.token_exp ? Number(resp.account.token_exp) : null,
+                                uid: resp.account.uid,
+                                name: resp.account.name
+                            };
+                            this.accounts[this.activeAccountId] = data;
+                        }
+                    }
+                } catch (e) { /* Render unavailable */ }
             }
 
-            if (!data || !data.token) {
-                return null;
-            }
+            if (!data || !data.token) return null;
 
-            // Sanitize token - remove 'jwt=' prefix if exists
             let token = data.token;
-            if (token.startsWith('jwt=')) {
-                token = token.substring(4);
-            }
+            if (token.startsWith('jwt=')) token = token.substring(4);
 
-            // Check expiry
             const payload = this.decodeToken(token);
-            if (!payload || this.isTokenExpired(payload.exp)) {
-                return null;
-            }
+            if (!payload || this.isTokenExpired(payload.exp)) return null;
 
             this.currentToken = token;
             this.currentTokenExpiry = payload.exp;
-
-            // Cache to localStorage for faster access next time
             this.saveTokenToLocalStorage(token, payload.exp);
 
             return token;
-
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error getting token from Firestore:', error);
+            console.error('[PANCAKE-TOKEN] Error getting token from Render DB:', error);
             return null;
         }
     }
@@ -617,13 +613,16 @@ class PancakeTokenManager {
             localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(cleanedToken, payload.exp);
 
-            // Save to Firestore (async, backup)
-            if (this.accountsRef) {
-                // Use update with dot notation to update nested field
-                await this.accountsRef.set({
-                    data: { [accountId]: data }
-                }, { merge: true });
-            }
+            // Sync to Render DB (async, shared across machines)
+            try {
+                fetch(`${_RENDER_URL}/api/pancake-accounts/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        accounts: { [accountId]: data }
+                    })
+                }).catch(() => {});
+            } catch (e) { /* fire-and-forget */ }
 
             return accountId;
 
@@ -1042,14 +1041,6 @@ class PancakeTokenManager {
      */
     async clearToken() {
         try {
-            // Clear Firestore documents
-            if (this.accountsRef) {
-                await this.accountsRef.delete();
-            }
-            if (this.pageTokensRef) {
-                await this.pageTokensRef.delete();
-            }
-
             // Clear localStorage
             localStorage.removeItem('tpos_pancake_active_account_id');
             this.clearTokenFromLocalStorage();
@@ -1147,58 +1138,27 @@ class PancakeTokenManager {
      */
     async loadPageAccessTokens() {
         try {
-            if (!this.pageTokensRef) {
-                console.warn('[PANCAKE-TOKEN] pageTokensRef not initialized');
-                return;
-            }
+            // Load from Render DB (source of truth)
+            const r = await fetch(`${_RENDER_URL}/api/pancake-page-tokens`);
+            if (!r.ok) return;
 
-            const doc = await this.pageTokensRef.get();
-            const docData = doc.exists ? (doc.data() || {}) : {};
+            const data = await r.json();
+            const dbTokens = data.tokens || {};
 
-            // Support both formats:
-            // 1. Nested: { data: { pageId: {...}, ... } }
-            // 2. Root-level: { pageId: {...}, ... } (current format in Firestore)
-            let firestoreTokens = {};
-            if (docData.data && typeof docData.data === 'object') {
-                firestoreTokens = { ...docData.data };
-            }
-            // Also check root-level entries (each has a 'token' field)
-            // If both exist for same pageId, keep the newer one (by savedAt)
-            for (const [key, value] of Object.entries(docData)) {
-                if (key !== 'data' && value && typeof value === 'object' && value.token) {
-                    const existing = firestoreTokens[key];
-                    if (!existing || (value.savedAt || 0) > (existing.savedAt || 0)) {
-                        firestoreTokens[key] = value;
-                    }
-                }
-            }
-
-            // Smart merge: keep the newer version for each pageId based on savedAt
+            // Smart merge: keep the newer version for each pageId
             const mergedTokens = { ...this.pageAccessTokens };
 
-            for (const [pageId, firestoreData] of Object.entries(firestoreTokens)) {
+            for (const [pageId, dbData] of Object.entries(dbTokens)) {
                 const localData = this.pageAccessTokens[pageId];
-
-                // If no local data, use Firestore data
-                if (!localData) {
-                    mergedTokens[pageId] = firestoreData;
-                    continue;
-                }
-
-                // Compare savedAt timestamps - keep the newer one
-                const localSavedAt = localData.savedAt || 0;
-                const firestoreSavedAt = firestoreData.savedAt || 0;
-
-                if (firestoreSavedAt > localSavedAt) {
-                    mergedTokens[pageId] = firestoreData;
+                if (!localData || (dbData.savedAt || 0) > (localData.savedAt || 0)) {
+                    mergedTokens[pageId] = dbData;
                 }
             }
 
             this.pageAccessTokens = mergedTokens;
-
-            // Sync merged tokens back to localStorage
             this.savePageAccessTokensToLocalStorage();
 
+            console.log(`[PANCAKE-TOKEN] Loaded ${Object.keys(dbTokens).length} page tokens from Render DB`);
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error loading page access tokens:', error);
         }
@@ -1243,12 +1203,17 @@ class PancakeTokenManager {
             // Save to localStorage (fast, synchronous)
             this.savePageAccessTokensToLocalStorage();
 
-            // Save to Firestore (async, backup) - save at root level
-            if (this.pageTokensRef) {
-                await this.pageTokensRef.set({
-                    [pageId]: data
-                }, { merge: true });
-            }
+            // Save to Render DB (async, shared across machines)
+            try {
+                fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token, pageName, timestamp,
+                        generatedBy: this.accounts[this.activeAccountId]?.name || 'unknown'
+                    })
+                }).catch(() => {});
+            } catch (e) { /* fire-and-forget */ }
 
             return true;
         } catch (error) {
@@ -1285,16 +1250,50 @@ class PancakeTokenManager {
      * @returns {Promise<string|null>} - New token or null
      */
     async generatePageAccessToken(pageId) {
-        try {
-            if (!this.currentToken) {
-                throw new Error('Cần đăng nhập Pancake trước');
-            }
+        // Try current account token first
+        const token = await this._tryGenerateWithToken(pageId, this.currentToken);
+        if (token) return token;
 
-            // Use worker proxy to avoid CORS
-            // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
+        // Current account failed — try other accounts from Render DB
+        console.warn('[PANCAKE-TOKEN] Current account failed for page', pageId, '— trying other accounts...');
+        try {
+            const r = await fetch('https://n2store-fallback.onrender.com/api/pancake-accounts?active=true');
+            if (r.ok) {
+                const data = await r.json();
+                const accounts = data.accounts || [];
+                for (const acc of accounts) {
+                    if (!acc.token || acc.token === this.currentToken) continue;
+                    // Check if account has this page
+                    const pages = acc.pages || [];
+                    const hasPage = pages.some(p => String(p.id || p.pageId) === String(pageId));
+                    if (!hasPage) continue;
+
+                    const result = await this._tryGenerateWithToken(pageId, acc.token);
+                    if (result) {
+                        console.log(`[PANCAKE-TOKEN] ✅ Account "${acc.name}" succeeded for page ${pageId} — cached`);
+                        return result;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] Fallback accounts fetch failed:', e.message);
+        }
+
+        console.error('[PANCAKE-TOKEN] ❌ All accounts failed for page', pageId);
+        return null;
+    }
+
+    /**
+     * Try generating page_access_token with a specific JWT token
+     * @returns {string|null} page_access_token or null
+     */
+    async _tryGenerateWithToken(pageId, accountToken) {
+        try {
+            if (!accountToken) return null;
+
             const url = window.API_CONFIG.buildUrl.pancake(
                 `pages/${pageId}/generate_page_access_token`,
-                `access_token=${this.currentToken}`
+                `access_token=${accountToken}`
             );
 
             const response = await fetch(url, {
@@ -1308,14 +1307,11 @@ class PancakeTokenManager {
             const result = await response.json();
 
             if (result.success && result.page_access_token) {
-                // Save to Firebase
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
-            } else {
-                throw new Error(result.message || 'Failed to generate token');
             }
+            return null;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error generating page_access_token:', error);
             return null;
         }
     }
@@ -1349,7 +1345,7 @@ class PancakeTokenManager {
             const result = await response.json();
 
             if (result.success && result.page_access_token) {
-                // Save to cache and Firestore
+                // Save to cache and Render DB
                 await this.savePageAccessToken(pageId, result.page_access_token);
                 return result.page_access_token;
             } else {
