@@ -1946,13 +1946,13 @@
                     <button class="ptag-panel-btn" id="ptag-pin-btn" title="Ghim panel" onclick="window._ptagTogglePin()">
                         <i class="fas fa-thumbtack"></i>
                     </button>
-                    <button class="ptag-panel-btn ${ProcessingTagState._tTagPinned ? 'pinned' : ''}" id="ptag-ttag-pin-header-btn" title="${ProcessingTagState._tTagPinned ? 'Bỏ ghim Tag T' : 'Ghim Tag T lên đầu'}" onclick="window._ptagToggleTTagPin()" style="color:#3b82f6;">
+                    <button class="ptag-panel-btn ${ProcessingTagState._tTagPinned ? 'pinned' : ''}" id="ptag-ttag-pin-header-btn" title="${ProcessingTagState._tTagPinned ? 'Bỏ ghim Tag T' : 'Ghim Tag T lên đầu'}" onclick="window._ptagToggleTTagPin()">
                         <i class="fas fa-thumbtack" style="${ProcessingTagState._tTagPinned ? '' : 'transform:rotate(45deg);'}"></i>
                     </button>
-                    <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()" style="color:#7c3aed;">
+                    <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()">
                         <i class="fas fa-tags"></i>
                     </button>
-                    <button class="ptag-panel-btn" title="Lịch sử Tag" onclick="window._ptagOpenGlobalHistory()" style="color:#3b82f6;">
+                    <button class="ptag-panel-btn" title="Lịch sử Tag" onclick="window._ptagOpenGlobalHistory()">
                         <i class="fas fa-clock-rotate-left"></i>
                     </button>
                     <button class="ptag-panel-btn" id="ptag-cleanup-btn" title="Xóa Tag Đặc Điểm và Tag T chờ hàng không còn đơn" onclick="window._ptagCleanupEmptyTags()">
@@ -3633,7 +3633,6 @@
         }
 
         tagEntry.sttList.push(stt);
-        _ttagMgrSelectedRows.add(tagId); // Auto-select when has STTs
         input.value = '';
         _ttagMgrUpdateTable();
         _ttagMgrUpdateSelectAllCheckbox();
@@ -3725,7 +3724,6 @@
         }
 
         if (added > 0) {
-            _ttagMgrSelectedRows.add(tagId);
             _ttagMgrUpdateTable();
             _ttagMgrUpdateSelectAllCheckbox();
             if (window.notificationManager) window.notificationManager.success(`Đã thêm ${added} đơn chứa SP "${productCode}"`, 3000);
