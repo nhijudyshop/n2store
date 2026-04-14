@@ -3139,6 +3139,7 @@
     // State variables for T-Tag Manager v2
     let _ttagMgrData = [];                // [{tagId, tagName, productCode, sttList: number[], errorMessage?}]
     let _ttagMgrSelectedRows = new Set(); // Selected tag IDs for batch operation
+    let _ttagMgrSelectedSTTs = new Set(); // Per-STT selection for remove tab: "tagId:stt"
     let _ttagMgrActiveTab = 'assign';     // 'assign' | 'remove'
     let _ttagMgrDropdownIndex = -1;       // Highlighted dropdown index
     let _ttagMgrCreatingInline = false;   // Whether inline create form is showing
@@ -3174,6 +3175,7 @@
         // Reset state
         _ttagMgrData = [];
         _ttagMgrSelectedRows.clear();
+        _ttagMgrSelectedSTTs.clear();
         _ttagMgrActiveTab = 'assign';
         _ttagMgrDropdownIndex = -1;
         _ttagMgrCreatingInline = false;
@@ -3520,9 +3522,23 @@
             const escapedId = tagData.tagId.replace(/'/g, "\\'");
 
             // STT pills with customer names
+            const isRemoveTab = _ttagMgrActiveTab === 'remove';
             const sttPillsHtml = sttArray.map(stt => {
                 const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
                 const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
+                const sttKey = `${tagData.tagId}:${stt}`;
+                const sttChecked = _ttagMgrSelectedSTTs.has(sttKey);
+
+                if (isRemoveTab) {
+                    return `<label class="bulk-tag-stt-pill stt-pill-selectable ${sttChecked ? 'stt-pill-selected' : ''}" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                        <input type="checkbox" ${sttChecked ? 'checked' : ''}
+                            onchange="window._ttagMgrToggleSTT('${escapedId}', ${stt})"
+                            style="margin:0;accent-color:#ef4444;">
+                        <span class="stt-number">STT ${stt}</span>
+                        <span class="customer-name">${customerName}</span>
+                    </label>`;
+                }
+
                 return `<div class="bulk-tag-stt-pill">
                     <span class="stt-number">STT ${stt}</span>
                     <span class="customer-name">${customerName}</span>
@@ -3741,6 +3757,7 @@
         _ttagMgrActiveTab = tab;
         _ttagMgrData = [];
         _ttagMgrSelectedRows.clear();
+        _ttagMgrSelectedSTTs.clear();
 
         // Update tab UI
         const tabAssign = document.getElementById('ttagMgrTabAssign');
@@ -3893,21 +3910,32 @@
     }
 
     async function _ttagMgrExecuteRemove() {
-        const selectedTags = _ttagMgrData.filter(t => _ttagMgrSelectedRows.has(t.tagId) && t.sttList.length > 0);
-        if (selectedTags.length === 0) {
-            if (window.notificationManager) window.notificationManager.warning('Vui lòng chọn ít nhất một tag có STT để gỡ', 3000);
+        // Only remove STTs that have individual checkboxes checked
+        if (_ttagMgrSelectedSTTs.size === 0) {
+            if (window.notificationManager) window.notificationManager.warning('Vui lòng chọn ít nhất một STT để gỡ', 3000);
             return;
+        }
+
+        // Group selected STTs by tagId
+        const tagSTTMap = new Map(); // tagId → [stt, stt, ...]
+        for (const key of _ttagMgrSelectedSTTs) {
+            const [tagId, stt] = key.split(':');
+            if (!tagSTTMap.has(tagId)) tagSTTMap.set(tagId, []);
+            tagSTTMap.get(tagId).push(Number(stt));
         }
 
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const successResults = [];
         const failedResults = [];
 
-        for (const tagEntry of selectedTags) {
+        for (const [tagId, sttList] of tagSTTMap) {
+            const tagEntry = _ttagMgrData.find(d => d.tagId === tagId);
+            if (!tagEntry) continue;
+
             const successSTT = [];
             const failedSTT = [];
 
-            for (const stt of tagEntry.sttList) {
+            for (const stt of sttList) {
                 const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
                 if (!order) { failedSTT.push(stt); continue; }
 
@@ -3928,10 +3956,13 @@
             }
         }
 
-        // Remove successful rows/STTs from table
+        // Remove successful STTs from table + clear selection
         for (const success of successResults) {
             const tagEntry = _ttagMgrData.find(d => d.tagName === success.tagName);
             if (tagEntry) {
+                for (const stt of success.sttList) {
+                    _ttagMgrSelectedSTTs.delete(`${tagEntry.tagId}:${stt}`);
+                }
                 tagEntry.sttList = tagEntry.sttList.filter(s => !success.sttList.includes(s));
                 if (tagEntry.sttList.length === 0) {
                     _ttagMgrData = _ttagMgrData.filter(d => d.tagId !== tagEntry.tagId);
@@ -5430,6 +5461,15 @@
     window._ptagDeleteTTagDefAndOrders = _ptagDeleteTTagDefAndOrders;
     window._ptagFindByProductCode = _ptagFindByProductCode;
     // Manager v2 functions
+    // Toggle individual STT checkbox in remove tab
+    function _ttagMgrToggleSTT(tagId, stt) {
+        const key = `${tagId}:${stt}`;
+        if (_ttagMgrSelectedSTTs.has(key)) _ttagMgrSelectedSTTs.delete(key);
+        else _ttagMgrSelectedSTTs.add(key);
+        _ttagMgrUpdateTable();
+    }
+
+    window._ttagMgrToggleSTT = _ttagMgrToggleSTT;
     window._ttagMgrSwitchTab = _ttagMgrSwitchTab;
     window._ttagMgrAddTag = _ttagMgrAddTag;
     window._ttagMgrRemoveTagRow = _ttagMgrRemoveTagRow;
