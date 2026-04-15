@@ -78,14 +78,17 @@
         <!-- Tabs Navigation -->
         <div class="tabs-container">
             <div class="tabs-nav">
-                <button class="tab-btn active" data-tab="booking" id="tabBooking">
+                <!-- Đặt Hàng tab - ẩn tạm -->
+                <!--
+                <button class="tab-btn" data-tab="booking" id="tabBooking">
                     <i data-lucide="shopping-cart"></i>
                     <span>Đặt Hàng</span>
                     <span class="tab-lock hidden" id="bookingLock">
                         <i data-lucide="lock"></i>
                     </span>
                 </button>
-                <button class="tab-btn" data-tab="tracking">
+                -->
+                <button class="tab-btn active" data-tab="tracking">
                     <i data-lucide="package"></i>
                     <span>Theo Dõi Đơn Hàng</span>
                 </button>
@@ -99,8 +102,8 @@
             </div>
         </div>
 
-        <!-- Tab 1: Order Booking (Đặt Hàng) -->
-        <div class="tab-content active" id="tabContentBooking">
+        <!-- Tab 1: Order Booking (Đặt Hàng) - ẩn tạm -->
+        <div class="tab-content" id="tabContentBooking">
             <!-- Filters Section - Inline Navigation Style -->
             <div class="filters-navigation">
                 <div class="filters-nav-left">
@@ -199,7 +202,7 @@
         </div>
 
         <!-- Tab 2: Tracking -->
-        <div class="tab-content" id="tabContentTracking">
+        <div class="tab-content active" id="tabContentTracking">
             <!-- Filters Section - Inline Navigation Style -->
             <div class="filters-navigation">
                 <div class="filters-nav-left">
