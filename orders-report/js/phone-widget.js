@@ -4,20 +4,18 @@
 
 const PhoneWidget = (() => {
     // === DEFAULTS ===
-    const PBX_DOMAIN = 'pbx-ucaas.oncallcx.vn';
     const STORAGE_KEY = 'phoneWidget_config';
-    const METERED_API_KEY = '61239134d00b315f4db5888a720950acc22d';
+    const RENDER_API = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
 
-    // Preset extensions (populate from OnCallCX)
-    const PRESETS = [
-        { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY' }
-    ];
-
-    // WS connection options
-    const WS_OPTIONS = [
-        { label: 'Vultr VPS', url: 'wss://45-76-155-207.sslip.io/ws' },
-        { label: 'Render Proxy', url: 'wss://n2store-fallback.onrender.com/api/oncall/ws' }
-    ];
+    // Fallback defaults (used if DB unreachable)
+    const DEFAULTS = {
+        pbx_domain: 'pbx-ucaas.oncallcx.vn',
+        ws_url: 'wss://45-76-155-207.sslip.io/ws',
+        metered_api_key: '61239134d00b315f4db5888a720950acc22d',
+        sip_extensions: [
+            { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY', label: 'Ext 101' }
+        ]
+    };
 
     // === STATE ===
     let phone = null;
@@ -27,20 +25,22 @@ const PhoneWidget = (() => {
     let isMuted = false;
     let isRegistered = false;
     let widgetEl = null;
-    let config = loadConfig();
+    let dbConfig = null;       // Config from Render DB
+    let config = loadConfig(); // Active config (localStorage + DB merge)
     let cachedIceServers = null;
     let iceServersFetchedAt = 0;
 
+    // Load from localStorage (instant, for first render)
     function loadConfig() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) return JSON.parse(saved);
         } catch {}
         return {
-            wsUrl: WS_OPTIONS[0].url,
-            extension: PRESETS[0].ext,
-            authId: PRESETS[0].authId,
-            password: PRESETS[0].password
+            wsUrl: DEFAULTS.ws_url,
+            extension: DEFAULTS.sip_extensions[0].ext,
+            authId: DEFAULTS.sip_extensions[0].authId,
+            password: DEFAULTS.sip_extensions[0].password
         };
     }
 
@@ -48,13 +48,66 @@ const PhoneWidget = (() => {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {}
     }
 
+    // Load shared config from Render DB (extensions, ws_url, etc.)
+    async function loadFromDB() {
+        try {
+            const resp = await fetch(RENDER_API);
+            const data = await resp.json();
+            if (data.success && data.config) {
+                dbConfig = data.config;
+                // Cache DB config in localStorage for offline use
+                try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig)); } catch {}
+                return dbConfig;
+            }
+        } catch {}
+        // Fallback: cached DB config
+        try {
+            const cached = localStorage.getItem('phoneWidget_dbConfig');
+            if (cached) { dbConfig = JSON.parse(cached); return dbConfig; }
+        } catch {}
+        return null;
+    }
+
+    // Save a config key to Render DB
+    async function saveToDB(key, value) {
+        try {
+            await fetch(RENDER_API, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value })
+            });
+        } catch {}
+    }
+
+    // Get PBX domain from DB config or default
+    function getPbxDomain() {
+        return (dbConfig && dbConfig.pbx_domain) || DEFAULTS.pbx_domain;
+    }
+
+    // Get metered API key from DB config or default
+    function getMeteredApiKey() {
+        return (dbConfig && dbConfig.metered_api_key) || DEFAULTS.metered_api_key;
+    }
+
+    // Get available extensions from DB
+    function getExtensions() {
+        return (dbConfig && dbConfig.sip_extensions) || DEFAULTS.sip_extensions;
+    }
+
+    // Get WS URL from DB
+    function getWsUrl() {
+        return (dbConfig && dbConfig.ws_url) || DEFAULTS.ws_url;
+    }
+
     // === CREATE WIDGET UI ===
     function createWidget() {
         if (widgetEl) return;
 
-        const wsOptionsHtml = WS_OPTIONS.map(o =>
-            `<option value="${o.url}" ${config.wsUrl === o.url ? 'selected' : ''}>${o.label}</option>`
-        ).join('');
+        // Build extension dropdown from DB config
+        const extensions = getExtensions();
+        const extOptionsHtml = extensions.map(e =>
+            `<option value="${e.ext}" ${config.extension === e.ext ? 'selected' : ''}>${e.label || 'Ext ' + e.ext}</option>`
+        ).join('') + '<option value="_custom">Tùy chỉnh...</option>';
 
         const html = `
         <div id="phoneWidget" class="phone-widget hidden">
@@ -68,20 +121,22 @@ const PhoneWidget = (() => {
             <!-- Settings Panel -->
             <div class="pw-settings" id="pwSettings" style="display:none">
                 <div class="pw-field">
-                    <label>Server</label>
-                    <select id="pwWsUrl">${wsOptionsHtml}</select>
-                </div>
-                <div class="pw-field">
                     <label>Extension</label>
-                    <input id="pwExtInput" type="text" value="${config.extension}" placeholder="101">
+                    <select id="pwExtSelect" onchange="PhoneWidget.onExtChange()">${extOptionsHtml}</select>
                 </div>
-                <div class="pw-field">
-                    <label>Auth ID</label>
-                    <input id="pwAuthInput" type="text" value="${config.authId}" placeholder="Auth ID">
-                </div>
-                <div class="pw-field">
-                    <label>Password</label>
-                    <input id="pwPassInput" type="password" value="${config.password}" placeholder="Password">
+                <div id="pwCustomFields" style="display:none">
+                    <div class="pw-field">
+                        <label>Ext</label>
+                        <input id="pwExtInput" type="text" value="${config.extension}" placeholder="101">
+                    </div>
+                    <div class="pw-field">
+                        <label>Auth ID</label>
+                        <input id="pwAuthInput" type="text" value="${config.authId}" placeholder="Auth ID">
+                    </div>
+                    <div class="pw-field">
+                        <label>Password</label>
+                        <input id="pwPassInput" type="password" value="${config.password}" placeholder="Password">
+                    </div>
                 </div>
                 <div class="pw-settings-actions">
                     <button class="pw-save-btn" onclick="PhoneWidget.applySettings()">Kết nối</button>
@@ -208,18 +263,45 @@ const PhoneWidget = (() => {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     }
 
+    function onExtChange() {
+        const sel = document.getElementById('pwExtSelect');
+        const custom = document.getElementById('pwCustomFields');
+        if (sel.value === '_custom') {
+            custom.style.display = 'block';
+        } else {
+            custom.style.display = 'none';
+            // Auto-fill from extensions list
+            const ext = getExtensions().find(e => e.ext === sel.value);
+            if (ext) {
+                document.getElementById('pwExtInput').value = ext.ext;
+                document.getElementById('pwAuthInput').value = ext.authId;
+                document.getElementById('pwPassInput').value = ext.password;
+            }
+        }
+    }
+
     function applySettings() {
-        const wsUrl = document.getElementById('pwWsUrl').value;
-        const ext = document.getElementById('pwExtInput').value.trim();
-        const authId = document.getElementById('pwAuthInput').value.trim();
-        const password = document.getElementById('pwPassInput').value.trim();
+        const sel = document.getElementById('pwExtSelect');
+        let ext, authId, password;
+
+        if (sel.value === '_custom') {
+            ext = document.getElementById('pwExtInput').value.trim();
+            authId = document.getElementById('pwAuthInput').value.trim();
+            password = document.getElementById('pwPassInput').value.trim();
+        } else {
+            const found = getExtensions().find(e => e.ext === sel.value);
+            if (!found) { addLog('Extension not found', 'error'); return; }
+            ext = found.ext;
+            authId = found.authId;
+            password = found.password;
+        }
 
         if (!ext || !authId || !password) {
             addLog('Thiếu thông tin ext/auth/pass', 'error');
             return;
         }
 
-        config = { wsUrl, extension: ext, authId, password };
+        config = { wsUrl: getWsUrl(), extension: ext, authId, password };
         saveConfig();
 
         // Disconnect old phone and reconnect
@@ -245,16 +327,24 @@ const PhoneWidget = (() => {
     // === INIT JSSIP ===
     async function init() {
         if (phone) return;
+
+        // Load shared config from DB (first time)
+        if (!dbConfig) await loadFromDB();
+
+        // Merge: use DB ws_url if config doesn't have one
+        if (!config.wsUrl) config.wsUrl = getWsUrl();
+
         createWidget();
 
         try {
             addLog(`Connecting ${config.wsUrl.includes('onrender') ? 'via Proxy' : 'Direct'}...`);
 
-            const socket = new JsSIP.WebSocketInterface(config.wsUrl);
+            const socket = new JsSIP.WebSocketInterface(config.wsUrl || getWsUrl());
 
+            const pbxDomain = getPbxDomain();
             const configuration = {
                 sockets: [socket],
-                uri: `sip:${config.extension}@${PBX_DOMAIN}`,
+                uri: `sip:${config.extension}@${pbxDomain}`,
                 authorization_user: config.authId,
                 password: config.password,
                 display_name: config.extension,
@@ -368,7 +458,7 @@ const PhoneWidget = (() => {
 
         // ICE servers already cached from init, this is instant
         const iceServers = await fetchIceServers();
-        const session = phone.call(`sip:${target}@${PBX_DOMAIN}`, {
+        const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
             mediaConstraints: { audio: true, video: false },
             pcConfig: { iceServers, iceTransportPolicy: 'all' },
             rtcOfferConstraints: { offerToReceiveAudio: true },
@@ -492,7 +582,8 @@ const PhoneWidget = (() => {
             return cachedIceServers;
         }
         try {
-            const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
+            const apiKey = getMeteredApiKey();
+            const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
             const servers = await resp.json();
             if (Array.isArray(servers) && servers.length > 0) {
                 cachedIceServers = servers;
@@ -554,6 +645,7 @@ const PhoneWidget = (() => {
         toggleMute,
         toggleSettings,
         applySettings,
+        onExtChange,
         show,
         hide,
         callCurrent,

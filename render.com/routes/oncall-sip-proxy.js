@@ -299,8 +299,45 @@ function createRouter() {
             wsUrl: `wss://${req.headers.host}/api/oncall/ws`,
             extension: process.env.ONCALL_SIP_EXTENSION || '101',
             authId: process.env.ONCALL_SIP_AUTH_ID || '',
-            // Password NOT sent — stored in extension settings only
         });
+    });
+
+    // === PHONE CONFIG (shared across all clients) ===
+
+    // GET /api/oncall/phone-config — load all config for phone widget
+    router.get('/phone-config', async (req, res) => {
+        try {
+            const db = req.app.locals.chatDb;
+            const result = await db.query('SELECT key, value FROM phone_config');
+            const config = {};
+            for (const row of result.rows) {
+                config[row.key] = row.value;
+            }
+            res.json({ success: true, config });
+        } catch (err) {
+            console.error(`${MODULE} phone-config GET error:`, err.message);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // PUT /api/oncall/phone-config — update a config key
+    router.put('/phone-config', async (req, res) => {
+        try {
+            const { key, value } = req.body;
+            if (!key || value === undefined) {
+                return res.status(400).json({ success: false, error: 'key and value required' });
+            }
+            const db = req.app.locals.chatDb;
+            await db.query(
+                `INSERT INTO phone_config (key, value, updated_at) VALUES ($1, $2, NOW())
+                 ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+                [key, JSON.stringify(value)]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            console.error(`${MODULE} phone-config PUT error:`, err.message);
+            res.status(500).json({ success: false, error: err.message });
+        }
     });
 
     return router;
