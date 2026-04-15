@@ -409,6 +409,14 @@ window.BarcodeLabelDialog = (function () {
      * Flow: POST /odata/BarcodeProductLabel (full payload) → GET /BarcodeProductLabel/PrintBarcodePDF?id=N → PDF
      * Payload matched from TPOS network capture (2026-04-15).
      */
+    /**
+     * Print via TPOS API — exact same PDF output as TPOS.
+     * Flow: POST /odata/BarcodeProductLabel → GET /BarcodeProductLabel/PrintBarcodePDF?id=N
+     *
+     * Payload reverse-engineered from TPOS network capture.
+     * TPOS requires Lines[].Product with at least Id, DefaultCode, Barcode, NameGet, ProductTmplId.
+     * BarcodeTemplateIds must contain the ProductTmplIds (template, not variant).
+     */
     async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName, hideBarcode) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
@@ -416,79 +424,44 @@ window.BarcodeLabelDialog = (function () {
         const validItems = items.filter(it => it.tposProductId);
         if (!validItems.length) throw new Error('No items with TPOS product ID');
 
-        // Collect unique ProductTmplIds for BarcodeTemplateIds
+        // BarcodeTemplateIds = unique ProductTmplIds
         const tmplIds = [...new Set(validItems.map(it => it.tposProductTmplId).filter(Boolean))];
 
-        // Per-company static config (matches TPOS payload)
+        // Warehouse per company
         const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
-        const warehouseConfig = {
+        const whMap = {
             1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', NameGet: '[WH] Nhi Judy Store' },
             2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', NameGet: '[WH2] Shop NJD' }
         };
-        const warehouse = warehouseConfig[companyId] || warehouseConfig[1];
 
-        // Build Lines with full Product object (TPOS requires this)
+        // Build Lines — only fields TPOS actually uses
         const lines = validItems.map(it => ({
             Id: 0,
             ProductId: it.tposProductId,
-            ProductTmplId: it.tposProductTmplId || 0,
+            ProductTmplId: 0,
             Quantity: it.quantity,
             Price: 0,
             Product: {
                 Id: it.tposProductId,
-                EAN13: null,
                 DefaultCode: it.code,
+                Barcode: it.code,
                 NameTemplate: stripBrackets(it.name),
-                NameNoSign: null,
+                Name: stripBrackets(it.name),
+                NameGet: `[${it.code}] ${stripBrackets(it.name)}`,
                 ProductTmplId: it.tposProductTmplId || 0,
+                PriceVariant: it.price || 0,
+                StandardPrice: it.price || 0,
                 UOMId: 1,
                 UOMName: 'Cái',
-                UOMPOId: 0,
-                QtyAvailable: 0,
-                VirtualAvailable: 0,
-                OutgoingQty: null,
-                IncomingQty: null,
-                NameGet: `[${it.code}] ${stripBrackets(it.name)}`,
-                POSCategId: null,
-                Price: null,
-                Barcode: it.code,
-                Image: null,
-                ImageUrl: null,
-                Thumbnails: [],
-                PriceVariant: it.price || 0,
+                Active: true,
                 SaleOK: true,
                 PurchaseOK: true,
-                DisplayAttributeValues: null,
-                LstPrice: 0,
-                Active: true,
-                ListPrice: 0,
-                PurchasePrice: it.purchasePrice || null,
-                StandardPrice: it.price || 0,
-                Weight: 0,
-                Volume: null,
-                OldPrice: null,
-                IsDiscount: false,
-                ProductTmplEnableAll: false,
-                Version: 0,
-                Description: null,
-                LastUpdated: null,
                 Type: 'product',
-                CategId: 0,
-                CostMethod: null,
-                InvoicePolicy: 'order',
-                Name: stripBrackets(it.name),
-                PurchaseMethod: 'receive',
-                SaleDelay: 0,
-                Tracking: null,
-                AvailableInPOS: true,
-                CompanyId: null,
-                IsCombo: null
+                AvailableInPOS: true
             }
         }));
 
-        // Full payload matching TPOS BarcodeProductLabel POST
         const payload = {
-            '@odata.context': `http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity`,
             Id: 0,
             PaperId: paper.id,
             PriceListId: 1,
@@ -496,50 +469,18 @@ window.BarcodeLabelDialog = (function () {
             ShowBold: showBold,
             ShowPrice: showPrice,
             ShowProductName: showProductName,
-            IsInventory: null,
-            ShowCompany: null,
             BarcodeTemplateIds: tmplIds,
-            FastPurchaseOrderId: null,
             IsHideBarcode: hideBarcode || null,
-            ExtraProperty: null,
-            Warehouse: {
-                ...warehouse,
-                CompanyId: 0,
-                LocationId: 0,
-                CompanyName: null,
-                LocationActive: true
-            },
-            PriceList: {
-                Id: 1,
-                Name: 'Bảng giá mặc định',
-                CurrencyId: 1,
-                CurrencyName: 'VND',
-                Active: true,
-                CompanyId: null,
-                PartnerCateName: null,
-                Sequence: 1,
-                DateStart: null,
-                DateEnd: null,
-                CreatedById: null
-            },
+            Warehouse: { ...(whMap[companyId] || whMap[1]), CompanyId: 0, LocationId: 0, LocationActive: true },
+            PriceList: { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true, Sequence: 1 },
             Paper: {
-                Id: paper.id,
-                Name: paper.name,
-                SheetWidth: paper.sheetW,
-                SheetHeight: paper.sheetH,
-                LabelWidth: paper.labelW,
-                LabelHeight: paper.labelH,
+                Id: paper.id, Name: paper.name,
+                SheetWidth: paper.sheetW, SheetHeight: paper.sheetH,
+                LabelWidth: paper.labelW, LabelHeight: paper.labelH,
                 LabelsPerSheet: paper.cols,
-                TopMargin: paper.topMargin,
-                LeftMargin: paper.leftMargin,
-                BottomMargin: paper.bottomMargin,
-                RightMargin: paper.rightMargin,
-                HSpacing: paper.hSpacing || null,
-                VSpacing: paper.vSpacing || null,
-                TypePrint: 'Default',
-                FontSize: paper.fontSize,
-                TypePrintText: null,
-                LabelsPerRow: 3
+                TopMargin: paper.topMargin, LeftMargin: paper.leftMargin,
+                BottomMargin: paper.bottomMargin, RightMargin: paper.rightMargin,
+                TypePrint: 'Default', FontSize: paper.fontSize, LabelsPerRow: 3
             },
             Lines: lines
         };
