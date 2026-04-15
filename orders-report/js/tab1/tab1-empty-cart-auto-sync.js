@@ -104,8 +104,10 @@
                 window._ptagRefreshRow(orderCode);
             }
 
-            // 3. Persist to server (fire-and-forget; no await blocking batch)
-            if (typeof window.saveProcessingTagToAPI === 'function') {
+            // 3. Queue batch save (tránh spam N individual PUT requests)
+            if (typeof window.queueProcessingTagSave === 'function') {
+                window.queueProcessingTagSave(orderCode, nextData);
+            } else if (typeof window.saveProcessingTagToAPI === 'function') {
                 window.saveProcessingTagToAPI(orderCode, nextData).catch(e => {
                     console.warn(`${LOG} save XL ${orderCode} failed:`, e.message);
                 });

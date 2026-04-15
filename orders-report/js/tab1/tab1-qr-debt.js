@@ -463,11 +463,11 @@ function _applyWalletAutoTags() {
         const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
 
         if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
-            window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động');
+            window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động', { batchQueue: true });
             taggedCount++;
         }
         if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
-            window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
+            window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động', { batchQueue: true });
             taggedCount++;
         }
 

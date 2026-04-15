@@ -1783,6 +1783,77 @@ router.post('/processing-tags/batch', async (req, res) => {
 });
 
 /**
+ * PUT /api/realtime/processing-tags/batch-save
+ * Batch upsert processing tags — replaces N individual PUT /by-code/:code calls
+ * Body: { items: [{ orderCode, data, updatedBy?, campaignId? }], silent?: boolean }
+ * silent=true skips SSE notifications (useful for bulk reconcile/auto-tag)
+ */
+router.put('/processing-tags/batch-save', async (req, res) => {
+    try {
+        const { items, silent } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.json({ success: true, saved: 0 });
+        }
+
+        // Limit to 200 items per request to avoid long transactions
+        const limitedItems = items.slice(0, 200);
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            let saved = 0;
+
+            for (const item of limitedItems) {
+                const { orderCode, data, updatedBy, campaignId } = item;
+                if (!orderCode || !data) continue;
+
+                const dataJson = JSON.stringify(data);
+                await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
+                await client.query(
+                    `DELETE FROM processing_tags WHERE order_code = $1`,
+                    [orderCode]
+                );
+                await client.query(
+                    `INSERT INTO processing_tags (data, updated_by, order_code, campaign_id, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                    [dataJson, updatedBy || null, orderCode, campaignId || null]
+                );
+                saved++;
+            }
+
+            await client.query('COMMIT');
+
+            // Notify SSE clients (single bulk event instead of N events)
+            if (!silent && notifyClients && saved > 0) {
+                const summary = limitedItems
+                    .filter(i => i.orderCode && i.data)
+                    .map(i => ({ orderCode: i.orderCode, data: i.data, updatedBy: i.updatedBy }));
+                // Send individual events so SSE listeners can handle each order
+                for (const s of summary) {
+                    notifyClients('processing_tags_global', s, 'update');
+                }
+            }
+
+            res.json({ success: true, saved });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /processing-tags/batch-save error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/processing-tags/config
  * Load config records only (__ttag_config__, __ptag_custom_flags__)
  * IMPORTANT: Đặt TRƯỚC /:campaignId để Express match đúng

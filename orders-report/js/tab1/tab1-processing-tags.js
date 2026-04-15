@@ -509,8 +509,8 @@
             ProcessingTagState.removeOrder(oldKey);
             data.code = newKey; // Đảm bảo data.code = orderCode
             ProcessingTagState.setOrderData(newKey, data);
-            // Save lại bằng orderCode endpoint mới
-            saveProcessingTagToAPI(newKey, data);
+            // Queue batch save thay vì individual PUT (tránh spam N requests)
+            queueProcessingTagSave(newKey, data);
             console.log(`${PTAG_LOG} Reconciled: ${oldKey} → ${newKey} (orderCode)`);
         }
 
@@ -575,6 +575,58 @@
             );
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
+        }
+    }
+
+    // =====================================================
+    // BATCH SAVE QUEUE — reduces N individual PUT requests to 1 batch request
+    // Used by: _syncXLGioTrong, _applyWalletAutoTags, _ptagReconcileIds
+    // =====================================================
+    const _batchSaveQueue = new Map(); // orderCode → { data, updatedBy, campaignId }
+    let _batchSaveTimer = null;
+    const BATCH_SAVE_DELAY_MS = 500; // Collect saves for 500ms then flush
+    const BATCH_SAVE_CHUNK = 200;    // Max items per request (server limit)
+
+    function queueProcessingTagSave(orderCode, data, options = {}) {
+        const userName = options.updatedBy || window.authManager?.getAuthState()?.username || '';
+        const dataWithHistory = { ...data, history: ProcessingTagState.getHistory(orderCode) };
+        _batchSaveQueue.set(orderCode, {
+            orderCode,
+            data: dataWithHistory,
+            updatedBy: userName,
+            campaignId: data.campaignId || null
+        });
+
+        if (!_batchSaveTimer) {
+            _batchSaveTimer = setTimeout(_flushBatchSave, BATCH_SAVE_DELAY_MS);
+        }
+    }
+
+    async function _flushBatchSave() {
+        _batchSaveTimer = null;
+        if (_batchSaveQueue.size === 0) return;
+
+        const items = [..._batchSaveQueue.values()];
+        _batchSaveQueue.clear();
+
+        // Chunk into BATCH_SAVE_CHUNK-sized requests
+        for (let i = 0; i < items.length; i += BATCH_SAVE_CHUNK) {
+            const chunk = items.slice(i, i + BATCH_SAVE_CHUNK);
+            try {
+                await _ptagFetch(`${PTAG_API_BASE}/batch-save`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ items: chunk, silent: chunk.length > 10 })
+                });
+                console.log(`${PTAG_LOG} Batch saved ${chunk.length} tags`);
+            } catch (e) {
+                console.error(`${PTAG_LOG} Batch save failed (${chunk.length} items):`, e);
+                // Fallback: save individually (only for small batches to avoid re-spam)
+                if (chunk.length <= 5) {
+                    for (const item of chunk) {
+                        saveProcessingTagToAPI(item.orderCode, item.data).catch(() => {});
+                    }
+                }
+            }
         }
     }
 
@@ -824,7 +876,7 @@
         return [];
     }
 
-    async function toggleOrderFlag(orderCode, flagKey, source) {
+    async function toggleOrderFlag(orderCode, flagKey, source, options) {
         let data = ProcessingTagState.getOrderData(orderCode);
         // If no data yet, create a minimal entry with just flags (no category)
         if (!data) {
@@ -853,7 +905,13 @@
         _ptagAddHistory(orderCode, isAdding ? 'ADD_FLAG' : 'REMOVE_FLAG', flagKey, source || null);
         _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderCode, data);
+
+        // options.batchQueue → queue for batch save instead of individual PUT
+        if (options?.batchQueue) {
+            queueProcessingTagSave(orderCode, data);
+        } else {
+            await saveProcessingTagToAPI(orderCode, data);
+        }
 
         // Forward sync XL → TPOS
         if (typeof window.syncXLToTPOS === 'function') {
@@ -5256,6 +5314,7 @@
     window._ptagResolveId = _ptagResolveId;
     window._ptagRefreshRow = _ptagRefreshRow;
     window.saveProcessingTagToAPI = saveProcessingTagToAPI;
+    window.queueProcessingTagSave = queueProcessingTagSave;
     window.PTAG_SUBTAGS = PTAG_SUBTAGS;
 
     // Core functions
