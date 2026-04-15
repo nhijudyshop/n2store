@@ -1,19 +1,29 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // N2Store Phone — JsSIP WebRTC Softphone
-// Connects to Render SIP proxy via WebSocket, makes calls via OnCallCX PBX
+// Loads config from Render DB (phone_config), connects via Vultr WSS proxy → OnCallCX PBX
 
 // === CONFIG ===
-const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com/api/oncall/ws';
-const RENDER_API_URL = 'https://n2store-fallback.onrender.com/api/oncall';
-const PBX_DOMAIN = 'pbx-ucaas.oncallcx.vn';
+const RENDER_CONFIG_URL = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
+
+// Fallback defaults (if DB unreachable)
+const DEFAULTS = {
+  ws_url: 'wss://45-76-155-207.sslip.io/ws',
+  pbx_domain: 'pbx-ucaas.oncallcx.vn',
+  metered_api_key: '61239134d00b315f4db5888a720950acc22d',
+  sip_extensions: [
+    { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY', label: 'Ext 101' }
+  ]
+};
 
 // === STATE ===
 let phone = null;
 let currentSession = null;
-let localStream = null;
 let callTimerInterval = null;
 let callStartTime = null;
 let isMuted = false;
+let dbConfig = null;
+let cachedIceServers = null;
+let iceServersFetchedAt = 0;
 
 // === UI ELEMENTS ===
 const statusEl = document.getElementById('status');
@@ -27,8 +37,36 @@ const btnMute = document.getElementById('btnMute');
 const remoteAudio = document.getElementById('remoteAudio');
 const logSection = document.getElementById('logSection');
 
+// === DB CONFIG ===
+async function loadDBConfig() {
+  try {
+    const resp = await fetch(RENDER_CONFIG_URL);
+    const data = await resp.json();
+    if (data.success && data.config) {
+      dbConfig = data.config;
+      // Cache for offline
+      chrome.storage.local.set({ phoneDbConfig: dbConfig });
+      return dbConfig;
+    }
+  } catch {}
+  // Fallback: cached
+  try {
+    const result = await chrome.storage.local.get('phoneDbConfig');
+    if (result.phoneDbConfig) { dbConfig = result.phoneDbConfig; return dbConfig; }
+  } catch {}
+  return null;
+}
+
+function getWsUrl() { return dbConfig?.ws_url || DEFAULTS.ws_url; }
+function getPbxDomain() { return dbConfig?.pbx_domain || DEFAULTS.pbx_domain; }
+function getMeteredApiKey() { return dbConfig?.metered_api_key || DEFAULTS.metered_api_key; }
+function getExtensions() { return dbConfig?.sip_extensions || DEFAULTS.sip_extensions; }
+
 // === INIT ===
 document.addEventListener('DOMContentLoaded', async () => {
+  // Load DB config first
+  await loadDBConfig();
+
   // Parse URL params (from orders-report click)
   const params = new URLSearchParams(window.location.search);
   const targetPhone = params.get('phone');
@@ -39,12 +77,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (targetName) callNameEl.textContent = decodeURIComponent(targetName);
   }
 
+  // Prefetch ICE servers
+  fetchIceServers();
+
   // Load SIP credentials and connect
   await initPhone();
 
   // Auto-dial if phone number provided
   if (targetPhone && phone) {
-    setTimeout(() => makeCall(), 1500); // Wait for registration
+    setTimeout(() => makeCall(), 1500);
   }
 
   // Dialpad buttons
@@ -54,9 +95,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Action buttons
-  document.getElementById('btnCall').addEventListener('click', () => makeCall());
-  document.getElementById('btnHangup').addEventListener('click', () => hangup());
-  document.getElementById('btnMute').addEventListener('click', () => toggleMute());
+  btnCall.addEventListener('click', () => makeCall());
+  btnHangup.addEventListener('click', () => hangup());
+  btnMute.addEventListener('click', () => toggleMute());
 
   // Listen for messages from service worker (new call requests)
   chrome.runtime.onMessage.addListener((msg) => {
@@ -76,30 +117,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 // === PHONE INIT ===
 async function initPhone() {
   try {
-    // Load SIP credentials from extension storage
-    const { settings } = await chrome.runtime.sendMessage({ type: 'GET_ONCALL_SETTINGS' });
-    const sipPassword = settings?.sipPassword;
-    const sipAuthId = settings?.sipAuthId;
-    const sipExtension = settings?.extension || '101';
+    // Try DB config extensions first
+    const extensions = getExtensions();
+    let sipExtension, sipAuthId, sipPassword;
+
+    if (extensions && extensions.length > 0) {
+      // Use first extension from DB (or match saved preference)
+      const result = await chrome.storage.local.get('selectedExt');
+      const preferred = result.selectedExt || extensions[0].ext;
+      const ext = extensions.find(e => e.ext === preferred) || extensions[0];
+      sipExtension = ext.ext;
+      sipAuthId = ext.authId;
+      sipPassword = ext.password;
+      addLog(`Using ext ${sipExtension} from DB`, 'success');
+    } else {
+      // Fallback: extension storage settings
+      const { settings } = await chrome.runtime.sendMessage({ type: 'GET_ONCALL_SETTINGS' });
+      sipPassword = settings?.sipPassword;
+      sipAuthId = settings?.sipAuthId;
+      sipExtension = settings?.extension || '101';
+    }
 
     if (!sipAuthId || !sipPassword) {
       setStatus('error', 'No SIP credentials');
-      addLog('SIP credentials not configured. Go to Settings > OnCallCX.', 'error');
+      addLog('SIP credentials not configured. Check DB or Settings.', 'error');
       return;
     }
 
-    // Fetch TURN/ICE servers from metered.ca API
-    let iceServers = await fetchIceServers();
+    const wsUrl = getWsUrl();
+    const pbxDomain = getPbxDomain();
 
-    addLog(`Connecting to ${RENDER_WS_URL}...`);
+    addLog(`Connecting to ${wsUrl.includes('sslip') ? 'Vultr VPS' : 'Render'}...`);
 
-    // Create JsSIP WebSocket
-    const socket = new JsSIP.WebSocketInterface(RENDER_WS_URL);
+    const socket = new JsSIP.WebSocketInterface(wsUrl);
 
-    // Create JsSIP UA
     const configuration = {
       sockets: [socket],
-      uri: `sip:${sipExtension}@${PBX_DOMAIN}`,
+      uri: `sip:${sipExtension}@${pbxDomain}`,
       authorization_user: sipAuthId,
       password: sipPassword,
       display_name: sipExtension,
@@ -108,31 +162,24 @@ async function initPhone() {
       session_timers: false,
       connection_recovery_min_interval: 2,
       connection_recovery_max_interval: 30,
-      no_answer_timeout: 30
+      no_answer_timeout: 60
     };
 
     phone = new JsSIP.UA(configuration);
 
-    // === UA Events ===
-    phone.on('connected', () => {
-      addLog('WebSocket connected', 'success');
-    });
-
+    phone.on('connected', () => addLog('WebSocket connected', 'success'));
     phone.on('disconnected', () => {
       setStatus('error', 'Disconnected');
       addLog('WebSocket disconnected', 'error');
     });
-
     phone.on('registered', () => {
       setStatus('registered', `Ext ${sipExtension}`);
       addLog(`Registered as ext ${sipExtension}`, 'success');
     });
-
     phone.on('unregistered', () => {
       setStatus('error', 'Unregistered');
       addLog('Unregistered from PBX', 'error');
     });
-
     phone.on('registrationFailed', (e) => {
       setStatus('error', 'Reg Failed');
       addLog(`Registration failed: ${e.cause}`, 'error');
@@ -140,59 +187,19 @@ async function initPhone() {
 
     // Incoming call
     phone.on('newRTCSession', (e) => {
-      const session = e.session;
-
-      if (session.direction === 'incoming') {
-        addLog(`Incoming call from ${session.remote_identity.uri.user}`);
-        // Auto-answer for now (can add UI later)
-        handleSession(session);
-        session.answer({
-          mediaConstraints: { audio: true, video: false },
-          pcConfig: { iceServers }
+      if (e.originator === 'remote') {
+        const caller = e.session.remote_identity.uri.user;
+        addLog(`Incoming call from ${caller}`);
+        handleSession(e.session);
+        fetchIceServers().then(iceServers => {
+          e.session.answer({
+            mediaConstraints: { audio: true, video: false },
+            pcConfig: { iceServers }
+          });
         });
       }
     });
 
-    // Debug: log all SIP traffic
-    phone.on('newRTCSession', (e) => {
-      addLog(`newRTCSession: ${e.session.direction} ${e.request?.method || ''}`, 'success');
-    });
-
-    // Attach WebSocket interceptor AFTER connection (socket._ws only exists after connect)
-    phone.on('connected', () => {
-      const rawWs = socket._ws;
-      if (rawWs && !rawWs._n2intercepted) {
-        rawWs._n2intercepted = true;
-
-        const origOnMsg = rawWs.onmessage;
-        rawWs.onmessage = function(evt) {
-          if (typeof evt.data === 'string') {
-            const first = evt.data.substring(0, 50);
-            if (!first.includes('REGISTER')) {
-              addLog(`← PBX: ${first.replace(/\r\n/g, ' | ')}`);
-              console.log('=== PBX RESPONSE ===\n' + evt.data.substring(0, 1500));
-            }
-          }
-          if (origOnMsg) origOnMsg.call(this, evt);
-        };
-
-        const origSend = rawWs.send.bind(rawWs);
-        rawWs.send = function(data) {
-          if (typeof data === 'string') {
-            if (data.startsWith('INVITE ')) {
-              addLog(`→ PBX: INVITE sent (${data.length} bytes)`);
-              console.log('=== SIP INVITE ===\n' + data.substring(0, 2000));
-            } else if (data.startsWith('ACK ') || data.startsWith('CANCEL ') || data.startsWith('BYE ')) {
-              addLog(`→ PBX: ${data.substring(0, 30)}`);
-            }
-          }
-          return origSend(data);
-        };
-        addLog('SIP traffic interceptor attached', 'success');
-      }
-    });
-
-    // Start
     phone.start();
     addLog('JsSIP UA starting...');
 
@@ -222,43 +229,20 @@ async function makeCall() {
   callNumberEl.textContent = target;
   setStatus('calling', 'Calling...');
 
-  // Fetch TURN/ICE servers
-  let iceServers = await fetchIceServers();
-
-  const options = {
+  const iceServers = await fetchIceServers();
+  const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
     mediaConstraints: { audio: true, video: false },
-    pcConfig: {
-      iceServers,
-      iceTransportPolicy: 'all'
-    },
+    pcConfig: { iceServers, iceTransportPolicy: 'all' },
     rtcOfferConstraints: { offerToReceiveAudio: true },
     sessionTimersExpires: 120
-  };
+  });
 
-  addLog(`ICE servers: ${iceServers.length} entries`);
-
-  const session = phone.call(`sip:${target}@${PBX_DOMAIN}`, options);
-
-  // Monitor ICE gathering — if stuck, log it
-  if (session.connection) {
-    session.connection.onicegatheringstatechange = () => {
-      addLog(`ICE gathering: ${session.connection.iceGatheringState}`);
-    };
-    // Force-complete ICE gathering after 5s if stuck
-    setTimeout(() => {
-      if (session.connection && session.connection.iceGatheringState !== 'complete') {
-        addLog('ICE gathering timeout 5s — check TURN servers', 'error');
-      }
-    }, 5000);
-  }
   handleSession(session);
 }
 
 // === HANDLE SESSION ===
 function handleSession(session) {
   currentSession = session;
-
-  // Show hangup/mute buttons
   btnCall.style.display = 'none';
   btnHangup.style.display = 'flex';
   btnMute.style.display = 'flex';
@@ -267,29 +251,20 @@ function handleSession(session) {
     setStatus('calling', 'Ringing...');
     addLog('Ringing...');
   });
-
   session.on('accepted', () => {
     setStatus('connected', 'Connected');
     addLog('Call connected', 'success');
     startTimer();
   });
-
-  session.on('confirmed', () => {
-    // Attach remote audio
-    attachRemoteAudio(session);
-  });
-
+  session.on('confirmed', () => attachRemoteAudio(session));
   session.on('ended', (e) => {
     addLog(`Call ended: ${e.cause}`);
     endCall();
   });
-
   session.on('failed', (e) => {
     addLog(`Call failed: ${e.cause}`, 'error');
     endCall();
   });
-
-  // Handle remote track (audio from PBX)
   session.on('peerconnection', (e) => {
     e.peerconnection.addEventListener('track', (event) => {
       if (event.track.kind === 'audio') {
@@ -316,16 +291,13 @@ function attachRemoteAudio(session) {
   try {
     const pc = session.connection;
     if (!pc) return;
-    const receivers = pc.getReceivers();
-    receivers.forEach(receiver => {
-      if (receiver.track && receiver.track.kind === 'audio') {
-        remoteAudio.srcObject = new MediaStream([receiver.track]);
+    pc.getReceivers().forEach(r => {
+      if (r.track && r.track.kind === 'audio') {
+        remoteAudio.srcObject = new MediaStream([r.track]);
         remoteAudio.play().catch(() => {});
       }
     });
-  } catch (e) {
-    addLog(`Audio attach error: ${e.message}`, 'error');
-  }
+  } catch {}
 }
 
 // === HANGUP ===
@@ -336,24 +308,19 @@ function hangup() {
   endCall();
 }
 
-// === END CALL (cleanup) ===
 function endCall() {
   currentSession = null;
   isMuted = false;
   stopTimer();
-
   btnCall.style.display = 'flex';
   btnHangup.style.display = 'none';
   btnMute.style.display = 'none';
   btnMute.classList.remove('active');
-
   callTimerEl.style.display = 'none';
   callNameEl.textContent = '';
   callNumberEl.textContent = 'Ready';
-
   if (phone && phone.isRegistered()) {
-    const ext = phoneInput.value ? '' : '';
-    setStatus('registered', statusEl.textContent.includes('Ext') ? statusEl.textContent : 'Ready');
+    setStatus('registered', statusEl.textContent);
   } else {
     setStatus('error', 'Disconnected');
   }
@@ -362,17 +329,12 @@ function endCall() {
 // === TOGGLE MUTE ===
 function toggleMute() {
   if (!currentSession) return;
-
   isMuted = !isMuted;
-
   if (currentSession.connection) {
-    currentSession.connection.getSenders().forEach(sender => {
-      if (sender.track && sender.track.kind === 'audio') {
-        sender.track.enabled = !isMuted;
-      }
+    currentSession.connection.getSenders().forEach(s => {
+      if (s.track && s.track.kind === 'audio') s.track.enabled = !isMuted;
     });
   }
-
   btnMute.classList.toggle('active', isMuted);
   btnMute.innerHTML = isMuted ? '&#128263;' : '&#128264;';
   addLog(isMuted ? 'Muted' : 'Unmuted');
@@ -382,8 +344,6 @@ function toggleMute() {
 function pressKey(key) {
   phoneInput.value += key;
   phoneInput.focus();
-
-  // Send DTMF if in call
   if (currentSession && currentSession.isEstablished()) {
     try { currentSession.sendDTMF(key); } catch {}
   }
@@ -396,34 +356,32 @@ function startTimer() {
   callTimerEl.textContent = '00:00';
   callTimerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-    const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
-    const sec = String(elapsed % 60).padStart(2, '0');
-    callTimerEl.textContent = `${min}:${sec}`;
+    callTimerEl.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
   }, 1000);
 }
 
 function stopTimer() {
-  if (callTimerInterval) {
-    clearInterval(callTimerInterval);
-    callTimerInterval = null;
-  }
+  if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 }
 
-// === ICE/TURN SERVERS ===
-const METERED_API_KEY = '61239134d00b315f4db5888a720950acc22d';
-
+// === ICE/TURN SERVERS (cached 10 min) ===
 async function fetchIceServers() {
+  const now = Date.now();
+  if (cachedIceServers && (now - iceServersFetchedAt) < 600000) return cachedIceServers;
   try {
-    const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
+    const apiKey = getMeteredApiKey();
+    const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
     const servers = await resp.json();
     if (Array.isArray(servers) && servers.length > 0) {
-      addLog(`ICE servers loaded: ${servers.length} entries`, 'success');
+      cachedIceServers = servers;
+      iceServersFetchedAt = now;
+      addLog(`ICE servers loaded: ${servers.length}`, 'success');
       return servers;
     }
-  } catch (e) {
+  } catch {
     addLog('TURN fetch failed, using STUN only', 'error');
   }
-  return [{ urls: 'stun:stun.l.google.com:19302' }];
+  return cachedIceServers || [{ urls: 'stun:stun.l.google.com:19302' }];
 }
 
 // === UI HELPERS ===
