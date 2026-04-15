@@ -639,44 +639,21 @@ window.TPOSProductCreator = (function () {
      * Update tposSyncStatus for specific items in a Firestore order document.
      * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
-    async function updateSyncStatus(orderId, itemIds, status, tposProductId, error) {
-        try {
-            if (!window.firebase || !window.firebase.firestore) return;
-
-            const db = firebase.firestore();
-            const docRef = db.collection('purchase_orders').doc(orderId);
-
-            await db.runTransaction(async (transaction) => {
-                const doc = await transaction.get(docRef);
-                if (!doc.exists) return;
-
-                const data = doc.data();
-                const items = data.items || [];
-                let changed = false;
-
-                for (const item of items) {
-                    if (itemIds.includes(item.id)) {
-                        item.tposSyncStatus = status;
-                        if (tposProductId) item.tposProductId = tposProductId;
-                        if (error) item.tposSyncError = error;
-                        if (status === 'success') item.tposSynced = true;
-                        item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
-                        changed = true;
-                    }
-                }
-
-                if (changed) {
-                    transaction.update(docRef, {
-                        items,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-            });
-
-            console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items: ${status}`);
-        } catch (err) {
-            console.error('[TPOSCreator] Failed to update sync status:', err);
+    /**
+     * Update sync status in-memory on the items array passed to syncOrderToTPOS.
+     * No remote writes — PostgreSQL is updated once at the end of syncOrderToTPOS.
+     */
+    function updateSyncStatusInMemory(allItems, itemIds, status, tposProductId, error) {
+        for (const item of allItems) {
+            if (itemIds.includes(item.id)) {
+                item.tposSyncStatus = status;
+                if (tposProductId) item.tposProductId = tposProductId;
+                if (error) item.tposSyncError = error;
+                if (status === 'success') item.tposSynced = true;
+                item.tposSyncCompletedAt = new Date().toISOString();
+            }
         }
+        console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items: ${status}`);
     }
 
     // =====================================================
@@ -794,79 +771,54 @@ window.TPOSProductCreator = (function () {
     // saveTPOSImageUrl logic is now merged into batchUpdateSyncResults()
 
     /**
-     * Batch update sync results for multiple groups in ONE Firestore transaction.
-     * @param {string} orderId
-     * @param {Array} groupResults - array of { itemIds, syncData: { status, tposProductId, error, variantUpdates, tposImageUrl } }
+     * Batch update sync results in-memory on the items array.
+     * No remote writes — PostgreSQL is updated once at the end of syncOrderToTPOS.
      */
-    async function batchUpdateSyncResults(orderId, groupResults) {
+    function batchUpdateSyncResultsInMemory(allItems, groupResults) {
         if (!groupResults || groupResults.length === 0) return;
-        try {
-            if (!window.firebase || !window.firebase.firestore) return;
 
-            const db = firebase.firestore();
-            const docRef = db.collection('purchase_orders').doc(orderId);
+        for (const { itemIds, syncData } of groupResults) {
+            if (!itemIds || !syncData) continue;
+            const { status, tposProductId, error, variantUpdates, tposImageUrl } = syncData;
 
-            await db.runTransaction(async (transaction) => {
-                const doc = await transaction.get(docRef);
-                if (!doc.exists) return;
+            // 1. Update sync status
+            for (const item of allItems) {
+                if (itemIds.includes(item.id)) {
+                    item.tposSyncStatus = status;
+                    if (tposProductId) item.tposProductId = tposProductId;
+                    if (error) item.tposSyncError = error;
+                    if (status === 'success') item.tposSynced = true;
+                    item.tposSyncCompletedAt = new Date().toISOString();
+                }
+            }
 
-                const data = doc.data();
-                const items = data.items || [];
-                let changed = false;
-
-                for (const { itemIds, syncData } of groupResults) {
-                    if (!itemIds || !syncData) continue;
-                    const { status, tposProductId, error, variantUpdates, tposImageUrl } = syncData;
-
-                    // 1. Update sync status
-                    for (const item of items) {
-                        if (itemIds.includes(item.id)) {
-                            item.tposSyncStatus = status;
-                            if (tposProductId) item.tposProductId = tposProductId;
-                            if (error) item.tposSyncError = error;
-                            if (status === 'success') item.tposSynced = true;
-                            item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
-                            changed = true;
+            // 2. Update variant barcodes
+            if (variantUpdates && variantUpdates.length > 0) {
+                for (const update of variantUpdates) {
+                    const item = allItems.find(i => i.id === update.itemId);
+                    if (item && update.barcode) {
+                        if (!item.parentProductCode) {
+                            item.parentProductCode = item.productCode;
                         }
-                    }
-
-                    // 2. Update variant barcodes
-                    if (variantUpdates && variantUpdates.length > 0) {
-                        for (const update of variantUpdates) {
-                            const item = items.find(i => i.id === update.itemId);
-                            if (item && update.barcode) {
-                                if (!item.parentProductCode) {
-                                    item.parentProductCode = item.productCode;
-                                }
-                                item.productCode = update.barcode;
-                                item.tposProductId = update.tposVariantId;
-                                item.tposSynced = true;
-                                changed = true;
-                            }
-                        }
-                    }
-
-                    // 3. Save TPOS ImageUrl
-                    if (tposImageUrl) {
-                        for (const item of items) {
-                            if (itemIds.includes(item.id)) {
-                                item.tposImageUrl = tposImageUrl;
-                                changed = true;
-                            }
-                        }
+                        item.productCode = update.barcode;
+                        item.tposProductId = update.tposVariantId;
+                        item.tposSynced = true;
                     }
                 }
+            }
 
-                if (changed) {
-                    transaction.update(docRef, { items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            // 3. Save TPOS ImageUrl
+            if (tposImageUrl) {
+                for (const item of allItems) {
+                    if (itemIds.includes(item.id)) {
+                        item.tposImageUrl = tposImageUrl;
+                    }
                 }
-            });
-
-            const totalItems = groupResults.reduce((sum, g) => sum + (g.itemIds?.length || 0), 0);
-            console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`);
-        } catch (err) {
-            console.error('[TPOSCreator] Failed to batch update sync results:', err);
+            }
         }
+
+        const totalItems = groupResults.reduce((sum, g) => sum + (g.itemIds?.length || 0), 0);
+        console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`);
     }
 
     // =====================================================
@@ -1076,7 +1028,7 @@ window.TPOSProductCreator = (function () {
                     }
                 }
                 if (batchItemIds.length > 0) {
-                    await updateSyncStatus(orderId, batchItemIds, 'processing', null, null);
+                    updateSyncStatusInMemory(items, batchItemIds, 'processing', null, null);
                 }
 
                 // Launch all groups in this batch concurrently (with auto-retry 3x)
@@ -1084,7 +1036,7 @@ window.TPOSProductCreator = (function () {
                     batch.map(([groupKey, groupItems]) => retryProcessGroup(orderId, groupItems))
                 );
 
-                // Collect results and batch-write to Firestore in ONE transaction
+                // Collect results and update in-memory
                 const syncUpdates = [];
                 for (const r of batchResults) {
                     const result = r.status === 'fulfilled'
@@ -1096,7 +1048,7 @@ window.TPOSProductCreator = (function () {
                     }
                 }
                 if (syncUpdates.length > 0) {
-                    await batchUpdateSyncResults(orderId, syncUpdates);
+                    batchUpdateSyncResultsInMemory(items, syncUpdates);
                 }
 
                 // Small delay between batches to avoid rate limiting
@@ -1138,22 +1090,16 @@ window.TPOSProductCreator = (function () {
 
             console.log(`[TPOSCreator] Sync complete: ${successCount} success, ${failCount} failed`);
 
-            // Sync updated items to PostgreSQL (REST API) so tposProductId/tposProductTmplId persist
+            // Save updated items to PostgreSQL (single write at the end)
             if (successCount > 0) {
                 try {
-                    // Read updated items from Firebase (source of truth for TPOS sync data)
-                    const db = firebase.firestore();
-                    const doc = await db.collection('purchase_orders').doc(orderId).get();
-                    if (doc.exists) {
-                        const updatedItems = doc.data().items || [];
-                        const service = window.purchaseOrderService;
-                        if (service?.updateOrder) {
-                            await service.updateOrder(orderId, { items: updatedItems });
-                            console.log('[TPOSCreator] Synced TPOS data to PostgreSQL');
-                        }
+                    const service = window.purchaseOrderService;
+                    if (service?.updateOrder) {
+                        await service.updateOrder(orderId, { items });
+                        console.log('[TPOSCreator] Saved TPOS data to PostgreSQL');
                     }
                 } catch (pgErr) {
-                    console.warn('[TPOSCreator] Failed to sync TPOS data to PostgreSQL:', pgErr.message);
+                    console.warn('[TPOSCreator] Failed to save to PostgreSQL:', pgErr.message);
                 }
             }
 
@@ -1198,7 +1144,7 @@ window.TPOSProductCreator = (function () {
                     for (const item of groupItems) batchItemIds.push(item.id);
                 }
                 if (batchItemIds.length > 0) {
-                    await updateSyncStatus(orderId, batchItemIds, 'processing', null, null);
+                    updateSyncStatusInMemory(failedItems, batchItemIds, 'processing', null, null);
                 }
 
                 const batchResults = await Promise.allSettled(
@@ -1216,7 +1162,7 @@ window.TPOSProductCreator = (function () {
                     }
                 }
                 if (syncUpdates.length > 0) {
-                    await batchUpdateSyncResults(orderId, syncUpdates);
+                    batchUpdateSyncResultsInMemory(failedItems, syncUpdates);
                 }
 
                 if (i + TPOS_SYNC_CONCURRENCY < groupEntries.length) {
@@ -1226,6 +1172,25 @@ window.TPOSProductCreator = (function () {
 
             let successCount = 0, failCount = 0;
             for (const r of results) { r.success ? successCount++ : failCount++; }
+
+            // Save to PostgreSQL
+            if (successCount > 0) {
+                try {
+                    const service = window.purchaseOrderService;
+                    if (service?.updateOrder) {
+                        // Load full order, merge updated failed items back
+                        const fullOrder = await service.getOrderById(orderId);
+                        if (fullOrder?.items) {
+                            const failedMap = new Map(failedItems.map(i => [i.id, i]));
+                            const mergedItems = fullOrder.items.map(i => failedMap.get(i.id) || i);
+                            await service.updateOrder(orderId, { items: mergedItems });
+                            console.log('[TPOSCreator] Saved retry results to PostgreSQL');
+                        }
+                    }
+                } catch (pgErr) {
+                    console.warn('[TPOSCreator] Failed to save retry to PostgreSQL:', pgErr.message);
+                }
+            }
 
             if (window.notificationManager) {
                 if (failCount === 0) {
