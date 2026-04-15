@@ -13,10 +13,9 @@ const PhoneWidget = (() => {
         { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY' }
     ];
 
-    // WS connection options (try in order)
+    // WS connection options
     const WS_OPTIONS = [
-        { label: 'Direct PBX (8089)', url: `wss://${PBX_DOMAIN}:8089/ws` },
-        { label: 'Direct PBX (443)', url: `wss://${PBX_DOMAIN}:443/ws` },
+        { label: 'Vultr (CF)', url: 'wss://chatomni-proxy.nhijudyshop.workers.dev/ws/sip' },
         { label: 'Render Proxy', url: 'wss://n2store-fallback.onrender.com/api/oncall/ws' }
     ];
 

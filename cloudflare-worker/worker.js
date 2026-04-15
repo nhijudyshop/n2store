@@ -61,6 +61,11 @@ export default {
                 if (pathname === '/ws/pancake' || pathname.startsWith('/ws/pancake')) {
                     return handlePancakeWebSocket(request, url);
                 }
+                if (pathname === '/ws/sip') {
+                    // Proxy WSS → Vultr SIP proxy (WS)
+                    const sipUrl = 'http://45.76.155.207:8089/ws';
+                    return fetch(sipUrl, { headers: request.headers });
+                }
                 return errorResponse('Unknown WebSocket route', 404);
             }
 
