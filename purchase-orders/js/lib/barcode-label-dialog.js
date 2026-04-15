@@ -711,7 +711,6 @@ html, body {
     display: flex;
     flex-flow: column;
     overflow: hidden;
-    padding: 5px;
 }
 .barcode_label div { flex: 1 auto; }
 
@@ -741,7 +740,8 @@ html, body {
     }
 }
 @media print {
-    body { background: none; display: block; }
+    body { background: none !important; display: block !important; padding: 0 !important; margin: 0 !important; }
+    .barcode-sheet { border: none !important; box-shadow: none !important; margin: 0 !important; }
 }
 </style>
 </head>
