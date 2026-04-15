@@ -62,7 +62,6 @@ function cleanProductForFirebase(product) {
 }
 
 // Auth functions removed — product data now fetched from Render DB via WarehouseAPI
-}
 
 function toggleSyncMode() {
     isSyncMode = !isSyncMode;
