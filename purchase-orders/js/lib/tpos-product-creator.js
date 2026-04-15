@@ -1137,6 +1137,26 @@ window.TPOSProductCreator = (function () {
             }
 
             console.log(`[TPOSCreator] Sync complete: ${successCount} success, ${failCount} failed`);
+
+            // Sync updated items to PostgreSQL (REST API) so tposProductId/tposProductTmplId persist
+            if (successCount > 0) {
+                try {
+                    // Read updated items from Firebase (source of truth for TPOS sync data)
+                    const db = firebase.firestore();
+                    const doc = await db.collection('purchase_orders').doc(orderId).get();
+                    if (doc.exists) {
+                        const updatedItems = doc.data().items || [];
+                        const service = window.purchaseOrderService;
+                        if (service?.updateOrder) {
+                            await service.updateOrder(orderId, { items: updatedItems });
+                            console.log('[TPOSCreator] Synced TPOS data to PostgreSQL');
+                        }
+                    }
+                } catch (pgErr) {
+                    console.warn('[TPOSCreator] Failed to sync TPOS data to PostgreSQL:', pgErr.message);
+                }
+            }
+
             return { successCount, failCount, results };
 
         } catch (error) {
