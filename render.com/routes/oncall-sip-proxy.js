@@ -62,8 +62,9 @@ function attachSipProxy(server) {
 
         activeSessions.set(sessionId, { ws, udpSocket, clientIp });
 
-        // Track original Via info for response rewriting
-        let lastOriginalVia = '';
+        // Track original Via info for response rewriting (branch → full Via)
+        const viaMap = new Map();
+        let invalidDomain = ''; // e.g. "0rfh8om8idcd.invalid"
 
         // UDP socket receives SIP responses from PBX → rewrite → forward to browser via WSS
         udpSocket.on('message', (msg, rinfo) => {
@@ -73,7 +74,7 @@ function attachSipProxy(server) {
             logSip('← PBX', sipResponse);
 
             // Rewrite response: UDP → WSS (so JsSIP can match it)
-            const rewrittenResponse = rewriteSipForWSS(sipResponse, lastOriginalVia);
+            const rewrittenResponse = rewriteSipForWSS(sipResponse, viaMap, invalidDomain);
             logSip('← PBX (rewritten)', rewrittenResponse);
 
             if (ws.readyState === WebSocket.OPEN) {
@@ -97,11 +98,23 @@ function attachSipProxy(server) {
             const firstLine = getFirstLine(sipMessage);
             console.log(`${MODULE} → PBX: ${firstLine}`);
 
-            // Rewrite Via header to include our UDP socket's address
-            // (PBX needs to know where to send responses)
-            // Save original Via for response rewriting
-            const viaMatch = sipMessage.match(/Via:\s*(.+)/i);
-            if (viaMatch) lastOriginalVia = viaMatch[1].trim();
+            // Save original Via keyed by branch for response matching
+            const viaMatch = sipMessage.match(/Via:\s*([^\r\n]+)/i);
+            if (viaMatch) {
+                const fullVia = viaMatch[1].trim();
+                const branchMatch = fullVia.match(/branch=([^\s;,]+)/i);
+                if (branchMatch) {
+                    viaMap.set(branchMatch[1], fullVia);
+                    // Keep map small — remove old entries
+                    if (viaMap.size > 20) {
+                        const oldest = viaMap.keys().next().value;
+                        viaMap.delete(oldest);
+                    }
+                }
+                // Extract .invalid domain for this session
+                const domainMatch = fullVia.match(/([a-z0-9]+\.invalid)/i);
+                if (domainMatch) invalidDomain = domainMatch[1];
+            }
 
             logSip('→ Browser RAW', sipMessage);
             const rewritten = rewriteSipForUDP(sipMessage, udpSocket);
@@ -175,19 +188,26 @@ function rewriteSipForUDP(sipMessage, udpSocket) {
  * Rewrite SIP response headers from PBX (UDP) back to WSS for JsSIP
  * JsSIP matches responses by Via branch — transport must match original
  */
-function rewriteSipForWSS(sipResponse, originalVia) {
+function rewriteSipForWSS(sipResponse, viaMap, invalidDomain) {
     let msg = sipResponse;
 
-    // Replace the Via header from PBX (UDP) with original browser Via (WSS)
-    // PBX sends: Via: SIP/2.0/UDP pbx-ucaas.oncallcx.vn;rport;received=...;branch=z9hG4bK...
-    // JsSIP expects: Via: SIP/2.0/WSS <original-domain>;branch=z9hG4bK...
-    if (originalVia) {
+    // Extract branch from PBX response Via to find matching original Via
+    const branchMatch = msg.match(/Via:\s*SIP\/2\.0\/UDP\s+[^\r\n]*branch=([^\s;,\r\n]+)/i);
+    if (branchMatch && viaMap.has(branchMatch[1])) {
+        // Replace with exact original Via (preserves branch, domain, transport)
+        const originalVia = viaMap.get(branchMatch[1]);
         msg = msg.replace(
             /Via:\s*SIP\/2\.0\/UDP\s+[^\r\n]+/i,
             `Via: ${originalVia}`
         );
+    } else if (invalidDomain) {
+        // Fallback: change transport back to WSS and restore .invalid domain
+        msg = msg.replace(
+            /Via:\s*SIP\/2\.0\/UDP\s+[^\s;]+/gi,
+            `Via: SIP/2.0/WSS ${invalidDomain}`
+        );
     } else {
-        // Fallback: just change transport back to WSS
+        // Last resort: just change transport back to WSS
         msg = msg.replace(
             /Via:\s*SIP\/2\.0\/UDP/gi,
             'Via: SIP/2.0/WSS'
