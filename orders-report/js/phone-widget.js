@@ -28,6 +28,8 @@ const PhoneWidget = (() => {
     let isRegistered = false;
     let widgetEl = null;
     let config = loadConfig();
+    let cachedIceServers = null;
+    let iceServersFetchedAt = 0;
 
     function loadConfig() {
         try {
@@ -331,27 +333,26 @@ const PhoneWidget = (() => {
         document.getElementById('pwName').textContent = customerName || '';
         document.getElementById('pwNumber').textContent = target;
 
-        if (!phone) {
-            await init();
-            const waitReg = setInterval(() => {
-                if (isRegistered) {
-                    clearInterval(waitReg);
-                    dialPending();
-                }
-            }, 500);
-            setTimeout(() => {
+        // Already registered → dial immediately
+        if (phone && isRegistered) {
+            dialPending();
+            return;
+        }
+
+        // Need to init first
+        if (!phone) await init();
+
+        // Wait for registration then dial
+        const waitReg = setInterval(() => {
+            if (isRegistered) {
                 clearInterval(waitReg);
-                if (!isRegistered) addLog('Registration timeout', 'error');
-            }, 15000);
-            return;
-        }
-
-        if (!isRegistered) {
-            addLog('Not registered, waiting...', 'error');
-            return;
-        }
-
-        dialPending();
+                dialPending();
+            }
+        }, 200);
+        setTimeout(() => {
+            clearInterval(waitReg);
+            if (!isRegistered) addLog('Registration timeout', 'error');
+        }, 15000);
     }
 
     async function dialPending() {
@@ -365,6 +366,7 @@ const PhoneWidget = (() => {
         addLog(`Calling ${target}...`);
         setStatus('calling', 'Calling...');
 
+        // ICE servers already cached from init, this is instant
         const iceServers = await fetchIceServers();
         const session = phone.call(`sip:${target}@${PBX_DOMAIN}`, {
             mediaConstraints: { audio: true, video: false },
@@ -483,14 +485,22 @@ const PhoneWidget = (() => {
         if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
     }
 
-    // === ICE SERVERS ===
+    // === ICE SERVERS (cached 10 min) ===
     async function fetchIceServers() {
+        const now = Date.now();
+        if (cachedIceServers && (now - iceServersFetchedAt) < 600000) {
+            return cachedIceServers;
+        }
         try {
             const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
             const servers = await resp.json();
-            if (Array.isArray(servers) && servers.length > 0) return servers;
+            if (Array.isArray(servers) && servers.length > 0) {
+                cachedIceServers = servers;
+                iceServersFetchedAt = now;
+                return servers;
+            }
         } catch {}
-        return [{ urls: 'stun:stun.l.google.com:19302' }];
+        return cachedIceServers || [{ urls: 'stun:stun.l.google.com:19302' }];
     }
 
     // === UI HELPERS ===
@@ -525,6 +535,15 @@ const PhoneWidget = (() => {
         const num = document.getElementById('pwNumber')?.textContent;
         const name = document.getElementById('pwName')?.textContent;
         if (num && num !== 'Ready') makeCall(num, name);
+    }
+
+    // === AUTO-INIT on page load (pre-register + prefetch ICE) ===
+    if (config.extension && config.authId && config.password) {
+        // Delay init slightly to not block page load
+        setTimeout(() => {
+            fetchIceServers(); // Prefetch and cache
+            init();            // Register with PBX
+        }, 3000);
     }
 
     // === PUBLIC API ===
