@@ -53,252 +53,298 @@ window.BarcodeLabelDialog = (function () {
         let showPrice = true;
         let showBold = true;
         let showProductName = true;
-
-        overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;border-radius:12px;width:92%;max-width:780px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
-
-        // Header
-        const header = document.createElement('div');
-        header.style.cssText = 'padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;';
-        header.innerHTML = `
-            <h3 style="margin:0;font-size:16px;font-weight:600;">In mã vạch</h3>
-            <button id="bld-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;padding:4px 8px;">✕</button>
-        `;
-
-        // Body
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;';
-
-        // === TPOS-matching settings layout ===
-
-        // Row 1: Bảng giá (left) + Áp dụng nhanh SL (right)
-        const row1 = document.createElement('div');
-        row1.style.cssText = 'display:flex;align-items:flex-end;gap:16px;margin-bottom:12px;';
-        row1.innerHTML = `
-            <div style="flex:1;">
-                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Bảng giá</label>
-                <select id="bld-price-list" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;background:#eef2ff;color:#374151;">
-                    <option>Bảng giá mặc định</option>
-                </select>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-                <button id="bld-apply-qty" style="padding:8px 16px;background:#22c55e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">Áp dụng nhanh số lượng</button>
-                <input type="number" id="bld-quick-qty" value="1" min="1" max="999" style="width:60px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:8px 4px;font-size:13px;">
-            </div>
-        `;
-        body.appendChild(row1);
-
-        // Row 2: Giấy in
-        const row2 = document.createElement('div');
-        row2.style.cssText = 'margin-bottom:12px;';
-        row2.innerHTML = `
-            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Giấy in</label>
-            <select id="bld-paper" style="width:100%;max-width:300px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;background:#eef2ff;color:#374151;">
-                ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
-            </select>
-        `;
-        body.appendChild(row2);
-
-        // Row 3: Checkboxes (matching TPOS exactly)
-        const row3 = document.createElement('div');
-        row3.style.cssText = 'display:flex;flex-wrap:wrap;gap:20px;margin-bottom:10px;';
-        row3.innerHTML = `
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="bld-show-price" checked style="width:16px;height:16px;accent-color:#2563eb;"> Hiện giá
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="bld-show-bold" checked style="width:16px;height:16px;accent-color:#2563eb;"> Chữ đậm
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="bld-show-currency" style="width:16px;height:16px;accent-color:#2563eb;"> Hiện đơn vị tiền tệ
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="bld-show-name" checked style="width:16px;height:16px;accent-color:#2563eb;"> Hiển thị Tên sản phẩm
-            </label>
-        `;
-        body.appendChild(row3);
-
-        // Row 4: Ẩn mã vạch
-        const row4 = document.createElement('div');
-        row4.style.cssText = 'margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #e5e7eb;';
-        row4.innerHTML = `
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="bld-hide-barcode" style="width:16px;height:16px;accent-color:#2563eb;"> Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)
-            </label>
-        `;
-        body.appendChild(row4);
-
-        // Tabs: "Sản phẩm có mã vạch" | "Sản phẩm không có mã vạch"
-        const withBarcode = items.filter(i => i.code);
-        const withoutBarcode = items.filter(i => !i.code);
-        let activeTab = 'barcode';
-
-        const tabBar = document.createElement('div');
-        tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #e5e7eb;';
-        tabBar.innerHTML = `
-            <button class="bld-tab active" data-tab="barcode" style="padding:8px 16px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid #374151;color:#374151;">Sản phẩm có mã vạch</button>
-            <button class="bld-tab" data-tab="nobarcode" style="padding:8px 16px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#22c55e;">Sản phẩm không có mã vạch</button>
-        `;
-        body.appendChild(tabBar);
-
-        // Table: Sản phẩm | Số lượng | (delete icon)
-        // Select all
-        const selectAllDiv = document.createElement('div');
-        selectAllDiv.style.cssText = 'margin-bottom:4px;';
-        selectAllDiv.innerHTML = `
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;">
-                <input type="checkbox" id="bld-select-all" checked style="width:16px;height:16px;accent-color:#2563eb;"> Chọn tất cả
-            </label>
-        `;
-        body.appendChild(selectAllDiv);
-
-        const table = document.createElement('table');
-        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
-        table.innerHTML = `
-            <thead>
-                <tr style="border-bottom:1px solid #e5e7eb;">
-                    <th style="padding:10px 6px;width:32px;"></th>
-                    <th style="padding:10px 8px;text-align:left;font-weight:600;color:#374151;">Sản phẩm</th>
-                    <th style="padding:10px 8px;text-align:center;width:120px;font-weight:600;color:#374151;">Số lượng</th>
-                    <th style="width:40px;"></th>
-                </tr>
-            </thead>
-            <tbody id="bld-items-body"></tbody>
-        `;
-
-        function renderTableRows() {
-            const tbody = table.querySelector('#bld-items-body');
-            tbody.innerHTML = '';
-            const displayItems = activeTab === 'barcode' ? withBarcode : withoutBarcode;
-            displayItems.forEach((item) => {
-                const origIdx = items.indexOf(item);
-                const variantText = item.variant ? ` (${item.variant})` : '';
-                const isChecked = item.checked !== false;
-                const tr = document.createElement('tr');
-                tr.style.cssText = `border-bottom:1px solid #f3f4f6;${!isChecked ? 'opacity:0.45;' : ''}`;
-                tr.innerHTML = `
-                    <td style="padding:8px 6px;text-align:center;">
-                        <input type="checkbox" class="bld-item-check" data-index="${origIdx}" ${isChecked ? 'checked' : ''} style="width:16px;height:16px;accent-color:#2563eb;cursor:pointer;">
-                    </td>
-                    <td style="padding:10px 8px;">
-                        [${escapeHtml(item.code || '?')}] ${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}
-                    </td>
-                    <td style="padding:8px;text-align:center;">
-                        <input type="number" class="bld-qty" data-index="${origIdx}" value="${item.quantity}" min="1" max="999" style="width:80px;text-align:center;border:1px solid #d1d5db;border-radius:4px;padding:6px;font-size:13px;" ${!isChecked ? 'disabled' : ''}>
-                    </td>
-                    <td style="padding:8px;text-align:center;">
-                        <button class="bld-remove" data-index="${origIdx}" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;padding:4px;" title="Xóa">🗑</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-            if (displayItems.length === 0) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">Không có sản phẩm</td>`;
-                tbody.appendChild(tr);
-            }
-            // Update select-all state
-            const allChecked = displayItems.length > 0 && displayItems.every(i => i.checked !== false);
-            const selectAll = document.getElementById('bld-select-all');
-            if (selectAll) selectAll.checked = allChecked;
-        }
-        renderTableRows();
-        body.appendChild(table);
-
-        // Tab switching
-        tabBar.addEventListener('click', (e) => {
-            const btn = e.target.closest('.bld-tab');
-            if (!btn) return;
-            activeTab = btn.dataset.tab;
-            tabBar.querySelectorAll('.bld-tab').forEach(b => {
-                b.style.borderBottomColor = b === btn ? '#374151' : 'transparent';
-                b.style.color = b === btn ? '#374151' : '#22c55e';
-            });
-            renderTableRows();
-        });
-
-        // Separator
-        const sep = document.createElement('hr');
-        sep.style.cssText = 'border:none;border-top:3px solid #2563eb;margin:16px 0 12px;';
-        body.appendChild(sep);
-
-        // Footer (matching TPOS: "In bằng pdf" green/blue button + "Đóng" gray button)
-        const footer = document.createElement('div');
-        footer.style.cssText = 'padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;';
-
-        const btnPrint = document.createElement('button');
-        btnPrint.id = 'bld-btn-print';
-        btnPrint.style.cssText = 'padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
-
-        const btnCancel = document.createElement('button');
-        btnCancel.textContent = 'Đóng';
-        btnCancel.style.cssText = 'padding:8px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:13px;';
-
-        footer.appendChild(btnPrint);
-        footer.appendChild(btnCancel);
-
-        modal.append(header, body, footer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        // Count + update button
         let showCurrency = false;
         let hideBarcode = false;
 
+        const withBarcode = items.filter(i => i.code);
+        const withoutBarcode = items.filter(i => !i.code);
+        let activeTab = 0; // 0 = có mã vạch, 1 = không có mã vạch
+
+        overlay = document.createElement('div');
+        overlay.className = 'bld-overlay';
+
+        const warningHTML = withoutBarcode.length > 0
+            ? `<div class="bld-warning"><span class="bld-warning-icon">⚠</span> Sản phẩm không có mã vạch sẽ không được in${withoutBarcode.length > 0 ? ': ' + withoutBarcode.map(i => stripBrackets(i.name)).join(', ') : ''}</div>`
+            : '';
+
+        overlay.innerHTML = `
+<style>
+/* TPOS Modal — matched to /BarcodeProductLabel/FormModal */
+.bld-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center}
+.bld-modal{background:#fff;border:1px solid rgba(0,0,0,.2);border-radius:6px;box-shadow:0 5px 15px rgba(0,0,0,.5);width:900px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:13px;color:#333}
+/* Header — Bootstrap .modal-header */
+.bld-modal-header{padding:15px;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;min-height:16.43px}
+.bld-modal-header h4{margin:0;font-size:18px;font-weight:500;line-height:1.4}
+.bld-modal-header .bld-close{background:none;border:none;font-size:21px;font-weight:700;line-height:1;color:#000;opacity:.2;cursor:pointer;padding:0;float:right}
+.bld-modal-header .bld-close:hover{opacity:.5}
+/* Body — .modal-body .o_act_window */
+.bld-modal-body{padding:15px;overflow-y:auto;flex:1}
+/* o_form_sheet_bg → gray bg, o_form_sheet → white card */
+.bld-sheet-bg{background:#eee;padding:16px;margin-bottom:0}
+.bld-sheet{background:#fff;padding:16px 16px 8px;border:1px solid #ccc;min-height:80px}
+/* o_group — 2-column table layout */
+.bld-group{display:table;width:100%;table-layout:fixed}
+.bld-group-col{display:table-cell;vertical-align:top;padding:0 8px;width:50%}
+.bld-group-col:first-child{padding-left:0}
+.bld-group-col:last-child{padding-right:0}
+/* o_inner_group table rows — label:field pairs */
+.bld-field-row{display:flex;align-items:center;margin-bottom:10px}
+.bld-field-label{color:#666;font-weight:400;font-size:13px;padding-right:10px;white-space:nowrap;min-width:70px}
+.bld-field-value{flex:1}
+.bld-field-value select,.bld-field-value input[type="text"]{width:100%;height:30px;padding:4px 8px;border:1px solid #ccc;border-radius:0;font-size:13px;color:#555;background:#fff;box-shadow:inset 0 1px 1px rgba(0,0,0,.075);outline:none}
+.bld-field-value select:focus,.bld-field-value input:focus{border-color:#7c7bad;box-shadow:inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(124,123,173,.6)}
+/* Quick apply — btn-success */
+.bld-btn-success{display:inline-block;padding:5px 10px;font-size:12px;font-weight:400;color:#fff;background:#5cb85c;border:1px solid #4cae4c;border-radius:3px;cursor:pointer;line-height:1.5;white-space:nowrap}
+.bld-btn-success:hover{background:#449d44;border-color:#398439}
+.bld-quick-input{width:80px;height:30px;padding:4px 8px;border:1px solid #ccc;font-size:13px;text-align:right;box-shadow:inset 0 1px 1px rgba(0,0,0,.075)}
+/* Checkboxes — o_checkbox row */
+.bld-checkbox-row{display:flex;flex-wrap:wrap;gap:0;margin-bottom:4px;min-height:41.5px;align-items:center}
+.bld-checkbox-item{display:flex;align-items:center;gap:6px;padding:8px 16px 8px 0;cursor:pointer;font-size:13px;color:#666;white-space:nowrap}
+.bld-checkbox-item input[type="checkbox"]{margin:0;cursor:pointer}
+.bld-checkbox-item label{margin:0;font-weight:400;cursor:pointer;color:#666}
+/* Warning */
+.bld-warning{color:#8a6d3b;background:#fcf8e3;border:1px solid #faebcc;padding:8px 12px;border-radius:4px;margin-top:8px;font-size:12px}
+.bld-warning-icon{margin-right:4px}
+/* Tabs — uib-tabset (Bootstrap nav-tabs) */
+.bld-tabs{border-bottom:1px solid #ddd;margin-bottom:0;padding-left:0;list-style:none;display:flex}
+.bld-tabs li{margin-bottom:-1px}
+.bld-tabs li a{display:block;padding:10px 15px;border:1px solid transparent;border-radius:4px 4px 0 0;color:#2a6496;cursor:pointer;font-size:13px;text-decoration:none;line-height:1.4}
+.bld-tabs li a:hover{border-color:#eee #eee #ddd;background:#eee}
+.bld-tabs li.active a{color:#555;background:#fff;border:1px solid #ddd;border-bottom-color:#fff;cursor:default;font-weight:400}
+/* Table — table-condensed table-striped */
+.bld-table{width:100%;border-collapse:collapse;margin-bottom:0}
+.bld-table th{padding:5px;text-align:left;font-weight:700;border-bottom:1px solid #ddd;font-size:13px;color:#333;background:#fff}
+.bld-table td{padding:5px;border-bottom:1px solid #ddd;font-size:13px;vertical-align:middle}
+.bld-table tbody tr:nth-child(odd){background:#f9f9f9}
+.bld-table tbody tr:nth-child(even){background:#fff}
+.bld-table .bld-qty-input{width:100%;height:28px;padding:2px 8px;border:1px solid #ccc;font-size:13px;text-align:right;box-shadow:inset 0 1px 1px rgba(0,0,0,.075)}
+.bld-table .bld-barcode-input{width:100%;height:28px;padding:2px 8px;border:1px solid #ccc;font-size:13px;box-shadow:inset 0 1px 1px rgba(0,0,0,.075)}
+.bld-table .bld-delete-btn{background:none;border:1px solid #ccc;border-radius:3px;padding:4px 8px;cursor:pointer;color:#666;font-size:12px;line-height:1}
+.bld-table .bld-delete-btn:hover{background:#e6e6e6;border-color:#adadad}
+.bld-add-row{color:#2a6496;cursor:pointer;font-size:13px;text-decoration:none}
+.bld-add-row:hover{text-decoration:underline}
+/* Footer — .modal-footer */
+.bld-modal-footer{padding:15px;border-top:1px solid #e5e5e5;text-align:left}
+.bld-btn-primary{display:inline-block;padding:6px 12px;font-size:12px;font-weight:400;color:#fff;background:#337ab7;border:1px solid #2e6da4;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
+.bld-btn-primary:hover{background:#286090;border-color:#204d74}
+.bld-btn-primary:disabled{opacity:.65;cursor:not-allowed}
+.bld-btn-default{display:inline-block;padding:6px 12px;font-size:12px;font-weight:400;color:#333;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;line-height:1.5}
+.bld-btn-default:hover{background:#e6e6e6;border-color:#adadad}
+/* Tab content area */
+.bld-tab-content{padding:8px 0 0}
+</style>
+<div class="bld-modal">
+    <!-- Header -->
+    <div class="bld-modal-header">
+        <h4>In mã vạch</h4>
+        <button class="bld-close" id="bld-close">&times;</button>
+    </div>
+    <!-- Body -->
+    <div class="bld-modal-body">
+        <div class="bld-sheet-bg">
+            <div class="bld-sheet">
+                <div class="bld-group">
+                    <!-- Left column: Bảng giá + Giấy in -->
+                    <div class="bld-group-col">
+                        <div class="bld-field-row">
+                            <span class="bld-field-label">Bảng giá</span>
+                            <div class="bld-field-value">
+                                <select id="bld-price-list">
+                                    <option selected>Bảng giá mặc định</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="bld-field-row">
+                            <span class="bld-field-label">Giấy in</span>
+                            <div class="bld-field-value">
+                                <select id="bld-paper">
+                                    ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right column: Áp dụng nhanh số lượng -->
+                    <div class="bld-group-col">
+                        <div class="bld-field-row" style="justify-content:flex-end;gap:8px;">
+                            <button class="bld-btn-success" id="bld-apply-qty">Áp dụng nhanh số lượng</button>
+                            <input type="number" id="bld-quick-qty" class="bld-quick-input" value="1" min="1" max="999">
+                        </div>
+                    </div>
+                </div>
+                <!-- Checkboxes row 1 -->
+                <div class="bld-checkbox-row">
+                    <div class="bld-checkbox-item">
+                        <label for="bld-show-price">Hiện giá</label>
+                        <input type="checkbox" id="bld-show-price" checked>
+                    </div>
+                    <div class="bld-checkbox-item">
+                        <label for="bld-show-bold">Chữ đậm</label>
+                        <input type="checkbox" id="bld-show-bold" checked>
+                    </div>
+                    <div class="bld-checkbox-item">
+                        <label for="bld-show-currency">Hiện đơn vị tiền tệ</label>
+                        <input type="checkbox" id="bld-show-currency">
+                    </div>
+                    <div class="bld-checkbox-item">
+                        <label for="bld-show-name">Hiển thị Tên sản phẩm</label>
+                        <input type="checkbox" id="bld-show-name" checked>
+                    </div>
+                </div>
+                <!-- Checkboxes row 2 -->
+                <div class="bld-checkbox-row">
+                    <div class="bld-checkbox-item">
+                        <label for="bld-hide-barcode">Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)</label>
+                        <input type="checkbox" id="bld-hide-barcode">
+                    </div>
+                </div>
+                ${warningHTML}
+            </div>
+        </div>
+        <!-- Tabs + Table section -->
+        <div style="padding:0;">
+            <ul class="bld-tabs" id="bld-tab-bar">
+                <li class="active"><a data-tab="0">Sản phẩm có mã vạch</a></li>
+                <li><a data-tab="1">Sản phẩm không có mã vạch</a></li>
+            </ul>
+            <div class="bld-tab-content">
+                <div class="table-responsive">
+                    <table class="bld-table">
+                        <thead>
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th id="bld-col2-header" style="width:140px">Số lượng</th>
+                                <th style="width:40px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="bld-items-body"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="padding:8px 5px;">
+                                    <a class="bld-add-row" id="bld-add-link">Thêm sản phẩm</a>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Footer -->
+    <div class="bld-modal-footer">
+        <button class="bld-btn-primary" id="bld-btn-print">In bằng pdf</button>
+        <button class="bld-btn-default" id="bld-btn-cancel">Đóng</button>
+    </div>
+</div>`;
+
+        document.body.appendChild(overlay);
+
+        // DOM refs
+        const modal = overlay.querySelector('.bld-modal');
+        const btnPrint = overlay.querySelector('#bld-btn-print');
+        const btnCancel = overlay.querySelector('#bld-btn-cancel');
+
+        // Render table
+        function renderTableRows() {
+            const tbody = overlay.querySelector('#bld-items-body');
+            const col2Header = overlay.querySelector('#bld-col2-header');
+            const addLink = overlay.querySelector('#bld-add-link');
+            tbody.innerHTML = '';
+
+            if (activeTab === 0) {
+                // Tab: Sản phẩm có mã vạch — columns: Sản phẩm | Số lượng | delete
+                col2Header.textContent = 'Số lượng';
+                col2Header.style.width = '140px';
+                addLink.textContent = 'Thêm sản phẩm';
+                withBarcode.forEach((item) => {
+                    const origIdx = items.indexOf(item);
+                    const variantText = item.variant ? ` (${item.variant})` : '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(item.code ? `[${item.code}] ` : '')}${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}</td>
+                        <td><input type="number" class="bld-qty-input bld-qty" data-index="${origIdx}" value="${item.quantity}" min="0" max="999"></td>
+                        <td><button class="bld-delete-btn bld-remove" data-index="${origIdx}"><span>🗑</span></button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                if (withBarcode.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
+                }
+            } else {
+                // Tab: Sản phẩm không có mã vạch — columns: Sản phẩm | Mã vạch (input) | (empty)
+                col2Header.textContent = 'Mã vạch';
+                col2Header.style.width = '200px';
+                addLink.textContent = 'Cập nhật mã vạch';
+                withoutBarcode.forEach((item) => {
+                    const origIdx = items.indexOf(item);
+                    const variantText = item.variant ? ` (${item.variant})` : '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}</td>
+                        <td><input type="text" class="bld-barcode-input bld-barcode-edit" data-index="${origIdx}" value="${escapeHtml(item.code)}" placeholder="Nhập mã vạch..."></td>
+                        <td></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                if (withoutBarcode.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
+                }
+            }
+        }
+        renderTableRows();
+
+        // Update print button count
         function updateCount() {
-            const checked = items.filter(i => i.code && i.checked !== false);
+            const checked = items.filter(i => i.code && i.quantity > 0);
             const totalLabels = checked.reduce((sum, it) => sum + it.quantity, 0);
             btnPrint.textContent = totalLabels > 0 ? `In bằng pdf (${totalLabels})` : 'In bằng pdf';
         }
         updateCount();
 
+        // Tab switching
+        overlay.querySelector('#bld-tab-bar').addEventListener('click', (e) => {
+            const a = e.target.closest('a[data-tab]');
+            if (!a) return;
+            e.preventDefault();
+            activeTab = parseInt(a.dataset.tab);
+            overlay.querySelectorAll('#bld-tab-bar li').forEach((li, i) => {
+                li.className = i === activeTab ? 'active' : '';
+            });
+            renderTableRows();
+        });
+
         // Settings events
-        body.querySelector('#bld-paper').addEventListener('change', (e) => { selectedPaper = PAPERS[parseInt(e.target.value)]; });
-        body.querySelector('#bld-show-price').addEventListener('change', (e) => { showPrice = e.target.checked; });
-        body.querySelector('#bld-show-bold').addEventListener('change', (e) => { showBold = e.target.checked; });
-        body.querySelector('#bld-show-name').addEventListener('change', (e) => { showProductName = e.target.checked; });
-        body.querySelector('#bld-show-currency').addEventListener('change', (e) => { showCurrency = e.target.checked; });
-        body.querySelector('#bld-hide-barcode').addEventListener('change', (e) => { hideBarcode = e.target.checked; });
+        overlay.querySelector('#bld-paper').addEventListener('change', (e) => { selectedPaper = PAPERS[parseInt(e.target.value)]; });
+        overlay.querySelector('#bld-show-price').addEventListener('change', (e) => { showPrice = e.target.checked; });
+        overlay.querySelector('#bld-show-bold').addEventListener('change', (e) => { showBold = e.target.checked; });
+        overlay.querySelector('#bld-show-name').addEventListener('change', (e) => { showProductName = e.target.checked; });
+        overlay.querySelector('#bld-show-currency').addEventListener('change', (e) => { showCurrency = e.target.checked; });
+        overlay.querySelector('#bld-hide-barcode').addEventListener('change', (e) => { hideBarcode = e.target.checked; });
 
         // Quick apply qty
-        body.querySelector('#bld-apply-qty').addEventListener('click', () => {
-            const qty = Math.max(1, parseInt(body.querySelector('#bld-quick-qty').value) || 1);
+        overlay.querySelector('#bld-apply-qty').addEventListener('click', () => {
+            const qty = Math.max(1, parseInt(overlay.querySelector('#bld-quick-qty').value) || 1);
             items.forEach(it => { it.quantity = qty; });
             renderTableRows();
             updateCount();
         });
 
-        // Select all
-        document.getElementById('bld-select-all').addEventListener('change', (e) => {
-            const val = e.target.checked;
-            const displayItems = activeTab === 'barcode' ? withBarcode : withoutBarcode;
-            displayItems.forEach(it => { it.checked = val; });
-            renderTableRows();
-            updateCount();
-        });
-
-        // Checkbox, qty, remove in table
-        body.addEventListener('change', (e) => {
-            if (e.target.classList.contains('bld-item-check')) {
-                const idx = parseInt(e.target.dataset.index);
-                items[idx].checked = e.target.checked;
-                renderTableRows();
-                updateCount();
-            }
+        // Qty change, remove, barcode edit in table
+        overlay.querySelector('.bld-modal-body').addEventListener('change', (e) => {
             if (e.target.classList.contains('bld-qty')) {
                 const idx = parseInt(e.target.dataset.index);
-                items[idx].quantity = Math.max(1, parseInt(e.target.value) || 1);
+                items[idx].quantity = Math.max(0, parseInt(e.target.value) || 0);
                 updateCount();
             }
-        });
-        body.addEventListener('click', (e) => {
-            if (e.target.classList.contains('bld-remove')) {
+            if (e.target.classList.contains('bld-barcode-edit')) {
                 const idx = parseInt(e.target.dataset.index);
+                items[idx].code = e.target.value.trim();
+            }
+        });
+        overlay.querySelector('.bld-modal-body').addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('.bld-remove');
+            if (removeBtn) {
+                const idx = parseInt(removeBtn.dataset.index);
                 items.splice(idx, 1);
-                // Rebuild withBarcode/withoutBarcode
                 withBarcode.length = 0;
                 withoutBarcode.length = 0;
                 items.forEach(i => { (i.code ? withBarcode : withoutBarcode).push(i); });
@@ -307,71 +353,34 @@ window.BarcodeLabelDialog = (function () {
             }
         });
 
+        // "Cập nhật mã vạch" / "Thêm sản phẩm" link
+        overlay.querySelector('#bld-add-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (activeTab === 1) {
+                // Update barcodes: move items with new barcodes to withBarcode
+                withBarcode.length = 0;
+                withoutBarcode.length = 0;
+                items.forEach(i => { (i.code ? withBarcode : withoutBarcode).push(i); });
+                activeTab = 0;
+                overlay.querySelectorAll('#bld-tab-bar li').forEach((li, i) => {
+                    li.className = i === 0 ? 'active' : '';
+                });
+                renderTableRows();
+                updateCount();
+            }
+        });
+
         // Close
         const closeModal = () => { overlay.remove(); overlay = null; };
-        header.querySelector('#bld-close').addEventListener('click', closeModal);
+        overlay.querySelector('#bld-close').addEventListener('click', closeModal);
         btnCancel.addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-        // Preview area (below separator, above footer)
-        const previewArea = document.createElement('div');
-        previewArea.id = 'bld-preview';
-        previewArea.style.cssText = 'margin-top:12px;';
-        body.appendChild(previewArea);
-
-        function updatePreview() {
-            const printItems = items.filter(it => it.code && it.checked !== false && it.quantity > 0);
-            if (!printItems.length) {
-                previewArea.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:12px;font-size:13px;">Không có sản phẩm để in</div>';
-                return;
-            }
-            // Build labels (max 4 for preview)
-            const previewLabels = [];
-            for (const item of printItems) {
-                for (let i = 0; i < Math.min(item.quantity, 2); i++) {
-                    previewLabels.push({ name: stripBrackets(item.name), code: item.code, price: item.price });
-                    if (previewLabels.length >= 4) break;
-                }
-                if (previewLabels.length >= 4) break;
-            }
-            const html = buildLabelHTML(previewLabels, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
-
-            // Show in inline iframe
-            previewArea.innerHTML = `
-                <div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600;">XEM TRƯỚC TEM:</div>
-                <div style="background:#e5e7eb;border-radius:6px;padding:12px;display:flex;justify-content:center;overflow:auto;">
-                    <iframe id="bld-preview-iframe" style="border:none;width:${selectedPaper.sheetW * 3}px;height:${selectedPaper.sheetH * 3 + 20}px;transform:scale(1);transform-origin:top center;" sandbox="allow-same-origin"></iframe>
-                </div>
-            `;
-            const iframe = previewArea.querySelector('#bld-preview-iframe');
-            iframe.onload = () => {
-                try {
-                    iframe.contentDocument.open();
-                    iframe.contentDocument.write(html);
-                    iframe.contentDocument.close();
-                } catch(e) {}
-            };
-            // Trigger load
-            iframe.src = 'about:blank';
-        }
-        // Initial preview
-        setTimeout(updatePreview, 100);
-
-        // Re-preview on settings change
-        const refreshPreview = () => setTimeout(updatePreview, 50);
-        body.querySelector('#bld-paper').addEventListener('change', refreshPreview);
-        body.querySelector('#bld-show-price').addEventListener('change', refreshPreview);
-        body.querySelector('#bld-show-bold').addEventListener('change', refreshPreview);
-        body.querySelector('#bld-show-name').addEventListener('change', refreshPreview);
-        body.querySelector('#bld-show-currency').addEventListener('change', refreshPreview);
-        body.querySelector('#bld-hide-barcode').addEventListener('change', refreshPreview);
-
-        // Print via TPOS API (produces exact same PDF as TPOS)
+        // Print via TPOS API
         btnPrint.addEventListener('click', async () => {
-            const printItems = items.filter(it => it.code && it.checked !== false && it.quantity > 0);
+            const printItems = items.filter(it => it.code && it.quantity > 0);
             if (!printItems.length) return;
 
-            // Check if items have TPOS product IDs — if yes, use TPOS PDF API
             const hasTposIds = printItems.some(it => it.tposProductId);
 
             if (hasTposIds && window.TPOSClient?.authenticatedFetch) {
@@ -383,7 +392,6 @@ window.BarcodeLabelDialog = (function () {
                     return;
                 } catch (err) {
                     console.warn('[Barcode] TPOS PDF failed, falling back to local:', err.message);
-                    // Fall through to local print
                 } finally {
                     btnPrint.disabled = false;
                     updateCount();
