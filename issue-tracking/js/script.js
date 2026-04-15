@@ -1313,7 +1313,8 @@ async function handleSubmitTicket() {
             // Append creation date to Zalo note (e.g., "do mình test 1/3/2026")
             const now = new Date();
             const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
-            const noteWithDate = note ? `${note} ${dateStr}` : dateStr;
+            const moneyStr = money ? ` ${money.toLocaleString()}đ` : '';
+            const noteWithDate = note ? `${note} ${dateStr}${moneyStr}` : `${dateStr}${moneyStr}`;
             try {
                 await markPartnerAsBoom(customerPhone, noteWithDate);
                 console.log('[APP] Partner boom status updated');
