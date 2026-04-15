@@ -1,19 +1,24 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Phone Widget — Standalone WebRTC softphone for orders-report
-// Uses JsSIP + Render WS Proxy → OnCallCX PBX
+// Uses JsSIP → OnCallCX PBX (direct WSS or via Render proxy)
 
 const PhoneWidget = (() => {
-    // === CONFIG ===
-    const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com/api/oncall/ws';
+    // === DEFAULTS ===
     const PBX_DOMAIN = 'pbx-ucaas.oncallcx.vn';
+    const STORAGE_KEY = 'phoneWidget_config';
     const METERED_API_KEY = '61239134d00b315f4db5888a720950acc22d';
 
-    // SIP credentials (loaded from localStorage or hardcoded fallback)
-    const SIP_CONFIG = {
-        extension: '101',
-        authId: 'gOcQD5CWCYFuDSh2',
-        password: 'iuPj7ZTT2dKoOSoY'
-    };
+    // Preset extensions (populate from OnCallCX)
+    const PRESETS = [
+        { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY' }
+    ];
+
+    // WS connection options (try in order)
+    const WS_OPTIONS = [
+        { label: 'Direct PBX (8089)', url: `wss://${PBX_DOMAIN}:8089/ws` },
+        { label: 'Direct PBX (443)', url: `wss://${PBX_DOMAIN}:443/ws` },
+        { label: 'Render Proxy', url: 'wss://n2store-fallback.onrender.com/api/oncall/ws' }
+    ];
 
     // === STATE ===
     let phone = null;
@@ -23,24 +28,72 @@ const PhoneWidget = (() => {
     let isMuted = false;
     let isRegistered = false;
     let widgetEl = null;
+    let config = loadConfig();
+
+    function loadConfig() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) return JSON.parse(saved);
+        } catch {}
+        return {
+            wsUrl: WS_OPTIONS[0].url,
+            extension: PRESETS[0].ext,
+            authId: PRESETS[0].authId,
+            password: PRESETS[0].password
+        };
+    }
+
+    function saveConfig() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {}
+    }
 
     // === CREATE WIDGET UI ===
     function createWidget() {
         if (widgetEl) return;
 
+        const wsOptionsHtml = WS_OPTIONS.map(o =>
+            `<option value="${o.url}" ${config.wsUrl === o.url ? 'selected' : ''}>${o.label}</option>`
+        ).join('');
+
         const html = `
         <div id="phoneWidget" class="phone-widget hidden">
             <div class="pw-header">
                 <span class="pw-title">N2Store Phone</span>
-                <span class="pw-status" id="pwStatus">Connecting...</span>
-                <button class="pw-close" onclick="PhoneWidget.hide()" title="Ẩn">&times;</button>
+                <span class="pw-status" id="pwStatus">Offline</span>
+                <button class="pw-btn-icon" id="pwSettingsBtn" onclick="PhoneWidget.toggleSettings()" title="Cài đặt">&#9881;</button>
+                <button class="pw-btn-icon" onclick="PhoneWidget.hide()" title="Ẩn">&times;</button>
             </div>
-            <div class="pw-call-info">
+
+            <!-- Settings Panel -->
+            <div class="pw-settings" id="pwSettings" style="display:none">
+                <div class="pw-field">
+                    <label>Server</label>
+                    <select id="pwWsUrl">${wsOptionsHtml}</select>
+                </div>
+                <div class="pw-field">
+                    <label>Extension</label>
+                    <input id="pwExtInput" type="text" value="${config.extension}" placeholder="101">
+                </div>
+                <div class="pw-field">
+                    <label>Auth ID</label>
+                    <input id="pwAuthInput" type="text" value="${config.authId}" placeholder="Auth ID">
+                </div>
+                <div class="pw-field">
+                    <label>Password</label>
+                    <input id="pwPassInput" type="password" value="${config.password}" placeholder="Password">
+                </div>
+                <div class="pw-settings-actions">
+                    <button class="pw-save-btn" onclick="PhoneWidget.applySettings()">Kết nối</button>
+                </div>
+            </div>
+
+            <!-- Call UI -->
+            <div class="pw-call-info" id="pwCallPanel">
                 <div class="pw-name" id="pwName"></div>
                 <div class="pw-number" id="pwNumber">Ready</div>
                 <div class="pw-timer" id="pwTimer" style="display:none">00:00</div>
             </div>
-            <div class="pw-actions">
+            <div class="pw-actions" id="pwActions">
                 <button class="pw-btn pw-btn-mute" id="pwMute" onclick="PhoneWidget.toggleMute()" style="display:none" title="Tắt tiếng">&#128263;</button>
                 <button class="pw-btn pw-btn-call" id="pwCall" onclick="PhoneWidget.callCurrent()" title="Gọi">&#128222;</button>
                 <button class="pw-btn pw-btn-hangup" id="pwHangup" onclick="PhoneWidget.hangup()" style="display:none" title="Ngắt">&#128308;</button>
@@ -53,7 +106,7 @@ const PhoneWidget = (() => {
         style.textContent = `
         .phone-widget {
             position: fixed; bottom: 20px; right: 20px; z-index: 99999;
-            width: 300px; background: #1a1a2e; border-radius: 16px;
+            width: 310px; background: #1a1a2e; border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.4); color: #eee;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden; transition: all 0.3s ease;
@@ -73,13 +126,42 @@ const PhoneWidget = (() => {
         .pw-status.connected { background: #1b4332; color: #4caf50; animation: pw-pulse 1.5s infinite; }
         .pw-status.error { background: #3d1212; color: #f44336; }
         @keyframes pw-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        .pw-close {
-            background: none; border: none; color: #666; font-size: 18px;
-            cursor: pointer; padding: 0 4px; line-height: 1;
+        .pw-btn-icon {
+            background: none; border: none; color: #666; font-size: 16px;
+            cursor: pointer; padding: 2px 4px; line-height: 1;
         }
-        .pw-close:hover { color: #f44336; }
+        .pw-btn-icon:hover { color: #8be9fd; }
+
+        /* Settings */
+        .pw-settings {
+            padding: 10px 14px; background: #111827;
+            border-bottom: 1px solid #333;
+        }
+        .pw-field { margin-bottom: 8px; }
+        .pw-field label {
+            display: block; font-size: 10px; color: #888;
+            margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .pw-field input, .pw-field select {
+            width: 100%; box-sizing: border-box; padding: 6px 8px;
+            background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+            color: #e2e8f0; font-size: 12px; font-family: monospace;
+            outline: none;
+        }
+        .pw-field input:focus, .pw-field select:focus {
+            border-color: #8be9fd;
+        }
+        .pw-settings-actions { display: flex; gap: 8px; }
+        .pw-save-btn {
+            flex: 1; padding: 6px; background: #4caf50; color: #fff;
+            border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer;
+        }
+        .pw-save-btn:hover { background: #388e3c; }
+
+        /* Call info */
         .pw-call-info {
-            text-align: center; padding: 14px 10px; min-height: 70px;
+            text-align: center; padding: 14px 10px; min-height: 60px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .pw-name { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 2px; }
@@ -118,29 +200,69 @@ const PhoneWidget = (() => {
         widgetEl = document.getElementById('phoneWidget');
     }
 
+    // === SETTINGS ===
+    function toggleSettings() {
+        const panel = document.getElementById('pwSettings');
+        if (!panel) return;
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function applySettings() {
+        const wsUrl = document.getElementById('pwWsUrl').value;
+        const ext = document.getElementById('pwExtInput').value.trim();
+        const authId = document.getElementById('pwAuthInput').value.trim();
+        const password = document.getElementById('pwPassInput').value.trim();
+
+        if (!ext || !authId || !password) {
+            addLog('Thiếu thông tin ext/auth/pass', 'error');
+            return;
+        }
+
+        config = { wsUrl, extension: ext, authId, password };
+        saveConfig();
+
+        // Disconnect old phone and reconnect
+        disconnect();
+        toggleSettings();
+        init();
+    }
+
+    function disconnect() {
+        if (currentSession) {
+            try { currentSession.terminate(); } catch {}
+            currentSession = null;
+        }
+        if (phone) {
+            try { phone.stop(); } catch {}
+            phone = null;
+        }
+        isRegistered = false;
+        isMuted = false;
+        stopTimer();
+    }
+
     // === INIT JSSIP ===
     async function init() {
-        if (phone) return; // Already initialized
+        if (phone) return;
         createWidget();
 
         try {
-            const iceServers = await fetchIceServers();
-            addLog(`Connecting to WS proxy...`);
+            addLog(`Connecting ${config.wsUrl.includes('onrender') ? 'via Proxy' : 'Direct'}...`);
 
-            const socket = new JsSIP.WebSocketInterface(RENDER_WS_URL);
+            const socket = new JsSIP.WebSocketInterface(config.wsUrl);
 
             const configuration = {
                 sockets: [socket],
-                uri: `sip:${SIP_CONFIG.extension}@${PBX_DOMAIN}`,
-                authorization_user: SIP_CONFIG.authId,
-                password: SIP_CONFIG.password,
-                display_name: SIP_CONFIG.extension,
+                uri: `sip:${config.extension}@${PBX_DOMAIN}`,
+                authorization_user: config.authId,
+                password: config.password,
+                display_name: config.extension,
                 register: true,
                 register_expires: 120,
                 session_timers: false,
                 connection_recovery_min_interval: 2,
                 connection_recovery_max_interval: 30,
-                no_answer_timeout: 30
+                no_answer_timeout: 60
             };
 
             phone = new JsSIP.UA(configuration);
@@ -152,9 +274,9 @@ const PhoneWidget = (() => {
                 addLog('Disconnected', 'error');
             });
             phone.on('registered', () => {
-                setStatus('registered', `Ext ${SIP_CONFIG.extension}`);
+                setStatus('registered', `Ext ${config.extension}`);
                 isRegistered = true;
-                addLog(`Registered ext ${SIP_CONFIG.extension}`, 'success');
+                addLog(`Registered ext ${config.extension}`, 'success');
             });
             phone.on('unregistered', () => {
                 setStatus('error', 'Unregistered');
@@ -168,16 +290,8 @@ const PhoneWidget = (() => {
 
             // Incoming call
             phone.on('newRTCSession', (e) => {
-                if (e.session.direction === 'incoming') {
-                    show();
-                    const caller = e.session.remote_identity.uri.user;
-                    addLog(`Incoming: ${caller}`);
-                    document.getElementById('pwNumber').textContent = caller;
-                    handleSession(e.session);
-                    e.session.answer({
-                        mediaConstraints: { audio: true, video: false },
-                        pcConfig: { iceServers }
-                    });
+                if (e.originator === 'remote') {
+                    handleIncoming(e.session);
                 }
             });
 
@@ -189,6 +303,22 @@ const PhoneWidget = (() => {
         }
     }
 
+    // === INCOMING CALL ===
+    async function handleIncoming(session) {
+        show();
+        const caller = session.remote_identity.uri.user;
+        addLog(`Incoming: ${caller}`);
+        document.getElementById('pwName').textContent = '';
+        document.getElementById('pwNumber').textContent = caller;
+
+        const iceServers = await fetchIceServers();
+        handleSession(session);
+        session.answer({
+            mediaConstraints: { audio: true, video: false },
+            pcConfig: { iceServers }
+        });
+    }
+
     // === MAKE CALL ===
     let pendingCall = null;
 
@@ -196,26 +326,24 @@ const PhoneWidget = (() => {
         const target = phoneNumber.replace(/[\s\-()]/g, '');
         if (!target || target.length < 3) return;
 
-        // Store pending call info
         pendingCall = { phone: target, name: customerName || '' };
 
-        // Show widget
         show();
         document.getElementById('pwName').textContent = customerName || '';
         document.getElementById('pwNumber').textContent = target;
 
-        // Init if needed
         if (!phone) {
             await init();
-            // Wait for registration then dial
             const waitReg = setInterval(() => {
                 if (isRegistered) {
                     clearInterval(waitReg);
                     dialPending();
                 }
             }, 500);
-            // Timeout after 10s
-            setTimeout(() => clearInterval(waitReg), 10000);
+            setTimeout(() => {
+                clearInterval(waitReg);
+                if (!isRegistered) addLog('Registration timeout', 'error');
+            }, 15000);
             return;
         }
 
@@ -298,7 +426,7 @@ const PhoneWidget = (() => {
                     audio.play().catch(() => {});
                 }
             });
-        } catch (e) { /* ignore */ }
+        } catch {}
     }
 
     // === HANGUP ===
@@ -321,7 +449,7 @@ const PhoneWidget = (() => {
         document.getElementById('pwName').textContent = '';
         document.getElementById('pwNumber').textContent = 'Ready';
         if (isRegistered) {
-            setStatus('registered', `Ext ${SIP_CONFIG.extension}`);
+            setStatus('registered', `Ext ${config.extension}`);
         }
     }
 
@@ -406,6 +534,8 @@ const PhoneWidget = (() => {
         makeCall,
         hangup,
         toggleMute,
+        toggleSettings,
+        applySettings,
         show,
         hide,
         callCurrent,
