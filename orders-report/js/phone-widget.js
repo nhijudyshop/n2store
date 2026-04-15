@@ -11,8 +11,8 @@ const PhoneWidget = (() => {
     // SIP credentials (loaded from localStorage or hardcoded fallback)
     const SIP_CONFIG = {
         extension: '101',
-        authId: 'LRmeWThKCcC63CZk',
-        password: '0We6H7AB15Boci0D'
+        authId: 'gOcQD5CWCYFuDSh2',
+        password: 'iuPj7ZTT2dKoOSoY'
     };
 
     // === STATE ===
