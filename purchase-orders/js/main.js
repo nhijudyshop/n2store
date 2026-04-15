@@ -2119,6 +2119,36 @@ class PurchaseOrderController {
             this.ui.showToast('Đơn hàng không có sản phẩm', 'warning');
             return;
         }
+
+        // If items lack tposProductId, try Firebase fallback (legacy orders synced before PG migration)
+        const missingTposIds = order.items.some(i => i.productCode && !i.tposProductId);
+        if (missingTposIds && window.firebase?.firestore) {
+            try {
+                const doc = await firebase.firestore().collection('purchase_orders').doc(orderId).get();
+                if (doc.exists) {
+                    const fbItems = doc.data().items || [];
+                    const fbMap = new Map(fbItems.map(i => [i.id, i]));
+                    let patched = 0;
+                    for (const item of order.items) {
+                        const fb = fbMap.get(item.id);
+                        if (fb && !item.tposProductId && fb.tposProductId) {
+                            item.tposProductId = fb.tposProductId;
+                            item.tposProductTmplId = fb.tposProductTmplId || item.tposProductTmplId;
+                            if (fb.productCode) item.productCode = fb.productCode;
+                            patched++;
+                        }
+                    }
+                    if (patched > 0) {
+                        console.log(`[PrintBarcode] Patched ${patched} items with TPOS IDs from Firebase`);
+                        // Persist to PostgreSQL so next time it works directly
+                        this.dataManager.updateOrder(orderId, { items: order.items }).catch(() => {});
+                    }
+                }
+            } catch (err) {
+                console.warn('[PrintBarcode] Firebase fallback failed:', err.message);
+            }
+        }
+
         window.BarcodeLabelDialog.open(order);
     }
 
