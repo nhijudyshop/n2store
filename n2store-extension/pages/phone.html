@@ -23,6 +23,8 @@
       margin-bottom: 16px;
     }
     .phone-title { font-size: 14px; font-weight: 600; color: #8be9fd; }
+    .ext-selector { background:#16213e;border:1px solid #333;border-radius:6px;color:#8be9fd;font-size:11px;padding:3px 6px;outline:none;cursor:pointer }
+    .ext-selector:focus { border-color:#4caf50 }
     .phone-status {
       font-size: 11px; padding: 3px 8px; border-radius: 10px;
       background: #333; color: #888;
@@ -109,6 +111,7 @@
   <div class="phone-container">
     <div class="phone-header">
       <span class="phone-title">N2Store Phone</span>
+      <select id="extSelector" class="ext-selector"></select>
       <span class="phone-status" id="status">Connecting...</span>
     </div>
 

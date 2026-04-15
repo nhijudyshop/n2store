@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  // Populate ext selector
+  populateExtSelector();
+
   // Load SIP credentials and connect
   await initPhone();
 
@@ -380,4 +383,30 @@ function addLog(msg, type) {
   entry.textContent = `[${time}] ${msg}`;
   logSection.appendChild(entry);
   logSection.scrollTop = logSection.scrollHeight;
+}
+
+// === EXT SELECTOR ===
+function populateExtSelector() {
+  const sel = document.getElementById('extSelector');
+  if (!sel) return;
+  const extensions = getExtensions();
+  sel.innerHTML = extensions.map(e =>
+    `<option value="${e.ext}">${e.label || 'Ext ' + e.ext}</option>`
+  ).join('');
+  // Restore saved selection
+  chrome.storage.local.get('selectedExt').then(r => {
+    if (r.selectedExt) sel.value = r.selectedExt;
+  }).catch(() => {});
+  // On change → disconnect + reconnect with new ext
+  sel.addEventListener('change', async () => {
+    const ext = extensions.find(e => e.ext === sel.value);
+    if (!ext) return;
+    chrome.storage.local.set({ selectedExt: ext.ext });
+    addLog(`Switching to ext ${ext.ext}...`);
+    // Disconnect current
+    if (currentSession) { try { currentSession.terminate(); } catch {} currentSession = null; }
+    if (phone) { try { phone.stop(); } catch {} phone = null; }
+    // Reinit
+    await initPhone();
+  });
 }

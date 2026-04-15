@@ -1,17 +1,13 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Phone Widget — Standalone WebRTC softphone for orders-report
-// Uses JsSIP → OnCallCX PBX (direct WSS or via Render proxy)
+// Uses JsSIP → OnCallCX PBX via Vultr WSS proxy
 
 const PhoneWidget = (() => {
-    // === DEFAULTS ===
     const STORAGE_KEY = 'phoneWidget_config';
     const RENDER_API = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
-
-    // Fallback defaults (used if DB unreachable)
     const DEFAULTS = {
         pbx_domain: 'pbx-ucaas.oncallcx.vn',
         ws_url: 'wss://45-76-155-207.sslip.io/ws',
-        metered_api_key: '61239134d00b315f4db5888a720950acc22d',
         sip_extensions: [
             { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY', label: 'Ext 101' }
         ]
@@ -25,493 +21,387 @@ const PhoneWidget = (() => {
     let isMuted = false;
     let isRegistered = false;
     let widgetEl = null;
-    let dbConfig = null;       // Config from Render DB
-    let config = loadConfig(); // Active config (localStorage + DB merge)
+    let fabEl = null;
+    let dbConfig = null;
+    let config = loadConfig();
 
-    // Load from localStorage (instant, for first render)
     function loadConfig() {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) return JSON.parse(saved);
-        } catch {}
-        return {
-            wsUrl: DEFAULTS.ws_url,
-            extension: DEFAULTS.sip_extensions[0].ext,
-            authId: DEFAULTS.sip_extensions[0].authId,
-            password: DEFAULTS.sip_extensions[0].password
-        };
+        try { const s = localStorage.getItem(STORAGE_KEY); if (s) return JSON.parse(s); } catch {}
+        return { wsUrl: DEFAULTS.ws_url, extension: DEFAULTS.sip_extensions[0].ext, authId: DEFAULTS.sip_extensions[0].authId, password: DEFAULTS.sip_extensions[0].password };
     }
+    function saveConfig() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {} }
 
-    function saveConfig() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {}
-    }
-
-    // Load shared config from Render DB (extensions, ws_url, etc.)
     async function loadFromDB() {
         try {
-            const resp = await fetch(RENDER_API);
-            const data = await resp.json();
-            if (data.success && data.config) {
-                dbConfig = data.config;
-                // Cache DB config in localStorage for offline use
-                try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig)); } catch {}
-                return dbConfig;
-            }
+            const r = await fetch(RENDER_API); const d = await r.json();
+            if (d.success && d.config) { dbConfig = d.config; try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig)); } catch {} return dbConfig; }
         } catch {}
-        // Fallback: cached DB config
-        try {
-            const cached = localStorage.getItem('phoneWidget_dbConfig');
-            if (cached) { dbConfig = JSON.parse(cached); return dbConfig; }
-        } catch {}
+        try { const c = localStorage.getItem('phoneWidget_dbConfig'); if (c) { dbConfig = JSON.parse(c); return dbConfig; } } catch {}
         return null;
     }
+    function getPbxDomain() { return dbConfig?.pbx_domain || DEFAULTS.pbx_domain; }
+    function getExtensions() { return dbConfig?.sip_extensions || DEFAULTS.sip_extensions; }
+    function getWsUrl() { return dbConfig?.ws_url || DEFAULTS.ws_url; }
+    function getIceServers() { return [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]; }
 
-    // Save a config key to Render DB
-    async function saveToDB(key, value) {
-        try {
-            await fetch(RENDER_API, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key, value })
-            });
-        } catch {}
-    }
-
-    // Get PBX domain from DB config or default
-    function getPbxDomain() {
-        return (dbConfig && dbConfig.pbx_domain) || DEFAULTS.pbx_domain;
-    }
-
-    // Get metered API key from DB config or default
-    function getMeteredApiKey() {
-        return (dbConfig && dbConfig.metered_api_key) || DEFAULTS.metered_api_key;
-    }
-
-    // Get available extensions from DB
-    function getExtensions() {
-        return (dbConfig && dbConfig.sip_extensions) || DEFAULTS.sip_extensions;
-    }
-
-    // Get WS URL from DB
-    function getWsUrl() {
-        return (dbConfig && dbConfig.ws_url) || DEFAULTS.ws_url;
-    }
-
-    // === CREATE WIDGET UI ===
+    // === CREATE UI ===
     function createWidget() {
         if (widgetEl) return;
 
-        // Build extension dropdown from DB config
         const extensions = getExtensions();
-        const extOptionsHtml = extensions.map(e =>
+        const extOpts = extensions.map(e =>
             `<option value="${e.ext}" ${config.extension === e.ext ? 'selected' : ''}>${e.label || 'Ext ' + e.ext}</option>`
-        ).join('') + '<option value="_custom">Tùy chỉnh...</option>';
+        ).join('') + '<option value="_custom">Tuy chinh...</option>';
 
         const html = `
-        <div id="phoneWidget" class="phone-widget hidden">
-            <div class="pw-header">
+        <div id="phoneWidget" class="pw hidden">
+            <div class="pw-head" id="pwHead">
                 <span class="pw-title">N2Store Phone</span>
                 <span class="pw-status" id="pwStatus">Offline</span>
-                <button class="pw-btn-icon" id="pwSettingsBtn" onclick="PhoneWidget.toggleSettings()" title="Cài đặt">&#9881;</button>
-                <button class="pw-btn-icon" onclick="PhoneWidget.hide()" title="Ẩn">&times;</button>
+                <button class="pw-hi" onclick="PhoneWidget.toggleSettings()" title="Cai dat">&#9881;</button>
+                <button class="pw-hi" onclick="PhoneWidget.toggleMinimize()" title="Thu nho" id="pwMinBtn">&#9472;</button>
+                <button class="pw-hi" onclick="PhoneWidget.hide()" title="Dong">&times;</button>
             </div>
 
-            <!-- Settings Panel -->
-            <div class="pw-settings" id="pwSettings" style="display:none">
-                <div class="pw-field">
-                    <label>Extension</label>
-                    <select id="pwExtSelect" onchange="PhoneWidget.onExtChange()">${extOptionsHtml}</select>
-                </div>
-                <div id="pwCustomFields" style="display:none">
-                    <div class="pw-field">
-                        <label>Ext</label>
-                        <input id="pwExtInput" type="text" value="${config.extension}" placeholder="101">
+            <div id="pwBody">
+                <!-- Settings -->
+                <div class="pw-settings" id="pwSettings" style="display:none">
+                    <div class="pw-f"><label>Extension</label>
+                        <select id="pwExtSelect" onchange="PhoneWidget.onExtChange()">${extOpts}</select>
                     </div>
-                    <div class="pw-field">
-                        <label>Auth ID</label>
-                        <input id="pwAuthInput" type="text" value="${config.authId}" placeholder="Auth ID">
+                    <div id="pwCustomFields" style="display:none">
+                        <div class="pw-f"><label>Ext</label><input id="pwExtInput" type="text" value="${config.extension}"></div>
+                        <div class="pw-f"><label>Auth ID</label><input id="pwAuthInput" type="text" value="${config.authId}"></div>
+                        <div class="pw-f"><label>Password</label><input id="pwPassInput" type="password" value="${config.password}"></div>
                     </div>
-                    <div class="pw-field">
-                        <label>Password</label>
-                        <input id="pwPassInput" type="password" value="${config.password}" placeholder="Password">
-                    </div>
+                    <button class="pw-save" onclick="PhoneWidget.applySettings()">Ket noi</button>
                 </div>
-                <div class="pw-settings-actions">
-                    <button class="pw-save-btn" onclick="PhoneWidget.applySettings()">Kết nối</button>
-                </div>
-            </div>
 
-            <!-- Call UI -->
-            <div class="pw-call-info" id="pwCallPanel">
-                <div class="pw-name" id="pwName"></div>
-                <div class="pw-number" id="pwNumber">Ready</div>
-                <div class="pw-timer" id="pwTimer" style="display:none">00:00</div>
+                <!-- Dial input -->
+                <div class="pw-dial">
+                    <div class="pw-name" id="pwName"></div>
+                    <input type="tel" id="pwDialInput" class="pw-dial-input" placeholder="Nhap so dien thoai..." autocomplete="off">
+                    <div class="pw-timer" id="pwTimer" style="display:none">00:00</div>
+                </div>
+
+                <!-- Dialpad -->
+                <div class="pw-pad" id="pwPad">
+                    <button onclick="PhoneWidget.press('1')">1</button>
+                    <button onclick="PhoneWidget.press('2')">2<small>ABC</small></button>
+                    <button onclick="PhoneWidget.press('3')">3<small>DEF</small></button>
+                    <button onclick="PhoneWidget.press('4')">4<small>GHI</small></button>
+                    <button onclick="PhoneWidget.press('5')">5<small>JKL</small></button>
+                    <button onclick="PhoneWidget.press('6')">6<small>MNO</small></button>
+                    <button onclick="PhoneWidget.press('7')">7<small>PQRS</small></button>
+                    <button onclick="PhoneWidget.press('8')">8<small>TUV</small></button>
+                    <button onclick="PhoneWidget.press('9')">9<small>WXYZ</small></button>
+                    <button onclick="PhoneWidget.press('*')">*</button>
+                    <button onclick="PhoneWidget.press('0')">0<small>+</small></button>
+                    <button onclick="PhoneWidget.press('#')">#</button>
+                </div>
+
+                <!-- Actions -->
+                <div class="pw-actions">
+                    <button class="pw-btn pw-mute" id="pwMute" onclick="PhoneWidget.toggleMute()" style="display:none" title="Tat tieng">&#128263;</button>
+                    <button class="pw-btn pw-call" id="pwCall" onclick="PhoneWidget.dialFromInput()" title="Goi">&#128222;</button>
+                    <button class="pw-btn pw-hang" id="pwHangup" onclick="PhoneWidget.hangup()" style="display:none" title="Ngat">&#128308;</button>
+                    <button class="pw-btn pw-del" id="pwDel" onclick="PhoneWidget.backspace()" title="Xoa">&#9003;</button>
+                </div>
+
+                <!-- Log -->
+                <div class="pw-log" id="pwLog"></div>
             </div>
-            <div class="pw-actions" id="pwActions">
-                <button class="pw-btn pw-btn-mute" id="pwMute" onclick="PhoneWidget.toggleMute()" style="display:none" title="Tắt tiếng">&#128263;</button>
-                <button class="pw-btn pw-btn-call" id="pwCall" onclick="PhoneWidget.callCurrent()" title="Gọi">&#128222;</button>
-                <button class="pw-btn pw-btn-hangup" id="pwHangup" onclick="PhoneWidget.hangup()" style="display:none" title="Ngắt">&#128308;</button>
-            </div>
-            <div class="pw-log" id="pwLog"></div>
             <audio id="pwRemoteAudio" autoplay></audio>
         </div>`;
 
         const style = document.createElement('style');
         style.textContent = `
-        .phone-widget {
-            position: fixed; bottom: 20px; right: 20px; z-index: 99999;
-            width: 310px; background: #1a1a2e; border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4); color: #eee;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            overflow: hidden; transition: all 0.3s ease;
-        }
-        .phone-widget.hidden { display: none; }
-        .pw-header {
-            display: flex; align-items: center; padding: 10px 14px;
-            background: #16213e; gap: 8px;
-        }
-        .pw-title { font-size: 13px; font-weight: 600; color: #8be9fd; flex: 1; }
-        .pw-status {
-            font-size: 10px; padding: 2px 8px; border-radius: 10px;
-            background: #333; color: #888;
-        }
-        .pw-status.registered { background: #1b4332; color: #4caf50; }
-        .pw-status.calling { background: #3d2c00; color: #ff9800; }
-        .pw-status.connected { background: #1b4332; color: #4caf50; animation: pw-pulse 1.5s infinite; }
-        .pw-status.error { background: #3d1212; color: #f44336; }
-        @keyframes pw-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        .pw-btn-icon {
-            background: none; border: none; color: #666; font-size: 16px;
-            cursor: pointer; padding: 2px 4px; line-height: 1;
-        }
-        .pw-btn-icon:hover { color: #8be9fd; }
+        /* FAB */
+        .pw-fab{position:fixed;bottom:20px;right:20px;z-index:99998;width:48px;height:48px;border-radius:50%;
+            background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;font-size:22px;
+            cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;
+            transition:transform 0.2s}
+        .pw-fab:hover{transform:scale(1.1)}
+        .pw-fab.active{background:linear-gradient(135deg,#f44336,#c62828)}
+
+        /* Widget */
+        .pw{position:fixed;bottom:80px;right:20px;z-index:99999;width:280px;background:#1a1a2e;border-radius:14px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.5);color:#eee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+        .pw.hidden{display:none}
+        .pw.minimized #pwBody{display:none}
+
+        /* Header */
+        .pw-head{display:flex;align-items:center;padding:8px 12px;background:#16213e;gap:6px;cursor:move;user-select:none}
+        .pw-title{font-size:12px;font-weight:600;color:#8be9fd;flex:1}
+        .pw-status{font-size:9px;padding:2px 7px;border-radius:10px;background:#333;color:#888}
+        .pw-status.registered{background:#1b4332;color:#4caf50}
+        .pw-status.calling{background:#3d2c00;color:#ff9800}
+        .pw-status.connected{background:#1b4332;color:#4caf50;animation:pw-p 1.5s infinite}
+        .pw-status.error{background:#3d1212;color:#f44336}
+        @keyframes pw-p{0%,100%{opacity:1}50%{opacity:.6}}
+        .pw-hi{background:none;border:none;color:#556;font-size:14px;cursor:pointer;padding:0 3px;line-height:1}
+        .pw-hi:hover{color:#8be9fd}
 
         /* Settings */
-        .pw-settings {
-            padding: 10px 14px; background: #111827;
-            border-bottom: 1px solid #333;
-        }
-        .pw-field { margin-bottom: 8px; }
-        .pw-field label {
-            display: block; font-size: 10px; color: #888;
-            margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .pw-field input, .pw-field select {
-            width: 100%; box-sizing: border-box; padding: 6px 8px;
-            background: #1e293b; border: 1px solid #334155; border-radius: 6px;
-            color: #e2e8f0; font-size: 12px; font-family: monospace;
-            outline: none;
-        }
-        .pw-field input:focus, .pw-field select:focus {
-            border-color: #8be9fd;
-        }
-        .pw-settings-actions { display: flex; gap: 8px; }
-        .pw-save-btn {
-            flex: 1; padding: 6px; background: #4caf50; color: #fff;
-            border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
-            cursor: pointer;
-        }
-        .pw-save-btn:hover { background: #388e3c; }
+        .pw-settings{padding:8px 12px;background:#111827;border-bottom:1px solid #333}
+        .pw-f{margin-bottom:6px}
+        .pw-f label{display:block;font-size:9px;color:#888;margin-bottom:1px;text-transform:uppercase;letter-spacing:.5px}
+        .pw-f input,.pw-f select{width:100%;box-sizing:border-box;padding:5px 7px;background:#1e293b;border:1px solid #334155;
+            border-radius:5px;color:#e2e8f0;font-size:11px;font-family:monospace;outline:none}
+        .pw-f input:focus,.pw-f select:focus{border-color:#8be9fd}
+        .pw-save{width:100%;padding:5px;background:#4caf50;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;margin-top:4px}
+        .pw-save:hover{background:#388e3c}
 
-        /* Call info */
-        .pw-call-info {
-            text-align: center; padding: 14px 10px; min-height: 60px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .pw-name { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 2px; }
-        .pw-number { font-size: 13px; color: #8be9fd; font-family: monospace; }
-        .pw-timer { font-size: 22px; font-weight: 300; color: #ccc; margin-top: 6px; font-family: monospace; }
-        .pw-actions {
-            display: flex; gap: 12px; justify-content: center; padding: 0 14px 14px;
-        }
-        .pw-btn {
-            width: 48px; height: 48px; border: none; border-radius: 50%;
-            font-size: 20px; cursor: pointer; transition: all 0.15s;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .pw-btn-call { background: #4caf50; color: #fff; }
-        .pw-btn-call:hover { background: #388e3c; }
-        .pw-btn-hangup { background: #f44336; color: #fff; }
-        .pw-btn-hangup:hover { background: #d32f2f; }
-        .pw-btn-mute { background: #333; color: #ccc; }
-        .pw-btn-mute:hover { background: #444; }
-        .pw-btn-mute.active { background: #f44336; color: #fff; }
-        .pw-log {
-            max-height: 80px; overflow-y: auto; font-size: 9px; color: #555;
-            font-family: monospace; background: #111; padding: 6px; margin: 0 10px 10px;
-            border-radius: 6px;
-        }
-        .pw-log .error { color: #f44336; }
-        .pw-log .success { color: #4caf50; }
-        .pw-log::-webkit-scrollbar { width: 3px; }
-        .pw-log::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+        /* Dial input */
+        .pw-dial{padding:10px 12px 4px;text-align:center}
+        .pw-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;min-height:16px}
+        .pw-dial-input{width:100%;box-sizing:border-box;background:transparent;border:none;border-bottom:2px solid #334155;
+            color:#8be9fd;font-size:20px;font-family:monospace;text-align:center;padding:6px 0;outline:none;letter-spacing:2px}
+        .pw-dial-input:focus{border-bottom-color:#8be9fd}
+        .pw-dial-input::placeholder{color:#444;font-size:13px;letter-spacing:0}
+        .pw-timer{font-size:20px;font-weight:300;color:#ccc;margin-top:4px;font-family:monospace}
+
+        /* Dialpad */
+        .pw-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:6px 12px}
+        .pw-pad button{background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;
+            font-size:16px;padding:8px 0;cursor:pointer;transition:background .1s;position:relative}
+        .pw-pad button:hover{background:#334155}
+        .pw-pad button:active{background:#4caf50;color:#fff}
+        .pw-pad button small{display:block;font-size:7px;color:#556;letter-spacing:1px;margin-top:-2px}
+
+        /* Actions */
+        .pw-actions{display:flex;gap:10px;justify-content:center;padding:8px 12px}
+        .pw-btn{width:44px;height:44px;border:none;border-radius:50%;font-size:18px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .pw-call{background:#4caf50;color:#fff}.pw-call:hover{background:#388e3c}
+        .pw-hang{background:#f44336;color:#fff}.pw-hang:hover{background:#d32f2f}
+        .pw-mute{background:#333;color:#ccc}.pw-mute:hover{background:#444}.pw-mute.active{background:#f44336;color:#fff}
+        .pw-del{background:#1e293b;color:#888;font-size:16px}.pw-del:hover{background:#334155;color:#fff}
+
+        /* Log */
+        .pw-log{max-height:60px;overflow-y:auto;font-size:8px;color:#555;font-family:monospace;
+            background:#0d1117;padding:4px 6px;margin:0 10px 8px;border-radius:4px}
+        .pw-log .error{color:#f44336}.pw-log .success{color:#4caf50}
+        .pw-log::-webkit-scrollbar{width:2px}.pw-log::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
         `;
         document.head.appendChild(style);
+
+        // FAB button
+        if (!fabEl) {
+            fabEl = document.createElement('button');
+            fabEl.className = 'pw-fab';
+            fabEl.innerHTML = '&#128222;';
+            fabEl.title = 'N2Store Phone';
+            fabEl.onclick = () => toggle();
+            document.body.appendChild(fabEl);
+        }
 
         const container = document.createElement('div');
         container.innerHTML = html;
         document.body.appendChild(container.firstElementChild);
         widgetEl = document.getElementById('phoneWidget');
+
+        // Enter to call
+        document.getElementById('pwDialInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') dialFromInput();
+        });
+
+        // Draggable header
+        initDrag();
+    }
+
+    // === DRAG ===
+    function initDrag() {
+        const head = document.getElementById('pwHead');
+        if (!head) return;
+        let dragging = false, offsetX = 0, offsetY = 0;
+        head.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            dragging = true;
+            const rect = widgetEl.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            widgetEl.style.transition = 'none';
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            widgetEl.style.left = (e.clientX - offsetX) + 'px';
+            widgetEl.style.top = (e.clientY - offsetY) + 'px';
+            widgetEl.style.right = 'auto';
+            widgetEl.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; widgetEl.style.transition = ''; });
+    }
+
+    // === TOGGLE / SHOW / HIDE ===
+    function toggle() {
+        createWidget();
+        if (widgetEl.classList.contains('hidden')) {
+            widgetEl.classList.remove('hidden');
+            fabEl.classList.add('active');
+        } else {
+            widgetEl.classList.add('hidden');
+            fabEl.classList.remove('active');
+        }
+    }
+    function show() { createWidget(); widgetEl.classList.remove('hidden'); if (fabEl) fabEl.classList.add('active'); }
+    function hide() { if (widgetEl) widgetEl.classList.add('hidden'); if (fabEl) fabEl.classList.remove('active'); }
+    function toggleMinimize() {
+        if (!widgetEl) return;
+        widgetEl.classList.toggle('minimized');
+        document.getElementById('pwMinBtn').innerHTML = widgetEl.classList.contains('minimized') ? '&#9723;' : '&#9472;';
     }
 
     // === SETTINGS ===
     function toggleSettings() {
-        const panel = document.getElementById('pwSettings');
-        if (!panel) return;
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        const p = document.getElementById('pwSettings');
+        if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
     }
-
     function onExtChange() {
         const sel = document.getElementById('pwExtSelect');
         const custom = document.getElementById('pwCustomFields');
-        if (sel.value === '_custom') {
-            custom.style.display = 'block';
-        } else {
-            custom.style.display = 'none';
-            // Auto-fill from extensions list
-            const ext = getExtensions().find(e => e.ext === sel.value);
-            if (ext) {
-                document.getElementById('pwExtInput').value = ext.ext;
-                document.getElementById('pwAuthInput').value = ext.authId;
-                document.getElementById('pwPassInput').value = ext.password;
-            }
+        if (sel.value === '_custom') { custom.style.display = 'block'; return; }
+        custom.style.display = 'none';
+        const ext = getExtensions().find(e => e.ext === sel.value);
+        if (ext) {
+            document.getElementById('pwExtInput').value = ext.ext;
+            document.getElementById('pwAuthInput').value = ext.authId;
+            document.getElementById('pwPassInput').value = ext.password;
         }
     }
-
     function applySettings() {
         const sel = document.getElementById('pwExtSelect');
         let ext, authId, password;
-
         if (sel.value === '_custom') {
             ext = document.getElementById('pwExtInput').value.trim();
             authId = document.getElementById('pwAuthInput').value.trim();
             password = document.getElementById('pwPassInput').value.trim();
         } else {
-            const found = getExtensions().find(e => e.ext === sel.value);
-            if (!found) { addLog('Extension not found', 'error'); return; }
-            ext = found.ext;
-            authId = found.authId;
-            password = found.password;
+            const f = getExtensions().find(e => e.ext === sel.value);
+            if (!f) { addLog('Extension not found', 'error'); return; }
+            ext = f.ext; authId = f.authId; password = f.password;
         }
-
-        if (!ext || !authId || !password) {
-            addLog('Thiếu thông tin ext/auth/pass', 'error');
-            return;
-        }
-
+        if (!ext || !authId || !password) { addLog('Thieu thong tin', 'error'); return; }
         config = { wsUrl: getWsUrl(), extension: ext, authId, password };
         saveConfig();
-
-        // Disconnect old phone and reconnect
-        disconnect();
-        toggleSettings();
-        init();
+        disconnect(); toggleSettings(); init();
     }
 
     function disconnect() {
-        if (currentSession) {
-            try { currentSession.terminate(); } catch {}
-            currentSession = null;
-        }
-        if (phone) {
-            try { phone.stop(); } catch {}
-            phone = null;
-        }
-        isRegistered = false;
-        isMuted = false;
-        stopTimer();
+        if (currentSession) { try { currentSession.terminate(); } catch {} currentSession = null; }
+        if (phone) { try { phone.stop(); } catch {} phone = null; }
+        isRegistered = false; isMuted = false; stopTimer();
     }
 
     // === INIT JSSIP ===
     async function init() {
         if (phone) return;
-
-        // Load shared config from DB (first time)
         if (!dbConfig) await loadFromDB();
-
-        // Merge: use DB ws_url if config doesn't have one
         if (!config.wsUrl) config.wsUrl = getWsUrl();
-
         createWidget();
-
         try {
-            addLog(`Connecting ${config.wsUrl.includes('onrender') ? 'via Proxy' : 'Direct'}...`);
-
+            addLog('Connecting...');
             const socket = new JsSIP.WebSocketInterface(config.wsUrl || getWsUrl());
-
             const pbxDomain = getPbxDomain();
-            const configuration = {
+            phone = new JsSIP.UA({
                 sockets: [socket],
                 uri: `sip:${config.extension}@${pbxDomain}`,
                 authorization_user: config.authId,
                 password: config.password,
                 display_name: config.extension,
-                register: true,
-                register_expires: 120,
-                session_timers: false,
-                connection_recovery_min_interval: 2,
-                connection_recovery_max_interval: 30,
-                no_answer_timeout: 60
-            };
-
-            phone = new JsSIP.UA(configuration);
-
-            phone.on('connected', () => addLog('WebSocket connected', 'success'));
-            phone.on('disconnected', () => {
-                setStatus('error', 'Disconnected');
-                isRegistered = false;
-                addLog('Disconnected', 'error');
+                register: true, register_expires: 120, session_timers: false,
+                connection_recovery_min_interval: 2, connection_recovery_max_interval: 30, no_answer_timeout: 60
             });
-            phone.on('registered', () => {
-                setStatus('registered', `Ext ${config.extension}`);
-                isRegistered = true;
-                addLog(`Registered ext ${config.extension}`, 'success');
-            });
-            phone.on('unregistered', () => {
-                setStatus('error', 'Unregistered');
-                isRegistered = false;
-            });
-            phone.on('registrationFailed', (e) => {
-                setStatus('error', 'Reg Failed');
-                isRegistered = false;
-                addLog(`Reg failed: ${e.cause}`, 'error');
-            });
-
-            // Incoming call
-            phone.on('newRTCSession', (e) => {
-                if (e.originator === 'remote') {
-                    handleIncoming(e.session);
-                }
-            });
-
+            phone.on('connected', () => addLog('WS connected', 'success'));
+            phone.on('disconnected', () => { setStatus('error', 'Disconnected'); isRegistered = false; });
+            phone.on('registered', () => { setStatus('registered', `Ext ${config.extension}`); isRegistered = true; addLog(`Registered ext ${config.extension}`, 'success'); });
+            phone.on('unregistered', () => { setStatus('error', 'Unregistered'); isRegistered = false; });
+            phone.on('registrationFailed', (e) => { setStatus('error', 'Reg Failed'); isRegistered = false; addLog(`Reg failed: ${e.cause}`, 'error'); });
+            phone.on('newRTCSession', (e) => { if (e.originator === 'remote') handleIncoming(e.session); });
             phone.start();
-            addLog('Starting...');
-        } catch (err) {
-            setStatus('error', 'Init Error');
-            addLog(`Error: ${err.message}`, 'error');
-        }
+        } catch (err) { setStatus('error', 'Init Error'); addLog(`Error: ${err.message}`, 'error'); }
     }
 
-    // === INCOMING CALL ===
-    async function handleIncoming(session) {
+    function handleIncoming(session) {
         show();
         const caller = session.remote_identity.uri.user;
         addLog(`Incoming: ${caller}`);
         document.getElementById('pwName').textContent = '';
-        document.getElementById('pwNumber').textContent = caller;
-
-        const iceServers = getIceServers();
+        document.getElementById('pwDialInput').value = caller;
         handleSession(session);
-        session.answer({
-            mediaConstraints: { audio: true, video: false },
-            pcConfig: { iceServers }
-        });
+        session.answer({ mediaConstraints: { audio: true, video: false }, pcConfig: { iceServers: getIceServers() } });
     }
 
-    // === MAKE CALL ===
-    let pendingCall = null;
+    // === DIAL ===
+    function dialFromInput() {
+        const input = document.getElementById('pwDialInput');
+        const num = input ? input.value.trim() : '';
+        if (num && num.length >= 3) makeCall(num, '');
+    }
+    function press(key) {
+        const input = document.getElementById('pwDialInput');
+        if (input) { input.value += key; input.focus(); }
+        if (currentSession && currentSession.isEstablished()) { try { currentSession.sendDTMF(key); } catch {} }
+    }
+    function backspace() {
+        const input = document.getElementById('pwDialInput');
+        if (input) input.value = input.value.slice(0, -1);
+    }
 
+    let pendingCall = null;
     async function makeCall(phoneNumber, customerName) {
         const target = phoneNumber.replace(/[\s\-()]/g, '');
         if (!target || target.length < 3) return;
-
         pendingCall = { phone: target, name: customerName || '' };
-
         show();
         document.getElementById('pwName').textContent = customerName || '';
-        document.getElementById('pwNumber').textContent = target;
-
-        // Already registered → dial immediately
-        if (phone && isRegistered) {
-            dialPending();
-            return;
-        }
-
-        // Need to init first
+        document.getElementById('pwDialInput').value = target;
+        if (phone && isRegistered) { dialPending(); return; }
         if (!phone) await init();
-
-        // Wait for registration then dial
-        const waitReg = setInterval(() => {
-            if (isRegistered) {
-                clearInterval(waitReg);
-                dialPending();
-            }
-        }, 200);
-        setTimeout(() => {
-            clearInterval(waitReg);
-            if (!isRegistered) addLog('Registration timeout', 'error');
-        }, 15000);
+        const waitReg = setInterval(() => { if (isRegistered) { clearInterval(waitReg); dialPending(); } }, 200);
+        setTimeout(() => { clearInterval(waitReg); if (!isRegistered) addLog('Registration timeout', 'error'); }, 15000);
     }
 
     async function dialPending() {
         if (!pendingCall || !phone || !isRegistered) return;
-        if (currentSession) {
-            addLog('Already in call', 'error');
-            return;
-        }
-
+        if (currentSession) { addLog('Already in call', 'error'); return; }
         const target = pendingCall.phone;
-
-        // Request mic permission before calling
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(t => t.stop()); // Release immediately, JsSIP will request again
-        } catch (err) {
-            addLog('Mic bị chặn! Bấm icon khóa trên thanh địa chỉ → cho phép Microphone', 'error');
+            stream.getTracks().forEach(t => t.stop());
+        } catch {
+            addLog('Mic bi chan! Cho phep Microphone trong trinh duyet', 'error');
             setStatus('error', 'Mic blocked');
-            alert('Trình duyệt chặn microphone.\n\nCách fix:\n1. Bấm icon 🔒 trên thanh địa chỉ\n2. Tìm "Microphone" → chọn "Allow"\n3. Reload trang và thử lại');
-            endCall();
-            pendingCall = null;
-            return;
+            pendingCall = null; return;
         }
-
         addLog(`Calling ${target}...`);
         setStatus('calling', 'Calling...');
-
-        const iceServers = getIceServers();
         const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
             mediaConstraints: { audio: true, video: false },
-            pcConfig: { iceServers, iceTransportPolicy: 'all' },
-            rtcOfferConstraints: { offerToReceiveAudio: true },
-            sessionTimersExpires: 120
+            pcConfig: { iceServers: getIceServers(), iceTransportPolicy: 'all' },
+            rtcOfferConstraints: { offerToReceiveAudio: true }, sessionTimersExpires: 120
         });
-
         handleSession(session);
         pendingCall = null;
     }
 
-    // === HANDLE SESSION ===
     function handleSession(session) {
         currentSession = session;
         document.getElementById('pwCall').style.display = 'none';
+        document.getElementById('pwDel').style.display = 'none';
+        document.getElementById('pwPad').style.display = 'none';
         document.getElementById('pwHangup').style.display = 'flex';
         document.getElementById('pwMute').style.display = 'flex';
-
-        session.on('progress', () => {
-            setStatus('calling', 'Ringing...');
-            addLog('Ringing...');
-        });
-        session.on('accepted', () => {
-            setStatus('connected', 'Connected');
-            addLog('Connected', 'success');
-            startTimer();
-        });
+        session.on('progress', () => { setStatus('calling', 'Ringing...'); addLog('Ringing...'); });
+        session.on('accepted', () => { setStatus('connected', 'Connected'); addLog('Connected', 'success'); startTimer(); });
         session.on('confirmed', () => attachAudio(session));
-        session.on('ended', (e) => {
-            addLog(`Ended: ${e.cause}`);
-            endCall();
-        });
-        session.on('failed', (e) => {
-            addLog(`Failed: ${e.cause}`, 'error');
-            endCall();
-        });
+        session.on('ended', (e) => { addLog(`Ended: ${e.cause}`); endCall(); });
+        session.on('failed', (e) => { addLog(`Failed: ${e.cause}`, 'error'); endCall(); });
         session.on('peerconnection', (e) => {
-            e.peerconnection.addEventListener('track', (event) => {
-                if (event.track.kind === 'audio') {
-                    const audio = document.getElementById('pwRemoteAudio');
-                    audio.srcObject = new MediaStream([event.track]);
-                    audio.play().catch(() => {});
-                    addLog('Audio attached', 'success');
+            e.peerconnection.addEventListener('track', (ev) => {
+                if (ev.track.kind === 'audio') {
+                    const a = document.getElementById('pwRemoteAudio');
+                    a.srcObject = new MediaStream([ev.track]); a.play().catch(() => {});
                 }
             });
         });
@@ -519,136 +409,67 @@ const PhoneWidget = (() => {
 
     function attachAudio(session) {
         try {
-            const pc = session.connection;
-            if (!pc) return;
+            const pc = session.connection; if (!pc) return;
             pc.getReceivers().forEach(r => {
-                if (r.track && r.track.kind === 'audio') {
-                    const audio = document.getElementById('pwRemoteAudio');
-                    audio.srcObject = new MediaStream([r.track]);
-                    audio.play().catch(() => {});
+                if (r.track?.kind === 'audio') {
+                    const a = document.getElementById('pwRemoteAudio');
+                    a.srcObject = new MediaStream([r.track]); a.play().catch(() => {});
                 }
             });
         } catch {}
     }
 
-    // === HANGUP ===
-    function hangup() {
-        if (currentSession) {
-            try { currentSession.terminate(); } catch {}
-        }
-        endCall();
-    }
-
+    function hangup() { if (currentSession) { try { currentSession.terminate(); } catch {} } endCall(); }
     function endCall() {
-        currentSession = null;
-        isMuted = false;
-        stopTimer();
+        currentSession = null; isMuted = false; stopTimer();
         document.getElementById('pwCall').style.display = 'flex';
+        document.getElementById('pwDel').style.display = 'flex';
+        document.getElementById('pwPad').style.display = 'grid';
         document.getElementById('pwHangup').style.display = 'none';
         document.getElementById('pwMute').style.display = 'none';
         document.getElementById('pwMute').classList.remove('active');
         document.getElementById('pwTimer').style.display = 'none';
         document.getElementById('pwName').textContent = '';
-        document.getElementById('pwNumber').textContent = 'Ready';
-        if (isRegistered) {
-            setStatus('registered', `Ext ${config.extension}`);
-        }
+        document.getElementById('pwDialInput').value = '';
+        if (isRegistered) setStatus('registered', `Ext ${config.extension}`);
     }
 
-    // === MUTE ===
     function toggleMute() {
         if (!currentSession) return;
         isMuted = !isMuted;
-        if (currentSession.connection) {
-            currentSession.connection.getSenders().forEach(s => {
-                if (s.track && s.track.kind === 'audio') s.track.enabled = !isMuted;
-            });
-        }
+        if (currentSession.connection) currentSession.connection.getSenders().forEach(s => { if (s.track?.kind === 'audio') s.track.enabled = !isMuted; });
         const btn = document.getElementById('pwMute');
         btn.classList.toggle('active', isMuted);
         btn.innerHTML = isMuted ? '&#128263;' : '&#128264;';
-        addLog(isMuted ? 'Muted' : 'Unmuted');
     }
 
-    // === TIMER ===
     function startTimer() {
         callStartTime = Date.now();
         const el = document.getElementById('pwTimer');
-        el.style.display = 'block';
-        el.textContent = '00:00';
+        el.style.display = 'block'; el.textContent = '00:00';
         callTimerInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-            el.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+            const s = Math.floor((Date.now() - callStartTime) / 1000);
+            el.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
         }, 1000);
     }
+    function stopTimer() { if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; } }
 
-    function stopTimer() {
-        if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
-    }
-
-    // === ICE SERVERS (STUN only — fast, no TURN timeout delay) ===
-    function getIceServers() {
-        return [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ];
-    }
-
-    // === UI HELPERS ===
-    function setStatus(type, text) {
-        const el = document.getElementById('pwStatus');
-        if (!el) return;
-        el.className = `pw-status ${type}`;
-        el.textContent = text;
-    }
-
+    function setStatus(t, text) { const el = document.getElementById('pwStatus'); if (el) { el.className = `pw-status ${t}`; el.textContent = text; } }
     function addLog(msg, type) {
-        const log = document.getElementById('pwLog');
-        if (!log) return;
+        const log = document.getElementById('pwLog'); if (!log) return;
         const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const div = document.createElement('div');
-        if (type) div.className = type;
-        div.textContent = `[${time}] ${msg}`;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
+        const div = document.createElement('div'); if (type) div.className = type;
+        div.textContent = `[${time}] ${msg}`; log.appendChild(div); log.scrollTop = log.scrollHeight;
     }
 
-    function show() {
-        createWidget();
-        widgetEl.classList.remove('hidden');
-    }
-
-    function hide() {
-        if (widgetEl) widgetEl.classList.add('hidden');
-    }
-
-    function callCurrent() {
-        const num = document.getElementById('pwNumber')?.textContent;
-        const name = document.getElementById('pwName')?.textContent;
-        if (num && num !== 'Ready') makeCall(num, name);
-    }
-
-    // === AUTO-INIT on page load (pre-register + prefetch ICE) ===
+    // === AUTO-INIT ===
     if (config.extension && config.authId && config.password) {
-        // Delay init slightly to not block page load
-        setTimeout(() => {
-            // ICE servers are STUN-only (synchronous), no prefetch needed
-            init();            // Register with PBX
-        }, 3000);
+        setTimeout(() => init(), 3000);
     }
 
-    // === PUBLIC API ===
     return {
-        init,
-        makeCall,
-        hangup,
-        toggleMute,
-        toggleSettings,
-        applySettings,
-        onExtChange,
-        show,
-        hide,
-        callCurrent,
-        isReady: () => isRegistered
+        init, makeCall, hangup, toggleMute, toggleSettings, applySettings, onExtChange,
+        show, hide, toggle, toggleMinimize, dialFromInput, press, backspace,
+        callCurrent: dialFromInput, isReady: () => isRegistered
     };
 })();
