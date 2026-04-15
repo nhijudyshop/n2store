@@ -497,9 +497,6 @@ function initiateCall(phone, customerName, orderCode) {
     if (normalized.length < 4) return;
 
     const displayName = customerName || normalized;
-    const orderInfo = orderCode ? ` — Đơn #${orderCode}` : '';
-    const confirmed = confirm(`Gọi cho ${displayName} (${normalized})?${orderInfo}`);
-    if (!confirmed) return;
 
     // Use WebRTC PhoneWidget if available
     if (typeof PhoneWidget !== 'undefined') {

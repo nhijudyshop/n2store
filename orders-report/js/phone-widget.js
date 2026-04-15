@@ -27,8 +27,6 @@ const PhoneWidget = (() => {
     let widgetEl = null;
     let dbConfig = null;       // Config from Render DB
     let config = loadConfig(); // Active config (localStorage + DB merge)
-    let cachedIceServers = null;
-    let iceServersFetchedAt = 0;
 
     // Load from localStorage (instant, for first render)
     function loadConfig() {
@@ -402,7 +400,7 @@ const PhoneWidget = (() => {
         document.getElementById('pwName').textContent = '';
         document.getElementById('pwNumber').textContent = caller;
 
-        const iceServers = await fetchIceServers();
+        const iceServers = getIceServers();
         handleSession(session);
         session.answer({
             mediaConstraints: { audio: true, video: false },
@@ -457,7 +455,7 @@ const PhoneWidget = (() => {
         setStatus('calling', 'Calling...');
 
         // ICE servers already cached from init, this is instant
-        const iceServers = await fetchIceServers();
+        const iceServers = getIceServers();
         const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
             mediaConstraints: { audio: true, video: false },
             pcConfig: { iceServers, iceTransportPolicy: 'all' },
@@ -575,23 +573,12 @@ const PhoneWidget = (() => {
         if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
     }
 
-    // === ICE SERVERS (cached 10 min) ===
-    async function fetchIceServers() {
-        const now = Date.now();
-        if (cachedIceServers && (now - iceServersFetchedAt) < 600000) {
-            return cachedIceServers;
-        }
-        try {
-            const apiKey = getMeteredApiKey();
-            const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
-            const servers = await resp.json();
-            if (Array.isArray(servers) && servers.length > 0) {
-                cachedIceServers = servers;
-                iceServersFetchedAt = now;
-                return servers;
-            }
-        } catch {}
-        return cachedIceServers || [{ urls: 'stun:stun.l.google.com:19302' }];
+    // === ICE SERVERS (STUN only — fast, no TURN timeout delay) ===
+    function getIceServers() {
+        return [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ];
     }
 
     // === UI HELPERS ===
@@ -632,7 +619,7 @@ const PhoneWidget = (() => {
     if (config.extension && config.authId && config.password) {
         // Delay init slightly to not block page load
         setTimeout(() => {
-            fetchIceServers(); // Prefetch and cache
+            // ICE servers are STUN-only (synchronous), no prefetch needed
             init();            // Register with PBX
         }, 3000);
     }

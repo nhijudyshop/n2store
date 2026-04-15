@@ -22,8 +22,6 @@ let callTimerInterval = null;
 let callStartTime = null;
 let isMuted = false;
 let dbConfig = null;
-let cachedIceServers = null;
-let iceServersFetchedAt = 0;
 
 // === UI ELEMENTS ===
 const statusEl = document.getElementById('status');
@@ -77,8 +75,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (targetName) callNameEl.textContent = decodeURIComponent(targetName);
   }
 
-  // Prefetch ICE servers
-  fetchIceServers();
 
   // Load SIP credentials and connect
   await initPhone();
@@ -191,10 +187,9 @@ async function initPhone() {
         const caller = e.session.remote_identity.uri.user;
         addLog(`Incoming call from ${caller}`);
         handleSession(e.session);
-        fetchIceServers().then(iceServers => {
-          e.session.answer({
+        e.session.answer({
             mediaConstraints: { audio: true, video: false },
-            pcConfig: { iceServers }
+            pcConfig: { iceServers: getIceServers() }
           });
         });
       }
@@ -229,7 +224,7 @@ async function makeCall() {
   callNumberEl.textContent = target;
   setStatus('calling', 'Calling...');
 
-  const iceServers = await fetchIceServers();
+  const iceServers = getIceServers();
   const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
     mediaConstraints: { audio: true, video: false },
     pcConfig: { iceServers, iceTransportPolicy: 'all' },
@@ -364,24 +359,12 @@ function stopTimer() {
   if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
 }
 
-// === ICE/TURN SERVERS (cached 10 min) ===
-async function fetchIceServers() {
-  const now = Date.now();
-  if (cachedIceServers && (now - iceServersFetchedAt) < 600000) return cachedIceServers;
-  try {
-    const apiKey = getMeteredApiKey();
-    const resp = await fetch(`https://n2store.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
-    const servers = await resp.json();
-    if (Array.isArray(servers) && servers.length > 0) {
-      cachedIceServers = servers;
-      iceServersFetchedAt = now;
-      addLog(`ICE servers loaded: ${servers.length}`, 'success');
-      return servers;
-    }
-  } catch {
-    addLog('TURN fetch failed, using STUN only', 'error');
-  }
-  return cachedIceServers || [{ urls: 'stun:stun.l.google.com:19302' }];
+// === ICE SERVERS (STUN only — fast, no TURN timeout delay) ===
+function getIceServers() {
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
 }
 
 // === UI HELPERS ===
