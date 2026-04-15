@@ -128,6 +128,15 @@
             keywordInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    // Nếu đang ở chế độ Tra soát → xử lý như barcode scan
+                    if (DeliveryReportState.traSoatMode) {
+                        const scanned = keywordInput.value.trim().toUpperCase();
+                        if (scanned) {
+                            processScan(scanned);
+                            keywordInput.value = '';
+                        }
+                        return;
+                    }
                     DeliveryReportState.currentPage = 1;
                     collectFilters();
                     saveFiltersToStorage();

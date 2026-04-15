@@ -240,8 +240,8 @@ class InboxPancakeFeatures {
 
         const pageId = conv.pageId;
         const pageTags = this.pageSettings[pageId]?.tags || [];
-        const convTags = conv._raw?.tags || [];
-        const convTagIds = new Set(convTags.map(t => t.id));
+        const convTags = (conv._raw?.tags || []).filter(Boolean);
+        const convTagIds = new Set(convTags.map(t => t.id).filter(Boolean));
 
         if (pageTags.length === 0) {
             container.style.display = 'none';
@@ -539,7 +539,7 @@ class InboxPancakeFeatures {
         const list = document.getElementById('convNotesList');
         if (!list) return;
 
-        list.innerHTML = notes.map(n => {
+        list.innerHTML = notes.filter(Boolean).map(n => {
             const date = new Date(n.created_at);
             const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
             const author = n.created_by?.fb_name || '';

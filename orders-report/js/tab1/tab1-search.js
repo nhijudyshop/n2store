@@ -490,7 +490,7 @@ function copyPhoneNumber(phone) {
     });
 }
 
-// OnCallCX - Initiate phone call via tel: protocol
+// OnCallCX - Initiate phone call via WebRTC PhoneWidget
 function initiateCall(phone, customerName, orderCode) {
     if (!phone) return;
     const normalized = phone.replace(/[\s\-()]/g, '');
@@ -498,11 +498,16 @@ function initiateCall(phone, customerName, orderCode) {
 
     const displayName = customerName || normalized;
     const orderInfo = orderCode ? ` — Đơn #${orderCode}` : '';
-    const confirmed = confirm(`📞 Gọi cho ${displayName} (${normalized})?${orderInfo}`);
+    const confirmed = confirm(`Gọi cho ${displayName} (${normalized})?${orderInfo}`);
     if (!confirmed) return;
 
-    // Open tel: link (Zoiper/anConnect desktop handles it)
-    window.open(`tel:${normalized}`, '_self');
+    // Use WebRTC PhoneWidget if available
+    if (typeof PhoneWidget !== 'undefined') {
+        PhoneWidget.makeCall(normalized, displayName);
+    } else {
+        // Fallback: tel: link
+        window.open(`tel:${normalized}`, '_self');
+    }
 
     // Log call via extension bridge
     try {

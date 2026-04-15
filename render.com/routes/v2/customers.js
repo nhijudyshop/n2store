@@ -360,36 +360,41 @@ router.post('/link-fb-ids', async (req, res) => {
         let linked = 0, created = 0, skipped = 0;
 
         for (const item of items) {
-            const { fb_id, name, phone } = item;
-            if (!fb_id) { skipped++; continue; }
+            try {
+                const { fb_id, name, phone } = item;
+                if (!fb_id) { skipped++; continue; }
 
-            // Skip if fb_id already linked
-            const existing = await db.query('SELECT id FROM customers WHERE fb_id = $1', [fb_id]);
-            if (existing.rows.length > 0) { skipped++; continue; }
+                // Skip if fb_id already linked
+                const existing = await db.query('SELECT id FROM customers WHERE fb_id = $1', [fb_id]);
+                if (existing.rows.length > 0) { skipped++; continue; }
 
-            // Try linking by phone
-            if (phone) {
-                const norm = normalizePhone(phone);
-                if (norm) {
-                    const updated = await db.query(
-                        'UPDATE customers SET fb_id = $1 WHERE phone = $2 AND fb_id IS NULL RETURNING id',
-                        [fb_id, norm]
-                    );
-                    if (updated.rows.length > 0) { linked++; continue; }
+                // Try linking by phone
+                if (phone) {
+                    const norm = normalizePhone(phone);
+                    if (norm) {
+                        const updated = await db.query(
+                            'UPDATE customers SET fb_id = $1 WHERE phone = $2 AND fb_id IS NULL RETURNING id',
+                            [fb_id, norm]
+                        );
+                        if (updated.rows.length > 0) { linked++; continue; }
 
-                    // Phone not in DB → create new customer
-                    await db.query(
-                        `INSERT INTO customers (phone, name, fb_id) VALUES ($1, $2, $3)
-                         ON CONFLICT (phone) DO UPDATE SET fb_id = EXCLUDED.fb_id WHERE customers.fb_id IS NULL`,
-                        [norm, name || 'Khách hàng', fb_id]
-                    );
-                    created++;
-                    continue;
+                        // Phone not in DB → create new customer
+                        await db.query(
+                            `INSERT INTO customers (phone, name, fb_id) VALUES ($1, $2, $3)
+                             ON CONFLICT (phone) DO UPDATE SET fb_id = EXCLUDED.fb_id WHERE customers.fb_id IS NULL`,
+                            [norm, name || 'Khách hàng', fb_id]
+                        );
+                        created++;
+                        continue;
+                    }
                 }
-            }
 
-            // No phone → try matching by exact name (risky, skip if ambiguous)
-            skipped++;
+                // No phone → skip
+                skipped++;
+            } catch (itemErr) {
+                // Per-item error (e.g. unique constraint race) — skip and continue
+                skipped++;
+            }
         }
 
         console.log(`[CUSTOMERS] link-fb-ids: linked=${linked}, created=${created}, skipped=${skipped}`);
