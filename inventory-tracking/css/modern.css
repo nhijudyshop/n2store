@@ -768,6 +768,35 @@ body {
     height: 16px;
 }
 
+/* Package received checkboxes */
+.pkg-check-label,
+.pkg-check-all-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.pkg-check,
+.pkg-check-all {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--danger, #e53e3e);
+    flex-shrink: 0;
+}
+
+.pkg-check-all-label {
+    margin-left: 6px;
+}
+
+.pkg-kg-text.pkg-received {
+    text-decoration: line-through;
+    text-decoration-color: #e53e3e;
+    text-decoration-thickness: 2px;
+    opacity: 0.6;
+}
+
 /* Legacy shipment-date for backward compatibility */
 .shipment-date {
     display: flex;

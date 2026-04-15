@@ -446,13 +446,23 @@ function createShipmentCard(shipment) {
     const canViewCost = permissionHelper?.can('view_chiPhiHangVe');
     const canViewNote = permissionHelper?.can('view_ghiChuAdmin');
 
-    // Build packages info string
+    // Build packages info string with checkboxes
     const packages = shipment.kienHang || [];
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
-    const packageWeights = packages.map(p => `${p.soKg} KG`).join(', ');
-    const packagesInfo = packages.length > 0
-        ? `${packages.length} Kiện : ${packageWeights} | Tổng ${formatNumber(totalKg)} KG`
-        : '0 Kiện';
+    let packagesInfo;
+    if (packages.length > 0) {
+        const packageWeightsHtml = packages.map((p, i) =>
+            `<label class="pkg-check-label" data-shipment="${shipment.id}" data-pkg-index="${i}">` +
+            `<input type="checkbox" class="pkg-check" onclick="event.stopPropagation(); togglePkgCheck(this)">` +
+            `<span class="pkg-kg-text">${p.soKg} KG</span></label>`
+        ).join(', ');
+        packagesInfo = `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG` +
+            `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
+            `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ">` +
+            `</label>`;
+    } else {
+        packagesInfo = '0 Kiện';
+    }
 
     card.innerHTML = `
         <div class="shipment-header">
@@ -1195,3 +1205,42 @@ window.deleteSubInvoiceImage = deleteSubInvoiceImage;
 window.viewInvoiceImages = viewInvoiceImages;
 window.deleteInvoiceImage = deleteInvoiceImage;
 window.startInlineShortage = startInlineShortage;
+window.togglePkgCheck = togglePkgCheck;
+window.toggleAllPkgCheck = toggleAllPkgCheck;
+
+/**
+ * Toggle individual package check - strikethrough that KG
+ */
+function togglePkgCheck(checkbox) {
+    const label = checkbox.closest('.pkg-check-label');
+    const kgText = label.querySelector('.pkg-kg-text');
+    if (checkbox.checked) {
+        kgText.classList.add('pkg-received');
+    } else {
+        kgText.classList.remove('pkg-received');
+    }
+    // Sync "check all" state
+    const badge = checkbox.closest('.shipment-packages-badge');
+    const allChecks = badge.querySelectorAll('.pkg-check');
+    const checkAll = badge.querySelector('.pkg-check-all');
+    if (checkAll) {
+        checkAll.checked = Array.from(allChecks).every(c => c.checked);
+    }
+}
+
+/**
+ * Toggle all packages check - strikethrough all KGs
+ */
+function toggleAllPkgCheck(checkAllBox) {
+    const badge = checkAllBox.closest('.shipment-packages-badge');
+    const allChecks = badge.querySelectorAll('.pkg-check');
+    const allKgTexts = badge.querySelectorAll('.pkg-kg-text');
+    allChecks.forEach(c => { c.checked = checkAllBox.checked; });
+    allKgTexts.forEach(t => {
+        if (checkAllBox.checked) {
+            t.classList.add('pkg-received');
+        } else {
+            t.classList.remove('pkg-received');
+        }
+    });
+}
