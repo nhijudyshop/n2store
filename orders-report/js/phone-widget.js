@@ -15,7 +15,7 @@ const PhoneWidget = (() => {
 
     // WS connection options
     const WS_OPTIONS = [
-        { label: 'Vultr (CF)', url: 'wss://chatomni-proxy.nhijudyshop.workers.dev/ws/sip' },
+        { label: 'Vultr VPS', url: 'wss://45-76-155-207.sslip.io/ws' },
         { label: 'Render Proxy', url: 'wss://n2store-fallback.onrender.com/api/oncall/ws' }
     ];
 
