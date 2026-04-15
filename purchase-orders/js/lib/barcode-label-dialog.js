@@ -36,7 +36,9 @@ window.BarcodeLabelDialog = (function () {
             variant: item.variant || '',
             quantity: item.quantity || 1,
             price: item.sellingPrice || 0,
+            purchasePrice: item.purchasePrice || 0,
             tposProductId: item.tposProductId || null,
+            tposProductTmplId: item.tposProductTmplId || null,
             checked: true
         }));
 
@@ -376,7 +378,7 @@ window.BarcodeLabelDialog = (function () {
                 btnPrint.disabled = true;
                 btnPrint.textContent = 'Đang tạo PDF...';
                 try {
-                    await printViaTPOS(printItems, selectedPaper, showPrice, showBold, showCurrency, showProductName);
+                    await printViaTPOS(printItems, selectedPaper, showPrice, showBold, showCurrency, showProductName, hideBarcode);
                     closeModal();
                     return;
                 } catch (err) {
@@ -395,41 +397,152 @@ window.BarcodeLabelDialog = (function () {
     }
 
     /**
-     * Print via TPOS API — exact same PDF output as TPOS
-     * Flow: POST save config → GET PDF binary → open in new tab
-     */
-    /**
      * Print via TPOS API — exact same PDF output as TPOS.
-     * Flow: POST save config (gets Id) → GET PDF binary → open in new tab.
-     * Verified from TPOS network capture:
-     *   POST /odata/BarcodeProductLabel → {Id:87480, BarcodeTemplateIds:[...]}
-     *   GET /BarcodeProductLabel/PrintBarcodePDF?id=87480 → PDF binary
+     * Flow: POST /odata/BarcodeProductLabel (full payload) → GET /BarcodeProductLabel/PrintBarcodePDF?id=N → PDF
+     * Payload matched from TPOS network capture (2026-04-15).
      */
-    async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName) {
+    async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName, hideBarcode) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
 
-        // Build Lines with TPOS ProductId (= ProductTemplate Id)
-        const lines = items
-            .filter(it => it.tposProductId)
-            .map(it => ({ ProductId: it.tposProductId, Quantity: it.quantity }));
+        const validItems = items.filter(it => it.tposProductId);
+        if (!validItems.length) throw new Error('No items with TPOS product ID');
 
-        if (!lines.length) throw new Error('No items with TPOS product ID');
+        // Collect unique ProductTmplIds for BarcodeTemplateIds
+        const tmplIds = [...new Set(validItems.map(it => it.tposProductTmplId).filter(Boolean))];
 
-        // Step 1: Save barcode label config
-        // TPOS requires PriceListId=1 (not null), matches "Bảng giá mặc định"
+        // Per-company static config (matches TPOS payload)
+        const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
+        const warehouseConfig = {
+            1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', NameGet: '[WH] Nhi Judy Store' },
+            2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', NameGet: '[WH2] Shop NJD' }
+        };
+        const warehouse = warehouseConfig[companyId] || warehouseConfig[1];
+
+        // Build Lines with full Product object (TPOS requires this)
+        const lines = validItems.map(it => ({
+            Id: 0,
+            ProductId: it.tposProductId,
+            ProductTmplId: it.tposProductTmplId || 0,
+            Quantity: it.quantity,
+            Price: 0,
+            Product: {
+                Id: it.tposProductId,
+                EAN13: null,
+                DefaultCode: it.code,
+                NameTemplate: stripBrackets(it.name),
+                NameNoSign: null,
+                ProductTmplId: it.tposProductTmplId || 0,
+                UOMId: 1,
+                UOMName: 'Cái',
+                UOMPOId: 0,
+                QtyAvailable: 0,
+                VirtualAvailable: 0,
+                OutgoingQty: null,
+                IncomingQty: null,
+                NameGet: `[${it.code}] ${stripBrackets(it.name)}`,
+                POSCategId: null,
+                Price: null,
+                Barcode: it.code,
+                Image: null,
+                ImageUrl: null,
+                Thumbnails: [],
+                PriceVariant: it.price || 0,
+                SaleOK: true,
+                PurchaseOK: true,
+                DisplayAttributeValues: null,
+                LstPrice: 0,
+                Active: true,
+                ListPrice: 0,
+                PurchasePrice: it.purchasePrice || null,
+                StandardPrice: it.price || 0,
+                Weight: 0,
+                Volume: null,
+                OldPrice: null,
+                IsDiscount: false,
+                ProductTmplEnableAll: false,
+                Version: 0,
+                Description: null,
+                LastUpdated: null,
+                Type: 'product',
+                CategId: 0,
+                CostMethod: null,
+                InvoicePolicy: 'order',
+                Name: stripBrackets(it.name),
+                PurchaseMethod: 'receive',
+                SaleDelay: 0,
+                Tracking: null,
+                AvailableInPOS: true,
+                CompanyId: null,
+                IsCombo: null
+            }
+        }));
+
+        // Full payload matching TPOS BarcodeProductLabel POST
+        const payload = {
+            '@odata.context': `http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity`,
+            Id: 0,
+            PaperId: paper.id,
+            PriceListId: 1,
+            ShowCurrency: showCurrency,
+            ShowBold: showBold,
+            ShowPrice: showPrice,
+            ShowProductName: showProductName,
+            IsInventory: null,
+            ShowCompany: null,
+            BarcodeTemplateIds: tmplIds,
+            FastPurchaseOrderId: null,
+            IsHideBarcode: hideBarcode || null,
+            ExtraProperty: null,
+            Warehouse: {
+                ...warehouse,
+                CompanyId: 0,
+                LocationId: 0,
+                CompanyName: null,
+                LocationActive: true
+            },
+            PriceList: {
+                Id: 1,
+                Name: 'Bảng giá mặc định',
+                CurrencyId: 1,
+                CurrencyName: 'VND',
+                Active: true,
+                CompanyId: null,
+                PartnerCateName: null,
+                Sequence: 1,
+                DateStart: null,
+                DateEnd: null,
+                CreatedById: null
+            },
+            Paper: {
+                Id: paper.id,
+                Name: paper.name,
+                SheetWidth: paper.sheetW,
+                SheetHeight: paper.sheetH,
+                LabelWidth: paper.labelW,
+                LabelHeight: paper.labelH,
+                LabelsPerSheet: paper.cols,
+                TopMargin: paper.topMargin,
+                LeftMargin: paper.leftMargin,
+                BottomMargin: paper.bottomMargin,
+                RightMargin: paper.rightMargin,
+                HSpacing: paper.hSpacing || null,
+                VSpacing: paper.vSpacing || null,
+                TypePrint: 'Default',
+                FontSize: paper.fontSize,
+                TypePrintText: null,
+                LabelsPerRow: 3
+            },
+            Lines: lines
+        };
+
+        console.log('[Barcode] TPOS payload:', { items: validItems.length, tmplIds, paperId: paper.id });
+
+        // Step 1: POST save barcode label config
         const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8' },
-            body: JSON.stringify({
-                PaperId: paper.id,
-                PriceListId: 1,
-                ShowPrice: showPrice,
-                ShowBold: showBold,
-                ShowCurrency: showCurrency,
-                ShowProductName: showProductName,
-                Lines: lines
-            })
+            headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+            body: JSON.stringify(payload)
         });
 
         const saveData = await saveResp.json();
