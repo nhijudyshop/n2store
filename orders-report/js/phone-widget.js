@@ -451,10 +451,23 @@ const PhoneWidget = (() => {
         }
 
         const target = pendingCall.phone;
+
+        // Request mic permission before calling
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop()); // Release immediately, JsSIP will request again
+        } catch (err) {
+            addLog('Mic bị chặn! Bấm icon khóa trên thanh địa chỉ → cho phép Microphone', 'error');
+            setStatus('error', 'Mic blocked');
+            alert('Trình duyệt chặn microphone.\n\nCách fix:\n1. Bấm icon 🔒 trên thanh địa chỉ\n2. Tìm "Microphone" → chọn "Allow"\n3. Reload trang và thử lại');
+            endCall();
+            pendingCall = null;
+            return;
+        }
+
         addLog(`Calling ${target}...`);
         setStatus('calling', 'Calling...');
 
-        // ICE servers already cached from init, this is instant
         const iceServers = getIceServers();
         const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
             mediaConstraints: { audio: true, video: false },
