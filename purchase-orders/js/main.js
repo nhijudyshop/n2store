@@ -2119,6 +2119,45 @@ class PurchaseOrderController {
             this.ui.showToast('Đơn hàng không có sản phẩm', 'warning');
             return;
         }
+
+        // Enrich items missing tposProductId from web-warehouse (by productCode)
+        const needLookup = order.items.filter(i => i.productCode && !i.tposProductId);
+        if (needLookup.length > 0) {
+            try {
+                const codes = [...new Set(needLookup.map(i => i.productCode))];
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const lookupResults = await Promise.all(
+                    codes.map(code =>
+                        fetch(`${PROXY}/api/v2/web-warehouse/search?q=${encodeURIComponent(code)}&limit=1`)
+                            .then(r => r.json())
+                            .then(d => d.success && d.data?.[0] ? d.data[0] : null)
+                            .catch(() => null)
+                    )
+                );
+                const codeMap = new Map();
+                lookupResults.forEach((row, i) => { if (row) codeMap.set(codes[i], row); });
+
+                let patched = 0;
+                for (const item of order.items) {
+                    if (!item.tposProductId && item.productCode) {
+                        const wh = codeMap.get(item.productCode);
+                        if (wh?.tpos_product_id) {
+                            item.tposProductId = wh.tpos_product_id;
+                            item.tposProductTmplId = wh.tpos_template_id || null;
+                            patched++;
+                        }
+                    }
+                }
+                if (patched > 0) {
+                    console.log(`[PrintBarcode] Enriched ${patched} items from web-warehouse`);
+                    // Persist to PostgreSQL for future use
+                    this.dataManager.updateOrder(orderId, { items: order.items }).catch(() => {});
+                }
+            } catch (err) {
+                console.warn('[PrintBarcode] Web-warehouse lookup failed:', err.message);
+            }
+        }
+
         window.BarcodeLabelDialog.open(order);
     }
 
