@@ -841,7 +841,7 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
     if (body) {
         body.innerHTML = invoice.anhHoaDon.map((url, index) => `
             <div class="image-item" style="position: relative;">
-                <img src="${url}" alt="Hóa đơn" onclick="window.open('${url}', '_blank')" style="cursor: pointer;">
+                <img src="${url}" alt="Hóa đơn" onclick="openImageLightbox('${url}')" style="cursor: pointer;">
                 <button class="btn-delete-image" onclick="deleteInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
                     title="Xóa ảnh này" style="position: absolute; top: 5px; right: 5px;
                     background: rgba(220, 53, 69, 0.9); color: white; border: none;
@@ -1012,7 +1012,7 @@ function viewSubInvoiceImages(shipmentId, invoiceIdx) {
     if (body) {
         body.innerHTML = images.map((url, index) => `
             <div class="image-item" style="position: relative;">
-                <img src="${url}" alt="Hóa đơn phụ" onclick="window.open('${url}', '_blank')" style="cursor: pointer;">
+                <img src="${url}" alt="Hóa đơn phụ" onclick="openImageLightbox('${url}')" style="cursor: pointer;">
                 <button class="btn-delete-image" onclick="deleteSubInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
                     title="Xóa ảnh này" style="position: absolute; top: 5px; right: 5px;
                     background: rgba(220, 53, 69, 0.9); color: white; border: none;
@@ -1207,6 +1207,8 @@ window.deleteInvoiceImage = deleteInvoiceImage;
 window.startInlineShortage = startInlineShortage;
 window.togglePkgCheck = togglePkgCheck;
 window.toggleAllPkgCheck = toggleAllPkgCheck;
+window.openImageLightbox = openImageLightbox;
+window.closeImageLightbox = closeImageLightbox;
 
 /**
  * Toggle individual package check - strikethrough that KG
@@ -1243,4 +1245,42 @@ function toggleAllPkgCheck(checkAllBox) {
             t.classList.remove('pkg-received');
         }
     });
+}
+
+/**
+ * Open image lightbox overlay (phóng lớn ảnh, không mở tab mới)
+ */
+function openImageLightbox(url) {
+    let overlay = document.getElementById('imageLightboxOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'imageLightboxOverlay';
+        overlay.className = 'image-lightbox-overlay';
+        overlay.innerHTML = `
+            <button class="image-lightbox-close" onclick="closeImageLightbox()">&times;</button>
+            <img class="image-lightbox-img" src="" alt="Phóng lớn">
+        `;
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeImageLightbox();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeImageLightbox();
+        });
+        document.body.appendChild(overlay);
+    }
+    const img = overlay.querySelector('.image-lightbox-img');
+    img.src = url;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close image lightbox overlay
+ */
+function closeImageLightbox() {
+    const overlay = document.getElementById('imageLightboxOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }

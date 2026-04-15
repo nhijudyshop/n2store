@@ -797,6 +797,53 @@ body {
     opacity: 0.6;
 }
 
+/* Image Lightbox Overlay */
+.image-lightbox-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+
+.image-lightbox-overlay.active {
+    display: flex;
+}
+
+.image-lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    cursor: default;
+}
+
+.image-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 36px;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 10001;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.image-lightbox-close:hover {
+    opacity: 1;
+}
+
 /* Legacy shipment-date for backward compatibility */
 .shipment-date {
     display: flex;
