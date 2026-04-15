@@ -117,7 +117,7 @@ const PhoneWidget = (() => {
         const style = document.createElement('style');
         style.textContent = `
         /* FAB */
-        .pw-fab{position:fixed;bottom:20px;right:20px;z-index:99998;width:48px;height:48px;border-radius:50%;
+        .pw-fab{position:fixed;bottom:20px;right:80px;z-index:99998;width:48px;height:48px;border-radius:50%;
             background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;font-size:22px;
             cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;
             transition:transform 0.2s}
