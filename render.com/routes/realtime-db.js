@@ -981,6 +981,181 @@ router.delete('/kpi-statistics/:userId/:date', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/realtime/kpi-statistics/recalculate-assignments
+ * Re-assign all KPI orders to correct employees based on STT ranges.
+ * Fixes data where orders were assigned to wrong userId (e.g. bulk sender).
+ * Safe: only moves orders between userIds, does not change netProducts/kpi values.
+ */
+router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        // 1. Load employee ranges for all campaigns
+        let rangeRows;
+        try {
+            const r = await pool.query('SELECT campaign_name, employee_ranges FROM campaign_employee_ranges');
+            rangeRows = r.rows;
+        } catch (e) {
+            rangeRows = [];
+        }
+
+        const rangesByCampaign = {};
+        for (const row of rangeRows) {
+            rangesByCampaign[row.campaign_name] = row.employee_ranges || [];
+        }
+
+        // Helper: find employee for STT + campaignName
+        function findEmployee(stt, campaignName) {
+            if (!stt) return null;
+            const sttNum = Number(stt);
+            // Campaign-specific first
+            const safeName = campaignName ? campaignName.replace(/[.$#\[\]\/]/g, '_') : null;
+            if (safeName && rangesByCampaign[safeName]) {
+                for (const r of rangesByCampaign[safeName]) {
+                    const from = r.fromSTT || r.from || r.start || 0;
+                    const to = r.toSTT || r.to || r.end || Infinity;
+                    if (sttNum >= from && sttNum <= to) {
+                        return { userId: r.userId || r.id, userName: r.userName || r.name };
+                    }
+                }
+            }
+            // Fallback: search all campaigns
+            for (const ranges of Object.values(rangesByCampaign)) {
+                for (const r of ranges) {
+                    const from = r.fromSTT || r.from || r.start || 0;
+                    const to = r.toSTT || r.to || r.end || Infinity;
+                    if (sttNum >= from && sttNum <= to) {
+                        return { userId: r.userId || r.id, userName: r.userName || r.name };
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 2. Load all kpi_base entries (for STT + campaignName lookup)
+        const baseResult = await pool.query('SELECT order_code, stt, campaign_name FROM kpi_base');
+        const baseMap = {};
+        for (const b of baseResult.rows) {
+            baseMap[b.order_code] = { stt: b.stt, campaignName: b.campaign_name };
+        }
+
+        // 3. Load all kpi_statistics
+        const statsResult = await pool.query('SELECT id, user_id, user_name, stat_date, orders FROM kpi_statistics');
+
+        // 4. Find misassigned orders
+        const moves = []; // { order, fromUserId, fromDate, toUserId, toUserName }
+        for (const row of statsResult.rows) {
+            const orders = row.orders || [];
+            for (const order of orders) {
+                const base = baseMap[order.orderCode];
+                if (!base || !base.stt) continue;
+
+                const correctEmployee = findEmployee(base.stt, base.campaignName || order.campaignName);
+                if (!correctEmployee) continue;
+                if (correctEmployee.userId === row.user_id) continue; // Already correct
+
+                moves.push({
+                    order,
+                    fromUserId: row.user_id,
+                    fromDate: row.stat_date,
+                    toUserId: correctEmployee.userId,
+                    toUserName: correctEmployee.userName
+                });
+            }
+        }
+
+        if (moves.length === 0) {
+            return res.json({ success: true, message: 'All orders already assigned correctly', moved: 0 });
+        }
+
+        // 5. Execute moves in a transaction
+        const client = await pool.connect();
+        let moved = 0;
+        try {
+            await client.query('BEGIN');
+
+            for (const m of moves) {
+                const dateStr = typeof m.fromDate === 'string' ? m.fromDate.substring(0, 10) : m.fromDate.toISOString().substring(0, 10);
+                const orderObj = JSON.stringify({ ...m.order, updatedAt: new Date().toISOString() });
+
+                // Remove from old userId
+                await client.query(`
+                    UPDATE kpi_statistics
+                    SET orders = COALESCE((
+                        SELECT jsonb_agg(elem) FROM jsonb_array_elements(orders) elem
+                        WHERE elem->>'orderCode' != $2
+                    ), '[]'::jsonb)
+                    WHERE user_id = $1 AND stat_date = $3
+                `, [m.fromUserId, m.order.orderCode, dateStr]);
+
+                // Add to correct userId (ensure row exists)
+                await client.query(`
+                    INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
+                    VALUES ($1, $2, $3, 0, 0, '[]')
+                    ON CONFLICT (user_id, stat_date) DO UPDATE SET
+                        user_name = COALESCE($2, kpi_statistics.user_name)
+                `, [m.toUserId, m.toUserName, dateStr]);
+
+                await client.query(`
+                    UPDATE kpi_statistics
+                    SET orders = orders || $2::jsonb
+                    WHERE user_id = $1 AND stat_date = $3
+                `, [m.toUserId, `[${orderObj}]`, dateStr]);
+
+                moved++;
+            }
+
+            // 6. Recalculate totals for all affected userIds
+            const affectedUserIds = [...new Set(moves.flatMap(m => [m.fromUserId, m.toUserId]))];
+            for (const uid of affectedUserIds) {
+                await client.query(`
+                    UPDATE kpi_statistics
+                    SET total_net_products = COALESCE((
+                            SELECT SUM((elem->>'netProducts')::int)
+                            FROM jsonb_array_elements(orders) elem
+                        ), 0),
+                        total_kpi = COALESCE((
+                            SELECT SUM((elem->>'kpi')::numeric)
+                            FROM jsonb_array_elements(orders) elem
+                        ), 0),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = $1
+                `, [uid]);
+            }
+
+            // 7. Clean up empty rows (no orders left)
+            await client.query(`
+                DELETE FROM kpi_statistics WHERE orders = '[]'::jsonb OR orders IS NULL
+            `);
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        res.json({
+            success: true,
+            moved,
+            totalRanges: rangeRows.length,
+            totalBases: baseResult.rows.length,
+            details: moves.map(m => ({
+                orderCode: m.order.orderCode,
+                stt: m.order.stt,
+                from: m.fromUserId,
+                to: m.toUserId
+            }))
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-statistics/recalculate-assignments error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // =====================================================
 // TAG UPDATES API (Multi-User Realtime Tag Sync)
 // =====================================================
