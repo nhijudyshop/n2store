@@ -1601,7 +1601,8 @@ async function addProductToOrderFromInline(productId) {
         refreshProductsTableOnly();
 
         // KPI Audit Log - thêm SP từ edit modal (Render PostgreSQL)
-        if (window.kpiAuditLogger && existingProductIndex === -1) {
+        // Log cả khi SP mới (existingProductIndex === -1) lẫn khi tăng qty SP đã có
+        if (window.kpiAuditLogger) {
             try {
                 const orderId = currentEditOrderData.Id;
                 const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';

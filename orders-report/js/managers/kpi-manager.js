@@ -259,7 +259,7 @@
             // Filter logs after BASE creation
             const baseTime = base.createdAt ? new Date(base.createdAt) : null;
             const relevantLogs = baseTime
-                ? logs.filter(l => new Date(l.createdAt) > baseTime)
+                ? logs.filter(l => new Date(l.createdAt) >= baseTime)
                 : logs;
 
             // Only NEW products (not in BASE)
@@ -298,60 +298,12 @@
     }
 
     // ========================================
-    // Save KPI Statistics (UPSERT via REST)
+    // Save KPI Statistics (Atomic PATCH via REST)
     // ========================================
     async function saveKPIStatistics(userId, date, statistics) {
         if (!userId || !date || !statistics) return;
 
         try {
-            // First get current stats to do read-modify-write
-            let currentOrders = [];
-            let currentTotalNet = 0;
-            let currentTotalKPI = 0;
-
-            try {
-                const existing = await kpiAPI('GET', `/kpi-statistics/${encodeURIComponent(userId)}/${date}`);
-                if (existing.exists && existing.data) {
-                    currentOrders = existing.data.orders || [];
-                    currentTotalNet = existing.data.totalNetProducts || 0;
-                    currentTotalKPI = existing.data.totalKPI || 0;
-                }
-            } catch (e) {}
-
-            // Find or replace order in list
-            const existingIdx = currentOrders.findIndex(o => o.orderCode === statistics.orderCode);
-            if (existingIdx >= 0) {
-                const old = currentOrders[existingIdx];
-                currentTotalNet -= old.netProducts || 0;
-                currentTotalKPI -= old.kpi || 0;
-                currentOrders[existingIdx] = {
-                    orderCode: statistics.orderCode,
-                    orderId: statistics.orderId || null,
-                    stt: statistics.stt,
-                    campaignName: statistics.campaignName || null,
-                    netProducts: statistics.netProducts || 0,
-                    kpi: statistics.kpi || 0,
-                    hasDiscrepancy: statistics.hasDiscrepancy || false,
-                    details: statistics.details || {},
-                    updatedAt: new Date().toISOString()
-                };
-            } else {
-                currentOrders.push({
-                    orderCode: statistics.orderCode,
-                    orderId: statistics.orderId || null,
-                    stt: statistics.stt,
-                    campaignName: statistics.campaignName || null,
-                    netProducts: statistics.netProducts || 0,
-                    kpi: statistics.kpi || 0,
-                    hasDiscrepancy: statistics.hasDiscrepancy || false,
-                    details: statistics.details || {},
-                    updatedAt: new Date().toISOString()
-                });
-            }
-
-            currentTotalNet += statistics.netProducts || 0;
-            currentTotalKPI += statistics.kpi || 0;
-
             // Get employee name
             let userName = null;
             try {
@@ -359,11 +311,17 @@
                 if (assigned.userName && assigned.userName !== 'Chưa phân') userName = assigned.userName;
             } catch (e) {}
 
-            await kpiAPI('PUT', `/kpi-statistics/${encodeURIComponent(userId)}/${date}`, {
-                userName,
-                totalNetProducts: currentTotalNet,
-                totalKPI: currentTotalKPI,
-                orders: currentOrders
+            // Atomic server-side upsert — no client-side read-modify-write race condition
+            await kpiAPI('PATCH', `/kpi-statistics/${encodeURIComponent(userId)}/${date}/order`, {
+                orderCode: statistics.orderCode,
+                orderId: statistics.orderId || null,
+                stt: statistics.stt,
+                campaignName: statistics.campaignName || null,
+                netProducts: statistics.netProducts || 0,
+                kpi: statistics.kpi || 0,
+                hasDiscrepancy: statistics.hasDiscrepancy || false,
+                details: statistics.details || {},
+                userName
             });
         } catch (e) {
             console.error('[KPI] saveKPIStatistics error:', e);

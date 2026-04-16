@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-16
+
+### [orders][render] KPI Hoa Hồng: fix 5 bugs nghiêm trọng + cải thiện
+| | |
+|---|---|
+| **Files** | `render.com/routes/realtime-db.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab1/tab1-edit-modal.js` |
+| **Chi tiết** | **Bug 1 (CRITICAL):** Race condition saveKPIStatistics — chuyển sang atomic PATCH endpoint server-side, xóa client-side read-modify-write. **Bug 2:** PUT /kpi-base DO NOTHING → DO UPDATE SET stt (cho phép recover STT). **Bug 3:** Timing filter `>` → `>=` (audit log cùng ms với BASE không bị loại). **Bug 4:** Edit modal không log audit khi tăng qty SP đã có → log mọi add operation. **Bug 5:** Dedup check 5s trên server tránh double-count. **Phase 2:** Batch limit 500, date filter cho GET /kpi-statistics. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-14
 
 ### [orders][render] KPI Hoa Hồng: chuyển 100% sang Render PostgreSQL, bỏ Firebase

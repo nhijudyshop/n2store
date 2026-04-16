@@ -592,7 +592,8 @@ router.put('/kpi-base/:orderCode', async (req, res) => {
         await pool.query(`
             INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (order_code) DO NOTHING
+            ON CONFLICT (order_code) DO UPDATE SET
+                stt = EXCLUDED.stt
         `, [orderCode, orderId, campaignId, campaignName, userId, userName, stt || 0, JSON.stringify(products)]);
 
         res.json({ success: true, orderCode });
@@ -638,6 +639,18 @@ router.post('/kpi-audit-log', async (req, res) => {
             return res.status(400).json({ error: 'orderCode, action, productCode required' });
         }
 
+        // Dedup: skip if identical log exists within last 5 seconds
+        const dedup = await pool.query(`
+            SELECT id FROM kpi_audit_log
+            WHERE order_code = $1 AND product_id = $2 AND action = $3 AND source = $4 AND quantity = $5
+              AND created_at > NOW() - INTERVAL '5 seconds'
+            LIMIT 1
+        `, [orderCode, productId, action, source, quantity || 1]);
+
+        if (dedup.rows.length > 0) {
+            return res.json({ success: true, id: dedup.rows[0].id, deduplicated: true });
+        }
+
         const result = await pool.query(`
             INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
                 quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
@@ -665,6 +678,10 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
 
         if (!Array.isArray(entries) || entries.length === 0) {
             return res.json({ success: true, count: 0 });
+        }
+
+        if (entries.length > 500) {
+            return res.status(400).json({ error: 'Batch size exceeds limit of 500 entries' });
         }
 
         const client = await pool.connect();
@@ -778,8 +795,17 @@ router.get('/kpi-statistics', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
+        // Optional date filters: ?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD
+        const { dateFrom, dateTo } = req.query;
+        const params = [];
+        const conditions = [];
+        if (dateFrom) { params.push(dateFrom); conditions.push(`stat_date >= $${params.length}`); }
+        if (dateTo) { params.push(dateTo); conditions.push(`stat_date <= $${params.length}`); }
+        const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
         const result = await pool.query(
-            'SELECT user_id, user_name, stat_date, total_net_products, total_kpi, orders, updated_at FROM kpi_statistics ORDER BY stat_date DESC, user_id'
+            `SELECT user_id, user_name, stat_date, total_net_products, total_kpi, orders, updated_at FROM kpi_statistics ${where} ORDER BY stat_date DESC, user_id`,
+            params
         );
 
         res.json({
@@ -861,6 +887,76 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
         res.json({ success: true, userId, date });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-statistics error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/kpi-statistics/:userId/:date/order
+ * Atomic upsert of a single order in the statistics JSONB array.
+ * Prevents race conditions from concurrent client-side read-modify-write.
+ */
+router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
+    try {
+        const { userId, date } = req.params;
+        const { orderCode, orderId, stt, campaignName, netProducts, kpi,
+                hasDiscrepancy, details, userName } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
+
+        const orderObj = JSON.stringify({
+            orderCode, orderId: orderId || null, stt: stt || 0,
+            campaignName: campaignName || null,
+            netProducts: netProducts || 0, kpi: kpi || 0,
+            hasDiscrepancy: hasDiscrepancy || false,
+            details: details || {},
+            updatedAt: new Date().toISOString()
+        });
+
+        // Atomic: upsert row, then upsert order within JSONB array, recalc totals
+        await pool.query('BEGIN');
+
+        // Ensure row exists
+        await pool.query(`
+            INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
+            VALUES ($1, $2, $3, 0, 0, '[]')
+            ON CONFLICT (user_id, stat_date) DO UPDATE SET
+                user_name = COALESCE($2, kpi_statistics.user_name)
+        `, [userId, userName || null, date]);
+
+        // Remove old entry for this orderCode (if exists), then append new one
+        await pool.query(`
+            UPDATE kpi_statistics
+            SET orders = (
+                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                FROM jsonb_array_elements(orders) elem
+                WHERE elem->>'orderCode' != $2
+            ) || $3::jsonb
+            WHERE user_id = $1 AND stat_date = $4
+        `, [userId, orderCode, `[${orderObj}]`, date]);
+
+        // Recalculate totals from the orders array
+        await pool.query(`
+            UPDATE kpi_statistics
+            SET total_net_products = COALESCE((
+                    SELECT SUM((elem->>'netProducts')::int)
+                    FROM jsonb_array_elements(orders) elem
+                ), 0),
+                total_kpi = COALESCE((
+                    SELECT SUM((elem->>'kpi')::numeric)
+                    FROM jsonb_array_elements(orders) elem
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1 AND stat_date = $2
+        `, [userId, date]);
+
+        await pool.query('COMMIT');
+        res.json({ success: true, userId, date, orderCode });
+    } catch (error) {
+        try { await req.app.locals.chatDb?.query('ROLLBACK'); } catch (e) {}
+        console.error('[REALTIME-DB] PATCH /kpi-statistics order error:', error);
         res.status(500).json({ error: error.message });
     }
 });
