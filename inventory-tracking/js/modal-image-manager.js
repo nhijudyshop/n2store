@@ -13,11 +13,28 @@ const ImageManager = (() => {
     let _selectedStt = null; // Currently selected STT for paste
 
     /**
+     * Find dotHang by ID from all sources
+     */
+    function _findDotHang(invoiceId) {
+        // Search in flat dotHang list
+        const allDot = getAllDotHang();
+        const found = allDot.find(d => d.id === invoiceId);
+        if (found) return found;
+
+        // Search inside grouped shipments' hoaDon
+        for (const ship of (globalState.shipments || [])) {
+            const hd = ship.hoaDon?.find(h => h.id === invoiceId);
+            if (hd) return hd;
+        }
+
+        return null;
+    }
+
+    /**
      * Open image manager modal for a specific invoice
      */
     function open(shipmentId, invoiceId) {
-        // Find the actual dotHang (flat shipment) by invoiceId
-        const dotHang = globalState.shipments.find(s => s.id === invoiceId);
+        const dotHang = _findDotHang(invoiceId);
         if (!dotHang) {
             window.notificationManager?.error('Không tìm thấy đợt hàng');
             return;
@@ -290,9 +307,19 @@ const ImageManager = (() => {
         try {
             await shipmentsApi.update(_currentInvoiceId, { anhSanPham: _anhSanPham });
 
-            const dotHang = globalState.shipments.find(s => s.id === _currentInvoiceId);
-            if (dotHang) {
-                dotHang.anhSanPham = JSON.parse(JSON.stringify(_anhSanPham));
+            // Update local state in all sources
+            const copy = JSON.parse(JSON.stringify(_anhSanPham));
+
+            // Update in nccList dotHang
+            for (const ncc of globalState.nccList) {
+                const dot = (ncc.dotHang || []).find(d => d.id === _currentInvoiceId);
+                if (dot) { dot.anhSanPham = copy; break; }
+            }
+
+            // Update in grouped shipments hoaDon
+            for (const ship of (globalState.shipments || [])) {
+                const hd = (ship.hoaDon || []).find(h => h.id === _currentInvoiceId);
+                if (hd) { hd.anhSanPham = copy; break; }
             }
 
             window.notificationManager?.success('Đã lưu ảnh sản phẩm');
@@ -313,7 +340,7 @@ const ImageManager = (() => {
      * View images for a specific STT (called from table cell click)
      */
     function viewSttImages(shipmentId, invoiceId, stt) {
-        const dotHang = globalState.shipments.find(s => s.id === invoiceId);
+        const dotHang = _findDotHang(invoiceId);
         if (!dotHang) return;
 
         const images = dotHang.anhSanPham?.[String(stt)] || [];
