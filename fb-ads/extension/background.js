@@ -1,10 +1,13 @@
 // N2 FB Cookie Helper — Background Service Worker
+// Uses Facebook OAuth dialog to get EAAG token (most reliable)
 
 const N2_ADS_URL = 'https://nhijudyshop.github.io/n2store/fb-ads/index.html';
-const ADS_MANAGER_URL = 'https://adsmanager.facebook.com/adsmanager/manage/campaigns';
+const FB_APP_ID = '1290728302927895';
+const OAUTH_REDIRECT = 'https://www.facebook.com/connect/login_success.html';
+const OAUTH_SCOPES = 'ads_management,ads_read,business_management,pages_read_engagement,pages_manage_ads';
 
 // =====================================================
-// STATE (persists across popup open/close)
+// STATE
 // =====================================================
 let state = {
     status: 'idle', step: 0, message: '', token: null, error: null, startedAt: null,
@@ -16,24 +19,9 @@ function setState(updates) {
 }
 
 // =====================================================
-// TOKEN received from content script (intercept.js → relay.js)
+// MESSAGE HANDLER
 // =====================================================
-let tokenResolve = null;
-let capturedToken = null;
-
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    // Token found by content script
-    if (msg.action === 'token-found' && msg.token) {
-        console.log('[N2-BG] Token received from content script!', msg.token.substring(0, 20) + '...');
-        capturedToken = msg.token;
-        if (tokenResolve) {
-            tokenResolve(msg.token);
-            tokenResolve = null;
-        }
-        return;
-    }
-
-    // Popup requests
     if (msg.action === 'auto-login') {
         doAutoLogin().then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
         return true;
@@ -44,20 +32,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     if (msg.action === 'reset') {
         setState({ status: 'idle', step: 0, message: '', token: null, error: null, startedAt: null });
-        capturedToken = null;
         sendResponse({ ok: true });
         return false;
     }
 });
 
 // =====================================================
-// AUTO-LOGIN
+// AUTO-LOGIN via OAuth
 // =====================================================
 async function doAutoLogin() {
-    capturedToken = null;
-    tokenResolve = null;
-
-    // Step 1
+    // Step 1: Check FB cookies
     setState({ status: 'working', step: 1, message: 'Kiểm tra đăng nhập Facebook...', startedAt: Date.now(), error: null });
 
     const cookies = await chrome.cookies.getAll({ domain: '.facebook.com' });
@@ -69,27 +53,26 @@ async function doAutoLogin() {
         return { success: false, error: 'Chưa đăng nhập Facebook' };
     }
 
-    // Step 2: Open Ads Manager → content scripts auto-intercept fetch → find token
-    setState({ status: 'working', step: 2, message: 'Đang mở Ads Manager...' });
+    // Step 2: Open OAuth dialog — FB auto-approves if already authorized
+    setState({ status: 'working', step: 2, message: 'Đang lấy token qua Facebook OAuth...' });
 
     let tab = null;
     try {
-        tab = await chrome.tabs.create({ url: ADS_MANAGER_URL, active: true });
+        const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${FB_APP_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&response_type=token&scope=${OAUTH_SCOPES}`;
 
-        setState({ status: 'working', step: 2, message: 'Đang chờ token từ Ads Manager...' });
+        tab = await chrome.tabs.create({ url: oauthUrl, active: true });
 
-        // Wait for content script to intercept a fetch call containing EAAG
-        const token = await waitForToken(30000);
+        const token = await waitForOAuthRedirect(tab.id, 30000);
 
         try { await chrome.tabs.remove(tab.id); } catch (e) {}
 
         if (!token) {
-            setState({ status: 'error', step: 2, error: 'Không bắt được token sau 30s. Tài khoản có thể không có quyền Ads.' });
-            return { success: false, error: 'Timeout' };
+            setState({ status: 'error', step: 2, error: 'Không nhận được token. Có thể cần approve app trên popup Facebook.' });
+            return { success: false, error: 'OAuth timeout' };
         }
 
-        // Step 3
-        setState({ status: 'working', step: 3, message: 'Đang đăng nhập...', token });
+        // Step 3: Open N2 Ads Manager
+        setState({ status: 'working', step: 3, message: 'Đang đăng nhập N2 Ads Manager...', token });
         await openWithToken(token);
         setState({ status: 'success', step: 3, message: 'Đăng nhập thành công!' });
         return { success: true };
@@ -101,19 +84,59 @@ async function doAutoLogin() {
     }
 }
 
-function waitForToken(timeout) {
-    if (capturedToken) return Promise.resolve(capturedToken);
+// =====================================================
+// Wait for OAuth redirect containing access_token
+// =====================================================
+function waitForOAuthRedirect(tabId, timeout) {
     return new Promise((resolve) => {
-        tokenResolve = resolve;
+        let done = false;
+
+        function listener(updatedTabId, changeInfo) {
+            if (done || updatedTabId !== tabId) return;
+
+            const url = changeInfo.url || '';
+
+            // Facebook redirects to: redirect_uri#access_token=EAAG...&...
+            if (url.includes('login_success') && url.includes('access_token=')) {
+                done = true;
+                chrome.tabs.onUpdated.removeListener(listener);
+
+                const hashParams = url.split('#')[1] || '';
+                const match = hashParams.match(/access_token=([^&]+)/);
+                const token = match ? decodeURIComponent(match[1]) : null;
+
+                console.log('[N2-BG] OAuth token received!', token ? token.substring(0, 20) + '...' : 'null');
+                setState({ status: 'working', step: 2, message: 'Token nhận được!' });
+                resolve(token);
+            }
+
+            // User denied or error
+            if (url.includes('login_success') && url.includes('error=')) {
+                done = true;
+                chrome.tabs.onUpdated.removeListener(listener);
+                const errorMatch = url.match(/error_description=([^&]+)/);
+                const errorMsg = errorMatch ? decodeURIComponent(errorMatch[1].replace(/\+/g, ' ')) : 'User denied';
+                setState({ status: 'error', step: 2, error: errorMsg });
+                resolve(null);
+            }
+        }
+
+        chrome.tabs.onUpdated.addListener(listener);
+
+        // Timeout
         setTimeout(() => {
-            if (tokenResolve === resolve) {
-                tokenResolve = null;
-                resolve(capturedToken); // null if not found
+            if (!done) {
+                done = true;
+                chrome.tabs.onUpdated.removeListener(listener);
+                resolve(null);
             }
         }, timeout);
     });
 }
 
+// =====================================================
+// OPEN N2 ADS MANAGER
+// =====================================================
 async function openWithToken(token) {
     const targetUrl = `${N2_ADS_URL}?auto_token=${encodeURIComponent(token)}`;
     const [existing] = await chrome.tabs.query({ url: N2_ADS_URL + '*' });
