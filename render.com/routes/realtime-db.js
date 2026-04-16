@@ -1067,11 +1067,7 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
             }
         }
 
-        if (moves.length === 0) {
-            return res.json({ success: true, message: 'All orders already assigned correctly', moved: 0 });
-        }
-
-        // 5. Execute moves in a transaction
+        // 5. Execute moves + dedup in a transaction
         const client = await pool.connect();
         let moved = 0;
         try {
