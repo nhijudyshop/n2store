@@ -79,13 +79,33 @@ const ImageManager = (() => {
         _rows.forEach(row => {
             const sttInput = body.querySelector(`#stt_${row.id}`);
             const nccInput = body.querySelector(`#ncc_${row.id}`);
+            const hasImages = row.uploadedUrls.length > 0;
+
             if (sttInput) {
                 sttInput.value = row.stt;
-                sttInput.addEventListener('input', (e) => { row.stt = e.target.value; });
+                sttInput.addEventListener('change', (e) => {
+                    const newVal = e.target.value;
+                    if (hasImages && row.stt && newVal !== row.stt) {
+                        if (!confirm(`Đổi STT từ ${row.stt} sang ${newVal}?`)) {
+                            e.target.value = row.stt;
+                            return;
+                        }
+                    }
+                    row.stt = newVal;
+                });
             }
             if (nccInput) {
                 nccInput.value = row.ncc;
-                nccInput.addEventListener('input', (e) => { row.ncc = e.target.value; });
+                nccInput.addEventListener('change', (e) => {
+                    const newVal = e.target.value;
+                    if (hasImages && row.ncc && newVal !== row.ncc) {
+                        if (!confirm(`Đổi NCC từ ${row.ncc} sang ${newVal}?`)) {
+                            e.target.value = row.ncc;
+                            return;
+                        }
+                    }
+                    row.ncc = newVal;
+                });
             }
         });
 
@@ -143,7 +163,7 @@ const ImageManager = (() => {
                         </div>
                     </div>
 
-                    ${_rows.length > 1 ? `
+                    ${(_rows.length > 1 || hasImages) ? `
                         <button class="img-mgr-entry-remove" onclick="event.stopPropagation(); ImageManager.removeRow('${row.id}')" title="Xóa hàng">
                             <i data-lucide="trash-2"></i>
                         </button>
@@ -182,9 +202,13 @@ const ImageManager = (() => {
     }
 
     /**
-     * Remove a row
+     * Remove a row (with confirm if has images)
      */
     function removeRow(rowId) {
+        const row = _rows.find(r => r.id === rowId);
+        if (row && row.uploadedUrls.length > 0) {
+            if (!confirm(`Xóa hàng STT ${row.stt || '?'} và ${row.uploadedUrls.length} ảnh?`)) return;
+        }
         _rows = _rows.filter(r => r.id !== rowId);
         if (_rows.length === 0) _rows.push(_createRow());
         if (_focusedRowId === rowId) _focusedRowId = _rows[0].id;
@@ -305,11 +329,13 @@ const ImageManager = (() => {
     }
 
     /**
-     * Remove an image from a row
+     * Remove an image from a row (with confirm)
      */
     function removeImage(rowId, imageIdx) {
         const row = _rows.find(r => r.id === rowId);
         if (!row || imageIdx >= row.uploadedUrls.length) return;
+
+        if (!confirm('Xóa ảnh này?')) return;
 
         row.uploadedUrls.splice(imageIdx, 1);
         _render();
