@@ -542,6 +542,10 @@
             pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
             btnPrev.disabled = currentPage === 1;
             btnNext.disabled = currentPage >= totalPages;
+            const pageArrowPrev = document.getElementById('pageArrowPrev');
+            const pageArrowNext = document.getElementById('pageArrowNext');
+            if (pageArrowPrev) pageArrowPrev.disabled = currentPage === 1;
+            if (pageArrowNext) pageArrowNext.disabled = currentPage >= totalPages;
         }
 
         function changePage(direction) {

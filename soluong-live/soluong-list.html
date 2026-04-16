@@ -609,7 +609,7 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.9);
-            padding: 8px 16px;
+            padding: 6px 10px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 700;
@@ -618,11 +618,42 @@
             z-index: 1000;
             opacity: 0.15;
             transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         body:hover .page-info,
         .page-info:hover {
             opacity: 1;
+        }
+
+        .page-arrow {
+            background: none;
+            border: none;
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+
+        .page-arrow:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .page-arrow:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .page-arrow:disabled:hover {
+            background: none;
+            color: #667eea;
         }
 
         /* Search Box Styles */
@@ -1078,7 +1109,11 @@
         </div>
     </div>
 
-    <span class="page-info" id="pageInfo">Trang 1/1</span>
+    <div class="page-info" id="pageInfoBar">
+        <button class="page-arrow" id="pageArrowPrev" onclick="changePage('prev')">←</button>
+        <span id="pageInfo">Trang 1/1</span>
+        <button class="page-arrow" id="pageArrowNext" onclick="changePage('next')">→</button>
+    </div>
 
     <!-- Note: shared-auth-manager and shared-cache-manager are loaded by compat.js ES Module -->
     <script src="js/soluong-list.js"></script>
