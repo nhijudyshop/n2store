@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "N2 FB Cookie Helper",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "1-click đăng nhập N2 Ads Manager bằng tài khoản Facebook",
   "permissions": ["cookies", "activeTab", "scripting", "tabs", "webRequest"],
   "host_permissions": [
@@ -11,6 +11,30 @@
     "https://adsmanager.facebook.com/*",
     "https://graph.facebook.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://adsmanager.facebook.com/*",
+        "https://business.facebook.com/*",
+        "https://www.facebook.com/adsmanager/*"
+      ],
+      "js": ["intercept.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://adsmanager.facebook.com/*",
+        "https://business.facebook.com/*",
+        "https://www.facebook.com/adsmanager/*"
+      ],
+      "js": ["relay.js"],
+      "run_at": "document_start"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -18,9 +42,6 @@
       "48": "icon48.png",
       "128": "icon128.png"
     }
-  },
-  "background": {
-    "service_worker": "background.js"
   },
   "icons": {
     "16": "icon16.png",
