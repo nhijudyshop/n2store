@@ -3,12 +3,13 @@
   "name": "N2 FB Cookie Helper",
   "version": "1.1.0",
   "description": "1-click đăng nhập N2 Ads Manager bằng tài khoản Facebook",
-  "permissions": ["cookies", "activeTab", "scripting", "tabs"],
+  "permissions": ["cookies", "activeTab", "scripting", "tabs", "webRequest"],
   "host_permissions": [
     "https://*.facebook.com/*",
     "https://*.fbcdn.net/*",
     "https://business.facebook.com/*",
-    "https://adsmanager.facebook.com/*"
+    "https://adsmanager.facebook.com/*",
+    "https://graph.facebook.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
