@@ -108,7 +108,8 @@ async function copyCookies() {
 }
 
 function openAdsManager() {
-    chrome.tabs.create({ url: N2_ADS_URL });
+    // chrome.tabs.create needs "tabs" permission — use window.open instead
+    window.open(N2_ADS_URL, '_blank');
 }
 
 // Init on load
