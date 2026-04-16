@@ -384,7 +384,8 @@ router.post('/shipments', async (req, res) => {
             san_pham = [], tong_tien_hd = 0, tong_mon = 0,
             so_mon_thieu = 0, ghi_chu_thieu = '',
             anh_hoa_don = [], ghi_chu = '',
-            chi_phi_hang_ve = [], tong_chi_phi = 0
+            chi_phi_hang_ve = [], tong_chi_phi = 0,
+            anh_san_pham = {}
         } = req.body;
 
         if (!stt_ncc || !ngay_di_hang) {
@@ -409,8 +410,9 @@ router.post('/shipments', async (req, res) => {
                 so_mon_thieu, ghi_chu_thieu,
                 anh_hoa_don, ghi_chu,
                 chi_phi_hang_ve, tong_chi_phi,
+                anh_san_pham,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
             RETURNING *
         `, [
             shipmentId, stt_ncc, ngay_di_hang, ten_ncc,
@@ -419,6 +421,7 @@ router.post('/shipments', async (req, res) => {
             so_mon_thieu, ghi_chu_thieu,
             anh_hoa_don, ghi_chu,
             JSON.stringify(chi_phi_hang_ve), tong_chi_phi,
+            JSON.stringify(anh_san_pham),
             user, user
         ]);
 
@@ -439,7 +442,8 @@ router.put('/shipments/:id', async (req, res) => {
             san_pham, tong_tien_hd, tong_mon,
             so_mon_thieu, ghi_chu_thieu,
             anh_hoa_don, ghi_chu,
-            chi_phi_hang_ve, tong_chi_phi
+            chi_phi_hang_ve, tong_chi_phi,
+            anh_san_pham
         } = req.body;
 
         const result = await db.query(`
@@ -459,7 +463,8 @@ router.put('/shipments/:id', async (req, res) => {
                 ghi_chu = COALESCE($14, ghi_chu),
                 chi_phi_hang_ve = COALESCE($15, chi_phi_hang_ve),
                 tong_chi_phi = COALESCE($16, tong_chi_phi),
-                updated_by = $17,
+                anh_san_pham = COALESCE($17, anh_san_pham),
+                updated_by = $18,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -473,6 +478,7 @@ router.put('/shipments/:id', async (req, res) => {
             anh_hoa_don, ghi_chu,
             chi_phi_hang_ve ? JSON.stringify(chi_phi_hang_ve) : null,
             tong_chi_phi,
+            anh_san_pham ? JSON.stringify(anh_san_pham) : null,
             user
         ]);
 

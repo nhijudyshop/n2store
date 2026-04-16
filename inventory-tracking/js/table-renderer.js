@@ -573,6 +573,7 @@ function renderInvoicesSection(shipment) {
     invoices.forEach((hd, invoiceIdx) => {
         const products = hd.sanPham || [];
         const imageCount = hd.anhHoaDon?.length || 0;
+        const anhSanPham = hd.anhSanPham || {};
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
         // Calculate tongMon for this invoice (fallback from products if not set)
@@ -599,9 +600,10 @@ function renderInvoicesSection(shipment) {
                 tongMon: invoiceTongMon,
                 soMonThieu: hd.soMonThieu,
                 imageCount,
+                anhSanPham,
                 ghiChu: hd.ghiChu,
                 shipmentId: shipment.id,
-                invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
+                invoiceId: hd.id || invoiceIdx,
                 costItem,
                 canViewCost,
                 hasSubInvoice,
@@ -626,9 +628,10 @@ function renderInvoicesSection(shipment) {
                     tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
+                    anhSanPham,
                     ghiChu: hd.ghiChu,
                     shipmentId: shipment.id,
-                    invoiceId: hd.id || invoiceIdx,  // Fallback to index if no id
+                    invoiceId: hd.id || invoiceIdx,
                     costItem,
                     canViewCost,
                     hasSubInvoice,
@@ -683,13 +686,41 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
+ * Render image cell per product row (STT-based)
+ */
+function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass) {
+    const stt = String(productIdx + 1);
+    const images = anhSanPham?.[stt] || [];
+    const count = images.length;
+
+    if (count > 0) {
+        return `
+            <td class="col-image text-center ${borderClass}">
+                <span class="image-count stt-image-count" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})" title="Xem ${count} ảnh STT ${stt}">
+                    <i data-lucide="image"></i>
+                    ${count}
+                </span>
+            </td>
+        `;
+    }
+
+    return `
+        <td class="col-image text-center ${borderClass}">
+            <span class="image-add-hint" onclick="ImageManager.open('${shipmentId}', '${invoiceId}')" title="Thêm ảnh cho STT ${stt}">
+                <i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i>
+            </span>
+        </td>
+    `;
+}
+
+/**
  * Render a single product row
  */
 function renderProductRow(opts) {
     const {
         invoiceIdx, invoiceClass, sttNCC, tenNCC, productIdx, product,
         isFirstRow, isLastRow, rowSpan,
-        tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
+        tongTienHD, tongMon, soMonThieu, imageCount, anhSanPham, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost,
         hasSubInvoice, subInvoice
     } = opts;
@@ -743,14 +774,9 @@ function renderProductRow(opts) {
                     onclick="startInlineShortage(this)" title="Click để sửa">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
-                <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
-                    ${imageCount > 0 ? `
-                        <span class="image-count" onclick="viewInvoiceImages('${shipmentId}', '${invoiceId}')">
-                            <i data-lucide="image"></i>
-                            ${imageCount}
-                        </span>
-                    ` : '-'}
-                </td>
+            ` : ''}
+            ${_renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass)}
+            ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'
                         ? NoteManager.renderCell(invoiceId)

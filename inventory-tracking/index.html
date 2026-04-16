@@ -562,6 +562,28 @@
         </div>
     </div>
 
+    <!-- Modal: Image Manager (STT-based) -->
+    <div class="modal" id="modalImageManager">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3><i data-lucide="camera"></i> Quản Lý Ảnh Sản Phẩm</h3>
+                <button class="modal-close" id="btnCloseImageManager">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="imageManagerBody">
+                <!-- Image manager content rendered by JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalImageManager')">Hủy</button>
+                <button class="btn btn-primary" onclick="ImageManager.save()">
+                    <i data-lucide="save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: AI Invoice Preview -->
     <div class="modal" id="modalAIPreview">
         <div class="modal-overlay"></div>
@@ -664,6 +686,7 @@
     <script src="js/modal-shipment.js"></script>
     <script src="js/modal-shortage.js"></script>
     <script src="js/image-upload.js"></script>
+    <script src="js/modal-image-manager.js"></script>
     <script src="js/note-manager.js"></script>
     <script src="js/crud-operations.js"></script>
     <script src="js/finance-manager.js"></script>
