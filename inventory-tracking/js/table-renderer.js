@@ -694,14 +694,22 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
     const count = images.length;
 
     if (count > 0) {
-        const thumbs = images.map(url =>
+        const MAX_SHOW = 2;
+        const visible = images.slice(0, MAX_SHOW);
+        const extra = count - MAX_SHOW;
+
+        const thumbs = visible.map(url =>
             `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="STT ${stt}"><div class="cell-img-zoom"><img src="${url}" alt="STT ${stt}"></div></div>`
         ).join('');
+
+        const extraBadge = extra > 0
+            ? `<span class="cell-img-more" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})">+${extra}</span>`
+            : '';
 
         return `
             <td class="col-image ${borderClass}">
                 <div class="cell-img-list">
-                    ${thumbs}
+                    ${thumbs}${extraBadge}
                     <button class="cell-img-view-all" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})" title="Xem tất cả ${count} ảnh">
                         <i data-lucide="expand"></i>
                     </button>
