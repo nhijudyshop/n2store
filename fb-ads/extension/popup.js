@@ -8,6 +8,10 @@ const REQUIRED_COOKIES = ['c_user', 'xs'];
 let extractedCookies = '';
 let extractedToken = '';
 
+function openFacebook() {
+    chrome.tabs.create({ url: 'https://www.facebook.com/' });
+}
+
 // =====================================================
 // INIT — check if user is logged into Facebook
 // =====================================================
@@ -23,7 +27,8 @@ async function init() {
             statusEl.innerHTML = '<span class="dot"></span> Chưa đăng nhập Facebook';
             autoBtn.textContent = 'Mở Facebook để đăng nhập';
             autoBtn.disabled = false;
-            autoBtn.onclick = () => { chrome.tabs.create({ url: 'https://www.facebook.com/' }); };
+            autoBtn.removeEventListener('click', autoLogin);
+            autoBtn.addEventListener('click', openFacebook);
             return;
         }
 
@@ -36,7 +41,8 @@ async function init() {
             statusEl.innerHTML = '<span class="dot"></span> Chưa đăng nhập Facebook';
             autoBtn.textContent = 'Mở Facebook để đăng nhập';
             autoBtn.disabled = false;
-            autoBtn.onclick = () => { chrome.tabs.create({ url: 'https://www.facebook.com/' }); };
+            autoBtn.removeEventListener('click', autoLogin);
+            autoBtn.addEventListener('click', openFacebook);
             return;
         }
 
@@ -125,12 +131,12 @@ async function autoLogin() {
             setStep(2, 'error');
             btn.textContent = '❌ Không tìm thấy token';
             btn.disabled = false;
-            btn.onclick = autoLogin;
+            // retry is already bound via addEventListener
 
             // Show fallback
             setTimeout(() => {
                 btn.innerHTML = '🔄 Thử lại';
-                btn.onclick = autoLogin;
+                // retry is already bound via addEventListener
             }, 2000);
             return;
         }
@@ -165,7 +171,7 @@ async function autoLogin() {
         setTimeout(() => {
             btn.className = 'btn btn-primary btn-lg';
             btn.innerHTML = '🔄 Thử lại';
-            btn.onclick = autoLogin;
+            // retry is already bound via addEventListener
         }, 2000);
     }
 }
@@ -284,5 +290,9 @@ function setStep(num, state) {
     else if (state === 'active') numEl.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span>';
 }
 
-// Init on load
-document.addEventListener('DOMContentLoaded', init);
+// Init on load — bind all event listeners (no inline onclick allowed in MV3)
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('autoLoginBtn').addEventListener('click', autoLogin);
+    document.getElementById('copyBtn').addEventListener('click', copyCookies);
+    init();
+});
