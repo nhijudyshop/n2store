@@ -482,20 +482,75 @@ const ImageManager = (() => {
      */
     function _showImagesInViewer(stt, images) {
         const body = document.getElementById('imageViewerBody');
-        if (body) {
-            body.innerHTML = `
-                <div class="img-viewer-header-info">
-                    <strong>STT ${stt}</strong>
-                    <span>${images.length} ảnh</span>
-                </div>
-                ${images.map((url) => `
-                    <div class="image-item" style="position: relative;">
-                        <img src="${url}" alt="STT ${stt}" onclick="openImageLightbox('${url}')" style="cursor: pointer;">
+        if (!body) return;
+
+        body.innerHTML = `
+            <div class="img-viewer-header-info">
+                <strong>STT ${stt}</strong>
+                <span>${images.length} ảnh</span>
+            </div>
+            <div class="img-gallery-grid">
+                ${images.map((url, idx) => `
+                    <div class="img-gallery-item" onclick="ImageManager._openLightbox(${idx})">
+                        <img src="${url}" alt="Ảnh ${idx + 1}">
                     </div>
                 `).join('')}
-            `;
-        }
+            </div>
+            <div class="img-lightbox" id="imgLightbox" style="display:none">
+                <div class="img-lightbox-overlay" onclick="ImageManager._closeLightbox()"></div>
+                <button class="img-lightbox-nav img-lightbox-prev" onclick="ImageManager._navLightbox(-1)">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="img-lightbox-content">
+                    <img id="imgLightboxImg" src="" alt="">
+                    <div class="img-lightbox-counter" id="imgLightboxCounter"></div>
+                </div>
+                <button class="img-lightbox-nav img-lightbox-next" onclick="ImageManager._navLightbox(1)">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+                <button class="img-lightbox-close" onclick="ImageManager._closeLightbox()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+        `;
+
+        // Store images for lightbox navigation
+        body._galleryImages = images;
+        body._galleryIdx = 0;
+
+        if (window.lucide) lucide.createIcons();
         openModal('modalImageViewer');
+    }
+
+    function _openLightbox(idx) {
+        const body = document.getElementById('imageViewerBody');
+        const images = body?._galleryImages || [];
+        if (idx < 0 || idx >= images.length) return;
+
+        body._galleryIdx = idx;
+        const lb = document.getElementById('imgLightbox');
+        const img = document.getElementById('imgLightboxImg');
+        const counter = document.getElementById('imgLightboxCounter');
+
+        if (lb && img) {
+            img.src = images[idx];
+            counter.textContent = `${idx + 1} / ${images.length}`;
+            lb.style.display = 'flex';
+        }
+    }
+
+    function _closeLightbox() {
+        const lb = document.getElementById('imgLightbox');
+        if (lb) lb.style.display = 'none';
+    }
+
+    function _navLightbox(dir) {
+        const body = document.getElementById('imageViewerBody');
+        const images = body?._galleryImages || [];
+        let idx = (body._galleryIdx || 0) + dir;
+        if (idx < 0) idx = images.length - 1;
+        if (idx >= images.length) idx = 0;
+        _openLightbox(idx);
     }
 
     return {
@@ -506,7 +561,10 @@ const ImageManager = (() => {
         save,
         handleFileSelect,
         removeImage,
-        viewSttImages
+        viewSttImages,
+        _openLightbox,
+        _closeLightbox,
+        _navLightbox
     };
 })();
 

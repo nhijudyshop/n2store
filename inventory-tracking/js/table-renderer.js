@@ -700,7 +700,12 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
 
         return `
             <td class="col-image ${borderClass}">
-                <div class="cell-img-list">${thumbs}</div>
+                <div class="cell-img-list">
+                    ${thumbs}
+                    <button class="cell-img-view-all" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})" title="Xem tất cả ${count} ảnh">
+                        <i data-lucide="expand"></i>
+                    </button>
+                </div>
             </td>
         `;
     }
