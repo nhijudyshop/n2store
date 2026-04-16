@@ -1044,8 +1044,8 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
         // 3. Load all kpi_statistics
         const statsResult = await pool.query('SELECT id, user_id, user_name, stat_date, orders FROM kpi_statistics');
 
-        // 4. Find misassigned orders
-        const moves = []; // { order, fromUserId, fromDate, toUserId, toUserName }
+        // 4. Find misassigned orders — use row ID to avoid timezone issues
+        const moves = []; // { order, fromRowId, fromUserId, fromDate, toUserId, toUserName }
         for (const row of statsResult.rows) {
             const orders = row.orders || [];
             for (const order of orders) {
@@ -1058,6 +1058,7 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
 
                 moves.push({
                     order,
+                    fromRowId: row.id,
                     fromUserId: row.user_id,
                     fromDate: row.stat_date,
                     toUserId: correctEmployee.userId,
@@ -1077,18 +1078,24 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
             await client.query('BEGIN');
 
             for (const m of moves) {
-                const dateStr = typeof m.fromDate === 'string' ? m.fromDate.substring(0, 10) : m.fromDate.toISOString().substring(0, 10);
                 const orderObj = JSON.stringify({ ...m.order, updatedAt: new Date().toISOString() });
 
-                // Remove from old userId
+                // Remove from old row using row ID (avoids timezone date mismatch)
                 await client.query(`
                     UPDATE kpi_statistics
                     SET orders = COALESCE((
                         SELECT jsonb_agg(elem) FROM jsonb_array_elements(orders) elem
                         WHERE elem->>'orderCode' != $2
                     ), '[]'::jsonb)
-                    WHERE user_id = $1 AND stat_date = $3
-                `, [m.fromUserId, m.order.orderCode, dateStr]);
+                    WHERE id = $1
+                `, [m.fromRowId, m.order.orderCode]);
+
+                // Get the actual stat_date from the source row for the target
+                const dateResult = await client.query(
+                    'SELECT stat_date FROM kpi_statistics WHERE id = $1', [m.fromRowId]
+                );
+                const statDate = dateResult.rows[0]?.stat_date;
+                if (!statDate) continue;
 
                 // Add to correct userId (ensure row exists)
                 await client.query(`
@@ -1096,34 +1103,30 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
                     VALUES ($1, $2, $3, 0, 0, '[]')
                     ON CONFLICT (user_id, stat_date) DO UPDATE SET
                         user_name = COALESCE($2, kpi_statistics.user_name)
-                `, [m.toUserId, m.toUserName, dateStr]);
+                `, [m.toUserId, m.toUserName, statDate]);
 
                 await client.query(`
                     UPDATE kpi_statistics
                     SET orders = orders || $2::jsonb
                     WHERE user_id = $1 AND stat_date = $3
-                `, [m.toUserId, `[${orderObj}]`, dateStr]);
+                `, [m.toUserId, `[${orderObj}]`, statDate]);
 
                 moved++;
             }
 
-            // 6. Recalculate totals for all affected userIds
-            const affectedUserIds = [...new Set(moves.flatMap(m => [m.fromUserId, m.toUserId]))];
-            for (const uid of affectedUserIds) {
-                await client.query(`
-                    UPDATE kpi_statistics
-                    SET total_net_products = COALESCE((
-                            SELECT SUM((elem->>'netProducts')::int)
-                            FROM jsonb_array_elements(orders) elem
-                        ), 0),
-                        total_kpi = COALESCE((
-                            SELECT SUM((elem->>'kpi')::numeric)
-                            FROM jsonb_array_elements(orders) elem
-                        ), 0),
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = $1
-                `, [uid]);
-            }
+            // 6. Recalculate totals for ALL rows (not just affected userIds)
+            await client.query(`
+                UPDATE kpi_statistics
+                SET total_net_products = COALESCE((
+                        SELECT SUM((elem->>'netProducts')::int)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    total_kpi = COALESCE((
+                        SELECT SUM((elem->>'kpi')::numeric)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    updated_at = CURRENT_TIMESTAMP
+            `);
 
             // 7. Clean up empty rows (no orders left)
             await client.query(`
