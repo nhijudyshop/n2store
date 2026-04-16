@@ -1374,6 +1374,20 @@ const ApiService = {
         return fetchJson(`${this.RENDER_API_URL}/v2/analytics/activity-feed?${queryParams}`);
     },
 
+    /**
+     * Get cross-customer manual top-up/withdraw transactions
+     * @param {number} page
+     * @param {number} limit
+     * @param {Object} filters - { startDate, endDate, type, createdBy, phone, query, minAmount, maxAmount, balanceType }
+     */
+    async getManualTransactions(page = 1, limit = 20, filters = {}) {
+        const queryParams = new URLSearchParams({ page, limit });
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== '') queryParams.set(k, v);
+        });
+        return fetchJson(`${this.RENDER_API_URL}/v2/wallets/manual-transactions?${queryParams}`);
+    },
+
     // =====================================================
     // WALLET API METHODS (V2)
     // =====================================================

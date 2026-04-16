@@ -7,6 +7,7 @@
  * Wallet management endpoints
  *
  * Routes:
+ *   GET    /manual-transactions      - Cross-customer manual tx listing
  *   GET    /:customerId              - Get wallet summary
  *   POST   /:customerId/deposit      - Add real balance
  *   POST   /:customerId/credit       - Add virtual credit
@@ -48,6 +49,236 @@ async function getCustomerPhone(db, customerId) {
 // =====================================================
 // ROUTES
 // =====================================================
+
+/**
+ * GET /api/v2/wallets/manual-transactions
+ * Cross-customer listing of all manual top-up/withdraw/virtual credit transactions
+ * Used by "Giao dịch Nạp Tay" tab in Customer Hub
+ */
+router.get('/manual-transactions', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const {
+        page = 1, limit = 20,
+        startDate, endDate,
+        type, createdBy, phone, query,
+        minAmount, maxAmount, balanceType
+    } = req.query;
+
+    try {
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Manual transaction types & sources
+        const manualTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT', 'VIRTUAL_CANCEL', 'ADJUSTMENT'];
+        const excludedSources = ['BANK_TRANSFER', 'ORDER_PAYMENT', 'RETURN_GOODS', 'ORDER_CANCEL_REFUND'];
+
+        // Build WHERE clause dynamically
+        let conditions = [
+            `wt.type = ANY($1::text[])`,
+            `(wt.source IS NULL OR wt.source != ALL($2::text[]))`
+        ];
+        let params = [manualTypes, excludedSources];
+        let paramIdx = 3;
+
+        if (startDate) {
+            conditions.push(`wt.created_at >= $${paramIdx}::timestamptz`);
+            params.push(startDate);
+            paramIdx++;
+        }
+        if (endDate) {
+            conditions.push(`wt.created_at < ($${paramIdx}::timestamptz + interval '1 day')`);
+            params.push(endDate);
+            paramIdx++;
+        }
+        if (type) {
+            conditions.push(`wt.type = $${paramIdx}`);
+            params.push(type);
+            paramIdx++;
+        }
+        if (createdBy) {
+            conditions.push(`wt.created_by = $${paramIdx}`);
+            params.push(createdBy);
+            paramIdx++;
+        }
+        if (phone) {
+            const normalizedPhone = normalizePhone(phone);
+            if (normalizedPhone) {
+                conditions.push(`wt.phone = $${paramIdx}`);
+                params.push(normalizedPhone);
+                paramIdx++;
+            }
+        }
+        if (minAmount) {
+            conditions.push(`wt.amount >= $${paramIdx}`);
+            params.push(parseFloat(minAmount));
+            paramIdx++;
+        }
+        if (maxAmount) {
+            conditions.push(`wt.amount <= $${paramIdx}`);
+            params.push(parseFloat(maxAmount));
+            paramIdx++;
+        }
+        if (balanceType === 'real') {
+            conditions.push(`wt.type IN ('DEPOSIT', 'WITHDRAW')`);
+        } else if (balanceType === 'virtual') {
+            conditions.push(`wt.type IN ('VIRTUAL_CREDIT', 'VIRTUAL_DEBIT', 'VIRTUAL_CANCEL')`);
+        }
+        if (query) {
+            conditions.push(`(wt.phone ILIKE $${paramIdx} OR wt.note ILIKE $${paramIdx} OR wt.created_by ILIKE $${paramIdx} OR c.name ILIKE $${paramIdx})`);
+            params.push(`%${query}%`);
+            paramIdx++;
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        // 1. Count + summary aggregates (single query, no LIMIT)
+        const summaryQuery = `
+            SELECT
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN wt.type = 'DEPOSIT' THEN wt.amount ELSE 0 END), 0) as total_deposit,
+                COALESCE(SUM(CASE WHEN wt.type = 'WITHDRAW' THEN wt.amount ELSE 0 END), 0) as total_withdraw,
+                COALESCE(SUM(CASE WHEN wt.type = 'VIRTUAL_CREDIT' THEN wt.amount ELSE 0 END), 0) as total_virtual_credit,
+                COALESCE(SUM(CASE WHEN wt.type = 'VIRTUAL_DEBIT' THEN wt.amount ELSE 0 END), 0) as total_virtual_debit,
+                COALESCE(SUM(CASE WHEN wt.type = 'VIRTUAL_CANCEL' THEN wt.amount ELSE 0 END), 0) as total_virtual_cancel,
+                COALESCE(SUM(CASE WHEN wt.type = 'ADJUSTMENT' THEN wt.amount ELSE 0 END), 0) as total_adjustment,
+                COUNT(CASE WHEN wt.type = 'DEPOSIT' THEN 1 END) as count_deposit,
+                COUNT(CASE WHEN wt.type = 'WITHDRAW' THEN 1 END) as count_withdraw,
+                COUNT(CASE WHEN wt.type = 'VIRTUAL_CREDIT' THEN 1 END) as count_virtual_credit,
+                COUNT(CASE WHEN wt.type IN ('VIRTUAL_DEBIT', 'VIRTUAL_CANCEL') THEN 1 END) as count_virtual_debit_cancel,
+                COUNT(CASE WHEN wt.type = 'ADJUSTMENT' THEN 1 END) as count_adjustment
+            FROM wallet_transactions wt
+            LEFT JOIN customers c ON c.phone = wt.phone
+            WHERE ${whereClause}
+        `;
+        const summaryResult = await db.query(summaryQuery, params);
+        const summaryRow = summaryResult.rows[0];
+        const total = parseInt(summaryRow.total_count);
+
+        // 2. Distinct creators for filter dropdown
+        const creatorsQuery = `
+            SELECT DISTINCT wt.created_by
+            FROM wallet_transactions wt
+            WHERE wt.type = ANY($1::text[]) AND (wt.source IS NULL OR wt.source != ALL($2::text[]))
+              AND wt.created_by IS NOT NULL AND wt.created_by != ''
+            ORDER BY wt.created_by
+        `;
+        const creatorsResult = await db.query(creatorsQuery, [manualTypes, excludedSources]);
+        const creators = creatorsResult.rows.map(r => r.created_by);
+
+        // 3. Main data query with pagination
+        const dataQuery = `
+            SELECT
+                wt.id, wt.phone, wt.type, wt.amount,
+                wt.balance_before, wt.balance_after,
+                wt.virtual_balance_before, wt.virtual_balance_after,
+                wt.source, wt.reference_type, wt.reference_id,
+                wt.note, wt.created_by,
+                (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                c.name as customer_name
+            FROM wallet_transactions wt
+            LEFT JOIN customers c ON c.phone = wt.phone
+            WHERE ${whereClause}
+            ORDER BY wt.created_at DESC
+            LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+        `;
+        params.push(limitNum, offset);
+        const dataResult = await db.query(dataQuery, params);
+
+        // 4. Enrich ADJUSTMENT rows (same pattern as /:customerId/transactions)
+        try {
+            const adjustRefIds = dataResult.rows
+                .filter(r => r.type === 'ADJUSTMENT'
+                          && r.reference_type === 'balance_history'
+                          && /^\d+$/.test(r.reference_id || ''))
+                .map(r => parseInt(r.reference_id, 10));
+
+            if (adjustRefIds.length > 0) {
+                const adjResult = await db.query(`
+                    SELECT original_transaction_id, wrong_customer_phone, correct_customer_phone,
+                           reason, created_by,
+                           (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    FROM wallet_adjustments
+                    WHERE original_transaction_id = ANY($1::int[])
+                `, [adjustRefIds]);
+                const adjMap = new Map(adjResult.rows.map(a => [a.original_transaction_id, a]));
+                for (const r of dataResult.rows) {
+                    if (r.type !== 'ADJUSTMENT') continue;
+                    const adj = adjMap.get(parseInt(r.reference_id, 10));
+                    if (!adj) continue;
+                    r.adjustment_reason = adj.reason;
+                    r.adjusted_by = adj.created_by;
+                    r.wrong_customer_phone = adj.wrong_customer_phone;
+                    r.correct_customer_phone = adj.correct_customer_phone;
+                }
+            }
+        } catch (enrichErr) {
+            console.error('[wallets.js] Manual-tx adjustment enrich failed:', enrichErr.message);
+        }
+
+        // 5. Enrich with related order usage (pending_wallet_withdrawals completed after deposit)
+        try {
+            const phones = [...new Set(dataResult.rows.map(r => r.phone))];
+            if (phones.length > 0) {
+                const orderResult = await db.query(`
+                    SELECT phone, order_id, order_number, amount,
+                           (completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as completed_at
+                    FROM pending_wallet_withdrawals
+                    WHERE phone = ANY($1::text[]) AND status = 'COMPLETED'
+                    ORDER BY completed_at DESC
+                `, [phones]);
+
+                // Group orders by phone
+                const ordersByPhone = {};
+                for (const o of orderResult.rows) {
+                    if (!ordersByPhone[o.phone]) ordersByPhone[o.phone] = [];
+                    ordersByPhone[o.phone].push(o);
+                }
+
+                // Attach related orders to each deposit/credit row
+                for (const r of dataResult.rows) {
+                    if (!['DEPOSIT', 'VIRTUAL_CREDIT'].includes(r.type)) continue;
+                    const phoneOrders = ordersByPhone[r.phone] || [];
+                    const txDate = new Date(r.created_at);
+                    r.related_orders = phoneOrders
+                        .filter(o => new Date(o.completed_at) >= txDate)
+                        .slice(0, 5)
+                        .map(o => ({ order_id: o.order_id, order_number: o.order_number, amount: parseFloat(o.amount) }));
+                }
+            }
+        } catch (orderErr) {
+            console.error('[wallets.js] Manual-tx order enrich failed:', orderErr.message);
+        }
+
+        res.json({
+            success: true,
+            data: dataResult.rows,
+            summary: {
+                totalDeposit: parseFloat(summaryRow.total_deposit),
+                totalWithdraw: parseFloat(summaryRow.total_withdraw),
+                totalVirtualCredit: parseFloat(summaryRow.total_virtual_credit),
+                totalVirtualDebit: parseFloat(summaryRow.total_virtual_debit),
+                totalVirtualCancel: parseFloat(summaryRow.total_virtual_cancel),
+                totalAdjustment: parseFloat(summaryRow.total_adjustment),
+                countDeposit: parseInt(summaryRow.count_deposit),
+                countWithdraw: parseInt(summaryRow.count_withdraw),
+                countVirtualCredit: parseInt(summaryRow.count_virtual_credit),
+                countVirtualDebitCancel: parseInt(summaryRow.count_virtual_debit_cancel),
+                countAdjustment: parseInt(summaryRow.count_adjustment),
+                transactionCount: total
+            },
+            creators,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch manual transactions');
+    }
+});
 
 /**
  * GET /api/v2/wallets/:phone/available-balance

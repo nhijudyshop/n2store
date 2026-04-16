@@ -7,6 +7,7 @@ import { LinkBankTransactionModule } from './modules/link-bank-transaction.js';
 import { TransactionActivityModule } from './modules/transaction-activity.js';
 import { WalletPanelModule } from './modules/wallet-panel.js';
 import { TicketListModule } from './modules/ticket-list.js';
+import { ManualTopupTabModule } from './modules/manual-topup-tab.js';
 import apiService from './api-service.js';
 // Ensure API_CONFIG is loaded before apiService for proper initialization
 import '../config.js';
@@ -133,6 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return new WalletPanelModule(containerId, permissionHelper);
             case 'TicketListModule':
                 return new TicketListModule(containerId, permissionHelper);
+            case 'ManualTopupTabModule':
+                return new ManualTopupTabModule(containerId, permissionHelper);
         }
         return null;
     }
@@ -169,6 +172,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setActiveTabLink('unlinked-transactions-tab');
         },
+        'manual-topup': () => {
+            if (permissionHelper.hasPermission('customer-hub', 'manageWallet') || permissionHelper.hasPermission('customer-hub', 'viewActivities')) {
+                appContent.innerHTML = `<div id="manual-topup-container"></div>`;
+                loadModule('ManualTopupTabModule', 'manual-topup-container');
+            } else {
+                appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng giao dịch nạp tay.</p>`;
+            }
+            setActiveTabLink('manual-topup-tab');
+        },
     };
 
     function setActiveTabLink(tabId) {
@@ -197,6 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
             routes['transaction-activity']();
         } else if (hash === 'unlinked-transactions') {
             routes['unlinked-transactions']();
+        } else if (hash === 'manual-topup') {
+            routes['manual-topup']();
         } else {
             appContent.innerHTML = `<h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Trang không tìm thấy.</h2><p>Đường dẫn không hợp lệ: ${hash}</p>`;
         }
@@ -223,6 +237,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'unlinked-transactions-tab':
                     hash = 'unlinked-transactions';
+                    break;
+                case 'manual-topup-tab':
+                    hash = 'manual-topup';
                     break;
                 default:
                     hash = 'customer-search';
