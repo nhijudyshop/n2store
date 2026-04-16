@@ -84,8 +84,29 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
         Đăng nhập với Facebook
     </button>
+
+    <!-- Cookie login section -->
+    <div style="margin-top:20px;width:100%;max-width:460px">
+        <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc đăng nhập bằng Cookie (không cần API) &#x2500;&#x2500;</div>
+        <div style="background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-size:20px">&#127850;</span>
+                <div>
+                    <div style="font-weight:600;font-size:14px">Đăng nhập bằng Cookie</div>
+                    <div style="font-size:12px;color:var(--fb-text-light)">Paste cookies từ Facebook hoặc dùng Extension</div>
+                </div>
+            </div>
+            <textarea id="cookieInput" rows="3" placeholder="Paste cookies ở đây: c_user=...; xs=...; datr=...&#10;&#10;Cách lấy: Mở Facebook → F12 → Application → Cookies → copy c_user, xs, datr" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithCookies()" style="flex:1" id="cookieLoginBtn">&#128274; Đăng nhập với Cookie</button>
+                <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
+            </div>
+            <div id="cookieStatus" style="margin-top:8px;font-size:12px;display:none"></div>
+        </div>
+    </div>
+
     <!-- Saved accounts -->
-    <div id="savedAccountsSection" style="margin-top:24px;width:100%;max-width:400px;display:none">
+    <div id="savedAccountsSection" style="margin-top:24px;width:100%;max-width:460px;display:none">
         <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc chọn tài khoản đã lưu &#x2500;&#x2500;</div>
         <div id="savedAccountsList" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
@@ -471,6 +492,42 @@
             <div><strong>Ad Account:</strong> <code id="infoAdAccount"></code></div>
             <div><strong>Token hết hạn:</strong> <span id="infoTokenExpiry"></span></div>
         </div></div>
+    </div>
+</div></div>
+
+<!-- Cookie Help Modal -->
+<div class="modal-overlay" id="cookieHelpModal"><div class="modal" style="max-width:600px">
+    <div class="modal-header"><h3>&#127850; Hướng dẫn lấy Cookie Facebook</h3><button class="modal-close" onclick="FBAds.closeModal('cookieHelpModal')">&times;</button></div>
+    <div class="modal-body" style="font-size:14px;line-height:1.7">
+        <h4 style="margin-bottom:8px">Cách 1: Dùng Extension (Nhanh nhất)</h4>
+        <ol style="padding-left:20px;margin-bottom:16px">
+            <li>Cài Extension <strong>N2 FB Cookie Helper</strong> (file trong <code>fb-ads/extension/</code>)</li>
+            <li>Mở <a href="https://www.facebook.com" target="_blank" style="color:var(--fb-primary)">facebook.com</a> và đăng nhập</li>
+            <li>Click icon Extension &rarr; bấm <strong>"Copy Cookies"</strong></li>
+            <li>Quay lại đây, paste vào ô Cookie &rarr; Đăng nhập</li>
+        </ol>
+
+        <h4 style="margin-bottom:8px">Cách 2: Lấy thủ công từ DevTools</h4>
+        <ol style="padding-left:20px;margin-bottom:16px">
+            <li>Mở <a href="https://www.facebook.com" target="_blank" style="color:var(--fb-primary)">facebook.com</a> (phải đang đăng nhập)</li>
+            <li>Nhấn <strong>F12</strong> (hoặc Ctrl+Shift+I) mở DevTools</li>
+            <li>Vào tab <strong>Application</strong> (Chrome) hoặc <strong>Storage</strong> (Firefox)</li>
+            <li>Bên trái: <strong>Cookies</strong> &rarr; <strong>https://www.facebook.com</strong></li>
+            <li>Tìm và copy giá trị của: <code>c_user</code>, <code>xs</code>, <code>datr</code></li>
+            <li>Paste theo format: <code>c_user=XXX; xs=XXX; datr=XXX</code></li>
+        </ol>
+
+        <h4 style="margin-bottom:8px">Cách 3: Console (Nhanh)</h4>
+        <ol style="padding-left:20px;margin-bottom:16px">
+            <li>Mở facebook.com &rarr; F12 &rarr; tab <strong>Console</strong></li>
+            <li>Paste lệnh: <code>copy(document.cookie)</code> &rarr; Enter</li>
+            <li>Toàn bộ cookies đã được copy vào clipboard</li>
+            <li>Quay lại đây paste vào ô Cookie</li>
+        </ol>
+
+        <div style="background:#fff3cd;padding:12px;border-radius:6px;font-size:13px">
+            <strong>&#9888; Lưu ý bảo mật:</strong> Cookie = quyền truy cập tài khoản FB. Không chia sẻ cho ai. Token từ cookie thường hết hạn sau ~2 giờ, cần refresh lại.
+        </div>
     </div>
 </div></div>
 

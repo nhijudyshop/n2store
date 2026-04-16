@@ -48,10 +48,15 @@ const FBAds = (() => {
             if (res.success && res.authenticated) {
                 onLoginSuccess(res.user);
             } else if (res.needsRefresh && res.user) {
-                // Token expired but we know the user — auto-refresh silently
-                console.log('[FB-ADS] Token needs refresh, attempting silent re-login...');
+                // Token expired — try cookie refresh first, then SDK
+                console.log('[FB-ADS] Token needs refresh...');
                 toast('Đang cập nhật token...', 'info');
-                await silentTokenRefresh();
+                const cookieRefreshed = await cookieTokenRefresh();
+                if (cookieRefreshed) {
+                    onLoginSuccess(res.user);
+                } else {
+                    await silentTokenRefresh();
+                }
             }
         } catch (e) { /* server error */ }
     }
@@ -192,6 +197,101 @@ const FBAds = (() => {
         const dd = document.getElementById('accountDropdown');
         if (switcher && dd && !switcher.contains(e.target)) {
             dd.style.display = 'none';
+        }
+    });
+
+    // =====================================================
+    // COOKIE-BASED AUTH (No SDK required)
+    // =====================================================
+    async function loginWithCookies() {
+        const input = document.getElementById('cookieInput');
+        const statusEl = document.getElementById('cookieStatus');
+        const btn = document.getElementById('cookieLoginBtn');
+        const cookieStr = (input?.value || '').trim();
+
+        if (!cookieStr) {
+            toast('Paste cookies vào ô trước khi đăng nhập', 'error');
+            return;
+        }
+
+        // Validate basic format
+        if (!cookieStr.includes('c_user=')) {
+            toast('Thiếu cookie c_user. Hãy copy đầy đủ cookies từ Facebook.', 'error');
+            return;
+        }
+        if (!cookieStr.includes('xs=')) {
+            toast('Thiếu cookie xs. Hãy copy đầy đủ cookies từ Facebook.', 'error');
+            return;
+        }
+
+        // Show loading state
+        btn.disabled = true;
+        btn.textContent = 'Đang xử lý...';
+        statusEl.style.display = '';
+        statusEl.style.color = 'var(--fb-primary)';
+        statusEl.textContent = '⏳ Đang trích xuất access token từ cookies...';
+
+        try {
+            const res = await api('/auth/cookie-login', {
+                method: 'POST',
+                body: { cookies: cookieStr }
+            });
+
+            if (res.success) {
+                toast(`Đăng nhập thành công: ${res.user.name}! (Cookie mode)`, 'success');
+                statusEl.style.color = 'var(--fb-success)';
+                statusEl.textContent = `✅ Đã đăng nhập: ${res.user.name}`;
+
+                // Save cookies to localStorage for auto-refresh
+                try {
+                    localStorage.setItem('fb_ads_cookies', cookieStr);
+                } catch (e) { /* ignore */ }
+
+                onLoginSuccess(res.user);
+            }
+        } catch (err) {
+            statusEl.style.color = 'var(--fb-danger)';
+            statusEl.textContent = `❌ ${err.message}`;
+            toast('Lỗi: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔐 Đăng nhập với Cookie';
+        }
+    }
+
+    function showCookieHelp() {
+        openModal('cookieHelpModal');
+    }
+
+    // Auto-refresh cookie token when expired
+    async function cookieTokenRefresh() {
+        const savedCookies = localStorage.getItem('fb_ads_cookies');
+        if (!savedCookies) return false;
+
+        try {
+            const res = await api('/auth/cookie-refresh', {
+                method: 'POST',
+                body: { cookies: savedCookies }
+            });
+            if (res.success) {
+                console.log('[FB-ADS] Cookie token refreshed');
+                return true;
+            }
+        } catch (e) {
+            console.log('[FB-ADS] Cookie refresh failed:', e.message);
+            localStorage.removeItem('fb_ads_cookies');
+        }
+        return false;
+    }
+
+    // Listen for cookie messages from extension
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'FB_COOKIES_FROM_EXTENSION') {
+            const input = document.getElementById('cookieInput');
+            if (input) {
+                input.value = event.data.cookies;
+                toast('Cookies đã được điền từ Extension! Bấm đăng nhập.', 'info');
+            }
         }
     });
 
@@ -1440,6 +1540,8 @@ const FBAds = (() => {
         // Account switching
         switchAccount, removeSavedAccount, loadSavedAccounts,
         toggleAccountMenu, refreshAccountDropdown,
+        // Cookie auth
+        loginWithCookies, showCookieHelp,
         // New features
         loadAudiences, createAudience, deleteAudience,
         loadPixels, viewPixelEvents,

@@ -1338,4 +1338,221 @@ router.post('/reach-estimate', async (req, res) => {
     }
 });
 
+// =====================================================
+// COOKIE-BASED AUTH (bypass Facebook SDK/App Review)
+// User provides FB cookies → server extracts access token
+// =====================================================
+
+const COOKIE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Extract Facebook access token from Business Manager using cookies
+ * Tries multiple endpoints and extraction patterns
+ */
+async function extractTokenFromCookies(cookieString) {
+    const headers = {
+        'Cookie': cookieString,
+        'User-Agent': COOKIE_USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+    };
+
+    // Strategy 1: Business Manager page (most reliable for ad accounts)
+    const endpoints = [
+        'https://business.facebook.com/adsmanager/manage/campaigns',
+        'https://business.facebook.com/content_management',
+        'https://www.facebook.com/adsmanager/manage/campaigns',
+    ];
+
+    for (const endpoint of endpoints) {
+        try {
+            const res = await fetch(endpoint, { headers, redirect: 'manual' });
+
+            // Follow redirects manually to keep cookies
+            if (res.status >= 300 && res.status < 400) {
+                const location = res.headers.get('location');
+                if (location) {
+                    const res2 = await fetch(location, { headers, redirect: 'manual' });
+                    const html = await res2.text();
+                    const token = parseTokenFromHTML(html);
+                    if (token) return token;
+                }
+                continue;
+            }
+
+            const html = await res.text();
+            const token = parseTokenFromHTML(html);
+            if (token) return token;
+        } catch (e) {
+            console.log(`[FB-ADS-COOKIE] Failed ${endpoint}:`, e.message);
+        }
+    }
+
+    // Strategy 2: Graph API with cookies (sometimes works)
+    try {
+        const graphRes = await fetch('https://www.facebook.com/api/graphql/', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'doc_id=0&variables={}&fb_api_caller_class=RelayModern',
+        });
+        const html = await graphRes.text();
+        const token = parseTokenFromHTML(html);
+        if (token) return token;
+    } catch (e) { /* ignore */ }
+
+    return null;
+}
+
+/**
+ * Parse access token from HTML/JS response
+ * Tries multiple known patterns used by Facebook
+ */
+function parseTokenFromHTML(html) {
+    if (!html) return null;
+
+    const patterns = [
+        // Pattern 1: EAAG token in JSON
+        /"accessToken"\s*:\s*"(EAAG[^"]+)"/,
+        /"access_token"\s*:\s*"(EAAG[^"]+)"/,
+        // Pattern 2: Token in script vars
+        /accessToken\s*=\s*"(EAAG[^"]+)"/,
+        /access_token=(EAAG[^&"'\\]+)/,
+        // Pattern 3: __accessToken
+        /__accessToken\s*=\s*"(EAAG[^"]+)"/,
+        // Pattern 4: Token in config
+        /"token"\s*:\s*"(EAAG[^"]+)"/,
+        // Pattern 5: Generic EAAG pattern (last resort, strict)
+        /["\s](EAAG[A-Za-z0-9]{50,})/,
+    ];
+
+    for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+            console.log(`[FB-ADS-COOKIE] Token found with pattern: ${pattern.source.substring(0, 40)}...`);
+            return match[1];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Extract user info from cookies
+ */
+function parseCookieUserId(cookieString) {
+    const match = cookieString.match(/c_user=(\d+)/);
+    return match ? match[1] : null;
+}
+
+// POST /api/fb-ads/auth/cookie-login — Login using Facebook browser cookies
+router.post('/auth/cookie-login', async (req, res) => {
+    try {
+        const { cookies } = req.body;
+        if (!cookies) {
+            return res.status(400).json({ success: false, error: 'cookies required (c_user, xs, datr)' });
+        }
+
+        // Validate required cookies
+        const userId = parseCookieUserId(cookies);
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'Cookie c_user not found. Hãy copy đầy đủ cookies từ Facebook.' });
+        }
+        if (!cookies.includes('xs=')) {
+            return res.status(400).json({ success: false, error: 'Cookie xs not found. Hãy copy đầy đủ cookies từ Facebook.' });
+        }
+
+        console.log(`[FB-ADS-COOKIE] Attempting token extraction for user ${userId}...`);
+
+        // Extract access token from Business Manager
+        const accessToken = await extractTokenFromCookies(cookies);
+
+        if (!accessToken) {
+            // Fallback: try to get user info directly with cookies to confirm they're valid
+            try {
+                const checkRes = await fetch('https://www.facebook.com/me', {
+                    headers: {
+                        'Cookie': cookies,
+                        'User-Agent': COOKIE_USER_AGENT,
+                    },
+                    redirect: 'manual',
+                });
+                const isLoggedIn = checkRes.status === 302 && (checkRes.headers.get('location') || '').includes('facebook.com/');
+                if (!isLoggedIn) {
+                    return res.status(401).json({ success: false, error: 'Cookies không hợp lệ hoặc đã hết hạn. Hãy đăng nhập lại Facebook và copy cookies mới.' });
+                }
+            } catch (e) { /* ignore */ }
+
+            return res.status(400).json({
+                success: false,
+                error: 'Không thể trích xuất access token từ cookies. Cookies hợp lệ nhưng Facebook có thể đã thay đổi format. Hãy thử lại hoặc dùng cách đăng nhập SDK.'
+            });
+        }
+
+        // Validate the extracted token
+        let userName = 'User';
+        try {
+            const meRes = await fetch(`${FB_GRAPH_URL}/me?fields=id,name&access_token=${accessToken}`);
+            const meData = await meRes.json();
+            if (meData.error) {
+                return res.status(400).json({ success: false, error: 'Token trích xuất không hợp lệ: ' + meData.error.message });
+            }
+            userName = meData.name || 'User';
+        } catch (e) {
+            console.log('[FB-ADS-COOKIE] Could not validate token, using anyway');
+        }
+
+        // Store token (same as SDK flow)
+        fbTokenStore = {
+            accessToken,
+            expiresAt: Date.now() + 7200 * 1000, // Cookie tokens typically last ~2h
+            userId,
+            name: userName
+        };
+
+        await saveTokenToDB(req);
+
+        console.log(`[FB-ADS-COOKIE] Success! Authenticated as ${userName} (${userId})`);
+
+        res.json({
+            success: true,
+            user: { id: userId, name: userName },
+            method: 'cookie',
+            note: 'Token từ cookie thường có thời hạn ngắn (~2h). Cần refresh khi hết hạn.'
+        });
+    } catch (error) {
+        console.error('[FB-ADS-COOKIE] Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/auth/cookie-refresh — Refresh token using saved cookies
+router.post('/auth/cookie-refresh', async (req, res) => {
+    try {
+        const { cookies } = req.body;
+        if (!cookies) {
+            return res.status(400).json({ success: false, error: 'cookies required' });
+        }
+
+        const accessToken = await extractTokenFromCookies(cookies);
+        if (!accessToken) {
+            return res.status(400).json({ success: false, error: 'Không thể refresh token. Cookies có thể đã hết hạn.' });
+        }
+
+        // Update in-memory store
+        fbTokenStore.accessToken = accessToken;
+        fbTokenStore.expiresAt = Date.now() + 7200 * 1000;
+        await saveTokenToDB(req);
+
+        res.json({ success: true, message: 'Token refreshed' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

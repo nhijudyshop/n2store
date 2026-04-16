@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; width: 340px; background: #f0f2f5; }
+.header { background: #1877f2; color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+.header svg { width: 24px; height: 24px; flex-shrink: 0; }
+.header h1 { font-size: 15px; font-weight: 700; }
+.content { padding: 16px; }
+.status { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.status.ok { background: #e6f4ea; color: #1e7e34; }
+.status.warn { background: #fff3cd; color: #856404; }
+.status.err { background: #fde8e8; color: #c62828; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status.ok .dot { background: #1e7e34; }
+.status.warn .dot { background: #856404; }
+.status.err .dot { background: #c62828; }
+.cookies-box { background: #fff; border: 1px solid #dadde1; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-family: monospace; font-size: 11px; max-height: 80px; overflow-y: auto; word-break: break-all; color: #65676b; line-height: 1.4; }
+.btn { display: block; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn:hover { opacity: 0.9; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #1877f2; color: #fff; }
+.btn-outline { background: transparent; color: #1877f2; border: 1px solid #1877f2; margin-top: 8px; }
+.btn-success { background: #31a24c; color: #fff; }
+.info { font-size: 11px; color: #8a8d91; margin-top: 12px; line-height: 1.5; text-align: center; }
+.user-info { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.user-info .avatar { width: 28px; height: 28px; background: #1877f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg viewBox="0 0 36 36" fill="currentColor"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
+  <h1>N2 FB Cookie Helper</h1>
+</div>
+
+<div class="content">
+  <div id="status" class="status warn"><span class="dot"></span> Đang kiểm tra...</div>
+
+  <div id="userSection" style="display:none">
+    <div class="user-info">
+      <div class="avatar" id="userAvatar"></div>
+      <div>
+        <div style="font-weight:600;font-size:13px" id="userIdDisplay"></div>
+        <div style="font-size:11px;color:#8a8d91">Facebook User</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cookiesPreview" class="cookies-box" style="display:none"></div>
+
+  <button class="btn btn-primary" id="copyBtn" onclick="copyCookies()" disabled>Copy Cookies</button>
+  <button class="btn btn-outline" id="openAdsBtn" onclick="openAdsManager()">Mở N2 Ads Manager</button>
+
+  <div class="info">
+    Cookies chỉ được đọc khi bạn đã đăng nhập Facebook.<br>
+    Không chia sẻ cookies cho bất kỳ ai.
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

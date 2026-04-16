@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "N2 FB Cookie Helper",
+  "version": "1.0.0",
+  "description": "Trích xuất cookies Facebook cho N2Store Ads Manager",
+  "permissions": ["cookies"],
+  "host_permissions": [
+    "https://*.facebook.com/*",
+    "https://*.fbcdn.net/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
