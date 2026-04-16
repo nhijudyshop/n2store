@@ -222,24 +222,39 @@ router.get('/:customerId', async (req, res) => {
             const dt = new Date(d);
             return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
         };
-        const walletNoteLines = [];
-        let running = 0;
-        for (let i = 0; i < txs.length; i++) {
+        // --- Tìm WITHDRAW cuối cùng (không bị skip) ---
+        let lastWithdrawIdx = -1;
+        for (let i = txs.length - 1; i >= 0; i--) {
             if (skipIdx.has(i)) continue;
-            const tx = txs[i];
-            const amt = parseFloat(tx.amount) || 0;
-            if (tx.type === 'DEPOSIT') {
-                running += Math.abs(amt);
-                walletNoteLines.push(`CK ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)} → ${Math.round(running / 1000)}K`);
-            } else if (tx.type === 'WITHDRAW') {
-                running -= Math.abs(amt);
-                walletNoteLines.push(`TT ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)} → ${Math.round(running / 1000)}K`);
+            if (txs[i].type === 'WITHDRAW') { lastWithdrawIdx = i; break; }
+        }
+
+        // --- Tính "Nợ Cũ" = số dư sau WITHDRAW cuối ---
+        const walletNoteLines = [];
+        if (lastWithdrawIdx >= 0) {
+            let running = 0;
+            for (let i = 0; i <= lastWithdrawIdx; i++) {
+                if (skipIdx.has(i)) continue;
+                const tx = txs[i];
+                const amt = parseFloat(tx.amount) || 0;
+                if (tx.type === 'DEPOSIT') running += Math.abs(amt);
+                else if (tx.type === 'WITHDRAW') running -= Math.abs(amt);
+            }
+            if (running > 0) {
+                walletNoteLines.push(`Nợ Cũ ${Math.round(running / 1000)}K`);
             }
         }
-        const balance = parseFloat(wallet.balance) || 0;
-        if (balance > 0) {
-            walletNoteLines.push(`CÒN NỢ: ${Math.round(balance / 1000)}K`);
+
+        // --- Liệt kê tất cả DEPOSIT sau WITHDRAW cuối ---
+        // (nếu chưa có WITHDRAW thì lastWithdrawIdx = -1, startIdx = 0 => liệt kê tất cả)
+        for (let i = lastWithdrawIdx + 1; i < txs.length; i++) {
+            if (skipIdx.has(i)) continue;
+            const tx = txs[i];
+            if (tx.type === 'DEPOSIT') {
+                walletNoteLines.push(`ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+            }
         }
+        // Frontend sẽ thêm "-> 0Đ" / "-> Còn nợ XXK" dựa trên COD
 
         res.json({
             success: true,

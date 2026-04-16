@@ -1111,18 +1111,28 @@ function autoFillSaleNote() {
             }
         }
 
-        // 1b. Wallet note lines (CK / TT) — chỉ lấy dòng mới nhất
+        // 1b. Wallet note lines — hiển thị tất cả (Nợ Cũ + ĐÃ NHẬN)
         const walletLines = Array.isArray(window.currentSaleWalletNoteLines)
-            ? window.currentSaleWalletNoteLines.filter(l => !l.startsWith('CÒN NỢ'))
+            ? window.currentSaleWalletNoteLines
             : [];
         if (walletLines.length > 0) {
-            noteParts.push(walletLines[walletLines.length - 1]);
+            noteParts.push(...walletLines);
+            // Tính số dư ví còn lại sau khi trừ COD
+            const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+            const remainingWallet = Math.max(0, walletBalance - codValue);
+            if (remainingWallet > 0) {
+                const debtStr = remainingWallet >= 1000 ? `${Math.round(remainingWallet / 1000)}K` : `${remainingWallet}đ`;
+                noteParts.push(`-> Còn nợ ${debtStr}`);
+            } else {
+                noteParts.push(`-> 0Đ`);
+            }
         } else if (vcList.length === 0) {
-            // Fallback: single entry with wallet balance (no source info available)
+            // Fallback khi không có walletNoteLines từ backend
             const today = new Date();
             const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
             const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
-            noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+            noteParts.push(`ĐÃ NHẬN ${amountStr} ACB ${dateStr}`);
+            noteParts.push(`-> 0Đ`);
         }
     }
 
@@ -1166,13 +1176,7 @@ function autoFillSaleNote() {
         }
     }
 
-    // 5. CÒN NỢ = wallet balance - COD (chỉ hiển thị nếu > 0)
-    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-    const remainingDebt = walletBalance - codValue;
-    if (remainingDebt > 0) {
-        const debtStr = remainingDebt >= 1000 ? `${Math.round(remainingDebt / 1000)}K` : remainingDebt;
-        noteParts.push(`CÒN NỢ: ${debtStr}`);
-    }
+    // 5. (Removed) — "-> Còn nợ" / "-> 0Đ" đã được thêm trong block wallet lines ở trên
 
     if (noteParts.length > 0) {
         noteField.value = noteParts.join('\n');
