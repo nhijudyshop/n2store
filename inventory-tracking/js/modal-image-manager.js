@@ -24,11 +24,31 @@ const ImageManager = (() => {
     }
 
     /**
-     * Open image manager modal (no params — direct input mode)
+     * Open image manager modal — load existing data from all dotHangs
      */
     function open() {
-        _rows = [_createRow()];
-        _focusedRowId = _rows[0].id;
+        _rows = [];
+
+        // Load existing anhSanPham from all dotHangs
+        const allDot = getAllDotHang();
+        allDot.forEach(dot => {
+            const anhSanPham = dot.anhSanPham || {};
+            Object.entries(anhSanPham).forEach(([stt, urls]) => {
+                if (urls && urls.length > 0) {
+                    _rows.push({
+                        id: `row_${++_rowCounter}`,
+                        uploadedUrls: [...urls],
+                        stt: stt,
+                        ncc: String(dot.sttNCC || '')
+                    });
+                }
+            });
+        });
+
+        // Always add one empty row at the end for new input
+        _rows.push(_createRow());
+        _focusedRowId = _rows[_rows.length - 1].id;
+
         _render();
         openModal('modalImageManager');
     }
@@ -296,30 +316,26 @@ const ImageManager = (() => {
     }
 
     /**
-     * Save: match each row to dotHang(s) by STT/NCC, update anhSanPham
+     * Save: rebuild anhSanPham for each dotHang from rows
      */
     async function save() {
         // Filter rows that have images AND STT
         const validRows = _rows.filter(r => r.uploadedUrls.length > 0 && r.stt.trim());
-
-        if (validRows.length === 0) {
-            window.notificationManager?.warning('Chưa có ảnh hoặc chưa nhập STT');
-            return;
-        }
 
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
             const allDotHang = getAllDotHang();
 
-            // Build a map of dotHangId → updated anhSanPham
-            const updates = new Map(); // dotHangId → { anhSanPham }
+            // Build map: dotHangId → new anhSanPham (rebuilt from rows)
+            // Start with empty for all dotHangs (to clear removed images)
+            const updates = new Map();
+            allDotHang.forEach(d => updates.set(d.id, {}));
 
             for (const row of validRows) {
                 const sttKey = String(parseInt(row.stt));
                 const nccFilter = row.ncc.trim() ? parseInt(row.ncc) : null;
 
-                // Find matching dotHang(s)
                 let targets;
                 if (nccFilter !== null) {
                     targets = allDotHang.filter(d => d.sttNCC === nccFilter);
@@ -327,15 +343,12 @@ const ImageManager = (() => {
                     targets = [...allDotHang];
                 }
 
-                if (targets.length === 0) {
+                if (targets.length === 0 && nccFilter !== null) {
                     window.notificationManager?.warning(`Không tìm thấy NCC ${nccFilter}`);
                     continue;
                 }
 
                 for (const dot of targets) {
-                    if (!updates.has(dot.id)) {
-                        updates.set(dot.id, JSON.parse(JSON.stringify(dot.anhSanPham || {})));
-                    }
                     const anhSanPham = updates.get(dot.id);
                     if (!anhSanPham[sttKey]) {
                         anhSanPham[sttKey] = [];
@@ -344,20 +357,26 @@ const ImageManager = (() => {
                 }
             }
 
-            // Save each updated dotHang
+            // Save each dotHang that changed
             let savedCount = 0;
-            for (const [dotId, anhSanPham] of updates) {
-                await shipmentsApi.update(dotId, { anhSanPham });
+            for (const [dotId, newAnhSanPham] of updates) {
+                const dot = allDotHang.find(d => d.id === dotId);
+                const oldAnhSanPham = dot?.anhSanPham || {};
 
-                // Update local state in nccList
+                // Skip if nothing changed
+                if (JSON.stringify(oldAnhSanPham) === JSON.stringify(newAnhSanPham)) continue;
+
+                await shipmentsApi.update(dotId, { anhSanPham: newAnhSanPham });
+
+                // Update local state
                 for (const ncc of globalState.nccList) {
-                    const dot = (ncc.dotHang || []).find(d => d.id === dotId);
-                    if (dot) { dot.anhSanPham = anhSanPham; break; }
+                    const d = (ncc.dotHang || []).find(d => d.id === dotId);
+                    if (d) { d.anhSanPham = newAnhSanPham; break; }
                 }
                 savedCount++;
             }
 
-            window.notificationManager?.success(`Đã lưu ảnh vào ${savedCount} đợt hàng`);
+            window.notificationManager?.success(savedCount > 0 ? `Đã lưu ảnh vào ${savedCount} đợt hàng` : 'Không có thay đổi');
             closeModal('modalImageManager');
 
             // Re-build grouped shipments and re-render
