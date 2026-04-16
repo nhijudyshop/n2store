@@ -89,6 +89,84 @@ router.get('/', async (req, res) => {
     }
 });
 
+// =====================================================
+// EMPLOYEE RANGES BY CAMPAIGN (must be before /:id to avoid conflict)
+// =====================================================
+
+/**
+ * GET /api/campaigns/employee-ranges
+ * Get all campaigns' employee ranges
+ */
+router.get('/employee-ranges', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const result = await pool.query('SELECT * FROM campaign_employee_ranges ORDER BY updated_at DESC');
+
+        const rangesByCampaign = {};
+        result.rows.forEach(row => {
+            rangesByCampaign[row.campaign_name] = row.employee_ranges || [];
+        });
+
+        res.json({ success: true, rangesByCampaign });
+    } catch (error) {
+        console.error('[CAMPAIGNS] GET /employee-ranges error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/campaigns/employee-ranges/:campaignName
+ */
+router.get('/employee-ranges/:campaignName', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const result = await pool.query(
+            'SELECT * FROM campaign_employee_ranges WHERE campaign_name = $1',
+            [req.params.campaignName]
+        );
+
+        res.json({
+            success: true,
+            employeeRanges: result.rows.length > 0 ? result.rows[0].employee_ranges : []
+        });
+    } catch (error) {
+        console.error('[CAMPAIGNS] GET /employee-ranges/:campaignName error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/campaigns/employee-ranges/:campaignName
+ */
+router.put('/employee-ranges/:campaignName', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const { employeeRanges } = req.body;
+
+        await pool.query(`
+            INSERT INTO campaign_employee_ranges (campaign_name, employee_ranges)
+            VALUES ($1, $2)
+            ON CONFLICT (campaign_name) DO UPDATE SET
+                employee_ranges = EXCLUDED.employee_ranges,
+                updated_at = NOW()
+        `, [req.params.campaignName, JSON.stringify(employeeRanges || [])]);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[CAMPAIGNS] PUT /employee-ranges/:campaignName error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /**
  * GET /api/campaigns/:id
  */
@@ -497,84 +575,6 @@ router.put('/reports/:tableName/rename', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('[CAMPAIGNS] PUT /reports/:tableName/rename error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// =====================================================
-// PHASE 3: EMPLOYEE RANGES BY CAMPAIGN
-// =====================================================
-
-/**
- * GET /api/campaigns/employee-ranges
- * Get all campaigns' employee ranges
- */
-router.get('/employee-ranges', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-        await ensureTables(pool);
-
-        const result = await pool.query('SELECT * FROM campaign_employee_ranges ORDER BY updated_at DESC');
-
-        const rangesByCampaign = {};
-        result.rows.forEach(row => {
-            rangesByCampaign[row.campaign_name] = row.employee_ranges || [];
-        });
-
-        res.json({ success: true, rangesByCampaign });
-    } catch (error) {
-        console.error('[CAMPAIGNS] GET /employee-ranges error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/campaigns/employee-ranges/:campaignName
- */
-router.get('/employee-ranges/:campaignName', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-        await ensureTables(pool);
-
-        const result = await pool.query(
-            'SELECT * FROM campaign_employee_ranges WHERE campaign_name = $1',
-            [req.params.campaignName]
-        );
-
-        res.json({
-            success: true,
-            employeeRanges: result.rows.length > 0 ? result.rows[0].employee_ranges : []
-        });
-    } catch (error) {
-        console.error('[CAMPAIGNS] GET /employee-ranges/:campaignName error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * PUT /api/campaigns/employee-ranges/:campaignName
- */
-router.put('/employee-ranges/:campaignName', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-        await ensureTables(pool);
-
-        const { employeeRanges } = req.body;
-
-        await pool.query(`
-            INSERT INTO campaign_employee_ranges (campaign_name, employee_ranges)
-            VALUES ($1, $2)
-            ON CONFLICT (campaign_name) DO UPDATE SET
-                employee_ranges = EXCLUDED.employee_ranges,
-                updated_at = NOW()
-        `, [req.params.campaignName, JSON.stringify(employeeRanges || [])]);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('[CAMPAIGNS] PUT /employee-ranges/:campaignName error:', error);
         res.status(500).json({ error: error.message });
     }
 });
