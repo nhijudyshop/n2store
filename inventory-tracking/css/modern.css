@@ -3724,9 +3724,9 @@ body {
 }
 .cell-img-zoom img {
     display: block;
-    width: 400px;
+    width: 700px;
     height: auto;
-    max-height: 400px;
+    max-height: 700px;
     object-fit: contain;
     border-radius: 8px;
 }

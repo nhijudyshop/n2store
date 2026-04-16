@@ -1235,8 +1235,8 @@ function _positionImgZoom(wrap) {
     if (!zoom) return;
 
     const rect = wrap.getBoundingClientRect();
-    const zoomW = 412; // 400 img + 12 padding
-    const zoomH = 412;
+    const zoomW = 712; // 700 img + 12 padding
+    const zoomH = 712;
 
     // Position to the left of the thumbnail, vertically centered
     let left = rect.left - zoomW - 10;
