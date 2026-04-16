@@ -449,23 +449,6 @@
         }
     </script>
 
-    <!-- Invoice Status from Tab 1 iframe (for Phiếu bán hàng column) -->
-    <script>
-        // Lazy accessors: InvoiceStatusStore lives in Tab 1 iframe (tab1-orders.html),
-        // accessed via parent.document → ordersFrame.contentWindow
-        function _getTab1Window() {
-            try {
-                const frame = window.parent?.document?.getElementById('ordersFrame');
-                return frame?.contentWindow || null;
-            } catch(e) { return null; }
-        }
-        Object.defineProperty(window, '_parentInvoiceStore', { get() { return _getTab1Window()?.InvoiceStatusStore || null; } });
-        Object.defineProperty(window, '_parentGetShowStateConfig', { get() { return _getTab1Window()?.getShowStateConfig || null; } });
-        Object.defineProperty(window, '_parentGetStateCodeConfig', { get() { return _getTab1Window()?.getStateCodeConfig || null; } });
-        Object.defineProperty(window, '_parentGetDeliveryGroupBadge', { get() { return _getTab1Window()?.getDeliveryGroupBadge || null; } });
-        Object.defineProperty(window, '_parentShowInvoiceRawModal', { get() { return _getTab1Window()?.showInvoiceRawModal || null; } });
-    </script>
-
     <!-- KPI Commission Tab JS (11.8) -->
     <script src="js/managers/kpi-manager.js"></script>
     <script src="js/managers/kpi-audit-logger.js"></script>

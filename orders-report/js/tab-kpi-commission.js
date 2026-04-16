@@ -327,8 +327,11 @@ const KPICommission = {
             this.hideEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
 
-            // Load all stats from PostgreSQL (1 REST call)
-            await this.loadAllStatistics();
+            // Load invoice status + KPI stats in parallel from Render API
+            await Promise.all([
+                this.loadInvoiceStatusData(),
+                this.loadAllStatistics()
+            ]);
             // Derive filters from loaded data
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
@@ -552,26 +555,93 @@ const KPICommission = {
     },
 
     // ========================================
-    // INVOICE STATUS HELPERS (for Phiếu bán hàng column)
+    // INVOICE STATUS — self-contained, fetches from Render API directly
     // ========================================
+
+    // ShowState display config (mirrors Tab 1)
+    _SHOW_STATE_CONFIG: {
+        'Nháp': { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
+        'Đã xác nhận': { color: '#2563eb', bgColor: '#dbeafe', borderColor: '#93c5fd' },
+        'Huỷ bỏ': { color: '#dc2626', bgColor: '#fee2e2', borderColor: '#fca5a5', style: 'text-decoration: line-through;' },
+        'Đã thanh toán': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
+        'Hoàn thành': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
+    },
+    _STATE_CODE_CONFIG: {
+        draft: { label: 'Nháp', color: '#17a2b8' },
+        NotEnoughInventory: { label: 'Chờ nhập hàng', color: '#e67e22' },
+        cancel: { label: 'Hủy', color: '#6c757d', style: 'text-decoration: line-through;' },
+        IsMergeCancel: { label: 'Hủy do gộp đơn', color: '#6c757d', style: 'text-decoration: line-through;' },
+        CrossCheckingError: { label: 'Lỗi đối soát', color: '#c0392b' },
+        CrossCheckComplete: { label: 'Hoàn thành đối soát', color: '#27ae60' },
+        CrossCheckSuccess: { label: 'Đối soát OK', color: '#27ae60' },
+        CrossChecking: { label: 'Đang đối soát', color: '#27ae60' },
+        None: { label: 'Chưa đối soát', color: '#6c757d' },
+    },
+
+    // Invoice data cache: SaleOnlineId → latest invoice object
+    _invoiceCache: new Map(),
+    _invoiceCacheLoaded: false,
+
+    /**
+     * Load invoice status data directly from Render API.
+     * Builds a Map of SaleOnlineId → latest invoice entry.
+     */
+    async loadInvoiceStatusData() {
+        if (this._invoiceCacheLoaded) return;
+        try {
+            const apiBase = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
+            const response = await fetch(`${apiBase}/load`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Load failed');
+
+            // Group by SaleOnlineId, keep latest by timestamp
+            const latestMap = new Map();
+            for (const row of (result.entries || [])) {
+                const soId = row.sale_online_id;
+                if (!soId) continue;
+                const ts = parseInt(row.entry_timestamp) || 0;
+                const existing = latestMap.get(soId);
+                if (!existing || ts > existing._ts) {
+                    latestMap.set(soId, {
+                        SaleOnlineId: soId,
+                        Id: row.tpos_id,
+                        Number: row.number,
+                        Reference: row.reference,
+                        ShowState: row.show_state,
+                        StateCode: row.state_code,
+                        IsMergeCancel: row.is_merge_cancel,
+                        UserName: row.user_name,
+                        CarrierName: row.carrier_name,
+                        DateInvoice: row.date_invoice,
+                        _ts: ts
+                    });
+                }
+            }
+            this._invoiceCache = latestMap;
+            this._invoiceCacheLoaded = true;
+            console.log(`[KPI] Loaded ${latestMap.size} invoice entries`);
+        } catch (e) {
+            console.error('[KPI] Failed to load invoice status:', e);
+        }
+    },
+
+    _getShowStateConfig(showState) {
+        return this._SHOW_STATE_CONFIG[showState] || { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' };
+    },
+
+    _getStateCodeConfig(stateCode, isMergeCancel) {
+        if (isMergeCancel) return this._STATE_CODE_CONFIG.IsMergeCancel;
+        return this._STATE_CODE_CONFIG[stateCode] || this._STATE_CODE_CONFIG.None;
+    },
 
     /**
      * Render invoice status cell for a single order in KPI tab.
-     * Simplified version of Tab 1's renderInvoiceStatusCell — no Messenger, cancel, or PBH buttons.
      * @param {string} orderId - SaleOnlineId
      * @returns {string} HTML string
      */
     renderKPIInvoiceStatusCell(orderId) {
-        const store = window._parentInvoiceStore;
-        const getShowStateCfg = window._parentGetShowStateConfig;
-        const getStateCodeCfg = window._parentGetStateCodeConfig;
-        const getDeliveryBadge = window._parentGetDeliveryGroupBadge;
-
-        if (!store || !getShowStateCfg || !getStateCodeCfg) {
-            return '<span style="color: #9ca3af;">−</span>';
-        }
-
-        const invoiceData = store.get(orderId);
+        const invoiceData = this._invoiceCache.get(orderId);
         if (!invoiceData) {
             return '<span style="color: #9ca3af;">−</span>';
         }
@@ -579,8 +649,8 @@ const KPICommission = {
         const showState = invoiceData.ShowState || '';
         const stateCode = invoiceData.StateCode || 'None';
         const isMergeCancel = invoiceData.IsMergeCancel === true;
-        const showStateConfig = getShowStateCfg(showState);
-        const stateCodeConfig = getStateCodeCfg(stateCode, isMergeCancel);
+        const showStateConfig = this._getShowStateConfig(showState);
+        const stateCodeConfig = this._getStateCodeConfig(stateCode, isMergeCancel);
         const stateCodeStyle = stateCodeConfig.style || '';
 
         let html = '<div style="display: flex; flex-direction: column; gap: 2px;">';
@@ -604,20 +674,10 @@ const KPICommission = {
 
         html += '</div>';
 
-        // Row 2: StateCode text + delivery group badge
-        let deliveryBadgeHtml = '';
-        if (stateCode === 'CrossCheckComplete' && getDeliveryBadge) {
-            const dg = getDeliveryBadge(invoiceData);
-            if (dg) {
-                deliveryBadgeHtml = ` <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${dg.bg};color:${dg.color};border:1px solid ${dg.border};margin-left:4px;">${dg.label}</span>`;
-            }
-        }
-        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}${deliveryBadgeHtml}</div>`;
+        // Row 2: StateCode text
+        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</div>`;
 
-        // Row 3: DateInvoice + Lịch sử
-        html += '<div style="display:flex; align-items:center; gap:4px; margin-top:2px;">';
-
-        // DateInvoice
+        // Row 3: DateInvoice
         if (invoiceData.DateInvoice) {
             const d = new Date(invoiceData.DateInvoice);
             if (!isNaN(d.getTime())) {
@@ -625,14 +685,10 @@ const KPICommission = {
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const hh = String(d.getHours()).padStart(2, '0');
                 const mi = String(d.getMinutes()).padStart(2, '0');
-                html += `<span style="font-size: 10px; color: #6b7280;" title="${d.toLocaleString('vi-VN')}">${dd}/${mm} ${hh}:${mi}</span>`;
+                html += `<div style="font-size: 10px; color: #6b7280;" title="${d.toLocaleString('vi-VN')}">${dd}/${mm} ${hh}:${mi}</div>`;
             }
         }
 
-        // Lịch sử badge
-        html += `<span class="invoice-ra-don-badge" style="background:#e0e7ff;color:#4338ca;font-size:10px;padding:1px 6px;border-radius:3px;cursor:pointer;font-weight:500;" onclick="if(window._parentShowInvoiceRawModal) window._parentShowInvoiceRawModal('${orderId}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
-
-        html += '</div>';
         html += '</div>';
         return html;
     },
@@ -644,10 +700,7 @@ const KPICommission = {
      * @returns {string} HTML string
      */
     renderKPIInvoiceStatusSummary(orders) {
-        const store = window._parentInvoiceStore;
-        const getShowStateCfg = window._parentGetShowStateConfig;
-
-        if (!store || !getShowStateCfg || !orders || orders.length === 0) {
+        if (!orders || orders.length === 0) {
             return '<span style="color: #9ca3af;">−</span>';
         }
 
@@ -656,7 +709,7 @@ const KPICommission = {
         let noInvoice = 0;
 
         for (const order of orders) {
-            const invoiceData = store.get(order.orderId);
+            const invoiceData = this._invoiceCache.get(order.orderId);
             if (!invoiceData) {
                 noInvoice++;
                 continue;
@@ -679,7 +732,7 @@ const KPICommission = {
 
         for (const state of stateOrder) {
             if (!counts[state]) continue;
-            const cfg = getShowStateCfg(state);
+            const cfg = this._getShowStateConfig(state);
             const label = shortLabels[state] || state;
             const style = cfg.style || '';
             html += `<span style="background:${cfg.bgColor};color:${cfg.color};border:1px solid ${cfg.borderColor};font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;${style}">${counts[state]} ${label}</span>`;
@@ -688,7 +741,7 @@ const KPICommission = {
 
         // Any remaining states not in stateOrder
         for (const [state, count] of Object.entries(counts)) {
-            const cfg = getShowStateCfg(state);
+            const cfg = this._getShowStateConfig(state);
             const label = shortLabels[state] || state;
             const style = cfg?.style || '';
             html += `<span style="background:${cfg?.bgColor || '#f3f4f6'};color:${cfg?.color || '#6c757d'};border:1px solid ${cfg?.borderColor || '#d1d5db'};font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;${style}">${count} ${label}</span>`;
@@ -1489,7 +1542,6 @@ const KPICommission = {
             }
 
             // Build data rows
-            const store = window._parentInvoiceStore;
             const rows = [
                 ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng']
             ];
@@ -1497,22 +1549,20 @@ const KPICommission = {
             aggregated.forEach((emp, idx) => {
                 // Build invoice status summary text for Excel
                 let invoiceSummary = '';
-                if (store) {
-                    const counts = {};
-                    let noInvoice = 0;
-                    for (const order of emp.orders) {
-                        const inv = store.get(order.orderId);
-                        if (!inv) { noInvoice++; continue; }
-                        const state = inv.ShowState || 'Không rõ';
-                        counts[state] = (counts[state] || 0) + 1;
-                    }
-                    const parts = [];
-                    for (const [state, count] of Object.entries(counts)) {
-                        parts.push(`${count} ${state}`);
-                    }
-                    if (noInvoice > 0) parts.push(`${noInvoice} Chưa có`);
-                    invoiceSummary = parts.join(', ');
+                const counts = {};
+                let noInvoice = 0;
+                for (const order of emp.orders) {
+                    const inv = this._invoiceCache.get(order.orderId);
+                    if (!inv) { noInvoice++; continue; }
+                    const state = inv.ShowState || 'Không rõ';
+                    counts[state] = (counts[state] || 0) + 1;
                 }
+                const parts = [];
+                for (const [state, count] of Object.entries(counts)) {
+                    parts.push(`${count} ${state}`);
+                }
+                if (noInvoice > 0) parts.push(`${noInvoice} Chưa có`);
+                invoiceSummary = parts.join(', ');
 
                 rows.push([
                     idx + 1,
