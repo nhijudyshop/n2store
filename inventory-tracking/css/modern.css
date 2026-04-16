@@ -3597,6 +3597,41 @@ body {
 .img-mgr-delete i { width: 12px; height: 12px; }
 .img-mgr-thumb:hover .img-mgr-delete { opacity: 1; }
 
+/* Paste hint bar */
+.img-mgr-paste-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: #eff6ff;
+    border: 1px dashed #93c5fd;
+    border-radius: 8px;
+    color: #2563eb;
+    font-size: 13px;
+}
+.img-mgr-paste-hint i { width: 16px; height: 16px; }
+
+/* Selected row for paste */
+.img-mgr-row { cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.img-mgr-row-selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+.img-mgr-paste-tag {
+    font-size: 11px;
+    background: var(--primary);
+    color: #fff;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    animation: img-mgr-pulse 2s infinite;
+}
+@keyframes img-mgr-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 /* Table: per-row image cells */
 .image-add-hint {
     cursor: pointer;

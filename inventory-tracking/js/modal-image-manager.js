@@ -11,6 +11,7 @@ const ImageManager = (() => {
     let _anhSanPham = {}; // Working copy: { "1": ["url1"], "2": ["url2", "url3"] }
     let _productList = []; // [{stt, maSP}] for reference
     let _isUploading = false;
+    let _selectedStt = null; // Currently selected STT for paste
 
     /**
      * Open image manager modal for a specific invoice
@@ -84,58 +85,74 @@ const ImageManager = (() => {
             return;
         }
 
-        body.innerHTML = sortedStts.map(stt => {
-            const product = _productList.find(p => String(p.stt) === stt);
-            const images = _anhSanPham[stt] || [];
-            const maSP = product ? product.maSP : `STT ${stt}`;
+        // Default select first STT
+        if (!_selectedStt || !sortedStts.includes(_selectedStt)) {
+            _selectedStt = sortedStts[0];
+        }
 
-            return `
-                <div class="img-mgr-row" data-stt="${stt}">
-                    <div class="img-mgr-row-header">
-                        <div class="img-mgr-stt-info">
-                            <span class="img-mgr-stt-badge">${stt}</span>
-                            <span class="img-mgr-sku">${maSP}</span>
-                            <span class="img-mgr-count">${images.length} ảnh</span>
-                        </div>
-                        <div class="img-mgr-row-actions">
-                            <label class="btn btn-sm btn-outline img-mgr-add-btn" title="Thêm ảnh">
-                                <i data-lucide="plus"></i> Thêm ảnh
-                                <input type="file" multiple accept="image/*" class="img-mgr-file-input"
-                                    data-stt="${stt}" style="display:none" onchange="ImageManager.handleFileSelect(this)">
-                            </label>
-                        </div>
-                    </div>
-                    <div class="img-mgr-images" data-stt="${stt}">
-                        ${images.length > 0 ? images.map((url, idx) => `
-                            <div class="img-mgr-thumb">
-                                <img src="${url}" alt="STT ${stt}" onclick="openImageLightbox('${url}')">
-                                <button class="img-mgr-delete" onclick="ImageManager.removeImage('${stt}', ${idx})" title="Xóa ảnh">
-                                    <i data-lucide="x"></i>
-                                </button>
+        body.innerHTML = `
+            <div class="img-mgr-paste-hint">
+                <i data-lucide="clipboard"></i>
+                <span>Chọn STT rồi <strong>Ctrl+V</strong> để dán ảnh</span>
+            </div>
+            ${sortedStts.map(stt => {
+                const product = _productList.find(p => String(p.stt) === stt);
+                const images = _anhSanPham[stt] || [];
+                const maSP = product ? product.maSP : `STT ${stt}`;
+                const isSelected = stt === _selectedStt;
+
+                return `
+                    <div class="img-mgr-row ${isSelected ? 'img-mgr-row-selected' : ''}" data-stt="${stt}"
+                        onclick="ImageManager.selectStt('${stt}')">
+                        <div class="img-mgr-row-header">
+                            <div class="img-mgr-stt-info">
+                                <span class="img-mgr-stt-badge">${stt}</span>
+                                <span class="img-mgr-sku">${maSP}</span>
+                                <span class="img-mgr-count">${images.length} ảnh</span>
+                                ${isSelected ? '<span class="img-mgr-paste-tag">Ctrl+V dán vào đây</span>' : ''}
                             </div>
-                        `).join('') : '<span class="img-mgr-no-images">Chưa có ảnh</span>'}
+                            <div class="img-mgr-row-actions" onclick="event.stopPropagation()">
+                                <label class="btn btn-sm btn-outline img-mgr-add-btn" title="Thêm ảnh">
+                                    <i data-lucide="plus"></i> Thêm ảnh
+                                    <input type="file" multiple accept="image/*" class="img-mgr-file-input"
+                                        data-stt="${stt}" style="display:none" onchange="ImageManager.handleFileSelect(this)">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="img-mgr-images" data-stt="${stt}">
+                            ${images.length > 0 ? images.map((url, idx) => `
+                                <div class="img-mgr-thumb" onclick="event.stopPropagation()">
+                                    <img src="${url}" alt="STT ${stt}" onclick="openImageLightbox('${url}')">
+                                    <button class="img-mgr-delete" onclick="event.stopPropagation(); ImageManager.removeImage('${stt}', ${idx})" title="Xóa ảnh">
+                                        <i data-lucide="x"></i>
+                                    </button>
+                                </div>
+                            `).join('') : '<span class="img-mgr-no-images">Chưa có ảnh</span>'}
+                        </div>
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('')}
+        `;
 
-        // Setup paste handler
-        _setupPasteHandler(body);
+        // Setup paste handler on document
+        _setupPasteHandler();
 
         if (window.lucide) lucide.createIcons();
     }
 
     /**
-     * Setup Ctrl+V paste handler
+     * Setup Ctrl+V paste handler on document (only active when modal is open)
      */
-    function _setupPasteHandler(container) {
-        // Remove old listener if any
-        const modal = document.getElementById('modalImageManager');
-        if (modal._pasteHandler) {
-            modal.removeEventListener('paste', modal._pasteHandler);
+    function _setupPasteHandler() {
+        if (document._imgMgrPasteHandler) {
+            document.removeEventListener('paste', document._imgMgrPasteHandler);
         }
 
-        modal._pasteHandler = async (e) => {
+        document._imgMgrPasteHandler = async (e) => {
+            // Only handle paste when image manager modal is open
+            const modal = document.getElementById('modalImageManager');
+            if (!modal || !modal.classList.contains('active')) return;
+
             const items = e.clipboardData?.items;
             if (!items) return;
 
@@ -150,14 +167,19 @@ const ImageManager = (() => {
             if (imageFiles.length === 0) return;
             e.preventDefault();
 
-            // Find which STT row is focused or use the first one
-            const focusedRow = document.activeElement?.closest('.img-mgr-row');
-            const stt = focusedRow?.dataset.stt || _productList[0]?.stt?.toString() || '1';
-
+            const stt = _selectedStt || _productList[0]?.stt?.toString() || '1';
             await _uploadAndAddImages(stt, imageFiles);
         };
 
-        modal.addEventListener('paste', modal._pasteHandler);
+        document.addEventListener('paste', document._imgMgrPasteHandler);
+    }
+
+    /**
+     * Select STT for paste target
+     */
+    function selectStt(stt) {
+        _selectedStt = stt;
+        _render();
     }
 
     /**
@@ -353,6 +375,7 @@ const ImageManager = (() => {
         open,
         openPicker,
         selectFromPicker,
+        selectStt,
         save,
         handleFileSelect,
         removeImage,
