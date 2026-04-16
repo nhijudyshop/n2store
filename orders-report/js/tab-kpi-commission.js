@@ -529,8 +529,9 @@ const KPICommission = {
         for (const emp of filteredData) {
             let empHasValidOrders = false;
             for (const order of emp.orders) {
-                // Bug #4 fix: exclude stale orders from summary totals
+                // Exclude stale orders and orders with no KPI from summary
                 if (order._stale) continue;
+                if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) continue;
                 empHasValidOrders = true;
                 totalOrders++;
                 totalNet += order.netProducts || 0;
@@ -579,7 +580,7 @@ const KPICommission = {
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
-                <td>${emp.orders.length}</td>
+                <td>${emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
                 <td>${statusHtml}</td>
@@ -696,6 +697,9 @@ const KPICommission = {
 
         let html = '';
         orders.forEach(order => {
+            // Ẩn đơn có SP NET = 0 và KPI = 0
+            if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
+
             const hasDisc = order.hasDiscrepancy;
             const statusHtml = hasDisc
                 ? '<span class="status-badge status-discrepancy">⚠️ Cần đối soát</span>'
@@ -710,6 +714,13 @@ const KPICommission = {
                 <td>${statusHtml}</td>
             </tr>`;
         });
+
+        // Nếu sau filter không còn đơn nào
+        if (!html) {
+            this.showEl('modalL1Empty');
+            this.hideEl('modalL1TableWrapper');
+            return;
+        }
 
         tbody.innerHTML = html;
     },
@@ -1342,7 +1353,7 @@ const KPICommission = {
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
-                    emp.orders.length,
+                    emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length,
                     emp.totalNetProducts,
                     emp.totalKPI,
                     hasDisc ? 'Cần đối soát' : 'OK'
