@@ -219,7 +219,7 @@ const ImageManager = (() => {
     }
 
     /**
-     * Upload files and add to a specific row
+     * Convert files to base64 and add to a specific row (no Firebase upload)
      */
     async function _uploadToRow(rowId, files) {
         if (_isUploading) return;
@@ -228,24 +228,60 @@ const ImageManager = (() => {
         if (!row) return;
 
         _isUploading = true;
-        const loadingToast = window.notificationManager?.loading(`Đang tải ${files.length} ảnh...`);
 
         try {
-            const path = `inventory/img_mgr/${Date.now()}`;
-            const urls = await uploadMultipleImages(files, path);
+            for (const file of files) {
+                // Validate
+                if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) continue;
+                if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) continue;
 
-            if (urls.length > 0) {
-                row.uploadedUrls.push(...urls);
-                _render();
-                window.notificationManager?.success(`Đã tải ${urls.length} ảnh`);
+                // Resize + convert to base64 (max 800px, compress JPEG)
+                const base64 = await _resizeAndConvert(file, 800, 0.7);
+                row.uploadedUrls.push(base64);
+            }
+
+            _render();
+            if (files.length > 0) {
+                window.notificationManager?.success(`Đã thêm ${files.length} ảnh`);
             }
         } catch (error) {
-            console.error('[IMG-MGR] Upload error:', error);
-            window.notificationManager?.error('Không thể tải ảnh lên');
+            console.error('[IMG-MGR] Convert error:', error);
+            window.notificationManager?.error('Không thể xử lý ảnh');
         } finally {
             _isUploading = false;
-            window.notificationManager?.remove(loadingToast);
         }
+    }
+
+    /**
+     * Resize image and convert to compressed base64
+     */
+    function _resizeAndConvert(file, maxSize, quality) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+
+                let { width, height } = img;
+                if (width > maxSize || height > maxSize) {
+                    const ratio = Math.min(maxSize / width, maxSize / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+
+            img.onerror = reject;
+            img.src = url;
+        });
     }
 
     /**
