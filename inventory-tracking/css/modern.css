@@ -3711,30 +3711,29 @@ body {
 }
 .cell-img-thumb:hover { border-color: var(--primary); }
 
-/* Hover zoom popup */
+/* Hover zoom popup — fixed position to escape table overflow */
 .cell-img-zoom {
     display: none;
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    padding: 4px;
+    position: fixed;
+    z-index: 9999;
+    padding: 6px;
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
     pointer-events: none;
 }
 .cell-img-zoom img {
     display: block;
-    max-width: 280px;
-    max-height: 280px;
-    border-radius: 6px;
+    width: 400px;
+    height: auto;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 8px;
 }
-.cell-img-wrap:hover .cell-img-zoom { display: block; }
+/* Display controlled by JS _positionImgZoom / _hideImgZoom */
 
 /* Widen image column for thumbnails */
-.col-image { min-width: 50px; }
+.col-image { min-width: 50px; overflow: visible; }
 
 /* Image viewer header info */
 .img-viewer-header-info {

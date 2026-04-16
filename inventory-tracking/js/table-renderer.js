@@ -695,7 +695,7 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
 
     if (count > 0) {
         const thumbs = images.map(url =>
-            `<div class="cell-img-wrap"><img src="${url}" class="cell-img-thumb" alt="STT ${stt}"><div class="cell-img-zoom"><img src="${url}" alt="STT ${stt}"></div></div>`
+            `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="STT ${stt}"><div class="cell-img-zoom"><img src="${url}" alt="STT ${stt}"></div></div>`
         ).join('');
 
         return `
@@ -1225,6 +1225,38 @@ function updateShortageFooterTotal(td) {
     if (footerCell) {
         footerCell.innerHTML = `<strong>${total > 0 ? formatNumber(total) : '-'}</strong>`;
     }
+}
+
+/**
+ * Position hover zoom image using fixed positioning
+ */
+function _positionImgZoom(wrap) {
+    const zoom = wrap.querySelector('.cell-img-zoom');
+    if (!zoom) return;
+
+    const rect = wrap.getBoundingClientRect();
+    const zoomW = 412; // 400 img + 12 padding
+    const zoomH = 412;
+
+    // Position to the left of the thumbnail, vertically centered
+    let left = rect.left - zoomW - 10;
+    let top = rect.top + rect.height / 2 - zoomH / 2;
+
+    // If no room on left, show on right
+    if (left < 10) left = rect.right + 10;
+
+    // Keep within viewport
+    if (top < 10) top = 10;
+    if (top + zoomH > window.innerHeight - 10) top = window.innerHeight - zoomH - 10;
+
+    zoom.style.left = left + 'px';
+    zoom.style.top = top + 'px';
+    zoom.style.display = 'block';
+}
+
+function _hideImgZoom(wrap) {
+    const zoom = wrap.querySelector('.cell-img-zoom');
+    if (zoom) zoom.style.display = 'none';
 }
 
 console.log('[RENDERER] Table renderer initialized');
