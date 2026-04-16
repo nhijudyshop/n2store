@@ -706,7 +706,7 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
 
     return `
         <td class="col-image text-center ${borderClass}">
-            <span class="image-add-hint" onclick="ImageManager.open('${shipmentId}', '${invoiceId}')" title="Thêm ảnh cho STT ${stt}">
+            <span class="image-add-hint" onclick="ImageManager.open()" title="Thêm ảnh">
                 <i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i>
             </span>
         </td>

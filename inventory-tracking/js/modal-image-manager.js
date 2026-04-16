@@ -1,50 +1,34 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // MODAL IMAGE MANAGER - INVENTORY TRACKING
-// Manage product images mapped by STT (free-form input)
-// Data structure: anhSanPham = { "1": ["url1", "url2"], "23": ["url3"] }
+// Row-based input: each row = [images] + [STT] + [NCC]
+// Save matches rows to dotHang by STT/NCC
 // =====================================================
 
 const ImageManager = (() => {
-    let _currentShipmentId = null;
-    let _currentInvoiceId = null;
-    let _anhSanPham = {}; // Working copy
+    let _rows = []; // [{ id, uploadedUrls: [], stt: '', ncc: '' }]
+    let _focusedRowId = null;
     let _isUploading = false;
-    let _selectedStt = null; // Currently selected STT for paste
+    let _rowCounter = 0;
 
     /**
-     * Find dotHang by ID from all sources
+     * Create a new empty row
      */
-    function _findDotHang(invoiceId) {
-        // Search in flat dotHang list
-        const allDot = getAllDotHang();
-        const found = allDot.find(d => d.id === invoiceId);
-        if (found) return found;
-
-        // Search inside grouped shipments' hoaDon
-        for (const ship of (globalState.shipments || [])) {
-            const hd = ship.hoaDon?.find(h => h.id === invoiceId);
-            if (hd) return hd;
-        }
-
-        return null;
+    function _createRow() {
+        return {
+            id: `row_${++_rowCounter}`,
+            uploadedUrls: [],
+            stt: '',
+            ncc: ''
+        };
     }
 
     /**
-     * Open image manager modal for a specific invoice
+     * Open image manager modal (no params — direct input mode)
      */
-    function open(shipmentId, invoiceId) {
-        const dotHang = _findDotHang(invoiceId);
-        if (!dotHang) {
-            window.notificationManager?.error('Không tìm thấy đợt hàng');
-            return;
-        }
-
-        _currentShipmentId = shipmentId;
-        _currentInvoiceId = invoiceId;
-        _anhSanPham = JSON.parse(JSON.stringify(dotHang.anhSanPham || {}));
-        _selectedStt = null;
-
+    function open() {
+        _rows = [_createRow()];
+        _focusedRowId = _rows[0].id;
         _render();
         openModal('modalImageManager');
     }
@@ -56,144 +40,139 @@ const ImageManager = (() => {
         const body = document.getElementById('imageManagerBody');
         if (!body) return;
 
-        const sortedStts = Object.keys(_anhSanPham)
-            .sort((a, b) => parseInt(a) - parseInt(b));
-
-        // Auto-select first STT if none selected
-        if (!_selectedStt && sortedStts.length > 0) {
-            _selectedStt = sortedStts[0];
-        }
-
         body.innerHTML = `
-            <div class="img-mgr-add-stt-bar">
-                <input type="number" class="img-mgr-stt-input" id="imgMgrSttInput"
-                    placeholder="Nhập STT..." min="1" autocomplete="off">
-                <button class="btn btn-primary btn-sm" onclick="ImageManager.addStt()">
-                    <i data-lucide="plus"></i> Thêm STT
-                </button>
-                <span class="img-mgr-paste-hint-inline">
-                    <i data-lucide="clipboard"></i> Ctrl+V dán ảnh vào STT đang chọn
-                </span>
+            <div class="img-mgr-hint">
+                <i data-lucide="info"></i>
+                Chọn hàng, dán ảnh (Ctrl+V) hoặc chọn file, nhập STT và NCC (tùy chọn)
             </div>
-            <div class="img-mgr-list">
-                ${sortedStts.length === 0 ? `
-                    <div class="img-mgr-empty">
-                        <i data-lucide="image-off"></i>
-                        <p>Nhập STT và thêm ảnh để bắt đầu</p>
-                    </div>
-                ` : sortedStts.map(stt => _renderSttRow(stt)).join('')}
+            <div class="img-mgr-rows">
+                ${_rows.map(row => _renderRow(row)).join('')}
             </div>
+            <button class="btn btn-outline img-mgr-add-row-btn" onclick="ImageManager.addRow()">
+                <i data-lucide="plus"></i> Thêm hàng
+            </button>
         `;
 
-        // Focus input & setup enter key
-        const input = document.getElementById('imgMgrSttInput');
-        if (input) {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addStt();
-                }
-            });
-        }
-
         _setupPasteHandler();
+
+        // Attach input listeners (must do after innerHTML)
+        _rows.forEach(row => {
+            const sttInput = body.querySelector(`#stt_${row.id}`);
+            const nccInput = body.querySelector(`#ncc_${row.id}`);
+            if (sttInput) {
+                sttInput.value = row.stt;
+                sttInput.addEventListener('input', (e) => { row.stt = e.target.value; });
+            }
+            if (nccInput) {
+                nccInput.value = row.ncc;
+                nccInput.addEventListener('input', (e) => { row.ncc = e.target.value; });
+            }
+        });
+
         if (window.lucide) lucide.createIcons();
     }
 
     /**
-     * Render a single STT row
+     * Render a single row
      */
-    function _renderSttRow(stt) {
-        const images = _anhSanPham[stt] || [];
-        const isSelected = stt === _selectedStt;
+    function _renderRow(row) {
+        const isFocused = row.id === _focusedRowId;
+        const hasImages = row.uploadedUrls.length > 0;
 
         return `
-            <div class="img-mgr-row ${isSelected ? 'img-mgr-row-selected' : ''}" data-stt="${stt}"
-                onclick="ImageManager.selectStt('${stt}')">
-                <div class="img-mgr-row-header">
-                    <div class="img-mgr-stt-info">
-                        <span class="img-mgr-stt-badge">${stt}</span>
-                        <span class="img-mgr-label">STT ${stt}</span>
-                        <span class="img-mgr-count">${images.length} ảnh</span>
-                        ${isSelected ? '<span class="img-mgr-paste-tag">Ctrl+V dán vào đây</span>' : ''}
-                    </div>
-                    <div class="img-mgr-row-actions" onclick="event.stopPropagation()">
-                        <label class="btn btn-sm btn-outline img-mgr-add-btn" title="Chọn file ảnh">
-                            <i data-lucide="plus"></i> Thêm ảnh
-                            <input type="file" multiple accept="image/*" class="img-mgr-file-input"
-                                data-stt="${stt}" style="display:none" onchange="ImageManager.handleFileSelect(this)">
+            <div class="img-mgr-entry ${isFocused ? 'img-mgr-entry-focused' : ''}"
+                data-row-id="${row.id}" onclick="ImageManager.focusRow('${row.id}')">
+
+                <div class="img-mgr-entry-top">
+                    <div class="img-mgr-entry-images-area">
+                        ${hasImages ? `
+                            <div class="img-mgr-entry-thumbs">
+                                ${row.uploadedUrls.map((url, idx) => `
+                                    <div class="img-mgr-thumb" onclick="event.stopPropagation()">
+                                        <img src="${url}" alt="Ảnh" onclick="openImageLightbox('${url}')">
+                                        <button class="img-mgr-delete" onclick="event.stopPropagation(); ImageManager.removeImage('${row.id}', ${idx})" title="Xóa ảnh">
+                                            <i data-lucide="x"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="img-mgr-entry-paste-zone ${isFocused ? 'img-mgr-paste-active' : ''}">
+                                <i data-lucide="image-plus"></i>
+                                <span>${isFocused ? 'Ctrl+V dán ảnh vào đây' : 'Click để chọn'}</span>
+                            </div>
+                        `}
+                        <label class="img-mgr-file-label" onclick="event.stopPropagation()">
+                            <i data-lucide="upload"></i>
+                            <input type="file" multiple accept="image/*"
+                                data-row-id="${row.id}" style="display:none"
+                                onchange="ImageManager.handleFileSelect(this)">
                         </label>
-                        <button class="btn btn-sm btn-outline img-mgr-remove-stt" onclick="ImageManager.removeStt('${stt}')" title="Xóa STT ${stt}">
+                    </div>
+
+                    <div class="img-mgr-entry-fields">
+                        <div class="img-mgr-field">
+                            <label>STT</label>
+                            <input type="number" id="stt_${row.id}" class="img-mgr-input"
+                                placeholder="VD: 1" min="1" autocomplete="off">
+                        </div>
+                        <div class="img-mgr-field">
+                            <label>NCC</label>
+                            <input type="number" id="ncc_${row.id}" class="img-mgr-input"
+                                placeholder="Tùy chọn" min="1" autocomplete="off">
+                        </div>
+                    </div>
+
+                    ${_rows.length > 1 ? `
+                        <button class="img-mgr-entry-remove" onclick="event.stopPropagation(); ImageManager.removeRow('${row.id}')" title="Xóa hàng">
                             <i data-lucide="trash-2"></i>
                         </button>
-                    </div>
-                </div>
-                <div class="img-mgr-images" data-stt="${stt}">
-                    ${images.length > 0 ? images.map((url, idx) => `
-                        <div class="img-mgr-thumb" onclick="event.stopPropagation()">
-                            <img src="${url}" alt="STT ${stt}" onclick="openImageLightbox('${url}')">
-                            <button class="img-mgr-delete" onclick="event.stopPropagation(); ImageManager.removeImage('${stt}', ${idx})" title="Xóa ảnh">
-                                <i data-lucide="x"></i>
-                            </button>
-                        </div>
-                    `).join('') : '<span class="img-mgr-no-images">Chưa có ảnh — chọn file hoặc Ctrl+V</span>'}
+                    ` : ''}
                 </div>
             </div>
         `;
     }
 
     /**
-     * Add a new STT from input
+     * Focus a row (for paste target)
      */
-    function addStt() {
-        const input = document.getElementById('imgMgrSttInput');
-        if (!input) return;
-
-        const stt = input.value.trim();
-        if (!stt || isNaN(parseInt(stt)) || parseInt(stt) < 1) {
-            window.notificationManager?.warning('Vui lòng nhập số STT hợp lệ');
-            return;
-        }
-
-        const sttKey = String(parseInt(stt));
-
-        if (_anhSanPham[sttKey]) {
-            // Already exists, just select it
-            _selectedStt = sttKey;
-            _render();
-            window.notificationManager?.info(`STT ${sttKey} đã tồn tại — đã chọn`);
-            return;
-        }
-
-        _anhSanPham[sttKey] = [];
-        _selectedStt = sttKey;
-        _render();
-
-        // Focus input again for quick consecutive adds
-        setTimeout(() => {
-            const newInput = document.getElementById('imgMgrSttInput');
-            if (newInput) { newInput.value = ''; newInput.focus(); }
-        }, 50);
+    function focusRow(rowId) {
+        _focusedRowId = rowId;
+        // Update UI without full re-render (just toggle classes)
+        document.querySelectorAll('.img-mgr-entry').forEach(el => {
+            const isFocused = el.dataset.rowId === rowId;
+            el.classList.toggle('img-mgr-entry-focused', isFocused);
+            const zone = el.querySelector('.img-mgr-paste-active, .img-mgr-entry-paste-zone');
+            if (zone) {
+                zone.classList.toggle('img-mgr-paste-active', isFocused);
+                const span = zone.querySelector('span');
+                if (span) span.textContent = isFocused ? 'Ctrl+V dán ảnh vào đây' : 'Click để chọn';
+            }
+        });
     }
 
     /**
-     * Remove an entire STT and its images
+     * Add a new row
      */
-    function removeStt(stt) {
-        const images = _anhSanPham[stt] || [];
-        const msg = images.length > 0
-            ? `Xóa STT ${stt} và ${images.length} ảnh?`
-            : `Xóa STT ${stt}?`;
-
-        if (!confirm(msg)) return;
-
-        delete _anhSanPham[stt];
-        if (_selectedStt === stt) _selectedStt = null;
+    function addRow() {
+        const row = _createRow();
+        _rows.push(row);
+        _focusedRowId = row.id;
         _render();
     }
 
     /**
-     * Setup Ctrl+V paste handler on document (only active when modal is open)
+     * Remove a row
+     */
+    function removeRow(rowId) {
+        _rows = _rows.filter(r => r.id !== rowId);
+        if (_rows.length === 0) _rows.push(_createRow());
+        if (_focusedRowId === rowId) _focusedRowId = _rows[0].id;
+        _render();
+    }
+
+    /**
+     * Setup Ctrl+V paste handler
      */
     function _setupPasteHandler() {
         if (document._imgMgrPasteHandler) {
@@ -218,23 +197,13 @@ const ImageManager = (() => {
             if (imageFiles.length === 0) return;
             e.preventDefault();
 
-            if (!_selectedStt) {
-                window.notificationManager?.warning('Chọn STT trước khi dán ảnh');
-                return;
-            }
+            const targetRowId = _focusedRowId || _rows[0]?.id;
+            if (!targetRowId) return;
 
-            await _uploadAndAddImages(_selectedStt, imageFiles);
+            await _uploadToRow(targetRowId, imageFiles);
         };
 
         document.addEventListener('paste', document._imgMgrPasteHandler);
-    }
-
-    /**
-     * Select STT for paste target
-     */
-    function selectStt(stt) {
-        _selectedStt = stt;
-        _render();
     }
 
     /**
@@ -244,31 +213,31 @@ const ImageManager = (() => {
         const files = Array.from(input.files);
         if (files.length === 0) return;
 
-        const stt = input.dataset.stt;
-        await _uploadAndAddImages(stt, files);
+        const rowId = input.dataset.rowId;
+        await _uploadToRow(rowId, files);
         input.value = '';
     }
 
     /**
-     * Upload files and add to STT mapping
+     * Upload files and add to a specific row
      */
-    async function _uploadAndAddImages(stt, files) {
+    async function _uploadToRow(rowId, files) {
         if (_isUploading) return;
-        _isUploading = true;
 
+        const row = _rows.find(r => r.id === rowId);
+        if (!row) return;
+
+        _isUploading = true;
         const loadingToast = window.notificationManager?.loading(`Đang tải ${files.length} ảnh...`);
 
         try {
-            const path = `inventory/${_currentInvoiceId}/stt_${stt}`;
+            const path = `inventory/img_mgr/${Date.now()}`;
             const urls = await uploadMultipleImages(files, path);
 
             if (urls.length > 0) {
-                if (!_anhSanPham[stt]) {
-                    _anhSanPham[stt] = [];
-                }
-                _anhSanPham[stt].push(...urls);
+                row.uploadedUrls.push(...urls);
                 _render();
-                window.notificationManager?.success(`Đã tải ${urls.length} ảnh cho STT ${stt}`);
+                window.notificationManager?.success(`Đã tải ${urls.length} ảnh`);
             }
         } catch (error) {
             console.error('[IMG-MGR] Upload error:', error);
@@ -280,54 +249,85 @@ const ImageManager = (() => {
     }
 
     /**
-     * Remove an image from STT
+     * Remove an image from a row
      */
-    function removeImage(stt, imageIdx) {
-        const images = _anhSanPham[stt];
-        if (!images || imageIdx >= images.length) return;
+    function removeImage(rowId, imageIdx) {
+        const row = _rows.find(r => r.id === rowId);
+        if (!row || imageIdx >= row.uploadedUrls.length) return;
 
-        images.splice(imageIdx, 1);
-
-        // Remove STT key if no images left
-        if (images.length === 0) {
-            delete _anhSanPham[stt];
-        }
-
+        row.uploadedUrls.splice(imageIdx, 1);
         _render();
     }
 
     /**
-     * Save anhSanPham to server
+     * Save: match each row to dotHang(s) by STT/NCC, update anhSanPham
      */
     async function save() {
-        if (!_currentInvoiceId) return;
+        // Filter rows that have images AND STT
+        const validRows = _rows.filter(r => r.uploadedUrls.length > 0 && r.stt.trim());
+
+        if (validRows.length === 0) {
+            window.notificationManager?.warning('Chưa có ảnh hoặc chưa nhập STT');
+            return;
+        }
 
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
-            await shipmentsApi.update(_currentInvoiceId, { anhSanPham: _anhSanPham });
+            const allDotHang = getAllDotHang();
 
-            // Update local state in all sources
-            const copy = JSON.parse(JSON.stringify(_anhSanPham));
+            // Build a map of dotHangId → updated anhSanPham
+            const updates = new Map(); // dotHangId → { anhSanPham }
 
-            // Update in nccList dotHang
-            for (const ncc of globalState.nccList) {
-                const dot = (ncc.dotHang || []).find(d => d.id === _currentInvoiceId);
-                if (dot) { dot.anhSanPham = copy; break; }
+            for (const row of validRows) {
+                const sttKey = String(parseInt(row.stt));
+                const nccFilter = row.ncc.trim() ? parseInt(row.ncc) : null;
+
+                // Find matching dotHang(s)
+                let targets;
+                if (nccFilter !== null) {
+                    targets = allDotHang.filter(d => d.sttNCC === nccFilter);
+                } else {
+                    targets = [...allDotHang];
+                }
+
+                if (targets.length === 0) {
+                    window.notificationManager?.warning(`Không tìm thấy NCC ${nccFilter}`);
+                    continue;
+                }
+
+                for (const dot of targets) {
+                    if (!updates.has(dot.id)) {
+                        updates.set(dot.id, JSON.parse(JSON.stringify(dot.anhSanPham || {})));
+                    }
+                    const anhSanPham = updates.get(dot.id);
+                    if (!anhSanPham[sttKey]) {
+                        anhSanPham[sttKey] = [];
+                    }
+                    anhSanPham[sttKey].push(...row.uploadedUrls);
+                }
             }
 
-            // Update in grouped shipments hoaDon
-            for (const ship of (globalState.shipments || [])) {
-                const hd = (ship.hoaDon || []).find(h => h.id === _currentInvoiceId);
-                if (hd) { hd.anhSanPham = copy; break; }
+            // Save each updated dotHang
+            let savedCount = 0;
+            for (const [dotId, anhSanPham] of updates) {
+                await shipmentsApi.update(dotId, { anhSanPham });
+
+                // Update local state in nccList
+                for (const ncc of globalState.nccList) {
+                    const dot = (ncc.dotHang || []).find(d => d.id === dotId);
+                    if (dot) { dot.anhSanPham = anhSanPham; break; }
+                }
+                savedCount++;
             }
 
-            window.notificationManager?.success('Đã lưu ảnh sản phẩm');
+            window.notificationManager?.success(`Đã lưu ảnh vào ${savedCount} đợt hàng`);
             closeModal('modalImageManager');
 
-            if (typeof applyFiltersAndRender === 'function') {
-                applyFiltersAndRender();
-            }
+            // Re-build grouped shipments and re-render
+            if (typeof flattenNCCData === 'function') flattenNCCData();
+            if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
         } catch (error) {
             console.error('[IMG-MGR] Save error:', error);
             window.notificationManager?.error('Không thể lưu: ' + error.message);
@@ -340,18 +340,40 @@ const ImageManager = (() => {
      * View images for a specific STT (called from table cell click)
      */
     function viewSttImages(shipmentId, invoiceId, stt) {
-        const dotHang = _findDotHang(invoiceId);
-        if (!dotHang) return;
+        // Find dotHang from all sources
+        const allDot = getAllDotHang();
+        const dotHang = allDot.find(d => d.id === invoiceId);
 
-        const images = dotHang.anhSanPham?.[String(stt)] || [];
-        if (images.length === 0) {
-            open(shipmentId, invoiceId);
+        if (!dotHang) {
+            // Fallback: search in grouped shipments
+            for (const ship of (globalState.shipments || [])) {
+                const hd = (ship.hoaDon || []).find(h => h.id === invoiceId);
+                if (hd) {
+                    const images = hd.anhSanPham?.[String(stt)] || [];
+                    if (images.length > 0) {
+                        _showImagesInViewer(stt, images);
+                        return;
+                    }
+                }
+            }
+            open();
             return;
         }
 
-        const modal = document.getElementById('modalImageViewer');
-        const body = document.getElementById('imageViewerBody');
+        const images = dotHang.anhSanPham?.[String(stt)] || [];
+        if (images.length === 0) {
+            open();
+            return;
+        }
 
+        _showImagesInViewer(stt, images);
+    }
+
+    /**
+     * Show images in the viewer modal
+     */
+    function _showImagesInViewer(stt, images) {
+        const body = document.getElementById('imageViewerBody');
         if (body) {
             body.innerHTML = `
                 <div class="img-viewer-header-info">
@@ -365,72 +387,14 @@ const ImageManager = (() => {
                 `).join('')}
             `;
         }
-
         openModal('modalImageViewer');
-    }
-
-    /**
-     * Open picker modal to choose which shipment/invoice to manage images
-     */
-    function openPicker() {
-        const shipments = getAllDotHangAsShipments();
-        const body = document.getElementById('imagePickerBody');
-        if (!body) return;
-
-        if (shipments.length === 0) {
-            body.innerHTML = '<p style="text-align:center;color:var(--gray-400);padding:20px;">Chưa có đợt hàng nào</p>';
-            openModal('modalImagePicker');
-            return;
-        }
-
-        body.innerHTML = shipments.map(ship => {
-            const invoices = ship.hoaDon || [];
-            return `
-                <div class="img-picker-group">
-                    <div class="img-picker-date">
-                        <i data-lucide="calendar"></i>
-                        Ngày giao: ${formatDateDisplay(ship.ngayDiHang)}
-                    </div>
-                    ${invoices.map(hd => {
-                        const anhSanPham = hd.anhSanPham || {};
-                        const totalImages = Object.values(anhSanPham).reduce((sum, arr) => sum + arr.length, 0);
-                        const sttCount = Object.keys(anhSanPham).length;
-
-                        return `
-                            <div class="img-picker-item" onclick="ImageManager.selectFromPicker('${ship.id}', '${hd.id}')">
-                                <div class="img-picker-info">
-                                    <span class="img-picker-ncc">NCC ${hd.sttNCC}</span>
-                                </div>
-                                <div class="img-picker-meta">
-                                    <span class="img-picker-count">${totalImages > 0 ? `${totalImages} ảnh (${sttCount} STT)` : 'Chưa có ảnh'}</span>
-                                    <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--gray-400)"></i>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        }).join('');
-
-        if (window.lucide) lucide.createIcons();
-        openModal('modalImagePicker');
-    }
-
-    /**
-     * Called when user selects a shipment from picker
-     */
-    function selectFromPicker(shipmentId, invoiceId) {
-        closeModal('modalImagePicker');
-        setTimeout(() => open(shipmentId, invoiceId), 200);
     }
 
     return {
         open,
-        openPicker,
-        selectFromPicker,
-        selectStt,
-        addStt,
-        removeStt,
+        addRow,
+        removeRow,
+        focusRow,
         save,
         handleFileSelect,
         removeImage,
