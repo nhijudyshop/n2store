@@ -154,7 +154,7 @@
                             <th>Số đơn</th>
                             <th>SP NET</th>
                             <th>Tổng KPI (VNĐ)</th>
-                            <th>Trạng thái</th>
+                            <th style="min-width: 200px;">Phiếu bán hàng</th>
                         </tr>
                     </thead>
                     <tbody id="kpiTableBody">
@@ -256,7 +256,7 @@
                                 <th>Campaign</th>
                                 <th>SP NET</th>
                                 <th>KPI (VNĐ)</th>
-                                <th>Trạng thái</th>
+                                <th style="min-width: 200px;">Phiếu bán hàng</th>
                             </tr>
                         </thead>
                         <tbody id="modalL1TableBody">
@@ -447,6 +447,17 @@
         if (typeof initializeFirebaseApp === 'function') {
             initializeFirebaseApp();
         }
+    </script>
+
+    <!-- Invoice Status from parent (for Phiếu bán hàng column) -->
+    <script>
+        // Lazy accessors for parent iframe's InvoiceStatusStore and helpers
+        // Resolved at call time so parent script load order doesn't matter
+        Object.defineProperty(window, '_parentInvoiceStore', { get() { return window.parent?.InvoiceStatusStore || null; } });
+        Object.defineProperty(window, '_parentGetShowStateConfig', { get() { return window.parent?.getShowStateConfig || null; } });
+        Object.defineProperty(window, '_parentGetStateCodeConfig', { get() { return window.parent?.getStateCodeConfig || null; } });
+        Object.defineProperty(window, '_parentGetDeliveryGroupBadge', { get() { return window.parent?.getDeliveryGroupBadge || null; } });
+        Object.defineProperty(window, '_parentShowInvoiceRawModal', { get() { return window.parent?.showInvoiceRawModal || null; } });
     </script>
 
     <!-- KPI Commission Tab JS (11.8) -->

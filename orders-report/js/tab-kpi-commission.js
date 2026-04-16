@@ -552,6 +552,157 @@ const KPICommission = {
     },
 
     // ========================================
+    // INVOICE STATUS HELPERS (for Phiếu bán hàng column)
+    // ========================================
+
+    /**
+     * Render invoice status cell for a single order in KPI tab.
+     * Simplified version of Tab 1's renderInvoiceStatusCell — no Messenger, cancel, or PBH buttons.
+     * @param {string} orderId - SaleOnlineId
+     * @returns {string} HTML string
+     */
+    renderKPIInvoiceStatusCell(orderId) {
+        const store = window._parentInvoiceStore;
+        const getShowStateCfg = window._parentGetShowStateConfig;
+        const getStateCodeCfg = window._parentGetStateCodeConfig;
+        const getDeliveryBadge = window._parentGetDeliveryGroupBadge;
+
+        if (!store || !getShowStateCfg || !getStateCodeCfg) {
+            return '<span style="color: #9ca3af;">−</span>';
+        }
+
+        const invoiceData = store.get(orderId);
+        if (!invoiceData) {
+            return '<span style="color: #9ca3af;">−</span>';
+        }
+
+        const showState = invoiceData.ShowState || '';
+        const stateCode = invoiceData.StateCode || 'None';
+        const isMergeCancel = invoiceData.IsMergeCancel === true;
+        const showStateConfig = getShowStateCfg(showState);
+        const stateCodeConfig = getStateCodeCfg(stateCode, isMergeCancel);
+        const stateCodeStyle = stateCodeConfig.style || '';
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 2px;">';
+
+        // Row 1: ShowState badge + UserName + Invoice Number
+        html += '<div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">';
+
+        if (showState) {
+            const showStateStyle = showStateConfig.style || '';
+            html += `<span style="background: ${showStateConfig.bgColor}; color: ${showStateConfig.color}; border: 1px solid ${showStateConfig.borderColor}; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 500; ${showStateStyle}" title="Số phiếu: ${invoiceData.Number || ''}">${showState}</span>`;
+        }
+
+        if (invoiceData.UserName) {
+            html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
+        }
+
+        if (invoiceData.Number) {
+            const shortNum = invoiceData.Number.replace(/^NJD\//, '');
+            html += `<span style="background: #f0f9ff; color: #0369a1; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 500; border: 1px solid #bae6fd; cursor: pointer;" onclick="navigator.clipboard.writeText('${invoiceData.Number.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Click để copy mã phiếu">${shortNum}</span>`;
+        }
+
+        html += '</div>';
+
+        // Row 2: StateCode text + delivery group badge
+        let deliveryBadgeHtml = '';
+        if (stateCode === 'CrossCheckComplete' && getDeliveryBadge) {
+            const dg = getDeliveryBadge(invoiceData);
+            if (dg) {
+                deliveryBadgeHtml = ` <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${dg.bg};color:${dg.color};border:1px solid ${dg.border};margin-left:4px;">${dg.label}</span>`;
+            }
+        }
+        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}${deliveryBadgeHtml}</div>`;
+
+        // Row 3: DateInvoice + Lịch sử
+        html += '<div style="display:flex; align-items:center; gap:4px; margin-top:2px;">';
+
+        // DateInvoice
+        if (invoiceData.DateInvoice) {
+            const d = new Date(invoiceData.DateInvoice);
+            if (!isNaN(d.getTime())) {
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                html += `<span style="font-size: 10px; color: #6b7280;" title="${d.toLocaleString('vi-VN')}">${dd}/${mm} ${hh}:${mi}</span>`;
+            }
+        }
+
+        // Lịch sử badge
+        html += `<span class="invoice-ra-don-badge" style="background:#e0e7ff;color:#4338ca;font-size:10px;padding:1px 6px;border-radius:3px;cursor:pointer;font-weight:500;" onclick="if(window._parentShowInvoiceRawModal) window._parentShowInvoiceRawModal('${orderId}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
+
+        html += '</div>';
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render aggregate invoice status summary for employee row.
+     * Shows count badges by ShowState: "120 Đã TT | 5 Đã XN | 2 Hủy | 3 −"
+     * @param {Array} orders - Array of order objects for this employee
+     * @returns {string} HTML string
+     */
+    renderKPIInvoiceStatusSummary(orders) {
+        const store = window._parentInvoiceStore;
+        const getShowStateCfg = window._parentGetShowStateConfig;
+
+        if (!store || !getShowStateCfg || !orders || orders.length === 0) {
+            return '<span style="color: #9ca3af;">−</span>';
+        }
+
+        // Count orders by ShowState
+        const counts = {};
+        let noInvoice = 0;
+
+        for (const order of orders) {
+            const invoiceData = store.get(order.orderId);
+            if (!invoiceData) {
+                noInvoice++;
+                continue;
+            }
+            const state = invoiceData.ShowState || 'Không rõ';
+            counts[state] = (counts[state] || 0) + 1;
+        }
+
+        // Build badges in priority order
+        const stateOrder = ['Đã thanh toán', 'Đã xác nhận', 'Nháp', 'Huỷ bỏ'];
+        const shortLabels = {
+            'Đã thanh toán': 'Đã TT',
+            'Đã xác nhận': 'Đã XN',
+            'Nháp': 'Nháp',
+            'Huỷ bỏ': 'Hủy',
+            'Hoàn thành': 'HT'
+        };
+
+        let html = '<div style="display:flex; flex-wrap:wrap; gap:3px;">';
+
+        for (const state of stateOrder) {
+            if (!counts[state]) continue;
+            const cfg = getShowStateCfg(state);
+            const label = shortLabels[state] || state;
+            const style = cfg.style || '';
+            html += `<span style="background:${cfg.bgColor};color:${cfg.color};border:1px solid ${cfg.borderColor};font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;${style}">${counts[state]} ${label}</span>`;
+            delete counts[state];
+        }
+
+        // Any remaining states not in stateOrder
+        for (const [state, count] of Object.entries(counts)) {
+            const cfg = getShowStateCfg(state);
+            const label = shortLabels[state] || state;
+            const style = cfg?.style || '';
+            html += `<span style="background:${cfg?.bgColor || '#f3f4f6'};color:${cfg?.color || '#6c757d'};border:1px solid ${cfg?.borderColor || '#d1d5db'};font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;${style}">${count} ${label}</span>`;
+        }
+
+        if (noInvoice > 0) {
+            html += `<span style="background:#f3f4f6;color:#9ca3af;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;">${noInvoice} −</span>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    // ========================================
     // RENDER KPI TABLE (12.6)
     // ========================================
     async renderKPITable(filteredData) {
@@ -572,10 +723,7 @@ const KPICommission = {
 
         let html = '';
         aggregated.forEach((emp, idx) => {
-            const hasDisc = emp.orders.some(o => o.hasDiscrepancy);
-            const statusHtml = hasDisc
-                ? '<span class="status-badge status-discrepancy">⚠️ Cần đối soát</span>'
-                : '<span class="status-badge status-ok">✅ OK</span>';
+            const invoiceSummaryHtml = this.renderKPIInvoiceStatusSummary(emp.orders);
 
             html += `<tr>
                 <td>${idx + 1}</td>
@@ -583,7 +731,7 @@ const KPICommission = {
                 <td>${emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
-                <td>${statusHtml}</td>
+                <td>${invoiceSummaryHtml}</td>
             </tr>`;
         });
 
@@ -700,10 +848,7 @@ const KPICommission = {
             // Ẩn đơn có SP NET = 0 và KPI = 0
             if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
 
-            const hasDisc = order.hasDiscrepancy;
-            const statusHtml = hasDisc
-                ? '<span class="status-badge status-discrepancy">⚠️ Cần đối soát</span>'
-                : '<span class="status-badge status-ok">✅ OK</span>';
+            const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
 
             html += `<tr>
                 <td>${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
@@ -711,7 +856,7 @@ const KPICommission = {
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
                 <td>${order.netProducts || 0}</td>
                 <td>${this.formatCurrency(order.kpi || 0)}</td>
-                <td>${statusHtml}</td>
+                <td>${invoiceHtml}</td>
             </tr>`;
         });
 
@@ -1344,19 +1489,38 @@ const KPICommission = {
             }
 
             // Build data rows
+            const store = window._parentInvoiceStore;
             const rows = [
-                ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Trạng thái']
+                ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng']
             ];
 
             aggregated.forEach((emp, idx) => {
-                const hasDisc = emp.orders.some(o => o.hasDiscrepancy);
+                // Build invoice status summary text for Excel
+                let invoiceSummary = '';
+                if (store) {
+                    const counts = {};
+                    let noInvoice = 0;
+                    for (const order of emp.orders) {
+                        const inv = store.get(order.orderId);
+                        if (!inv) { noInvoice++; continue; }
+                        const state = inv.ShowState || 'Không rõ';
+                        counts[state] = (counts[state] || 0) + 1;
+                    }
+                    const parts = [];
+                    for (const [state, count] of Object.entries(counts)) {
+                        parts.push(`${count} ${state}`);
+                    }
+                    if (noInvoice > 0) parts.push(`${noInvoice} Chưa có`);
+                    invoiceSummary = parts.join(', ');
+                }
+
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
                     emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length,
                     emp.totalNetProducts,
                     emp.totalKPI,
-                    hasDisc ? 'Cần đối soát' : 'OK'
+                    invoiceSummary || '−'
                 ]);
             });
 
@@ -1370,7 +1534,7 @@ const KPICommission = {
                 { wch: 10 },  // Số đơn
                 { wch: 10 },  // SP NET
                 { wch: 18 },  // Tổng KPI
-                { wch: 15 }   // Trạng thái
+                { wch: 30 }   // Phiếu bán hàng
             ];
 
             const wb = XLSX.utils.book_new();

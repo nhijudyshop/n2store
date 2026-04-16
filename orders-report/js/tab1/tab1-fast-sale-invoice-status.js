@@ -3284,6 +3284,7 @@
         window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
         window.getStateCodeConfig = getStateCodeConfig;
         window.getShowStateConfig = getShowStateConfig;
+        window.getDeliveryGroupBadge = getDeliveryGroupBadge;
         // WS-driven invoice fetch + raw modal
         window.fetchAndUpdateInvoiceForCode = fetchAndUpdateInvoiceForCode;
         window.showInvoiceRawModal = showInvoiceRawModal;
