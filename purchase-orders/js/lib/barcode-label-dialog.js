@@ -522,23 +522,46 @@ window.BarcodeLabelDialog = (function () {
 
         console.log('[Barcode] TPOS payload:', { items: validItems.length, tmplIds, paperId: paper.id });
 
-        // Step 1: POST save barcode label config (all items in 1 request)
+        // Try all-in-one request first, fallback to per-template if 500
+        let labelId = null;
+
+        // Attempt 1: single request with all items
         const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json;charset=UTF-8' },
             body: JSON.stringify(payload)
         });
-
         const saveData = await saveResp.json();
-        const labelId = saveData.Id;
-        if (!labelId) {
-            console.error('[Barcode] TPOS save failed:', saveData);
-            throw new Error(saveData?.error?.message || 'TPOS save failed');
+        if (saveData.Id) {
+            labelId = saveData.Id;
+            console.log('[Barcode] All-in-one OK, Id:', labelId);
+        } else {
+            // Attempt 2: per-template sequential requests
+            console.warn('[Barcode] All-in-one failed, trying per-template...', saveData.error?.message);
+            for (const tmplId of tmplIds) {
+                const tmplItems = validItems.filter(it => it.tposProductTmplId === tmplId);
+                const perTmplPayload = { ...payload, BarcodeTemplateIds: [tmplId], Lines: tmplItems.map(it => lines.find(l => l.ProductId === it.tposProductId)).filter(Boolean) };
+                try {
+                    const r = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                        body: JSON.stringify(perTmplPayload)
+                    });
+                    const d = await r.json();
+                    if (d.Id) {
+                        labelId = d.Id;
+                        console.log(`[Barcode] Template ${tmplId}: label ${d.Id} (${tmplItems.length} items)`);
+                    }
+                } catch (e) {
+                    console.warn(`[Barcode] Template ${tmplId} failed:`, e.message);
+                }
+            }
         }
 
-        console.log('[Barcode] TPOS label saved, Id:', labelId);
+        if (!labelId) throw new Error('TPOS barcode label creation failed');
 
-        // Step 2: GET PDF binary
+        // GET PDF binary
+        console.log('[Barcode] Fetching PDF, label:', labelId);
         const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`);
         if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
 
