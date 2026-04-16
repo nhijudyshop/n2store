@@ -422,6 +422,40 @@ router.get('/search', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/web-warehouse/batch-lookup
+ * Lookup multiple products by product_code array
+ * Returns full product data for barcode label printing
+ */
+router.post('/batch-lookup', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { codes } = req.body;
+    if (!Array.isArray(codes) || codes.length === 0) {
+        return res.json({ success: true, data: [] });
+    }
+
+    // Limit to 100 codes per request
+    const safeCodes = codes.slice(0, 100);
+
+    try {
+        const placeholders = safeCodes.map((_, i) => `$${i + 1}`).join(',');
+        const result = await db.query(`
+            SELECT tpos_product_id, tpos_template_id, product_code,
+                   product_name, name_get, image_url, selling_price,
+                   tpos_qty_available, parent_product_code, barcode,
+                   purchase_price, standard_price, uom_name, category, variant
+            FROM web_warehouse
+            WHERE active = true AND product_code IN (${placeholders})
+        `, safeCodes);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        handleError(res, error, 'Batch lookup failed');
+    }
+});
+
+/**
  * GET /api/v2/web-warehouse/product/:tposProductId
  * Get single product + all sibling variants (same parent_product_code)
  * Replaces two TPOS OData calls: Product(id) + ProductTemplate(tmplId)?$expand=ProductVariants

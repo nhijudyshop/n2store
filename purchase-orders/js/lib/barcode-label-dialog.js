@@ -381,9 +381,7 @@ window.BarcodeLabelDialog = (function () {
             const printItems = items.filter(it => it.code && it.quantity > 0);
             if (!printItems.length) return;
 
-            const hasTposIds = printItems.some(it => it.tposProductId);
-
-            if (hasTposIds && window.TPOSClient?.authenticatedFetch) {
+            if (window.TPOSClient?.authenticatedFetch) {
                 btnPrint.disabled = true;
                 btnPrint.textContent = 'Đang tạo PDF...';
                 try {
@@ -421,69 +419,52 @@ window.BarcodeLabelDialog = (function () {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
 
-        const validItems = items.filter(it => it.tposProductId);
-        if (!validItems.length) throw new Error('No items with TPOS product ID');
+        const validItems = items.filter(it => it.code);
+        if (!validItems.length) throw new Error('No items with product code');
 
-        // Lookup missing ProductTmplId from TPOS by DefaultCode
-        const needTmpl = validItems.filter(it => !it.tposProductTmplId && it.code);
-        if (needTmpl.length > 0) {
-            const uniqueCodes = [...new Set(needTmpl.map(it => it.code))];
-            const filter = uniqueCodes.map(c => `DefaultCode eq '${c}'`).join(' or ');
-            try {
-                const resp = await tposFetch(
-                    `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$top=${uniqueCodes.length}&$select=Id,DefaultCode,ProductTmplId`
-                );
-                const data = await resp.json();
-                const tposProducts = data.value || [];
-                const codeToTmpl = new Map();
-                for (const p of tposProducts) {
-                    if (p.DefaultCode && p.ProductTmplId) codeToTmpl.set(p.DefaultCode, p.ProductTmplId);
-                }
-                for (const it of validItems) {
-                    if (!it.tposProductTmplId && codeToTmpl.has(it.code)) {
-                        it.tposProductTmplId = codeToTmpl.get(it.code);
-                    }
-                }
-                console.log(`[Barcode] Resolved ${codeToTmpl.size} ProductTmplIds from TPOS`);
-            } catch (err) {
-                console.warn('[Barcode] ProductTmplId lookup failed:', err.message);
-            }
-        }
+        // Step 1: Batch lookup from web-warehouse (has real TPOS product data)
+        const uniqueCodes = [...new Set(validItems.map(it => it.code))];
+        const whResp = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codes: uniqueCodes })
+        });
+        const whData = await whResp.json();
+        const whProducts = whData.success ? whData.data : [];
 
-        const tmplIds = [...new Set(validItems.map(it => it.tposProductTmplId).filter(Boolean))];
-        if (tmplIds.length === 0) throw new Error('No ProductTmplIds found — cannot generate barcode PDF');
+        if (!whProducts.length) throw new Error('No products found in warehouse');
 
-        // Warehouse per company
-        const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
-        const whMap = {
-            1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', NameGet: '[WH] Nhi Judy Store' },
-            2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', NameGet: '[WH2] Shop NJD' }
-        };
+        // Map product_code → warehouse row
+        const codeMap = new Map();
+        for (const p of whProducts) codeMap.set(p.product_code, p);
 
-        // Build Lines with full Product object (matched from TPOS network capture)
-        const lines = validItems.map(it => {
-            const name = stripBrackets(it.name);
-            return {
-                Id: 0, ProductId: it.tposProductId, ProductTmplId: 0, Quantity: it.quantity, Price: 0,
+        // Build Lines + BarcodeTemplateIds
+        const tmplIdSet = new Set();
+        const lines = [];
+        for (const it of validItems) {
+            const p = codeMap.get(it.code);
+            if (!p || !p.tpos_product_id) continue;
+            tmplIdSet.add(p.tpos_template_id);
+            lines.push({
+                Id: 0, ProductId: p.tpos_product_id, ProductTmplId: 0, Quantity: it.quantity, Price: 0,
                 Product: {
-                    Id: it.tposProductId, EAN13: null,
-                    DefaultCode: it.code, NameTemplate: name, NameNoSign: null,
-                    ProductTmplId: it.tposProductTmplId || 0,
-                    UOMId: 1, UOMName: 'Cái', UOMPOId: 0,
+                    Id: p.tpos_product_id, EAN13: null,
+                    DefaultCode: p.product_code, NameTemplate: p.product_name, NameNoSign: null,
+                    ProductTmplId: p.tpos_template_id || 0,
+                    UOMId: 1, UOMName: p.uom_name || 'Cái', UOMPOId: 0,
                     QtyAvailable: 0, VirtualAvailable: 0, OutgoingQty: null, IncomingQty: null,
-                    NameGet: `[${it.code}] ${name}`,
-                    POSCategId: null, Price: null, Barcode: it.code,
-                    Image: null, ImageUrl: null, Thumbnails: [],
-                    PriceVariant: it.price || 0,
-                    SaleOK: true, PurchaseOK: true,
-                    DisplayAttributeValues: null,
+                    NameGet: p.name_get || `[${p.product_code}] ${p.product_name}`,
+                    POSCategId: null, Price: null, Barcode: p.barcode || p.product_code,
+                    Image: null, ImageUrl: p.image_url || null, Thumbnails: [],
+                    PriceVariant: parseFloat(p.selling_price) || 0,
+                    SaleOK: true, PurchaseOK: true, DisplayAttributeValues: null,
                     LstPrice: 0, Active: true, ListPrice: 0,
                     PurchasePrice: null, DiscountSale: null, DiscountPurchase: null,
-                    StandardPrice: it.price || 0,
+                    StandardPrice: parseFloat(p.standard_price) || parseFloat(p.purchase_price) || 0,
                     Weight: 0, Volume: null, OldPrice: null, IsDiscount: false,
                     ProductTmplEnableAll: false, Version: 0, Description: null, LastUpdated: null,
                     Type: 'product', CategId: 0, CostMethod: null,
-                    InvoicePolicy: 'order', Variant_TeamId: 0, Name: name,
+                    InvoicePolicy: 'order', Variant_TeamId: 0, Name: p.product_name,
                     PropertyCostMethod: null, PropertyValuation: null,
                     PurchaseMethod: 'receive', SaleDelay: 0, Tracking: null, Valuation: null,
                     AvailableInPOS: true, CompanyId: null, IsCombo: null,
@@ -495,8 +476,18 @@ window.BarcodeLabelDialog = (function () {
                     StringExtraProperties: null, CreatedById: null,
                     TaxAmount: null, YearOfManufacture: null, Error: null
                 }
-            };
-        });
+            });
+        }
+
+        const tmplIds = [...tmplIdSet].filter(Boolean);
+        if (!tmplIds.length || !lines.length) throw new Error('No valid products with TPOS IDs');
+
+        // Step 2: Build payload (exact TPOS format from network capture)
+        const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
+        const whMap = {
+            1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 0, LocationId: 0, NameGet: '[WH] Nhi Judy Store', CompanyName: null, LocationActive: true },
+            2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', CompanyId: 0, LocationId: 0, NameGet: '[WH2] Shop NJD', CompanyName: null, LocationActive: true }
+        };
 
         const payload = {
             '@odata.context': 'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
@@ -505,7 +496,7 @@ window.BarcodeLabelDialog = (function () {
             IsInventory: null, ShowCompany: null,
             BarcodeTemplateIds: tmplIds,
             FastPurchaseOrderId: null, IsHideBarcode: hideBarcode || null, ExtraProperty: null,
-            Warehouse: { ...(whMap[companyId] || whMap[1]), CompanyId: 0, LocationId: 0, CompanyName: null, LocationActive: true },
+            Warehouse: whMap[companyId] || whMap[1],
             PriceList: { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true, CompanyId: null, PartnerCateName: null, Sequence: 1, DateStart: null, DateEnd: null, CreatedById: null },
             Paper: {
                 Id: paper.id, Name: paper.name,
@@ -520,78 +511,28 @@ window.BarcodeLabelDialog = (function () {
             Lines: lines
         };
 
-        console.log('[Barcode] TPOS payload:', { items: validItems.length, tmplIds, paperId: paper.id });
+        console.log('[Barcode] TPOS payload:', { items: lines.length, tmplIds, paperId: paper.id });
 
-        const labelIds = [];
-
-        // Attempt 1: all-in-one request
+        // Step 3: POST to TPOS
         const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json;charset=UTF-8' },
             body: JSON.stringify(payload)
         });
         const saveData = await saveResp.json();
-        if (saveData.Id) {
-            labelIds.push(saveData.Id);
-            console.log('[Barcode] All-in-one OK, Id:', saveData.Id);
-        } else {
-            // Attempt 2: per-template with retry
-            console.warn('[Barcode] All-in-one failed, trying per-template...', saveData.error?.message);
-            for (const tmplId of tmplIds) {
-                const tmplItems = validItems.filter(it => it.tposProductTmplId === tmplId);
-                const perTmplPayload = { ...payload, BarcodeTemplateIds: [tmplId], Lines: tmplItems.map(it => lines.find(l => l.ProductId === it.tposProductId)).filter(Boolean) };
-
-                let success = false;
-                for (let attempt = 0; attempt < 2 && !success; attempt++) {
-                    try {
-                        if (attempt > 0) await new Promise(r => setTimeout(r, 800));
-                        const r = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-                            body: JSON.stringify(perTmplPayload)
-                        });
-                        const d = await r.json();
-                        if (d.Id) {
-                            labelIds.push(d.Id);
-                            success = true;
-                            console.log(`[Barcode] Template ${tmplId}: label ${d.Id} (${tmplItems.length} items)`);
-                        }
-                    } catch (e) {
-                        console.warn(`[Barcode] Template ${tmplId} attempt ${attempt + 1} failed:`, e.message);
-                    }
-                }
-            }
+        if (!saveData.Id) {
+            console.error('[Barcode] TPOS save failed:', saveData);
+            throw new Error(saveData?.error?.message || 'TPOS save failed');
         }
+        console.log('[Barcode] TPOS label saved, Id:', saveData.Id);
 
-        if (labelIds.length === 0) throw new Error('TPOS barcode label creation failed');
+        // Step 4: GET PDF
+        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${saveData.Id}`);
+        if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
 
-        // Fetch PDF for each label and merge into one blob
-        console.log('[Barcode] Fetching PDFs for', labelIds.length, 'labels:', labelIds);
-        const pdfBlobs = [];
-        for (const id of labelIds) {
-            try {
-                const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${id}`);
-                if (pdfResp.ok) {
-                    pdfBlobs.push(await pdfResp.arrayBuffer());
-                }
-            } catch (e) {
-                console.warn('[Barcode] PDF fetch failed for label', id);
-            }
-        }
-
-        if (pdfBlobs.length === 0) throw new Error('No PDFs generated');
-
-        if (pdfBlobs.length === 1) {
-            // Single PDF — open directly
-            window.open(URL.createObjectURL(new Blob([pdfBlobs[0]], { type: 'application/pdf' })), '_blank');
-        } else {
-            // Multiple PDFs — merge by concatenating (basic merge, works for simple label PDFs)
-            // Open each in separate tab since proper PDF merge needs a library
-            for (let i = 0; i < pdfBlobs.length; i++) {
-                window.open(URL.createObjectURL(new Blob([pdfBlobs[i]], { type: 'application/pdf' })), '_blank');
-            }
-        }
-        console.log(`[Barcode] Opened ${pdfBlobs.length} TPOS PDF(s), total labels from ${labelIds.length} requests`);
+        const pdfBlob = await pdfResp.blob();
+        window.open(URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' })), '_blank');
+        console.log('[Barcode] TPOS PDF opened, size:', pdfBlob.size);
     }
 
     function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
