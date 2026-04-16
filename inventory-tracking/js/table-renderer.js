@@ -694,12 +694,13 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
     const count = images.length;
 
     if (count > 0) {
+        const thumbs = images.map(url =>
+            `<div class="cell-img-wrap"><img src="${url}" class="cell-img-thumb" alt="STT ${stt}"><div class="cell-img-zoom"><img src="${url}" alt="STT ${stt}"></div></div>`
+        ).join('');
+
         return `
-            <td class="col-image text-center ${borderClass}">
-                <span class="image-count stt-image-count" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})" title="Xem ${count} ảnh STT ${stt}">
-                    <i data-lucide="image"></i>
-                    ${count}
-                </span>
+            <td class="col-image ${borderClass}">
+                <div class="cell-img-list">${thumbs}</div>
             </td>
         `;
     }

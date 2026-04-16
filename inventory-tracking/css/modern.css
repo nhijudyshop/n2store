@@ -3688,8 +3688,53 @@ body {
     transition: opacity 0.15s;
 }
 .image-add-hint:hover { opacity: 1; }
-.stt-image-count { cursor: pointer; }
-.stt-image-count:hover { color: var(--primary); }
+
+/* Cell thumbnail images */
+.cell-img-list {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.cell-img-wrap {
+    position: relative;
+    display: inline-block;
+}
+.cell-img-thumb {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+.cell-img-thumb:hover { border-color: var(--primary); }
+
+/* Hover zoom popup */
+.cell-img-zoom {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    padding: 4px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    pointer-events: none;
+}
+.cell-img-zoom img {
+    display: block;
+    max-width: 280px;
+    max-height: 280px;
+    border-radius: 6px;
+}
+.cell-img-wrap:hover .cell-img-zoom { display: block; }
+
+/* Widen image column for thumbnails */
+.col-image { min-width: 50px; }
 
 /* Image viewer header info */
 .img-viewer-header-info {
