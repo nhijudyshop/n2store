@@ -1128,7 +1128,42 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
                     updated_at = CURRENT_TIMESTAMP
             `);
 
-            // 7. Clean up empty rows (no orders left)
+            // 7. Deduplicate orders within each row (keep latest by updatedAt)
+            await client.query(`
+                UPDATE kpi_statistics
+                SET orders = sub.deduped
+                FROM (
+                    SELECT s.id,
+                        COALESCE(
+                            (SELECT jsonb_agg(val ORDER BY (val->>'updatedAt') DESC)
+                             FROM (
+                                SELECT DISTINCT ON (elem->>'orderCode') elem AS val
+                                FROM jsonb_array_elements(s.orders) elem
+                                ORDER BY elem->>'orderCode', elem->>'updatedAt' DESC
+                             ) deduped_inner),
+                            '[]'::jsonb
+                        ) AS deduped
+                    FROM kpi_statistics s
+                    WHERE jsonb_array_length(s.orders) > 0
+                ) sub
+                WHERE kpi_statistics.id = sub.id
+            `);
+
+            // 8. Recalculate totals after dedup
+            await client.query(`
+                UPDATE kpi_statistics
+                SET total_net_products = COALESCE((
+                        SELECT SUM((elem->>'netProducts')::int)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    total_kpi = COALESCE((
+                        SELECT SUM((elem->>'kpi')::numeric)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    updated_at = CURRENT_TIMESTAMP
+            `);
+
+            // 9. Clean up empty rows (no orders left)
             await client.query(`
                 DELETE FROM kpi_statistics WHERE orders = '[]'::jsonb OR orders IS NULL
             `);
