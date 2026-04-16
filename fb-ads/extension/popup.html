@@ -9,54 +9,85 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; w
 .header svg { width: 24px; height: 24px; flex-shrink: 0; }
 .header h1 { font-size: 15px; font-weight: 700; }
 .content { padding: 16px; }
-.status { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.status { padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .status.ok { background: #e6f4ea; color: #1e7e34; }
 .status.warn { background: #fff3cd; color: #856404; }
 .status.err { background: #fde8e8; color: #c62828; }
-.status .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.status.ok .dot { background: #1e7e34; }
-.status.warn .dot { background: #856404; }
-.status.err .dot { background: #c62828; }
-.cookies-box { background: #fff; border: 1px solid #dadde1; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-family: monospace; font-size: 11px; max-height: 80px; overflow-y: auto; word-break: break-all; color: #65676b; line-height: 1.4; }
-.btn { display: block; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-.btn:hover { opacity: 0.9; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.status.loading { background: #e7f3ff; color: #1565c0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ok .dot { background: #1e7e34; }
+.warn .dot { background: #856404; }
+.err .dot { background: #c62828; }
+.loading .dot { background: #1565c0; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ddd; border-top-color: #1877f2; border-radius: 50%; animation: spin 0.6s linear infinite; }
+.user-info { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.user-info .avatar { width: 32px; height: 32px; background: #1877f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; }
+.btn { display: block; width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; }
+.btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .btn-primary { background: #1877f2; color: #fff; }
-.btn-outline { background: transparent; color: #1877f2; border: 1px solid #1877f2; margin-top: 8px; }
 .btn-success { background: #31a24c; color: #fff; }
+.btn-outline { background: transparent; color: #1877f2; border: 1px solid #1877f2; margin-top: 8px; }
+.btn-lg { padding: 14px; font-size: 16px; }
+.step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-size: 13px; color: #65676b; }
+.step-num { width: 22px; height: 22px; background: #e4e6eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #65676b; flex-shrink: 0; }
+.step.active .step-num { background: #1877f2; color: #fff; }
+.step.done .step-num { background: #31a24c; color: #fff; }
+.step.active { color: #1877f2; font-weight: 600; }
+.step.done { color: #31a24c; }
+.step.error .step-num { background: #e4405f; color: #fff; }
+.step.error { color: #e4405f; }
+.divider { height: 1px; background: #dadde1; margin: 12px 0; }
 .info { font-size: 11px; color: #8a8d91; margin-top: 12px; line-height: 1.5; text-align: center; }
-.user-info { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.user-info .avatar { width: 28px; height: 28px; background: #1877f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 13px; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <svg viewBox="0 0 36 36" fill="currentColor"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
-  <h1>N2 FB Cookie Helper</h1>
+  <h1>N2 Ads Manager</h1>
 </div>
 
 <div class="content">
+  <!-- Status -->
   <div id="status" class="status warn"><span class="dot"></span> Đang kiểm tra...</div>
 
+  <!-- User info -->
   <div id="userSection" style="display:none">
     <div class="user-info">
       <div class="avatar" id="userAvatar"></div>
       <div>
-        <div style="font-weight:600;font-size:13px" id="userIdDisplay"></div>
-        <div style="font-size:11px;color:#8a8d91">Facebook User</div>
+        <div style="font-weight:600;font-size:14px" id="userNameDisplay"></div>
+        <div style="font-size:11px;color:#8a8d91" id="userIdDisplay"></div>
       </div>
     </div>
   </div>
 
-  <div id="cookiesPreview" class="cookies-box" style="display:none"></div>
+  <!-- Main CTA: 1-click login -->
+  <button class="btn btn-primary btn-lg" id="autoLoginBtn" onclick="autoLogin()" disabled>
+    &#128640; Đăng nhập Ads Manager
+  </button>
 
-  <button class="btn btn-primary" id="copyBtn" onclick="copyCookies()" disabled>Copy Cookies</button>
-  <button class="btn btn-outline" id="openAdsBtn" onclick="openAdsManager()">Mở N2 Ads Manager</button>
+  <!-- Progress steps (shown during auto-login) -->
+  <div id="progressSteps" style="display:none;margin-top:12px">
+    <div class="step" id="step1"><span class="step-num">1</span> Kiểm tra đăng nhập Facebook</div>
+    <div class="step" id="step2"><span class="step-num">2</span> Mở Ads Manager & lấy token</div>
+    <div class="step" id="step3"><span class="step-num">3</span> Đăng nhập N2 Ads Manager</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Manual: copy cookies -->
+  <button class="btn btn-outline" id="copyBtn" onclick="copyCookies()" disabled style="font-size:13px">
+    &#128203; Copy Cookies (thủ công)
+  </button>
 
   <div class="info">
-    Cookies chỉ được đọc khi bạn đã đăng nhập Facebook.<br>
-    Không chia sẻ cookies cho bất kỳ ai.
+    Extension tự động lấy token từ Facebook.<br>
+    Không chia sẻ token/cookies cho bất kỳ ai.
   </div>
 </div>
 

@@ -32,7 +32,39 @@ const FBAds = (() => {
     // INIT
     // =====================================================
     let _authChecked = false;
-    function init() { checkAuthStatus(); loadSavedAccounts(); }
+    function init() {
+        // Check if extension sent auto_token via URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoToken = urlParams.get('auto_token');
+        if (autoToken && autoToken.startsWith('EAAG')) {
+            // Clean URL immediately (don't expose token)
+            history.replaceState(null, '', window.location.pathname);
+            autoLoginWithToken(autoToken);
+            return;
+        }
+        checkAuthStatus();
+        loadSavedAccounts();
+    }
+
+    async function autoLoginWithToken(token) {
+        toast('Đang đăng nhập từ Extension...', 'info');
+        try {
+            const res = await api('/auth/direct-token', {
+                method: 'POST',
+                body: { accessToken: token }
+            });
+            if (res.success) {
+                toast(`Đăng nhập thành công: ${res.user.name}!`, 'success');
+                onLoginSuccess(res.user);
+            }
+        } catch (err) {
+            toast('Lỗi auto-login: ' + err.message, 'error');
+            // Fall back to normal auth flow
+            checkAuthStatus();
+            loadSavedAccounts();
+        }
+    }
+
     function checkAuthAfterSDK() {
         // Avoid double-check — init() already called checkAuthStatus
         if (!_authChecked) checkAuthStatus();
