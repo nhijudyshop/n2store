@@ -199,14 +199,6 @@ const MENU_CONFIG = [
         permissionRequired: "supplier-debt",
     },
     {
-        href: "../hang-qq/index.html",
-        icon: "package",
-        text: "Hàng Hương Châu",
-        shortText: "Hàng HC",
-        pageIdentifier: "hang-qq",
-        permissionRequired: "hang-qq",
-    },
-    {
         href: "../invoice-compare/index.html",
         icon: "file-check-2",
         text: "So Sánh Đơn Hàng",

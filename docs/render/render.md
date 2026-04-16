@@ -49,7 +49,6 @@
   - [Goong Maps](#goong-maps)
   - [Telegram Bot](#telegram-bot)
   - [Upload (Firebase Storage)](#upload-firebase-storage)
-  - [Hang QQ (Hàng Hương Châu)](#hang-qq-hàng-hương-châu)
   - [Quy Trình](#quy-trình)
   - [Admin Routes](#admin-routes)
 - [WebSocket Server (Frontend)](#websocket-server-frontend)
@@ -111,7 +110,6 @@ render.com/
 │   ├── return-orders.js         # Đơn trả
 │   ├── campaigns.js             # Campaign management
 │   ├── quick-replies.js         # Mẫu tin nhắn nhanh
-│   ├── hang-qq.js               # Hàng Hương Châu
 │   ├── pancake-accounts.js      # Pancake accounts
 │   ├── fb-global-id.js          # FB PSID → Global ID cache
 │   └── admin-*.js               # Admin routes (firebase, render, migrate)
@@ -598,14 +596,6 @@ Firebase replacement (PostgreSQL):
 | POST | `/api/upload/image` | Upload base64 → Firebase Storage |
 | DELETE | `/api/upload/image` | Xóa image |
 | GET | `/api/upload/health` | Health check |
-
-### Hang QQ (Hàng Hương Châu)
-
-| Method | URL | Mô tả |
-|---|---|---|
-| GET/POST | `/api/hang-qq` | List / Tạo |
-| PUT/DELETE | `/api/hang-qq/:id` | Update / Xóa |
-| DELETE | `/api/hang-qq` | Xóa hàng loạt |
 
 ### Quy Trình
 
