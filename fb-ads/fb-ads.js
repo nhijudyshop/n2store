@@ -201,8 +201,64 @@ const FBAds = (() => {
     });
 
     // =====================================================
-    // COOKIE-BASED AUTH (No SDK required)
+    // TOKEN / COOKIE AUTH (No SDK required)
     // =====================================================
+    function switchLoginTab(tab) {
+        document.getElementById('tokenSection').style.display = tab === 'token' ? '' : 'none';
+        document.getElementById('cookieSection').style.display = tab === 'cookie' ? '' : 'none';
+        document.getElementById('tabToken').style.background = tab === 'token' ? 'var(--fb-primary)' : 'var(--fb-bg)';
+        document.getElementById('tabToken').style.color = tab === 'token' ? '#fff' : 'var(--fb-text-secondary)';
+        document.getElementById('tabCookie').style.background = tab === 'cookie' ? 'var(--fb-primary)' : 'var(--fb-bg)';
+        document.getElementById('tabCookie').style.color = tab === 'cookie' ? '#fff' : 'var(--fb-text-secondary)';
+    }
+
+    async function loginWithToken() {
+        const input = document.getElementById('tokenInput');
+        const statusEl = document.getElementById('cookieStatus');
+        const btn = document.getElementById('tokenLoginBtn');
+        const tokenStr = (input?.value || '').trim();
+
+        if (!tokenStr) {
+            toast('Paste EAAG token vào ô trước', 'error');
+            return;
+        }
+
+        // Extract EAAG token from pasted text (user might paste extra stuff)
+        const match = tokenStr.match(/(EAAG[A-Za-z0-9]+)/);
+        if (!match) {
+            toast('Không tìm thấy EAAG token. Token phải bắt đầu bằng EAAG...', 'error');
+            return;
+        }
+        const accessToken = match[1];
+
+        btn.disabled = true;
+        btn.textContent = 'Đang xác thực...';
+        statusEl.style.display = '';
+        statusEl.style.color = 'var(--fb-primary)';
+        statusEl.textContent = '⏳ Đang kiểm tra token với Facebook...';
+
+        try {
+            const res = await api('/auth/direct-token', {
+                method: 'POST',
+                body: { accessToken }
+            });
+
+            if (res.success) {
+                toast(`Đăng nhập thành công: ${res.user.name}!`, 'success');
+                statusEl.style.color = 'var(--fb-success)';
+                statusEl.textContent = `✅ Đã đăng nhập: ${res.user.name}`;
+                onLoginSuccess(res.user);
+            }
+        } catch (err) {
+            statusEl.style.color = 'var(--fb-danger)';
+            statusEl.textContent = `❌ ${err.message}`;
+            toast('Lỗi: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔐 Đăng nhập với Token';
+        }
+    }
+
     async function loginWithCookies() {
         const input = document.getElementById('cookieInput');
         const statusEl = document.getElementById('cookieStatus');
@@ -1540,8 +1596,8 @@ const FBAds = (() => {
         // Account switching
         switchAccount, removeSavedAccount, loadSavedAccounts,
         toggleAccountMenu, refreshAccountDropdown,
-        // Cookie auth
-        loginWithCookies, showCookieHelp,
+        // Cookie/Token auth
+        loginWithCookies, loginWithToken, showCookieHelp, switchLoginTab,
         // New features
         loadAudiences, createAudience, deleteAudience,
         loadPixels, viewPixelEvents,

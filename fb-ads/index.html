@@ -85,22 +85,34 @@
         Đăng nhập với Facebook
     </button>
 
-    <!-- Cookie login section -->
+    <!-- Cookie / Token login section -->
     <div style="margin-top:20px;width:100%;max-width:460px">
-        <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc đăng nhập bằng Cookie (không cần API) &#x2500;&#x2500;</div>
+        <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc đăng nhập bằng Token (không cần API App) &#x2500;&#x2500;</div>
         <div style="background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <span style="font-size:20px">&#127850;</span>
-                <div>
-                    <div style="font-weight:600;font-size:14px">Đăng nhập bằng Cookie</div>
-                    <div style="font-size:12px;color:var(--fb-text-light)">Paste cookies từ Facebook hoặc dùng Extension</div>
+            <!-- Tab selector -->
+            <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--fb-border);border-radius:6px;overflow:hidden">
+                <button class="btn btn-sm" id="tabToken" onclick="FBAds.switchLoginTab('token')" style="flex:1;border:none;border-radius:0;background:var(--fb-primary);color:#fff">&#128273; EAAG Token</button>
+                <button class="btn btn-sm" id="tabCookie" onclick="FBAds.switchLoginTab('cookie')" style="flex:1;border:none;border-radius:0;background:var(--fb-bg);color:var(--fb-text-secondary)">&#127850; Cookie</button>
+            </div>
+
+            <!-- Token input (default, recommended) -->
+            <div id="tokenSection">
+                <textarea id="tokenInput" rows="3" placeholder="Paste EAAG token ở đây...&#10;&#10;Cách lấy: Xem hướng dẫn bấm nút ? bên dưới" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithToken()" style="flex:1" id="tokenLoginBtn">&#128274; Đăng nhập với Token</button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
                 </div>
             </div>
-            <textarea id="cookieInput" rows="3" placeholder="Paste cookies ở đây: c_user=...; xs=...; datr=...&#10;&#10;Cách lấy: Mở Facebook → F12 → Application → Cookies → copy c_user, xs, datr" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
-            <div style="display:flex;gap:8px;margin-top:8px">
-                <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithCookies()" style="flex:1" id="cookieLoginBtn">&#128274; Đăng nhập với Cookie</button>
-                <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
+
+            <!-- Cookie input (fallback) -->
+            <div id="cookieSection" style="display:none">
+                <textarea id="cookieInput" rows="3" placeholder="Paste cookies ở đây: c_user=...; xs=...; datr=...&#10;&#10;Dùng Extension hoặc console: copy(document.cookie)" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithCookies()" style="flex:1" id="cookieLoginBtn">&#128274; Đăng nhập với Cookie</button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
+                </div>
             </div>
+
             <div id="cookieStatus" style="margin-top:8px;font-size:12px;display:none"></div>
         </div>
     </div>
@@ -495,38 +507,46 @@
     </div>
 </div></div>
 
-<!-- Cookie Help Modal -->
-<div class="modal-overlay" id="cookieHelpModal"><div class="modal" style="max-width:600px">
-    <div class="modal-header"><h3>&#127850; Hướng dẫn lấy Cookie Facebook</h3><button class="modal-close" onclick="FBAds.closeModal('cookieHelpModal')">&times;</button></div>
+<!-- Help Modal -->
+<div class="modal-overlay" id="cookieHelpModal"><div class="modal" style="max-width:650px">
+    <div class="modal-header"><h3>&#128273; Hướng dẫn lấy Token / Cookie</h3><button class="modal-close" onclick="FBAds.closeModal('cookieHelpModal')">&times;</button></div>
     <div class="modal-body" style="font-size:14px;line-height:1.7">
-        <h4 style="margin-bottom:8px">Cách 1: Dùng Extension (Nhanh nhất)</h4>
+
+        <div style="background:#e7f3ff;padding:14px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--fb-primary)">
+            <strong>&#11088; Khuyến nghị: Dùng EAAG Token</strong> — đáng tin, hoạt động ngay, không cần server trích xuất.
+        </div>
+
+        <h4 style="margin-bottom:8px">Cách 1: Lấy EAAG Token từ Ads Manager (Khuyến nghị)</h4>
+        <ol style="padding-left:20px;margin-bottom:8px">
+            <li>Mở <a href="https://adsmanager.facebook.com" target="_blank" style="color:var(--fb-primary)">adsmanager.facebook.com</a> (đăng nhập nếu chưa)</li>
+            <li>Nhấn <strong>F12</strong> mở DevTools &rarr; tab <strong>Console</strong></li>
+            <li>Paste đoạn code sau rồi Enter:</li>
+        </ol>
+        <div style="background:#1c1e21;color:#66ff66;padding:12px;border-radius:6px;font-family:monospace;font-size:12px;margin-bottom:6px;position:relative;cursor:pointer;word-break:break-all" onclick="navigator.clipboard.writeText(this.querySelector('code').textContent).then(()=>{this.querySelector('.cp').textContent='Copied!'})">
+            <span class="cp" style="position:absolute;top:4px;right:8px;font-size:10px;color:#999">Click to copy</span>
+            <code>var s=document.createElement('script');s.src='';fetch(location.href).then(r=>r.text()).then(h=>{var m=h.match(/EAAG\w{20,}/);if(m){copy(m[0]);alert('Token copied!\\n'+m[0].substring(0,30)+'...')}else{var t=document.querySelector('[data-testid]');var all=document.body.innerHTML.match(/EAAG\w+/g)||[];if(all.length){copy(all[0]);alert('Token copied!\\n'+all[0].substring(0,30)+'...')}else alert('Không tìm thấy token. Thử Cách 2.')}})</code>
+        </div>
+        <div style="font-size:12px;color:var(--fb-text-light);margin-bottom:16px">Token sẽ tự copy. Quay lại đây paste vào ô &rarr; Đăng nhập.</div>
+
+        <h4 style="margin-bottom:8px">Cách 2: Lấy EAAG Token từ Network tab</h4>
         <ol style="padding-left:20px;margin-bottom:16px">
-            <li>Cài Extension <strong>N2 FB Cookie Helper</strong> (file trong <code>fb-ads/extension/</code>)</li>
-            <li>Mở <a href="https://www.facebook.com" target="_blank" style="color:var(--fb-primary)">facebook.com</a> và đăng nhập</li>
-            <li>Click icon Extension &rarr; bấm <strong>"Copy Cookies"</strong></li>
-            <li>Quay lại đây, paste vào ô Cookie &rarr; Đăng nhập</li>
+            <li>Mở <a href="https://adsmanager.facebook.com" target="_blank" style="color:var(--fb-primary)">adsmanager.facebook.com</a></li>
+            <li>Nhấn <strong>F12</strong> &rarr; tab <strong>Network</strong></li>
+            <li>Trong ô Filter gõ: <code>access_token</code></li>
+            <li>Refresh trang (F5), click vào bất kỳ request nào</li>
+            <li>Tìm <code>access_token=EAAG...</code> trong URL hoặc payload</li>
+            <li>Copy giá trị EAAG... (từ EAAG đến hết, không có dấu &amp;)</li>
         </ol>
 
-        <h4 style="margin-bottom:8px">Cách 2: Lấy thủ công từ DevTools</h4>
-        <ol style="padding-left:20px;margin-bottom:16px">
-            <li>Mở <a href="https://www.facebook.com" target="_blank" style="color:var(--fb-primary)">facebook.com</a> (phải đang đăng nhập)</li>
-            <li>Nhấn <strong>F12</strong> (hoặc Ctrl+Shift+I) mở DevTools</li>
-            <li>Vào tab <strong>Application</strong> (Chrome) hoặc <strong>Storage</strong> (Firefox)</li>
-            <li>Bên trái: <strong>Cookies</strong> &rarr; <strong>https://www.facebook.com</strong></li>
-            <li>Tìm và copy giá trị của: <code>c_user</code>, <code>xs</code>, <code>datr</code></li>
-            <li>Paste theo format: <code>c_user=XXX; xs=XXX; datr=XXX</code></li>
-        </ol>
-
-        <h4 style="margin-bottom:8px">Cách 3: Console (Nhanh)</h4>
+        <h4 style="margin-bottom:8px">Cách 3: Dùng Cookie (Backup)</h4>
         <ol style="padding-left:20px;margin-bottom:16px">
             <li>Mở facebook.com &rarr; F12 &rarr; tab <strong>Console</strong></li>
-            <li>Paste lệnh: <code>copy(document.cookie)</code> &rarr; Enter</li>
-            <li>Toàn bộ cookies đã được copy vào clipboard</li>
-            <li>Quay lại đây paste vào ô Cookie</li>
+            <li>Gõ: <code>copy(document.cookie)</code> &rarr; Enter</li>
+            <li>Chuyển sang tab Cookie, paste vào ô &rarr; Đăng nhập</li>
         </ol>
 
         <div style="background:#fff3cd;padding:12px;border-radius:6px;font-size:13px">
-            <strong>&#9888; Lưu ý bảo mật:</strong> Cookie = quyền truy cập tài khoản FB. Không chia sẻ cho ai. Token từ cookie thường hết hạn sau ~2 giờ, cần refresh lại.
+            <strong>&#9888; Bảo mật:</strong> Token/Cookie = quyền truy cập FB. Không chia sẻ. Token thường hết hạn sau ~2h.
         </div>
     </div>
 </div></div>

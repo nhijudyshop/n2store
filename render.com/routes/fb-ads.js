@@ -1531,6 +1531,42 @@ router.post('/auth/cookie-login', async (req, res) => {
     }
 });
 
+// POST /api/fb-ads/auth/direct-token — Login with EAAG token directly (no app secret needed)
+router.post('/auth/direct-token', async (req, res) => {
+    try {
+        const { accessToken } = req.body;
+        if (!accessToken || !accessToken.startsWith('EAAG')) {
+            return res.status(400).json({ success: false, error: 'Cần access token bắt đầu bằng EAAG' });
+        }
+
+        // Validate token with Facebook
+        const meRes = await fetch(`${FB_GRAPH_URL}/me?fields=id,name&access_token=${accessToken}`);
+        const meData = await meRes.json();
+        if (meData.error) {
+            return res.status(401).json({ success: false, error: 'Token không hợp lệ: ' + meData.error.message });
+        }
+
+        // Store token
+        fbTokenStore = {
+            accessToken,
+            expiresAt: Date.now() + 7200 * 1000, // Assume ~2h for manually extracted tokens
+            userId: meData.id,
+            name: meData.name || 'User'
+        };
+
+        await saveTokenToDB(req);
+        console.log(`[FB-ADS-TOKEN] Direct token login: ${fbTokenStore.name} (${fbTokenStore.userId})`);
+
+        res.json({
+            success: true,
+            user: { id: fbTokenStore.userId, name: fbTokenStore.name },
+            method: 'direct-token'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // POST /api/fb-ads/auth/cookie-refresh — Refresh token using saved cookies
 router.post('/auth/cookie-refresh', async (req, res) => {
     try {
