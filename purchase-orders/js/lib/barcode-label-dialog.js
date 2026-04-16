@@ -424,8 +424,35 @@ window.BarcodeLabelDialog = (function () {
         const validItems = items.filter(it => it.tposProductId);
         if (!validItems.length) throw new Error('No items with TPOS product ID');
 
-        // BarcodeTemplateIds = unique ProductTmplIds
+        // Lookup missing ProductTmplId from TPOS by DefaultCode
+        const needTmpl = validItems.filter(it => !it.tposProductTmplId && it.code);
+        if (needTmpl.length > 0) {
+            const uniqueCodes = [...new Set(needTmpl.map(it => it.code))];
+            const filter = uniqueCodes.map(c => `DefaultCode eq '${c}'`).join(' or ');
+            try {
+                const resp = await tposFetch(
+                    `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$top=${uniqueCodes.length}&$select=Id,DefaultCode,ProductTmplId`
+                );
+                const data = await resp.json();
+                const tposProducts = data.value || [];
+                const codeToTmpl = new Map();
+                for (const p of tposProducts) {
+                    if (p.DefaultCode && p.ProductTmplId) codeToTmpl.set(p.DefaultCode, p.ProductTmplId);
+                }
+                for (const it of validItems) {
+                    if (!it.tposProductTmplId && codeToTmpl.has(it.code)) {
+                        it.tposProductTmplId = codeToTmpl.get(it.code);
+                    }
+                }
+                console.log(`[Barcode] Resolved ${codeToTmpl.size} ProductTmplIds from TPOS`);
+            } catch (err) {
+                console.warn('[Barcode] ProductTmplId lookup failed:', err.message);
+            }
+        }
+
+        // BarcodeTemplateIds = unique ProductTmplIds (required by TPOS)
         const tmplIds = [...new Set(validItems.map(it => it.tposProductTmplId).filter(Boolean))];
+        if (tmplIds.length === 0) throw new Error('No ProductTmplIds found — cannot generate barcode PDF');
 
         // Warehouse per company
         const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
