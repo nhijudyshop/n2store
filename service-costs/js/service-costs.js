@@ -466,6 +466,36 @@
             consoleUrl: 'https://tomato.tpos.vn/#/app/user/pack-of-data',
             status: 'active',
         },
+
+        // ===================== VULTR =====================
+        {
+            id: 'vultr-sip-proxy',
+            name: 'Vultr VPS — SIP Proxy',
+            type: 'VPS (Ubuntu 22.04)',
+            icon: 'phone-call',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Cloud Compute — Regular (1 vCPU, 1GB RAM)',
+            costType: 'paid',
+            monthlyCost: 6,
+            costNote: 'SIP WSS↔UDP proxy cho OnCallCX PBX. Caddy auto-SSL via sslip.io.',
+            region: 'Singapore',
+            freeTier: 'Không có free tier',
+            details: [
+                { label: 'IP', value: '45.76.155.207' },
+                { label: 'OS', value: 'Ubuntu 22.04 LTS' },
+                { label: 'Specs', value: '1 vCPU, 1GB RAM, 25GB SSD' },
+                { label: 'URL (WSS)', value: 'wss://45-76-155-207.sslip.io/ws' },
+                { label: 'Health Check', value: 'https://45-76-155-207.sslip.io/health' },
+                { label: 'Service', value: 'sip-proxy (systemd) — Node.js WSS↔UDP bridge' },
+                { label: 'SSL', value: 'Caddy + Let\'s Encrypt auto-renew via sslip.io' },
+                { label: 'PBX Target', value: 'pbx-ucaas.oncallcx.vn:9060 (UDP)' },
+                { label: 'Extensions', value: '101-110 (10 ext, config in Render DB phone_config)' },
+                { label: 'SSH', value: 'ssh root@45.76.155.207 (ED25519 key)' },
+                { label: 'Firewall', value: 'UFW: 22, 80, 443, 8089' },
+            ],
+            consoleUrl: 'https://my.vultr.com/',
+            status: 'active',
+        },
     ];
 
     const QUICK_LINKS = [
@@ -477,6 +507,9 @@
         { name: 'Render: tpos-pancake', url: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800', icon: 'package' },
         { name: 'Render: facebook', url: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g', icon: 'message-circle' },
         { name: 'Render: PostgreSQL DB', url: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a', icon: 'database' },
+        { name: 'Vultr VPS (SIP Proxy)', url: 'https://my.vultr.com/', icon: 'phone-call' },
+        { name: 'SIP Proxy Health', url: 'https://45-76-155-207.sslip.io/health', icon: 'activity' },
+        { name: 'OnCallCX PBX', url: 'https://pbx-ucaas.oncallcx.vn', icon: 'phone' },
         { name: 'Cloudflare Workers', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production', icon: 'cloud' },
         { name: 'Cloudflare Analytics', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/analytics', icon: 'bar-chart-2' },
         { name: 'DeepSeek Platform', url: 'https://platform.deepseek.com/', icon: 'brain' },
