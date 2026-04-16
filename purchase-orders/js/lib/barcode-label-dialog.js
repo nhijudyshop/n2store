@@ -450,7 +450,7 @@ window.BarcodeLabelDialog = (function () {
             }
         }
 
-        // BarcodeTemplateIds = unique ProductTmplIds (required by TPOS)
+        // Group items by ProductTmplId (TPOS only accepts 1 template per request)
         const tmplIds = [...new Set(validItems.map(it => it.tposProductTmplId).filter(Boolean))];
         if (tmplIds.length === 0) throw new Error('No ProductTmplIds found — cannot generate barcode PDF');
 
@@ -460,78 +460,67 @@ window.BarcodeLabelDialog = (function () {
             1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', NameGet: '[WH] Nhi Judy Store' },
             2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', NameGet: '[WH2] Shop NJD' }
         };
-
-        // Build Lines — only fields TPOS actually uses
-        const lines = validItems.map(it => ({
-            Id: 0,
-            ProductId: it.tposProductId,
-            ProductTmplId: 0,
-            Quantity: it.quantity,
-            Price: 0,
-            Product: {
-                Id: it.tposProductId,
-                DefaultCode: it.code,
-                Barcode: it.code,
-                NameTemplate: stripBrackets(it.name),
-                Name: stripBrackets(it.name),
-                NameGet: `[${it.code}] ${stripBrackets(it.name)}`,
-                ProductTmplId: it.tposProductTmplId || 0,
-                PriceVariant: it.price || 0,
-                StandardPrice: it.price || 0,
-                UOMId: 1,
-                UOMName: 'Cái',
-                Active: true,
-                SaleOK: true,
-                PurchaseOK: true,
-                Type: 'product',
-                AvailableInPOS: true
-            }
-        }));
-
-        const payload = {
-            Id: 0,
-            PaperId: paper.id,
-            PriceListId: 1,
-            ShowCurrency: showCurrency,
-            ShowBold: showBold,
-            ShowPrice: showPrice,
-            ShowProductName: showProductName,
-            BarcodeTemplateIds: tmplIds,
-            IsHideBarcode: hideBarcode || null,
-            Warehouse: { ...(whMap[companyId] || whMap[1]), CompanyId: 0, LocationId: 0, LocationActive: true },
-            PriceList: { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true, Sequence: 1 },
-            Paper: {
-                Id: paper.id, Name: paper.name,
-                SheetWidth: paper.sheetW, SheetHeight: paper.sheetH,
-                LabelWidth: paper.labelW, LabelHeight: paper.labelH,
-                LabelsPerSheet: paper.cols,
-                TopMargin: paper.topMargin, LeftMargin: paper.leftMargin,
-                BottomMargin: paper.bottomMargin, RightMargin: paper.rightMargin,
-                TypePrint: 'Default', FontSize: paper.fontSize, LabelsPerRow: 3
-            },
-            Lines: lines
+        const wh = { ...(whMap[companyId] || whMap[1]), CompanyId: 0, LocationId: 0, LocationActive: true };
+        const priceList = { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true, Sequence: 1 };
+        const paperObj = {
+            Id: paper.id, Name: paper.name,
+            SheetWidth: paper.sheetW, SheetHeight: paper.sheetH,
+            LabelWidth: paper.labelW, LabelHeight: paper.labelH,
+            LabelsPerSheet: paper.cols,
+            TopMargin: paper.topMargin, LeftMargin: paper.leftMargin,
+            BottomMargin: paper.bottomMargin, RightMargin: paper.rightMargin,
+            TypePrint: 'Default', FontSize: paper.fontSize, LabelsPerRow: 3
         };
 
-        console.log('[Barcode] TPOS payload:', { items: validItems.length, tmplIds, paperId: paper.id });
-
-        // Step 1: POST save barcode label config
-        const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-            body: JSON.stringify(payload)
-        });
-
-        const saveData = await saveResp.json();
-        const labelId = saveData.Id;
-        if (!labelId) {
-            console.error('[Barcode] TPOS save failed:', saveData);
-            throw new Error(saveData?.error?.message || 'TPOS save failed');
+        function buildLine(it) {
+            return {
+                Id: 0, ProductId: it.tposProductId, ProductTmplId: 0, Quantity: it.quantity, Price: 0,
+                Product: {
+                    Id: it.tposProductId, DefaultCode: it.code, Barcode: it.code,
+                    NameTemplate: stripBrackets(it.name), Name: stripBrackets(it.name),
+                    NameGet: `[${it.code}] ${stripBrackets(it.name)}`,
+                    ProductTmplId: it.tposProductTmplId || 0,
+                    PriceVariant: it.price || 0, StandardPrice: it.price || 0,
+                    UOMId: 1, UOMName: 'Cái', Active: true, Type: 'product'
+                }
+            };
         }
 
-        console.log('[Barcode] TPOS label saved, Id:', labelId);
+        // Send 1 request per ProductTmplId (TPOS rejects multiple BarcodeTemplateIds)
+        console.log(`[Barcode] Sending ${tmplIds.length} TPOS requests for ${validItems.length} items`);
+        let lastLabelId = null;
 
-        // Step 2: GET PDF binary
-        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`);
+        for (const tmplId of tmplIds) {
+            const tmplItems = validItems.filter(it => it.tposProductTmplId === tmplId);
+            const payload = {
+                Id: 0, PaperId: paper.id, PriceListId: 1,
+                ShowCurrency: showCurrency, ShowBold: showBold, ShowPrice: showPrice, ShowProductName: showProductName,
+                BarcodeTemplateIds: [tmplId],
+                IsHideBarcode: hideBarcode || null,
+                Warehouse: wh, PriceList: priceList, Paper: paperObj,
+                Lines: tmplItems.map(buildLine)
+            };
+
+            const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                body: JSON.stringify(payload)
+            });
+
+            const saveData = await saveResp.json();
+            if (saveData.Id) {
+                lastLabelId = saveData.Id;
+                console.log(`[Barcode] Template ${tmplId}: label ${saveData.Id} (${tmplItems.length} items)`);
+            } else {
+                console.warn(`[Barcode] Template ${tmplId} failed:`, saveData.error?.message);
+            }
+        }
+
+        if (!lastLabelId) throw new Error('All TPOS barcode requests failed');
+
+        // GET PDF from last label (TPOS accumulates all labels in session)
+        console.log('[Barcode] Fetching PDF from label:', lastLabelId);
+        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${lastLabelId}`);
 
         if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
 
