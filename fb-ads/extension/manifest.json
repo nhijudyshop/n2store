@@ -3,7 +3,7 @@
   "name": "N2 FB Cookie Helper",
   "version": "1.0.0",
   "description": "Trích xuất cookies Facebook cho N2Store Ads Manager",
-  "permissions": ["cookies"],
+  "permissions": ["cookies", "activeTab"],
   "host_permissions": [
     "https://*.facebook.com/*",
     "https://*.fbcdn.net/*"
