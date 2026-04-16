@@ -262,6 +262,16 @@ function initModalHandlers() {
         });
     }
 
+    // Date filter listener
+    const filterDateCreated = document.getElementById('filter-date-created');
+    if (filterDateCreated) {
+        filterDateCreated.addEventListener('change', () => {
+            const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+            const term = (document.getElementById('search-ticket')?.value || '').toLowerCase().trim();
+            renderDashboard(activeTab, term);
+        });
+    }
+
     // Modal Search Button
     elements.btnSearchOrder.addEventListener('click', handleSearchOrder);
 
@@ -2085,6 +2095,18 @@ function renderDashboard(tabName, searchTerm = '') {
             (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
             (t.customer && t.customer.toLowerCase().includes(searchTerm))
         );
+    }
+
+    // Filter by created date
+    const filterDateEl = document.getElementById('filter-date-created');
+    if (filterDateEl && filterDateEl.value) {
+        const selectedDate = filterDateEl.value; // yyyy-mm-dd
+        filtered = filtered.filter(t => {
+            if (!t.createdAt) return false;
+            const d = new Date(t.createdAt);
+            const ticketDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            return ticketDate === selectedDate;
+        });
     }
 
     // Render
