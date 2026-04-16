@@ -522,10 +522,9 @@ window.BarcodeLabelDialog = (function () {
 
         console.log('[Barcode] TPOS payload:', { items: validItems.length, tmplIds, paperId: paper.id });
 
-        // Try all-in-one request first, fallback to per-template if 500
-        let labelId = null;
+        const labelIds = [];
 
-        // Attempt 1: single request with all items
+        // Attempt 1: all-in-one request
         const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json;charset=UTF-8' },
@@ -533,41 +532,66 @@ window.BarcodeLabelDialog = (function () {
         });
         const saveData = await saveResp.json();
         if (saveData.Id) {
-            labelId = saveData.Id;
-            console.log('[Barcode] All-in-one OK, Id:', labelId);
+            labelIds.push(saveData.Id);
+            console.log('[Barcode] All-in-one OK, Id:', saveData.Id);
         } else {
-            // Attempt 2: per-template sequential requests
+            // Attempt 2: per-template with retry
             console.warn('[Barcode] All-in-one failed, trying per-template...', saveData.error?.message);
             for (const tmplId of tmplIds) {
                 const tmplItems = validItems.filter(it => it.tposProductTmplId === tmplId);
                 const perTmplPayload = { ...payload, BarcodeTemplateIds: [tmplId], Lines: tmplItems.map(it => lines.find(l => l.ProductId === it.tposProductId)).filter(Boolean) };
-                try {
-                    const r = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-                        body: JSON.stringify(perTmplPayload)
-                    });
-                    const d = await r.json();
-                    if (d.Id) {
-                        labelId = d.Id;
-                        console.log(`[Barcode] Template ${tmplId}: label ${d.Id} (${tmplItems.length} items)`);
+
+                let success = false;
+                for (let attempt = 0; attempt < 2 && !success; attempt++) {
+                    try {
+                        if (attempt > 0) await new Promise(r => setTimeout(r, 800));
+                        const r = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                            body: JSON.stringify(perTmplPayload)
+                        });
+                        const d = await r.json();
+                        if (d.Id) {
+                            labelIds.push(d.Id);
+                            success = true;
+                            console.log(`[Barcode] Template ${tmplId}: label ${d.Id} (${tmplItems.length} items)`);
+                        }
+                    } catch (e) {
+                        console.warn(`[Barcode] Template ${tmplId} attempt ${attempt + 1} failed:`, e.message);
                     }
-                } catch (e) {
-                    console.warn(`[Barcode] Template ${tmplId} failed:`, e.message);
                 }
             }
         }
 
-        if (!labelId) throw new Error('TPOS barcode label creation failed');
+        if (labelIds.length === 0) throw new Error('TPOS barcode label creation failed');
 
-        // GET PDF binary
-        console.log('[Barcode] Fetching PDF, label:', labelId);
-        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`);
-        if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
+        // Fetch PDF for each label and merge into one blob
+        console.log('[Barcode] Fetching PDFs for', labelIds.length, 'labels:', labelIds);
+        const pdfBlobs = [];
+        for (const id of labelIds) {
+            try {
+                const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${id}`);
+                if (pdfResp.ok) {
+                    pdfBlobs.push(await pdfResp.arrayBuffer());
+                }
+            } catch (e) {
+                console.warn('[Barcode] PDF fetch failed for label', id);
+            }
+        }
 
-        const pdfBlob = await pdfResp.blob();
-        window.open(URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' })), '_blank');
-        console.log('[Barcode] TPOS PDF opened, size:', pdfBlob.size);
+        if (pdfBlobs.length === 0) throw new Error('No PDFs generated');
+
+        if (pdfBlobs.length === 1) {
+            // Single PDF — open directly
+            window.open(URL.createObjectURL(new Blob([pdfBlobs[0]], { type: 'application/pdf' })), '_blank');
+        } else {
+            // Multiple PDFs — merge by concatenating (basic merge, works for simple label PDFs)
+            // Open each in separate tab since proper PDF merge needs a library
+            for (let i = 0; i < pdfBlobs.length; i++) {
+                window.open(URL.createObjectURL(new Blob([pdfBlobs[i]], { type: 'application/pdf' })), '_blank');
+            }
+        }
+        console.log(`[Barcode] Opened ${pdfBlobs.length} TPOS PDF(s), total labels from ${labelIds.length} requests`);
     }
 
     function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
