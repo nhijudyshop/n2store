@@ -29,21 +29,48 @@ const ImageManager = (() => {
     function open() {
         _rows = [];
 
-        // Load existing anhSanPham from all dotHangs
+        // Load existing anhSanPham from all dotHangs, deduplicate
         const allDot = getAllDotHang();
+
+        // Group by STT: collect which NCCs have which images for each STT
+        // Key: stt, Value: Map<ncc, urls[]>
+        const sttMap = new Map(); // stt → [{ncc, urls}]
+
         allDot.forEach(dot => {
             const anhSanPham = dot.anhSanPham || {};
             Object.entries(anhSanPham).forEach(([stt, urls]) => {
-                if (urls && urls.length > 0) {
-                    _rows.push({
-                        id: `row_${++_rowCounter}`,
-                        uploadedUrls: [...urls],
-                        stt: stt,
-                        ncc: String(dot.sttNCC || '')
-                    });
-                }
+                if (!urls || urls.length === 0) return;
+                if (!sttMap.has(stt)) sttMap.set(stt, []);
+                sttMap.get(stt).push({ ncc: dot.sttNCC, urls: [...urls] });
             });
         });
+
+        // For each STT: if all NCCs have identical images → 1 row without NCC
+        // Otherwise → separate rows per NCC
+        for (const [stt, entries] of sttMap) {
+            const firstUrlsKey = JSON.stringify(entries[0].urls);
+            const allSame = entries.every(e => JSON.stringify(e.urls) === firstUrlsKey);
+
+            if (allSame) {
+                // Deduplicated: one row, no NCC
+                _rows.push({
+                    id: `row_${++_rowCounter}`,
+                    uploadedUrls: [...entries[0].urls],
+                    stt: stt,
+                    ncc: ''
+                });
+            } else {
+                // Different per NCC: separate rows
+                entries.forEach(e => {
+                    _rows.push({
+                        id: `row_${++_rowCounter}`,
+                        uploadedUrls: [...e.urls],
+                        stt: stt,
+                        ncc: String(e.ncc)
+                    });
+                });
+            }
+        }
 
         // Always add one empty row at the end for new input
         _rows.push(_createRow());
