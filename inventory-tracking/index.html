@@ -272,6 +272,10 @@
                     <i data-lucide="plus"></i>
                     <span>Thêm Đợt Hàng</span>
                 </button>
+                <button class="btn btn-outline btn-image-manager" id="btnOpenImageManager" onclick="ImageManager.openPicker()">
+                    <i data-lucide="camera"></i>
+                    <span>Quản Lý Ảnh</span>
+                </button>
                 <button class="btn btn-outline" id="btnExportTracking">
                     <i data-lucide="download"></i>
                     <span>Xuất Excel</span>
@@ -558,6 +562,22 @@
             </div>
             <div class="modal-body image-viewer-body" id="imageViewerBody">
                 <!-- Images will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Image Picker (choose shipment) -->
+    <div class="modal" id="modalImagePicker">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-md">
+            <div class="modal-header">
+                <h3><i data-lucide="camera"></i> Chọn Đợt Hàng</h3>
+                <button class="modal-close" id="btnCloseImagePicker">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="imagePickerBody">
+                <!-- Picker content rendered by JS -->
             </div>
         </div>
     </div>

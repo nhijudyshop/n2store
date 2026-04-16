@@ -290,8 +290,69 @@ const ImageManager = (() => {
         openModal('modalImageViewer');
     }
 
+    /**
+     * Open picker modal to choose which shipment/invoice to manage images
+     */
+    function openPicker() {
+        const shipments = getAllDotHangAsShipments();
+        const body = document.getElementById('imagePickerBody');
+        if (!body) return;
+
+        if (shipments.length === 0) {
+            body.innerHTML = '<p style="text-align:center;color:var(--gray-400);padding:20px;">Chưa có đợt hàng nào</p>';
+            openModal('modalImagePicker');
+            return;
+        }
+
+        body.innerHTML = shipments.map(ship => {
+            const invoices = ship.hoaDon || [];
+            return `
+                <div class="img-picker-group">
+                    <div class="img-picker-date">
+                        <i data-lucide="calendar"></i>
+                        Ngày giao: ${formatDateDisplay(ship.ngayDiHang)}
+                    </div>
+                    ${invoices.map(hd => {
+                        const products = hd.sanPham || [];
+                        const anhSanPham = hd.anhSanPham || {};
+                        const totalImages = Object.values(anhSanPham).reduce((sum, arr) => sum + arr.length, 0);
+                        const productNames = products.slice(0, 3).map(p => p.maSP || '-').join(', ');
+                        const moreProducts = products.length > 3 ? ` +${products.length - 3}` : '';
+
+                        return `
+                            <div class="img-picker-item" onclick="ImageManager.selectFromPicker('${ship.id}', '${hd.id}')">
+                                <div class="img-picker-info">
+                                    <span class="img-picker-ncc">NCC ${hd.sttNCC}</span>
+                                    <span class="img-picker-products">${productNames}${moreProducts}</span>
+                                </div>
+                                <div class="img-picker-meta">
+                                    <span class="img-picker-count">${totalImages > 0 ? totalImages + ' ảnh' : 'Chưa có ảnh'}</span>
+                                    <i data-lucide="chevron-right" style="width:16px;height:16px;color:var(--gray-400)"></i>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+        openModal('modalImagePicker');
+    }
+
+    /**
+     * Called when user selects a shipment from picker
+     */
+    function selectFromPicker(shipmentId, invoiceId) {
+        closeModal('modalImagePicker');
+        // Small delay so modal close animation finishes
+        setTimeout(() => open(shipmentId, invoiceId), 200);
+    }
+
     return {
         open,
+        openPicker,
+        selectFromPicker,
         save,
         handleFileSelect,
         removeImage,
