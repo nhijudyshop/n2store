@@ -3724,10 +3724,10 @@ body {
 }
 .cell-img-zoom img {
     display: block;
-    width: 700px;
+    max-width: 80vw;
+    max-height: 80vh;
+    width: auto;
     height: auto;
-    max-height: 700px;
-    object-fit: contain;
     border-radius: 8px;
 }
 /* Display controlled by JS _positionImgZoom / _hideImgZoom */

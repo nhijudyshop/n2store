@@ -1234,24 +1234,32 @@ function _positionImgZoom(wrap) {
     const zoom = wrap.querySelector('.cell-img-zoom');
     if (!zoom) return;
 
-    const rect = wrap.getBoundingClientRect();
-    const zoomW = 712; // 700 img + 12 padding
-    const zoomH = 712;
-
-    // Position to the left of the thumbnail, vertically centered
-    let left = rect.left - zoomW - 10;
-    let top = rect.top + rect.height / 2 - zoomH / 2;
-
-    // If no room on left, show on right
-    if (left < 10) left = rect.right + 10;
-
-    // Keep within viewport
-    if (top < 10) top = 10;
-    if (top + zoomH > window.innerHeight - 10) top = window.innerHeight - zoomH - 10;
-
-    zoom.style.left = left + 'px';
-    zoom.style.top = top + 'px';
+    // Show off-screen first to measure natural size
+    zoom.style.left = '-9999px';
+    zoom.style.top = '-9999px';
     zoom.style.display = 'block';
+
+    // Wait for image to render, then position
+    requestAnimationFrame(() => {
+        const rect = wrap.getBoundingClientRect();
+        const zoomRect = zoom.getBoundingClientRect();
+        const zoomW = zoomRect.width;
+        const zoomH = zoomRect.height;
+
+        // Position to the left of the thumbnail
+        let left = rect.left - zoomW - 12;
+        let top = rect.top + rect.height / 2 - zoomH / 2;
+
+        // If no room on left, show on right
+        if (left < 10) left = rect.right + 12;
+
+        // Keep within viewport
+        if (top < 10) top = 10;
+        if (top + zoomH > window.innerHeight - 10) top = window.innerHeight - zoomH - 10;
+
+        zoom.style.left = left + 'px';
+        zoom.style.top = top + 'px';
+    });
 }
 
 function _hideImgZoom(wrap) {
