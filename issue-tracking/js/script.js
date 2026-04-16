@@ -2149,7 +2149,7 @@ function renderDashboard(tabName, searchTerm = '') {
                 <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
                 ${stateDisplay.text ? `<div style="font-size:10px;color:${stateDisplay.color};font-weight:500;">${stateDisplay.text}</div>` : ''}
                 ${getStatusBadge()}
-                <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${formatDateTime(t.createdAt)}</div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:2px;font-weight:600;">${formatDateTime(t.createdAt)}</div>
             </td>
             <td>
                 <div style="font-weight:500;color:#1e293b;">${customerName}</div>
