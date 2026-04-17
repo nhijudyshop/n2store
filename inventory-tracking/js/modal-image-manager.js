@@ -11,6 +11,7 @@ const ImageManager = (() => {
     let _focusedRowId = null;
     let _isUploading = false;
     let _rowCounter = 0;
+    let _searchNcc = ''; // NCC search filter
 
     /**
      * Create a new empty row
@@ -36,6 +37,7 @@ const ImageManager = (() => {
      */
     async function open() {
         _rows = [];
+        _searchNcc = '';
 
         try {
             const images = globalState.productImages || [];
@@ -82,18 +84,42 @@ const ImageManager = (() => {
         const body = document.getElementById('imageManagerBody');
         if (!body) return;
 
+        // Filter rows by NCC search
+        const visibleRows = _searchNcc
+            ? _rows.filter(r => r.ncc.includes(_searchNcc) || !r.ncc)
+            : _rows;
+
         body.innerHTML = `
-            <div class="img-mgr-hint">
-                <i data-lucide="info"></i>
-                Chọn hàng, dán ảnh (Ctrl+V) hoặc chọn file, nhập NCC
+            <div class="img-mgr-toolbar">
+                <div class="img-mgr-hint">
+                    <i data-lucide="info"></i>
+                    Chọn hàng, dán ảnh (Ctrl+V) hoặc chọn file, nhập NCC
+                </div>
+                <div class="img-mgr-search">
+                    <i data-lucide="search"></i>
+                    <input type="number" id="imgMgrSearchNcc" class="img-mgr-search-input"
+                        placeholder="Tìm NCC..." value="${_searchNcc}" min="1" autocomplete="off">
+                </div>
             </div>
             <div class="img-mgr-rows">
-                ${_rows.map(row => _renderRow(row)).join('')}
+                ${visibleRows.map(row => _renderRow(row)).join('')}
             </div>
             <button class="btn btn-outline img-mgr-add-row-btn" onclick="ImageManager.addRow()">
                 <i data-lucide="plus"></i> Thêm NCC
             </button>
         `;
+
+        // Search listener
+        const searchInput = body.querySelector('#imgMgrSearchNcc');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                _searchNcc = e.target.value.trim();
+                _render();
+                // Re-focus search input after re-render
+                const newInput = document.getElementById('imgMgrSearchNcc');
+                if (newInput) { newInput.focus(); }
+            });
+        }
 
         _setupPasteHandler();
 
