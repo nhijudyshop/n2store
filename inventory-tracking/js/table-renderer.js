@@ -573,7 +573,6 @@ function renderInvoicesSection(shipment) {
     invoices.forEach((hd, invoiceIdx) => {
         const products = hd.sanPham || [];
         const imageCount = hd.anhHoaDon?.length || 0;
-        const anhSanPham = hd.anhSanPham || {};
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
         // Calculate tongMon for this invoice (fallback from products if not set)
@@ -600,7 +599,7 @@ function renderInvoicesSection(shipment) {
                 tongMon: invoiceTongMon,
                 soMonThieu: hd.soMonThieu,
                 imageCount,
-                anhSanPham,
+
                 ghiChu: hd.ghiChu,
                 shipmentId: shipment.id,
                 invoiceId: hd.id || invoiceIdx,
@@ -628,7 +627,7 @@ function renderInvoicesSection(shipment) {
                     tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
-                    anhSanPham,
+    
                     ghiChu: hd.ghiChu,
                     shipmentId: shipment.id,
                     invoiceId: hd.id || invoiceIdx,
@@ -735,7 +734,7 @@ function renderProductRow(opts) {
     const {
         invoiceIdx, invoiceClass, sttNCC, tenNCC, productIdx, product,
         isFirstRow, isLastRow, rowSpan,
-        tongTienHD, tongMon, soMonThieu, imageCount, anhSanPham, ghiChu,
+        tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost,
         hasSubInvoice, subInvoice
     } = opts;

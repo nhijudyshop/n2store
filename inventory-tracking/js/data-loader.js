@@ -335,7 +335,6 @@ function getAllDotHangAsShipments() {
             soMonThieu: dot.soMonThieu || 0,
             ghiChuThieu: dot.ghiChuThieu || '',
             anhHoaDon: dot.anhHoaDon || [],
-            anhSanPham: dot.anhSanPham || {},
             ghiChu: dot.ghiChu || ''
         });
 

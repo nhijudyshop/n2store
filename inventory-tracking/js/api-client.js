@@ -200,7 +200,6 @@ const shipmentsApi = {
         if (data.ghiChu !== undefined) body.ghi_chu = data.ghiChu;
         if (data.chiPhiHangVe !== undefined) body.chi_phi_hang_ve = data.chiPhiHangVe;
         if (data.tongChiPhi !== undefined) body.tong_chi_phi = data.tongChiPhi;
-        if (data.anhSanPham !== undefined) body.anh_san_pham = data.anhSanPham;
         if (data.ghiChuAdmin !== undefined) body.ghi_chu_admin = data.ghiChuAdmin;
 
         const result = await apiFetch(`/shipments/${id}`, {
@@ -383,7 +382,6 @@ function pgToShipment(row) {
         soMonThieu: parseInt(row.so_mon_thieu) || 0,
         ghiChuThieu: row.ghi_chu_thieu || '',
         anhHoaDon: row.anh_hoa_don || [],
-        anhSanPham: typeof row.anh_san_pham === 'string' ? JSON.parse(row.anh_san_pham) : (row.anh_san_pham || {}),
         ghiChu: row.ghi_chu || '',
         chiPhiHangVe: typeof row.chi_phi_hang_ve === 'string' ? JSON.parse(row.chi_phi_hang_ve) : (row.chi_phi_hang_ve || []),
         tongChiPhi: parseFloat(row.tong_chi_phi) || 0,
