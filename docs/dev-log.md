@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [orders] KPI: không tính KPI khi khách đổi biến thể cùng template/cùng loại
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/kpi-manager.js`, `shared/js/attribute-values-loader.js` (new), `shared/js/warehouse-api.js`, `orders-report/tab-kpi-commission.html`, `orders-report/tab1-orders.html`, `orders-report/js/tab-kpi-commission.js` |
+| **Chi tiết** | **Bug:** `calculateNetKPI()` chỉ match theo `ProductId` — khi khách đổi biến thể (B1118T → B1118N) hoặc đổi SP cùng loại khác màu (B1473 → B1474), SP mới được tính thêm +1 KPI sai. **Fix:** Mở rộng filter 2 lớp mới: (A) match `tpos_template_id` qua `WarehouseAPI.getTemplateIdMap()` → cover biến thể cùng template; (B) match tên đã normalize (strip prefix `[CODE]`, trailing `(...)`, `SIZE`, token ∈ {màu, size}) → cover 2 SP khác template nhưng tên chỉ khác màu/size cuối. Màu + size load từ `purchase-orders/product_attribute_values_rows.csv` qua shared loader mới `AttributeValuesLoader` (có fallback hardcode). **Backfill:** Thêm nút "Tính lại KPI toàn bộ" trong tab KPI-Hoa Hồng → loop qua orderCodes trong kpi_statistics (theo dateFrom/dateTo filter) → gọi `recalculateAndSaveKPI` từng đơn để áp logic mới. |
+| **Status** | ✅ Done |
+
 ### [inventory] Fix parser NCC thuần số + schema `inventory_product_images` split theo đợt + silence Firestore probe
 | | |
 |---|---|

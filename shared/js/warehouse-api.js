@@ -131,6 +131,52 @@
                 variants: result.variants.map(toProductObject),
             };
         },
+
+        /**
+         * Batch lookup products by product_code. Returns raw DB rows (up to 100 per call).
+         * Tự động chunk nếu > 100 mã.
+         * @param {string[]} codes
+         * @returns {Promise<Array>} Raw DB rows (có tpos_template_id, product_code, name_get…)
+         */
+        async batchLookup(codes) {
+            if (!Array.isArray(codes) || codes.length === 0) return [];
+            const unique = Array.from(new Set(codes.filter(Boolean)));
+            const CHUNK = 100;
+            const rows = [];
+            for (let i = 0; i < unique.length; i += CHUNK) {
+                const slice = unique.slice(i, i + CHUNK);
+                try {
+                    const res = await fetch(`${BASE_URL}/batch-lookup`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ codes: slice }),
+                    });
+                    if (!res.ok) continue;
+                    const result = await res.json();
+                    if (Array.isArray(result.data)) rows.push(...result.data);
+                } catch (err) {
+                    console.warn('[WarehouseAPI] batchLookup chunk failed:', err.message);
+                }
+            }
+            return rows;
+        },
+
+        /**
+         * Build { product_code → tpos_template_id } map via batchLookup.
+         * Tiện cho các logic so khớp template (VD: KPI upselling detect biến thể cùng template).
+         * @param {string[]} codes
+         * @returns {Promise<Object<string, number>>}
+         */
+        async getTemplateIdMap(codes) {
+            const rows = await this.batchLookup(codes);
+            const map = {};
+            for (const row of rows) {
+                if (row.product_code && row.tpos_template_id) {
+                    map[row.product_code] = row.tpos_template_id;
+                }
+            }
+            return map;
+        },
     };
 
     // Expose globally for script-tag usage

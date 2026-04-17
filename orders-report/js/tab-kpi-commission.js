@@ -1646,6 +1646,88 @@ const KPICommission = {
     },
 
     // ========================================
+    // RECOMPUTE ALL KPI (backfill — áp logic mới cho data cũ)
+    // Lấy mọi orderCode đã xuất hiện trong kpi_statistics (theo dateFrom/dateTo filter
+    // đang chọn, hoặc toàn bộ nếu chưa chọn), chạy lại calculateNetKPI để áp logic
+    // detect biến thể mới, rồi save lại statistics.
+    // ========================================
+    async recomputeAllKPI() {
+        if (!window.kpiManager || !window.kpiManager.recalculateAndSaveKPI) {
+            alert('KPI manager chưa sẵn sàng.');
+            return;
+        }
+
+        const btn = document.getElementById('btnRecomputeAllKPI');
+        const dateFrom = (document.getElementById('kpiFilterDateFrom') || {}).value || '';
+        const dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
+
+        const rangeText = (dateFrom || dateTo)
+            ? `từ ${dateFrom || '—'} đến ${dateTo || '—'}`
+            : 'TOÀN BỘ data (không có filter ngày)';
+        if (!confirm(`Tính lại KPI ${rangeText}?\n\nHành động này:\n• Chạy calculateNetKPI cho từng đơn\n• Lưu đè lên kpi_statistics hiện tại\n• Có thể mất vài phút tùy số đơn\n\nTiếp tục?`)) return;
+
+        const originalHTML = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2"></i> Đang tính…';
+            this.reinitIcons();
+        }
+
+        try {
+            // 1) Lấy danh sách orderCode cần tính lại
+            const qs = new URLSearchParams();
+            if (dateFrom) qs.append('dateFrom', dateFrom);
+            if (dateTo) qs.append('dateTo', dateTo);
+            const statsRes = await window.kpiManager.kpiAPI('GET', `/kpi-statistics${qs.toString() ? '?' + qs.toString() : ''}`);
+            const statistics = (statsRes && statsRes.statistics) || [];
+
+            const orderCodes = new Set();
+            for (const s of statistics) {
+                for (const o of (s.orders || [])) {
+                    if (o && o.orderCode) orderCodes.add(o.orderCode);
+                }
+            }
+
+            const total = orderCodes.size;
+            if (total === 0) {
+                alert('Không có đơn nào trong khoảng đã chọn.');
+                return;
+            }
+
+            console.log(`[KPI Recompute] Bắt đầu tính lại ${total} đơn...`);
+
+            let done = 0;
+            let failed = 0;
+            for (const orderCode of orderCodes) {
+                try {
+                    await window.kpiManager.recalculateAndSaveKPI(orderCode);
+                } catch (e) {
+                    failed++;
+                    console.warn(`[KPI Recompute] Fail ${orderCode}:`, e?.message || e);
+                }
+                done++;
+                if (btn && (done % 5 === 0 || done === total)) {
+                    btn.innerHTML = `<i data-lucide="loader-2"></i> ${done}/${total}…`;
+                    this.reinitIcons();
+                }
+            }
+
+            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}`);
+            alert(`Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}\n\nĐang refresh bảng…`);
+            await this.refreshData();
+        } catch (e) {
+            console.error('[KPI Recompute] error:', e);
+            alert('Lỗi khi tính lại KPI: ' + (e?.message || e));
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                this.reinitIcons();
+            }
+        }
+    },
+
+    // ========================================
     // REFRESH DATA (12.16)
     // ========================================
     async refreshData() {

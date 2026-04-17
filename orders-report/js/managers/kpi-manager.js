@@ -37,6 +37,103 @@
         return res.json();
     }
 
+    // ========================================
+    // Variant detection helpers
+    // Dùng trong calculateNetKPI() để KHÔNG tính KPI khi khách đổi biến thể:
+    //   - Case 1: cùng TPOS template (B1118T ↔ B1118N)
+    //   - Case 2: khác template nhưng tên chỉ khác cụm màu/size cuối
+    //     (B1473 HỒNG ↔ B1474 XÁM)
+    // ========================================
+
+    // Cache kết quả load attribute values (Màu + Size). Load 1 lần, dùng mãi.
+    let _attrValuesPromise = null;
+    async function getAttributeValues() {
+        if (!_attrValuesPromise) {
+            if (global_AttributeValuesLoader()) {
+                _attrValuesPromise = global_AttributeValuesLoader().load();
+            } else {
+                console.warn('[KPI] AttributeValuesLoader chưa sẵn sàng, dùng set rỗng — tên SP sẽ không được strip theo attribute.');
+                _attrValuesPromise = Promise.resolve({
+                    colors: new Set(), sizes: new Set(), all: new Set(), _source: 'empty'
+                });
+            }
+        }
+        return _attrValuesPromise;
+    }
+
+    function global_AttributeValuesLoader() {
+        return (typeof window !== 'undefined' && window.AttributeValuesLoader) ? window.AttributeValuesLoader : null;
+    }
+
+    /**
+     * Normalize tên sản phẩm để so sánh "cùng loại".
+     * Strip iteratively:
+     *   - prefix `[CODE]`
+     *   - trailing `(...)` (màu, size, hoặc combo)
+     *   - trailing từ khóa SIZE
+     *   - trailing token có trong attrAll (màu, size số, size chữ)
+     * Kết quả uppercase + collapse spaces, bỏ `+` cuối nếu còn sót.
+     *
+     * @param {string} name
+     * @param {{ all: Set<string> }} attrs — từ getAttributeValues()
+     * @returns {string}
+     */
+    function normalizeProductName(name, attrs) {
+        if (!name || typeof name !== 'string') return '';
+        let s = name.trim();
+
+        // Strip prefix [CODE]
+        s = s.replace(/^\[[^\]]+\]\s*/, '');
+
+        const attrAll = attrs && attrs.all ? attrs.all : new Set();
+
+        // Iteratively strip các pattern cuối
+        const MAX_ITER = 10;
+        for (let i = 0; i < MAX_ITER; i++) {
+            const before = s;
+
+            // 1) Trailing (…)
+            s = s.replace(/\s*\([^)]*\)\s*$/, '').trimEnd();
+
+            // 2) Trailing SIZE keyword
+            s = s.replace(/\s+SIZE\s*$/i, '').trimEnd();
+
+            // 3) Trailing token (có thể là nhiều từ như "TRẮNG KEM" — strip 1 token mỗi vòng lặp)
+            const lastTokenMatch = s.match(/\s+([^\s]+)$/);
+            if (lastTokenMatch) {
+                const lastToken = lastTokenMatch[1];
+                if (lastToken && attrAll.has(lastToken.toUpperCase())) {
+                    s = s.slice(0, s.length - lastTokenMatch[0].length).trimEnd();
+                }
+            }
+
+            // 4) Trailing '+' sót lại
+            s = s.replace(/[+\s]+$/, '').trimEnd();
+
+            if (s === before) break;
+        }
+
+        return s.replace(/\s+/g, ' ').trim().toUpperCase();
+    }
+
+    /**
+     * Batch lookup product_code → tpos_template_id via WarehouseAPI.
+     * Fail silently → {}.
+     */
+    async function fetchTemplateIdMap(codes) {
+        if (!Array.isArray(codes) || codes.length === 0) return {};
+        if (typeof window === 'undefined' || !window.WarehouseAPI || !window.WarehouseAPI.getTemplateIdMap) {
+            console.warn('[KPI] WarehouseAPI.getTemplateIdMap chưa sẵn sàng — bỏ qua match theo template.');
+            return {};
+        }
+        try {
+            return await window.WarehouseAPI.getTemplateIdMap(codes);
+        } catch (e) {
+            console.warn('[KPI] fetchTemplateIdMap error:', e?.message || e);
+            return {};
+        }
+    }
+
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -248,15 +345,11 @@
             const base = await getKPIBase(orderCode);
             if (!base || !base.products || base.products.length === 0) return emptyResult;
 
-            // Build BASE product ID set (skip null/undefined to avoid Number(null)===0 false match)
-            const baseProductIds = new Set();
-            for (const p of base.products) {
-                if (p.ProductId != null) baseProductIds.add(Number(p.ProductId));
-            }
-
             // Get audit logs from PostgreSQL
             const { logs } = await kpiAPI('GET', `/kpi-audit-log/${encodeURIComponent(orderCode)}`);
-            if (!logs || logs.length === 0) return { ...emptyResult, baseProductCount: baseProductIds.size };
+            if (!logs || logs.length === 0) {
+                return { ...emptyResult, baseProductCount: base.products.length };
+            }
 
             // Filter logs after BASE creation
             const baseTime = base.createdAt ? new Date(base.createdAt) : null;
@@ -264,12 +357,46 @@
                 ? logs.filter(l => new Date(l.createdAt) >= baseTime)
                 : logs;
 
-            // Only NEW products (not in BASE), skip out_of_range and null productId
+            // Gom tất cả product codes (BASE + audit) → tra template id 1 lần
+            const allCodes = [];
+            for (const p of base.products) if (p.ProductCode) allCodes.push(p.ProductCode);
+            for (const l of relevantLogs) if (l.productCode) allCodes.push(l.productCode);
+
+            const [attrs, templateMap] = await Promise.all([
+                getAttributeValues(),
+                fetchTemplateIdMap(allCodes)
+            ]);
+
+            // Build BASE sets: productId / tpos_template_id / normalized name.
+            // Skip null ProductId để tránh Number(null)===0 gây false match.
+            const baseProductIds  = new Set();
+            const baseTemplateIds = new Set();
+            const baseNameSet     = new Set();
+            for (const p of base.products) {
+                if (p.ProductId != null) baseProductIds.add(Number(p.ProductId));
+                const tpl = p.ProductCode ? templateMap[p.ProductCode] : null;
+                if (tpl) baseTemplateIds.add(Number(tpl));
+                if (p.ProductName) {
+                    const norm = normalizeProductName(p.ProductName, attrs);
+                    if (norm) baseNameSet.add(norm);
+                }
+            }
+
+            // Loại log nếu:
+            // (1) out_of_range = STT ngoài phạm vi (không tính KPI)
+            // (2) match ProductId với BASE (SP có sẵn, không phải upsell)
+            // (3) match tpos_template_id với BASE (biến thể cùng template)
+            // (4) match tên đã normalize với BASE (đổi cùng loại khác màu/size)
             const newProductLogs = relevantLogs.filter(l => {
                 if (l.outOfRange === true || l.out_of_range === true) return false;
-                if (l.productId == null) return true; // null productId = always treat as new
-                const pid = Number(l.productId);
-                return !baseProductIds.has(pid);
+                if (l.productId != null && baseProductIds.has(Number(l.productId))) return false;
+                const tpl = l.productCode ? templateMap[l.productCode] : null;
+                if (tpl && baseTemplateIds.has(Number(tpl))) return false;
+                if (l.productName) {
+                    const norm = normalizeProductName(l.productName, attrs);
+                    if (norm && baseNameSet.has(norm)) return false;
+                }
+                return true;
             });
 
             // Group by productId and calculate net
