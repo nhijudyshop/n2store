@@ -546,7 +546,7 @@
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
-                                <div class="grid-stat-label">📦 TỔNG</div>
+                                <div class="grid-stat-label">TỔNG</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
@@ -585,7 +585,7 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-coc">
-                                <div class="grid-stat-label">💰 CỌC</div>
+                                <div class="grid-stat-label">CỌC</div>
                                 ${isMerged && product.cocQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.cocQtyList.map(item => {
