@@ -3508,30 +3508,29 @@ body {
 
 .img-mgr-toolbar {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
     margin-bottom: 14px;
 }
 .img-mgr-toolbar .img-mgr-hint {
-    flex: 1;
     margin-bottom: 0;
 }
 .img-mgr-search {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: #fff;
     border: 1px solid var(--gray-300);
     border-radius: 8px;
-    padding: 6px 10px;
-    min-width: 120px;
+    padding: 8px 12px;
+    width: 100%;
 }
-.img-mgr-search i { width: 14px; height: 14px; color: var(--gray-400); flex-shrink: 0; }
+.img-mgr-search i { width: 16px; height: 16px; color: var(--gray-400); flex-shrink: 0; }
 .img-mgr-search-input {
     border: none;
     outline: none;
-    font-size: 13px;
-    width: 70px;
+    font-size: 14px;
+    flex: 1;
     background: transparent;
 }
 .img-mgr-search-input::-webkit-inner-spin-button { -webkit-appearance: none; }
