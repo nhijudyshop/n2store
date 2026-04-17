@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [orders][render] Fix delivery group badges (THÀNH PHỐ/TOMATO/NAP) không hiện trong cột Phiếu Bán Hàng
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`, `render.com/routes/v2/delivery-assignments.js` |
+| **Chi tiết** | **Root cause:** orders-report đọc delivery group từ Firestore `delivery_report/province_groups`, nhưng delivery-report đã migrate sang PostgreSQL `delivery_assignments` — KHÔNG CÓ code nào viết vào Firestore nữa → data stale, badge hiện không đúng. **Fix:** (1) Thêm endpoint `POST /api/v2/delivery-assignments/lookup-batch` query theo order numbers từ PostgreSQL. (2) Thay Firestore listener bằng debounced batch API call. (3) Thêm support group 'city' → badge THÀNH PHỐ. (4) Giữ CarrierName fallback cho invoices chưa có trong DB. |
+| **Status** | ✅ Done |
+
 ### [orders] KPI Hoa Hồng: fix 6 bugs phân tích sâu + implement đối soát
 | | |
 |---|---|
