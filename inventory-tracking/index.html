@@ -27,6 +27,7 @@
     }
 </script>
     <script defer src="../shared/js/navigation-modern.js"></script>
+    <script defer src="../shared/js/token-manager.js"></script>
 
     <!-- Lucide Icons CDN -->
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -604,6 +605,10 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-outline" id="btnRefreshTposAttrs" title="Tải lại danh sách thuộc tính từ TPOS">
+                    <i data-lucide="refresh-cw"></i> TPOS
+                </button>
+                <div style="flex:1"></div>
                 <button class="btn btn-outline" onclick="closeModal('modalVariant')">Hủy</button>
                 <button class="btn btn-primary" id="btnCreateVariants">
                     <i data-lucide="check"></i> <span id="btnCreateVariantsLabel">Tạo biến thể</span>

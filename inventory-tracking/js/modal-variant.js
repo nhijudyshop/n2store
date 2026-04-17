@@ -4,17 +4,83 @@
 // Creates product variants from color/size attributes
 // =====================================================
 
-const VARIANT_COLORS = [
-    'Trắng', 'Đen', 'Xám', 'Xanh', 'Xanh dương', 'Xanh lá',
-    'Vàng', 'Hồng', 'Cam', 'Tím', 'Đỏ', 'Nâu', 'Be', 'Kem'
-];
+// TPOS attribute IDs — from GET /odata/ProductAttribute
+// 1 = Size Chữ, 3 = Màu, 4 = Size Số
+const TPOS_ATTR_COLOR = 3;
+const TPOS_ATTR_SIZE_CHAR = 1;
+const TPOS_ATTR_SIZE_NUM = 4;
+const TPOS_ATTR_CACHE_KEY = 'tpos_attribute_values_cache';
+const TPOS_ATTR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-const VARIANT_SIZE_NUM = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
-    '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'
-];
+// Fallback defaults (shown while TPOS loads, or if TPOS fails)
+let VARIANT_COLORS = ['Trắng', 'Đen', 'Xám', 'Xanh', 'Vàng', 'Hồng', 'Cam', 'Tím', 'Đỏ', 'Nâu'];
+let VARIANT_SIZE_NUM = ['27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'];
+let VARIANT_SIZE_CHAR = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
-const VARIANT_SIZE_CHAR = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'];
+/**
+ * Fetch attribute values from TPOS — cached 24h
+ */
+async function _loadTposAttributes(forceRefresh = false) {
+    // Check cache first
+    if (!forceRefresh) {
+        try {
+            const cached = JSON.parse(localStorage.getItem(TPOS_ATTR_CACHE_KEY) || 'null');
+            if (cached && cached.timestamp && (Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL)) {
+                if (cached.colors) VARIANT_COLORS = cached.colors;
+                if (cached.sizeNum) VARIANT_SIZE_NUM = cached.sizeNum;
+                if (cached.sizeChar) VARIANT_SIZE_CHAR = cached.sizeChar;
+                return;
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    try {
+        // Use TokenManager if available, else fall back to direct auth
+        let token = null;
+        if (window.tokenManager?.getToken) {
+            token = await window.tokenManager.getToken();
+        }
+        if (!token) {
+            console.warn('[VARIANT] No TPOS token, using defaults');
+            return;
+        }
+
+        const res = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductAttributeValue?$top=500&$orderby=AttributeId,Sequence', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('TPOS fetch failed: ' + res.status);
+        const data = await res.json();
+        const values = data.value || [];
+
+        const colors = [];
+        const sizeNum = [];
+        const sizeChar = [];
+        for (const v of values) {
+            const name = v.Name;
+            if (!name) continue;
+            if (v.AttributeId === TPOS_ATTR_COLOR) colors.push(name);
+            else if (v.AttributeId === TPOS_ATTR_SIZE_NUM) sizeNum.push(name);
+            else if (v.AttributeId === TPOS_ATTR_SIZE_CHAR) sizeChar.push(name);
+        }
+
+        if (colors.length) VARIANT_COLORS = colors;
+        if (sizeNum.length) VARIANT_SIZE_NUM = sizeNum;
+        if (sizeChar.length) VARIANT_SIZE_CHAR = sizeChar;
+
+        localStorage.setItem(TPOS_ATTR_CACHE_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            colors: VARIANT_COLORS,
+            sizeNum: VARIANT_SIZE_NUM,
+            sizeChar: VARIANT_SIZE_CHAR
+        }));
+        console.log('[VARIANT] Loaded TPOS attributes:', colors.length, 'colors,', sizeNum.length, 'sizes nums,', sizeChar.length, 'size chars');
+    } catch (err) {
+        console.warn('[VARIANT] Failed to load TPOS attributes, using defaults:', err.message);
+    }
+}
+
+// Preload cache on init (non-blocking)
+_loadTposAttributes();
 
 let _variantCurrentCell = null;
 let _variantSelections = { color: new Map(), sizeNum: new Map(), sizeChar: new Map() };
@@ -22,8 +88,19 @@ let _variantSelections = { color: new Map(), sizeNum: new Map(), sizeChar: new M
 /**
  * Open variant modal for a colors cell
  */
-function openVariantModal(td) {
+async function openVariantModal(td) {
     _variantCurrentCell = td;
+
+    // Refresh TPOS attributes in background (uses cache if fresh)
+    _loadTposAttributes().then(() => {
+        // Re-render lists if modal is still open
+        const modal = document.getElementById('modalVariant');
+        if (modal?.classList.contains('active')) {
+            _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
+            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
+            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+        }
+    });
 
     // Parse existing mauSac from td (check data or fallback to parsing text)
     const invoiceId = td.dataset.invoiceId;
@@ -67,6 +144,21 @@ function openVariantModal(td) {
 
     // Setup create button
     document.getElementById('btnCreateVariants').onclick = _saveVariants;
+
+    // Setup TPOS refresh button
+    const refreshBtn = document.getElementById('btnRefreshTposAttrs');
+    if (refreshBtn) {
+        refreshBtn.onclick = async () => {
+            refreshBtn.disabled = true;
+            window.notificationManager?.info('Đang tải từ TPOS...');
+            await _loadTposAttributes(true);
+            _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
+            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
+            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+            refreshBtn.disabled = false;
+            window.notificationManager?.success('Đã cập nhật thuộc tính');
+        };
+    }
 
     openModal('modalVariant');
     if (window.lucide) lucide.createIcons();
