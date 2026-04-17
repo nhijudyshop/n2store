@@ -995,6 +995,12 @@ body {
 
 /* Column widths */
 .invoice-table .col-ncc { width: 50px; text-align: center; vertical-align: middle; }
+
+/* NCC done checkbox */
+.ncc-done-label { display: block; margin-bottom: 2px; cursor: pointer; }
+.ncc-done-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
+tr.ncc-row-done td { opacity: 0.35; }
+tr.ncc-row-done td.col-ncc { opacity: 0.6; }
 .invoice-table .col-stt { width: 40px; text-align: center; }
 .invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }

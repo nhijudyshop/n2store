@@ -754,12 +754,15 @@ function renderProductRow(opts) {
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
 
     // Display NCC with tenNCC if available
+    const nccDone = _isNccDone(shipmentId, sttNCC);
+    const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', ${sttNCC}, this.checked)"></label>`;
     const nccDisplay = tenNCC
-        ? `<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>`
-        : `<strong>${sttNCC}</strong>`;
+        ? `${nccCheckbox}<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>`
+        : `${nccCheckbox}<strong>${sttNCC}</strong>`;
+    const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
-        <tr class="${rowClass}">
+        <tr class="${rowClass} ${doneClass}">
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
             <td class="col-sku ${borderClass}">${maSP}</td>
@@ -1265,6 +1268,57 @@ function _positionImgZoom(wrap) {
 function _hideImgZoom(wrap) {
     const zoom = wrap.querySelector('.cell-img-zoom');
     if (zoom) zoom.style.display = 'none';
+}
+
+// =====================================================
+// NCC DONE CHECKBOX (localStorage persistence)
+// =====================================================
+
+const NCC_DONE_KEY = 'inventory_ncc_done';
+
+function _getNccDoneMap() {
+    try {
+        return JSON.parse(localStorage.getItem(NCC_DONE_KEY) || '{}');
+    } catch (_) { return {}; }
+}
+
+function _isNccDone(shipmentId, sttNCC) {
+    const map = _getNccDoneMap();
+    return !!map[`${shipmentId}_${sttNCC}`];
+}
+
+function toggleNccDone(shipmentId, sttNCC, checked) {
+    const map = _getNccDoneMap();
+    const key = `${shipmentId}_${sttNCC}`;
+
+    if (checked) {
+        map[key] = true;
+    } else {
+        delete map[key];
+    }
+
+    localStorage.setItem(NCC_DONE_KEY, JSON.stringify(map));
+
+    // Update all rows for this NCC in the DOM (avoid full re-render)
+    const table = document.querySelector(`.shipment-card[data-id="${shipmentId}"] table`);
+    if (table) {
+        table.querySelectorAll('tr').forEach(tr => {
+            // Find rows belonging to this NCC by checking the ncc cell
+            const nccCell = tr.querySelector('.col-ncc');
+            if (nccCell) {
+                const strong = nccCell.querySelector('strong');
+                if (strong && strong.textContent.trim() === String(sttNCC)) {
+                    // This is the first row — mark it and subsequent rows until next NCC
+                    let current = tr;
+                    const rowSpan = parseInt(nccCell.getAttribute('rowspan') || '1');
+                    for (let i = 0; i < rowSpan && current; i++) {
+                        current.classList.toggle('ncc-row-done', checked);
+                        current = current.nextElementSibling;
+                    }
+                }
+            }
+        });
+    }
 }
 
 console.log('[RENDERER] Table renderer initialized');
