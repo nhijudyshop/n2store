@@ -50,6 +50,13 @@
 | **Chi tiết** | **1. Thêm helper trong main.js:** `todayVN()` + `dateToVNStr(date)` dùng `Intl.DateTimeFormat` với `timeZone: 'Asia/Ho_Chi_Minh'` — luôn trả YYYY-MM-DD theo lịch VN bất kể browser timezone. **2. formatDateDisplay:** parse YYYY-MM-DD bằng regex (không qua `new Date` tránh UTC midnight shift trong timezone âm), fallback dùng `toLocaleDateString` với VN timezone. **3. Replace toàn bộ `new Date().toISOString().split('T')[0]` → `todayVN()`/`dateToVNStr()` ở 8+ chỗ:** `modal-shipment`, `modal-prepayment`, `modal-other-expense`, `modal-order-booking`, `export`, `filters` (default range, quick range, single day, navigate, reset 30 days), `main.InventoryTracking.formatDate`. **Kết quả:** mọi "hôm nay", mọi format YYYY-MM-DD từ Date object đều là lịch VN — user ở bất kỳ timezone nào cũng thấy ngày VN đồng nhất với DB. |
 | **Status** | ✅ Done |
 
+### [orders] Cột Mã SP hiển thị mã GỐC + lưu parentProductCode sau khi upload TPOS
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/table-renderer.js`, `purchase-orders/js/main.js` |
+| **Chi tiết** | **Bug:** Sau khi upload TPOS, `item.productCode` bị thay bằng variant code (Q130 → Q130T). Khi user copy đơn + upload lại, TPOS ghép tên biến thể vào mã đã có biến thể → Q130TT, Q130DD (sai). **Fix 1 (`table-renderer.js`):** cột "Mã SP" render `parentProductCode || productCode` — hiển thị mã gốc là chính (không còn dòng parent xám nhỏ phía trên). **Fix 2 (`main.js`):** sau khi tạo PO TPOS thành công, khi update `productCode = barcode`, LƯU `parentProductCode = productCode cũ` — để table render đúng + để `POST /:id/copy` server-side dùng `parentProductCode || productCode` tạo đơn mới với mã gốc. Order cũ không có `parentProductCode` vẫn fallback sang `productCode` (không break). |
+| **Status** | ✅ Done |
+
 ### [orders] Purchase Orders: hiển thị lỗi TPOS giống TPOS khi Xuất Excel / Tạo đơn
 | | |
 |---|---|

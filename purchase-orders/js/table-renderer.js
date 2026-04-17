@@ -369,10 +369,9 @@ class PurchaseOrderTableRenderer {
                 </div>
             </td>
 
-            <!-- Mã SP -->
+            <!-- Mã SP: hiển thị mã GỐC (parent) để tránh TPOS ghép biến thể khi re-upload -->
             <td class="col-code">
-                ${item.parentProductCode ? `<span style="color:#6b7280;font-size:11px;">${item.parentProductCode}</span><br>` : ''}
-                <span class="product-code">${item.productCode || '-'}</span>
+                <span class="product-code">${item.parentProductCode || item.productCode || '-'}</span>
             </td>
 
             <!-- Biến thể -->

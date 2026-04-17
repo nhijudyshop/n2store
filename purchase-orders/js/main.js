@@ -1630,7 +1630,10 @@ class PurchaseOrderController {
                                     }));
                                 }
 
-                                // 2b. Update items with TPOS variant codes
+                                // 2b. Update items with TPOS variant codes.
+                                //     Lưu mã GỐC (productCode cũ) vào parentProductCode — giữ để:
+                                //       - Table render hiển thị mã gốc (tránh TPOS ghép biến thể khi re-upload)
+                                //       - Copy order dùng lại mã gốc thay vì mã biến thể
                                 if (tposResult.orderLines && result.itemCodeMap) {
                                     const updatedItems = [...(singleOrder.items || [])];
                                     let updatedCount = 0;
@@ -1642,7 +1645,8 @@ class PurchaseOrderController {
                                         if (barcode && mapping.itemIndex < updatedItems.length) {
                                             const item = updatedItems[mapping.itemIndex];
                                             if (item.productCode !== barcode || !item.tposProductId) {
-                                                updatedItems[mapping.itemIndex] = { ...item, productCode: barcode, tposProductId };
+                                                const parentCode = item.parentProductCode || item.productCode;
+                                                updatedItems[mapping.itemIndex] = { ...item, productCode: barcode, parentProductCode: parentCode, tposProductId };
                                                 updatedCount++;
                                             }
                                         }
