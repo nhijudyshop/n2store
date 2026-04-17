@@ -102,6 +102,9 @@ let globalState = {
     orderBookings: [],        // Flattened datHang from all NCCs (for backward compatibility)
     filteredOrderBookings: [],
 
+    // Product images (independent, mapped by STT/NCC)
+    productImages: [],        // From inventory_product_images table
+
     // Other collections
     prepayments: [],
     otherExpenses: [],

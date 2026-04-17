@@ -687,10 +687,12 @@ function renderInvoicesSection(shipment) {
 
 /**
  * Render image cell per product row (STT-based)
+ * Images come from independent product_images table, mapped by STT/NCC
  */
-function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass) {
+function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass, sttNCC) {
     const stt = String(productIdx + 1);
-    const images = anhSanPham?.[stt] || [];
+    // Get images from independent product images store (mapped by STT + NCC)
+    const images = getProductImagesForStt(stt, sttNCC);
     const count = images.length;
 
     if (count > 0) {
@@ -703,7 +705,7 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
         ).join('');
 
         const extraBadge = extra > 0
-            ? `<span class="cell-img-more" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt})">+${extra}</span>`
+            ? `<span class="cell-img-more" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt}, ${sttNCC || 'null'})">+${extra}</span>`
             : '';
 
         return `
@@ -786,7 +788,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass)}
+            ${_renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass, sttNCC)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'

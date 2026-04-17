@@ -458,4 +458,29 @@ const notesApi = {
     }
 };
 
+// =====================================================
+// PRODUCT IMAGES API (independent, mapped by STT/NCC)
+// =====================================================
+
+const productImagesApi = {
+    async getAll() {
+        const result = await apiFetch('/product-images');
+        return result.data;
+    },
+
+    async bulkSave(rows) {
+        // rows: [{ stt, ncc, urls }]
+        const result = await apiFetch('/product-images', {
+            method: 'PUT',
+            body: JSON.stringify({ rows })
+        });
+        return result.data;
+    },
+
+    async remove(id) {
+        await apiFetch(`/product-images/${id}`, { method: 'DELETE' });
+        return true;
+    }
+};
+
 console.log('[API-CLIENT] Inventory tracking API client initialized');

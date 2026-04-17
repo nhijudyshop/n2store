@@ -32,10 +32,11 @@ async function loadNCCData() {
 
         console.log(`[DATA] Loaded ${globalState.nccList.length} NCC documents`);
 
-        // Load order bookings and shipments, then attach to nccList
+        // Load order bookings, shipments, and product images
         await Promise.all([
             loadAndAttachOrderBookings(),
-            loadAndAttachShipments()
+            loadAndAttachShipments(),
+            loadProductImages()
         ]);
 
         // Flatten data for backward compatibility
@@ -99,6 +100,44 @@ async function loadAndAttachShipments() {
     } catch (error) {
         console.error('[DATA] Error loading shipments:', error);
     }
+}
+
+/**
+ * Load product images from API (independent of shipments)
+ */
+async function loadProductImages() {
+    try {
+        const images = await productImagesApi.getAll();
+        globalState.productImages = images.map(img => ({
+            ...img,
+            urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || [])
+        }));
+        console.log(`[DATA] Loaded ${globalState.productImages.length} product image groups`);
+    } catch (error) {
+        console.error('[DATA] Error loading product images:', error);
+        globalState.productImages = [];
+    }
+}
+
+/**
+ * Get product images for a specific STT (and optionally NCC)
+ * Returns matching urls array. Priority: exact NCC match > all-NCC (ncc=null)
+ */
+function getProductImagesForStt(stt, ncc) {
+    const sttNum = parseInt(stt);
+    const images = globalState.productImages || [];
+
+    // Try exact NCC match first
+    if (ncc) {
+        const exact = images.find(img => img.stt === sttNum && img.ncc === parseInt(ncc));
+        if (exact) return exact.urls || [];
+    }
+
+    // Fall back to all-NCC entry (ncc = null)
+    const general = images.find(img => img.stt === sttNum && !img.ncc);
+    if (general) return general.urls || [];
+
+    return [];
 }
 
 /**

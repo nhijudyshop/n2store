@@ -31,6 +31,10 @@
  *   PUT    /other-expenses/:id           - Update
  *   DELETE /other-expenses/:id           - Delete
  *
+ *   GET    /product-images               - List all product images
+ *   PUT    /product-images               - Bulk replace all product images
+ *   DELETE /product-images/:id           - Delete one
+ *
  *   GET    /finance/summary              - Balance summary
  *   GET    /edit-history                 - Audit trail
  *   POST   /edit-history                 - Log action
@@ -812,6 +816,73 @@ router.delete('/notes/:id', async (req, res) => {
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         console.error('[inventory] DELETE /notes/:id error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
+// PRODUCT IMAGES (independent, mapped by STT/NCC)
+// =====================================================
+
+router.get('/product-images', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const result = await db.query(
+            'SELECT * FROM inventory_product_images ORDER BY stt, ncc NULLS FIRST'
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('[inventory] GET /product-images error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.put('/product-images', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { rows } = req.body; // [{ stt, ncc, urls }]
+
+        if (!Array.isArray(rows)) {
+            return res.status(400).json({ success: false, error: 'rows must be an array' });
+        }
+
+        // Bulk replace: delete all, then insert new
+        await db.query('BEGIN');
+        await db.query('DELETE FROM inventory_product_images');
+
+        for (const row of rows) {
+            if (!row.stt || !Array.isArray(row.urls) || row.urls.length === 0) continue;
+            await db.query(
+                `INSERT INTO inventory_product_images (stt, ncc, urls, updated_at)
+                 VALUES ($1, $2, $3, NOW())`,
+                [row.stt, row.ncc || null, JSON.stringify(row.urls)]
+            );
+        }
+
+        await db.query('COMMIT');
+
+        const result = await db.query(
+            'SELECT * FROM inventory_product_images ORDER BY stt, ncc NULLS FIRST'
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        await getDb(req).query('ROLLBACK').catch(() => {});
+        console.error('[inventory] PUT /product-images error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.delete('/product-images/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const result = await db.query(
+            'DELETE FROM inventory_product_images WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        res.json({ success: true, deleted: req.params.id });
+    } catch (err) {
+        console.error('[inventory] DELETE /product-images/:id error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

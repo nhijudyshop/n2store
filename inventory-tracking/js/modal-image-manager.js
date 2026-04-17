@@ -2,7 +2,8 @@
 // =====================================================
 // MODAL IMAGE MANAGER - INVENTORY TRACKING
 // Row-based input: each row = [images] + [STT] + [NCC]
-// Save matches rows to dotHang by STT/NCC
+// Images stored independently in inventory_product_images table
+// Auto-mapped to shipments by STT/NCC at render time
 // =====================================================
 
 const ImageManager = (() => {
@@ -24,52 +25,28 @@ const ImageManager = (() => {
     }
 
     /**
-     * Open image manager modal — load existing data from all dotHangs
+     * Open image manager modal — load existing data from product images table
      */
-    function open() {
+    async function open() {
         _rows = [];
 
-        // Load existing anhSanPham from all dotHangs, deduplicate
-        const allDot = getAllDotHang();
+        try {
+            // Load from independent product images table
+            const images = globalState.productImages || [];
 
-        // Group by STT: collect which NCCs have which images for each STT
-        // Key: stt, Value: Map<ncc, urls[]>
-        const sttMap = new Map(); // stt → [{ncc, urls}]
+            images.forEach(img => {
+                const urls = typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || []);
+                if (urls.length === 0) return;
 
-        allDot.forEach(dot => {
-            const anhSanPham = dot.anhSanPham || {};
-            Object.entries(anhSanPham).forEach(([stt, urls]) => {
-                if (!urls || urls.length === 0) return;
-                if (!sttMap.has(stt)) sttMap.set(stt, []);
-                sttMap.get(stt).push({ ncc: dot.sttNCC, urls: [...urls] });
-            });
-        });
-
-        // For each STT: if all NCCs have identical images → 1 row without NCC
-        // Otherwise → separate rows per NCC
-        for (const [stt, entries] of sttMap) {
-            const firstUrlsKey = JSON.stringify(entries[0].urls);
-            const allSame = entries.every(e => JSON.stringify(e.urls) === firstUrlsKey);
-
-            if (allSame) {
-                // Deduplicated: one row, no NCC
                 _rows.push({
                     id: `row_${++_rowCounter}`,
-                    uploadedUrls: [...entries[0].urls],
-                    stt: stt,
-                    ncc: ''
+                    uploadedUrls: [...urls],
+                    stt: String(img.stt),
+                    ncc: img.ncc ? String(img.ncc) : ''
                 });
-            } else {
-                // Different per NCC: separate rows
-                entries.forEach(e => {
-                    _rows.push({
-                        id: `row_${++_rowCounter}`,
-                        uploadedUrls: [...e.urls],
-                        stt: stt,
-                        ncc: String(e.ncc)
-                    });
-                });
-            }
+            });
+        } catch (error) {
+            console.error('[IMG-MGR] Error loading product images:', error);
         }
 
         // Always add one empty row at the end for new input
@@ -369,71 +346,36 @@ const ImageManager = (() => {
     }
 
     /**
-     * Save: rebuild anhSanPham for each dotHang from rows
+     * Save: store rows independently in product_images table
+     * Mapping to shipments happens at render time via getProductImagesForStt()
      */
     async function save() {
-        // Filter rows that have images AND STT
-        const validRows = _rows.filter(r => r.uploadedUrls.length > 0 && r.stt.trim());
-
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
-            const allDotHang = getAllDotHang();
+            // Build rows for API: only rows with images AND STT
+            const apiRows = _rows
+                .filter(r => r.uploadedUrls.length > 0 && r.stt.trim())
+                .map(r => ({
+                    stt: parseInt(r.stt),
+                    ncc: r.ncc.trim() ? parseInt(r.ncc) : null,
+                    urls: r.uploadedUrls
+                }));
 
-            // Build map: dotHangId → new anhSanPham (rebuilt from rows)
-            // Start with empty for all dotHangs (to clear removed images)
-            const updates = new Map();
-            allDotHang.forEach(d => updates.set(d.id, {}));
+            // Bulk save to product_images table
+            const saved = await productImagesApi.bulkSave(apiRows);
 
-            for (const row of validRows) {
-                const sttKey = String(parseInt(row.stt));
-                const nccFilter = row.ncc.trim() ? parseInt(row.ncc) : null;
+            // Update local state
+            globalState.productImages = saved;
 
-                let targets;
-                if (nccFilter !== null) {
-                    targets = allDotHang.filter(d => d.sttNCC === nccFilter);
-                } else {
-                    targets = [...allDotHang];
-                }
-
-                if (targets.length === 0 && nccFilter !== null) {
-                    window.notificationManager?.warning(`Không tìm thấy NCC ${nccFilter}`);
-                    continue;
-                }
-
-                for (const dot of targets) {
-                    const anhSanPham = updates.get(dot.id);
-                    if (!anhSanPham[sttKey]) {
-                        anhSanPham[sttKey] = [];
-                    }
-                    anhSanPham[sttKey].push(...row.uploadedUrls);
-                }
-            }
-
-            // Save each dotHang that changed
-            let savedCount = 0;
-            for (const [dotId, newAnhSanPham] of updates) {
-                const dot = allDotHang.find(d => d.id === dotId);
-                const oldAnhSanPham = dot?.anhSanPham || {};
-
-                // Skip if nothing changed
-                if (JSON.stringify(oldAnhSanPham) === JSON.stringify(newAnhSanPham)) continue;
-
-                await shipmentsApi.update(dotId, { anhSanPham: newAnhSanPham });
-
-                // Update local state
-                for (const ncc of globalState.nccList) {
-                    const d = (ncc.dotHang || []).find(d => d.id === dotId);
-                    if (d) { d.anhSanPham = newAnhSanPham; break; }
-                }
-                savedCount++;
-            }
-
-            window.notificationManager?.success(savedCount > 0 ? `Đã lưu ảnh vào ${savedCount} đợt hàng` : 'Không có thay đổi');
+            window.notificationManager?.success(
+                apiRows.length > 0
+                    ? `Đã lưu ${apiRows.length} nhóm ảnh sản phẩm`
+                    : 'Đã xóa tất cả ảnh sản phẩm'
+            );
             closeModal('modalImageManager');
 
-            // Re-build grouped shipments and re-render
-            if (typeof flattenNCCData === 'function') flattenNCCData();
+            // Re-render table to reflect new image mapping
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
 
         } catch (error) {
@@ -447,28 +389,9 @@ const ImageManager = (() => {
     /**
      * View images for a specific STT (called from table cell click)
      */
-    function viewSttImages(shipmentId, invoiceId, stt) {
-        // Find dotHang from all sources
-        const allDot = getAllDotHang();
-        const dotHang = allDot.find(d => d.id === invoiceId);
+    function viewSttImages(shipmentId, invoiceId, stt, ncc) {
+        const images = getProductImagesForStt(stt, ncc);
 
-        if (!dotHang) {
-            // Fallback: search in grouped shipments
-            for (const ship of (globalState.shipments || [])) {
-                const hd = (ship.hoaDon || []).find(h => h.id === invoiceId);
-                if (hd) {
-                    const images = hd.anhSanPham?.[String(stt)] || [];
-                    if (images.length > 0) {
-                        _showImagesInViewer(stt, images);
-                        return;
-                    }
-                }
-            }
-            open();
-            return;
-        }
-
-        const images = dotHang.anhSanPham?.[String(stt)] || [];
         if (images.length === 0) {
             open();
             return;
