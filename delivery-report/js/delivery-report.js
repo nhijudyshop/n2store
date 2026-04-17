@@ -1908,37 +1908,200 @@
     }
 
     // =====================================================
-    // PRINT
+    // PRINT PREVIEW
     // =====================================================
-    function printView() {
+    function buildPrintTitle() {
         const state = DeliveryReportState;
-        const header = document.getElementById('drPrintHeader');
-        const titleEl = document.getElementById('drPrintTitle');
-        const dateEl = document.getElementById('drPrintDate');
+        let title = 'Thống Kê Giao Hàng';
+        if (state.traSoatMode) {
+            const tab = state.activeTab;
+            const tabName = TAB_LABELS[tab]?.sheet || GROUP_LABELS[tab] || 'Tất cả';
+            const scanLabel = state.scanFilter === 'scanned' ? 'Đã quét' : 'Chưa quét';
+            title = `Tra Soát — ${tabName} (${scanLabel})`;
+        }
+        return title;
+    }
 
-        if (header && titleEl && dateEl) {
-            // Build title based on current view
-            let title = 'Thống Kê Giao Hàng';
-            if (state.traSoatMode) {
-                const tab = state.activeTab;
-                const tabName = TAB_LABELS[tab]?.sheet || GROUP_LABELS[tab] || 'Tất cả';
-                const scanLabel = state.scanFilter === 'scanned' ? 'Đã quét' : 'Chưa quét';
-                title = `Tra Soát — ${tabName} (${scanLabel})`;
-            }
-            titleEl.textContent = title;
+    function buildPrintDate() {
+        const from = document.getElementById('drFilterFromDate')?.value || '';
+        const to = document.getElementById('drFilterToDate')?.value || '';
+        return from && to ? `${from} → ${to}` : new Date().toLocaleDateString('vi-VN');
+    }
 
-            // Date range
-            const from = document.getElementById('drFilterFromDate')?.value || '';
-            const to = document.getElementById('drFilterToDate')?.value || '';
-            dateEl.textContent = from && to ? `${from} → ${to}` : new Date().toLocaleDateString('vi-VN');
+    function buildPrintContent() {
+        const state = DeliveryReportState;
 
-            // Show all group columns for print (don't print focused single column)
-            if (state.traSoatMode && (state.activeTab === 'all' || state.activeTab === 'zero')) {
-                showAllGroupColumns();
-            }
+        // Tra soát mode: multi-column groups
+        if (state.traSoatMode && (state.activeTab === 'all' || state.activeTab === 'zero' || state.activeTab === 'province')) {
+            return buildPrintGroups();
         }
 
-        window.print();
+        // Tra soát mode: single tab (city/shop/return)
+        if (state.traSoatMode) {
+            return buildPrintList(getFilteredData());
+        }
+
+        // Normal mode: table
+        return buildPrintTable();
+    }
+
+    function buildPrintGroups() {
+        const state = DeliveryReportState;
+        const isZeroTab = state.activeTab === 'zero';
+        const isProvinceTab = state.activeTab === 'province';
+        const allData = isZeroTab
+            ? (state.allData || []).filter(item => isZeroCOD(item))
+            : (state.allData || []);
+        const showScanned = state.scanFilter === 'scanned';
+
+        // Classify
+        const grouped = { tomato: [], nap: [], city: [], shop: [], return: [] };
+        allData.forEach(item => {
+            const g = getItemGroup(item);
+            if (grouped[g]) grouped[g].push(item);
+        });
+
+        const groupKeys = isProvinceTab ? ['tomato', 'nap'] : ['tomato', 'nap', 'city', 'shop', 'return'];
+        let html = '<div class="drp-grid">';
+
+        groupKeys.forEach(key => {
+            const allItems = grouped[key];
+            if (!allItems || allItems.length === 0) return;
+            const scannedItems = allItems.filter(i => state.scannedNumbers.has(i.Number));
+            const viewItems = allItems.filter(item =>
+                showScanned ? state.scannedNumbers.has(item.Number) : !state.scannedNumbers.has(item.Number)
+            );
+            const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+
+            html += `<div class="drp-col">
+                <div class="drp-col-header ${GROUP_HEADER_CLASS[key]}">
+                    <span>${GROUP_LABELS[key]} <b>${scannedItems.length}/${allItems.length}</b></span>
+                    <span>${formatMoney(totalCOD)}</span>
+                </div>`;
+
+            viewItems.forEach((item, i) => {
+                const zeroClass = isZeroCOD(item) ? ' drp-zero' : '';
+                html += `<div class="drp-row${zeroClass}">
+                    <span class="drp-idx">${i + 1}</span>
+                    <span class="drp-num">${escapeHtml(item.Number)}</span>
+                    <span class="drp-name">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                    <span class="drp-amt">${formatMoney(item.CashOnDelivery || 0)}${isZeroCOD(item) ? ' <span class="drp-zero-badge">0đ</span>' : ''}</span>
+                </div>`;
+            });
+
+            if (viewItems.length === 0) {
+                html += '<div class="drp-row" style="color:#999;text-align:center;">Không có dữ liệu</div>';
+            }
+            html += '</div>';
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildPrintList(items) {
+        let html = '<table class="drp-table"><thead><tr><th>#</th><th>Số</th><th>Khách hàng</th><th>ĐT</th><th>Công nợ</th></tr></thead><tbody>';
+        items.forEach((item, i) => {
+            const zeroClass = isZeroCOD(item) ? ' class="drp-zero"' : '';
+            html += `<tr${zeroClass}>
+                <td>${i + 1}</td>
+                <td>${escapeHtml(item.Number)}</td>
+                <td>${escapeHtml(item.PartnerDisplayName || '')}</td>
+                <td>${escapeHtml(item.Phone || '')}</td>
+                <td style="text-align:right;">${formatMoney(item.CashOnDelivery || 0)}</td>
+            </tr>`;
+        });
+        const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+        html += `<tr style="font-weight:700;border-top:2px solid #333;"><td colspan="4" style="text-align:right;">Tổng:</td><td style="text-align:right;">${formatMoney(total)}</td></tr>`;
+        html += '</tbody></table>';
+        return html;
+    }
+
+    function buildPrintTable() {
+        const items = DeliveryReportState.allData || [];
+        return buildPrintList(items);
+    }
+
+    function printView() {
+        // Build preview modal
+        const existing = document.getElementById('drPrintPreviewModal');
+        if (existing) existing.remove();
+
+        const title = buildPrintTitle();
+        const dateStr = buildPrintDate();
+        const content = buildPrintContent();
+
+        const modal = document.createElement('div');
+        modal.id = 'drPrintPreviewModal';
+        modal.className = 'drp-modal-overlay';
+        modal.innerHTML = `
+            <div class="drp-modal">
+                <div class="drp-modal-toolbar">
+                    <span style="font-weight:600;font-size:15px;">Xem trước khi in</span>
+                    <div style="display:flex;gap:8px;">
+                        <button class="drp-btn drp-btn-print" onclick="DeliveryReport.confirmPrint()"><i class="fas fa-print"></i> In</button>
+                        <button class="drp-btn drp-btn-close" onclick="document.getElementById('drPrintPreviewModal').remove()"><i class="fas fa-times"></i> Đóng</button>
+                    </div>
+                </div>
+                <div class="drp-paper" id="drPrintPaper">
+                    <div class="drp-header">
+                        <h2>${escapeHtml(title)}</h2>
+                        <div class="drp-date">${escapeHtml(dateStr)}</div>
+                    </div>
+                    ${content}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on overlay click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    function confirmPrint() {
+        const paper = document.getElementById('drPrintPaper');
+        if (!paper) return;
+
+        const printWin = window.open('', '_blank', 'width=900,height=700');
+        printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>In</title>
+        <style>${getPrintCSS()}</style>
+        </head><body>${paper.innerHTML}</body></html>`);
+        printWin.document.close();
+        printWin.focus();
+        setTimeout(() => { printWin.print(); }, 300);
+    }
+
+    function getPrintCSS() {
+        return `
+            * { margin:0; padding:0; box-sizing:border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:11px; color:#111; padding:16px; }
+            .drp-header { text-align:center; margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid #333; }
+            .drp-header h2 { font-size:16px; margin-bottom:4px; }
+            .drp-date { font-size:12px; color:#666; }
+            .drp-grid { display:flex; gap:6px; }
+            .drp-col { flex:1; border:1px solid #ccc; border-radius:4px; min-width:0; }
+            .drp-col-header { display:flex; justify-content:space-between; padding:6px 8px; font-size:11px; font-weight:700; color:white; }
+            .dr-province-header-tomato { background:#dc2626; }
+            .dr-province-header-nap { background:#2563eb; }
+            .dr-province-header-city { background:#d97706; }
+            .dr-province-header-shop { background:#059669; }
+            .dr-province-header-return { background:#7c3aed; }
+            .drp-row { display:flex; align-items:center; gap:6px; padding:3px 8px; border-bottom:1px solid #f0f0f0; font-size:10px; }
+            .drp-row.drp-zero { background:#fef9c3; border-left:2px solid #f59e0b; }
+            .drp-idx { color:#999; min-width:18px; }
+            .drp-num { font-weight:600; min-width:100px; }
+            .drp-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .drp-amt { text-align:right; white-space:nowrap; min-width:60px; }
+            .drp-zero-badge { background:#f59e0b; color:white; font-size:8px; font-weight:700; padding:1px 4px; border-radius:3px; }
+            .drp-table { width:100%; border-collapse:collapse; }
+            .drp-table th, .drp-table td { padding:4px 8px; border:1px solid #ddd; font-size:11px; }
+            .drp-table th { background:#f3f4f6; font-weight:600; text-align:left; }
+            .drp-table tr.drp-zero { background:#fef9c3; }
+            @page { size:landscape; margin:10mm; }
+        `;
     }
 
     // =====================================================
@@ -1995,6 +2158,7 @@
         unscanGroup: unscanGroup,
         hideOrder: hideOrder,
         printView: printView,
+        confirmPrint: confirmPrint,
         getState: () => DeliveryReportState
     };
 })();
