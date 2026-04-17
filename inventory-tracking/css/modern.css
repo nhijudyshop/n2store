@@ -1052,7 +1052,7 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .invoice-table .col-shortage { width: 60px; vertical-align: middle; cursor: pointer; }
 .invoice-table .col-shortage:hover { background-color: rgba(74, 124, 255, 0.08); }
 .invoice-table tfoot .total-row td { cursor: default; }
-.invoice-table .col-image { width: 90px; vertical-align: middle; }
+.invoice-table .col-image { width: 120px; vertical-align: middle; }
 .invoice-table .col-invoice-note { width: 80px; vertical-align: middle; font-size: 12px; }
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
@@ -3790,8 +3790,8 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
     display: inline-block;
 }
 .cell-img-thumb {
-    width: 32px;
-    height: 32px;
+    width: 48px;
+    height: 48px;
     object-fit: cover;
     border-radius: 4px;
     border: 1px solid var(--gray-200);
@@ -3862,7 +3862,7 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .cell-img-more:hover { background: var(--primary-light, #eef0ff); color: var(--primary); border-color: var(--primary); }
 
 /* Widen image column for thumbnails */
-.col-image { min-width: 90px; overflow: visible; }
+.col-image { min-width: 120px; overflow: visible; }
 
 /* Image viewer header info */
 .img-viewer-header-info {
