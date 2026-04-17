@@ -688,6 +688,7 @@
         province: { name: 'Tinh', sheet: 'Tỉnh' },
         shop: { name: 'BanHangShop', sheet: 'Bán hàng shop' },
         return: { name: 'ThuVe', sheet: 'Thu về' },
+        zero: { name: 'Don_0d', sheet: 'ĐƠN 0đ' },
         all: { name: 'TatCa', sheet: 'Tất cả' }
     };
 
@@ -749,6 +750,12 @@
             if (tab === 'all' && state.traSoatMode) {
                 // Tất cả tab: export 5 sheets
                 exportExcelAllGroups();
+                return;
+            }
+
+            if (tab === 'zero' && state.traSoatMode) {
+                // ĐƠN 0đ tab: export chỉ đơn 0đ, chia theo nhóm
+                exportExcelZeroDong();
                 return;
             }
 
@@ -837,6 +844,30 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
         XLSX.writeFile(wb, makeFileName(label.replace(/\s+/g, '_')));
+    }
+
+    function exportExcelZeroDong() {
+        const allData = (DeliveryReportState.allData || []).filter(item => isZeroCOD(item));
+        const wb = XLSX.utils.book_new();
+        const groupKeys = ['nap', 'city', 'shop', 'return'];
+        let hasData = false;
+
+        groupKeys.forEach(key => {
+            const items = allData.filter(item => getItemGroup(item) === key);
+            if (items.length === 0) return;
+            hasData = true;
+            const rows = buildExcelRows(items);
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            autoFitColumns(ws, rows);
+            XLSX.utils.book_append_sheet(wb, ws, GROUP_LABELS[key]);
+        });
+
+        if (!hasData) {
+            alert('Không có đơn 0đ để xuất.');
+            return;
+        }
+
+        XLSX.writeFile(wb, makeFileName('Don_0d'));
     }
 
     // =====================================================
