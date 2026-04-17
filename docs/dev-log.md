@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory][render] Default đợt = MAX hiện có (không +1) — merge-by-default UX
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/modal-shipment.js` |
+| **Chi tiết** | Đổi default đợt khi thêm NCC mới cho ngày đã có đợt: trước là `MAX+1` (luôn tạo đợt mới), giờ là `MAX` (mặc định merge vào đợt hiện có). User muốn đợt mới → tự gõ +1. Áp dụng cho: `GET /shipments/next-dot-so` (`COALESCE(MAX, 1)`), POST fallback resolve, và client-side `_computeDefaultDotSo`. Endpoint name giữ nguyên để tương thích. |
+| **Status** | ✅ Done |
+
 ### [inventory][render] Gộp NCC trùng (ngày + đợt + tên NCC) — migration 056 + dedupe POST
 | | |
 |---|---|

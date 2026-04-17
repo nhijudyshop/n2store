@@ -47,15 +47,15 @@ function openShipmentModal(shipment = null) {
 /**
  * Compute default dotSo for the modal:
  * - Edit: use shipment.dotSo
- * - Add: max dotSo (globalState.shipments filtered by date) + 1, fallback 1
- * Note: Also refreshed from API on save, this is UI-only hint
+ * - Add: current MAX dotSo for that date (not +1) so user defaults to merging
+ *   into latest đợt. User manually types +1 if they want a new đợt.
+ *   Fallback 1 if no shipment on that date.
  */
 function _computeDefaultDotSo(shipment, date) {
     if (shipment?.dotSo) return shipment.dotSo;
     const sameDate = (globalState?.shipments || []).filter(s => s.ngayDiHang === date);
     if (sameDate.length === 0) return 1;
-    const maxDot = Math.max(...sameDate.map(s => s.dotSo || 1));
-    return maxDot + 1;
+    return Math.max(...sameDate.map(s => s.dotSo || 1));
 }
 
 /**

@@ -420,7 +420,10 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// Next batch number (dot_so) for a given date — must be defined BEFORE /:id route
+// Default dot_so for a given date — returns current MAX (not MAX+1) so adding
+// an NCC to an existing date merges into the existing đợt by default. User
+// manually types +1 when they want a genuinely new đợt.
+// (Endpoint name kept for backward-compat.)
 router.get('/shipments/next-dot-so', async (req, res) => {
     try {
         const db = getDb(req);
@@ -429,7 +432,7 @@ router.get('/shipments/next-dot-so', async (req, res) => {
             return res.status(400).json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
         }
         const result = await db.query(
-            `SELECT COALESCE(MAX(dot_so), 0) + 1 AS next_dot_so
+            `SELECT COALESCE(MAX(dot_so), 1) AS next_dot_so
              FROM inventory_shipments WHERE ngay_di_hang = $1`,
             [date]
         );
@@ -470,11 +473,12 @@ router.post('/shipments', async (req, res) => {
             return res.status(400).json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
         }
 
-        // Resolve dot_so: use provided, otherwise auto-compute max+1 for that date
+        // Resolve dot_so: use provided, otherwise default to current MAX (or 1 if empty).
+        // Matches client UI default — adding without explicit dot_so merges into latest đợt.
         let resolvedDotSo = parseInt(dot_so, 10);
         if (!resolvedDotSo || resolvedDotSo < 1) {
             const maxRes = await db.query(
-                `SELECT COALESCE(MAX(dot_so), 0) + 1 AS next FROM inventory_shipments WHERE ngay_di_hang = $1`,
+                `SELECT COALESCE(MAX(dot_so), 1) AS next FROM inventory_shipments WHERE ngay_di_hang = $1`,
                 [ngay_di_hang]
             );
             resolvedDotSo = maxRes.rows[0].next;
