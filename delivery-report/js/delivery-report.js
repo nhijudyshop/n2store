@@ -1985,6 +1985,8 @@
                     <span class="drp-idx">${i + 1}</span>
                     <span class="drp-num">${escapeHtml(item.Number)}</span>
                     <span class="drp-name">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                    <span class="drp-phone">${escapeHtml(item.Phone || '')}</span>
+                    <span class="drp-addr">${escapeHtml(item.Address || '')}</span>
                     <span class="drp-amt">${formatMoney(item.CashOnDelivery || 0)}${isZeroCOD(item) ? ' <span class="drp-zero-badge">0đ</span>' : ''}</span>
                 </div>`;
             });
@@ -2000,7 +2002,7 @@
     }
 
     function buildPrintList(items) {
-        let html = '<table class="drp-table"><thead><tr><th>#</th><th>Số</th><th>Khách hàng</th><th>ĐT</th><th>Công nợ</th></tr></thead><tbody>';
+        let html = '<table class="drp-table"><thead><tr><th>#</th><th>Số</th><th>Khách hàng</th><th>ĐT</th><th>Địa chỉ</th><th>Công nợ</th></tr></thead><tbody>';
         items.forEach((item, i) => {
             const zeroClass = isZeroCOD(item) ? ' class="drp-zero"' : '';
             html += `<tr${zeroClass}>
@@ -2008,11 +2010,12 @@
                 <td>${escapeHtml(item.Number)}</td>
                 <td>${escapeHtml(item.PartnerDisplayName || '')}</td>
                 <td>${escapeHtml(item.Phone || '')}</td>
+                <td>${escapeHtml(item.Address || '')}</td>
                 <td style="text-align:right;">${formatMoney(item.CashOnDelivery || 0)}</td>
             </tr>`;
         });
         const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
-        html += `<tr style="font-weight:700;border-top:2px solid #333;"><td colspan="4" style="text-align:right;">Tổng:</td><td style="text-align:right;">${formatMoney(total)}</td></tr>`;
+        html += `<tr style="font-weight:700;border-top:2px solid #333;"><td colspan="5" style="text-align:right;">Tổng:</td><td style="text-align:right;">${formatMoney(total)}</td></tr>`;
         html += '</tbody></table>';
         return html;
     }
@@ -2089,12 +2092,14 @@
             .dr-province-header-city { background:#d97706; }
             .dr-province-header-shop { background:#059669; }
             .dr-province-header-return { background:#7c3aed; }
-            .drp-row { display:flex; align-items:center; gap:6px; padding:3px 8px; border-bottom:1px solid #f0f0f0; font-size:10px; }
+            .drp-row { display:flex; align-items:center; gap:4px; padding:3px 6px; border-bottom:1px solid #f0f0f0; font-size:9px; }
             .drp-row.drp-zero { background:#fef9c3; border-left:2px solid #f59e0b; }
-            .drp-idx { color:#999; min-width:18px; }
-            .drp-num { font-weight:600; min-width:100px; }
-            .drp-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-            .drp-amt { text-align:right; white-space:nowrap; min-width:60px; }
+            .drp-idx { color:#999; min-width:16px; }
+            .drp-num { font-weight:600; min-width:90px; }
+            .drp-name { min-width:0; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .drp-phone { color:#666; min-width:75px; white-space:nowrap; }
+            .drp-addr { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; }
+            .drp-amt { text-align:right; white-space:nowrap; min-width:55px; font-weight:500; }
             .drp-zero-badge { background:#f59e0b; color:white; font-size:8px; font-weight:700; padding:1px 4px; border-radius:3px; }
             .drp-table { width:100%; border-collapse:collapse; }
             .drp-table th, .drp-table td { padding:4px 8px; border:1px solid #ddd; font-size:11px; }

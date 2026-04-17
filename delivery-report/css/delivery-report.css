@@ -1170,8 +1170,8 @@
 .drp-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: 4px;
+    padding: 4px 8px;
     border-bottom: 1px solid #f3f4f6;
     font-size: 11px;
 }
@@ -1187,29 +1187,46 @@
 
 .drp-idx {
     color: #9ca3af;
-    min-width: 20px;
+    min-width: 18px;
     font-size: 10px;
 }
 
 .drp-num {
     font-weight: 600;
-    min-width: 110px;
+    min-width: 100px;
     color: #1a1a2e;
 }
 
 .drp-name {
-    flex: 1;
     min-width: 0;
+    max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #374151;
 }
 
+.drp-phone {
+    color: #6b7280;
+    min-width: 80px;
+    white-space: nowrap;
+    font-size: 10px;
+}
+
+.drp-addr {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6b7280;
+    font-size: 10px;
+}
+
 .drp-amt {
     text-align: right;
     white-space: nowrap;
-    min-width: 65px;
+    min-width: 60px;
     font-weight: 500;
 }
 
