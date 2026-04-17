@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [orders] Purchase Orders: hiển thị lỗi TPOS giống TPOS khi Xuất Excel / Tạo đơn
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/lib/tpos-purchase.js`, `purchase-orders/js/main.js` |
+| **Chi tiết** | **1. `tpos-purchase.js`:** export thêm `validateExcel(workbook, ncc)` — dry-run `PurchaseByExcel` (TPOS không tạo PO, chỉ trả `{OrderLines, Errors}`). **2. `createFromExcel`:** block nếu `errors.length > 0` — trả `{success:false, tposErrors: [...], orderLines}` thay vì tạo PO thiếu dòng. **3. `main.js` `showTposErrorsModal(errors, {title, onContinue})`:** modal đỏ liệt kê lỗi theo format TPOS (`"Dòng N: Mã sản phẩm X không tồn tại trong dữ liệu"`) — optional nút "Tiếp tục" để tải file dù có lỗi. **4. `btnExportExcel`:** build workbook → nếu NCC có `tposId` → `validateExcel` → show modal nếu có lỗi (cho phép "Tải xuống vẫn") → download. **5. `btnSubmitTPOS`:** khi `tposResult.tposErrors` → show modal (block, không cho tiếp tục). **6. Capture format:** qua snippet `_tpos_capture_error.js` paste vào DevTools TPOS (dùng `localStorage.accessToken` + Bearer header). |
+| **Status** | ✅ Done |
+
 ### [inventory][render] Bỏ Firebase khỏi inventory-tracking: permissions + deleteImage qua Render API
 | | |
 |---|---|

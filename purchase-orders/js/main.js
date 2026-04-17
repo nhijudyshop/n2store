@@ -786,6 +786,55 @@ class PurchaseOrderController {
     }
 
     /**
+     * Show TPOS-style error modal listing issues returned from PurchaseByExcel.
+     * Mirrors format: "Dòng N: Mã sản phẩm X không tồn tại trong dữ liệu"
+     * @param {string[]} errors
+     * @param {{title?: string, continueLabel?: string, onContinue?: Function}} opts
+     *   - If onContinue provided: shows "Tiếp tục" button; else only "Đóng".
+     */
+    showTposErrorsModal(errors, opts = {}) {
+        const title = opts.title || 'TPOS phát hiện lỗi trên file Excel';
+        const list = (errors || []).map(e =>
+            `<li style="padding: 6px 0; border-bottom: 1px solid #fee2e2; color: #991b1b; font-size: 13px;">${String(e).replace(/</g, '&lt;')}</li>`
+        ).join('');
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:8px;max-width:640px;width:92%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+                <div style="padding:16px 20px;border-bottom:1px solid #fecaca;background:#fef2f2;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:10px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <div style="font-weight:700;color:#991b1b;font-size:15px;">${title}</div>
+                </div>
+                <div style="padding:12px 20px;overflow-y:auto;flex:1;">
+                    <div style="color:#7f1d1d;font-size:13px;margin-bottom:8px;">
+                        TPOS trả về ${errors.length} lỗi. Vui lòng sửa file Excel (mã sản phẩm hoặc số lượng) trước khi tạo đơn.
+                    </div>
+                    <ol style="list-style:decimal inside;margin:0;padding:0;">${list}</ol>
+                </div>
+                <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end;background:#f9fafb;border-radius:0 0 8px 8px;">
+                    ${opts.onContinue ? `<button type="button" id="tposErrContinue" style="padding:8px 16px;border:1px solid #d97706;border-radius:4px;background:white;color:#d97706;font-weight:600;cursor:pointer;font-size:13px;">${opts.continueLabel || 'Tiếp tục'}</button>` : ''}
+                    <button type="button" id="tposErrClose" style="padding:8px 16px;border:none;border-radius:4px;background:#dc2626;color:white;font-weight:600;cursor:pointer;font-size:13px;">Đóng</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => overlay.remove();
+        overlay.querySelector('#tposErrClose').addEventListener('click', close);
+        const btnCont = overlay.querySelector('#tposErrContinue');
+        if (btnCont) {
+            btnCont.addEventListener('click', () => {
+                close();
+                opts.onContinue();
+            });
+        }
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    }
+
+    /**
      * Show purchase order preview UI (replaces old export format dialog)
      * Displays order items in TPOS-style table with editable Giảm giá, Cước phí, Ghi chú
      */
@@ -1411,11 +1460,40 @@ class PurchaseOrderController {
             btn.disabled = true;
             btn.textContent = 'Đang xuất...';
             try {
-                const result = await this.exportMuaHang(orders);
-                if (result.exported > 0) {
-                    this.ui.showToast(`Xuất Excel thành công! ${result.exported} SP`, 'success');
-                } else {
+                // Build workbook (không download ngay)
+                const result = await this.exportMuaHang(orders, { download: false });
+                if (result.exported === 0) {
                     this.ui.showToast('Không có SP nào phù hợp', 'error');
+                    return;
+                }
+
+                // Nếu NCC có tposId → validate qua TPOS trước
+                let tposErrors = [];
+                if (ncc?.tposId && window.TPOSPurchase?.validateExcel) {
+                    btn.textContent = 'Đang kiểm tra TPOS...';
+                    try {
+                        const validation = await window.TPOSPurchase.validateExcel(result.workbook, ncc);
+                        tposErrors = validation.errors || [];
+                    } catch (e) {
+                        console.warn('[PO Preview] validateExcel failed:', e);
+                    }
+                }
+
+                const filename = `MuaHang_${ncc?.code || singleOrder.orderNumber || 'Export'}_${String(new Date().getDate()).padStart(2,'0')}-${String(new Date().getMonth()+1).padStart(2,'0')}.xlsx`;
+
+                if (tposErrors.length > 0) {
+                    // Show TPOS-style error modal + cho phép tải vẫn
+                    this.showTposErrorsModal(tposErrors, {
+                        title: 'TPOS phát hiện lỗi trên file Excel',
+                        continueLabel: 'Tải xuống vẫn',
+                        onContinue: () => {
+                            XLSX.writeFile(result.workbook, filename);
+                            this.ui.showToast(`Đã tải file (${result.exported} SP, ${tposErrors.length} lỗi)`, 'warning');
+                        }
+                    });
+                } else {
+                    XLSX.writeFile(result.workbook, filename);
+                    this.ui.showToast(`Xuất Excel thành công! ${result.exported} SP`, 'success');
                 }
             } catch (err) {
                 this.ui.showToast('Lỗi xuất Excel: ' + err.message, 'error');
@@ -1502,7 +1580,14 @@ class PurchaseOrderController {
                 console.log('[PO Preview] createFromExcel result:', tposResult);
 
                 if (!tposResult.success) {
-                    this.ui.showToast('Lỗi tạo đơn TPOS: ' + (tposResult.error || 'Không rõ lỗi'), 'error');
+                    // Nếu TPOS trả về Errors list → show modal đỏ giống TPOS
+                    if (tposResult.tposErrors && tposResult.tposErrors.length > 0) {
+                        this.showTposErrorsModal(tposResult.tposErrors, {
+                            title: 'TPOS từ chối tạo đơn: file Excel có lỗi'
+                        });
+                    } else {
+                        this.ui.showToast('Lỗi tạo đơn TPOS: ' + (tposResult.error || 'Không rõ lỗi'), 'error');
+                    }
                     resetBtn();
                     return;
                 }

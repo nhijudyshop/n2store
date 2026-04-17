@@ -269,6 +269,21 @@ window.TPOSPurchase = (function() {
 
     let _createInProgress = false;
 
+    /**
+     * Dry-run validation: upload workbook to TPOS via PurchaseByExcel endpoint
+     * TPOS không tạo PO — chỉ parse + trả về OrderLines hợp lệ và Errors (mã sai, thiếu...).
+     * Dùng cho nút "Xuất Excel" để check trước khi tải file.
+     * @returns {Promise<{orderLines: Array, errors: string[], isError: boolean}>}
+     */
+    async function validateExcel(workbook, ncc) {
+        if (!ncc?.tposId) {
+            throw new Error('NCC chưa có TPOS ID, không thể validate qua TPOS');
+        }
+        const base64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+        const orderDate = toVNDateString();
+        return await purchaseByExcel(base64, ncc.tposId, orderDate);
+    }
+
     async function createFromExcel(workbook, order, options = {}) {
         const showToast = window.notificationManager?.show?.bind(window.notificationManager)
             || ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
@@ -301,6 +316,17 @@ window.TPOSPurchase = (function() {
                 purchaseByExcel(base64, ncc.tposId, orderDate),
                 window.NCCManager.getFullPartnerData(ncc.docId)
             ]);
+
+            // BLOCK khi TPOS trả về Errors — tránh tạo PO thiếu dòng
+            if (excelResult.errors && excelResult.errors.length > 0) {
+                console.warn('[TPOSPurchase] Blocked: TPOS trả về', excelResult.errors.length, 'lỗi');
+                return {
+                    success: false,
+                    tposErrors: excelResult.errors,
+                    error: `TPOS phát hiện ${excelResult.errors.length} lỗi trên file Excel`,
+                    orderLines: excelResult.orderLines
+                };
+            }
 
             if (excelResult.orderLines.length === 0) {
                 throw new Error('TPOS không nhận diện được sản phẩm nào từ Excel');
@@ -480,6 +506,7 @@ window.TPOSPurchase = (function() {
 
     return {
         purchaseByExcel,
+        validateExcel,
         createPurchaseOrder,
         createFromExcel,
         printBarcodeLabel,
