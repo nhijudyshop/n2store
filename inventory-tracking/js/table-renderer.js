@@ -5,6 +5,16 @@
 // =====================================================
 
 // =====================================================
+// UTILITIES
+// =====================================================
+
+/** Escape string for safe use in HTML attributes (onclick, title, data-*) */
+function _escAttr(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// =====================================================
 // CHINESE TO VIETNAMESE TRANSLATION
 // =====================================================
 
@@ -694,10 +704,9 @@ function renderInvoicesSection(shipment) {
 function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
-    // Map productImages by sttNCC number only when NCC has a real number (> 0)
-    // "1 LẤY THÊM" (sttNCC=1) → map by 1
-    // "LẤY THÊM" (sttNCC=0) → don't map, only show anhHoaDon
-    const productImages = (sttNCC && sttNCC > 0) ? getProductImagesForNcc(sttNCC) : [];
+    // Map productImages by sttNCC only for real NCC numbers (< 900)
+    // sttNCC >= 900 = auto-assigned for name-only NCCs — don't map productImages
+    const productImages = (sttNCC > 0 && sttNCC < 900) ? getProductImagesForNcc(sttNCC) : [];
     const invoiceImgs = invoiceImages || [];
     const allImages = [...productImages];
     for (const url of invoiceImgs) {
@@ -775,11 +784,11 @@ function renderProductRow(opts) {
     // Display NCC: show tenNCC name. If no name, show sttNCC number as fallback.
     // sttNCC is only used internally for productImages mapping.
     const nccDisplayName = tenNCC || String(sttNCC);
-    const nccKey = nccDisplayName;
-    const nccDone = _isNccDone(shipmentId, nccKey);
-    const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" data-ncc-key="${nccKey}" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', '${nccKey}', this.checked)"></label>`;
-    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${nccDisplayName}"><i data-lucide="trash-2"></i></button>`;
-    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDeleteBtn}`;
+    const nccKey = _escAttr(nccDisplayName);
+    const nccDone = _isNccDone(shipmentId, nccDisplayName);
+    const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" data-ncc-key="${nccKey}" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${_escAttr(shipmentId)}', '${nccKey}', this.checked)"></label>`;
+    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${_escAttr(invoiceId)}')" title="Xóa NCC ${nccKey}"><i data-lucide="trash-2"></i></button>`;
+    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
@@ -1013,7 +1022,7 @@ function showSubInvoice(shipmentId, invoiceIdx) {
         '<div id="subInvoiceModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)window.closeSubInvoiceModal()">' +
             '<div style="background:white;border-radius:12px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
                 '<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:16px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
-                    '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' + invoice.sttNCC + '</h2>' +
+                    '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' + (invoice.tenNCC || invoice.sttNCC) + '</h2>' +
                     '<button onclick="window.closeSubInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>' +
                 '</div>' +
                 '<div style="padding:20px;">' +

@@ -605,14 +605,17 @@ async function saveShipment() {
             }
 
             // Parse optional leading number: "1 LẤY THÊM" → sttNCC=1, tenNCC="LẤY THÊM"
-            // "LẤY THÊM" → sttNCC=0 (no number), tenNCC="LẤY THÊM"
+            // "LẤY THÊM" → sttNCC=auto (900+), tenNCC="LẤY THÊM"
+            // sttNCC >= 900 means "name-only NCC" — won't map productImages
             const nccMatch = rawNCC.match(/^(\d+)\s+(.+)$/);
             let sttNCC, tenNCC;
             if (nccMatch) {
                 sttNCC = parseInt(nccMatch[1], 10);
                 tenNCC = nccMatch[2].trim();
             } else {
-                sttNCC = 0; // No explicit number — won't map productImages
+                // Auto-assign high number (900+) so server accepts it but won't collide with real NCCs
+                autoSttNCC++;
+                sttNCC = 900 + autoSttNCC;
                 tenNCC = rawNCC;
             }
 

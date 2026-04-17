@@ -215,12 +215,12 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
             shortageData.ghiChuThieu || ''
         );
 
-        // Update local state
-        const ncc = getNCCById(sttNCC);
-        if (ncc) {
+        // Update local state — find NCC by scanning dotHang for dotHangId (reliable)
+        for (const ncc of globalState.nccList) {
             const idx = (ncc.dotHang || []).findIndex(d => d.id === dotHangId);
             if (idx !== -1) {
                 ncc.dotHang[idx] = pgToShipment(saved);
+                break;
             }
         }
 

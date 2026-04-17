@@ -69,9 +69,14 @@ async function loadAndAttachOrderBookings() {
         const result = await orderBookingsApi.getAll({ limit: 500 });
         const bookings = result.data.map(pgToBooking);
 
-        // Attach to nccList
+        // Attach to nccList — match by sttNCC (if > 0) or tenNCC
         bookings.forEach(b => {
-            const ncc = globalState.nccList.find(n => n.sttNCC === b.sttNCC);
+            let ncc;
+            if (b.sttNCC > 0) {
+                ncc = globalState.nccList.find(n => n.sttNCC === b.sttNCC);
+            } else if (b.tenNCC) {
+                ncc = globalState.nccList.find(n => n.tenNCC === b.tenNCC);
+            }
             if (ncc) {
                 ncc.datHang.push(b);
             }
@@ -91,9 +96,14 @@ async function loadAndAttachShipments() {
         const result = await shipmentsApi.getAll({ limit: 500 });
         const shipments = result.data.map(pgToShipment);
 
-        // Attach to nccList
+        // Attach to nccList — match by sttNCC (if > 0) or tenNCC
         shipments.forEach(s => {
-            const ncc = globalState.nccList.find(n => n.sttNCC === s.sttNCC);
+            let ncc;
+            if (s.sttNCC > 0) {
+                ncc = globalState.nccList.find(n => n.sttNCC === s.sttNCC);
+            } else if (s.tenNCC) {
+                ncc = globalState.nccList.find(n => n.tenNCC === s.tenNCC);
+            }
             if (ncc) {
                 ncc.dotHang.push(s);
             }
