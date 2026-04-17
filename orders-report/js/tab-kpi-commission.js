@@ -1665,7 +1665,22 @@ const KPICommission = {
                 this.reinitIcons();
             };
 
+            // Smoke test endpoint cleanup — fail fast nếu Render chưa deploy DELETE route.
+            let cleanupAvailable = true;
+            try {
+                await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent('__probe_' + Date.now())}`);
+            } catch (e) {
+                const msg = String(e?.message || e);
+                if (msg.includes('404')) {
+                    cleanupAvailable = false;
+                    console.warn('[KPI Recompute] DELETE /kpi-statistics/order chưa có trên server (404). Render có thể đang deploy — bấm lại sau vài phút.');
+                    alert('⚠ Server Render chưa có endpoint dọn orphan (chưa deploy xong).\nBackfill vẫn sẽ chạy nhưng các đơn duplicate cũ SẼ KHÔNG ĐƯỢC DỌN.\n\nKhuyến nghị: đợi 2-3 phút cho Render deploy xong rồi bấm lại.');
+                }
+                // Non-404 errors: orderCode ngẫu nhiên không match row nào → server trả 200 hoặc lỗi khác — vẫn coi là available.
+            }
+
             // Worker pool: mỗi worker pull 1 orderCode từ queue, cleanup + recompute, repeat.
+            let cleanupFailures = 0;
             const worker = async () => {
                 while (queue.length > 0) {
                     const orderCode = queue.shift();
@@ -1673,10 +1688,15 @@ const KPICommission = {
                     try {
                         // (1) Xoá orderCode khỏi mọi (userId, stat_date) row để dẹp orphan
                         //     từ các lần save cũ (sai ngày hoặc sai userId).
-                        try {
-                            await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
-                        } catch (e) {
-                            console.warn(`[KPI Recompute] Cleanup fail ${orderCode}:`, e?.message || e);
+                        if (cleanupAvailable) {
+                            try {
+                                await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
+                            } catch (e) {
+                                cleanupFailures++;
+                                if (cleanupFailures <= 5) {
+                                    console.warn(`[KPI Recompute] Cleanup fail ${orderCode}:`, e?.message || e);
+                                }
+                            }
                         }
                         // (2) Recompute + save vào đúng (userId, baseDate).
                         await window.kpiManager.recalculateAndSaveKPI(orderCode);
@@ -1692,8 +1712,11 @@ const KPICommission = {
             const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker());
             await Promise.all(workers);
 
-            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}`);
-            alert(`Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}\n\nĐang refresh bảng…`);
+            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}, cleanup fail ${cleanupFailures}`);
+            const cleanupWarn = !cleanupAvailable
+                ? '\n\n⚠ Không dọn được orphan — các đơn duplicate cũ vẫn còn.\nĐợi Render deploy xong rồi bấm lại.'
+                : (cleanupFailures > 0 ? `\n\n⚠ ${cleanupFailures} đơn dọn orphan lỗi (xem console).` : '');
+            alert(`Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}${cleanupWarn}\n\nĐang refresh bảng…`);
             await this.refreshData();
         } catch (e) {
             console.error('[KPI Recompute] error:', e);

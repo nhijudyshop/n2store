@@ -977,38 +977,36 @@ router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
 
-        await pool.query('BEGIN');
-
-        // 1) Bỏ orderCode khỏi tất cả mảng orders[] có chứa nó
-        const updateResult = await pool.query(`
-            UPDATE kpi_statistics
-            SET orders = (
-                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-                FROM jsonb_array_elements(orders) elem
-                WHERE elem->>'orderCode' != $1
-            ),
-            updated_at = CURRENT_TIMESTAMP
-            WHERE orders @> $2::jsonb
-        `, [orderCode, JSON.stringify([{ orderCode }])]);
-
-        // 2) Recompute totals cho các row vừa bị đụng
-        await pool.query(`
-            UPDATE kpi_statistics
-            SET total_net_products = COALESCE((
+        // Single atomic UPDATE: strip orderCode từ orders[] + recompute totals
+        // từ mảng CÒN LẠI (không dùng updated_at hack, không race condition).
+        const result = await pool.query(`
+            WITH filtered AS (
+                SELECT id,
+                       COALESCE((
+                           SELECT jsonb_agg(elem)
+                           FROM jsonb_array_elements(orders) elem
+                           WHERE elem->>'orderCode' != $1
+                       ), '[]'::jsonb) AS new_orders
+                FROM kpi_statistics
+                WHERE orders @> $2::jsonb
+            )
+            UPDATE kpi_statistics k
+            SET orders = f.new_orders,
+                total_net_products = COALESCE((
                     SELECT SUM((elem->>'netProducts')::int)
-                    FROM jsonb_array_elements(orders) elem
+                    FROM jsonb_array_elements(f.new_orders) elem
                 ), 0),
                 total_kpi = COALESCE((
                     SELECT SUM((elem->>'kpi')::numeric)
-                    FROM jsonb_array_elements(orders) elem
-                ), 0)
-            WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '5 seconds'
-        `);
+                    FROM jsonb_array_elements(f.new_orders) elem
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+            FROM filtered f
+            WHERE k.id = f.id
+        `, [orderCode, JSON.stringify([{ orderCode }])]);
 
-        await pool.query('COMMIT');
-        res.json({ success: true, orderCode, rowsAffected: updateResult.rowCount });
+        res.json({ success: true, orderCode, rowsAffected: result.rowCount });
     } catch (error) {
-        try { await req.app.locals.chatDb?.query('ROLLBACK'); } catch (e) {}
         console.error('[REALTIME-DB] DELETE /kpi-statistics/order error:', error);
         res.status(500).json({ error: error.message });
     }
