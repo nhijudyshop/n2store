@@ -333,4 +333,43 @@ router.delete('/:orderNumber', async (req, res) => {
     }
 });
 
+// =====================================================
+// POST /lookup-batch — Lookup group_name for multiple order numbers
+// Used by orders-report to display delivery group badges
+// No date required — returns latest assignment for each order
+// =====================================================
+router.post('/lookup-batch', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { orderNumbers } = req.body;
+
+        if (!orderNumbers || !Array.isArray(orderNumbers) || orderNumbers.length === 0) {
+            return res.json({ success: true, data: {} });
+        }
+
+        // Limit batch size
+        const numbers = orderNumbers.slice(0, 500);
+        const placeholders = numbers.map((_, i) => `$${i + 1}`).join(', ');
+
+        // Get latest assignment per order_number (most recent date wins)
+        const result = await db.query(
+            `SELECT DISTINCT ON (order_number) order_number, group_name
+             FROM delivery_assignments
+             WHERE order_number IN (${placeholders}) AND is_hidden = FALSE
+             ORDER BY order_number, assignment_date DESC`,
+            numbers
+        );
+
+        const groups = {};
+        for (const row of result.rows) {
+            groups[row.order_number] = row.group_name;
+        }
+
+        res.json({ success: true, data: groups });
+    } catch (err) {
+        console.error('[delivery-assignments] POST /lookup-batch error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;

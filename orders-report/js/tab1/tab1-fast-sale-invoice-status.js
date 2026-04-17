@@ -974,8 +974,9 @@
             // Save updated entries to API + re-render UI
             if (keysToSaveAPI.length > 0) {
                 this._saveBatchToAPI(keysToSaveAPI);
+                // Re-load delivery groups for updated invoices (may have new CrossCheckComplete)
+                _loadDeliveryGroupsForCurrentInvoices();
                 this._refreshInvoiceStatusUI(updatedKeys);
-            } else {
             }
         },
 
@@ -1169,56 +1170,110 @@
     const _rawInvoicesById = new Map(); // saleOnlineId(String) -> Array<invoice> (all PBH cùng Reference)
     const _orderCodeById = new Map();   // saleOnlineId(String) -> orderCode (cache để refetch khi click)
 
-    // ===== Delivery Report Mapping (Firestore: delivery_report/province_groups) =====
-    // Map invoice.Number → 'tomato' | 'nap'. THÀNH PHỐ derive từ CarrierName.
-    const _deliveryGroups = { data: {}, loaded: false, listening: false };
+    // ===== Delivery Report Mapping (PostgreSQL: delivery_assignments table) =====
+    // Map invoice.Number → group_name ('tomato' | 'nap' | 'city' | 'shop' | 'return')
+    // Source of truth: Render DB via /api/v2/delivery-assignments/lookup-batch
+    const _deliveryGroups = { data: {}, loaded: false, _pendingNumbers: new Set(), _loadTimer: null };
 
-    function _initDeliveryGroupsListener() {
-        if (_deliveryGroups.listening) return;
-        const db = (typeof getFirestore === 'function') ? getFirestore() :
-            (typeof firebase !== 'undefined' && firebase.apps?.length ? firebase.firestore() : null);
-        if (!db) return;
+    const DELIVERY_API_BASE = (window.API_CONFIG?.RENDER_URL || 'https://n2store-fallback.onrender.com') + '/api/v2/delivery-assignments';
+
+    /**
+     * Queue invoice numbers for batch lookup from PostgreSQL.
+     * Debounces 300ms to batch multiple calls together.
+     */
+    function _queueDeliveryGroupLookup(invoiceNumbers) {
+        if (!invoiceNumbers || invoiceNumbers.length === 0) return;
+        for (const num of invoiceNumbers) {
+            if (num && !_deliveryGroups.data[num]) {
+                _deliveryGroups._pendingNumbers.add(num);
+            }
+        }
+        if (_deliveryGroups._loadTimer) clearTimeout(_deliveryGroups._loadTimer);
+        _deliveryGroups._loadTimer = setTimeout(() => _flushDeliveryGroupLookup(), 300);
+    }
+
+    /**
+     * Flush pending numbers: batch-query PostgreSQL for delivery group assignments.
+     */
+    async function _flushDeliveryGroupLookup() {
+        const numbers = Array.from(_deliveryGroups._pendingNumbers);
+        _deliveryGroups._pendingNumbers.clear();
+        _deliveryGroups._loadTimer = null;
+        if (numbers.length === 0) return;
+
         try {
-            db.collection('delivery_report').doc('province_groups').onSnapshot(doc => {
-                if (!doc.exists) return;
-                _deliveryGroups.data = doc.data().groups || {};
-                _deliveryGroups.loaded = true;
-                console.log('[DELIVERY-MAP] Loaded', Object.keys(_deliveryGroups.data).length, 'province group entries');
-                // Re-render tất cả PBH cell hiện có để áp badge mới
-                document.querySelectorAll('tr[data-order-id]').forEach(row => {
-                    const soId = row.getAttribute('data-order-id');
-                    if (soId) refreshInvoiceStatusCellForOrder(soId);
-                });
+            const resp = await fetch(`${DELIVERY_API_BASE}/lookup-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderNumbers: numbers })
             });
-            _deliveryGroups.listening = true;
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            if (result.success && result.data) {
+                let newCount = 0;
+                for (const [num, group] of Object.entries(result.data)) {
+                    if (_deliveryGroups.data[num] !== group) {
+                        _deliveryGroups.data[num] = group;
+                        newCount++;
+                    }
+                }
+                _deliveryGroups.loaded = true;
+                if (newCount > 0) {
+                    console.log('[DELIVERY-MAP] Loaded', newCount, 'new group entries from DB (total:', Object.keys(_deliveryGroups.data).length, ')');
+                    // Re-render PBH cells with new delivery group data
+                    document.querySelectorAll('tr[data-order-id]').forEach(row => {
+                        const soId = row.getAttribute('data-order-id');
+                        if (soId) refreshInvoiceStatusCellForOrder(soId);
+                    });
+                }
+            }
         } catch (e) {
-            console.warn('[DELIVERY-MAP] Failed to attach listener:', e.message);
+            console.warn('[DELIVERY-MAP] DB lookup-batch failed:', e.message);
+        }
+    }
+
+    /**
+     * Load delivery groups for all invoices currently in InvoiceStatusStore.
+     * Called after init and after bulk invoice data loads.
+     */
+    function _loadDeliveryGroupsForCurrentInvoices() {
+        const numbers = [];
+        InvoiceStatusStore._data.forEach(value => {
+            if (value.Number) numbers.push(value.Number);
+        });
+        if (numbers.length > 0) {
+            _queueDeliveryGroupLookup(numbers);
         }
     }
 
     /**
      * Mapping nhóm vận chuyển cho 1 invoice:
-     *   CarrierName bắt đầu "THÀNH PHỐ" → "THÀNH PHỐ"
-     *   Else → look up _deliveryGroups[invoice.Number]:
-     *     'tomato' → "TOMATO"
-     *     'nap'    → "NAP"
-     *     undefined → null (chưa phân nhóm)
+     *   DB group_name 'city' hoặc CarrierName bắt đầu "THÀNH PHỐ" → "THÀNH PHỐ"
+     *   DB group_name 'tomato' → "TOMATO"
+     *   DB group_name 'nap' → "NAP"
+     *   undefined → null (chưa phân nhóm)
      * @returns {{label, color, bg, border} | null}
      */
     function getDeliveryGroupBadge(invoice) {
         if (!invoice) return null;
-        const carrier = String(invoice.CarrierName || '').trim();
-        if (carrier.toUpperCase().startsWith('THÀNH PHỐ') || carrier.toUpperCase().startsWith('THANH PHO')) {
+        const number = invoice.Number;
+        const grp = number ? _deliveryGroups.data[number] : null;
+
+        // Check DB group first, then fallback to CarrierName detection
+        if (grp === 'city') {
             return { label: 'THÀNH PHỐ', color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' };
         }
-        const number = invoice.Number;
-        if (!number) return null;
-        const grp = _deliveryGroups.data[number];
         if (grp === 'tomato') {
             return { label: 'TOMATO', color: '#9a3412', bg: '#fed7aa', border: '#fb923c' };
         }
         if (grp === 'nap') {
             return { label: 'NAP', color: '#5b21b6', bg: '#ede9fe', border: '#c4b5fd' };
+        }
+
+        // Fallback: CarrierName detection (khi invoice chưa có trong DB)
+        const carrier = String(invoice.CarrierName || '').trim();
+        if (carrier.toUpperCase().startsWith('THÀNH PHỐ') || carrier.toUpperCase().startsWith('THANH PHO')) {
+            return { label: 'THÀNH PHỐ', color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' };
         }
         return null;
     }
@@ -1367,6 +1422,8 @@
                     Address: inv.Address || ''
                 };
                 InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
+                // Queue delivery group lookup cho invoice number mới
+                if (inv.Number) _queueDeliveryGroupLookup([inv.Number]);
                 // Re-render PBH cell cho row này
                 refreshInvoiceStatusCellForOrder(saleOnlineId);
 
@@ -3230,9 +3287,9 @@
         // Initialize store (async - loads from API)
         await InvoiceStatusStore.init();
 
-        // Setup Firestore listener cho delivery_report/province_groups
-        // (mapping invoice.Number → tomato/nap để hiển thị badge khi đối soát)
-        _initDeliveryGroupsListener();
+        // Load delivery group assignments from PostgreSQL
+        // (mapping invoice.Number → tomato/nap/city để hiển thị badge khi đối soát)
+        _loadDeliveryGroupsForCurrentInvoices();
 
         // Save original function
         if (
