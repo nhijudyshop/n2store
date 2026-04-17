@@ -691,12 +691,13 @@ function renderInvoicesSection(shipment) {
  * Images come from independent product_images table, mapped by NCC
  * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId, tenNCC) {
+function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
-    // Only use productImages (mapped by sttNCC number) when NCC has NO tenNCC name
-    // When tenNCC exists, it's a named NCC — don't match by number to avoid wrong mapping
-    const productImages = tenNCC ? [] : getProductImagesForNcc(sttNCC);
+    // Map productImages by sttNCC number only when NCC has a real number (> 0)
+    // "1 LẤY THÊM" (sttNCC=1) → map by 1
+    // "LẤY THÊM" (sttNCC=0) → don't map, only show anhHoaDon
+    const productImages = (sttNCC && sttNCC > 0) ? getProductImagesForNcc(sttNCC) : [];
     const invoiceImgs = invoiceImages || [];
     const allImages = [...productImages];
     for (const url of invoiceImgs) {
@@ -771,16 +772,14 @@ function renderProductRow(opts) {
     const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"` : '';
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
 
-    // Display NCC with tenNCC if available
-    const nccKey = tenNCC || sttNCC;
+    // Display NCC: show tenNCC name. If no name, show sttNCC number as fallback.
+    // sttNCC is only used internally for productImages mapping.
+    const nccDisplayName = tenNCC || String(sttNCC);
+    const nccKey = nccDisplayName;
     const nccDone = _isNccDone(shipmentId, nccKey);
     const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" data-ncc-key="${nccKey}" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', '${nccKey}', this.checked)"></label>`;
-    const nccLabel = nccKey;
-    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${nccLabel}"><i data-lucide="trash-2"></i></button>`;
-    // Show only tenNCC if available, otherwise show sttNCC number only
-    const nccDisplay = tenNCC
-        ? `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa tên NCC">${tenNCC}</span>${nccDeleteBtn}`
-        : `${nccCheckbox}<strong>${sttNCC}</strong>${nccDeleteBtn}`;
+    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${nccDisplayName}"><i data-lucide="trash-2"></i></button>`;
+    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
@@ -808,7 +807,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId, tenNCC)}
+            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'

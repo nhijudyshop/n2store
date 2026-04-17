@@ -595,17 +595,26 @@ async function saveShipment() {
 
         let autoSttNCC = 0;
         for (const form of invoiceForms) {
-            const tenNCC = form.querySelector('.invoice-ten-ncc')?.value?.trim() || '';
+            const rawNCC = form.querySelector('.invoice-ten-ncc')?.value?.trim() || '';
             const productText = form.querySelector('.invoice-products')?.value?.trim();
 
-            if (!tenNCC) {
+            if (!rawNCC) {
                 window.notificationManager?.warning('Vui lòng nhập tên NCC');
                 form.querySelector('.invoice-ten-ncc')?.focus();
                 return;
             }
 
-            autoSttNCC++;
-            const sttNCC = autoSttNCC;
+            // Parse optional leading number: "1 LẤY THÊM" → sttNCC=1, tenNCC="LẤY THÊM"
+            // "LẤY THÊM" → sttNCC=0 (no number), tenNCC="LẤY THÊM"
+            const nccMatch = rawNCC.match(/^(\d+)\s+(.+)$/);
+            let sttNCC, tenNCC;
+            if (nccMatch) {
+                sttNCC = parseInt(nccMatch[1], 10);
+                tenNCC = nccMatch[2].trim();
+            } else {
+                sttNCC = 0; // No explicit number — won't map productImages
+                tenNCC = rawNCC;
+            }
 
             // Parse products
             const products = productText ? parseMultipleProducts(productText) : [];
