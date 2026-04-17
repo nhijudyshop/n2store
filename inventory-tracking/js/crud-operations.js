@@ -341,7 +341,8 @@ async function deleteNccInvoice(invoiceId) {
         return;
     }
 
-    if (!confirm(`Xóa toàn bộ NCC ${targetDot.sttNCC}?`)) return;
+    const nccLabel = targetDot.tenNCC || targetDot.sttNCC;
+    if (!confirm(`Xóa toàn bộ NCC ${nccLabel}?`)) return;
 
     try {
         await shipmentsApi.delete(invoiceId);
@@ -353,7 +354,7 @@ async function deleteNccInvoice(invoiceId) {
         flattenNCCData();
         if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
 
-        window.notificationManager?.success(`Đã xóa NCC ${targetDot.sttNCC}`);
+        window.notificationManager?.success(`Đã xóa NCC ${nccLabel}`);
     } catch (error) {
         console.error('[CRUD] Error deleting NCC invoice:', error);
         window.notificationManager?.error('Không thể xóa: ' + error.message);

@@ -1001,7 +1001,10 @@ body {
 .ncc-done-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
 tr.ncc-row-done td { opacity: 0.35; }
 tr.ncc-row-done td.col-ncc { opacity: 0.6; }
-.invoice-table .col-stt { width: 50px; text-align: center; position: relative; }
+.invoice-table .col-stt { width: 32px; text-align: center; position: relative; }
+.invoice-table .col-sku { width: auto; white-space: nowrap; }
+.invoice-table .col-qty { width: auto; white-space: nowrap; }
+.invoice-table .col-price { width: auto; white-space: nowrap; }
 
 /* Delete buttons — hidden by default, show on hover */
 .btn-del-stt,
@@ -1047,13 +1050,13 @@ tr.ncc-row-done td.col-ncc { opacity: 0.6; }
 textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 
 .invoice-table .col-products { width: 60%; }
-.invoice-table .col-amount { width: 100px; vertical-align: middle; }
-.invoice-table .col-total { width: 70px; vertical-align: middle; }
-.invoice-table .col-shortage { width: 60px; vertical-align: middle; cursor: pointer; }
+.invoice-table .col-amount { width: auto; white-space: nowrap; vertical-align: middle; }
+.invoice-table .col-total { width: auto; white-space: nowrap; vertical-align: middle; }
+.invoice-table .col-shortage { width: auto; white-space: nowrap; vertical-align: middle; cursor: pointer; }
 .invoice-table .col-shortage:hover { background-color: rgba(74, 124, 255, 0.08); }
 .invoice-table tfoot .total-row td { cursor: default; }
-.invoice-table .col-image { width: 120px; vertical-align: middle; }
-.invoice-table .col-invoice-note { width: 80px; vertical-align: middle; font-size: 12px; }
+.invoice-table .col-image { width: 200px; vertical-align: middle; }
+.invoice-table .col-invoice-note { width: 60px; vertical-align: middle; font-size: 12px; }
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
@@ -3862,7 +3865,7 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .cell-img-more:hover { background: var(--primary-light, #eef0ff); color: var(--primary); border-color: var(--primary); }
 
 /* Widen image column for thumbnails */
-.col-image { min-width: 120px; overflow: visible; }
+.col-image { min-width: 200px; overflow: visible; }
 
 /* Image viewer header info */
 .img-viewer-header-info {

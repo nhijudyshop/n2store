@@ -691,11 +691,12 @@ function renderInvoicesSection(shipment) {
  * Images come from independent product_images table, mapped by NCC
  * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId) {
+function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId, tenNCC) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
-    const productImages = getProductImagesForNcc(sttNCC);
-    // Merge productImages + anhHoaDon, deduplicate
+    // Only use productImages (mapped by sttNCC number) when NCC has NO tenNCC name
+    // When tenNCC exists, it's a named NCC — don't match by number to avoid wrong mapping
+    const productImages = tenNCC ? [] : getProductImagesForNcc(sttNCC);
     const invoiceImgs = invoiceImages || [];
     const allImages = [...productImages];
     for (const url of invoiceImgs) {
@@ -771,9 +772,11 @@ function renderProductRow(opts) {
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
 
     // Display NCC with tenNCC if available
-    const nccDone = _isNccDone(shipmentId, sttNCC);
-    const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', ${sttNCC}, this.checked)"></label>`;
-    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${sttNCC}"><i data-lucide="trash-2"></i></button>`;
+    const nccKey = tenNCC || sttNCC;
+    const nccDone = _isNccDone(shipmentId, nccKey);
+    const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" data-ncc-key="${nccKey}" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', '${nccKey}', this.checked)"></label>`;
+    const nccLabel = nccKey;
+    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${nccLabel}"><i data-lucide="trash-2"></i></button>`;
     // Show only tenNCC if available, otherwise show sttNCC number only
     const nccDisplay = tenNCC
         ? `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa tên NCC">${tenNCC}</span>${nccDeleteBtn}`
@@ -805,7 +808,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId)}
+            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId, tenNCC)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'
@@ -1303,14 +1306,14 @@ function _getNccDoneMap() {
     } catch (_) { return {}; }
 }
 
-function _isNccDone(shipmentId, sttNCC) {
+function _isNccDone(shipmentId, nccKey) {
     const map = _getNccDoneMap();
-    return !!map[`${shipmentId}_${sttNCC}`];
+    return !!map[`${shipmentId}_${nccKey}`];
 }
 
-function toggleNccDone(shipmentId, sttNCC, checked) {
+function toggleNccDone(shipmentId, nccKey, checked) {
     const map = _getNccDoneMap();
-    const key = `${shipmentId}_${sttNCC}`;
+    const key = `${shipmentId}_${nccKey}`;
 
     if (checked) {
         map[key] = true;
@@ -1320,25 +1323,17 @@ function toggleNccDone(shipmentId, sttNCC, checked) {
 
     localStorage.setItem(NCC_DONE_KEY, JSON.stringify(map));
 
-    // Update all rows for this NCC in the DOM (avoid full re-render)
-    const table = document.querySelector(`.shipment-card[data-id="${shipmentId}"] table`);
-    if (table) {
-        table.querySelectorAll('tr').forEach(tr => {
-            // Find rows belonging to this NCC by checking the ncc cell
-            const nccCell = tr.querySelector('.col-ncc');
-            if (nccCell) {
-                const strong = nccCell.querySelector('strong');
-                if (strong && strong.textContent.trim() === String(sttNCC)) {
-                    // This is the first row — mark it and subsequent rows until next NCC
-                    let current = tr;
-                    const rowSpan = parseInt(nccCell.getAttribute('rowspan') || '1');
-                    for (let i = 0; i < rowSpan && current; i++) {
-                        current.classList.toggle('ncc-row-done', checked);
-                        current = current.nextElementSibling;
-                    }
-                }
-            }
-        });
+    // Update all rows for this NCC in the DOM via checkbox's parent cell
+    const checkbox = document.querySelector(`.shipment-card[data-id="${shipmentId}"] .ncc-done-check[data-ncc-key="${nccKey}"]`);
+    const nccCell = checkbox?.closest('.col-ncc');
+    if (nccCell) {
+        const tr = nccCell.closest('tr');
+        let current = tr;
+        const rowSpan = parseInt(nccCell.getAttribute('rowspan') || '1');
+        for (let i = 0; i < rowSpan && current; i++) {
+            current.classList.toggle('ncc-row-done', checked);
+            current = current.nextElementSibling;
+        }
     }
 }
 
