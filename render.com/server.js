@@ -20,6 +20,12 @@ types.setTypeParser(1114, (val) => {
     return val + '+07:00';
 });
 
+// OID 1082 = DATE. Default parser uses new Date(year, month-1, day) which
+// creates a local-midnight Date → ISO roundtrip shifts across UTC boundary
+// depending on server TZ. Return as raw 'YYYY-MM-DD' string instead so date
+// columns are treated as calendar dates without timezone involvement.
+types.setTypeParser(1082, (val) => val);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

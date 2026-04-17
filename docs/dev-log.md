@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [render] Fix pg DATE (OID 1082) parser — trả raw 'YYYY-MM-DD' string
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `render.com/db/pool.js` |
+| **Chi tiết** | **Bug:** DB lưu DATE `2026-04-11` nhưng API JSON trả `"2026-04-10T17:00:00.000Z"` — client split('T')[0] → `"2026-04-10"` → display `10/4` (lệch -1 ngày). **Nguyên nhân:** pg-node default DATE parser dùng `new Date(year, month-1, day)` tạo Date ở LOCAL midnight; Render server TZ = VN (UTC+7) → Date object = `2026-04-11 00:00 +0700` = UTC `2026-04-10T17:00:00Z`. JSON.stringify ra chuỗi UTC, làm client hiểu sai ngày. **Fix:** `types.setTypeParser(1082, val => val)` — trả raw 'YYYY-MM-DD' string, không roundtrip qua Date. Áp dụng cho cả `server.js` và `db/pool.js`. Không cần sửa schema hay client. Tác động: mọi DATE column (`ngay_di_hang`, `ngay_dat_hang`, `ngay`) đều trả về string khớp DB. |
+| **Status** | ✅ Done |
+
 ### [inventory] Chuyển toàn bộ date logic sang GMT+7 (Vietnam)
 | | |
 |---|---|

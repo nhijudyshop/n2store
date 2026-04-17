@@ -10,6 +10,10 @@ const { Pool, types } = require('pg');
 // Append +07:00 so browser correctly interprets it
 types.setTypeParser(1114, (val) => val ? val + '+07:00' : val);
 
+// DATE (OID 1082) → return raw 'YYYY-MM-DD' string. Default parser converts
+// to local-midnight Date which shifts dates across UTC boundary.
+types.setTypeParser(1082, (val) => val);
+
 let pool = null;
 
 function getPool() {
