@@ -15,6 +15,7 @@
         let isSyncMode = false;
         let isMergeVariants = false; // Merge variants mode disabled by default
         let soluongIsHideEditControls = false; // Hide edit controls mode disabled by default
+        let soluongIsHideCocColumn = true; // Coc column hidden by default
         let firebaseDetachFn = null; // Store detach function for cleanup on page unload
 
         // Sync listeners state (Optimization - Step 2: Only listen when needed)
@@ -182,6 +183,66 @@
             }
 
             updateHideEditControlsUI();
+        }
+
+        function toggleCocColumn() {
+            soluongIsHideCocColumn = !soluongIsHideCocColumn;
+            localStorage.setItem('soluongIsHideCocColumn', JSON.stringify(soluongIsHideCocColumn));
+
+            // Sync to Firebase between machines (mirror toggleMergeVariants)
+            if (!isSyncingFromFirebase) {
+                database.ref('soluongIsHideCocColumn').set(soluongIsHideCocColumn).catch(error => {
+                    console.error('❌ Lỗi sync coc column:', error);
+                });
+            }
+
+            updateCocColumnUI();
+            console.log(soluongIsHideCocColumn ? '💰 Đã ẩn cột cọc' : '💰 Đã hiện cột cọc');
+        }
+
+        function updateCocColumnUI() {
+            const btnToggle = document.getElementById('btnToggleCoc');
+
+            if (soluongIsHideCocColumn) {
+                document.body.classList.add('hide-coc-column');
+                if (btnToggle) {
+                    btnToggle.classList.remove('active');
+                    btnToggle.textContent = '💰 Hiện cọc';
+                }
+            } else {
+                document.body.classList.remove('hide-coc-column');
+                if (btnToggle) {
+                    btnToggle.classList.add('active');
+                    btnToggle.textContent = '💰 Đang hiện cọc';
+                }
+            }
+        }
+
+        async function loadCocColumnMode() {
+            // Try Firebase first, fallback to localStorage (mirror loadMergeVariantsMode)
+            try {
+                const snapshot = await database.ref('soluongIsHideCocColumn').once('value');
+                const firebaseValue = snapshot.val();
+
+                if (firebaseValue !== null && firebaseValue !== undefined) {
+                    soluongIsHideCocColumn = firebaseValue;
+                    console.log('🔥 Loaded coc column mode from Firebase:', soluongIsHideCocColumn);
+                } else {
+                    const saved = localStorage.getItem('soluongIsHideCocColumn');
+                    if (saved !== null) {
+                        soluongIsHideCocColumn = JSON.parse(saved);
+                        console.log('💾 Loaded coc column mode from localStorage:', soluongIsHideCocColumn);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error loading coc column mode from Firebase:', error);
+                const saved = localStorage.getItem('soluongIsHideCocColumn');
+                if (saved !== null) {
+                    soluongIsHideCocColumn = JSON.parse(saved);
+                }
+            }
+
+            updateCocColumnUI();
         }
 
         function parseHashParams() {
@@ -355,6 +416,7 @@
                     // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
                     const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
+                    const totalCocQty = variants.reduce((sum, v) => sum + (v.cocQty || 0), 0);
 
                     // Create list of sold quantities for each variant
                     const soldQtyList = variants.map(v => ({
@@ -371,6 +433,13 @@
                         qty: v.remainingQty || 0
                     }));
 
+                    // Create list of coc quantities for each variant
+                    const cocQtyList = variants.map(v => ({
+                        id: v.Id,
+                        name: v.NameGet,
+                        qty: v.cocQty || 0
+                    }));
+
                     // Get the most recent addedAt timestamp from all variants
                     const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
 
@@ -380,9 +449,11 @@
                         NameGet: commonName,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
+                        cocQty: totalCocQty,
                         remainingQty: 0, // Not used for merged products
                         soldQtyList: soldQtyList, // List of sold qty for each variant
                         remainingQtyList: remainingQtyList, // List of remaining qty for each variant
+                        cocQtyList: cocQtyList, // List of coc qty for each variant
                         addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
                         isMerged: true,
                         variantCount: variants.length,
@@ -511,6 +582,22 @@
                                         <div class="grid-stat-value">${product.soldQty || 0}</div>
                                         <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
                                     </div>
+                                `}
+                            </div>
+                            <div class="grid-stat grid-stat-coc">
+                                <div class="grid-stat-label">💰 CỌC</div>
+                                ${isMerged && product.cocQtyList ? `
+                                    <div class="remaining-qty-list">
+                                        ${product.cocQtyList.map(item => {
+                                            return `
+                                                <div class="remaining-qty-item" style="justify-content: center;">
+                                                    <div class="remaining-qty-item-value coc-value-editable" data-variant-id="${item.id}" onclick="editVariantCoc(${item.id}, this)">${item.qty}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                ` : `
+                                    <div class="grid-stat-value coc-value-editable" data-product-id="${product.Id}" onclick="editProductCoc(${product.Id}, this)">${product.cocQty || 0}</div>
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
@@ -820,6 +907,64 @@
             } else {
                 updateProductGrid();
             }
+        }
+
+        function editProductCoc(productId, el) {
+            if (document.body.classList.contains('hide-edit-controls')) return;
+
+            const productKey = `product_${productId}`;
+            const product = soluongProducts[productKey];
+            if (!product) return;
+
+            const current = parseInt(el.textContent) || 0;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.value = current;
+            input.className = 'coc-inline-input';
+
+            let committed = false;
+            const commit = async () => {
+                if (committed) return;
+                committed = true;
+
+                const v = Math.max(0, parseInt(input.value) || 0);
+                if (v !== current && !isSyncingFromFirebase) {
+                    try {
+                        await updateProductCocInFirebase(database, productId, v, soluongProducts);
+                    } catch (error) {
+                        console.error('❌ Lỗi sync coc:', error);
+                    }
+                }
+
+                if (searchKeyword) {
+                    performSearch(searchKeyword, false);
+                } else {
+                    updateProductGrid();
+                }
+            };
+
+            input.addEventListener('blur', commit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    committed = true; // skip commit
+                    updateProductGrid();
+                }
+            });
+
+            el.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+
+        function editVariantCoc(variantId, el) {
+            // Each variant is a separate product in soluongProducts keyed by its own Id
+            editProductCoc(variantId, el);
         }
 
         function hideProduct(productId) {
@@ -1264,6 +1409,19 @@
                 }
             });
 
+            // Listen for coc column visibility changes (mirror merge variants)
+            database.ref('soluongIsHideCocColumn').on('value', (snapshot) => {
+                const hideCoc = snapshot.val();
+                if (hideCoc !== null && hideCoc !== undefined && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    soluongIsHideCocColumn = hideCoc;
+                    localStorage.setItem('soluongIsHideCocColumn', JSON.stringify(soluongIsHideCocColumn));
+                    updateCocColumnUI();
+                    console.log('🔥 Coc column mode synced from Firebase:', soluongIsHideCocColumn);
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
             // Products listener - USE CHILD LISTENERS
             firebaseDetachFn = setupFirebaseChildListeners(database, soluongProducts, {
                 onProductAdded: (product) => {
@@ -1398,6 +1556,7 @@
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
             loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
+            loadCocColumnMode(); // Load coc column visibility from Firebase/localStorage
 
             // Parse hash params and set sync mode BEFORE setting up listeners
             const params = parseHashParams();
@@ -1617,6 +1776,7 @@
             // Cleanup settings listeners
             database.ref('soluongDisplaySettings').off('value');
             database.ref('soluongIsMergeVariants').off('value');
+            database.ref('soluongIsHideCocColumn').off('value');
 
             // Cleanup sync listeners (using dedicated function)
             cleanupSyncListeners();

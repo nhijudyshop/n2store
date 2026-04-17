@@ -140,9 +140,10 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 async function removeProductFromFirebase(database, productId, localProductsObject) {
     const productKey = `product_${productId}`;
 
-    // Remove from Firebase (product and qty)
+    // Remove from Firebase (product, qty, and coc)
     await database.ref(`soluongProducts/${productKey}`).remove();
     await database.ref(`soluongProductsQty/${productKey}`).remove(); // OPTIMIZED: Also remove qty
+    await database.ref(`soluongProductsCoc/${productKey}`).remove(); // OPTIMIZED: Also remove coc
 
     // Remove from local object
     delete localProductsObject[productKey];
@@ -185,6 +186,32 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
 }
 
 /**
+ * Update product deposit quantity (cocQty) — mirror pattern of updateProductQtyInFirebase
+ * Writes to BOTH soluongProducts and soluongProductsCoc for cross-page compatibility
+ */
+async function updateProductCocInFirebase(database, productId, newCocQty, localProductsObject) {
+    const productKey = `product_${productId}`;
+    const product = localProductsObject[productKey];
+    if (!product) return;
+
+    const safeQty = Math.max(0, parseInt(newCocQty) || 0);
+    if (safeQty === (product.cocQty || 0)) return;
+
+    // Update local first (optimistic update)
+    product.cocQty = safeQty;
+
+    // Write to BOTH nodes (mirror soldQty pattern)
+    await Promise.all([
+        database.ref(`soluongProducts/${productKey}`).update({
+            cocQty: safeQty
+        }),
+        database.ref(`soluongProductsCoc/${productKey}`).set({
+            cocQty: safeQty
+        })
+    ]);
+}
+
+/**
  * Hide/unhide a product
  */
 async function updateProductVisibility(database, productId, isHidden, localProductsObject) {
@@ -214,6 +241,7 @@ async function removeProductsFromFirebase(database, productIds, localProductsObj
         const productKey = `product_${productId}`;
         updates[`soluongProducts/${productKey}`] = null; // null means remove
         updates[`soluongProductsQty/${productKey}`] = null; // OPTIMIZED: Also remove qty
+        updates[`soluongProductsCoc/${productKey}`] = null; // OPTIMIZED: Also remove coc
         idsToRemove.push(productId.toString());
 
         // Remove from local object
@@ -257,6 +285,7 @@ async function cleanupOldProducts(database, localProductsObject) {
     productsToRemove.forEach(([productKey, product]) => {
         updates[`soluongProducts/${productKey}`] = null; // null means remove
         updates[`soluongProductsQty/${productKey}`] = null; // OPTIMIZED: Also remove qty
+        updates[`soluongProductsCoc/${productKey}`] = null; // OPTIMIZED: Also remove coc
         idsToRemove.push(product.Id.toString());
     });
 
@@ -283,9 +312,10 @@ async function cleanupOldProducts(database, localProductsObject) {
  * OPTIMIZED: Also clears qty from separate node
  */
 async function clearAllProducts(database, localProductsObject) {
-    // Remove all products and qty
+    // Remove all products, qty, and coc
     await database.ref('soluongProducts').remove();
     await database.ref('soluongProductsQty').remove(); // OPTIMIZED: Also remove qty
+    await database.ref('soluongProductsCoc').remove(); // OPTIMIZED: Also remove coc
 
     // Reset metadata
     await database.ref('soluongProductsMeta').set({
@@ -305,20 +335,22 @@ async function clearAllProducts(database, localProductsObject) {
  */
 async function loadAllProductsFromFirebase(database) {
     try {
-        // OPTIMIZED: Load products AND qty data in parallel
-        const [productsSnapshot, qtySnapshot] = await Promise.all([
+        // OPTIMIZED: Load products, qty, and coc data in parallel
+        const [productsSnapshot, qtySnapshot, cocSnapshot] = await Promise.all([
             database.ref('soluongProducts').once('value'),
-            database.ref('soluongProductsQty').once('value')
+            database.ref('soluongProductsQty').once('value'),
+            database.ref('soluongProductsCoc').once('value')
         ]);
 
         const productsObject = productsSnapshot.val();
         const qtyObject = qtySnapshot.val() || {};
+        const cocObject = cocSnapshot.val() || {};
 
         if (!productsObject || typeof productsObject !== 'object') {
             return {};
         }
 
-        // Merge qty data into products
+        // Merge qty and coc data into products
         Object.keys(productsObject).forEach(key => {
             if (qtyObject[key]) {
                 productsObject[key].soldQty = qtyObject[key].soldQty || 0;
@@ -326,9 +358,16 @@ async function loadAllProductsFromFirebase(database) {
                 // Fallback to soldQty in product (for backward compatibility during migration)
                 productsObject[key].soldQty = productsObject[key].soldQty || 0;
             }
+
+            // Merge cocQty (mirror soldQty pattern)
+            if (cocObject[key]) {
+                productsObject[key].cocQty = cocObject[key].cocQty || 0;
+            } else {
+                productsObject[key].cocQty = productsObject[key].cocQty || 0;
+            }
         });
 
-        console.log(`📦 [loadAllProductsFromFirebase] Loaded ${Object.keys(productsObject).length} products, merged ${Object.keys(qtyObject).length} qty entries`);
+        console.log(`📦 [loadAllProductsFromFirebase] Loaded ${Object.keys(productsObject).length} products, merged ${Object.keys(qtyObject).length} qty + ${Object.keys(cocObject).length} coc entries`);
 
         return productsObject;
 
@@ -346,6 +385,7 @@ async function loadAllProductsFromFirebase(database) {
 function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
     const productsRef = database.ref('soluongProducts');
     const qtyRef = database.ref('soluongProductsQty'); // OPTIMIZED: Separate qty listener
+    const cocRef = database.ref('soluongProductsCoc'); // OPTIMIZED: Separate coc listener (mirror soldQty)
 
     console.log('🔧 Setting up Firebase child listeners...');
 
@@ -416,15 +456,17 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         const updatedProduct = snapshot.val();
         const productKey = snapshot.key;
 
-        // Preserve current soldQty from local (qty updates come from separate listener)
+        // Preserve current soldQty and cocQty from local (qty updates come from separate listeners)
         const currentSoldQty = localProductsObject[productKey]?.soldQty || 0;
+        const currentCocQty = localProductsObject[productKey]?.cocQty || 0;
 
         console.log('🔥 [child_changed] Product static data updated:', updatedProduct.NameGet);
 
-        // Update local object with new static data, keeping local soldQty
+        // Update local object with new static data, keeping local soldQty and cocQty
         localProductsObject[productKey] = {
             ...updatedProduct,
-            soldQty: currentSoldQty // Keep local qty (will be synced from qty listener)
+            soldQty: currentSoldQty, // Keep local qty (will be synced from qty listener)
+            cocQty: currentCocQty    // Keep local coc (will be synced from coc listener)
         };
 
         if (callbacks.onProductChanged) {
@@ -483,6 +525,37 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         }
     });
 
+    // OPTIMIZED: Listen for coc changes on SEPARATE node (mirror soldQty pattern)
+    cocRef.on('child_changed', (snapshot) => {
+        const cocData = snapshot.val();
+        const productKey = snapshot.key;
+
+        console.log('🔥 [coc_changed] Coc updated:', productKey, '→', cocData?.cocQty);
+
+        if (localProductsObject[productKey]) {
+            localProductsObject[productKey].cocQty = cocData?.cocQty || 0;
+
+            // Reuse onQtyChanged callback so UI re-renders (same as soldQty)
+            if (callbacks.onQtyChanged) {
+                callbacks.onQtyChanged(localProductsObject[productKey], productKey);
+            } else if (callbacks.onProductChanged) {
+                callbacks.onProductChanged(localProductsObject[productKey], productKey);
+            }
+        }
+    });
+
+    cocRef.on('child_added', (snapshot) => {
+        const cocData = snapshot.val();
+        const productKey = snapshot.key;
+
+        if (localProductsObject[productKey] && alreadyLoaded) {
+            if (localProductsObject[productKey].cocQty !== cocData?.cocQty) {
+                console.log('🔥 [coc_added] New coc entry:', productKey, '→', cocData?.cocQty);
+                localProductsObject[productKey].cocQty = cocData?.cocQty || 0;
+            }
+        }
+    });
+
     // Call onInitialLoadComplete immediately if products were pre-loaded
     if (alreadyLoaded && callbacks.onInitialLoadComplete) {
         console.log('✅ Firebase listeners setup complete (pre-loaded mode)');
@@ -508,6 +581,8 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
             productsRef.off('child_removed');
             qtyRef.off('child_changed'); // OPTIMIZED: Cleanup qty listener
             qtyRef.off('child_added');
+            cocRef.off('child_changed'); // OPTIMIZED: Cleanup coc listener
+            cocRef.off('child_added');
         }
     };
 }
@@ -926,6 +1001,7 @@ export {
     removeProductFromFirebase,
     removeProductsFromFirebase,
     updateProductQtyInFirebase,
+    updateProductCocInFirebase,
     updateProductVisibility,
     cleanupOldProducts,
     clearAllProducts,

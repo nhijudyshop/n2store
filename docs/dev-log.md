@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [soluong-live] Thêm cột CỌC vào soluong-list + toggle Ẩn/Hiện + Firebase sync
+| | |
+|---|---|
+| **Files** | `soluong-live/soluong-list.html`, `soluong-live/js/soluong-list.js`, `soluong-live/firebase-helpers.js`, `soluong-live/firebase-helpers-global.js` |
+| **Chi tiết** | Thêm cột **💰 CỌC** giữa BÁN và CÒN trên trang soluong-list. Click số để nhập inline (Enter commit, Esc hủy). Nút toggle "💰 Hiện cọc" đặt bên trái "Đang gộp" (`left: calc(50% - 300px)`), mặc định **ẨN**. Layout: khi CỌC hiện → TỔNG/BÁN/CỌC mỗi cột `flex: 0.667`, CÒN giữ `flex: 1` ⇒ CÒN vẫn chiếm 1/3 width (không đổi kích thước). Mirror CHÍNH XÁC pattern soldQty cho Firebase sync: node mới `soluongProductsCoc/{key}` (~20 bytes, song song với `soluongProductsQty`), helper mới `updateProductCocInFirebase` ghi parallel cả 2 node, `loadAllProductsFromFirebase` merge thêm cocQty, `setupFirebaseChildListeners` thêm `cocRef` listener (`child_changed`/`child_added`) + cleanup detach. Các batch op (remove/cleanup/clearAll) đều xóa đồng bộ node coc. `child_changed` trên productsRef preserve `cocQty` giống `soldQty`. Toggle Ẩn/Hiện cọc sync qua `soluongIsHideCocColumn` giữa các máy livestream (giống `soluongIsMergeVariants`). Merged variants: mỗi variant có `cocQtyList` riêng, click inline-edit từng variant. CỌC là số độc lập, KHÔNG trừ vào CÒN (cọc chưa chốt đơn). |
+| **Status** | ✅ Done |
+
 ### [orders] KPI: không tính KPI khi khách đổi biến thể cùng template/cùng loại
 | | |
 |---|---|
