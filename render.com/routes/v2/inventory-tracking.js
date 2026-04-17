@@ -43,6 +43,14 @@
 const express = require('express');
 const router = express.Router();
 
+// SSE notifier for realtime sync
+let sseRouter;
+try {
+    sseRouter = require('../realtime-sse');
+} catch (e) {
+    sseRouter = { notifyClients: () => {} };
+}
+
 function getDb(req) {
     return req.app.locals.chatDb;
 }
@@ -868,6 +876,10 @@ router.put('/product-images', async (req, res) => {
         const result = await db.query(
             'SELECT * FROM inventory_product_images ORDER BY stt, ncc NULLS FIRST'
         );
+
+        // Notify SSE clients for realtime sync
+        sseRouter.notifyClients('product_images', { data: result.rows }, 'update');
+
         res.json({ success: true, data: result.rows });
     } catch (err) {
         await getDb(req).query('ROLLBACK').catch(() => {});
@@ -884,6 +896,10 @@ router.delete('/product-images/:id', async (req, res) => {
             [req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+
+        // Notify SSE clients for realtime sync
+        sseRouter.notifyClients('product_images', { deleted: req.params.id }, 'deleted');
+
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         console.error('[inventory] DELETE /product-images/:id error:', err.message);

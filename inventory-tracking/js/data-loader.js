@@ -50,6 +50,9 @@ async function loadNCCData() {
             applyFiltersAndRender();
         }
 
+        // Setup realtime sync for product images (cross-device)
+        setupProductImagesRealtimeSync();
+
     } catch (error) {
         console.error('[DATA] Error loading NCC data:', error);
         throw error;
@@ -116,6 +119,44 @@ async function loadProductImages() {
     } catch (error) {
         console.error('[DATA] Error loading product images:', error);
         globalState.productImages = [];
+    }
+}
+
+/**
+ * Setup SSE realtime listener for product images
+ * When another device saves images, this device auto-updates
+ */
+function setupProductImagesRealtimeSync() {
+    if (typeof RealtimeClient === 'undefined') {
+        console.log('[DATA] RealtimeClient not available, skipping realtime sync for product images');
+        return;
+    }
+
+    try {
+        const client = new RealtimeClient('https://n2store-fallback.onrender.com');
+        client.connect(['product_images']);
+
+        client.on('product_images', (data) => {
+            console.log('[DATA] Product images updated via SSE');
+
+            if (data && data.data) {
+                // Full update: replace all product images
+                globalState.productImages = data.data.map(img => ({
+                    ...img,
+                    urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || [])
+                }));
+            } else {
+                // Deleted or partial update: reload from API
+                loadProductImages();
+            }
+
+            // Re-render table to reflect new images
+            if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+        });
+
+        console.log('[DATA] Product images realtime sync enabled');
+    } catch (error) {
+        console.error('[DATA] Error setting up product images realtime sync:', error);
     }
 }
 
