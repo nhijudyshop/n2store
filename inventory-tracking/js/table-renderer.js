@@ -774,11 +774,10 @@ function renderProductRow(opts) {
     const nccDone = _isNccDone(shipmentId, sttNCC);
     const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', ${sttNCC}, this.checked)"></label>`;
     const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${sttNCC}"><i data-lucide="trash-2"></i></button>`;
-    const nccNameSpan = `<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa tên NCC">${tenNCC || '<em style=&quot;color:var(--gray-400)&quot;>Tên NCC</em>'}</span>`;
-    // Show only tenNCC if available, otherwise show sttNCC number
+    // Show only tenNCC if available, otherwise show sttNCC number only
     const nccDisplay = tenNCC
-        ? `${nccCheckbox}${nccNameSpan}${nccDeleteBtn}`
-        : `${nccCheckbox}<strong>${sttNCC}</strong><br>${nccNameSpan}${nccDeleteBtn}`;
+        ? `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa tên NCC">${tenNCC}</span>${nccDeleteBtn}`
+        : `${nccCheckbox}<strong>${sttNCC}</strong>${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
