@@ -489,6 +489,73 @@ router.post('/shipments', async (req, res) => {
                 updated_at = NOW()
         `, [generateId('ncc'), stt_ncc, ten_ncc || null]);
 
+        // Deduplication: if a row with same (ngay_di_hang, dot_so, LOWER(TRIM(ten_ncc)))
+        // already exists and ten_ncc is non-empty, merge into it instead of inserting.
+        const trimmedTen = (ten_ncc || '').trim();
+        let existing = null;
+        if (trimmedTen) {
+            const dup = await db.query(`
+                SELECT * FROM inventory_shipments
+                WHERE ngay_di_hang = $1 AND dot_so = $2 AND LOWER(TRIM(ten_ncc)) = LOWER($3)
+                ORDER BY created_at ASC
+                LIMIT 1
+            `, [ngay_di_hang, resolvedDotSo, trimmedTen]);
+            existing = dup.rows[0] || null;
+        }
+
+        if (existing) {
+            // Merge: append san_pham, sum totals, union images, keep first kien_hang
+            const existingSanPham = Array.isArray(existing.san_pham) ? existing.san_pham : JSON.parse(existing.san_pham || '[]');
+            const mergedSanPham = [...existingSanPham, ...(san_pham || [])];
+            const existingImgs = existing.anh_hoa_don || [];
+            const mergedImgs = Array.from(new Set([...existingImgs, ...(anh_hoa_don || [])]));
+            // Keep kien_hang from first insert (this request's kien_hang merged if first was empty)
+            const existingKien = Array.isArray(existing.kien_hang) ? existing.kien_hang : JSON.parse(existing.kien_hang || '[]');
+            const mergedKien = existingKien.length > 0 ? existingKien : (kien_hang || []);
+            const mergedTongKien = mergedKien.length;
+            const mergedTongKg = mergedKien.reduce((s, k) => s + (parseFloat(k.soKg) || 0), 0);
+
+            const upd = await db.query(`
+                UPDATE inventory_shipments SET
+                    san_pham = $2,
+                    tong_tien_hd = tong_tien_hd + $3,
+                    tong_mon = tong_mon + $4,
+                    so_mon_thieu = so_mon_thieu + $5,
+                    anh_hoa_don = $6,
+                    kien_hang = $7,
+                    tong_kien = $8,
+                    tong_kg = $9,
+                    ghi_chu = CASE
+                        WHEN NULLIF(TRIM(COALESCE($10, '')), '') IS NULL THEN ghi_chu
+                        WHEN NULLIF(TRIM(COALESCE(ghi_chu, '')), '') IS NULL THEN $10
+                        ELSE ghi_chu || ' | ' || $10
+                    END,
+                    ghi_chu_thieu = CASE
+                        WHEN NULLIF(TRIM(COALESCE($11, '')), '') IS NULL THEN ghi_chu_thieu
+                        WHEN NULLIF(TRIM(COALESCE(ghi_chu_thieu, '')), '') IS NULL THEN $11
+                        ELSE ghi_chu_thieu || ' | ' || $11
+                    END,
+                    updated_by = $12,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            `, [
+                existing.id,
+                JSON.stringify(mergedSanPham),
+                tong_tien_hd || 0,
+                tong_mon || 0,
+                so_mon_thieu || 0,
+                mergedImgs,
+                JSON.stringify(mergedKien),
+                mergedTongKien,
+                mergedTongKg,
+                ghi_chu || '',
+                ghi_chu_thieu || '',
+                user
+            ]);
+            return res.json({ success: true, data: upd.rows[0], merged: true });
+        }
+
         const shipmentId = id || generateId('dot');
         const result = await db.query(`
             INSERT INTO inventory_shipments (

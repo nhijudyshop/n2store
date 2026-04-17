@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory][render] Gộp NCC trùng (ngày + đợt + tên NCC) — migration 056 + dedupe POST
+| | |
+|---|---|
+| **Files** | `render.com/migrations/056_merge_duplicate_ncc_in_same_shipment.sql`, `render.com/routes/v2/inventory-tracking.js` |
+| **Chi tiết** | **Migration 056:** với mỗi group `(ngay_di_hang, dot_so, LOWER(TRIM(ten_ncc)))` có >1 row và tenNCC ≠ rỗng → keep earliest-created row, append `san_pham` (jsonb_array_elements + UNION), sum `tong_tien_hd`/`tong_mon`/`so_mon_thieu`, union `anh_hoa_don`, concat `ghi_chu`/`ghi_chu_thieu` (delimiter ` \| `), delete còn lại. Đã gộp 2 rows `LAY THEM` trên 2026-04-10 đợt 1 (stt=1 + stt=901) → 1 row stt=1 với 5 products, tong=2373/59. **POST /shipments dedupe:** trước INSERT check same (date, dot, LOWER(TRIM(ten_ncc))) đã tồn tại (ten_ncc non-empty) → UPDATE merge thay vì INSERT: append san_pham, sum totals, union anh_hoa_don, giữ kien_hang của row đầu (hoặc dùng từ request nếu rỗng), concat ghi_chu. Trả `merged: true` trong response. |
+| **Status** | ✅ Done — merge 2→1 LAY THEM đã apply, còn lại 9 rows distinct |
+
 ### [inventory][render] Migration 055: shift 9 legacy rows về 2026-04-10 (ý định gốc)
 | | |
 |---|---|
