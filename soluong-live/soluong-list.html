@@ -77,7 +77,7 @@
         .main-content {
             width: 100%;
             min-height: 100vh;
-            padding: 15px;
+            padding: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -87,12 +87,12 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: repeat(2, 1fr);
-            gap: 15px;
+            gap: 8px;
             width: 100%;
-            max-width: 1900px;
+            max-width: none;
+            height: calc(100vh - 12px);
             touch-action: pan-y pinch-zoom;
             user-select: none;
-            aspect-ratio: 4/2;
         }
 
         .grid-item {
