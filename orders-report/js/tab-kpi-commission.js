@@ -336,6 +336,9 @@ const KPICommission = {
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
 
+            // Auto-select campaign from parent window's active campaign
+            this.syncCampaignFromParent();
+
             await this.applyFilters();
             this.reinitIcons();
         } catch (error) {
@@ -427,6 +430,32 @@ const KPICommission = {
             opt.textContent = name;
             select.appendChild(opt);
         });
+    },
+
+    // ========================================
+    // SYNC CAMPAIGN FROM PARENT WINDOW
+    // ========================================
+    syncCampaignFromParent() {
+        try {
+            const parentCM = window.parent?.campaignManager;
+            if (!parentCM?.activeCampaign) return;
+
+            const activeName = parentCM.activeCampaign.name || parentCM.activeCampaign.displayName || '';
+            if (!activeName) return;
+
+            const select = document.getElementById('kpiFilterCampaign');
+            if (!select) return;
+
+            // Find matching option
+            for (const opt of select.options) {
+                if (opt.value === activeName) {
+                    select.value = activeName;
+                    return;
+                }
+            }
+        } catch (e) {
+            // Cross-origin or iframe access error — silently ignore
+        }
     },
 
     // ========================================
