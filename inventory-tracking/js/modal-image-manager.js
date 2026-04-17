@@ -40,16 +40,29 @@ const ImageManager = (() => {
         try {
             const images = globalState.productImages || [];
 
+            // Collect NCCs that exist in current shipments table
+            const mappedNCCs = new Set();
+            if (typeof getAllDotHang === 'function') {
+                getAllDotHang().forEach(dot => {
+                    if (dot.sttNCC) mappedNCCs.add(dot.sttNCC);
+                });
+            }
+
             images.forEach(img => {
                 const urls = typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || []);
                 if (urls.length === 0) return;
 
+                const nccNum = img.ncc ? parseInt(img.ncc) : null;
                 _rows.push({
                     id: `row_${++_rowCounter}`,
                     uploadedUrls: [...urls],
-                    ncc: img.ncc ? String(img.ncc) : ''
+                    ncc: img.ncc ? String(img.ncc) : '',
+                    mapped: nccNum !== null && mappedNCCs.has(nccNum)
                 });
             });
+
+            // Sort: unmapped first, mapped last
+            _rows.sort((a, b) => (a.mapped ? 1 : 0) - (b.mapped ? 1 : 0));
         } catch (error) {
             console.error('[IMG-MGR] Error loading product images:', error);
         }
@@ -113,9 +126,10 @@ const ImageManager = (() => {
     function _renderRow(row) {
         const isFocused = row.id === _focusedRowId;
         const hasImages = row.uploadedUrls.length > 0;
+        const mappedClass = row.mapped ? 'img-mgr-entry-mapped' : '';
 
         return `
-            <div class="img-mgr-entry ${isFocused ? 'img-mgr-entry-focused' : ''}"
+            <div class="img-mgr-entry ${isFocused ? 'img-mgr-entry-focused' : ''} ${mappedClass}"
                 data-row-id="${row.id}" onclick="ImageManager.focusRow('${row.id}')">
 
                 <div class="img-mgr-entry-top">
