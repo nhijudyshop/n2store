@@ -16,11 +16,19 @@ const ImageManager = (() => {
      * Create a new empty row
      */
     function _createRow() {
-        return {
+        const row = {
             id: `row_${++_rowCounter}`,
             uploadedUrls: [],
             ncc: ''
         };
+
+        // Auto-fill NCC = last NCC + 1
+        const lastNcc = [..._rows].reverse().find(r => r.ncc && !isNaN(parseInt(r.ncc)));
+        if (lastNcc) {
+            row.ncc = String(parseInt(lastNcc.ncc) + 1);
+        }
+
+        return row;
     }
 
     /**
@@ -177,13 +185,6 @@ const ImageManager = (() => {
      */
     function addRow() {
         const row = _createRow();
-
-        // Auto-fill NCC = last NCC + 1
-        const lastNcc = [..._rows].reverse().find(r => r.ncc && !isNaN(parseInt(r.ncc)));
-        if (lastNcc) {
-            row.ncc = String(parseInt(lastNcc.ncc) + 1);
-        }
-
         _rows.push(row);
         _focusedRowId = row.id;
         _render();
