@@ -275,4 +275,93 @@ async function logEditHistory(action, type, id, oldData, newData) {
     }
 }
 
+/**
+ * Delete a single product (STT) from an invoice
+ */
+async function deleteProductRow(invoiceId, productIdx) {
+    // Find the dotHang in nccList
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) { targetDot = dot; break; }
+    }
+
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const products = targetDot.sanPham || [];
+    if (productIdx < 0 || productIdx >= products.length) return;
+
+    const product = products[productIdx];
+    if (!confirm(`Xóa STT ${productIdx + 1} (${product.maSP || ''})? `)) return;
+
+    try {
+        // Remove product from array
+        const newProducts = products.filter((_, i) => i !== productIdx);
+        const newTongMon = newProducts.reduce((sum, p) => sum + (p.tongSoLuong || p.soLuong || 0), 0);
+        const newTongTien = newProducts.reduce((sum, p) => sum + (p.thanhTien || 0), 0);
+
+        await shipmentsApi.update(invoiceId, {
+            sanPham: newProducts,
+            tongMon: newTongMon,
+            tongTienHD: newTongTien
+        });
+
+        // Update local state
+        targetDot.sanPham = newProducts;
+        targetDot.tongMon = newTongMon;
+        targetDot.tongTienHD = newTongTien;
+
+        flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
+        window.notificationManager?.success(`Đã xóa STT ${productIdx + 1}`);
+    } catch (error) {
+        console.error('[CRUD] Error deleting product row:', error);
+        window.notificationManager?.error('Không thể xóa: ' + error.message);
+    }
+}
+
+/**
+ * Delete an entire NCC invoice (dotHang)
+ */
+async function deleteNccInvoice(invoiceId) {
+    // Find the dotHang
+    let targetNcc = null;
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) { targetNcc = ncc; targetDot = dot; break; }
+    }
+
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    if (!confirm(`Xóa toàn bộ NCC ${targetDot.sttNCC}?`)) return;
+
+    try {
+        await shipmentsApi.delete(invoiceId);
+
+        // Remove from local state
+        const idx = targetNcc.dotHang.findIndex(d => d.id === invoiceId);
+        if (idx !== -1) targetNcc.dotHang.splice(idx, 1);
+
+        flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
+        window.notificationManager?.success(`Đã xóa NCC ${targetDot.sttNCC}`);
+    } catch (error) {
+        console.error('[CRUD] Error deleting NCC invoice:', error);
+        window.notificationManager?.error('Không thể xóa: ' + error.message);
+    }
+}
+
+// Expose functions globally for inline onclick handlers
+window.deleteNccInvoice = deleteNccInvoice;
+window.deleteProductRow = deleteProductRow;
+
 console.log('[CRUD] CRUD operations initialized (API mode)');

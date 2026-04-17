@@ -773,9 +773,12 @@ function renderProductRow(opts) {
     // Display NCC with tenNCC if available
     const nccDone = _isNccDone(shipmentId, sttNCC);
     const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', ${sttNCC}, this.checked)"></label>`;
-    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${sttNCC}"><i data-lucide="trash-2"></i></button>`;
+    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${sttNCC}"><i data-lucide="trash-2"></i></button>`;
+    const nccNameSpan = tenNCC
+        ? `<span class="ncc-name" data-invoice-id="${invoiceId}" data-field="tenNCC" ondblclick="event.stopPropagation(); startInlineEditNcc(this)" title="Nhấp đúp để sửa">${tenNCC}</span>`
+        : '';
     const nccDisplay = tenNCC
-        ? `${nccCheckbox}<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>${nccDeleteBtn}`
+        ? `${nccCheckbox}<strong>${sttNCC}</strong><br>${nccNameSpan}${nccDeleteBtn}`
         : `${nccCheckbox}<strong>${sttNCC}</strong>${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
@@ -783,7 +786,7 @@ function renderProductRow(opts) {
         <tr class="${rowClass} ${doneClass}">
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">
-                ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
+                ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}</td>
             <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
@@ -1432,8 +1435,62 @@ function closeImageLightbox() {
 }
 
 // =====================================================
-// INLINE EDIT — click cell to edit product fields
+// INLINE EDIT — double-click cell to edit product fields
 // =====================================================
+
+/**
+ * Inline edit NCC name (tenNCC)
+ */
+function startInlineEditNcc(span) {
+    if (span.querySelector('input')) return;
+
+    const invoiceId = span.dataset.invoiceId;
+    const oldValue = span.textContent.trim();
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = oldValue;
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    const commit = async () => {
+        const newValue = input.value.trim();
+        if (!newValue || newValue === oldValue) {
+            span.textContent = oldValue;
+            return;
+        }
+
+        let targetDot = null;
+        for (const ncc of globalState.nccList) {
+            const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+            if (dot) { targetDot = dot; break; }
+        }
+        if (!targetDot) {
+            span.textContent = oldValue;
+            return;
+        }
+
+        try {
+            targetDot.tenNCC = newValue;
+            await shipmentsApi.update(invoiceId, { tenNCC: newValue });
+            span.textContent = newValue;
+            window.notificationManager?.success('Đã cập nhật NCC');
+        } catch (err) {
+            console.error('[INLINE-EDIT] NCC update error:', err);
+            span.textContent = oldValue;
+            window.notificationManager?.error('Không thể cập nhật');
+        }
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.removeEventListener('blur', commit); commit(); }
+        if (e.key === 'Escape') { input.removeEventListener('blur', commit); span.textContent = oldValue; }
+    });
+}
 
 function startInlineEdit(td) {
     if (td.querySelector('input, textarea')) return; // Already editing
