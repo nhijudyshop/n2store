@@ -36,7 +36,8 @@ async function createShipment(data) {
                 anhHoaDon: invoice.anhHoaDon || [],
                 ghiChu: invoice.ghiChu || '',
                 chiPhiHangVe: data.chiPhiHangVe || [],
-                tongChiPhi: data.tongChiPhi || 0
+                tongChiPhi: data.tongChiPhi || 0,
+                ghiChuAdmin: data.ghiChuAdmin || ''
             };
 
             // Save via API
@@ -101,7 +102,8 @@ async function updateShipment(id, data) {
                 anhHoaDon: invoice.anhHoaDon,
                 ghiChu: invoice.ghiChu,
                 chiPhiHangVe: data.chiPhiHangVe,
-                tongChiPhi: data.tongChiPhi
+                tongChiPhi: data.tongChiPhi,
+                ghiChuAdmin: data.ghiChuAdmin
             };
 
             const saved = await shipmentsApi.update(invoice.id, updateData);

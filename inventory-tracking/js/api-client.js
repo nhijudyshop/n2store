@@ -176,7 +176,8 @@ const shipmentsApi = {
                 anh_hoa_don: data.anhHoaDon || [],
                 ghi_chu: data.ghiChu || '',
                 chi_phi_hang_ve: data.chiPhiHangVe || [],
-                tong_chi_phi: data.tongChiPhi || 0
+                tong_chi_phi: data.tongChiPhi || 0,
+                ghi_chu_admin: data.ghiChuAdmin || ''
             })
         });
         return result.data;
@@ -200,6 +201,7 @@ const shipmentsApi = {
         if (data.chiPhiHangVe !== undefined) body.chi_phi_hang_ve = data.chiPhiHangVe;
         if (data.tongChiPhi !== undefined) body.tong_chi_phi = data.tongChiPhi;
         if (data.anhSanPham !== undefined) body.anh_san_pham = data.anhSanPham;
+        if (data.ghiChuAdmin !== undefined) body.ghi_chu_admin = data.ghiChuAdmin;
 
         const result = await apiFetch(`/shipments/${id}`, {
             method: 'PUT',
@@ -385,6 +387,7 @@ function pgToShipment(row) {
         ghiChu: row.ghi_chu || '',
         chiPhiHangVe: typeof row.chi_phi_hang_ve === 'string' ? JSON.parse(row.chi_phi_hang_ve) : (row.chi_phi_hang_ve || []),
         tongChiPhi: parseFloat(row.tong_chi_phi) || 0,
+        ghiChuAdmin: row.ghi_chu_admin || '',
         createdBy: row.created_by,
         updatedBy: row.updated_by,
         createdAt: row.created_at,

@@ -389,7 +389,8 @@ router.post('/shipments', async (req, res) => {
             so_mon_thieu = 0, ghi_chu_thieu = '',
             anh_hoa_don = [], ghi_chu = '',
             chi_phi_hang_ve = [], tong_chi_phi = 0,
-            anh_san_pham = {}
+            anh_san_pham = {},
+            ghi_chu_admin = ''
         } = req.body;
 
         if (!stt_ncc || !ngay_di_hang) {
@@ -414,9 +415,9 @@ router.post('/shipments', async (req, res) => {
                 so_mon_thieu, ghi_chu_thieu,
                 anh_hoa_don, ghi_chu,
                 chi_phi_hang_ve, tong_chi_phi,
-                anh_san_pham,
+                anh_san_pham, ghi_chu_admin,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
             RETURNING *
         `, [
             shipmentId, stt_ncc, ngay_di_hang, ten_ncc,
@@ -425,7 +426,7 @@ router.post('/shipments', async (req, res) => {
             so_mon_thieu, ghi_chu_thieu,
             anh_hoa_don, ghi_chu,
             JSON.stringify(chi_phi_hang_ve), tong_chi_phi,
-            JSON.stringify(anh_san_pham),
+            JSON.stringify(anh_san_pham), ghi_chu_admin,
             user, user
         ]);
 
@@ -447,7 +448,8 @@ router.put('/shipments/:id', async (req, res) => {
             so_mon_thieu, ghi_chu_thieu,
             anh_hoa_don, ghi_chu,
             chi_phi_hang_ve, tong_chi_phi,
-            anh_san_pham
+            anh_san_pham,
+            ghi_chu_admin
         } = req.body;
 
         const result = await db.query(`
@@ -468,7 +470,8 @@ router.put('/shipments/:id', async (req, res) => {
                 chi_phi_hang_ve = COALESCE($15, chi_phi_hang_ve),
                 tong_chi_phi = COALESCE($16, tong_chi_phi),
                 anh_san_pham = COALESCE($17, anh_san_pham),
-                updated_by = $18,
+                ghi_chu_admin = COALESCE($18, ghi_chu_admin),
+                updated_by = $19,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -483,6 +486,7 @@ router.put('/shipments/:id', async (req, res) => {
             chi_phi_hang_ve ? JSON.stringify(chi_phi_hang_ve) : null,
             tong_chi_phi,
             anh_san_pham ? JSON.stringify(anh_san_pham) : null,
+            ghi_chu_admin !== undefined ? ghi_chu_admin : null,
             user
         ]);
 
