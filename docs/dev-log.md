@@ -13,7 +13,7 @@
 |---|---|
 | **Files** | `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/permission-helper.js`, `inventory-tracking/js/image-upload.js`, `inventory-tracking/js/config.js`, `inventory-tracking/index.html`, `render.com/scripts/cleanup-inventory-firestore.js` |
 | **Chi tiết** | **1. API mới:** `GET /api/v2/inventory-tracking/user-permissions/:username` đọc từ `app_users.detailed_permissions` (Render Postgres) — trả slice `inventoryTracking` + `isAdmin`. **2. permission-helper.js:** thay `usersRef.doc().get()` bằng fetch tới API trên. **3. image-upload.js deleteImage:** gọi `DELETE /api/upload/image` thay vì `storage.refFromURL().delete()` (server-side dùng Firebase Admin SDK). **4. config.js:** bỏ `firebase.initializeApp`, `firestore()`, `storage()`, `usersRef`, `COLLECTIONS`. **5. index.html:** bỏ 3 script tags `firebase-app-compat`, `firebase-firestore-compat`, `firebase-storage-compat` + `firebase-config.js`. Module inventory-tracking không còn init Firebase client-side. **6. cleanup script:** `scripts/cleanup-inventory-firestore.js` (dry-run default, `--execute` để xóa) xóa `inventory_tracking`, `inventory_prepayments`, `inventory_other_expenses`, và `edit_history` filter theo `entity_type ∈ ('orderBooking','shipment','prepayment','otherExpense')`. Chưa chạy — cần user confirm. |
-| **Status** | ✅ Done (script ready, chưa execute) |
+| **Status** | ✅ Done — cleanup đã chạy: xóa 10/10 docs `inventory_tracking` Firestore; các collection khác đã rỗng sẵn |
 
 ### [inventory][render] Đợt (batch number) per-date cho shipment — DB + API + UI
 | | |
