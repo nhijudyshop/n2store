@@ -50,6 +50,12 @@
 </head>
 
     <body>
+        <!-- Print Header (chỉ hiển thị khi in) -->
+        <div class="dr-print-header" id="drPrintHeader" style="display:none;">
+            <h2 id="drPrintTitle">Thống Kê Giao Hàng</h2>
+            <div class="dr-print-date" id="drPrintDate"></div>
+        </div>
+
         <div class="delivery-report-container">
             <!-- Header -->
             <div class="dr-header">
@@ -126,7 +132,7 @@
                         <button class="dr-btn dr-btn-group-export" id="drBtnExportGrpReturn" onclick="DeliveryReport.exportExcelGroup('return')" style="background:#f3e8ff; color:#7c3aed; display:none;">
                             <i class="fas fa-file-excel"></i> THU VỀ
                         </button>
-                        <button class="dr-btn dr-btn-info" onclick="window.print()">
+                        <button class="dr-btn dr-btn-info" onclick="DeliveryReport.printView()">
                             <i class="fas fa-print"></i> In
                         </button>
                     </div>

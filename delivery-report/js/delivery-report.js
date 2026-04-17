@@ -1908,6 +1908,40 @@
     }
 
     // =====================================================
+    // PRINT
+    // =====================================================
+    function printView() {
+        const state = DeliveryReportState;
+        const header = document.getElementById('drPrintHeader');
+        const titleEl = document.getElementById('drPrintTitle');
+        const dateEl = document.getElementById('drPrintDate');
+
+        if (header && titleEl && dateEl) {
+            // Build title based on current view
+            let title = 'Thống Kê Giao Hàng';
+            if (state.traSoatMode) {
+                const tab = state.activeTab;
+                const tabName = TAB_LABELS[tab]?.sheet || GROUP_LABELS[tab] || 'Tất cả';
+                const scanLabel = state.scanFilter === 'scanned' ? 'Đã quét' : 'Chưa quét';
+                title = `Tra Soát — ${tabName} (${scanLabel})`;
+            }
+            titleEl.textContent = title;
+
+            // Date range
+            const from = document.getElementById('drFilterFromDate')?.value || '';
+            const to = document.getElementById('drFilterToDate')?.value || '';
+            dateEl.textContent = from && to ? `${from} → ${to}` : new Date().toLocaleDateString('vi-VN');
+
+            // Show all group columns for print (don't print focused single column)
+            if (state.traSoatMode && (state.activeTab === 'all' || state.activeTab === 'zero')) {
+                showAllGroupColumns();
+            }
+        }
+
+        window.print();
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
     window.DeliveryReport = {
@@ -1960,6 +1994,7 @@
         unscanAllTab: unscanAllTab,
         unscanGroup: unscanGroup,
         hideOrder: hideOrder,
+        printView: printView,
         getState: () => DeliveryReportState
     };
 })();
