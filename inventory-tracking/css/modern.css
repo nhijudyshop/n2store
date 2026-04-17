@@ -1001,7 +1001,34 @@ body {
 .ncc-done-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
 tr.ncc-row-done td { opacity: 0.35; }
 tr.ncc-row-done td.col-ncc { opacity: 0.6; }
-.invoice-table .col-stt { width: 40px; text-align: center; }
+.invoice-table .col-stt { width: 50px; text-align: center; position: relative; }
+
+/* Delete buttons — hidden by default, show on hover */
+.btn-del-stt,
+.btn-del-ncc {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 4px;
+    line-height: 1;
+    vertical-align: middle;
+}
+.btn-del-stt { color: var(--danger, #e74c3c); }
+.btn-del-stt i { width: 12px; height: 12px; }
+.btn-del-ncc { color: var(--danger, #e74c3c); margin-top: 4px; }
+.btn-del-ncc i { width: 13px; height: 13px; }
+
+/* Show on row / cell hover */
+.invoice-table td.col-stt:hover .btn-del-stt,
+.invoice-table td.col-ncc:hover .btn-del-ncc {
+    display: inline-block;
+}
+.btn-del-stt:hover,
+.btn-del-ncc:hover {
+    background: rgba(231, 76, 60, 0.12);
+}
 .invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
