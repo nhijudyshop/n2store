@@ -1665,12 +1665,20 @@ const KPICommission = {
                 this.reinitIcons();
             };
 
-            // Worker pool: mỗi worker pull 1 orderCode từ queue, xử lý, repeat.
+            // Worker pool: mỗi worker pull 1 orderCode từ queue, cleanup + recompute, repeat.
             const worker = async () => {
                 while (queue.length > 0) {
                     const orderCode = queue.shift();
                     if (!orderCode) break;
                     try {
+                        // (1) Xoá orderCode khỏi mọi (userId, stat_date) row để dẹp orphan
+                        //     từ các lần save cũ (sai ngày hoặc sai userId).
+                        try {
+                            await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
+                        } catch (e) {
+                            console.warn(`[KPI Recompute] Cleanup fail ${orderCode}:`, e?.message || e);
+                        }
+                        // (2) Recompute + save vào đúng (userId, baseDate).
                         await window.kpiManager.recalculateAndSaveKPI(orderCode);
                     } catch (e) {
                         failed++;

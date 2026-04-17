@@ -962,6 +962,59 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
 });
 
 /**
+ * DELETE /api/realtime/kpi-statistics/order/:orderCode
+ * Xoá orderCode khỏi mảng orders[] của MỌI (userId, stat_date) row — dùng cho
+ * backfill cleanup: sau khi recompute xong ta gọi endpoint này TRƯỚC để dẹp
+ * các row cũ cho orderCode đó, rồi PATCH ghi lại vào đúng (userId, baseDate).
+ *
+ * Cũng recompute total_net_products + total_kpi từ orders[] còn lại.
+ * Trả về số row bị affected + số entry đã xoá.
+ */
+router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
+
+        await pool.query('BEGIN');
+
+        // 1) Bỏ orderCode khỏi tất cả mảng orders[] có chứa nó
+        const updateResult = await pool.query(`
+            UPDATE kpi_statistics
+            SET orders = (
+                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                FROM jsonb_array_elements(orders) elem
+                WHERE elem->>'orderCode' != $1
+            ),
+            updated_at = CURRENT_TIMESTAMP
+            WHERE orders @> $2::jsonb
+        `, [orderCode, JSON.stringify([{ orderCode }])]);
+
+        // 2) Recompute totals cho các row vừa bị đụng
+        await pool.query(`
+            UPDATE kpi_statistics
+            SET total_net_products = COALESCE((
+                    SELECT SUM((elem->>'netProducts')::int)
+                    FROM jsonb_array_elements(orders) elem
+                ), 0),
+                total_kpi = COALESCE((
+                    SELECT SUM((elem->>'kpi')::numeric)
+                    FROM jsonb_array_elements(orders) elem
+                ), 0)
+            WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '5 seconds'
+        `);
+
+        await pool.query('COMMIT');
+        res.json({ success: true, orderCode, rowsAffected: updateResult.rowCount });
+    } catch (error) {
+        try { await req.app.locals.chatDb?.query('ROLLBACK'); } catch (e) {}
+        console.error('[REALTIME-DB] DELETE /kpi-statistics/order error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * DELETE /api/realtime/kpi-statistics/:userId/:date
  */
 router.delete('/kpi-statistics/:userId/:date', async (req, res) => {
