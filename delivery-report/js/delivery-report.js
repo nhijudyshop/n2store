@@ -366,7 +366,7 @@
             renderProvinceView();
             return;
         }
-        if (DeliveryReportState.traSoatMode && DeliveryReportState.activeTab === 'all') {
+        if (DeliveryReportState.traSoatMode && (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero')) {
             renderAllGroupsView();
             return;
         }
@@ -847,6 +847,24 @@
     const soundError = new Audio('sound/sai.mp3');
     const soundDuplicate = new Audio('sound/trung.mp3');
 
+    // Sound riêng cho đơn 0đ — 2 beep ngắn tần số cao
+    function playZeroDongSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, 0.15].forEach(delay => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 1200;
+                gain.gain.value = 0.3;
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.1);
+            });
+        } catch (e) { /* fallback: no sound */ }
+    }
+
     async function traSoat() {
         if (!canTraSoat()) { alert('Bạn không có quyền sử dụng chức năng tra soát.'); return; }
         const state = DeliveryReportState;
@@ -916,7 +934,7 @@
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
             renderProvinceView();
-        } else if (tab === 'all' && DeliveryReportState.traSoatMode) {
+        } else if ((tab === 'all' || tab === 'zero') && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
             renderAllGroupsView();
         } else {
@@ -934,7 +952,7 @@
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
 
         // All-groups export buttons
-        const isAll = DeliveryReportState.activeTab === 'all' && DeliveryReportState.traSoatMode;
+        const isAll = (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') && DeliveryReportState.traSoatMode;
         document.querySelectorAll('.dr-btn-group-export').forEach(btn => {
             btn.style.display = isAll ? '' : 'none';
         });
@@ -945,9 +963,10 @@
         DeliveryReportState.currentPage = 1;
         DeliveryReportState._focusedGroup = null;
 
-        // Update UI
-        const select = document.getElementById('drScanFilterSelect');
-        if (select) select.value = filter;
+        // Update scan filter tab UI
+        document.querySelectorAll('.dr-scan-filter-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
 
         // Show/hide "Xóa tất cả" button
         const unscanAllBtn = document.getElementById('drBtnUnscanAll');
@@ -955,7 +974,7 @@
 
         if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
-        } else if (DeliveryReportState.activeTab === 'all' && DeliveryReportState.traSoatMode) {
+        } else if ((DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') && DeliveryReportState.traSoatMode) {
             renderAllGroupsView();
         } else {
             renderTable();
@@ -999,6 +1018,10 @@
 
     function isReturnItem(item) {
         return removeTones(item.DeliveryNote || '').toUpperCase().includes('THU VE');
+    }
+
+    function isZeroCOD(item) {
+        return !item.CashOnDelivery || item.CashOnDelivery === 0;
     }
 
     // Determine which group an item belongs to (for "all" tab 5-column view)
@@ -1047,6 +1070,8 @@
             data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP' && !isReturnItem(item));
         } else if (tab === 'return') {
             data = data.filter(item => isReturnItem(item));
+        } else if (tab === 'zero') {
+            data = data.filter(item => isZeroCOD(item));
         }
         return data;
     }
@@ -1064,7 +1089,14 @@
     }
 
     // Assign TOMATO/NAP: random pick, TOMATO ~20-22% of total AmountTotal (all items)
+    // ĐƠN 0đ (CashOnDelivery === 0) KHÔNG BAO GIỜ vào TOMATO → luôn vào NAP
     function assignTomatoNap(unassignedItems, groups) {
+        // Separate 0đ items — always go to NAP
+        const zeroItems = unassignedItems.filter(i => isZeroCOD(i));
+        const nonZeroItems = unassignedItems.filter(i => !isZeroCOD(i));
+
+        zeroItems.forEach(item => { groups[item.Number] = 'nap'; });
+
         // Calculate based on ALL province items (assigned + unassigned)
         const allProvinceData = getProvinceData();
         const grandTotal = allProvinceData.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
@@ -1078,8 +1110,8 @@
         // Remaining budget for new TOMATO assignments
         const remainingBudget = targetAmount - existingTomatoSum;
 
-        // Shuffle randomly
-        const shuffled = [...unassignedItems].sort(() => Math.random() - 0.5);
+        // Shuffle randomly (only non-zero items eligible for TOMATO)
+        const shuffled = [...nonZeroItems].sort(() => Math.random() - 0.5);
         let newTomatoSum = 0;
 
         shuffled.forEach(item => {
@@ -1315,7 +1347,7 @@
         if (!DeliveryReportState.traSoatMode) return;
         if (DeliveryReportState.activeTab === 'province') {
             renderProvinceView();
-        } else if (DeliveryReportState.activeTab === 'all') {
+        } else if (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') {
             renderAllGroupsView();
         } else {
             renderTable();
@@ -1444,7 +1476,8 @@
         </div>`;
         tomatoItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
-            tomatoHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
+            const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
+            tomatoHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}${zeroClass}">
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
@@ -1452,7 +1485,7 @@
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
-                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
+                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}${isZeroCOD(item) ? ' <span class="dr-zero-badge">0đ</span>' : ''}</span>
                     ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
                 </div>
             </div>`;
@@ -1471,7 +1504,8 @@
         </div>`;
         napItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
-            napHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
+            const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
+            napHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}${zeroClass}">
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
@@ -1479,7 +1513,7 @@
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
-                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
+                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}${isZeroCOD(item) ? ' <span class="dr-zero-badge">0đ</span>' : ''}</span>
                     ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
                 </div>
             </div>`;
@@ -1505,7 +1539,11 @@
         if (tableWrapper) tableWrapper.style.display = 'none';
         if (grid) grid.classList.add('all-groups');
 
-        const allData = DeliveryReportState.allData || [];
+        // Use tab-filtered data (respects 'zero' tab to show only 0đ items)
+        const isZeroTab = DeliveryReportState.activeTab === 'zero';
+        const allData = isZeroTab
+            ? (DeliveryReportState.allData || []).filter(item => isZeroCOD(item))
+            : (DeliveryReportState.allData || []);
         const groups = DeliveryReportState.provinceGroups;
         const scanned = DeliveryReportState.scannedNumbers;
         const showScanned = DeliveryReportState.scanFilter === 'scanned';
@@ -1541,7 +1579,8 @@
 
             viewItems.forEach(item => {
                 const isItemScanned = scanned.has(item.Number);
-                html += `<div class="dr-province-item ${isItemScanned ? 'scanned' : ''}">
+                const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
+                html += `<div class="dr-province-item ${isItemScanned ? 'scanned' : ''}${zeroClass}">
                     <div class="dr-province-left">
                         <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                         <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
@@ -1549,7 +1588,7 @@
                     </div>
                     <div class="dr-province-right">
                         <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
-                        <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
+                        <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}${isZeroCOD(item) ? ' <span class="dr-zero-badge">0đ</span>' : ''}</span>
                         ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
                     </div>
                 </div>`;
@@ -1662,14 +1701,14 @@
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
 
-        // Chỉ cho quét ở tab "Tất cả"
-        if (state.activeTab !== 'all') {
-            showScanFeedback(false, `Chuyển sang tab "Tất cả" để quét`, true);
+        // Chỉ cho quét ở tab "Tất cả" hoặc "ĐƠN 0đ"
+        if (state.activeTab !== 'all' && state.activeTab !== 'zero') {
+            showScanFeedback(false, `Chuyển sang tab "Tất cả" hoặc "ĐƠN 0đ" để quét`, true);
             return;
         }
 
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
-        const isAllTab = state.activeTab === 'all' && state.traSoatMode;
+        const isAllTab = (state.activeTab === 'all' || state.activeTab === 'zero') && state.traSoatMode;
         const isMultiColView = isProvinceTab || isAllTab;
 
         // Find matching item by Number (case-insensitive)
@@ -1745,14 +1784,23 @@
         // Save to DB
         saveScannedNumber(match.Number);
 
+        // Detect 0đ order → play distinct sound
+        const isZero = isZeroCOD(match);
+        if (isZero) {
+            playZeroDongSound();
+        }
+
         // Update view based on active tab
         const customerName = match.PartnerDisplayName || '';
+        const zeroBadge = isZero ? ' [0đ]' : '';
+        const feedbackType = isZero ? 'zero-dong' : true;
+
         if (isAllTab) {
             const group = getItemGroup(match);
             renderAllGroupsView();
             showGroupColumn(group);
             updateScanCount();
-            showScanFeedback(true, `${match.Number} - ${customerName} → ${GROUP_LABELS[group]}`, false);
+            showScanFeedback(feedbackType, `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group]}`, false);
         } else if (isProvinceTab) {
             renderProvinceView();
             const group = state.provinceGroups[match.Number];
@@ -1760,12 +1808,12 @@
                 showProvinceColumn(group);
             }
             updateScanCount();
-            showScanFeedback(true, `${match.Number} - ${customerName} → ${GROUP_LABELS[group] || (group || '').toUpperCase()}`, false);
+            showScanFeedback(feedbackType, `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group] || (group || '').toUpperCase()}`, false);
         } else {
             renderTable();
             renderPagination();
             updateScanCount();
-            showScanFeedback(true, `${match.Number} - ${customerName}`, false);
+            showScanFeedback(feedbackType, `${match.Number} - ${customerName}${zeroBadge}`, false);
         }
     }
 
@@ -1797,6 +1845,7 @@
 
         let className = 'dr-scan-feedback ';
         if (type === true || type === 'success') className += 'success';
+        else if (type === 'zero-dong') className += 'zero-dong';
         else if (type === 'warning') className += 'warning';
         else if (type === 'wrong-tab') className += 'wrong-tab';
         else className += 'error';

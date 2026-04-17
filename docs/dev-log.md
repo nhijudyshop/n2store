@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [delivery] ĐƠN 0đ: filter tab, visual styling, scan sound, exclude from TOMATO
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/css/delivery-report.css`, `delivery-report/index.html` |
+| **Chi tiết** | **1. Exclude 0đ from TOMATO:** `assignTomatoNap()` luôn đẩy đơn 0đ (CashOnDelivery=0) vào NAP, không bao giờ vào TOMATO. **2. Visual styling:** Items 0đ có nền vàng nhạt + viền trái cam + badge "0đ" để phân biệt. **3. Scan sound:** Quét đơn 0đ phát 2 beep ngắn tần số cao (Web Audio API), feedback toast màu cam. **4. Filter tab "ĐƠN 0đ":** Tab mới trong tra soát bar, lọc chỉ hiển thị đơn 0đ across all groups. **5. Scan filter tabs:** Chuyển dropdown "Đã quét"/"Chưa quét" thành 2 nút tab-style. |
+| **Status** | ✅ Done |
+
 ### [orders][render] KPI review round 2: fix 5 issues từ audit
 | | |
 |---|---|

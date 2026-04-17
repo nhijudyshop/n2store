@@ -287,27 +287,57 @@
     border-color: #4f87e8;
 }
 
+.dr-trasoat-tab.dr-tab-zero {
+    color: #d97706;
+    border-color: #fbbf24;
+}
+
+.dr-trasoat-tab.dr-tab-zero:hover:not(.active) {
+    background: #fef3c7;
+}
+
+.dr-trasoat-tab.dr-tab-zero.active {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+}
+
 .dr-trasoat-right {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.dr-scan-filter-select {
-    padding: 6px 12px;
+.dr-scan-filter-tabs {
+    display: flex;
+    gap: 0;
     border: 2px solid #4f87e8;
     border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #4f87e8;
-    background: white;
-    cursor: pointer;
+    overflow: hidden;
 }
 
-.dr-scan-filter-select:focus {
-    outline: none;
-    border-color: #3b72d4;
-    box-shadow: 0 0 0 2px rgba(79, 135, 232, 0.2);
+.dr-scan-filter-tab {
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: white;
+    color: #4f87e8;
+    transition: all 0.15s;
+}
+
+.dr-scan-filter-tab:not(:last-child) {
+    border-right: 1px solid #4f87e8;
+}
+
+.dr-scan-filter-tab:hover:not(.active) {
+    background: #eff6ff;
+}
+
+.dr-scan-filter-tab.active {
+    background: #4f87e8;
+    color: white;
 }
 
 .dr-trasoat-info {
@@ -350,6 +380,11 @@
 
 .dr-scan-feedback.wrong-tab {
     background: #f97316;
+    color: white;
+}
+
+.dr-scan-feedback.zero-dong {
+    background: #f59e0b;
     color: white;
 }
 
@@ -760,6 +795,32 @@
 .dr-province-item.scanned .dr-province-num,
 .dr-province-item.scanned .dr-province-customer {
     color: #6b7280;
+}
+
+/* Đơn 0đ — nền vàng nhạt, viền trái cam */
+.dr-province-item.zero-dong {
+    background: #fef9c3;
+    border-left: 3px solid #f59e0b;
+}
+
+.dr-province-item.zero-dong:hover {
+    background: #fef08a;
+}
+
+.dr-province-item.zero-dong.scanned {
+    background: #fde68a;
+}
+
+.dr-zero-badge {
+    display: inline-block;
+    background: #f59e0b;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    vertical-align: middle;
 }
 
 .dr-province-left {
