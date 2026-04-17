@@ -1,13 +1,13 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // MODAL IMAGE MANAGER - INVENTORY TRACKING
-// Row-based input: each row = [images] + [STT] + [NCC]
+// Row-based input: each row = [images] + [NCC]
 // Images stored independently in inventory_product_images table
-// Auto-mapped to shipments by STT/NCC at render time
+// Auto-mapped to shipments by NCC at render time
 // =====================================================
 
 const ImageManager = (() => {
-    let _rows = []; // [{ id, uploadedUrls: [], stt: '', ncc: '' }]
+    let _rows = []; // [{ id, uploadedUrls: [], ncc: '' }]
     let _focusedRowId = null;
     let _isUploading = false;
     let _rowCounter = 0;
@@ -19,7 +19,6 @@ const ImageManager = (() => {
         return {
             id: `row_${++_rowCounter}`,
             uploadedUrls: [],
-            stt: '',
             ncc: ''
         };
     }
@@ -31,7 +30,6 @@ const ImageManager = (() => {
         _rows = [];
 
         try {
-            // Load from independent product images table
             const images = globalState.productImages || [];
 
             images.forEach(img => {
@@ -41,7 +39,6 @@ const ImageManager = (() => {
                 _rows.push({
                     id: `row_${++_rowCounter}`,
                     uploadedUrls: [...urls],
-                    stt: String(img.stt),
                     ncc: img.ncc ? String(img.ncc) : ''
                 });
             });
@@ -67,13 +64,13 @@ const ImageManager = (() => {
         body.innerHTML = `
             <div class="img-mgr-hint">
                 <i data-lucide="info"></i>
-                Chọn hàng, dán ảnh (Ctrl+V) hoặc chọn file, nhập STT và NCC (tùy chọn)
+                Chọn hàng, dán ảnh (Ctrl+V) hoặc chọn file, nhập NCC
             </div>
             <div class="img-mgr-rows">
                 ${_rows.map(row => _renderRow(row)).join('')}
             </div>
             <button class="btn btn-outline img-mgr-add-row-btn" onclick="ImageManager.addRow()">
-                <i data-lucide="plus"></i> Thêm hàng
+                <i data-lucide="plus"></i> Thêm NCC
             </button>
         `;
 
@@ -81,23 +78,9 @@ const ImageManager = (() => {
 
         // Attach input listeners (must do after innerHTML)
         _rows.forEach(row => {
-            const sttInput = body.querySelector(`#stt_${row.id}`);
             const nccInput = body.querySelector(`#ncc_${row.id}`);
             const hasImages = row.uploadedUrls.length > 0;
 
-            if (sttInput) {
-                sttInput.value = row.stt;
-                sttInput.addEventListener('change', (e) => {
-                    const newVal = e.target.value;
-                    if (hasImages && row.stt && newVal !== row.stt) {
-                        if (!confirm(`Đổi STT từ ${row.stt} sang ${newVal}?`)) {
-                            e.target.value = row.stt;
-                            return;
-                        }
-                    }
-                    row.stt = newVal;
-                });
-            }
             if (nccInput) {
                 nccInput.value = row.ncc;
                 nccInput.addEventListener('change', (e) => {
@@ -156,14 +139,9 @@ const ImageManager = (() => {
 
                     <div class="img-mgr-entry-fields">
                         <div class="img-mgr-field">
-                            <label>STT</label>
-                            <input type="number" id="stt_${row.id}" class="img-mgr-input"
-                                placeholder="VD: 1" min="1" autocomplete="off">
-                        </div>
-                        <div class="img-mgr-field">
                             <label>NCC</label>
                             <input type="number" id="ncc_${row.id}" class="img-mgr-input"
-                                placeholder="Tùy chọn" min="1" autocomplete="off">
+                                placeholder="VD: 1" min="1" autocomplete="off">
                         </div>
                     </div>
 
@@ -182,7 +160,6 @@ const ImageManager = (() => {
      */
     function focusRow(rowId) {
         _focusedRowId = rowId;
-        // Update UI without full re-render (just toggle classes)
         document.querySelectorAll('.img-mgr-entry').forEach(el => {
             const isFocused = el.dataset.rowId === rowId;
             el.classList.toggle('img-mgr-entry-focused', isFocused);
@@ -211,7 +188,7 @@ const ImageManager = (() => {
     function removeRow(rowId) {
         const row = _rows.find(r => r.id === rowId);
         if (row && row.uploadedUrls.length > 0) {
-            if (!confirm(`Xóa hàng STT ${row.stt || '?'} và ${row.uploadedUrls.length} ảnh?`)) return;
+            if (!confirm(`Xóa NCC ${row.ncc || '?'} và ${row.uploadedUrls.length} ảnh?`)) return;
         }
         _rows = _rows.filter(r => r.id !== rowId);
         if (_rows.length === 0) _rows.push(_createRow());
@@ -267,7 +244,7 @@ const ImageManager = (() => {
     }
 
     /**
-     * Convert files to base64 and add to a specific row (no Firebase upload)
+     * Convert files to base64 and add to a specific row
      */
     async function _uploadToRow(rowId, files) {
         if (_isUploading) return;
@@ -279,11 +256,9 @@ const ImageManager = (() => {
 
         try {
             for (const file of files) {
-                // Validate
                 if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) continue;
                 if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) continue;
 
-                // Resize + convert to base64 (max 800px, compress JPEG)
                 const base64 = await _resizeAndConvert(file, 800, 0.7);
                 row.uploadedUrls.push(base64);
             }
@@ -346,19 +321,18 @@ const ImageManager = (() => {
     }
 
     /**
-     * Save: store rows independently in product_images table
-     * Mapping to shipments happens at render time via getProductImagesForStt()
+     * Save: store rows independently in product_images table (keyed by NCC)
+     * Mapping to shipments happens at render time via getProductImagesForNcc()
      */
     async function save() {
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
-            // Build rows for API: only rows with images AND STT
+            // Build rows for API: only rows with images AND NCC
             const apiRows = _rows
-                .filter(r => r.uploadedUrls.length > 0 && r.stt.trim())
+                .filter(r => r.uploadedUrls.length > 0 && r.ncc.trim())
                 .map(r => ({
-                    stt: parseInt(r.stt),
-                    ncc: r.ncc.trim() ? parseInt(r.ncc) : null,
+                    ncc: parseInt(r.ncc),
                     urls: r.uploadedUrls
                 }));
 
@@ -370,7 +344,7 @@ const ImageManager = (() => {
 
             window.notificationManager?.success(
                 apiRows.length > 0
-                    ? `Đã lưu ${apiRows.length} nhóm ảnh sản phẩm`
+                    ? `Đã lưu ảnh cho ${apiRows.length} NCC`
                     : 'Đã xóa tất cả ảnh sản phẩm'
             );
             closeModal('modalImageManager');
@@ -387,29 +361,29 @@ const ImageManager = (() => {
     }
 
     /**
-     * View images for a specific STT (called from table cell click)
+     * View images for a specific NCC (called from table cell click)
      */
-    function viewSttImages(shipmentId, invoiceId, stt, ncc) {
-        const images = getProductImagesForStt(stt, ncc);
+    function viewNccImages(ncc) {
+        const images = getProductImagesForNcc(ncc);
 
         if (images.length === 0) {
             open();
             return;
         }
 
-        _showImagesInViewer(stt, images);
+        _showImagesInViewer(ncc, images);
     }
 
     /**
      * Show images in the viewer modal
      */
-    function _showImagesInViewer(stt, images) {
+    function _showImagesInViewer(ncc, images) {
         const body = document.getElementById('imageViewerBody');
         if (!body) return;
 
         body.innerHTML = `
             <div class="img-viewer-header-info">
-                <strong>STT ${stt}</strong>
+                <strong>NCC ${ncc}</strong>
                 <span>${images.length} ảnh</span>
             </div>
             <div class="img-gallery-grid">
@@ -437,7 +411,6 @@ const ImageManager = (() => {
             </div>
         `;
 
-        // Store images for lightbox navigation
         body._galleryImages = images;
         body._galleryIdx = 0;
 
@@ -484,7 +457,7 @@ const ImageManager = (() => {
         save,
         handleFileSelect,
         removeImage,
-        viewSttImages,
+        viewNccImages,
         _openLightbox,
         _closeLightbox,
         _navLightbox

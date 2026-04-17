@@ -686,14 +686,16 @@ function renderInvoicesSection(shipment) {
 }
 
 /**
- * Render image cell per product row (STT-based)
- * Images come from independent product_images table, mapped by STT/NCC
+ * Render image cell per invoice (NCC-based, merged with rowSpan)
+ * Images come from independent product_images table, mapped by NCC
+ * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass, sttNCC) {
-    const stt = String(productIdx + 1);
-    // Get images from independent product images store (mapped by STT + NCC)
-    const images = getProductImagesForStt(stt, sttNCC);
+function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass) {
+    if (!isFirstRow) return ''; // Merged cell — skip non-first rows
+
+    const images = getProductImagesForNcc(sttNCC);
     const count = images.length;
+    const rowspanBorderClass = borderClass.replace('border-bottom-', 'border-bottom-') || borderClass;
 
     if (count > 0) {
         const MAX_SHOW = 2;
@@ -701,15 +703,15 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
         const extra = count - MAX_SHOW;
 
         const thumbs = visible.map(url =>
-            `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="STT ${stt}"><div class="cell-img-zoom"><img src="${url}" alt="STT ${stt}"></div></div>`
+            `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div></div>`
         ).join('');
 
         const extraBadge = extra > 0
-            ? `<span class="cell-img-more" onclick="ImageManager.viewSttImages('${shipmentId}', '${invoiceId}', ${stt}, ${sttNCC || 'null'})">+${extra}</span>`
+            ? `<span class="cell-img-more" onclick="ImageManager.viewNccImages(${sttNCC})">+${extra}</span>`
             : '';
 
         return `
-            <td class="col-image ${borderClass}">
+            <td class="col-image ${rowspanBorderClass}" rowspan="${rowSpan}">
                 <div class="cell-img-list">
                     ${thumbs}${extraBadge}
                 </div>
@@ -718,7 +720,7 @@ function _renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderC
     }
 
     return `
-        <td class="col-image text-center ${borderClass}">
+        <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
             <span class="image-add-hint" onclick="ImageManager.open()" title="Thêm ảnh">
                 <i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i>
             </span>
@@ -788,7 +790,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(anhSanPham, productIdx, shipmentId, invoiceId, borderClass, sttNCC)}
+            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'

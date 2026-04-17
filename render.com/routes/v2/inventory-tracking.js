@@ -840,7 +840,7 @@ router.get('/product-images', async (req, res) => {
     try {
         const db = getDb(req);
         const result = await db.query(
-            'SELECT * FROM inventory_product_images ORDER BY stt, ncc NULLS FIRST'
+            'SELECT * FROM inventory_product_images ORDER BY ncc'
         );
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -852,7 +852,7 @@ router.get('/product-images', async (req, res) => {
 router.put('/product-images', async (req, res) => {
     try {
         const db = getDb(req);
-        const { rows } = req.body; // [{ stt, ncc, urls }]
+        const { rows } = req.body; // [{ ncc, urls }]
 
         if (!Array.isArray(rows)) {
             return res.status(400).json({ success: false, error: 'rows must be an array' });
@@ -863,18 +863,18 @@ router.put('/product-images', async (req, res) => {
         await db.query('DELETE FROM inventory_product_images');
 
         for (const row of rows) {
-            if (!row.stt || !Array.isArray(row.urls) || row.urls.length === 0) continue;
+            if (!row.ncc || !Array.isArray(row.urls) || row.urls.length === 0) continue;
             await db.query(
-                `INSERT INTO inventory_product_images (stt, ncc, urls, updated_at)
-                 VALUES ($1, $2, $3, NOW())`,
-                [row.stt, row.ncc || null, JSON.stringify(row.urls)]
+                `INSERT INTO inventory_product_images (ncc, urls, updated_at)
+                 VALUES ($1, $2, NOW())`,
+                [row.ncc, JSON.stringify(row.urls)]
             );
         }
 
         await db.query('COMMIT');
 
         const result = await db.query(
-            'SELECT * FROM inventory_product_images ORDER BY stt, ncc NULLS FIRST'
+            'SELECT * FROM inventory_product_images ORDER BY ncc'
         );
 
         // Notify SSE clients for realtime sync

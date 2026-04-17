@@ -161,24 +161,15 @@ function setupProductImagesRealtimeSync() {
 }
 
 /**
- * Get product images for a specific STT (and optionally NCC)
- * Returns matching urls array. Priority: exact NCC match > all-NCC (ncc=null)
+ * Get product images for a specific NCC
+ * Returns matching urls array
  */
-function getProductImagesForStt(stt, ncc) {
-    const sttNum = parseInt(stt);
+function getProductImagesForNcc(ncc) {
+    if (!ncc) return [];
+    const nccNum = parseInt(ncc);
     const images = globalState.productImages || [];
-
-    // Try exact NCC match first
-    if (ncc) {
-        const exact = images.find(img => img.stt === sttNum && img.ncc === parseInt(ncc));
-        if (exact) return exact.urls || [];
-    }
-
-    // Fall back to all-NCC entry (ncc = null)
-    const general = images.find(img => img.stt === sttNum && !img.ncc);
-    if (general) return general.urls || [];
-
-    return [];
+    const match = images.find(img => img.ncc === nccNum);
+    return match ? (match.urls || []) : [];
 }
 
 /**
