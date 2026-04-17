@@ -67,51 +67,66 @@
 
     /**
      * Normalize tên sản phẩm để so sánh "cùng loại".
-     * Strip iteratively:
-     *   - prefix `[CODE]`
-     *   - trailing `(...)` (màu, size, hoặc combo)
-     *   - trailing từ khóa SIZE
-     *   - trailing token có trong attrAll (màu, size số, size chữ)
-     * Kết quả uppercase + collapse spaces, bỏ `+` cuối nếu còn sót.
+     *
+     * Strip theo thứ tự:
+     *   1) prefix `[CODE]`
+     *   2) mọi trailing `(...)` (màu, size, combo)
+     *   3) trailing `SIZE` keyword
+     *   4) trailing token ∈ sizes (S, M, L, XL, 27, 28…)
+     *   5) MÀU ở BẤT KỲ VỊ TRÍ NÀO (vì màu có thể nằm giữa, VD: "ÁO TRẮNG M35")
+     *      Sort danh sách màu theo độ dài giảm dần để match "Trắng Kem" trước "Trắng".
+     *   6) Trailing '+' / space còn sót.
+     *
+     * Kết quả: uppercase, collapse spaces.
      *
      * @param {string} name
-     * @param {{ all: Set<string> }} attrs — từ getAttributeValues()
+     * @param {{ colors: Set<string>, sizes: Set<string>, all: Set<string> }} attrs
      * @returns {string}
      */
     function normalizeProductName(name, attrs) {
         if (!name || typeof name !== 'string') return '';
         let s = name.trim();
 
-        // Strip prefix [CODE]
+        // 1) Strip prefix [CODE]
         s = s.replace(/^\[[^\]]+\]\s*/, '');
 
-        const attrAll = attrs && attrs.all ? attrs.all : new Set();
+        const colors = attrs && attrs.colors ? attrs.colors : new Set();
+        const sizes  = attrs && attrs.sizes  ? attrs.sizes  : new Set();
 
-        // Iteratively strip các pattern cuối
-        const MAX_ITER = 10;
-        for (let i = 0; i < MAX_ITER; i++) {
-            const before = s;
-
-            // 1) Trailing (…)
+        // 2) Strip mọi trailing (...)
+        let prev;
+        do {
+            prev = s;
             s = s.replace(/\s*\([^)]*\)\s*$/, '').trimEnd();
+        } while (s !== prev);
 
-            // 2) Trailing SIZE keyword
-            s = s.replace(/\s+SIZE\s*$/i, '').trimEnd();
+        // 3) Strip trailing "SIZE"
+        s = s.replace(/\s+SIZE\s*$/i, '').trimEnd();
 
-            // 3) Trailing token (có thể là nhiều từ như "TRẮNG KEM" — strip 1 token mỗi vòng lặp)
-            const lastTokenMatch = s.match(/\s+([^\s]+)$/);
-            if (lastTokenMatch) {
-                const lastToken = lastTokenMatch[1];
-                if (lastToken && attrAll.has(lastToken.toUpperCase())) {
-                    s = s.slice(0, s.length - lastTokenMatch[0].length).trimEnd();
-                }
+        // 4) Strip trailing token thuộc sizes (lặp để bắt "SIZE L" → "SIZE" đã strip, giờ strip "L")
+        do {
+            prev = s;
+            const m = s.match(/\s+([^\s]+)$/);
+            if (m && sizes.has(m[1].toUpperCase())) {
+                s = s.slice(0, s.length - m[0].length).trimEnd();
             }
+        } while (s !== prev);
 
-            // 4) Trailing '+' sót lại
-            s = s.replace(/[+\s]+$/, '').trimEnd();
-
-            if (s === before) break;
+        // 5) Strip COLORS ở bất kỳ vị trí nào — chỉ strip màu, KHÔNG strip sizes
+        //    giữa tên (S/M/L có thể trùng ký tự trong từ bình thường).
+        if (colors.size > 0) {
+            const sortedColors = Array.from(colors).sort((a, b) => b.length - a.length);
+            for (const color of sortedColors) {
+                if (!color) continue;
+                const escaped = color.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // (^|non-letter)(color)(non-letter|$) — Unicode-aware word boundary
+                const re = new RegExp(`(^|[^\\p{L}])${escaped}(?=$|[^\\p{L}])`, 'giu');
+                s = s.replace(re, '$1');
+            }
         }
+
+        // 6) Trailing '+' / space sót
+        s = s.replace(/[+\s]+$/, '').trimEnd();
 
         return s.replace(/\s+/g, ' ').trim().toUpperCase();
     }
