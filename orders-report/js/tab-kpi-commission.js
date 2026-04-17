@@ -446,13 +446,26 @@ const KPICommission = {
             const select = document.getElementById('kpiFilterCampaign');
             if (!select) return;
 
-            // Find matching option
+            // Exact match first
             for (const opt of select.options) {
                 if (opt.value === activeName) {
                     select.value = activeName;
+                    console.log('[KPI Tab] Auto-selected campaign:', activeName);
                     return;
                 }
             }
+
+            // Partial match fallback (campaign name in KPI stats may differ slightly)
+            const normalizedActive = activeName.trim().toLowerCase();
+            for (const opt of select.options) {
+                if (opt.value && opt.value.trim().toLowerCase() === normalizedActive) {
+                    select.value = opt.value;
+                    console.log('[KPI Tab] Auto-selected campaign (normalized):', opt.value);
+                    return;
+                }
+            }
+
+            console.warn('[KPI Tab] Active campaign not found in KPI data:', activeName);
         } catch (e) {
             // Cross-origin or iframe access error — silently ignore
         }
