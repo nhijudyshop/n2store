@@ -219,22 +219,45 @@ function _toggleVariant(containerId, value, checked) {
 }
 
 /**
- * Generate cartesian product of selected attributes
- * Returns array of combination strings like ["Trắng / 4 / S", ...]
+ * Generate valid variant combinations. Rules:
+ *   - Màu alone → "Đen"
+ *   - Màu + SizeChữ → "Đen / S"
+ *   - Màu + SizeSố → "Đen / 4"
+ *   - SizeChữ + SizeSố is NOT valid (skipped)
+ *   - SizeChữ alone → "S"
+ *   - SizeSố alone → "4"
+ *
+ * If all 3 groups selected: output both "Màu × SizeChữ" and "Màu × SizeSố" sets (union).
  */
 function _generateCombinations() {
-    const groups = [];
-    if (_variantSelections.color.size > 0) groups.push([..._variantSelections.color]);
-    if (_variantSelections.sizeNum.size > 0) groups.push([..._variantSelections.sizeNum]);
-    if (_variantSelections.sizeChar.size > 0) groups.push([..._variantSelections.sizeChar]);
+    const colors = [..._variantSelections.color];
+    const sizeNums = [..._variantSelections.sizeNum];
+    const sizeChars = [..._variantSelections.sizeChar];
 
-    if (groups.length === 0) return [];
+    const combos = [];
 
-    // Cartesian product
-    return groups.reduce(
-        (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
-        [[]]
-    ).map(combo => combo.join(' / '));
+    if (colors.length > 0 && sizeChars.length > 0) {
+        // Màu × SizeChữ
+        for (const c of colors) for (const sc of sizeChars) combos.push(`${c} / ${sc}`);
+    }
+    if (colors.length > 0 && sizeNums.length > 0) {
+        // Màu × SizeSố
+        for (const c of colors) for (const sn of sizeNums) combos.push(`${c} / ${sn}`);
+    }
+    if (colors.length > 0 && sizeChars.length === 0 && sizeNums.length === 0) {
+        // Màu only
+        combos.push(...colors);
+    }
+    if (colors.length === 0 && sizeChars.length > 0) {
+        // SizeChữ only (no color)
+        combos.push(...sizeChars);
+    }
+    if (colors.length === 0 && sizeNums.length > 0) {
+        // SizeSố only (no color)
+        combos.push(...sizeNums);
+    }
+
+    return combos;
 }
 
 function _renderVariantPreview() {
