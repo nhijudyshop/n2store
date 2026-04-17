@@ -79,6 +79,51 @@ function getUserFromHeaders(req) {
 }
 
 // =====================================================
+// USER PERMISSIONS (inventoryTracking slice)
+// Reads from app_users.detailed_permissions — no Firestore.
+// Unauthenticated by design (matches existing inventory endpoints pattern);
+// only returns the inventoryTracking slice, never password/identifier data.
+// =====================================================
+
+router.get('/user-permissions/:username', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { username } = req.params;
+        if (!username) {
+            return res.status(400).json({ success: false, error: 'username required' });
+        }
+
+        const result = await db.query(
+            `SELECT detailed_permissions, is_admin, role_template
+             FROM app_users WHERE username = $1 LIMIT 1`,
+            [username.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: true, data: { found: false, permissions: null } });
+        }
+
+        const row = result.rows[0];
+        const detailed = row.detailed_permissions || {};
+        // Support both new (detailedPermissions.inventoryTracking) and legacy (inventoryTrackingPermissions)
+        const permissions = detailed.inventoryTracking || detailed.inventoryTrackingPermissions || null;
+
+        res.json({
+            success: true,
+            data: {
+                found: true,
+                permissions,
+                isAdmin: !!row.is_admin,
+                roleTemplate: row.role_template || 'custom'
+            }
+        });
+    } catch (err) {
+        console.error('[inventory] GET /user-permissions error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
 // SUPPLIERS
 // =====================================================
 

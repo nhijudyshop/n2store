@@ -91,14 +91,26 @@ async function uploadMultipleImages(files, path) {
 }
 
 /**
- * Delete image from Firebase Storage
+ * Delete image via Render server endpoint (no Firebase SDK client-side)
  * @param {string} url - Image URL
  */
 async function deleteImage(url) {
     try {
-        const ref = storage.refFromURL(url);
-        await ref.delete();
-        console.log('[UPLOAD] Image deleted');
+        const serverUrl = (typeof API_BASE !== 'undefined'
+            ? API_BASE.replace('/api/v2/inventory-tracking', '')
+            : 'https://n2store-fallback.onrender.com') + '/api/upload/image';
+
+        const response = await fetch(serverUrl, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            console.warn('[UPLOAD] Delete image returned:', result.message || result.error);
+        } else {
+            console.log('[UPLOAD] Image deleted');
+        }
     } catch (error) {
         console.error('[UPLOAD] Error deleting image:', error);
     }

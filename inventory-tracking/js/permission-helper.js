@@ -122,23 +122,22 @@ class InventoryPermissionHelper {
             // ALL users check detailedPermissions - NO admin bypass
             // Admin gets full permissions because they have all permissions set to true in detailedPermissions
 
-            // Try to load user-specific permissions from Firestore
+            // Load user-specific permissions from Render API (no Firestore)
             const username = auth.userType?.split('-')[0];
-            if (username && usersRef) {
-                const userDoc = await usersRef.doc(username).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    // Support both new format (detailedPermissions.inventoryTracking)
-                    // and legacy format (inventoryTrackingPermissions)
-                    const inventoryPerms = userData.detailedPermissions?.inventoryTracking
-                        || userData.inventoryTrackingPermissions;
-                    if (inventoryPerms) {
+            if (username) {
+                try {
+                    const url = `${API_BASE}/user-permissions/${encodeURIComponent(username)}`;
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    if (result.success && result.data?.found && result.data.permissions) {
                         this.permissions = {
                             ...DEFAULT_PERMISSIONS,
-                            ...inventoryPerms,
+                            ...result.data.permissions,
                         };
-                        console.log('[PERMISSION] User permissions loaded from Firestore');
+                        console.log('[PERMISSION] User permissions loaded from Render API');
                     }
+                } catch (apiErr) {
+                    console.warn('[PERMISSION] Failed to load permissions from API, using defaults:', apiErr.message);
                 }
             }
 

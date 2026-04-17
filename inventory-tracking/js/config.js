@@ -3,8 +3,6 @@
 // CONFIGURATION & CONSTANTS - INVENTORY TRACKING
 // =====================================================
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
-
 // Application Constants
 const APP_CONFIG = {
     PAGE_NAME: 'inventory-tracking',
@@ -14,15 +12,6 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: 'loginindex_auth',
     MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
     ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-};
-
-// Collection Names
-const COLLECTIONS = {
-    SHIPMENTS: 'inventory_tracking',  // Now stores NCC documents with datHang[] and dotHang[]
-    PREPAYMENTS: 'inventory_prepayments',
-    OTHER_EXPENSES: 'inventory_other_expenses',
-    EDIT_HISTORY: 'edit_history',
-    USERS: 'users',
 };
 
 // Order Booking Status
@@ -125,19 +114,8 @@ let globalState = {
     langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
 };
 
-// Initialize Firebase (using shared config from shared/js/firebase-config.js)
-let app, db, storage;
-try {
-    app = firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : firebaseConfig);
-    db = firebase.firestore();
-    storage = firebase.storage();
-    console.log('[CONFIG] Firebase initialized successfully');
-} catch (error) {
-    console.error('[CONFIG] Firebase initialization error:', error);
-}
+// Firebase removed — all data flows via Render REST API (api-client.js → PostgreSQL).
+// Image upload/delete goes through /api/upload/image (server-side Firebase Admin SDK).
+// User permissions come from /api/v2/inventory-tracking/user-permissions/:username (app_users table).
 
-// Collection References — most data now served via REST API (api-client.js → Render PostgreSQL)
-// usersRef: permissions from Firebase (only remaining Firestore ref)
-const usersRef = db?.collection(COLLECTIONS.USERS);
-
-console.log('[CONFIG] Configuration loaded successfully');
+console.log('[CONFIG] Configuration loaded (Firebase-free)');
