@@ -147,6 +147,7 @@ async function openVariantModal(td) {
     _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
     _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
     _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+    _updateSizeGroupLock();
     _renderVariantPreview();
     _updateSummary();
 
@@ -207,15 +208,43 @@ function _toggleVariant(containerId, value, checked) {
         : containerId === 'variantSizeNumList' ? _variantSelections.sizeNum
         : _variantSelections.sizeChar;
 
-    if (checked) set.add(value);
-    else set.delete(value);
+    if (checked) {
+        set.add(value);
+        // Mutually exclusive: SizeChữ and SizeSố can't both be selected
+        if (containerId === 'variantSizeNumList' && _variantSelections.sizeChar.size > 0) {
+            _variantSelections.sizeChar.clear();
+            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+        } else if (containerId === 'variantSizeCharList' && _variantSelections.sizeNum.size > 0) {
+            _variantSelections.sizeNum.clear();
+            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
+        }
+    } else {
+        set.delete(value);
+    }
 
-    // Also sync checkbox UI state (used by remove button)
+    // Sync checkbox UI state (used by remove button)
     const option = document.querySelector(`#${containerId} .variant-option[data-value="${_escAttr(value)}"] input`);
     if (option) option.checked = checked;
 
+    // Disable the "other" size group when one is selected
+    _updateSizeGroupLock();
+
     _renderVariantPreview();
     _updateSummary();
+}
+
+/**
+ * Lock/unlock SizeSố and SizeChữ groups based on which is selected
+ */
+function _updateSizeGroupLock() {
+    const sizeNumLocked = _variantSelections.sizeChar.size > 0;
+    const sizeCharLocked = _variantSelections.sizeNum.size > 0;
+
+    const sizeNumGroup = document.getElementById('variantSizeNumList')?.closest('.variant-group');
+    const sizeCharGroup = document.getElementById('variantSizeCharList')?.closest('.variant-group');
+
+    if (sizeNumGroup) sizeNumGroup.classList.toggle('variant-group-locked', sizeNumLocked);
+    if (sizeCharGroup) sizeCharGroup.classList.toggle('variant-group-locked', sizeCharLocked);
 }
 
 /**
