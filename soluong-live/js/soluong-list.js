@@ -1411,6 +1411,9 @@
             // THEN setup Firebase listeners (after isSyncMode is set)
             setupFirebaseListeners();
 
+            // Setup SSE for real-time image updates from product-warehouse
+            setupImageSSE();
+
             // Cleanup products older than 7 days
             await cleanupOldProductsLocal();
 
@@ -1509,9 +1512,102 @@
             }
         });
 
+        // =====================================================
+        // SSE — Real-time image updates from product-warehouse
+        // =====================================================
+        let _sseSource = null;
+        let _sseImageTimer = null;
+
+        function setupImageSSE() {
+            const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
+            try {
+                _sseSource = new EventSource(SSE_URL);
+
+                _sseSource.addEventListener('update', (e) => {
+                    try {
+                        const payload = JSON.parse(e.data);
+                        const action = payload?.data?.action;
+                        if (action !== 'image_update') return;
+
+                        const tposProductId = payload.data.tposProductId;
+                        const tposTemplateId = payload.data.tposTemplateId;
+                        const timestamp = payload.data.timestamp || Date.now();
+
+                        console.log('[SSE] Image update received:', { tposProductId, tposTemplateId });
+
+                        // Debounce — avoid rapid re-fetches
+                        if (_sseImageTimer) clearTimeout(_sseImageTimer);
+                        _sseImageTimer = setTimeout(() => {
+                            refreshProductImages(tposProductId, tposTemplateId, timestamp);
+                        }, 2000);
+                    } catch (_) { /* ignore parse errors */ }
+                });
+
+                _sseSource.onerror = () => {
+                    console.warn('[SSE-Image] Disconnected, auto-reconnect...');
+                };
+
+                console.log('[SSE-Image] Listening for image updates');
+            } catch (err) {
+                console.warn('[SSE-Image] Setup failed:', err);
+            }
+        }
+
+        /**
+         * Refresh image for products matching the updated template/product ID.
+         * Re-fetches from Render DB and updates Firebase RTDB + local state.
+         */
+        async function refreshProductImages(tposProductId, tposTemplateId, timestamp) {
+            const matchingKeys = Object.keys(soluongProducts).filter(key => {
+                const p = soluongProducts[key];
+                return p.Id == tposProductId ||
+                       p.Id == tposTemplateId ||
+                       p.ProductTmplId == tposTemplateId;
+            });
+
+            if (matchingKeys.length === 0) return;
+
+            console.log(`[SSE-Image] Refreshing images for ${matchingKeys.length} product(s)`);
+
+            for (const productKey of matchingKeys) {
+                const product = soluongProducts[productKey];
+                try {
+                    const result = await WarehouseAPI.getProductAsTpos(product.Id);
+                    if (!result || !result.product) continue;
+
+                    const newImageUrl = result.product.imageUrl || result.product.ImageUrl || '';
+                    if (newImageUrl) {
+                        product.imageUrl = newImageUrl;
+                    }
+                    product.lastRefreshed = timestamp;
+
+                    // Sync to Firebase RTDB
+                    if (!isSyncingFromFirebase) {
+                        database.ref(`soluongProducts/${productKey}`).update({
+                            imageUrl: product.imageUrl,
+                            lastRefreshed: product.lastRefreshed,
+                        }).catch(err => console.error('[SSE-Image] Firebase sync error:', err));
+                    }
+                } catch (err) {
+                    console.warn('[SSE-Image] Refresh error for', productKey, err);
+                }
+            }
+
+            // Re-render grid
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+        }
+
         // Cleanup Firebase listeners when leaving page
         window.addEventListener('beforeunload', () => {
             console.log('🧹 Cleaning up Firebase listeners...');
+
+            // Cleanup SSE
+            if (_sseSource) { _sseSource.close(); _sseSource = null; }
+            if (_sseImageTimer) clearTimeout(_sseImageTimer);
 
             // Cleanup product listeners
             if (firebaseDetachFn) {

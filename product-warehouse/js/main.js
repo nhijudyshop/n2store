@@ -1164,6 +1164,20 @@
 
             showToast('Đã lưu thành công!', 'success');
             closeEditModal();
+
+            // Notify SSE clients (soluong-live, order-management) about image update
+            if (editImageBase64) {
+                const templateId = parseInt($('#editProductId').value);
+                fetch(`${RENDER_API}/notify-image-update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tposProductId: templateId,
+                        tposTemplateId: templateId,
+                    }),
+                }).catch(e => console.warn('[Edit] Notify image update failed:', e));
+            }
+
             fetchProducts(true);
         } catch (err) {
             console.error('[Edit] Save failed:', err);

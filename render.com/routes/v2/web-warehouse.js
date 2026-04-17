@@ -1458,6 +1458,40 @@ router.get('/sync/log', async (req, res) => {
 });
 
 // =====================================================
+// IMAGE UPDATE NOTIFICATION — broadcast to all SSE clients
+// =====================================================
+
+/**
+ * POST /api/v2/web-warehouse/notify-image-update
+ * Called by product-warehouse after saving a new image to TPOS.
+ * Broadcasts SSE event so soluong-live & order-management can
+ * refresh the affected product's image in real-time.
+ *
+ * Body: { tposProductId, tposTemplateId }
+ */
+router.post('/notify-image-update', async (req, res) => {
+    const { tposProductId, tposTemplateId } = req.body || {};
+
+    if (!tposProductId && !tposTemplateId) {
+        return res.status(400).json({ success: false, error: 'tposProductId or tposTemplateId required' });
+    }
+
+    const timestamp = Date.now();
+
+    // Broadcast SSE event with image_update action
+    notifyWarehouseChange({
+        action: 'image_update',
+        tposProductId: tposProductId || null,
+        tposTemplateId: tposTemplateId || null,
+        timestamp,
+    }, 'update');
+
+    console.log(`[WebWarehouse] Image update notified: product=${tposProductId}, template=${tposTemplateId}`);
+
+    res.json({ success: true, timestamp });
+});
+
+// =====================================================
 // EXPORTS
 // =====================================================
 

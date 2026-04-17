@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [warehouse][render] Real-time image sync: product-warehouse → soluong-live & order-management
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/web-warehouse.js`, `product-warehouse/js/main.js`, `soluong-live/js/soluong-list.js`, `order-management/js/order-list.js` |
+| **Chi tiết** | **Tính năng:** Khi product-warehouse cập nhật hình ảnh sản phẩm → soluong-live và order-management tự động cập nhật hình real-time. **Cách hoạt động:** (1) Render server: thêm `POST /api/v2/web-warehouse/notify-image-update` endpoint broadcast SSE event `image_update`. (2) product-warehouse: sau khi save ảnh mới lên TPOS → gọi notify endpoint. (3) soluong-live & order-management: thêm SSE `EventSource` listener, khi nhận `image_update` → re-fetch ảnh từ Render DB → update local state + Firebase RTDB + cache-bust URL → re-render grid. |
+| **Status** | ✅ Done |
+
 ### [orders][render] Fix delivery group badges (THÀNH PHỐ/TOMATO/NAP) không hiện trong cột Phiếu Bán Hàng
 | | |
 |---|---|
