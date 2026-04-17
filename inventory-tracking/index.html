@@ -569,6 +569,49 @@
         </div>
     </div>
 
+    <!-- Modal: Variant Creator -->
+    <div class="modal" id="modalVariant">
+        <div class="modal-overlay" onclick="closeModal('modalVariant')"></div>
+        <div class="modal-container modal-xl" style="max-width:1100px;">
+            <div class="modal-header">
+                <h3>Tạo biến thể từ thuộc tính</h3>
+                <button class="modal-close" onclick="closeModal('modalVariant')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="variant-summary" id="variantSummary"></div>
+                <div class="variant-groups">
+                    <div class="variant-group">
+                        <div class="variant-group-title">Màu</div>
+                        <input type="text" class="variant-search" placeholder="Tìm kiếm..." data-target="variantColorList">
+                        <div class="variant-options" id="variantColorList"></div>
+                    </div>
+                    <div class="variant-group">
+                        <div class="variant-group-title">Size Số</div>
+                        <input type="text" class="variant-search" placeholder="Tìm kiếm..." data-target="variantSizeNumList">
+                        <div class="variant-options" id="variantSizeNumList"></div>
+                    </div>
+                    <div class="variant-group">
+                        <div class="variant-group-title">Size Chữ</div>
+                        <input type="text" class="variant-search" placeholder="Tìm kiếm..." data-target="variantSizeCharList">
+                        <div class="variant-options" id="variantSizeCharList"></div>
+                    </div>
+                    <div class="variant-group">
+                        <div class="variant-group-title">Danh sách Biến Thể</div>
+                        <div class="variant-preview" id="variantPreview"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalVariant')">Hủy</button>
+                <button class="btn btn-primary" id="btnCreateVariants">
+                    <i data-lucide="check"></i> <span id="btnCreateVariantsLabel">Tạo biến thể</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add Table Image (paste or file) -->
     <div class="modal" id="modalAddTableImage">
         <div class="modal-overlay" onclick="closeModal('modalAddTableImage')"></div>
@@ -723,6 +766,7 @@
     <script src="js/table-renderer.js"></script>
     <script src="js/modal-shipment.js"></script>
     <script src="js/modal-shortage.js"></script>
+    <script src="js/modal-variant.js"></script>
     <script src="js/image-upload.js"></script>
     <script src="js/modal-image-manager.js"></script>
     <script src="js/note-manager.js"></script>

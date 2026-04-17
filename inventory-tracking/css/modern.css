@@ -1033,6 +1033,114 @@ tr.ncc-row-done td.col-ncc { opacity: 0.6; }
     background: rgba(231, 76, 60, 0.12);
 }
 
+/* Variant Creator Modal */
+.variant-summary {
+    padding: 8px 12px;
+    color: var(--gray-500);
+    font-size: 13px;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 16px;
+    min-height: 24px;
+}
+.variant-groups {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.variant-group {
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+}
+.variant-group-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--gray-800);
+}
+.variant-search {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+.variant-options {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.variant-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.variant-option:hover { background: var(--gray-100); }
+.variant-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary, #4a7cff);
+}
+.variant-preview {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.variant-preview-empty {
+    color: var(--gray-400);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px 0;
+}
+.variant-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(74, 124, 255, 0.06);
+    border: 1px solid rgba(74, 124, 255, 0.2);
+    border-radius: 6px;
+    font-size: 13px;
+}
+.variant-preview-name {
+    flex: 1;
+    font-weight: 500;
+}
+.variant-qty-input {
+    width: 52px;
+    padding: 3px 6px;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+}
+.variant-remove-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--danger, #e74c3c);
+    cursor: pointer;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+}
+.variant-remove-btn:hover { background: rgba(231, 76, 60, 0.12); }
+
 /* Inline edit cells */
 .editable-cell { cursor: pointer; }
 .editable-cell:hover { background: rgba(74, 124, 255, 0.06); }

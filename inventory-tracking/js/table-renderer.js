@@ -379,7 +379,7 @@ function formatColors(mauSac) {
     if (!mauSac || mauSac.length === 0) {
         return '<span class="text-muted">-</span>';
     }
-    return mauSac.map(c => `${c.mau} (${c.soLuong})`).join(', ');
+    return mauSac.map(c => `${c.mau} - SL ${c.soLuong}`).join(', ');
 }
 
 /**
@@ -799,7 +799,7 @@ function renderProductRow(opts) {
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}</td>
             <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
-            <td class="col-colors ${borderClass}">${colorDetails}</td>
+            <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
             <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
             <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
             ${isFirstRow ? `
