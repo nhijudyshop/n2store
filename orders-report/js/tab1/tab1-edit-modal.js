@@ -790,17 +790,20 @@ function printOrder() {
 // =====================================================
 function updateProductQuantity(index, change, value = null) {
     const product = currentEditOrderData.Details[index];
+    const oldQty = product.Quantity || 0;
     let newQty =
-        value !== null ? parseInt(value, 10) : (product.Quantity || 0) + change;
+        value !== null ? parseInt(value, 10) : oldQty + change;
     if (newQty < 1) newQty = 1;
     product.Quantity = newQty;
 
     // KPI Audit Log - ghi nhận thay đổi số lượng (Render PostgreSQL)
-    if (window.kpiAuditLogger && change !== 0) {
+    // Tính delta thực tế (hỗ trợ cả +/- buttons lẫn direct input)
+    const actualDelta = newQty - oldQty;
+    if (window.kpiAuditLogger && actualDelta !== 0) {
         const orderId = currentEditOrderData.Id;
         const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
-        const action = change > 0 ? 'add' : 'remove';
-        const qty = Math.abs(change);
+        const action = actualDelta > 0 ? 'add' : 'remove';
+        const qty = Math.abs(actualDelta);
         window.kpiAuditLogger.logProductAction({
             orderCode: orderCode,
             orderId: String(orderId),

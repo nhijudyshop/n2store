@@ -246,10 +246,10 @@
             const base = await getKPIBase(orderCode);
             if (!base || !base.products || base.products.length === 0) return emptyResult;
 
-            // Build BASE product ID set
+            // Build BASE product ID set (skip null/undefined to avoid Number(null)===0 false match)
             const baseProductIds = new Set();
             for (const p of base.products) {
-                if (p.ProductId) baseProductIds.add(Number(p.ProductId));
+                if (p.ProductId != null) baseProductIds.add(Number(p.ProductId));
             }
 
             // Get audit logs from PostgreSQL
@@ -262,8 +262,10 @@
                 ? logs.filter(l => new Date(l.createdAt) >= baseTime)
                 : logs;
 
-            // Only NEW products (not in BASE)
+            // Only NEW products (not in BASE), skip out_of_range and null productId
             const newProductLogs = relevantLogs.filter(l => {
+                if (l.outOfRange === true || l.out_of_range === true) return false;
+                if (l.productId == null) return true; // null productId = always treat as new
                 const pid = Number(l.productId);
                 return !baseProductIds.has(pid);
             });
@@ -357,8 +359,11 @@
 
             const result = await calculateNetKPI(orderCode);
 
-            const date = getCurrentDateString();
-            await saveKPIStatistics(employeeUserId, date, {
+            // Use BASE creation date, not today — prevents same order appearing in multiple days
+            const baseDate = base.createdAt
+                ? new Date(base.createdAt).toISOString().substring(0, 10)
+                : getCurrentDateString();
+            await saveKPIStatistics(employeeUserId, baseDate, {
                 orderCode: orderCode,
                 orderId: base.orderId || null,
                 stt: stt,
@@ -519,6 +524,90 @@
     }
 
     // ========================================
+    // Reconcile KPI — compare audit-based KPI with current TPOS products
+    // ========================================
+    async function reconcileKPI(orderId, campaignName) {
+        const result = { orderId, hasDiscrepancy: false, discrepancies: [] };
+        if (!orderId) return result;
+
+        try {
+            // Get current products from TPOS
+            const currentProducts = await fetchProductsFromTPOS(orderId);
+            if (currentProducts.length === 0) {
+                result.hasDiscrepancy = true;
+                result.discrepancies.push({ type: 'no_tpos_data', message: 'Không lấy được SP từ TPOS' });
+                return result;
+            }
+
+            // Get BASE and audit-based KPI
+            // Find orderCode from orderId via OrderStore or BASE lookup
+            let orderCode = '';
+            if (window.OrderStore) {
+                const storeOrder = window.OrderStore.get(orderId);
+                if (storeOrder) orderCode = storeOrder.Code || '';
+            }
+            if (!orderCode) return result; // Can't reconcile without orderCode
+
+            const base = await getKPIBase(orderCode);
+            if (!base) {
+                result.hasDiscrepancy = true;
+                result.discrepancies.push({ type: 'no_base', message: 'Không có BASE snapshot' });
+                return result;
+            }
+
+            // Build sets for comparison
+            const baseProductIds = new Set();
+            for (const p of base.products) {
+                if (p.ProductId != null) baseProductIds.add(Number(p.ProductId));
+            }
+
+            const currentProductIds = new Set();
+            for (const p of currentProducts) {
+                if (p.ProductId != null) currentProductIds.add(Number(p.ProductId));
+            }
+
+            // Products in TPOS but not in BASE = should be reflected in KPI
+            const expectedNewProducts = [...currentProductIds].filter(pid => !baseProductIds.has(pid));
+
+            // Products counted by audit logs
+            const kpiResult = await calculateNetKPI(orderCode);
+            const auditNewProductIds = new Set(Object.keys(kpiResult.details).map(Number).filter(n => !isNaN(n)));
+
+            // Compare: products in TPOS but missing from audit
+            for (const pid of expectedNewProducts) {
+                if (!auditNewProductIds.has(pid)) {
+                    const p = currentProducts.find(cp => Number(cp.ProductId) === pid);
+                    result.hasDiscrepancy = true;
+                    result.discrepancies.push({
+                        type: 'missing_audit',
+                        message: `SP ${p?.ProductCode || pid} có trên TPOS nhưng thiếu audit log`
+                    });
+                }
+            }
+
+            // Products in audit but removed from TPOS
+            for (const pid of auditNewProductIds) {
+                if (!currentProductIds.has(pid) && !baseProductIds.has(pid)) {
+                    const detail = kpiResult.details[String(pid)];
+                    if (detail && detail.net > 0) {
+                        result.hasDiscrepancy = true;
+                        result.discrepancies.push({
+                            type: 'removed_from_tpos',
+                            message: `SP ${detail.code || pid} có KPI nhưng đã bị xóa khỏi TPOS`
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[KPI] reconcileKPI error:', e);
+            result.hasDiscrepancy = true;
+            result.discrepancies.push({ type: 'error', message: e.message });
+        }
+
+        return result;
+    }
+
+    // ========================================
     // Export
     // ========================================
     window.kpiManager = {
@@ -527,6 +616,7 @@
         saveAutoBaseSnapshot,
         calculateNetKPI,
         recalculateAndSaveKPI,
+        reconcileKPI,
         saveKPIStatistics,
         getAssignedEmployeeForSTT,
         fetchProductsFromTPOS,

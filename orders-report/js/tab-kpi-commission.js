@@ -781,7 +781,7 @@ const KPICommission = {
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
-                <td>${emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length}</td>
+                <td>${emp.orders.filter(o => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
                 <td>${invoiceSummaryHtml}</td>
@@ -898,7 +898,8 @@ const KPICommission = {
 
         let html = '';
         orders.forEach(order => {
-            // Ẩn đơn có SP NET = 0 và KPI = 0
+            // Ẩn đơn stale hoặc SP NET = 0 và KPI = 0
+            if (order._stale) return;
             if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
@@ -1567,7 +1568,7 @@ const KPICommission = {
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
-                    emp.orders.filter(o => (o.netProducts || 0) > 0 || (o.kpi || 0) > 0).length,
+                    emp.orders.filter(o => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length,
                     emp.totalNetProducts,
                     emp.totalKPI,
                     invoiceSummary || '−'

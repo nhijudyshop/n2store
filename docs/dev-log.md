@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-17
+
+### [orders] KPI Hoa Hồng: fix 6 bugs phân tích sâu + implement đối soát
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab1/tab1-edit-modal.js`, `orders-report/js/tab-kpi-commission.js` |
+| **Chi tiết** | **Bug A (CRITICAL):** Đơn tính KPI trùng cross-day — dùng BASE creation date thay vì today. **Bug B:** ProductId=null → Number(null)=0 gây false match — thêm null check. **Bug C:** Input qty trực tiếp (không dùng +/-) không log audit — tính delta từ oldQty→newQty. **Bug D:** Nút "Đối soát" không hoạt động vì thiếu reconcileKPI() — implement so sánh audit logs vs TPOS thực tế. **Bug E:** out_of_range flag bị bỏ qua khi tính KPI — filter ra khỏi calculation. **Bug F:** Stale orders đếm không nhất quán giữa summary/table/modal/export — thống nhất `_stale` check. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-16
 
 ### [orders][render] KPI Hoa Hồng: fix 5 bugs nghiêm trọng + cải thiện
