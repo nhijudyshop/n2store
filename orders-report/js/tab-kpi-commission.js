@@ -1057,7 +1057,7 @@ const KPICommission = {
             const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
             const orderCode = orderData?.orderCode || orderId;
 
-            // 1. Get BASE from REST API
+            // 1. Get BASE from REST API (chỉ để check sự tồn tại cho empty state)
             const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
             if (!base) {
                 this.hideEl('kpiCompareLoading');
@@ -1067,50 +1067,20 @@ const KPICommission = {
                 return;
             }
 
-            const baseProductIds = new Set();
-            (base.products || []).forEach(p => {
-                const pid = p.ProductId || p.productId;
-                if (pid) baseProductIds.add(Number(pid));
-            });
+            // 2. Gọi calculateNetKPI để áp đúng filter (productId + template + name-normalize + out_of_range)
+            const kpiResult = window.kpiManager
+                ? await window.kpiManager.calculateNetKPI(orderCode)
+                : { details: {}, netProducts: 0, kpiAmount: 0 };
 
-            // 2. Get audit logs from REST API
-            let auditLogs = [];
-            if (window.kpiAuditLogger) {
-                auditLogs = await window.kpiAuditLogger.getAuditLogsForOrder(orderCode);
-            }
-
-            // 3. Filter only NEW products (not in BASE)
-            const newProductLogs = auditLogs.filter(log => {
-                const pid = Number(log.productId);
-                return !baseProductIds.has(pid);
-            });
-
-            // 4. Group by productId
-            const netPerProduct = {};
-            for (const log of newProductLogs) {
-                const pid = String(log.productId);
-                if (!netPerProduct[pid]) {
-                    netPerProduct[pid] = {
-                        code: log.productCode || '',
-                        name: log.productName || '',
-                        added: 0,
-                        removed: 0,
-                        net: 0
-                    };
-                }
-                if (log.action === 'add') {
-                    netPerProduct[pid].added += (log.quantity || 0);
-                } else if (log.action === 'remove') {
-                    netPerProduct[pid].removed += (log.quantity || 0);
-                }
-            }
-
-            // 5. Calculate net per product
-            const products = Object.entries(netPerProduct).map(([pid, data]) => {
-                data.net = Math.max(0, data.added - data.removed);
-                data.kpi = data.net * this.KPI_PER_PRODUCT;
-                return { pid, ...data };
-            });
+            const products = Object.entries(kpiResult.details || {}).map(([pid, data]) => ({
+                pid,
+                code: data.code || '',
+                name: data.name || '',
+                added: data.added || 0,
+                removed: data.removed || 0,
+                net: data.net || 0,
+                kpi: (data.net || 0) * this.KPI_PER_PRODUCT
+            }));
 
             this.hideEl('kpiCompareLoading');
 
@@ -1235,31 +1205,19 @@ const KPICommission = {
 
             tbody.innerHTML = html;
 
-            // Calculate summary (only new products)
+            // Summary: tính qua calculateNetKPI để áp đúng filter biến thể
+            // (productId + tpos_template_id + normalized name + out_of_range).
+            const kpiResult = window.kpiManager
+                ? await window.kpiManager.calculateNetKPI(orderCode)
+                : { details: {}, netProducts: 0, kpiAmount: 0 };
+
             let totalAdded = 0, totalRemoved = 0;
-            const newProductNet = {};
-
-            for (const log of auditLogs) {
-                const pid = Number(log.productId);
-                if (baseProductIds.has(pid)) continue; // Skip base products
-
-                const key = String(log.productId);
-                if (!newProductNet[key]) newProductNet[key] = { added: 0, removed: 0 };
-
-                if (log.action === 'add') {
-                    newProductNet[key].added += (log.quantity || 0);
-                    totalAdded += (log.quantity || 0);
-                } else if (log.action === 'remove') {
-                    newProductNet[key].removed += (log.quantity || 0);
-                    totalRemoved += (log.quantity || 0);
-                }
+            for (const data of Object.values(kpiResult.details || {})) {
+                totalAdded += data.added || 0;
+                totalRemoved += data.removed || 0;
             }
-
-            let totalNet = 0;
-            for (const data of Object.values(newProductNet)) {
-                totalNet += Math.max(0, data.added - data.removed);
-            }
-            const totalKPI = totalNet * this.KPI_PER_PRODUCT;
+            const totalNet = kpiResult.netProducts || 0;
+            const totalKPI = kpiResult.kpiAmount || (totalNet * this.KPI_PER_PRODUCT);
 
             // Render summary
             const summaryEl = document.getElementById('auditLogSummary');
