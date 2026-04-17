@@ -167,6 +167,7 @@ async function deleteShipment(id) {
 
         await logEditHistory('delete', 'shipment', id, existingShipment, null);
         flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
 
         window.notificationManager?.success('Đã xóa đợt hàng');
         return true;
