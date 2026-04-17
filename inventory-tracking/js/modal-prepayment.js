@@ -25,7 +25,7 @@ function openPrepaymentModal(prepayment = null) {
     const noteInput = document.getElementById('prepaymentNote');
 
     if (dateInput) {
-        dateInput.value = prepayment?.ngay || new Date().toISOString().split('T')[0];
+        dateInput.value = prepayment?.ngay || todayVN();
     }
     if (amountInput) {
         amountInput.value = prepayment?.soTien || '';

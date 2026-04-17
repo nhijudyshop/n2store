@@ -26,7 +26,7 @@ function openExpenseModal(expense = null) {
     const noteInput = document.getElementById('expenseNote');
 
     if (dateInput) {
-        dateInput.value = expense?.ngay || new Date().toISOString().split('T')[0];
+        dateInput.value = expense?.ngay || todayVN();
     }
     if (typeInput) {
         typeInput.value = expense?.loaiChi || '';

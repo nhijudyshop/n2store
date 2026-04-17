@@ -244,10 +244,10 @@ class InventoryTrackingApp {
     }
 
     /**
-     * Format date to YYYY-MM-DD
+     * Format date to YYYY-MM-DD (Vietnam timezone)
      */
     formatDate(date) {
-        return date.toISOString().split('T')[0];
+        return dateToVNStr(date);
     }
 
     /**
@@ -609,8 +609,7 @@ function formatNumber(num) {
 /**
  * Format date for display (DD/MM/YYYY) — timezone-safe.
  * YYYY-MM-DD strings are parsed as calendar dates (no timezone shift),
- * not as UTC midnight → which would shift back 1 day in negative-offset
- * timezones like US Eastern.
+ * not as UTC midnight → which would shift in negative-offset timezones.
  */
 function formatDateDisplay(dateStr) {
     if (!dateStr) return '';
@@ -618,8 +617,40 @@ function formatDateDisplay(dateStr) {
     if (match) {
         return `${parseInt(match[3], 10)}/${parseInt(match[2], 10)}/${match[1]}`;
     }
+    // Fallback: Date object → display in Vietnam timezone
     const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN');
+    return date.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
+/**
+ * Get today's date in Vietnam (GMT+7) as YYYY-MM-DD.
+ * Always returns Vietnam calendar date regardless of browser timezone.
+ */
+function todayVN() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${d}`;
+}
+
+/**
+ * Convert a Date to YYYY-MM-DD in Vietnam (GMT+7).
+ */
+function dateToVNStr(date) {
+    if (!date) return '';
+    const d = (date instanceof Date) ? date : new Date(date);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const dd = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${dd}`;
 }
 
 /**

@@ -64,10 +64,7 @@ function _computeDefaultDotSo(shipment, date) {
 function renderShipmentForm(shipment) {
     const isEdit = !!shipment;
     const cachedDate = localStorage.getItem('lastShipmentDate');
-    // Local calendar date (avoid UTC shift in negative-offset timezones)
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const date = shipment?.ngayDiHang || cachedDate || todayStr;
+    const date = shipment?.ngayDiHang || cachedDate || todayVN();
     const packages = shipment?.kienHang || [];
     const dotSo = _computeDefaultDotSo(shipment, date);
 

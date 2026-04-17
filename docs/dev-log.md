@@ -8,11 +8,11 @@
 
 ## 2026-04-17
 
-### [inventory] Fix timezone off-by-one: ngày hiển thị/ghép nhóm sai trong timezone âm (US)
+### [inventory] Chuyển toàn bộ date logic sang GMT+7 (Vietnam)
 | | |
 |---|---|
-| **Files** | `inventory-tracking/js/main.js`, `inventory-tracking/js/modal-shipment.js` |
-| **Chi tiết** | **Bug:** User thêm đợt 10/4/2026 nhưng kết quả hiện thành 9/4/2026 → không gộp vào nhóm cũ. **Nguyên nhân:** `formatDateDisplay('2026-04-10')` dùng `new Date('2026-04-10')` → JS parse YYYY-MM-DD là **UTC midnight**. Trong timezone âm (VD US Eastern UTC-5), `toLocaleDateString` render lùi 1 ngày. Nhóm dates khớp string "2026-04-10" vẫn đúng, nhưng user thấy ngày sai nên chọn sai. **Fix:** Parse YYYY-MM-DD bằng regex tay (`day/month/year`) → không đụng Date constructor. Cũng fix default date mới dùng `getFullYear/getMonth/getDate` local thay vì `toISOString()` (cũng bị UTC shift). |
+| **Files** | `inventory-tracking/js/main.js`, `modal-shipment.js`, `modal-prepayment.js`, `modal-other-expense.js`, `modal-order-booking.js`, `export.js`, `filters.js` |
+| **Chi tiết** | **1. Thêm helper trong main.js:** `todayVN()` + `dateToVNStr(date)` dùng `Intl.DateTimeFormat` với `timeZone: 'Asia/Ho_Chi_Minh'` — luôn trả YYYY-MM-DD theo lịch VN bất kể browser timezone. **2. formatDateDisplay:** parse YYYY-MM-DD bằng regex (không qua `new Date` tránh UTC midnight shift trong timezone âm), fallback dùng `toLocaleDateString` với VN timezone. **3. Replace toàn bộ `new Date().toISOString().split('T')[0]` → `todayVN()`/`dateToVNStr()` ở 8+ chỗ:** `modal-shipment`, `modal-prepayment`, `modal-other-expense`, `modal-order-booking`, `export`, `filters` (default range, quick range, single day, navigate, reset 30 days), `main.InventoryTracking.formatDate`. **Kết quả:** mọi "hôm nay", mọi format YYYY-MM-DD từ Date object đều là lịch VN — user ở bất kỳ timezone nào cũng thấy ngày VN đồng nhất với DB. |
 | **Status** | ✅ Done |
 
 ### [orders] Purchase Orders: hiển thị lỗi TPOS giống TPOS khi Xuất Excel / Tạo đơn

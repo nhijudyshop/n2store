@@ -45,7 +45,7 @@ function openOrderBookingModal(booking = null) {
  */
 function renderOrderBookingForm(booking) {
     const isEdit = !!booking;
-    const date = booking?.ngayDatHang || new Date().toISOString().split('T')[0];
+    const date = booking?.ngayDatHang || todayVN();
     const products = booking?.sanPham || [];
     const productLines = products.map(p => p.rawText || `MA ${p.maSP} ${p.soMau || ''} MAU ${p.soLuong || 0}X${p.giaDonVi || 0}`).join('\n');
 

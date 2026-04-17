@@ -35,7 +35,7 @@ async function exportToExcel() {
         }
 
         // Generate filename
-        const dateStr = new Date().toISOString().split('T')[0];
+        const dateStr = todayVN();
         const filename = `inventory_tracking_${dateStr}.xlsx`;
 
         // Download
@@ -261,7 +261,7 @@ async function exportTrackingToExcel() {
         XLSX.utils.book_append_sheet(wb, ws, 'Theo Doi Don Hang');
 
         // Generate filename
-        const dateStr = new Date().toISOString().split('T')[0];
+        const dateStr = todayVN();
         const filename = `theo_doi_don_hang_${dateStr}.xlsx`;
 
         // Download

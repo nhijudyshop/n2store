@@ -34,8 +34,8 @@ function initFilters() {
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    if (dateFromInput) dateFromInput.value = sevenDaysAgo.toISOString().split('T')[0];
-    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+    if (dateFromInput) dateFromInput.value = dateToVNStr(sevenDaysAgo);
+    if (dateToInput) dateToInput.value = dateToVNStr(now);
 
     // Update date selector display
     updateTrackingDateSelectorDisplay();
@@ -138,7 +138,7 @@ function handleTrackingDateSelectorChange() {
 function setTrackingSingleDay(date) {
     const dateFromInput = document.getElementById('filterDateFrom');
     const dateToInput = document.getElementById('filterDateTo');
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = dateToVNStr(date);
 
     if (dateFromInput) dateFromInput.value = dateStr;
     if (dateToInput) dateToInput.value = dateStr;
@@ -166,8 +166,8 @@ function navigateTrackingDate(days) {
     fromDate.setDate(fromDate.getDate() + days);
     toDate.setDate(toDate.getDate() + days);
 
-    dateFromInput.value = fromDate.toISOString().split('T')[0];
-    dateToInput.value = toDate.toISOString().split('T')[0];
+    dateFromInput.value = dateToVNStr(fromDate);
+    dateToInput.value = dateToVNStr(toDate);
 
     trackingCurrentDate = fromDate;
     clearQuickDateButtonActive();
@@ -217,10 +217,10 @@ function setQuickDateRange(days, activeBtn) {
     pastDate.setDate(pastDate.getDate() - days);
 
     if (dateFromInput) {
-        dateFromInput.value = pastDate.toISOString().split('T')[0];
+        dateFromInput.value = dateToVNStr(pastDate);
     }
     if (dateToInput) {
-        dateToInput.value = now.toISOString().split('T')[0];
+        dateToInput.value = dateToVNStr(now);
     }
 
     // Update active button state
@@ -353,8 +353,8 @@ function clearFilters() {
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    if (dateFromInput) dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+    if (dateFromInput) dateFromInput.value = dateToVNStr(thirtyDaysAgo);
+    if (dateToInput) dateToInput.value = dateToVNStr(now);
     if (nccSelect) nccSelect.value = 'all';
     if (productInput) productInput.value = '';
 
@@ -363,8 +363,8 @@ function clearFilters() {
     document.getElementById('btn30Days')?.classList.add('active');
 
     globalState.filters = {
-        dateFrom: thirtyDaysAgo.toISOString().split('T')[0],
-        dateTo: now.toISOString().split('T')[0],
+        dateFrom: dateToVNStr(thirtyDaysAgo),
+        dateTo: dateToVNStr(now),
         ncc: 'all'
     };
     globalState.searchQuery = '';
@@ -471,8 +471,8 @@ function initBookingFilters() {
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    if (dateFromInput) dateFromInput.value = sevenDaysAgo.toISOString().split('T')[0];
-    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+    if (dateFromInput) dateFromInput.value = dateToVNStr(sevenDaysAgo);
+    if (dateToInput) dateToInput.value = dateToVNStr(now);
 
     // Update date selector display
     updateBookingDateSelectorDisplay();
@@ -572,7 +572,7 @@ function handleBookingDateSelectorChange() {
 function setBookingSingleDay(date) {
     const dateFromInput = document.getElementById('filterBookingDateFrom');
     const dateToInput = document.getElementById('filterBookingDateTo');
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = dateToVNStr(date);
 
     if (dateFromInput) dateFromInput.value = dateStr;
     if (dateToInput) dateToInput.value = dateStr;
@@ -597,8 +597,8 @@ function navigateBookingDate(days) {
     fromDate.setDate(fromDate.getDate() + days);
     toDate.setDate(toDate.getDate() + days);
 
-    dateFromInput.value = fromDate.toISOString().split('T')[0];
-    dateToInput.value = toDate.toISOString().split('T')[0];
+    dateFromInput.value = dateToVNStr(fromDate);
+    dateToInput.value = dateToVNStr(toDate);
 
     bookingCurrentDate = fromDate;
     clearBookingQuickDateButtonActive();
@@ -648,10 +648,10 @@ function setBookingQuickDateRange(days, activeBtn) {
     pastDate.setDate(pastDate.getDate() - days);
 
     if (dateFromInput) {
-        dateFromInput.value = pastDate.toISOString().split('T')[0];
+        dateFromInput.value = dateToVNStr(pastDate);
     }
     if (dateToInput) {
-        dateToInput.value = now.toISOString().split('T')[0];
+        dateToInput.value = dateToVNStr(now);
     }
 
     // Update active button state
@@ -749,8 +749,8 @@ function clearBookingFilters() {
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    if (dateFromInput) dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-    if (dateToInput) dateToInput.value = now.toISOString().split('T')[0];
+    if (dateFromInput) dateFromInput.value = dateToVNStr(thirtyDaysAgo);
+    if (dateToInput) dateToInput.value = dateToVNStr(now);
     if (nccSelect) nccSelect.value = 'all';
     if (statusSelect) statusSelect.value = 'all';
     if (productInput) productInput.value = '';
