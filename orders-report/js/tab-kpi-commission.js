@@ -1694,23 +1694,37 @@ const KPICommission = {
                 return;
             }
 
-            console.log(`[KPI Recompute] Bắt đầu tính lại ${total} đơn...`);
+            console.log(`[KPI Recompute] Bắt đầu tính lại ${total} đơn (parallel=20)...`);
 
+            const CONCURRENCY = 20;
+            const queue = Array.from(orderCodes);
             let done = 0;
             let failed = 0;
-            for (const orderCode of orderCodes) {
-                try {
-                    await window.kpiManager.recalculateAndSaveKPI(orderCode);
-                } catch (e) {
-                    failed++;
-                    console.warn(`[KPI Recompute] Fail ${orderCode}:`, e?.message || e);
+
+            const updateProgress = () => {
+                if (!btn) return;
+                btn.innerHTML = `<i data-lucide="loader-2"></i> ${done}/${total}…`;
+                this.reinitIcons();
+            };
+
+            // Worker pool: mỗi worker pull 1 orderCode từ queue, xử lý, repeat.
+            const worker = async () => {
+                while (queue.length > 0) {
+                    const orderCode = queue.shift();
+                    if (!orderCode) break;
+                    try {
+                        await window.kpiManager.recalculateAndSaveKPI(orderCode);
+                    } catch (e) {
+                        failed++;
+                        console.warn(`[KPI Recompute] Fail ${orderCode}:`, e?.message || e);
+                    }
+                    done++;
+                    if (done % 10 === 0 || done === total) updateProgress();
                 }
-                done++;
-                if (btn && (done % 5 === 0 || done === total)) {
-                    btn.innerHTML = `<i data-lucide="loader-2"></i> ${done}/${total}…`;
-                    this.reinitIcons();
-                }
-            }
+            };
+
+            const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker());
+            await Promise.all(workers);
 
             console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}`);
             alert(`Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}\n\nĐang refresh bảng…`);
