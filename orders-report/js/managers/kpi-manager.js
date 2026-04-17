@@ -23,6 +23,8 @@
 
     const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
     const KPI_AMOUNT_PER_DIFFERENCE = 5000;
+    // KPI mode: 'fixed' = 5000đ/SP, 'value' = theo giá SP thực tế
+    let KPI_MODE = 'fixed';
 
     // ========================================
     // REST API Helper
@@ -275,21 +277,32 @@
             for (const log of newProductLogs) {
                 const pid = String(log.productId);
                 if (!netPerProduct[pid]) {
-                    netPerProduct[pid] = { code: log.productCode, name: log.productName, added: 0, removed: 0, net: 0 };
+                    netPerProduct[pid] = { code: log.productCode, name: log.productName, added: 0, removed: 0, net: 0, price: 0 };
                 }
-                if (log.action === 'add') netPerProduct[pid].added += (log.quantity || 0);
-                else if (log.action === 'remove') netPerProduct[pid].removed += (log.quantity || 0);
+                if (log.action === 'add') {
+                    netPerProduct[pid].added += (log.quantity || 0);
+                    // Track price from the latest add action for value-based KPI
+                    if (log.price) netPerProduct[pid].price = log.price;
+                } else if (log.action === 'remove') {
+                    netPerProduct[pid].removed += (log.quantity || 0);
+                }
             }
 
             let totalNet = 0;
+            let totalKPIAmount = 0;
             for (const [pid, data] of Object.entries(netPerProduct)) {
                 data.net = Math.max(0, data.added - data.removed);
                 totalNet += data.net;
+                if (KPI_MODE === 'value' && data.price > 0) {
+                    totalKPIAmount += data.net * data.price;
+                } else {
+                    totalKPIAmount += data.net * KPI_AMOUNT_PER_DIFFERENCE;
+                }
             }
 
             return {
                 netProducts: totalNet,
-                kpiAmount: totalNet * KPI_AMOUNT_PER_DIFFERENCE,
+                kpiAmount: totalKPIAmount,
                 details: netPerProduct,
                 baseProductCount: baseProductIds.size
             };
@@ -610,6 +623,15 @@
     // ========================================
     // Export
     // ========================================
+    function setKPIMode(mode) {
+        if (mode === 'fixed' || mode === 'value') {
+            KPI_MODE = mode;
+            console.log(`[KPI] Mode set to: ${mode}`);
+        }
+    }
+
+    function getKPIMode() { return KPI_MODE; }
+
     window.kpiManager = {
         checkKPIBaseExists,
         getKPIBase,
@@ -624,6 +646,8 @@
         updateKPIBadge,
         showKPIToast,
         initKPIBadge,
+        setKPIMode,
+        getKPIMode,
         KPI_AMOUNT_PER_DIFFERENCE,
         kpiAPI
     };

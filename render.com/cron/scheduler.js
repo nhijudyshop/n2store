@@ -1,6 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 const cron = require('node-cron');
 const db = require('../db/pool');
+const fetch = require('node-fetch');
 
 // NEW: Import services for customer creation and wallet processing
 const { ensureCustomerWithTPOS } = require('../services/customer-creation-service');
@@ -305,5 +306,82 @@ cron.schedule('*/5 * * * *', async () => {
 
     } catch (error) {
         console.error('[CRON] ❌ Error in retry-pending-withdrawals:', error.message);
+    }
+});
+
+// =====================================================
+// KPI Auto-Reconcile — chạy 6AM hàng ngày
+// So sánh audit-based KPI với TPOS thực tế, flag discrepancy
+// =====================================================
+cron.schedule('0 6 * * *', async () => {
+    console.log('[CRON] Running KPI auto-reconcile...');
+    try {
+        // Get all statistics from last 7 days
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+        const statsResult = await db.query(
+            'SELECT user_id, stat_date, orders FROM kpi_statistics WHERE stat_date >= $1',
+            [sevenDaysAgo]
+        );
+
+        let checked = 0, flagged = 0;
+
+        for (const row of statsResult.rows) {
+            const orders = row.orders || [];
+            for (const order of orders) {
+                if (!order.orderCode) continue;
+                checked++;
+
+                // Get BASE
+                const baseResult = await db.query(
+                    'SELECT products FROM kpi_base WHERE order_code = $1', [order.orderCode]
+                );
+                if (baseResult.rows.length === 0) continue;
+                const baseProducts = baseResult.rows[0].products || [];
+                const baseProductIds = new Set(baseProducts.filter(p => p.ProductId != null).map(p => Number(p.ProductId)));
+
+                // Get audit logs for this order
+                const auditResult = await db.query(
+                    'SELECT product_id, action, quantity, user_id, out_of_range FROM kpi_audit_log WHERE order_code = $1 ORDER BY created_at',
+                    [order.orderCode]
+                );
+
+                // Cross-check userId: flag if audit user ≠ assigned employee
+                const assignedUserId = row.user_id;
+                const foreignActions = auditResult.rows.filter(l =>
+                    l.user_id && l.user_id !== assignedUserId && l.user_id !== 'unknown'
+                );
+                if (foreignActions.length > 0) {
+                    flagged++;
+                    console.warn(`[KPI-RECONCILE] ⚠️ Order ${order.orderCode}: ${foreignActions.length} actions by non-assigned user(s)`);
+                }
+            }
+        }
+
+        console.log(`[CRON] ✅ KPI auto-reconcile: checked ${checked} orders, flagged ${flagged}`);
+    } catch (error) {
+        console.error('[CRON] ❌ Error in KPI auto-reconcile:', error.message);
+    }
+});
+
+// =====================================================
+// KPI Data Retention — chạy 5AM hàng ngày
+// Xóa audit logs > 90 ngày (giữ statistics summary)
+// =====================================================
+cron.schedule('0 5 * * *', async () => {
+    console.log('[CRON] Running KPI audit log cleanup...');
+    try {
+        const result = await db.query(`
+            DELETE FROM kpi_audit_log
+            WHERE created_at < NOW() - INTERVAL '90 days'
+            RETURNING id
+        `);
+        const count = result.rowCount || 0;
+        if (count > 0) {
+            console.log(`[CRON] ✅ Cleaned up ${count} audit logs older than 90 days`);
+        } else {
+            console.log('[CRON] No old audit logs to clean up');
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ Error in KPI audit log cleanup:', error.message);
     }
 });

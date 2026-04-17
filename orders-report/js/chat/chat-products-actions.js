@@ -228,6 +228,19 @@
             // Remove from Render held_products
             await removeHeldFromRender(orderData.Id, productId, productCode);
 
+            // KPI Audit Log — ghi nhận xóa SP giữ
+            if (window.kpiAuditLogger) {
+                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
+                window.kpiAuditLogger.logProductAction({
+                    orderCode, orderId: String(orderData.Id),
+                    action: 'remove', productId,
+                    productCode: heldProduct.ProductCode || heldProduct.Code || '',
+                    productName: heldProduct.ProductName || heldProduct.Name || '',
+                    quantity: heldProduct.Quantity || 1,
+                    source: 'chat_decrease'
+                }).catch(() => {});
+            }
+
             // Re-render
             window.renderChatProductsTable();
 
@@ -267,9 +280,25 @@
             newQty = Math.max(1, (held.Quantity || 1) + delta);
         }
 
+        const oldQty = held.Quantity || 1;
         held.Quantity = newQty;
 
-        // Sync to Firebase
+        // KPI Audit Log — ghi nhận thay đổi qty SP giữ
+        const qtyDelta = newQty - oldQty;
+        if (window.kpiAuditLogger && qtyDelta !== 0) {
+            const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
+            window.kpiAuditLogger.logProductAction({
+                orderCode, orderId: String(orderData.Id),
+                action: qtyDelta > 0 ? 'add' : 'remove',
+                productId,
+                productCode: held.ProductCode || held.Code || '',
+                productName: held.ProductName || held.Name || '',
+                quantity: Math.abs(qtyDelta),
+                source: 'chat_confirm_held'
+            }).catch(() => {});
+        }
+
+        // Sync to Render
         syncHeldQuantityToFirebase(orderData.Id, productId, newQty);
 
         // Re-render

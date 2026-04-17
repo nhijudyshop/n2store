@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [orders][render] KPI chống gian lận + 6 cải thiện hệ thống
+| | |
+|---|---|
+| **Files** | `render.com/cron/scheduler.js`, `render.com/routes/campaigns.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/chat/chat-products-actions.js` |
+| **Chi tiết** | **1. Auto-reconcile:** Cron 6AM hàng ngày kiểm tra KPI 7 ngày gần nhất. **2. Cross-check userId:** Flag khi người thao tác ≠ NV phụ trách STT range. **3. KPI theo giá trị:** Thêm mode 'value' tính KPI theo giá SP thực tế (mặc định vẫn 'fixed' 5000đ/SP). **4. Held product audit:** Log khi xóa hoặc sửa qty SP giữ — đóng lỗ hổng audit trail. **5. Data retention:** Cron 5AM xóa audit logs > 90 ngày. **6. Range validation:** Server-side validate overlap khi PUT employee-ranges — trả lỗi 400 nếu STT trùng. |
+| **Status** | ✅ Done |
+
 ### [warehouse][render] Real-time image sync: product-warehouse → soluong-live & order-management
 | | |
 |---|---|

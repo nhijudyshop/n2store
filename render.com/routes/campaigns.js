@@ -151,6 +151,38 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
         await ensureTables(pool);
 
         const { employeeRanges } = req.body;
+        const ranges = employeeRanges || [];
+
+        // Validate: check for overlapping ranges
+        if (Array.isArray(ranges) && ranges.length > 1) {
+            const sorted = [...ranges]
+                .map(r => ({
+                    from: r.fromSTT || r.from || r.start || 0,
+                    to: r.toSTT || r.to || r.end || Infinity,
+                    userId: r.userId || r.id || '?'
+                }))
+                .filter(r => r.from <= r.to)
+                .sort((a, b) => a.from - b.from);
+
+            const overlaps = [];
+            for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i].from <= sorted[i - 1].to) {
+                    overlaps.push({
+                        range1: `${sorted[i - 1].userId} (${sorted[i - 1].from}-${sorted[i - 1].to})`,
+                        range2: `${sorted[i].userId} (${sorted[i].from}-${sorted[i].to})`,
+                        overlapAt: `STT ${sorted[i].from}-${Math.min(sorted[i - 1].to, sorted[i].to)}`
+                    });
+                }
+            }
+
+            if (overlaps.length > 0) {
+                return res.status(400).json({
+                    error: 'Employee ranges overlap',
+                    overlaps,
+                    message: `Phát hiện ${overlaps.length} chỗ trùng STT: ${overlaps.map(o => o.overlapAt).join(', ')}`
+                });
+            }
+        }
 
         await pool.query(`
             INSERT INTO campaign_employee_ranges (campaign_name, employee_ranges)
@@ -158,7 +190,7 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
             ON CONFLICT (campaign_name) DO UPDATE SET
                 employee_ranges = EXCLUDED.employee_ranges,
                 updated_at = NOW()
-        `, [req.params.campaignName, JSON.stringify(employeeRanges || [])]);
+        `, [req.params.campaignName, JSON.stringify(ranges)]);
 
         res.json({ success: true });
     } catch (error) {
