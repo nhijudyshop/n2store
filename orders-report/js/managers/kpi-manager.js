@@ -547,32 +547,37 @@
     // ========================================
     // Reconcile KPI — compare audit-based KPI with current TPOS products
     // ========================================
-    async function reconcileKPI(orderId, campaignName) {
-        const result = { orderId, hasDiscrepancy: false, discrepancies: [] };
+    async function reconcileKPI(orderId, campaignName, orderCodeHint) {
+        const result = { orderId, hasDiscrepancy: false, actualNet: null, discrepancies: [] };
         if (!orderId) return result;
 
         try {
-            // Get current products from TPOS
-            const currentProducts = await fetchProductsFromTPOS(orderId);
-            if (currentProducts.length === 0) {
-                result.hasDiscrepancy = true;
-                result.discrepancies.push({ type: 'no_tpos_data', message: 'Không lấy được SP từ TPOS' });
-                return result;
-            }
-
-            // Get BASE and audit-based KPI
-            // Find orderCode from orderId via OrderStore or BASE lookup
-            let orderCode = '';
-            if (window.OrderStore) {
+            // Use provided orderCode or lookup from OrderStore
+            let orderCode = orderCodeHint || '';
+            if (!orderCode && window.OrderStore) {
                 const storeOrder = window.OrderStore.get(orderId);
                 if (storeOrder) orderCode = storeOrder.Code || '';
             }
-            if (!orderCode) return result; // Can't reconcile without orderCode
+            if (!orderCode) {
+                // Can't reconcile without orderCode — not an error
+                return result;
+            }
 
             const base = await getKPIBase(orderCode);
             if (!base) {
                 result.hasDiscrepancy = true;
                 result.discrepancies.push({ type: 'no_base', message: 'Không có BASE snapshot' });
+                return result;
+            }
+
+            // Calculate actual NET from audit logs (always works, doesn't need TPOS)
+            const kpiResult = await calculateNetKPI(orderCode);
+            result.actualNet = kpiResult.netProducts;
+
+            // Try to get current products from TPOS for cross-check
+            const currentProducts = await fetchProductsFromTPOS(orderId);
+            if (currentProducts.length === 0) {
+                // Can't reach TPOS — skip cross-check but still return actualNet
                 return result;
             }
 
@@ -587,15 +592,12 @@
                 if (p.ProductId != null) currentProductIds.add(Number(p.ProductId));
             }
 
-            // Products in TPOS but not in BASE = should be reflected in KPI
-            const expectedNewProducts = [...currentProductIds].filter(pid => !baseProductIds.has(pid));
-
-            // Products counted by audit logs
-            const kpiResult = await calculateNetKPI(orderCode);
+            // Count actual new products on TPOS (not in BASE)
+            const tposNewProducts = [...currentProductIds].filter(pid => !baseProductIds.has(pid));
             const auditNewProductIds = new Set(Object.keys(kpiResult.details).map(Number).filter(n => !isNaN(n)));
 
-            // Compare: products in TPOS but missing from audit
-            for (const pid of expectedNewProducts) {
+            // Products in TPOS but missing from audit
+            for (const pid of tposNewProducts) {
                 if (!auditNewProductIds.has(pid)) {
                     const p = currentProducts.find(cp => Number(cp.ProductId) === pid);
                     result.hasDiscrepancy = true;

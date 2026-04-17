@@ -1479,7 +1479,7 @@ const KPICommission = {
                 try {
                     let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
-                        result = await window.kpiManager.reconcileKPI(order.orderId, order.campaignName);
+                        result = await window.kpiManager.reconcileKPI(order.orderId, order.campaignName, order.orderCode);
                     } else {
                         // Fallback: basic reconciliation
                         result = {
@@ -1496,7 +1496,7 @@ const KPICommission = {
                         orderCode: order.orderCode || '',
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
-                        actualNet: result.hasDiscrepancy ? '?' : (order.netProducts || 0),
+                        actualNet: result.actualNet != null ? result.actualNet : (order.netProducts || 0),
                         hasDiscrepancy: result.hasDiscrepancy,
                         discrepancies: result.discrepancies || []
                     });
