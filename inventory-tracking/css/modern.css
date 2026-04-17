@@ -1029,6 +1029,23 @@ tr.ncc-row-done td.col-ncc { opacity: 0.6; }
 .btn-del-ncc:hover {
     background: rgba(231, 76, 60, 0.12);
 }
+
+/* Inline edit cells */
+.editable-cell { cursor: pointer; }
+.editable-cell:hover { background: rgba(74, 124, 255, 0.06); }
+.inline-edit-input {
+    width: 100%;
+    border: 1.5px solid var(--primary, #4a7cff);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 124, 255, 0.15);
+}
+textarea.inline-edit-input { resize: vertical; min-height: 28px; }
+
 .invoice-table .col-products { width: 60%; }
 .invoice-table .col-amount { width: 100px; vertical-align: middle; }
 .invoice-table .col-total { width: 70px; vertical-align: middle; }
@@ -3777,6 +3794,28 @@ tr.ncc-row-done td.col-ncc { opacity: 0.6; }
     transition: transform 0.1s;
 }
 .cell-img-thumb:hover { border-color: var(--primary); }
+
+/* Delete button on image hover */
+.cell-img-del {
+    display: none;
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    background: var(--danger, #e74c3c);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 2;
+    padding: 0;
+}
+.cell-img-wrap:hover .cell-img-del { display: block; }
+.cell-img-del:hover { background: #c0392b; }
 
 /* Hover zoom popup — fixed position to escape table overflow */
 .cell-img-zoom {

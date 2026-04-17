@@ -161,9 +161,8 @@ function renderInvoiceForm(invoice, index) {
     return `
         <div class="invoice-form" data-index="${index}">
             <div class="invoice-header">
-                <label>NCC #</label>
-                <input type="number" class="form-input invoice-ncc" value="${invoice?.sttNCC || ''}" placeholder="STT" style="width: 70px;">
-                <input type="text" class="form-input invoice-ten-ncc" value="${invoice?.tenNCC || ''}" placeholder="Tên NCC (tùy chọn)" style="flex: 1; margin-left: 8px;">
+                <label>NCC</label>
+                <input type="text" class="form-input invoice-ten-ncc" value="${invoice?.tenNCC || ''}" placeholder="Tên NCC (bắt buộc)" style="flex: 1;" required>
                 <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xóa hóa đơn">
                     <i data-lucide="trash-2"></i>
                 </button>
@@ -594,12 +593,19 @@ async function saveShipment() {
         const hoaDon = [];
         let invoiceIndex = 0;
 
+        let autoSttNCC = 0;
         for (const form of invoiceForms) {
-            const sttNCC = parseInt(form.querySelector('.invoice-ncc')?.value);
             const tenNCC = form.querySelector('.invoice-ten-ncc')?.value?.trim() || '';
             const productText = form.querySelector('.invoice-products')?.value?.trim();
 
-            if (!sttNCC) continue;
+            if (!tenNCC) {
+                window.notificationManager?.warning('Vui lòng nhập tên NCC');
+                form.querySelector('.invoice-ten-ncc')?.focus();
+                return;
+            }
+
+            autoSttNCC++;
+            const sttNCC = autoSttNCC;
 
             // Parse products
             const products = productText ? parseMultipleProducts(productText) : [];
@@ -795,11 +801,8 @@ async function addAIInvoiceToForm(data) {
         return;
     }
 
-    // Populate NCC fields
-    const nccInput = lastForm.querySelector('.invoice-ncc');
-    const nccNameInput = lastForm.querySelector('.invoice-ncc-name');
-
-    if (nccInput) nccInput.value = data.sttNCC || '';
+    // Populate NCC name field
+    const nccNameInput = lastForm.querySelector('.invoice-ten-ncc');
     if (nccNameInput) nccNameInput.value = data.tenNCC || '';
 
     // NEW: Convert productsData to textarea format for compatibility

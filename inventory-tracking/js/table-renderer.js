@@ -606,7 +606,8 @@ function renderInvoicesSection(shipment) {
                 costItem,
                 canViewCost,
                 hasSubInvoice,
-                subInvoice: hd.subInvoice
+                subInvoice: hd.subInvoice,
+                anhHoaDon: hd.anhHoaDon
             }));
             absoluteRowIdx++;
         } else {
@@ -627,14 +628,15 @@ function renderInvoicesSection(shipment) {
                     tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
                     imageCount,
-    
+
                     ghiChu: hd.ghiChu,
                     shipmentId: shipment.id,
                     invoiceId: hd.id || invoiceIdx,
                     costItem,
                     canViewCost,
                     hasSubInvoice,
-                    subInvoice: hd.subInvoice
+                    subInvoice: hd.subInvoice,
+                    anhHoaDon: hd.anhHoaDon
                 }));
                 absoluteRowIdx++;
             });
@@ -689,22 +691,36 @@ function renderInvoicesSection(shipment) {
  * Images come from independent product_images table, mapped by NCC
  * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass) {
+function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
-    const images = getProductImagesForNcc(sttNCC);
-    const count = images.length;
+    const productImages = getProductImagesForNcc(sttNCC);
+    // Merge productImages + anhHoaDon, deduplicate
+    const invoiceImgs = invoiceImages || [];
+    const allImages = [...productImages];
+    for (const url of invoiceImgs) {
+        if (!allImages.includes(url)) allImages.push(url);
+    }
+    const count = allImages.length;
     const rowspanBorderClass = borderClass.replace('border-bottom-', 'border-bottom-') || borderClass;
 
+    const addBtn = invoiceId
+        ? `<span class="image-add-hint" onclick="addTableImage('${invoiceId}')" title="Thêm ảnh"><i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i></span>`
+        : '';
+
     if (count > 0) {
-        const thumbs = images.map(url =>
-            `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div></div>`
-        ).join('');
+        const thumbs = allImages.map(url => {
+            const delBtn = invoiceId && invoiceImgs.includes(url)
+                ? `<button class="cell-img-del" onclick="event.stopPropagation(); removeTableImage('${invoiceId}', '${url}')" title="Xóa ảnh">&times;</button>`
+                : '';
+            return `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}" onclick="openImageLightbox('${url}')"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div>${delBtn}</div>`;
+        }).join('');
 
         return `
             <td class="col-image ${rowspanBorderClass}" rowspan="${rowSpan}">
                 <div class="cell-img-list">
                     ${thumbs}
+                    ${addBtn}
                 </div>
             </td>
         `;
@@ -712,9 +728,7 @@ function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass) {
 
     return `
         <td class="col-image text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
-            <span class="image-add-hint" onclick="ImageManager.open()" title="Thêm ảnh">
-                <i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i>
-            </span>
+            ${addBtn || `<span class="image-add-hint" onclick="ImageManager.open()" title="Thêm ảnh"><i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i></span>`}
         </td>
     `;
 }
@@ -728,7 +742,7 @@ function renderProductRow(opts) {
         isFirstRow, isLastRow, rowSpan,
         tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost,
-        hasSubInvoice, subInvoice
+        hasSubInvoice, subInvoice, anhHoaDon
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
@@ -741,6 +755,9 @@ function renderProductRow(opts) {
         : (product?.soMau ? `${product.soMau} màu` : '-');
     const tongSoLuong = product?.tongSoLuong || product?.soLuong || '-';
     const giaDonVi = product?.giaDonVi || 0;
+
+    // Inline edit data attributes
+    const editAttrs = product ? `data-invoice-id="${invoiceId}" data-product-idx="${productIdx}"` : '';
 
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
@@ -756,20 +773,23 @@ function renderProductRow(opts) {
     // Display NCC with tenNCC if available
     const nccDone = _isNccDone(shipmentId, sttNCC);
     const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${shipmentId}', ${sttNCC}, this.checked)"></label>`;
+    const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); deleteNccInvoice('${invoiceId}')" title="Xóa NCC ${sttNCC}"><i data-lucide="trash-2"></i></button>`;
     const nccDisplay = tenNCC
-        ? `${nccCheckbox}<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>`
-        : `${nccCheckbox}<strong>${sttNCC}</strong>`;
+        ? `${nccCheckbox}<strong>${sttNCC}</strong><br><span class="ncc-name">${tenNCC}</span>${nccDeleteBtn}`
+        : `${nccCheckbox}<strong>${sttNCC}</strong>${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
         <tr class="${rowClass} ${doneClass}">
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
-            <td class="col-stt ${borderClass}">${product ? productIdx + 1 : '-'}</td>
-            <td class="col-sku ${borderClass}">${maSP}</td>
-            <td class="col-desc ${borderClass}">${moTa}</td>
+            <td class="col-stt ${borderClass}">
+                ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
+            </td>
+            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" onclick="startInlineEdit(this)" title="Click để sửa">${maSP}</td>
+            <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" onclick="startInlineEdit(this)" title="Click để sửa">${moTa}</td>
             <td class="col-colors ${borderClass}">${colorDetails}</td>
-            <td class="col-qty text-center ${borderClass}">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
-            <td class="col-price text-right ${borderClass}">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
+            <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" onclick="startInlineEdit(this)" title="Click để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
+            <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" onclick="startInlineEdit(this)" title="Click để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
             ${isFirstRow ? `
                 <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
@@ -784,7 +804,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass)}
+            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'
@@ -1408,5 +1428,205 @@ function closeImageLightbox() {
     if (overlay) {
         overlay.classList.remove('active');
         document.body.style.overflow = '';
+    }
+}
+
+// =====================================================
+// INLINE EDIT — click cell to edit product fields
+// =====================================================
+
+function startInlineEdit(td) {
+    if (td.querySelector('input, textarea')) return; // Already editing
+
+    const field = td.dataset.field;
+    const invoiceId = td.dataset.invoiceId;
+    const productIdx = parseInt(td.dataset.productIdx);
+    if (!field || !invoiceId || isNaN(productIdx)) return;
+
+    const oldValue = td.textContent.trim().replace(/,/g, '');
+    const isNumeric = field === 'tongSoLuong' || field === 'giaDonVi';
+
+    const input = document.createElement(field === 'moTa' ? 'textarea' : 'input');
+    if (isNumeric) {
+        input.type = 'number';
+        input.min = '0';
+        input.step = field === 'giaDonVi' ? '0.01' : '1';
+    } else {
+        input.type = 'text';
+    }
+    input.className = 'inline-edit-input';
+    input.value = oldValue === '-' ? '' : oldValue;
+    td.textContent = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    const commit = () => commitInlineEdit(td, input, field, invoiceId, productIdx, oldValue);
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !(e.shiftKey && field === 'moTa')) {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            td.textContent = oldValue === '' ? '-' : oldValue;
+        }
+    });
+}
+
+async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValue) {
+    const newValue = input.value.trim();
+    const isNumeric = field === 'tongSoLuong' || field === 'giaDonVi';
+    const displayValue = isNumeric
+        ? (parseFloat(newValue) > 0 ? formatNumber(parseFloat(newValue)) : '-')
+        : (newValue || '-');
+
+    // No change
+    if (newValue === oldValue || (newValue === '' && oldValue === '-')) {
+        td.textContent = oldValue === '' ? '-' : oldValue;
+        return;
+    }
+
+    // Find dotHang
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) { targetDot = dot; break; }
+    }
+    if (!targetDot || !targetDot.sanPham?.[productIdx]) {
+        td.textContent = oldValue;
+        window.notificationManager?.error('Không tìm thấy sản phẩm');
+        return;
+    }
+
+    try {
+        const product = targetDot.sanPham[productIdx];
+        if (isNumeric) {
+            product[field] = parseFloat(newValue) || 0;
+        } else {
+            product[field] = newValue;
+        }
+
+        // Recalculate totals
+        if (field === 'tongSoLuong' || field === 'giaDonVi') {
+            product.thanhTien = (product.tongSoLuong || product.soLuong || 0) * (product.giaDonVi || 0);
+            targetDot.tongMon = targetDot.sanPham.reduce((s, p) => s + (p.tongSoLuong || p.soLuong || 0), 0);
+            targetDot.tongTienHD = targetDot.sanPham.reduce((s, p) => s + (p.thanhTien || 0), 0);
+        }
+
+        await shipmentsApi.update(invoiceId, {
+            sanPham: targetDot.sanPham,
+            tongMon: targetDot.tongMon,
+            tongTienHD: targetDot.tongTienHD
+        });
+
+        td.textContent = displayValue;
+        flattenNCCData();
+
+        // Re-render totals in current card if tongMon/tongTienHD changed
+        if (field === 'tongSoLuong' || field === 'giaDonVi') {
+            // Update rowspanned amount/total cells for this invoice
+            const tbody = td.closest('tbody');
+            if (tbody) {
+                for (const r of tbody.querySelectorAll('tr')) {
+                    const amt = r.querySelector('.amount-value');
+                    const tot = r.querySelector('.total-value');
+                    if (amt && r.querySelector(`td[data-invoice-id="${invoiceId}"]`)) {
+                        amt.textContent = formatNumber(targetDot.tongTienHD);
+                    }
+                    if (tot && r.querySelector(`td[data-invoice-id="${invoiceId}"]`)) {
+                        tot.textContent = formatNumber(targetDot.tongMon);
+                    }
+                }
+            }
+        }
+
+        window.notificationManager?.success('Đã cập nhật');
+    } catch (error) {
+        console.error('[INLINE-EDIT] Error:', error);
+        td.textContent = oldValue;
+        window.notificationManager?.error('Không thể cập nhật: ' + error.message);
+    }
+}
+
+// =====================================================
+// TABLE IMAGE MANAGEMENT — add/remove with confirm
+// =====================================================
+
+/**
+ * Add image to invoice's anhHoaDon from table
+ */
+function addTableImage(invoiceId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/*';
+
+    input.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        // Find dotHang
+        let targetDot = null;
+        for (const ncc of globalState.nccList) {
+            const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+            if (dot) { targetDot = dot; break; }
+        }
+        if (!targetDot) {
+            window.notificationManager?.error('Không tìm thấy hóa đơn');
+            return;
+        }
+
+        window.notificationManager?.info(`Đang tải ${files.length} ảnh...`);
+        let count = 0;
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) continue;
+            if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) continue;
+            try {
+                const url = await uploadImage(file, 'invoices');
+                if (!targetDot.anhHoaDon) targetDot.anhHoaDon = [];
+                targetDot.anhHoaDon.push(url);
+                count++;
+            } catch (err) {
+                console.error('[TABLE-IMG] Upload failed:', err);
+            }
+        }
+
+        if (count > 0) {
+            await shipmentsApi.update(invoiceId, { anhHoaDon: targetDot.anhHoaDon });
+            flattenNCCData();
+            if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+            window.notificationManager?.success(`Đã thêm ${count} ảnh`);
+        }
+    });
+
+    input.click();
+}
+
+/**
+ * Remove image from invoice's anhHoaDon with confirm
+ */
+async function removeTableImage(invoiceId, imageUrl) {
+    if (!confirm('Xóa ảnh này?')) return;
+
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) { targetDot = dot; break; }
+    }
+    if (!targetDot || !targetDot.anhHoaDon) return;
+
+    targetDot.anhHoaDon = targetDot.anhHoaDon.filter(u => u !== imageUrl);
+
+    try {
+        await shipmentsApi.update(invoiceId, { anhHoaDon: targetDot.anhHoaDon });
+        flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+        window.notificationManager?.success('Đã xóa ảnh');
+    } catch (error) {
+        console.error('[TABLE-IMG] Remove failed:', error);
+        window.notificationManager?.error('Không thể xóa ảnh');
     }
 }
