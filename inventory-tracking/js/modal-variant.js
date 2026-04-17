@@ -83,7 +83,12 @@ async function _loadTposAttributes(forceRefresh = false) {
 _loadTposAttributes();
 
 let _variantCurrentCell = null;
-let _variantSelections = { color: new Map(), sizeNum: new Map(), sizeChar: new Map() };
+// Selections: Sets of selected attribute value names
+let _variantSelections = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
+// Quantities per combination: Map<combinationKey, number>
+let _variantQuantities = new Map();
+// Unchecked combinations: Set<combinationKey>
+let _variantUnchecked = new Set();
 
 /**
  * Open variant modal for a colors cell
@@ -119,16 +124,23 @@ async function openVariantModal(td) {
     }
 
     // Reset selections
-    _variantSelections = { color: new Map(), sizeNum: new Map(), sizeChar: new Map() };
+    _variantSelections = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
+    _variantQuantities = new Map();
+    _variantUnchecked = new Set();
 
-    // Pre-populate from existing
+    // Pre-populate from existing (combination strings like "Trắng / 4 / S")
     for (const item of existingMauSac) {
-        const val = item.mau;
+        const comboKey = item.mau || '';
         const qty = item.soLuong || 0;
-        if (VARIANT_COLORS.includes(val)) _variantSelections.color.set(val, qty);
-        else if (VARIANT_SIZE_NUM.includes(val)) _variantSelections.sizeNum.set(val, qty);
-        else if (VARIANT_SIZE_CHAR.includes(val)) _variantSelections.sizeChar.set(val, qty);
-        else _variantSelections.color.set(val, qty); // custom value → treat as color
+        _variantQuantities.set(comboKey, qty);
+        // Parse parts and add to corresponding selection sets
+        const parts = comboKey.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+        for (const part of parts) {
+            if (VARIANT_COLORS.includes(part)) _variantSelections.color.add(part);
+            else if (VARIANT_SIZE_NUM.includes(part)) _variantSelections.sizeNum.add(part);
+            else if (VARIANT_SIZE_CHAR.includes(part)) _variantSelections.sizeChar.add(part);
+            else _variantSelections.color.add(part);
+        }
     }
 
     // Render all three lists
@@ -136,6 +148,7 @@ async function openVariantModal(td) {
     _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
     _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
     _renderVariantPreview();
+    _updateSummary();
 
     // Setup search listeners
     document.querySelectorAll('.variant-search').forEach(input => {
@@ -164,12 +177,12 @@ async function openVariantModal(td) {
     if (window.lucide) lucide.createIcons();
 }
 
-function _renderVariantOptions(containerId, items, selectedMap) {
+function _renderVariantOptions(containerId, items, selectedSet) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     container.innerHTML = items.map(item => {
-        const checked = selectedMap.has(item);
+        const checked = selectedSet.has(item);
         return `
             <label class="variant-option" data-value="${_escAttr(item)}">
                 <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._toggleVariant('${containerId}', '${_escAttr(item)}', this.checked)">
@@ -190,16 +203,38 @@ function _filterVariantOptions(containerId, query) {
 }
 
 function _toggleVariant(containerId, value, checked) {
-    const map = containerId === 'variantColorList' ? _variantSelections.color
+    const set = containerId === 'variantColorList' ? _variantSelections.color
         : containerId === 'variantSizeNumList' ? _variantSelections.sizeNum
         : _variantSelections.sizeChar;
 
-    if (checked) {
-        if (!map.has(value)) map.set(value, 1);
-    } else {
-        map.delete(value);
-    }
+    if (checked) set.add(value);
+    else set.delete(value);
+
+    // Also sync checkbox UI state (used by remove button)
+    const option = document.querySelector(`#${containerId} .variant-option[data-value="${_escAttr(value)}"] input`);
+    if (option) option.checked = checked;
+
     _renderVariantPreview();
+    _updateSummary();
+}
+
+/**
+ * Generate cartesian product of selected attributes
+ * Returns array of combination strings like ["Trắng / 4 / S", ...]
+ */
+function _generateCombinations() {
+    const groups = [];
+    if (_variantSelections.color.size > 0) groups.push([..._variantSelections.color]);
+    if (_variantSelections.sizeNum.size > 0) groups.push([..._variantSelections.sizeNum]);
+    if (_variantSelections.sizeChar.size > 0) groups.push([..._variantSelections.sizeChar]);
+
+    if (groups.length === 0) return [];
+
+    // Cartesian product
+    return groups.reduce(
+        (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
+        [[]]
+    ).map(combo => combo.join(' / '));
 }
 
 function _renderVariantPreview() {
@@ -207,41 +242,50 @@ function _renderVariantPreview() {
     const btnLabel = document.getElementById('btnCreateVariantsLabel');
     if (!preview) return;
 
-    // All selected items from all 3 groups
-    const all = [
-        ..._variantSelections.color.entries(),
-        ..._variantSelections.sizeNum.entries(),
-        ..._variantSelections.sizeChar.entries()
-    ];
+    const combos = _generateCombinations();
 
-    if (all.length === 0) {
+    if (combos.length === 0) {
         preview.innerHTML = '<div class="variant-preview-empty">Chọn thuộc tính để xem biến thể</div>';
         if (btnLabel) btnLabel.textContent = 'Tạo biến thể';
         return;
     }
 
-    preview.innerHTML = all.map(([name, qty]) => {
-        const group = _variantSelections.color.has(name) ? 'color'
-            : _variantSelections.sizeNum.has(name) ? 'sizeNum'
-            : 'sizeChar';
+    preview.innerHTML = combos.map(combo => {
+        const key = _escAttr(combo);
+        const qty = _variantQuantities.get(combo) ?? 0;
+        const isChecked = !_variantUnchecked.has(combo);
         return `
-            <div class="variant-preview-item">
-                <span class="variant-preview-name">${name}</span>
-                <input type="number" class="variant-qty-input" min="0" value="${qty}" data-name="${_escAttr(name)}" data-group="${group}" oninput="window._updateVariantQty('${group}', '${_escAttr(name)}', this.value)">
-                <button type="button" class="variant-remove-btn" onclick="window._toggleVariant('${group === 'color' ? 'variantColorList' : group === 'sizeNum' ? 'variantSizeNumList' : 'variantSizeCharList'}', '${_escAttr(name)}', false); document.querySelector('.variant-option[data-value=\\'${_escAttr(name)}\\'] input').checked = false;">&times;</button>
+            <div class="variant-preview-item ${isChecked ? '' : 'unchecked'}">
+                <input type="checkbox" class="variant-combo-check" ${isChecked ? 'checked' : ''} onchange="window._toggleVariantCombo('${key}', this.checked)">
+                <span class="variant-preview-name">${combo}</span>
+                <input type="number" class="variant-qty-input" min="0" value="${qty}" oninput="window._updateVariantQty('${key}', this.value)">
             </div>
         `;
     }).join('');
 
-    if (btnLabel) btnLabel.textContent = `Tạo ${all.length} biến thể`;
+    const activeCount = combos.filter(c => !_variantUnchecked.has(c)).length;
+    if (btnLabel) btnLabel.textContent = `Tạo ${activeCount}/${combos.length} biến thể`;
 }
 
-function _updateVariantQty(group, name, value) {
+function _toggleVariantCombo(comboKey, checked) {
+    if (checked) _variantUnchecked.delete(comboKey);
+    else _variantUnchecked.add(comboKey);
+    _renderVariantPreview();
+}
+
+function _updateVariantQty(comboKey, value) {
     const qty = parseInt(value, 10) || 0;
-    const map = group === 'color' ? _variantSelections.color
-        : group === 'sizeNum' ? _variantSelections.sizeNum
-        : _variantSelections.sizeChar;
-    if (map.has(name)) map.set(name, qty);
+    _variantQuantities.set(comboKey, qty);
+}
+
+function _updateSummary() {
+    const el = document.getElementById('variantSummary');
+    if (!el) return;
+    const parts = [];
+    if (_variantSelections.color.size) parts.push([..._variantSelections.color].join(', '));
+    if (_variantSelections.sizeNum.size) parts.push([..._variantSelections.sizeNum].join(', '));
+    if (_variantSelections.sizeChar.size) parts.push([..._variantSelections.sizeChar].join(', '));
+    el.textContent = parts.join(' | ');
 }
 
 async function _saveVariants() {
@@ -255,12 +299,11 @@ async function _saveVariants() {
         return;
     }
 
-    // Build mauSac array from selections
-    const mauSac = [
-        ..._variantSelections.color.entries(),
-        ..._variantSelections.sizeNum.entries(),
-        ..._variantSelections.sizeChar.entries()
-    ].map(([mau, soLuong]) => ({ mau, soLuong: parseInt(soLuong) || 0 }));
+    // Build mauSac array from active combinations
+    const combos = _generateCombinations();
+    const mauSac = combos
+        .filter(c => !_variantUnchecked.has(c))
+        .map(c => ({ mau: c, soLuong: _variantQuantities.get(c) || 0 }));
 
     // Find dotHang
     let targetDot = null;
@@ -304,6 +347,7 @@ async function _saveVariants() {
 // Expose to window
 window.openVariantModal = openVariantModal;
 window._toggleVariant = _toggleVariant;
+window._toggleVariantCombo = _toggleVariantCombo;
 window._updateVariantQty = _updateVariantQty;
 
 console.log('[MODAL] Variant modal initialized');

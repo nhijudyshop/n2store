@@ -1115,6 +1115,17 @@ tr.ncc-row-done td.col-ncc { opacity: 0.6; }
     border-radius: 6px;
     font-size: 13px;
 }
+.variant-preview-item.unchecked {
+    opacity: 0.5;
+    background: var(--gray-50, #f9fafb);
+    border-color: var(--gray-200);
+}
+.variant-combo-check {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary, #4a7cff);
+    cursor: pointer;
+}
 .variant-preview-name {
     flex: 1;
     font-weight: 500;
