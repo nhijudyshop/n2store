@@ -697,22 +697,14 @@ function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass) {
     const rowspanBorderClass = borderClass.replace('border-bottom-', 'border-bottom-') || borderClass;
 
     if (count > 0) {
-        const MAX_SHOW = 2;
-        const visible = images.slice(0, MAX_SHOW);
-        const extra = count - MAX_SHOW;
-
-        const thumbs = visible.map(url =>
+        const thumbs = images.map(url =>
             `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div></div>`
         ).join('');
-
-        const extraBadge = extra > 0
-            ? `<span class="cell-img-more" onclick="ImageManager.viewNccImages(${sttNCC})">+${extra}</span>`
-            : '';
 
         return `
             <td class="col-image ${rowspanBorderClass}" rowspan="${rowSpan}">
                 <div class="cell-img-list">
-                    ${thumbs}${extraBadge}
+                    ${thumbs}
                 </div>
             </td>
         `;
