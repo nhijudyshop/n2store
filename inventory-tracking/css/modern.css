@@ -3128,11 +3128,16 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 }
 
 /* Image Upload Area */
-.image-upload-area {
+.image-upload-area,
+.table-img-upload-area {
     padding: 16px;
     border: 2px dashed var(--gray-300);
     border-radius: var(--radius-lg);
     text-align: center;
+}
+.table-img-upload-area:focus {
+    border-color: var(--primary);
+    outline: none;
 }
 
 .image-preview-list {

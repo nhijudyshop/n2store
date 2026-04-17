@@ -569,6 +569,37 @@
         </div>
     </div>
 
+    <!-- Modal: Add Table Image (paste or file) -->
+    <div class="modal" id="modalAddTableImage">
+        <div class="modal-overlay" onclick="closeModal('modalAddTableImage')"></div>
+        <div class="modal-container" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3><i data-lucide="image-plus"></i> Thêm Ảnh</h3>
+                <button class="modal-close" onclick="closeModal('modalAddTableImage')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-img-upload-area" id="tableImgUploadArea" tabindex="0">
+                    <input type="file" id="tableImgFileInput" multiple accept="image/*" style="display:none;">
+                    <div class="upload-actions">
+                        <button type="button" class="btn btn-sm btn-outline" id="btnTableImgChoose">
+                            <i data-lucide="upload"></i> Chọn file
+                        </button>
+                        <span class="paste-hint">hoặc Ctrl+V để dán ảnh</span>
+                    </div>
+                    <div class="image-preview-list" id="tableImgPreviewList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalAddTableImage')">Hủy</button>
+                <button class="btn btn-primary" id="btnTableImgSave">
+                    <i data-lucide="save"></i> Lưu Ảnh
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Image Manager -->
     <div class="modal" id="modalImageManager">
         <div class="modal-overlay"></div>

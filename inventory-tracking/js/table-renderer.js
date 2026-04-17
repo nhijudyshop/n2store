@@ -785,11 +785,11 @@ function renderProductRow(opts) {
             <td class="col-stt ${borderClass}">
                 ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
             </td>
-            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" onclick="startInlineEdit(this)" title="Click để sửa">${maSP}</td>
-            <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" onclick="startInlineEdit(this)" title="Click để sửa">${moTa}</td>
+            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}</td>
+            <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
             <td class="col-colors ${borderClass}">${colorDetails}</td>
-            <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" onclick="startInlineEdit(this)" title="Click để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
-            <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" onclick="startInlineEdit(this)" title="Click để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
+            <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
+            <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
             ${isFirstRow ? `
                 <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
@@ -1556,53 +1556,151 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
 // =====================================================
 
 /**
- * Add image to invoice's anhHoaDon from table
+ * Open modal to add images (paste or file) for an invoice
  */
+let _tableImgInvoiceId = null;
+let _tableImgPasteHandler = null;
+
 function addTableImage(invoiceId) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
+    _tableImgInvoiceId = invoiceId;
+    const previewList = document.getElementById('tableImgPreviewList');
+    if (previewList) previewList.innerHTML = '';
 
-    input.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
+    openModal('modalAddTableImage');
+    if (window.lucide) lucide.createIcons();
 
-        // Find dotHang
-        let targetDot = null;
-        for (const ncc of globalState.nccList) {
-            const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-            if (dot) { targetDot = dot; break; }
+    const area = document.getElementById('tableImgUploadArea');
+    const fileInput = document.getElementById('tableImgFileInput');
+    const btnChoose = document.getElementById('btnTableImgChoose');
+    const btnSave = document.getElementById('btnTableImgSave');
+
+    // Focus area for paste
+    setTimeout(() => area?.focus(), 100);
+
+    // File choose
+    btnChoose.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+        if (e.target.files?.length > 0) {
+            _addTableImgPreviews(Array.from(e.target.files));
+            e.target.value = '';
         }
-        if (!targetDot) {
-            window.notificationManager?.error('Không tìm thấy hóa đơn');
-            return;
-        }
+    };
 
-        window.notificationManager?.info(`Đang tải ${files.length} ảnh...`);
-        let count = 0;
-        for (const file of files) {
-            if (!file.type.startsWith('image/')) continue;
-            if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) continue;
-            try {
-                const url = await uploadImage(file, 'invoices');
-                if (!targetDot.anhHoaDon) targetDot.anhHoaDon = [];
-                targetDot.anhHoaDon.push(url);
-                count++;
-            } catch (err) {
-                console.error('[TABLE-IMG] Upload failed:', err);
+    // Paste handler
+    if (_tableImgPasteHandler) document.removeEventListener('paste', _tableImgPasteHandler);
+    _tableImgPasteHandler = (e) => {
+        const modal = document.getElementById('modalAddTableImage');
+        if (!modal?.classList.contains('active')) return;
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        const imageFiles = [];
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) imageFiles.push(file);
             }
         }
-
-        if (count > 0) {
-            await shipmentsApi.update(invoiceId, { anhHoaDon: targetDot.anhHoaDon });
-            flattenNCCData();
-            if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
-            window.notificationManager?.success(`Đã thêm ${count} ảnh`);
+        if (imageFiles.length > 0) {
+            e.preventDefault();
+            _addTableImgPreviews(imageFiles);
         }
-    });
+    };
+    document.addEventListener('paste', _tableImgPasteHandler);
 
-    input.click();
+    // Save button
+    btnSave.onclick = () => _saveTableImages();
+}
+
+/**
+ * Add file previews to the modal
+ */
+function _addTableImgPreviews(files) {
+    const previewList = document.getElementById('tableImgPreviewList');
+    if (!previewList) return;
+
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        if (file.size > (APP_CONFIG?.MAX_IMAGE_SIZE || 5 * 1024 * 1024)) {
+            window.notificationManager?.warning(`"${file.name}" vượt quá 5MB`);
+            continue;
+        }
+        const localUrl = URL.createObjectURL(file);
+        const item = document.createElement('div');
+        item.className = 'image-preview-item';
+        item._file = file;
+        item.innerHTML = `
+            <img src="${localUrl}" alt="Preview">
+            <button type="button" class="btn-remove-preview-image" title="Xóa">
+                <i data-lucide="x"></i>
+            </button>
+        `;
+        item.querySelector('.btn-remove-preview-image').onclick = () => {
+            URL.revokeObjectURL(localUrl);
+            item.remove();
+        };
+        previewList.appendChild(item);
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Upload and save all previewed images
+ */
+async function _saveTableImages() {
+    const invoiceId = _tableImgInvoiceId;
+    if (!invoiceId) return;
+
+    const previewList = document.getElementById('tableImgPreviewList');
+    const items = previewList?.querySelectorAll('.image-preview-item') || [];
+    if (items.length === 0) {
+        window.notificationManager?.warning('Chưa có ảnh nào');
+        return;
+    }
+
+    // Find dotHang
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) { targetDot = dot; break; }
+    }
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const loadingToast = window.notificationManager?.loading('Đang tải ảnh lên...');
+    let count = 0;
+
+    for (const item of items) {
+        const file = item._file;
+        if (!file) continue;
+        try {
+            const url = await uploadImage(file, 'invoices');
+            if (!targetDot.anhHoaDon) targetDot.anhHoaDon = [];
+            targetDot.anhHoaDon.push(url);
+            count++;
+        } catch (err) {
+            console.error('[TABLE-IMG] Upload failed:', err);
+        }
+    }
+
+    window.notificationManager?.remove(loadingToast);
+
+    if (count > 0) {
+        await shipmentsApi.update(invoiceId, { anhHoaDon: targetDot.anhHoaDon });
+        flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+        window.notificationManager?.success(`Đã thêm ${count} ảnh`);
+    }
+
+    closeModal('modalAddTableImage');
+    // Cleanup paste handler
+    if (_tableImgPasteHandler) {
+        document.removeEventListener('paste', _tableImgPasteHandler);
+        _tableImgPasteHandler = null;
+    }
+    _tableImgInvoiceId = null;
 }
 
 /**
