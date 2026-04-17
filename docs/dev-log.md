@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory][render] Migration 055: shift 9 legacy rows về 2026-04-10 (ý định gốc)
+| | |
+|---|---|
+| **Files** | `render.com/migrations/055_shift_9_legacy_shipments_to_vn_date.sql` |
+| **Chi tiết** | 9 rows saved với `ngay_di_hang = 2026-04-11` bằng old client code dùng `new Date().toISOString().split('T')[0]` (UTC date) — thực chất user tạo vào tối 10/4 VN = UTC Apr 10 1x:xx. Chạy UPDATE có guard (`EXCEPTION` nếu count ≠ 9) đổi 9 rows này về `2026-04-10`. Kết quả API: tất cả 10 shipments → `2026-04-10`. Reversible ghi rõ trong comment migration. |
+| **Status** | ✅ Done — API verified (10 rows on 2026-04-10) |
+
 ### [render] Fix pg DATE (OID 1082) parser — trả raw 'YYYY-MM-DD' string
 | | |
 |---|---|
