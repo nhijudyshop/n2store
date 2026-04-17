@@ -331,18 +331,19 @@ cron.schedule('0 6 * * *', async () => {
                 if (!order.orderCode) continue;
                 checked++;
 
-                // Get BASE
+                // Get BASE with creation timestamp
                 const baseResult = await db.query(
-                    'SELECT products FROM kpi_base WHERE order_code = $1', [order.orderCode]
+                    'SELECT products, created_at FROM kpi_base WHERE order_code = $1', [order.orderCode]
                 );
                 if (baseResult.rows.length === 0) continue;
-                const baseProducts = baseResult.rows[0].products || [];
-                const baseProductIds = new Set(baseProducts.filter(p => p.ProductId != null).map(p => Number(p.ProductId)));
+                const baseCreatedAt = baseResult.rows[0].created_at;
 
-                // Get audit logs for this order
+                // Get audit logs AFTER BASE creation only
                 const auditResult = await db.query(
-                    'SELECT product_id, action, quantity, user_id, out_of_range FROM kpi_audit_log WHERE order_code = $1 ORDER BY created_at',
-                    [order.orderCode]
+                    `SELECT product_id, action, quantity, user_id, out_of_range, created_at
+                     FROM kpi_audit_log WHERE order_code = $1 AND created_at >= $2
+                     ORDER BY created_at`,
+                    [order.orderCode, baseCreatedAt]
                 );
 
                 // Cross-check userId: flag if audit user ≠ assigned employee
@@ -351,8 +352,9 @@ cron.schedule('0 6 * * *', async () => {
                     l.user_id && l.user_id !== assignedUserId && l.user_id !== 'unknown'
                 );
                 if (foreignActions.length > 0) {
+                    const foreignUsers = [...new Set(foreignActions.map(l => l.user_id))];
                     flagged++;
-                    console.warn(`[KPI-RECONCILE] ⚠️ Order ${order.orderCode}: ${foreignActions.length} actions by non-assigned user(s)`);
+                    console.warn(`[KPI-RECONCILE] ⚠️ Order ${order.orderCode}: ${foreignActions.length} actions by ${foreignUsers.join(', ')} (assigned: ${assignedUserId})`);
                 }
             }
         }
@@ -370,16 +372,19 @@ cron.schedule('0 6 * * *', async () => {
 cron.schedule('0 5 * * *', async () => {
     console.log('[CRON] Running KPI audit log cleanup...');
     try {
+        // Only delete audit logs older than 90 days whose orders no longer have BASE
+        // This preserves logs that could still be recalculated
         const result = await db.query(`
             DELETE FROM kpi_audit_log
             WHERE created_at < NOW() - INTERVAL '90 days'
+              AND order_code NOT IN (SELECT order_code FROM kpi_base)
             RETURNING id
         `);
         const count = result.rowCount || 0;
         if (count > 0) {
-            console.log(`[CRON] ✅ Cleaned up ${count} audit logs older than 90 days`);
+            console.log(`[CRON] ✅ Cleaned up ${count} orphaned audit logs older than 90 days`);
         } else {
-            console.log('[CRON] No old audit logs to clean up');
+            console.log('[CRON] No orphaned audit logs to clean up');
         }
     } catch (error) {
         console.error('[CRON] ❌ Error in KPI audit log cleanup:', error.message);

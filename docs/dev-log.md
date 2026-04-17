@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [orders][render] KPI review round 2: fix 5 issues từ audit
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/kpi-manager.js`, `orders-report/js/chat/chat-products-actions.js`, `render.com/routes/campaigns.js`, `render.com/cron/scheduler.js` |
+| **Chi tiết** | **Fix 1:** KPI mode 'value' — lấy giá từ TPOS thay vì audit log (audit log không có cột price). **Fix 2:** Held product delete dùng source phù hợp (chat_from_dropped/chat_confirm_held thay vì chat_decrease). **Fix 3:** Range validation thêm check STT âm và from > to. **Fix 4:** Data retention chỉ xóa audit logs không còn BASE (bảo toàn data recalculate được). **Fix 5:** Reconcile cron chỉ check audit logs SAU BASE creation, log chi tiết foreign userId. |
+| **Status** | ✅ Done |
+
 ### [orders][render] KPI chống gian lận + 6 cải thiện hệ thống
 | | |
 |---|---|

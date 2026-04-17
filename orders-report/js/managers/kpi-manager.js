@@ -279,13 +279,21 @@
                 if (!netPerProduct[pid]) {
                     netPerProduct[pid] = { code: log.productCode, name: log.productName, added: 0, removed: 0, net: 0, price: 0 };
                 }
-                if (log.action === 'add') {
-                    netPerProduct[pid].added += (log.quantity || 0);
-                    // Track price from the latest add action for value-based KPI
-                    if (log.price) netPerProduct[pid].price = log.price;
-                } else if (log.action === 'remove') {
-                    netPerProduct[pid].removed += (log.quantity || 0);
-                }
+                if (log.action === 'add') netPerProduct[pid].added += (log.quantity || 0);
+                else if (log.action === 'remove') netPerProduct[pid].removed += (log.quantity || 0);
+            }
+
+            // For value-based KPI: fetch current prices from TPOS
+            if (KPI_MODE === 'value' && base.orderId) {
+                try {
+                    const tposProducts = await fetchProductsFromTPOS(base.orderId);
+                    for (const tp of tposProducts) {
+                        const pid = String(tp.ProductId);
+                        if (netPerProduct[pid] && tp.Price > 0) {
+                            netPerProduct[pid].price = tp.Price;
+                        }
+                    }
+                } catch (e) {}
             }
 
             let totalNet = 0;

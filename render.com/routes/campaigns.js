@@ -153,7 +153,21 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
         const { employeeRanges } = req.body;
         const ranges = employeeRanges || [];
 
-        // Validate: check for overlapping ranges
+        // Validate: check for invalid and overlapping ranges
+        if (Array.isArray(ranges) && ranges.length > 0) {
+            // Check individual range validity
+            for (const r of ranges) {
+                const from = r.fromSTT || r.from || r.start || 0;
+                const to = r.toSTT || r.to || r.end || Infinity;
+                if (from < 0 || (to !== Infinity && to < 0)) {
+                    return res.status(400).json({ error: `STT không được âm: from=${from}, to=${to}` });
+                }
+                if (from > to) {
+                    return res.status(400).json({ error: `STT from (${from}) > to (${to})` });
+                }
+            }
+        }
+
         if (Array.isArray(ranges) && ranges.length > 1) {
             const sorted = [...ranges]
                 .map(r => ({

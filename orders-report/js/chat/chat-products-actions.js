@@ -237,7 +237,7 @@
                     productCode: heldProduct.ProductCode || heldProduct.Code || '',
                     productName: heldProduct.ProductName || heldProduct.Name || '',
                     quantity: heldProduct.Quantity || 1,
-                    source: 'chat_decrease'
+                    source: heldProduct.IsFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'
                 }).catch(() => {});
             }
 
