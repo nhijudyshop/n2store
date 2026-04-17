@@ -375,6 +375,26 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
+// Next batch number (dot_so) for a given date — must be defined BEFORE /:id route
+router.get('/shipments/next-dot-so', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date } = req.query;
+        if (!date) {
+            return res.status(400).json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
+        }
+        const result = await db.query(
+            `SELECT COALESCE(MAX(dot_so), 0) + 1 AS next_dot_so
+             FROM inventory_shipments WHERE ngay_di_hang = $1`,
+            [date]
+        );
+        res.json({ success: true, data: { next_dot_so: result.rows[0].next_dot_so } });
+    } catch (err) {
+        console.error('[inventory] GET /shipments/next-dot-so error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 router.get('/shipments/:id', async (req, res) => {
     try {
         const db = getDb(req);
@@ -397,11 +417,22 @@ router.post('/shipments', async (req, res) => {
             so_mon_thieu = 0, ghi_chu_thieu = '',
             anh_hoa_don = [], ghi_chu = '',
             chi_phi_hang_ve = [], tong_chi_phi = 0,
-            ghi_chu_admin = ''
+            ghi_chu_admin = '',
+            dot_so
         } = req.body;
 
         if (!stt_ncc || !ngay_di_hang) {
             return res.status(400).json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
+        }
+
+        // Resolve dot_so: use provided, otherwise auto-compute max+1 for that date
+        let resolvedDotSo = parseInt(dot_so, 10);
+        if (!resolvedDotSo || resolvedDotSo < 1) {
+            const maxRes = await db.query(
+                `SELECT COALESCE(MAX(dot_so), 0) + 1 AS next FROM inventory_shipments WHERE ngay_di_hang = $1`,
+                [ngay_di_hang]
+            );
+            resolvedDotSo = maxRes.rows[0].next;
         }
 
         // Ensure supplier exists
@@ -423,8 +454,9 @@ router.post('/shipments', async (req, res) => {
                 anh_hoa_don, ghi_chu,
                 chi_phi_hang_ve, tong_chi_phi,
                 ghi_chu_admin,
+                dot_so,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
             RETURNING *
         `, [
             shipmentId, stt_ncc, ngay_di_hang, ten_ncc,
@@ -434,6 +466,7 @@ router.post('/shipments', async (req, res) => {
             anh_hoa_don, ghi_chu,
             JSON.stringify(chi_phi_hang_ve), tong_chi_phi,
             ghi_chu_admin,
+            resolvedDotSo,
             user, user
         ]);
 
@@ -455,7 +488,8 @@ router.put('/shipments/:id', async (req, res) => {
             so_mon_thieu, ghi_chu_thieu,
             anh_hoa_don, ghi_chu,
             chi_phi_hang_ve, tong_chi_phi,
-            ghi_chu_admin
+            ghi_chu_admin,
+            dot_so
         } = req.body;
 
         const result = await db.query(`
@@ -476,6 +510,7 @@ router.put('/shipments/:id', async (req, res) => {
                 chi_phi_hang_ve = COALESCE($15, chi_phi_hang_ve),
                 tong_chi_phi = COALESCE($16, tong_chi_phi),
                 ghi_chu_admin = COALESCE($17, ghi_chu_admin),
+                dot_so = COALESCE($19, dot_so),
                 updated_by = $18,
                 updated_at = NOW()
             WHERE id = $1
@@ -491,7 +526,8 @@ router.put('/shipments/:id', async (req, res) => {
             chi_phi_hang_ve ? JSON.stringify(chi_phi_hang_ve) : null,
             tong_chi_phi,
             ghi_chu_admin !== undefined ? ghi_chu_admin : null,
-            user
+            user,
+            (dot_so !== undefined && dot_so !== null) ? parseInt(dot_so, 10) : null
         ]);
 
         if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });

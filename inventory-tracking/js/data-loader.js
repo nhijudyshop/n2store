@@ -284,7 +284,11 @@ function getAllDotHang() {
             });
         });
     });
-    return all.sort((a, b) => new Date(b.ngayDiHang) - new Date(a.ngayDiHang));
+    return all.sort((a, b) => {
+        const dateDiff = new Date(b.ngayDiHang) - new Date(a.ngayDiHang);
+        if (dateDiff !== 0) return dateDiff;
+        return (b.dotSo || 1) - (a.dotSo || 1);
+    });
 }
 
 /**
@@ -319,18 +323,22 @@ function normalizeProductData(product) {
 }
 
 /**
- * Get all dotHang restructured as shipments (grouped by ngayDiHang)
+ * Get all dotHang restructured as shipments (grouped by ngayDiHang + dotSo)
+ * Each (date, dotSo) combination is a distinct shipment group
  */
 function getAllDotHangAsShipments() {
     const allDotHang = getAllDotHang();
 
-    const byDate = {};
+    const byKey = {};
     allDotHang.forEach(dot => {
         const date = dot.ngayDiHang;
-        if (!byDate[date]) {
-            byDate[date] = {
-                id: `ship_${date}`,
+        const dotSo = dot.dotSo || 1;
+        const key = `${date}__${dotSo}`;
+        if (!byKey[key]) {
+            byKey[key] = {
+                id: `ship_${date}_d${dotSo}`,
                 ngayDiHang: date,
+                dotSo: dotSo,
                 kienHang: [],
                 hoaDon: [],
                 tongKien: 0,
@@ -343,7 +351,7 @@ function getAllDotHangAsShipments() {
             };
         }
 
-        byDate[date].hoaDon.push({
+        byKey[key].hoaDon.push({
             id: dot.id,
             sttNCC: dot.sttNCC,
             tenNCC: dot.tenNCC,
@@ -357,14 +365,14 @@ function getAllDotHangAsShipments() {
         });
 
         if (dot.kienHang && dot.kienHang.length > 0) {
-            byDate[date].kienHang.push(...dot.kienHang);
+            byKey[key].kienHang.push(...dot.kienHang);
         }
         if (dot.chiPhiHangVe && dot.chiPhiHangVe.length > 0) {
-            byDate[date].chiPhiHangVe.push(...dot.chiPhiHangVe);
+            byKey[key].chiPhiHangVe.push(...dot.chiPhiHangVe);
         }
     });
 
-    const shipments = Object.values(byDate).map(ship => {
+    const shipments = Object.values(byKey).map(ship => {
         ship.tongKien = ship.kienHang.length;
         ship.tongKg = ship.kienHang.reduce((sum, k) => sum + (k.soKg || 0), 0);
         ship.tongTienHoaDon = ship.hoaDon.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
@@ -375,7 +383,12 @@ function getAllDotHangAsShipments() {
         return ship;
     });
 
-    return shipments.sort((a, b) => new Date(b.ngayDiHang) - new Date(a.ngayDiHang));
+    // Sort by date DESC, then dotSo DESC (đợt mới nhất trên cùng)
+    return shipments.sort((a, b) => {
+        const dateDiff = new Date(b.ngayDiHang) - new Date(a.ngayDiHang);
+        if (dateDiff !== 0) return dateDiff;
+        return (b.dotSo || 1) - (a.dotSo || 1);
+    });
 }
 
 /**

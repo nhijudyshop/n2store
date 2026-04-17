@@ -7,11 +7,11 @@
 let currentShipmentData = null;
 
 /**
- * Check if a date already has kienHang in existing shipments
+ * Check if a (date, dotSo) tuple already has kienHang in existing shipments
  */
-function _dateHasPackages(dateStr) {
+function _dateHasPackagesForDot(dateStr, dotSo) {
     if (!dateStr || !globalState?.shipments) return false;
-    const shipment = globalState.shipments.find(s => s.ngayDiHang === dateStr);
+    const shipment = globalState.shipments.find(s => s.ngayDiHang === dateStr && (s.dotSo || 1) === dotSo);
     return shipment && shipment.kienHang && shipment.kienHang.length > 0;
 }
 
@@ -45,6 +45,20 @@ function openShipmentModal(shipment = null) {
 }
 
 /**
+ * Compute default dotSo for the modal:
+ * - Edit: use shipment.dotSo
+ * - Add: max dotSo (globalState.shipments filtered by date) + 1, fallback 1
+ * Note: Also refreshed from API on save, this is UI-only hint
+ */
+function _computeDefaultDotSo(shipment, date) {
+    if (shipment?.dotSo) return shipment.dotSo;
+    const sameDate = (globalState?.shipments || []).filter(s => s.ngayDiHang === date);
+    if (sameDate.length === 0) return 1;
+    const maxDot = Math.max(...sameDate.map(s => s.dotSo || 1));
+    return maxDot + 1;
+}
+
+/**
  * Render shipment form
  */
 function renderShipmentForm(shipment) {
@@ -52,9 +66,10 @@ function renderShipmentForm(shipment) {
     const cachedDate = localStorage.getItem('lastShipmentDate');
     const date = shipment?.ngayDiHang || cachedDate || new Date().toISOString().split('T')[0];
     const packages = shipment?.kienHang || [];
+    const dotSo = _computeDefaultDotSo(shipment, date);
 
-    // Check if this date already has kienHang from another shipment
-    const dateHasExistingPackages = !isEdit && _dateHasPackages(date);
+    // Check if this date already has kienHang from another shipment (same đợt only)
+    const dateHasExistingPackages = !isEdit && _dateHasPackagesForDot(date, dotSo);
     const invoices = shipment?.hoaDon || [];
     const costs = shipment?.chiPhiHangVe || [];
 
@@ -65,9 +80,15 @@ function renderShipmentForm(shipment) {
     const canEditNote = permissionHelper?.can('edit_ghiChuAdmin');
 
     return `
-        <div class="form-group">
-            <label>Ngày Đi Hàng</label>
-            <input type="date" id="shipmentDate" class="form-input" value="${date}">
+        <div class="form-row" style="display:flex;gap:12px">
+            <div class="form-group" style="flex:2">
+                <label>Ngày Đi Hàng</label>
+                <input type="date" id="shipmentDate" class="form-input" value="${date}">
+            </div>
+            <div class="form-group" style="flex:1">
+                <label>Đợt</label>
+                <input type="number" id="shipmentDotSo" class="form-input" value="${dotSo}" min="1" title="Số thứ tự đợt trong ngày (vd: 1, 2, 3...)">
+            </div>
         </div>
 
         ${dateHasExistingPackages ? `
@@ -212,17 +233,21 @@ function setupShipmentFormListeners() {
     // Packages input listener
     document.getElementById('packagesInput')?.addEventListener('input', updatePackageTotals);
 
-    // Date change → re-check if packages section should show/hide (only for new shipments)
-    document.getElementById('shipmentDate')?.addEventListener('change', (e) => {
+    // Date change → update default đợt from API + re-check kienHang visibility (add mode only)
+    document.getElementById('shipmentDate')?.addEventListener('change', async (e) => {
         if (currentShipmentData) return; // Skip if editing
         const newDate = e.target.value;
-        // Save current invoice data before re-render
         localStorage.setItem('lastShipmentDate', newDate);
-        const body = document.getElementById('modalShipmentBody');
-        if (body) {
-            body.innerHTML = renderShipmentForm(null);
-            setupShipmentFormListeners();
-            if (window.lucide) lucide.createIcons();
+
+        // Refresh đợt số via API (authoritative) — fallback to local compute on failure
+        const dotInput = document.getElementById('shipmentDotSo');
+        if (dotInput) {
+            try {
+                const next = await shipmentsApi.getNextDotSo(newDate);
+                dotInput.value = next || _computeDefaultDotSo(null, newDate);
+            } catch (err) {
+                dotInput.value = _computeDefaultDotSo(null, newDate);
+            }
         }
     });
 
@@ -581,6 +606,10 @@ async function saveShipment() {
             return;
         }
 
+        // Collect đợt số (batch number within the date)
+        const dotSoInput = document.getElementById('shipmentDotSo');
+        const dotSo = parseInt(dotSoInput?.value, 10) || 1;
+
         // Cache date for next time
         localStorage.setItem('lastShipmentDate', ngayDiHang);
 
@@ -682,6 +711,7 @@ async function saveShipment() {
         // Prepare data
         const shipmentData = {
             ngayDiHang,
+            dotSo,
             kienHang,
             tongKien,
             tongKg,

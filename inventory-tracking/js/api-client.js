@@ -177,7 +177,8 @@ const shipmentsApi = {
                 ghi_chu: data.ghiChu || '',
                 chi_phi_hang_ve: data.chiPhiHangVe || [],
                 tong_chi_phi: data.tongChiPhi || 0,
-                ghi_chu_admin: data.ghiChuAdmin || ''
+                ghi_chu_admin: data.ghiChuAdmin || '',
+                dot_so: data.dotSo
             })
         });
         return result.data;
@@ -201,12 +202,18 @@ const shipmentsApi = {
         if (data.chiPhiHangVe !== undefined) body.chi_phi_hang_ve = data.chiPhiHangVe;
         if (data.tongChiPhi !== undefined) body.tong_chi_phi = data.tongChiPhi;
         if (data.ghiChuAdmin !== undefined) body.ghi_chu_admin = data.ghiChuAdmin;
+        if (data.dotSo !== undefined) body.dot_so = data.dotSo;
 
         const result = await apiFetch(`/shipments/${id}`, {
             method: 'PUT',
             body: JSON.stringify(body)
         });
         return result.data;
+    },
+
+    async getNextDotSo(date) {
+        const result = await apiFetch(`/shipments/next-dot-so?date=${encodeURIComponent(date)}`);
+        return result.data.next_dot_so;
     },
 
     async updateShortage(id, soMonThieu, ghiChuThieu) {
@@ -372,6 +379,7 @@ function pgToShipment(row) {
         sttNCC: row.stt_ncc,
         nccDocId: `ncc_${row.stt_ncc}`,
         ngayDiHang: row.ngay_di_hang ? row.ngay_di_hang.split('T')[0] : row.ngay_di_hang,
+        dotSo: row.dot_so || 1,
         tenNCC: row.ten_ncc,
         kienHang: typeof row.kien_hang === 'string' ? JSON.parse(row.kien_hang) : (row.kien_hang || []),
         tongKien: parseInt(row.tong_kien) || 0,

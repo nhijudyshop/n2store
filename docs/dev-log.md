@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory][render] Đợt (batch number) per-date cho shipment — DB + API + UI
+| | |
+|---|---|
+| **Files** | `render.com/migrations/053_add_dot_so_to_inventory_shipments.sql`, `render.com/migrations/054_consolidate_dot_so.sql`, `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/modal-shipment.js`, `inventory-tracking/js/crud-operations.js`, `inventory-tracking/js/table-renderer.js` |
+| **Chi tiết** | **1. Migration 053:** thêm cột `dot_so INT NOT NULL DEFAULT 1` + backfill theo `ROW_NUMBER() PARTITION BY ngay_di_hang ORDER BY created_at/min` + backfill `ten_ncc` từ `inventory_suppliers` + index `(ngay_di_hang, dot_so)`. **2. Migration 054:** consolidate tất cả rows về `dot_so=1` (migration 053 backfill quá granular do NCCs tạo rải rác qua boundary phút — user sẽ chia đợt lại qua edit modal nếu cần). **3. API:** thêm `GET /shipments/next-dot-so?date=X` trả max+1; `POST`/`PUT /shipments` nhận `dot_so` (auto-compute nếu thiếu). **4. UI modal:** input "Đợt" song song "Ngày Đi Hàng", auto-fill từ API khi đổi ngày; fallback tính local từ `globalState.shipments`. **5. Grouping:** `getAllDotHangAsShipments()` nhóm theo `(ngayDiHang, dotSo)` thay vì chỉ ngày → 1 ngày có thể có nhiều đợt hiển thị riêng. **6. Table:** header hiển thị badge "Đợt N" giữa ngày và số kiện. |
+| **Status** | ✅ Done |
+
 ### [delivery] ĐƠN 0đ: filter tab, visual styling, scan sound, exclude from TOMATO
 | | |
 |---|---|

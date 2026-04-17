@@ -481,6 +481,8 @@ function createShipmentCard(shipment) {
                 <i data-lucide="calendar"></i>
                 <span class="shipment-date-text">Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}</span>
                 <span class="shipment-separator">-</span>
+                <span class="shipment-dot-badge" style="background:#EEF2FF;color:#4338CA;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px">Đợt ${shipment.dotSo || 1}</span>
+                <span class="shipment-separator">-</span>
                 <span class="shipment-packages-badge">
                     <i data-lucide="box"></i>
                     ${packagesInfo}

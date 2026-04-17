@@ -26,6 +26,7 @@ async function createShipment(data) {
                 id: generateId('dot'),
                 sttNCC: sttNCC,
                 ngayDiHang: ngayDiHang,
+                dotSo: data.dotSo || 1,
                 tenNCC: tenNCC,
                 kienHang: isFirstInvoice ? (data.kienHang || []) : [],
                 tongKien: isFirstInvoice ? (data.tongKien || 0) : 0,
@@ -93,6 +94,7 @@ async function updateShipment(id, data) {
 
             const updateData = {
                 ngayDiHang: data.ngayDiHang,
+                dotSo: data.dotSo,
                 tenNCC: invoice.tenNCC,
                 kienHang: isFirstUpdate ? data.kienHang : [],
                 tongKien: isFirstUpdate ? data.tongKien : 0,
