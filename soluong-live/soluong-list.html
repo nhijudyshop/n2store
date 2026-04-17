@@ -415,9 +415,10 @@
         }
 
         .grid-stat-total .remaining-qty-item-value {
-            font-weight: bold;
-            font-size: 14px;
-            color: #333;
+            font-weight: 900;
+            font-size: 28px;
+            color: #0d47a1;
+            line-height: 1;
         }
 
         /* For CÒN column - name and value side by side */
@@ -451,22 +452,33 @@
             flex-shrink: 0;
         }
 
-        /* For BÁN column items */
+        /* For BÁN column items (merged variants) */
         .remaining-qty-item-value {
-            font-weight: bold;
-            font-size: 14px;
+            font-weight: 900;
+            font-size: 28px;
             color: #333;
+            line-height: 1;
+        }
+
+        /* BÁN merged: larger value + larger +/- buttons */
+        .grid-stat-sold .remaining-qty-item-value {
+            color: #e65100;
+        }
+
+        /* CỌC merged: larger value, pink theme */
+        .grid-stat-coc .remaining-qty-item-value {
+            color: #ad1457;
         }
 
         .variant-qty-btn {
             background: #ff9800;
             color: white;
             border: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 18px;
             font-weight: bold;
             display: flex;
             align-items: center;
