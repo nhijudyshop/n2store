@@ -607,10 +607,17 @@ function formatNumber(num) {
 }
 
 /**
- * Format date for display (DD/MM/YYYY)
+ * Format date for display (DD/MM/YYYY) — timezone-safe.
+ * YYYY-MM-DD strings are parsed as calendar dates (no timezone shift),
+ * not as UTC midnight → which would shift back 1 day in negative-offset
+ * timezones like US Eastern.
  */
 function formatDateDisplay(dateStr) {
     if (!dateStr) return '';
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr));
+    if (match) {
+        return `${parseInt(match[3], 10)}/${parseInt(match[2], 10)}/${match[1]}`;
+    }
     const date = new Date(dateStr);
     return date.toLocaleDateString('vi-VN');
 }

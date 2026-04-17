@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory] Fix timezone off-by-one: ngày hiển thị/ghép nhóm sai trong timezone âm (US)
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/main.js`, `inventory-tracking/js/modal-shipment.js` |
+| **Chi tiết** | **Bug:** User thêm đợt 10/4/2026 nhưng kết quả hiện thành 9/4/2026 → không gộp vào nhóm cũ. **Nguyên nhân:** `formatDateDisplay('2026-04-10')` dùng `new Date('2026-04-10')` → JS parse YYYY-MM-DD là **UTC midnight**. Trong timezone âm (VD US Eastern UTC-5), `toLocaleDateString` render lùi 1 ngày. Nhóm dates khớp string "2026-04-10" vẫn đúng, nhưng user thấy ngày sai nên chọn sai. **Fix:** Parse YYYY-MM-DD bằng regex tay (`day/month/year`) → không đụng Date constructor. Cũng fix default date mới dùng `getFullYear/getMonth/getDate` local thay vì `toISOString()` (cũng bị UTC shift). |
+| **Status** | ✅ Done |
+
 ### [orders] Purchase Orders: hiển thị lỗi TPOS giống TPOS khi Xuất Excel / Tạo đơn
 | | |
 |---|---|
