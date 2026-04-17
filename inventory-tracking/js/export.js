@@ -89,7 +89,7 @@ function buildShipmentsExportData(shipments, includeFinance) {
                     hdIndex === 0 && spIndex === 0 ? formatDateDisplay(shipment.ngayDiHang) : '',
                     hdIndex === 0 && spIndex === 0 ? packages.length : '',
                     hdIndex === 0 && spIndex === 0 ? totalWeight : '',
-                    spIndex === 0 ? hd.sttNCC : '',
+                    spIndex === 0 ? (hd.tenNCC || hd.sttNCC || '') : '',
                     sp.maSP || '',
                     sp.moTa || '',
                     colorDetails,
@@ -215,7 +215,7 @@ function buildShipmentDetailData(shipment) {
     // Invoices
     rows.push(['DANH SACH HOA DON']);
     (shipment.hoaDon || []).forEach(hd => {
-        rows.push([`NCC ${hd.sttNCC}`, '', `Tong: ${hd.tongTienHD}`, `${hd.tongMon} mon`]);
+        rows.push([`NCC ${hd.tenNCC || hd.sttNCC}`, '', `Tong: ${hd.tongTienHD}`, `${hd.tongMon} mon`]);
         rows.push(['Ma SP', 'So Mau', 'SL', 'Don Gia', 'Thanh Tien']);
         (hd.sanPham || []).forEach(sp => {
             rows.push([sp.maSP || sp.rawText, sp.soMau, sp.soLuong, sp.giaDonVi, sp.thanhTien]);
@@ -304,7 +304,7 @@ function buildTrackingExportData(shipments) {
         // Group products by invoice (NCC)
         invoices.forEach(hd => {
             const products = hd.sanPham || [];
-            const nccDisplay = hd.tenNCC ? `${hd.sttNCC}\n${hd.tenNCC}` : String(hd.sttNCC);
+            const nccDisplay = hd.tenNCC || String(hd.sttNCC);
             const tongTienHD = hd.tongTienHD || hd.tongTien || 0;
             const tongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
             const soMonThieu = hd.soMonThieu || 0;

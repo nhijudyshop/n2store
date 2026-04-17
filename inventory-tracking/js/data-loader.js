@@ -212,16 +212,24 @@ function getNCCByDocId(docId) {
 /**
  * Get or create NCC document (via API)
  */
-async function getOrCreateNCC(sttNCC) {
-    const existing = getNCCById(sttNCC);
+async function getOrCreateNCC(sttNCC, tenNCC) {
+    // For sttNCC > 0, lookup by number. For sttNCC=0, lookup by tenNCC.
+    let existing;
+    if (sttNCC > 0) {
+        existing = getNCCById(sttNCC);
+    } else if (tenNCC) {
+        existing = globalState.nccList.find(ncc => ncc.tenNCC === tenNCC);
+    }
     if (existing) return existing;
 
-    // Create via API
-    await suppliersApi.create(sttNCC, null);
+    // Create via API — use tenNCC as identifier when sttNCC=0
+    const nccId = sttNCC > 0 ? sttNCC : `name_${tenNCC}`;
+    await suppliersApi.create(sttNCC, tenNCC || null);
 
     const newNCC = {
-        id: `ncc_${sttNCC}`,
+        id: `ncc_${nccId}`,
         sttNCC: sttNCC,
+        tenNCC: tenNCC || '',
         datHang: [],
         dotHang: []
     };
@@ -229,7 +237,7 @@ async function getOrCreateNCC(sttNCC) {
     globalState.nccList.push(newNCC);
     globalState.nccList.sort((a, b) => (a.sttNCC || 0) - (b.sttNCC || 0));
 
-    console.log(`[DATA] Created new NCC: ncc_${sttNCC}`);
+    console.log(`[DATA] Created new NCC: ncc_${nccId}`);
     return newNCC;
 }
 
@@ -413,41 +421,37 @@ function updateNCCFilterOptions() {
     const filterNCC = document.getElementById('filterNCC');
     const filterBookingNCC = document.getElementById('filterBookingNCC');
 
-    const nccs = globalState.nccList
-        .map(ncc => ncc.sttNCC)
-        .filter(Boolean)
-        .sort((a, b) => a - b);
+    // Build NCC options: use tenNCC as display, sttNCC or tenNCC as value
+    const nccOptions = globalState.nccList
+        .filter(ncc => ncc.sttNCC > 0 || ncc.tenNCC)
+        .map(ncc => ({
+            value: ncc.sttNCC > 0 ? String(ncc.sttNCC) : ncc.tenNCC,
+            label: ncc.tenNCC || `NCC ${ncc.sttNCC}`
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
     if (filterNCC) {
         const currentValue = filterNCC.value;
         filterNCC.innerHTML = '<option value="all">Tất cả</option>';
-        nccs.forEach(ncc => {
-            const nccDoc = getNCCById(ncc);
-            const tenNCC = getNCCDisplayName(nccDoc);
+        nccOptions.forEach(opt => {
             const option = document.createElement('option');
-            option.value = ncc;
-            option.textContent = tenNCC ? `NCC ${ncc} - ${tenNCC}` : `NCC ${ncc}`;
+            option.value = opt.value;
+            option.textContent = opt.label;
             filterNCC.appendChild(option);
         });
-        if (currentValue && nccs.includes(parseInt(currentValue))) {
-            filterNCC.value = currentValue;
-        }
+        filterNCC.value = currentValue || 'all';
     }
 
     if (filterBookingNCC) {
         const currentValue = filterBookingNCC.value;
         filterBookingNCC.innerHTML = '<option value="all">Tất cả NCC</option>';
-        nccs.forEach(ncc => {
-            const nccDoc = getNCCById(ncc);
-            const tenNCC = getNCCDisplayName(nccDoc);
+        nccOptions.forEach(opt => {
             const option = document.createElement('option');
-            option.value = ncc;
-            option.textContent = tenNCC ? `NCC ${ncc} - ${tenNCC}` : `NCC ${ncc}`;
+            option.value = opt.value;
+            option.textContent = opt.label;
             filterBookingNCC.appendChild(option);
         });
-        if (currentValue && nccs.includes(parseInt(currentValue))) {
-            filterBookingNCC.value = currentValue;
-        }
+        filterBookingNCC.value = currentValue || 'all';
     }
 }
 

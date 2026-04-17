@@ -17,14 +17,16 @@ async function createShipment(data) {
         // kienHang only on FIRST invoice to avoid duplication when grouped by date
         let isFirstInvoice = true;
         for (const invoice of (data.hoaDon || [])) {
-            const sttNCC = parseInt(invoice.sttNCC, 10);
-            if (!sttNCC) continue;
+            const sttNCC = parseInt(invoice.sttNCC, 10) || 0;
+            const tenNCC = invoice.tenNCC || '';
+            // Skip invoice only if BOTH sttNCC and tenNCC are empty
+            if (!sttNCC && !tenNCC) continue;
 
             const newDotHang = {
                 id: generateId('dot'),
                 sttNCC: sttNCC,
                 ngayDiHang: ngayDiHang,
-                tenNCC: invoice.tenNCC || '',
+                tenNCC: tenNCC,
                 kienHang: isFirstInvoice ? (data.kienHang || []) : [],
                 tongKien: isFirstInvoice ? (data.tongKien || 0) : 0,
                 tongKg: isFirstInvoice ? (data.tongKg || 0) : 0,
@@ -44,7 +46,7 @@ async function createShipment(data) {
             const saved = await shipmentsApi.create(newDotHang);
 
             // Update local state
-            const ncc = getNCCById(sttNCC) || await getOrCreateNCC(sttNCC);
+            const ncc = getNCCById(sttNCC) || await getOrCreateNCC(sttNCC, tenNCC);
             if (ncc) {
                 if (!ncc.dotHang) ncc.dotHang = [];
                 ncc.dotHang.push(pgToShipment(saved));
@@ -85,8 +87,9 @@ async function updateShipment(id, data) {
         // kienHang only on first invoice to avoid duplication
         let isFirstUpdate = true;
         for (const invoice of (data.hoaDon || [])) {
-            const sttNCC = parseInt(invoice.sttNCC, 10);
-            if (!sttNCC) continue;
+            const sttNCC = parseInt(invoice.sttNCC, 10) || 0;
+            const tenNCC = invoice.tenNCC || '';
+            if (!sttNCC && !tenNCC) continue;
 
             const updateData = {
                 ngayDiHang: data.ngayDiHang,

@@ -390,9 +390,12 @@ function applyFiltersAndRender() {
 
     // Filter by NCC (skip if "all" is selected)
     if (filters.ncc && filters.ncc !== 'all') {
-        const nccNum = parseInt(filters.ncc);
+        const nccFilter = filters.ncc;
+        const nccNum = parseInt(nccFilter);
         filtered = filtered.filter(s =>
-            (s.hoaDon || []).some(hd => hd.sttNCC === nccNum)
+            (s.hoaDon || []).some(hd =>
+                (!isNaN(nccNum) && hd.sttNCC === nccNum) || hd.tenNCC === nccFilter
+            )
         );
     }
 
@@ -699,7 +702,9 @@ function applyBookingFilters() {
     // Filter by NCC
     if (ncc && ncc !== 'all') {
         const nccNum = parseInt(ncc);
-        filtered = filtered.filter(b => b.sttNCC === nccNum || String(b.sttNCC) === ncc);
+        filtered = filtered.filter(b =>
+            (!isNaN(nccNum) && b.sttNCC === nccNum) || b.tenNCC === ncc || String(b.sttNCC) === ncc
+        );
     }
 
     // Filter by status
