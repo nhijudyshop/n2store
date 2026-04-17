@@ -684,12 +684,12 @@
     // =====================================================
     // Tab name mapping for filenames and sheet names
     const TAB_LABELS = {
-        city: { name: 'ThanhPho', sheet: 'Thành phố' },
-        province: { name: 'Tinh', sheet: 'Tỉnh' },
-        shop: { name: 'BanHangShop', sheet: 'Bán hàng shop' },
-        return: { name: 'ThuVe', sheet: 'Thu về' },
-        zero: { name: 'Don_0d', sheet: 'ĐƠN 0đ' },
-        all: { name: 'TatCa', sheet: 'Tất cả' }
+        city: { name: 'THANHPHO', sheet: 'Thành phố' },
+        province: { name: 'TINH', sheet: 'Tỉnh' },
+        shop: { name: 'SHOP', sheet: 'Bán hàng shop' },
+        return: { name: 'THUVE', sheet: 'Thu về' },
+        zero: { name: 'DON0D', sheet: 'ĐƠN 0đ' },
+        all: { name: 'TATCA', sheet: 'Tất cả' }
     };
 
     function buildExcelRows(items) {
@@ -724,7 +724,7 @@
 
     function makeFileName(label) {
         const now = new Date();
-        return `GiaoHang_${label}_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
+        return `${label}_${now.getDate()}_${now.getMonth()+1}.xlsx`;
     }
 
     async function exportExcel() {
@@ -790,7 +790,7 @@
         autoFitColumns(napWs, napRows);
         XLSX.utils.book_append_sheet(wb, tomatoWs, 'TOMATO');
         XLSX.utils.book_append_sheet(wb, napWs, 'NAP');
-        XLSX.writeFile(wb, makeFileName('Tinh_TOMATO_NAP'));
+        XLSX.writeFile(wb, makeFileName('TOMATO_NAP'));
     }
 
     function exportExcelProvince(group) {
@@ -802,14 +802,14 @@
         const provinceData = getTabFilteredData();
         const groups = DeliveryReportState.provinceGroups;
         const items = provinceData.filter(item => groups[item.Number] === group);
-        const label = group.toUpperCase();
+        const label = GROUP_LABELS[group] || group.toUpperCase();
 
         const wsData = buildExcelRows(items);
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         autoFitColumns(ws, wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
-        XLSX.writeFile(wb, makeFileName(label));
+        XLSX.writeFile(wb, makeFileName(GROUP_FILE_NAMES[group] || group.toUpperCase()));
     }
 
     function exportExcelAllGroups() {
@@ -826,7 +826,7 @@
             XLSX.utils.book_append_sheet(wb, ws, GROUP_LABELS[key]);
         });
 
-        XLSX.writeFile(wb, makeFileName('TatCa_5Nhom'));
+        XLSX.writeFile(wb, makeFileName('TATCA'));
     }
 
     function exportExcelGroup(group) {
@@ -843,7 +843,7 @@
         autoFitColumns(ws, wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
-        XLSX.writeFile(wb, makeFileName(label.replace(/\s+/g, '_')));
+        XLSX.writeFile(wb, makeFileName(GROUP_FILE_NAMES[group] || group.toUpperCase()));
     }
 
     function exportExcelZeroDong() {
@@ -867,7 +867,7 @@
             return;
         }
 
-        XLSX.writeFile(wb, makeFileName('Don_0d'));
+        XLSX.writeFile(wb, makeFileName('DON0D'));
     }
 
     // =====================================================
@@ -1078,6 +1078,11 @@
     const GROUP_LABELS = {
         tomato: 'TOMATO', nap: 'TỈNH NAP',
         city: 'THÀNH PHỐ', shop: 'BÁN HÀNG SHOP', return: 'THU VỀ'
+    };
+
+    const GROUP_FILE_NAMES = {
+        tomato: 'TOMATO', nap: 'NAP',
+        city: 'THANHPHO', shop: 'SHOP', return: 'THUVE'
     };
 
     const GROUP_HEADER_CLASS = {
