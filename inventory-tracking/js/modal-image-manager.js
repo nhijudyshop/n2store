@@ -347,9 +347,8 @@ const ImageManager = (() => {
                     ? `Đã lưu ảnh cho ${apiRows.length} NCC`
                     : 'Đã xóa tất cả ảnh sản phẩm'
             );
-            closeModal('modalImageManager');
 
-            // Re-render table to reflect new image mapping
+            // Re-render table to reflect new image mapping (keep modal open for continued editing)
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
 
         } catch (error) {
