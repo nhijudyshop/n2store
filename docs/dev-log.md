@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [inventory] Fix parser NCC thuần số + schema `inventory_product_images` split theo đợt + silence Firestore probe
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-shipment.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/table-renderer.js`, `render.com/migrations/057_fix_stt_ncc_10_on_2026_04_12.sql`, `render.com/migrations/058_product_images_by_date_dot.sql`, `render.com/routes/v2/inventory-tracking.js`, `shared/js/token-manager.js`, `shared/js/navigation-modern.js` |
+| **Chi tiết** | **1. Parser NCC:** regex cũ `^(\\d+)\\s+(.+)$` yêu cầu "số + space + tên", user gõ `"10"` fail → auto-assign stt=901 → không map ảnh. Đổi `^(\\d+)(?:\\s+(.+))?$`: `"10"` → stt=10 tenNCC=""; `"10 NCC"` → stt=10 tenNCC="NCC"; `"ABC"` → auto 900+. **2. Migration 057:** fix row bad data cụ thể `dot_mo2y25w3_i2igci` (stt=901 ten="10") → stt=10 ten=NULL + upsert supplier stt=10. **3. Migration 058:** schema `inventory_product_images` thêm `ngay_di_hang DATE NOT NULL`, `dot_so INT NOT NULL`, unique key `(ngay_di_hang, dot_so, ncc)` thay vì chỉ `ncc`. Backfill tất cả rows hiện tại về `(2026-04-10, 1)` theo user directive. **4. API `PUT /product-images`:** nhận optional `ngay_di_hang`, `dot_so` → scoped delete+insert per batch; legacy clients không pass → default `(2026-04-10, 1)`. **5. Client `getProductImagesForNcc(ncc, ngay, dot)`:** exact-batch first, fallback any-batch nếu không có (giữ compat khi UI batch-selector chưa có). Table truyền `shipment.ngayDiHang + shipment.dotSo` xuống `_renderImageCell`. **6. Firestore probe silence:** `shared/js/token-manager.js` + `navigation-modern.js` short-circuit nếu `typeof window.firebase === 'undefined'` — không log warning trên các trang Firebase-free (inventory-tracking) nữa. |
+| **Status** | ✅ Done — batch-scoped UI selector chưa build (scope lần sau) |
+
 ### [inventory][render] Default đợt = MAX hiện có (không +1) — merge-by-default UX
 | | |
 |---|---|

@@ -987,8 +987,17 @@ router.delete('/notes/:id', async (req, res) => {
 router.get('/product-images', async (req, res) => {
     try {
         const db = getDb(req);
+        const { date, dot } = req.query;
+        // Filter by (date, dot) if provided. Otherwise return all.
+        const conditions = [];
+        const params = [];
+        let i = 1;
+        if (date) { conditions.push(`ngay_di_hang = $${i++}`); params.push(date); }
+        if (dot) { conditions.push(`dot_so = $${i++}`); params.push(parseInt(dot, 10)); }
+        const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const result = await db.query(
-            'SELECT * FROM inventory_product_images ORDER BY ncc'
+            `SELECT * FROM inventory_product_images ${where} ORDER BY ngay_di_hang DESC, dot_so, ncc`,
+            params
         );
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -1000,32 +1009,41 @@ router.get('/product-images', async (req, res) => {
 router.put('/product-images', async (req, res) => {
     try {
         const db = getDb(req);
-        const { rows } = req.body; // [{ ncc, urls }]
+        // body: { ngay_di_hang?, dot_so?, rows: [{ ncc, urls }] }
+        // Scoped replace if (date, dot) provided; else legacy full replace within the
+        // canonical default batch (2026-04-10, 1) — used by pre-batch-UI clients.
+        const { ngay_di_hang, dot_so, rows } = req.body;
 
         if (!Array.isArray(rows)) {
             return res.status(400).json({ success: false, error: 'rows must be an array' });
         }
 
-        // Bulk replace: delete all, then insert new
+        const batchDate = ngay_di_hang || '2026-04-10';
+        const resolvedDot = parseInt(dot_so, 10) || 1;
+
         await db.query('BEGIN');
-        await db.query('DELETE FROM inventory_product_images');
+        // Scoped delete for that batch only — preserves other batches
+        await db.query(
+            `DELETE FROM inventory_product_images WHERE ngay_di_hang = $1 AND dot_so = $2`,
+            [batchDate, resolvedDot]
+        );
 
         for (const row of rows) {
             if (!row.ncc || !Array.isArray(row.urls) || row.urls.length === 0) continue;
             await db.query(
-                `INSERT INTO inventory_product_images (ncc, urls, updated_at)
-                 VALUES ($1, $2, NOW())`,
-                [row.ncc, JSON.stringify(row.urls)]
+                `INSERT INTO inventory_product_images (ngay_di_hang, dot_so, ncc, urls, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())`,
+                [batchDate, resolvedDot, row.ncc, JSON.stringify(row.urls)]
             );
         }
 
         await db.query('COMMIT');
 
+        // Return all rows (so cached client has full state)
         const result = await db.query(
-            'SELECT * FROM inventory_product_images ORDER BY ncc'
+            'SELECT * FROM inventory_product_images ORDER BY ngay_di_hang DESC, dot_so, ncc'
         );
 
-        // Notify SSE clients for realtime sync
         sseRouter.notifyClients('product_images', { data: result.rows }, 'update');
 
         res.json({ success: true, data: result.rows });

@@ -70,17 +70,20 @@ class TokenManager {
      * @returns {Promise<void>}
      */
     async waitForFirebase() {
+        // Short-circuit: if no Firebase SDK script is on this page at all,
+        // don't wait 5 seconds — fall back to localStorage silently.
+        if (typeof window.firebase === 'undefined') {
+            return;
+        }
+
         const maxRetries = 50; // 5 seconds max (50 * 100ms)
         let retries = 0;
 
         while (retries < maxRetries) {
-            // Check for Firestore instead of Realtime Database
             if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
                 this.firestoreReady = true;
                 return;
             }
-
-            // Wait 100ms before checking again
             await new Promise(resolve => setTimeout(resolve, 100));
             retries++;
         }
@@ -117,10 +120,9 @@ class TokenManager {
                 const docId = this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId;
                 this.firestoreRef = window.firebase.firestore().collection('tokens').doc(docId);
                 return true;
-            } else {
-                console.warn('[TOKEN] Firestore not available, will use localStorage only');
-                return false;
             }
+            // No Firebase on this page — expected on Firebase-free pages. No warning.
+            return false;
         } catch (error) {
             console.error('[TOKEN] Error initializing Firestore:', error);
             return false;

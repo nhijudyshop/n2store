@@ -123,6 +123,8 @@ async function loadProductImages() {
         const images = await productImagesApi.getAll();
         globalState.productImages = images.map(img => ({
             ...img,
+            ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
+            dotSo: img.dot_so || 1,
             urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || [])
         }));
         console.log(`[DATA] Loaded ${globalState.productImages.length} product image groups`);
@@ -171,15 +173,23 @@ function setupProductImagesRealtimeSync() {
 }
 
 /**
- * Get product images for a specific NCC
- * Returns matching urls array
+ * Get product images for a specific NCC within a shipment batch.
+ * - If (ngayDiHang, dotSo) passed → try exact-batch lookup first
+ * - If no exact match, fall back to any batch for this NCC (so existing
+ *   global images still display until per-đợt UI is built)
  */
-function getProductImagesForNcc(ncc) {
+function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     if (!ncc) return [];
     const nccNum = parseInt(ncc);
     const images = globalState.productImages || [];
-    const match = images.find(img => img.ncc === nccNum);
-    return match ? (match.urls || []) : [];
+    if (ngayDiHang && dotSo) {
+        const exact = images.find(img =>
+            img.ncc === nccNum && img.ngayDiHang === ngayDiHang && (img.dotSo || 1) === dotSo
+        );
+        if (exact) return exact.urls || [];
+    }
+    const any = images.find(img => img.ncc === nccNum);
+    return any ? (any.urls || []) : [];
 }
 
 /**

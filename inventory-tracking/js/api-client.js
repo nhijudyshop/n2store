@@ -477,11 +477,15 @@ const productImagesApi = {
         return result.data;
     },
 
-    async bulkSave(rows) {
-        // rows: [{ stt, ncc, urls }]
+    async bulkSave(rows, { date, dotSo } = {}) {
+        // Optional (date, dotSo) — server defaults to canonical batch (2026-04-10, 1)
+        // when missing. Pass when you want scoped per-đợt images.
+        const body = { rows };
+        if (date) body.ngay_di_hang = date;
+        if (dotSo) body.dot_so = dotSo;
         const result = await apiFetch('/product-images', {
             method: 'PUT',
-            body: JSON.stringify({ rows })
+            body: JSON.stringify(body)
         });
         return result.data;
     },

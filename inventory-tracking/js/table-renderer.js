@@ -619,7 +619,9 @@ function renderInvoicesSection(shipment) {
                 canViewCost,
                 hasSubInvoice,
                 subInvoice: hd.subInvoice,
-                anhHoaDon: hd.anhHoaDon
+                anhHoaDon: hd.anhHoaDon,
+                batchNgay: shipment.ngayDiHang,
+                batchDotSo: shipment.dotSo || 1
             }));
             absoluteRowIdx++;
         } else {
@@ -703,12 +705,14 @@ function renderInvoicesSection(shipment) {
  * Images come from independent product_images table, mapped by NCC
  * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId) {
+function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId, batchNgay, batchDotSo) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
-    // Map productImages by sttNCC only for real NCC numbers (< 900)
-    // sttNCC >= 900 = auto-assigned for name-only NCCs — don't map productImages
-    const productImages = (sttNCC > 0 && sttNCC < 900) ? getProductImagesForNcc(sttNCC) : [];
+    // Map productImages by (batch date, đợt, sttNCC) — real NCCs only (< 900).
+    // sttNCC >= 900 = auto-assigned for name-only NCCs — no mapping.
+    const productImages = (sttNCC > 0 && sttNCC < 900)
+        ? getProductImagesForNcc(sttNCC, batchNgay, batchDotSo)
+        : [];
     const invoiceImgs = invoiceImages || [];
     const allImages = [...productImages];
     for (const url of invoiceImgs) {
@@ -755,7 +759,8 @@ function renderProductRow(opts) {
         isFirstRow, isLastRow, rowSpan,
         tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
         shipmentId, invoiceId, costItem, canViewCost,
-        hasSubInvoice, subInvoice, anhHoaDon
+        hasSubInvoice, subInvoice, anhHoaDon,
+        batchNgay, batchDotSo
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
@@ -818,7 +823,7 @@ function renderProductRow(opts) {
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             ` : ''}
-            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId)}
+            ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId, batchNgay, batchDotSo)}
             ${isFirstRow ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
                     ${typeof NoteManager !== 'undefined'

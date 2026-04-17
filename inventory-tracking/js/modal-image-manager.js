@@ -12,6 +12,8 @@ const ImageManager = (() => {
     let _isUploading = false;
     let _rowCounter = 0;
     let _searchNcc = ''; // NCC search filter
+    let _batchNgay = null;  // Current shipment date (YYYY-MM-DD)
+    let _batchDotSo = 1;    // Current đợt number
 
     /**
      * Create a new empty row

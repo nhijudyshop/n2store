@@ -5936,16 +5936,21 @@ class VersionChecker {
      * MIGRATION: Changed from Realtime Database to Firestore
      */
     async waitForFirebase() {
+        // Short-circuit on Firebase-free pages: if no Firebase SDK script is
+        // on this page at all, skip silently (expected — version check is a
+        // shared feature that only activates when Firebase is loaded).
+        if (typeof window.firebase === 'undefined') {
+            return;
+        }
+
         const maxRetries = 50; // 5 seconds max
         let retries = 0;
 
         while (retries < maxRetries) {
-            // Check for Firestore instead of Realtime Database
             if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
                 this.firebaseRef = window.firebase.firestore().collection('app_config').doc('version');
                 return;
             }
-
             await new Promise(resolve => setTimeout(resolve, 100));
             retries++;
         }
