@@ -919,8 +919,9 @@
             const current = parseInt(el.textContent) || 0;
 
             const input = document.createElement('input');
-            input.type = 'number';
-            input.min = '0';
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
             input.value = current;
             input.className = 'coc-inline-input';
 
