@@ -74,9 +74,11 @@ router.get('/manual-transactions', async (req, res) => {
         const excludedSources = ['BANK_TRANSFER', 'ORDER_PAYMENT', 'RETURN_GOODS', 'ORDER_CANCEL_REFUND'];
 
         // Build WHERE clause dynamically
+        // NOTE: include rows with reference_id='MANUAL' (manual "Rút tiền" button) even if
+        // their source is ORDER_PAYMENT — wallet_withdraw_fifo hardcodes source=ORDER_PAYMENT.
         let conditions = [
             `wt.type = ANY($1::text[])`,
-            `(wt.source IS NULL OR wt.source != ALL($2::text[]))`
+            `(wt.source IS NULL OR wt.source != ALL($2::text[]) OR wt.reference_id = 'MANUAL')`
         ];
         let params = [manualTypes, excludedSources];
         let paramIdx = 3;
@@ -535,7 +537,8 @@ router.post('/:customerId/deposit', async (req, res) => {
             source || 'MANUAL_ADJUSTMENT',
             reference_id || created_by || 'admin',
             note || 'Nạp tiền thủ công',
-            customerIdNum
+            customerIdNum,
+            created_by || null
         );
 
         // Log activity
@@ -585,7 +588,8 @@ router.post('/:customerId/credit', async (req, res) => {
             amount,
             source_id || created_by || 'admin',
             note || `Cấp công nợ ảo (${source_type || 'ADMIN'})`,
-            expiry_days
+            expiry_days,
+            created_by || null
         );
 
         // Calculate expiry for response
@@ -633,14 +637,35 @@ router.post('/:customerId/withdraw', async (req, res) => {
         }
 
         // Use FIFO withdrawal function
+        const refId = order_id || 'MANUAL';
         const result = await db.query(`
             SELECT * FROM wallet_withdraw_fifo($1, $2, $3, $4)
-        `, [phone, amount, order_id || 'MANUAL', note]);
+        `, [phone, amount, refId, note]);
 
         const withdrawal = result.rows[0];
 
         if (!withdrawal.success) {
             return res.status(400).json({ success: false, error: withdrawal.error_message });
+        }
+
+        // Stamp created_by onto the wallet_transactions rows FIFO just inserted.
+        // wallet_withdraw_fifo is shared (also used for order COD flow) — we only
+        // patch rows for this withdrawal, matched by phone + reference_id and
+        // restricted to the last few seconds so we never touch historical data.
+        if (created_by) {
+            try {
+                await db.query(`
+                    UPDATE wallet_transactions
+                       SET created_by = $1
+                     WHERE phone = $2
+                       AND reference_id = $3
+                       AND created_by IS NULL
+                       AND type IN ('WITHDRAW', 'VIRTUAL_DEBIT')
+                       AND created_at >= NOW() - interval '5 seconds'
+                `, [created_by, phone, refId]);
+            } catch (stampErr) {
+                console.warn('[Wallets V2] Withdraw created_by stamp failed:', stampErr.message);
+            }
         }
 
         // Log activity

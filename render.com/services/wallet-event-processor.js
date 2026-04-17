@@ -153,6 +153,7 @@ async function processWalletEvent(db, event) {
         referenceId,
         note,
         customerId = null,
+        createdBy = null,
         skipCommit = false,
         transactionDate = null
     } = event;
@@ -259,10 +260,10 @@ async function processWalletEvent(db, event) {
         const insertColumns = `phone, wallet_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note${transactionDate ? ', created_at' : ''}`;
+                source, reference_type, reference_id, note, created_by${transactionDate ? ', created_at' : ''}`;
         const insertValues = transactionDate
-            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, ($13::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
-            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12';
+            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, ($14::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
+            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13';
         const insertParams = [
             phone,
             wallet.id,
@@ -275,7 +276,8 @@ async function processWalletEvent(db, event) {
             source,
             referenceType,
             referenceId?.toString(),
-            note
+            note,
+            createdBy
         ];
         if (transactionDate) {
             insertParams.push(transactionDate);
@@ -380,7 +382,7 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
  * Process manual deposit (admin/accounting - no balance_history)
  * Use this for deposits NOT from bank transfers
  */
-async function processManualDeposit(db, phone, amount, source, referenceId, note, customerId = null) {
+async function processManualDeposit(db, phone, amount, source, referenceId, note, customerId = null, createdBy = null) {
     return processWalletEvent(db, {
         type: WALLET_EVENT_TYPES.DEPOSIT,
         phone,
@@ -389,7 +391,8 @@ async function processManualDeposit(db, phone, amount, source, referenceId, note
         referenceType: 'manual',
         referenceId: referenceId || 'admin',
         note: note || 'Nạp tiền thủ công',
-        customerId
+        customerId,
+        createdBy
     });
 }
 
@@ -413,7 +416,7 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
  * Note: Does NOT create wallet_transaction due to type constraint
  * Only creates virtual_credits record and updates wallet virtual_balance
  */
-async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30) {
+async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30, createdBy = null) {
     console.log(`[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`);
 
     try {
@@ -461,16 +464,17 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     phone, wallet_id, type, amount,
                     balance_before, balance_after,
                     virtual_balance_before, virtual_balance_after,
-                    source, reference_type, reference_id, note
+                    source, reference_type, reference_id, note, created_by
                 ) VALUES ($1, $2, 'VIRTUAL_CREDIT', $3, $4, $4, $5, $6,
-                    'VIRTUAL_CREDIT_ISSUE', 'virtual_credit', $7, $8)
+                    'VIRTUAL_CREDIT_ISSUE', 'virtual_credit', $7, $8, $9)
             `, [
                 phone, wallet.id, amount,
                 parseFloat(wallet.balance || 0),           // balance unchanged
                 parseFloat(wallet.virtual_balance || 0),   // virtual_balance before
                 newVirtualBalance,                          // virtual_balance after
                 String(virtualCreditId),
-                reason
+                reason,
+                createdBy
             ]);
 
             await db.query('COMMIT');

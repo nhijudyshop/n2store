@@ -8,6 +8,13 @@
 
 ## 2026-04-17
 
+### [customer-hub][render] Giao dịch Nạp Tay: hiện rút tay thủ công + lưu người thực hiện
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `render.com/services/wallet-event-processor.js` |
+| **Chi tiết** | **Bug 1:** Tab "Giao dịch Nạp Tay" chỉ hiện Nạp tiền, không thấy Rút tiền thủ công. Nguyên nhân: SQL function `wallet_withdraw_fifo` (dùng chung cho COD flow) hardcode `source='ORDER_PAYMENT'`, trong khi endpoint `/manual-transactions` filter loại trừ source này. **Fix:** nới filter SELECT để include rows có `reference_id='MANUAL'` (cờ do route `/withdraw` gán khi `order_id` null) — không đụng SQL function, không mutate data đã lưu. **Bug 2:** Cột "Người thực hiện" rỗng cho mọi giao dịch thủ công. Nguyên nhân: `processWalletEvent` không insert `created_by`, `wallet_withdraw_fifo` không nhận param người tạo. **Fix:** (A) thêm optional param `createdBy` vào `processWalletEvent` → insert cột `created_by` (cột đã có trong schema từ migration 001); (B) `processManualDeposit` + `issueVirtualCredit` nhận/truyền `createdBy`; (C) routes `/deposit`, `/credit` truyền `created_by` xuống processor; (D) route `/withdraw` sau khi FIFO chạy xong, UPDATE `wallet_transactions.created_by` cho rows phone+reference_id='MANUAL'+`type IN (WITHDRAW,VIRTUAL_DEBIT)` trong 5 giây gần nhất — chỉ metadata, zero ảnh hưởng tính toán số dư/KPI. |
+| **Status** | ✅ Done |
+
 ### [soluong-live] Thêm cột CỌC vào soluong-list + toggle Ẩn/Hiện + Firebase sync
 | | |
 |---|---|
