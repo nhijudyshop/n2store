@@ -165,44 +165,8 @@ const LiveModeModule = (function() {
         return accountNumber || gateway || '';
     }
 
-    // Extract sender info from content field
-    function extractSenderInfo(content) {
-        if (!content) return null;
-        const info = {};
-
-        // Pattern: "NGUYEN VAN A chuyen tien" or company names
-        // Vietnamese bank content often: "<sender> chuyen tien" or "<sender> CT DEN..."
-        const ctMatch = content.match(/^(.+?)\s+(?:chuyen tien|ct den|ct di|thanh toan|gui tien|chuyen khoan)/i);
-        if (ctMatch) {
-            info.name = ctMatch[1].trim();
-        }
-
-        // Pattern: "GD TU <account>" or "TK GUI: <number>"
-        const fromAccMatch = content.match(/(?:GD TU|TK GUI|tu tk|from)\s*:?\s*([0-9]{6,19})/i);
-        if (fromAccMatch) {
-            info.fromAccount = fromAccMatch[1];
-        }
-
-        // Pattern: company/service names (all caps words at start)
-        if (!info.name) {
-            const capsMatch = content.match(/^([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)*)/);
-            if (capsMatch && capsMatch[1].length >= 3) {
-                info.name = capsMatch[1].trim();
-            }
-        }
-
-        // Pattern: phone numbers in content (10-11 digits)
-        const phoneMatch = content.match(/(?:^|\s)(0[0-9]{9,10})(?:\s|$)/);
-        if (phoneMatch) {
-            info.phone = phoneMatch[1];
-        }
-
-        return (info.name || info.fromAccount || info.phone) ? info : null;
-    }
-
     function renderDetailRow(tx) {
         const line1Parts = []; // Receiving account info
-        const line2Parts = []; // Sender info
         const badgeParts = []; // Risk badges
 
         // === LINE 1: Receiving account (TK nhận) ===
@@ -237,30 +201,6 @@ const LiveModeModule = (function() {
             line1Parts.push(`<span class="detail-balance" title="Số dư sau GD">SD: ${formatCurrency(tx.accumulated)}</span>`);
         }
 
-        // === LINE 2: Sender info (Bên gửi) ===
-        const sender = extractSenderInfo(tx.content);
-        if (sender) {
-            if (sender.name) {
-                line2Parts.push(`<span class="detail-sender-name" title="Nguồn/Người gửi"><i data-lucide="user"></i>${escapeHtml(sender.name)}</span>`);
-            }
-            if (sender.fromAccount) {
-                line2Parts.push(`<span class="detail-sender-account" title="TK gửi"><i data-lucide="arrow-right-left"></i>${escapeHtml(sender.fromAccount)}</span>`);
-            }
-            if (sender.phone) {
-                line2Parts.push(`<span class="detail-sender-phone" title="SĐT trong nội dung"><i data-lucide="phone"></i>${escapeHtml(sender.phone)}</span>`);
-            }
-        }
-
-        // Sub account
-        if (tx.sub_account) {
-            line2Parts.push(`<span class="detail-sub" title="TK phụ">${escapeHtml(tx.sub_account)}</span>`);
-        }
-
-        // Extraction note (MOMO:, VCB:...)
-        if (tx.extraction_note) {
-            line2Parts.push(`<span class="detail-extraction" title="Trích xuất">${escapeHtml(tx.extraction_note)}</span>`);
-        }
-
         // === BADGES: Risk indicators ===
         const risks = detectFraudRisks(tx);
         if (risks.length > 0) {
@@ -268,17 +208,13 @@ const LiveModeModule = (function() {
         }
 
         // Build HTML
-        const hasContent = line1Parts.length > 0 || line2Parts.length > 0 || badgeParts.length > 0;
+        const hasContent = line1Parts.length > 0 || badgeParts.length > 0;
         if (!hasContent) return '';
 
         let html = '<div class="card-detail-block">';
 
         if (line1Parts.length > 0) {
             html += `<div class="card-detail-row detail-receiver">${line1Parts.join('')}</div>`;
-        }
-
-        if (line2Parts.length > 0) {
-            html += `<div class="card-detail-row detail-sender">${line2Parts.join('')}</div>`;
         }
 
         if (badgeParts.length > 0) {

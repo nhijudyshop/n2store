@@ -8,6 +8,20 @@
 
 ## 2026-04-18
 
+### [balance-history][live-mode] Bỏ dòng "Gửi ..." phía dưới card để nội dung CK không bị thu nhỏ
+| | |
+|---|---|
+| **Files** | `balance-history/js/live-mode.js` |
+| **Chi tiết** | Xoá hoàn toàn line 2 `detail-sender` (tên người gửi / IBFT / SĐT trích xuất) khỏi `renderDetailRow()` vì thông tin này đã có trong cột Nội dung CK ở dòng 1, gây trùng lặp và chiếm không gian khiến nội dung chính bị ellipsis. Gỡ `line2Parts`, vòng lặp `extractSenderInfo`/`sub_account`/`extraction_note`, và hàm `extractSenderInfo()` (không còn ai gọi). Giữ nguyên line 1 (gateway/TK nhận/#ref/code/sepay/balance) và badge risk. CSS `.detail-sender::before { content: 'Gửi' }` ở `live-mode.css:774` giờ vô tác dụng nhưng không cần dọn. |
+| **Status** | ✅ Done |
+
+### [balance-history][accountant] Ẩn GD "Đã cộng ví" còn PENDING của Huỳnh Thành Đạt (ID 2465) khỏi tab Chờ Duyệt
+| | |
+|---|---|
+| **Files** | DB `balance_history` row id=2465 (PostgreSQL Render) |
+| **Chi tiết** | Chạy SQL inline cập nhật 1 row duy nhất: `verification_status: PENDING_VERIFICATION → APPROVED`, `verified_by='manual-hide'`, `verified_at=NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'`, append note `[Hide: wallet already processed]`. KHÔNG đụng `customer_wallets` / `wallet_transactions` vì ví đã cộng sẵn. Dry-run script `scripts/fix-wallet-processed-pending-status.js` phát hiện còn 5 GD khác cùng tình trạng (2468, 2457, 2456, 2115, 2114) nhưng user chỉ muốn xử 1. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking][user-management] Permission mới `view_thanhToanCK` + admin bypass
 | | |
 |---|---|
