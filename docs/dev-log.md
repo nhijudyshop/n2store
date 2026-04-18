@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [balance-history] Live Mode: ẩn dòng "Mô tả" duplicate trong card
+| | |
+|---|---|
+| **Files** | `balance-history/js/live-mode.js` |
+| **Chi tiết** | User phản hồi: dòng "Mô tả" (`<span class="detail-desc">`) ở `card-detail-block` của mỗi card giao dịch (cả "NHẬP TAY" và "TỰ ĐỘNG GÁN") trùng nội dung với tiêu đề (truncated) + tooltip hover ở phía trên → thừa, gây rối UI. Verified phần tử này **chỉ render text**, không có bất kỳ event handler (click/dblclick/contextmenu/drag) hay hover effect/cursor đặc biệt nào, không có data-attribute nào được code khác đọc → an toàn xóa. **Fix:** Bỏ block 4 dòng (comment + if push) tại `live-mode.js:254-257`. Giữ nguyên CSS `.detail-desc` (no-op, không ai dùng). Các pill khác trong line2 (sender name, TK gửi, SĐT, sub_account, extraction_note) vẫn render bình thường. |
+| **Status** | ✅ Done |
+
 ### [orders] Modal Lịch Sử Tag T: hiển thị redirect + đếm đúng
 | | |
 |---|---|

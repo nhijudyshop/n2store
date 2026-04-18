@@ -251,11 +251,6 @@ const LiveModeModule = (function() {
             }
         }
 
-        // Description (mô tả từ ngân hàng)
-        if (tx.description && tx.description !== tx.content) {
-            line2Parts.push(`<span class="detail-desc" title="Mô tả">${escapeHtml(tx.description)}</span>`);
-        }
-
         // Sub account
         if (tx.sub_account) {
             line2Parts.push(`<span class="detail-sub" title="TK phụ">${escapeHtml(tx.sub_account)}</span>`);
