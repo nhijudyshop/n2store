@@ -461,14 +461,19 @@ function createShipmentCard(shipment) {
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
     let packagesInfo;
     if (packages.length > 0) {
-        const packageWeightsHtml = packages.map((p, i) =>
-            `<label class="pkg-check-label" data-shipment="${shipment.id}" data-pkg-index="${i}">` +
-            `<input type="checkbox" class="pkg-check" onclick="event.stopPropagation(); togglePkgCheck(this)">` +
-            `<span class="pkg-kg-text">${p.soKg} KG</span></label>`
-        ).join(', ');
+        const packageWeightsHtml = packages.map((p, i) => {
+            const received = !!p.daNhan;
+            const receivedClass = received ? ' pkg-received' : '';
+            const checkedAttr = received ? ' checked' : '';
+            return `<label class="pkg-check-label" data-shipment="${shipment.id}" data-pkg-index="${i}" data-dot-id="${_escAttr(p._dotId || '')}" data-dot-kien-idx="${p._dotKienIdx ?? ''}">` +
+                `<input type="checkbox" class="pkg-check" onclick="event.stopPropagation(); togglePkgCheck(this)"${checkedAttr}>` +
+                `<span class="pkg-kg-text${receivedClass}">${p.soKg} KG</span></label>`;
+        }).join(', ');
+        const allChecked = packages.every(p => !!p.daNhan);
+        const checkAllAttr = allChecked ? ' checked' : '';
         packagesInfo = `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG` +
             `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
-            `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ">` +
+            `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ"${checkAllAttr}>` +
             `</label>`;
     } else {
         packagesInfo = '0 Kiện';
@@ -1374,40 +1379,114 @@ window.openImageLightbox = openImageLightbox;
 window.closeImageLightbox = closeImageLightbox;
 
 /**
- * Toggle individual package check - strikethrough that KG
+ * Persist daNhan flag for one kien in its source dot, update cached dot, and PUT to server.
  */
-function togglePkgCheck(checkbox) {
+async function _savePkgReceived(dotId, kienIdx, received) {
+    const targetDot = _findDotByInvoiceId(dotId);
+    if (!targetDot || !Array.isArray(targetDot.kienHang) || !targetDot.kienHang[kienIdx]) {
+        throw new Error('Không tìm thấy kiện');
+    }
+    targetDot.kienHang[kienIdx] = { ...targetDot.kienHang[kienIdx], daNhan: !!received };
+    await shipmentsApi.update(dotId, { kienHang: targetDot.kienHang });
+    return targetDot;
+}
+
+/**
+ * Toggle individual package check - strikethrough that KG + persist daNhan.
+ */
+async function togglePkgCheck(checkbox) {
     const label = checkbox.closest('.pkg-check-label');
     const kgText = label.querySelector('.pkg-kg-text');
-    if (checkbox.checked) {
-        kgText.classList.add('pkg-received');
-    } else {
-        kgText.classList.remove('pkg-received');
-    }
-    // Sync "check all" state
+    const dotId = label.dataset.dotId;
+    const kienIdx = parseInt(label.dataset.dotKienIdx);
+    const nextChecked = checkbox.checked;
+
+    if (nextChecked) kgText.classList.add('pkg-received');
+    else kgText.classList.remove('pkg-received');
+
     const badge = checkbox.closest('.shipment-packages-badge');
     const allChecks = badge.querySelectorAll('.pkg-check');
     const checkAll = badge.querySelector('.pkg-check-all');
     if (checkAll) {
         checkAll.checked = Array.from(allChecks).every(c => c.checked);
     }
+
+    if (!dotId || isNaN(kienIdx)) {
+        window.notificationManager?.error('Thiếu thông tin kiện, không thể lưu');
+        return;
+    }
+
+    try {
+        checkbox.disabled = true;
+        await _savePkgReceived(dotId, kienIdx, nextChecked);
+        flattenNCCData();
+    } catch (error) {
+        console.error('[PKG-CHECK] Save failed:', error);
+        checkbox.checked = !nextChecked;
+        if (!nextChecked) kgText.classList.add('pkg-received');
+        else kgText.classList.remove('pkg-received');
+        if (checkAll) {
+            checkAll.checked = Array.from(allChecks).every(c => c.checked);
+        }
+        window.notificationManager?.error('Không thể lưu: ' + error.message);
+    } finally {
+        checkbox.disabled = false;
+    }
 }
 
 /**
- * Toggle all packages check - strikethrough all KGs
+ * Toggle all packages check - strikethrough all KGs + persist per-dot kienHang.
  */
-function toggleAllPkgCheck(checkAllBox) {
+async function toggleAllPkgCheck(checkAllBox) {
     const badge = checkAllBox.closest('.shipment-packages-badge');
     const allChecks = badge.querySelectorAll('.pkg-check');
+    const allLabels = badge.querySelectorAll('.pkg-check-label');
     const allKgTexts = badge.querySelectorAll('.pkg-kg-text');
-    allChecks.forEach(c => { c.checked = checkAllBox.checked; });
+    const nextChecked = checkAllBox.checked;
+
+    allChecks.forEach(c => { c.checked = nextChecked; });
     allKgTexts.forEach(t => {
-        if (checkAllBox.checked) {
-            t.classList.add('pkg-received');
-        } else {
-            t.classList.remove('pkg-received');
-        }
+        if (nextChecked) t.classList.add('pkg-received');
+        else t.classList.remove('pkg-received');
     });
+
+    const byDot = new Map();
+    allLabels.forEach(label => {
+        const dotId = label.dataset.dotId;
+        const kienIdx = parseInt(label.dataset.dotKienIdx);
+        if (!dotId || isNaN(kienIdx)) return;
+        if (!byDot.has(dotId)) byDot.set(dotId, []);
+        byDot.get(dotId).push(kienIdx);
+    });
+
+    if (byDot.size === 0) {
+        window.notificationManager?.error('Thiếu thông tin kiện, không thể lưu');
+        return;
+    }
+
+    try {
+        checkAllBox.disabled = true;
+        for (const [dotId, kienIndices] of byDot) {
+            const targetDot = _findDotByInvoiceId(dotId);
+            if (!targetDot || !Array.isArray(targetDot.kienHang)) continue;
+            targetDot.kienHang = targetDot.kienHang.map((k, i) =>
+                kienIndices.includes(i) ? { ...k, daNhan: nextChecked } : k
+            );
+            await shipmentsApi.update(dotId, { kienHang: targetDot.kienHang });
+        }
+        flattenNCCData();
+    } catch (error) {
+        console.error('[PKG-CHECK-ALL] Save failed:', error);
+        checkAllBox.checked = !nextChecked;
+        allChecks.forEach(c => { c.checked = !nextChecked; });
+        allKgTexts.forEach(t => {
+            if (!nextChecked) t.classList.add('pkg-received');
+            else t.classList.remove('pkg-received');
+        });
+        window.notificationManager?.error('Không thể lưu: ' + error.message);
+    } finally {
+        checkAllBox.disabled = false;
+    }
 }
 
 /**

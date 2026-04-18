@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Persist checkbox "đã nhận kiện" vào `kienHang[].daNhan`
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/table-renderer.js`, `inventory-tracking/index.html` |
+| **Chi tiết** | **Bug:** Bấm checkbox đánh dấu "đã nhận" kiện KG trên header shipment card + nút "nhận toàn bộ" — UI strikethrough đúng, nhưng F5 mất sạch. Hai handler `togglePkgCheck`/`toggleAllPkgCheck` chỉ toggle CSS class, không ghi DB. **Nguyên nhân:** `shipment.kienHang` là mảng aggregated từ nhiều `dot.kienHang` (cùng ngày+đợt) ở `data-loader.js:377-379`, mất mapping kien → dot gốc → không biết PUT về đâu. **Fix:** (A) `data-loader.js`: khi aggregate kien, enrich `{..._dotId: dot.id, _dotKienIdx: idx}` để nhớ origin (spread sau đó tại `ship.kienHang.map((k, idx) => ({ ...k, stt: idx + 1 }))` preserves các field này). (B) `table-renderer.js createShipmentCard`: render `<label>` với `data-dot-id`/`data-dot-kien-idx`, checkbox `checked` theo `p.daNhan`, kgText `pkg-received` class sẵn nếu đã nhận. Check-all khởi checked khi tất cả kien `daNhan===true`. (C) Rewrite `togglePkgCheck` async: đọc data attrs → `_findDotByInvoiceId(dotId)` → mutate `targetDot.kienHang[kienIdx].daNhan` (immutable spread) → `shipmentsApi.update(dotId, { kienHang })` → `flattenNCCData()`. Rollback UI nếu PUT fail. (D) `toggleAllPkgCheck` nhóm kien theo `dotId` → mỗi dot 1 request update kienHang đã patch. Disable checkbox trong khi save tránh double-click. Cache-bust `data-loader.js?v=...pkg-origin`, `table-renderer.js?v=...pkg-persist`. |
+| **Status** | ✅ Done |
+
 ### [render] walletNoteLines: dùng note gốc cho ticket Khách Gửi (RETURN_GOODS) và nạp tay (MANUAL_ADJUSTMENT)
 | | |
 |---|---|

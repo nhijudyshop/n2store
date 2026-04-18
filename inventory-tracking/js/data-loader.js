@@ -375,7 +375,9 @@ function getAllDotHangAsShipments() {
         });
 
         if (dot.kienHang && dot.kienHang.length > 0) {
-            byKey[key].kienHang.push(...dot.kienHang);
+            dot.kienHang.forEach((k, idx) => {
+                byKey[key].kienHang.push({ ...k, _dotId: dot.id, _dotKienIdx: idx });
+            });
         }
         if (dot.chiPhiHangVe && dot.chiPhiHangVe.length > 0) {
             byKey[key].chiPhiHangVe.push(...dot.chiPhiHangVe);
