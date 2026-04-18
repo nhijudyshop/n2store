@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Panel "Thanh Toán CK" theo đợt + toggle ẩn/hiện
+| | |
+|---|---|
+| **Files** | `render.com/migrations/060_add_thanh_toan_ck_to_shipments.sql` (new), `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/table-renderer.js`, `inventory-tracking/js/main.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html` |
+| **Chi tiết** | **Mục tiêu:** Theo dõi tiền chuyển khoản (CK) theo từng đợt hàng — danh sách nhiều lần chuyển (ngày + số tiền + ghi chú) + 1 tỉ giá quy đổi sang VND dùng chung cho cả đợt + CÒN LẠI = Tổng TT (VND) − Tổng Chi Phí − Tổng Tiền HĐ. Hiển thị **panel bên phải** bảng sản phẩm trong mỗi shipment card (flex layout: `.shipment-body-grid`). Có nút **toggle global** "Thanh Toán CK" trên `action-bar` để ẩn/hiện toàn bộ panel (localStorage key `inv_paymentPanelVisible`). **Data model:** thêm 2 cột JSONB `thanh_toan_ck` + NUMERIC `ti_gia` vào `inventory_shipments` (migration 060 + index `idx_inv_ship_ngay_dot`). Vì mỗi đợt gồm nhiều row NCC, payment data được **sync đồng bộ trên tất cả row cùng (ngay_di_hang, dot_so)** qua endpoint mới `PATCH /shipments/payment-by-dot`. POST `/shipments` khi thêm NCC mới vào đợt có sẵn tự copy `thanh_toan_ck`+`ti_gia` từ row đầu tiên của group. **Frontend:** `api-client.js` thêm `shipmentsApi.updatePaymentByDot()`; `data-loader.js getAllDotHangAsShipments` merge `thanhToanCK`+`tiGia` từ dot đầu có data; `table-renderer.js` thêm `renderPaymentPanel` + inline edit handlers (`startInlineEditTiGia`, `startInlineEditPaymentNgay`, `startInlineEditPaymentSoTien`, `startInlineEditPaymentNote`) + `addPayment`/`deletePayment` + helpers `_calcPaymentTotals` / `_refreshPaymentPanelUI` / `_persistPaymentGroup` / `_findDotsByNgayDotSo`. CÒN LẠI tô xanh (≥0) / đỏ (<0). Responsive: < 1280px panel xếp stack dọc dưới bảng. Permission gate `view_chiPhiHangVe` (read) + `edit_chiPhiHangVe` (write) — dùng lại admin-finance scope. Cache-bust `?v=20260418-payment-panel` cho api-client.js, data-loader.js, table-renderer.js, main.js, modern.css. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Persist checkbox "đã nhận kiện" vào `kienHang[].daNhan`
 | | |
 |---|---|

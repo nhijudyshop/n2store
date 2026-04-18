@@ -466,6 +466,7 @@ router.post('/shipments', async (req, res) => {
             anh_hoa_don = [], ghi_chu = '',
             chi_phi_hang_ve = [], tong_chi_phi = 0,
             ghi_chu_admin = '',
+            thanh_toan_ck = [], ti_gia = 0,
             dot_so
         } = req.body;
 
@@ -561,6 +562,30 @@ router.post('/shipments', async (req, res) => {
         }
 
         const shipmentId = id || generateId('dot');
+
+        // Inherit payment data from existing rows in the same (ngay_di_hang, dot_so) group
+        // so a newly added NCC immediately sees the shared payment/tỉ giá of its đợt.
+        // Client-provided values take precedence when non-empty.
+        let effThanhToanCK = thanh_toan_ck;
+        let effTiGia = ti_gia;
+        if ((!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) || !ti_gia) {
+            const groupRes = await db.query(
+                `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
+                 WHERE ngay_di_hang = $1 AND dot_so = $2
+                 ORDER BY created_at ASC LIMIT 1`,
+                [ngay_di_hang, resolvedDotSo]
+            );
+            if (groupRes.rows[0]) {
+                if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) {
+                    const existing = groupRes.rows[0].thanh_toan_ck;
+                    effThanhToanCK = typeof existing === 'string' ? JSON.parse(existing || '[]') : (existing || []);
+                }
+                if (!ti_gia) {
+                    effTiGia = parseFloat(groupRes.rows[0].ti_gia) || 0;
+                }
+            }
+        }
+
         const result = await db.query(`
             INSERT INTO inventory_shipments (
                 id, stt_ncc, ngay_di_hang, ten_ncc,
@@ -570,9 +595,10 @@ router.post('/shipments', async (req, res) => {
                 anh_hoa_don, ghi_chu,
                 chi_phi_hang_ve, tong_chi_phi,
                 ghi_chu_admin,
+                thanh_toan_ck, ti_gia,
                 dot_so,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING *
         `, [
             shipmentId, stt_ncc, ngay_di_hang, ten_ncc,
@@ -582,6 +608,7 @@ router.post('/shipments', async (req, res) => {
             anh_hoa_don, ghi_chu,
             JSON.stringify(chi_phi_hang_ve), tong_chi_phi,
             ghi_chu_admin,
+            JSON.stringify(effThanhToanCK), effTiGia,
             resolvedDotSo,
             user, user
         ]);
@@ -605,6 +632,7 @@ router.put('/shipments/:id', async (req, res) => {
             anh_hoa_don, ghi_chu,
             chi_phi_hang_ve, tong_chi_phi,
             ghi_chu_admin,
+            thanh_toan_ck, ti_gia,
             dot_so
         } = req.body;
 
@@ -626,6 +654,8 @@ router.put('/shipments/:id', async (req, res) => {
                 chi_phi_hang_ve = COALESCE($15, chi_phi_hang_ve),
                 tong_chi_phi = COALESCE($16, tong_chi_phi),
                 ghi_chu_admin = COALESCE($17, ghi_chu_admin),
+                thanh_toan_ck = COALESCE($20, thanh_toan_ck),
+                ti_gia = COALESCE($21, ti_gia),
                 dot_so = COALESCE($19, dot_so),
                 updated_by = $18,
                 updated_at = NOW()
@@ -643,13 +673,56 @@ router.put('/shipments/:id', async (req, res) => {
             tong_chi_phi,
             ghi_chu_admin !== undefined ? ghi_chu_admin : null,
             user,
-            (dot_so !== undefined && dot_so !== null) ? parseInt(dot_so, 10) : null
+            (dot_so !== undefined && dot_so !== null) ? parseInt(dot_so, 10) : null,
+            thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
+            ti_gia !== undefined ? ti_gia : null
         ]);
 
         if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /shipments/:id error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Update payment data (thanh_toan_ck + ti_gia) for ALL NCC rows in a (ngay_di_hang, dot_so) group.
+// This keeps per-đợt payment consistent across every supplier row belonging to the same đợt.
+router.patch('/shipments/payment-by-dot', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const user = getUserFromHeaders(req);
+        const { ngay_di_hang, dot_so, thanh_toan_ck, ti_gia } = req.body;
+
+        if (!ngay_di_hang || dot_so === undefined || dot_so === null) {
+            return res.status(400).json({ success: false, error: 'ngay_di_hang and dot_so required' });
+        }
+
+        const result = await db.query(`
+            UPDATE inventory_shipments SET
+                thanh_toan_ck = COALESCE($3, thanh_toan_ck),
+                ti_gia = COALESCE($4, ti_gia),
+                updated_by = $5,
+                updated_at = NOW()
+            WHERE ngay_di_hang = $1 AND dot_so = $2
+            RETURNING id, thanh_toan_ck, ti_gia
+        `, [
+            ngay_di_hang,
+            parseInt(dot_so, 10),
+            thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
+            ti_gia !== undefined ? ti_gia : null,
+            user
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                updated: result.rows.length,
+                rows: result.rows
+            }
+        });
+    } catch (err) {
+        console.error('[inventory] PATCH /shipments/payment-by-dot error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

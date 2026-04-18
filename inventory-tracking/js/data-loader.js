@@ -357,7 +357,12 @@ function getAllDotHangAsShipments() {
                 tongSoMon: 0,
                 tongMonThieu: 0,
                 chiPhiHangVe: [],
-                tongChiPhi: 0
+                tongChiPhi: 0,
+                // Payment data is per-đợt (synced across all NCC rows in the group).
+                // Take the first non-empty value we encounter — backend keeps rows in sync.
+                thanhToanCK: [],
+                tiGia: 0,
+                _dotIds: [] // all real DB row IDs for this đợt (used when writing, if ever needed)
             };
         }
 
@@ -381,6 +386,16 @@ function getAllDotHangAsShipments() {
         }
         if (dot.chiPhiHangVe && dot.chiPhiHangVe.length > 0) {
             byKey[key].chiPhiHangVe.push(...dot.chiPhiHangVe);
+        }
+
+        // Absorb per-đợt payment data from whichever row carries it.
+        byKey[key]._dotIds.push(dot.id);
+        if ((!byKey[key].thanhToanCK || byKey[key].thanhToanCK.length === 0)
+            && Array.isArray(dot.thanhToanCK) && dot.thanhToanCK.length > 0) {
+            byKey[key].thanhToanCK = dot.thanhToanCK;
+        }
+        if (!byKey[key].tiGia && dot.tiGia) {
+            byKey[key].tiGia = parseFloat(dot.tiGia) || 0;
         }
     });
 

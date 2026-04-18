@@ -14,7 +14,7 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="../shared/css/modern.css">
-    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/modern.css?v=20260418-payment-panel">
 
     <!-- Navigation Manager -->
     <!-- ES Module: Shared utilities -->
@@ -273,6 +273,10 @@
                 <button class="btn btn-outline btn-image-manager" id="btnOpenImageManager" onclick="ImageManager.open()">
                     <i data-lucide="camera"></i>
                     <span>Quản Lý Ảnh</span>
+                </button>
+                <button class="btn btn-outline" id="btnTogglePaymentPanel" title="Bật/Tắt panel Thanh Toán CK của các đợt">
+                    <i data-lucide="wallet"></i>
+                    <span>Thanh Toán CK</span>
                 </button>
                 <button class="btn btn-outline" id="btnExportTracking">
                     <i data-lucide="download"></i>
@@ -757,12 +761,12 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/api-client.js"></script>
+    <script src="js/api-client.js?v=20260418-payment-panel"></script>
     <script src="js/permission-helper.js"></script>
-    <script src="js/data-loader.js?v=20260418-pkg-origin"></script>
+    <script src="js/data-loader.js?v=20260418-payment-panel"></script>
     <script src="js/text-parser.js"></script>
     <script src="js/balance-calculator.js"></script>
-    <script src="js/table-renderer.js?v=20260418-pkg-persist"></script>
+    <script src="js/table-renderer.js?v=20260418-payment-panel"></script>
     <script src="js/modal-shipment.js"></script>
     <script src="js/modal-shortage.js"></script>
     <script src="js/modal-variant.js"></script>
@@ -789,6 +793,6 @@
     <script src="js/ai-queue-manager.js"></script>
     <script src="js/modal-ai-preview.js"></script>
 
-    <script src="js/main.js"></script>
+    <script src="js/main.js?v=20260418-payment-panel"></script>
 </body>
 </html>

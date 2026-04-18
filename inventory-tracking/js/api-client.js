@@ -178,6 +178,8 @@ const shipmentsApi = {
                 chi_phi_hang_ve: data.chiPhiHangVe || [],
                 tong_chi_phi: data.tongChiPhi || 0,
                 ghi_chu_admin: data.ghiChuAdmin || '',
+                thanh_toan_ck: data.thanhToanCK || [],
+                ti_gia: data.tiGia || 0,
                 dot_so: data.dotSo
             })
         });
@@ -202,6 +204,8 @@ const shipmentsApi = {
         if (data.chiPhiHangVe !== undefined) body.chi_phi_hang_ve = data.chiPhiHangVe;
         if (data.tongChiPhi !== undefined) body.tong_chi_phi = data.tongChiPhi;
         if (data.ghiChuAdmin !== undefined) body.ghi_chu_admin = data.ghiChuAdmin;
+        if (data.thanhToanCK !== undefined) body.thanh_toan_ck = data.thanhToanCK;
+        if (data.tiGia !== undefined) body.ti_gia = data.tiGia;
         if (data.dotSo !== undefined) body.dot_so = data.dotSo;
 
         const result = await apiFetch(`/shipments/${id}`, {
@@ -220,6 +224,19 @@ const shipmentsApi = {
         const result = await apiFetch(`/shipments/${id}/shortage`, {
             method: 'PATCH',
             body: JSON.stringify({ so_mon_thieu: soMonThieu, ghi_chu_thieu: ghiChuThieu })
+        });
+        return result.data;
+    },
+
+    // Sync thanh_toan_ck + ti_gia to every NCC row in the same (ngay_di_hang, dot_so) group.
+    // Payment is per-đợt, but rows are per-NCC — this keeps them consistent.
+    async updatePaymentByDot(ngayDiHang, dotSo, patch = {}) {
+        const body = { ngay_di_hang: ngayDiHang, dot_so: dotSo };
+        if (patch.thanhToanCK !== undefined) body.thanh_toan_ck = patch.thanhToanCK;
+        if (patch.tiGia !== undefined) body.ti_gia = patch.tiGia;
+        const result = await apiFetch('/shipments/payment-by-dot', {
+            method: 'PATCH',
+            body: JSON.stringify(body)
         });
         return result.data;
     },
@@ -394,6 +411,8 @@ function pgToShipment(row) {
         chiPhiHangVe: typeof row.chi_phi_hang_ve === 'string' ? JSON.parse(row.chi_phi_hang_ve) : (row.chi_phi_hang_ve || []),
         tongChiPhi: parseFloat(row.tong_chi_phi) || 0,
         ghiChuAdmin: row.ghi_chu_admin || '',
+        thanhToanCK: typeof row.thanh_toan_ck === 'string' ? JSON.parse(row.thanh_toan_ck) : (row.thanh_toan_ck || []),
+        tiGia: parseFloat(row.ti_gia) || 0,
         createdBy: row.created_by,
         updatedBy: row.updated_by,
         createdAt: row.created_at,

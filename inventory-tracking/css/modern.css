@@ -4148,3 +4148,137 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
     background: var(--primary-light, #f0f0ff) !important;
 }
 
+
+/* =====================================================
+   PAYMENT PANEL (Thanh Toán CK) — per-đợt side panel
+   ===================================================== */
+.shipment-body-grid {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.invoice-wrapper {
+    flex: 1 1 auto;
+    min-width: 0; /* Allow table to shrink within flex */
+}
+.payment-panel {
+    flex: 0 0 340px;
+    background: #FEFCE8;
+    border: 1px solid #FDE68A;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--gray-800);
+    box-sizing: border-box;
+}
+/* Global hide via toolbar toggle */
+#shipmentsContainer.payment-panel-hidden .payment-panel { display: none; }
+#shipmentsContainer.payment-panel-hidden .invoice-wrapper { flex: 1 1 100%; }
+
+.payment-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #FDE68A;
+    margin-bottom: 8px;
+}
+.payment-panel-title {
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 700; color: #92400E;
+}
+.payment-panel-title i { width: 16px; height: 16px; }
+.payment-panel-rate { display: flex; align-items: center; gap: 6px; }
+.payment-panel-rate label { font-size: 12px; color: var(--gray-600); }
+.payment-ti-gia {
+    min-width: 60px; padding: 2px 6px; border-radius: 4px;
+    background: #fff; border: 1px solid #FDE68A; font-weight: 600;
+    text-align: right; cursor: text; font-family: ui-monospace, Menlo, monospace;
+}
+.payment-ti-gia:hover { border-color: #F59E0B; }
+
+.payment-panel-totals {
+    display: grid; grid-template-columns: 1fr; gap: 2px;
+    padding: 4px 0; margin-bottom: 6px;
+    background: #fff; border-radius: 6px; padding: 6px 8px;
+    border: 1px solid #FEF3C7;
+}
+.pp-total-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12.5px;
+}
+.pp-total-row.muted { color: var(--gray-500); font-size: 12px; }
+.pp-total-row.muted strong { font-weight: 500; }
+.pp-total-row strong { font-family: ui-monospace, Menlo, monospace; }
+.pp-con-lai-row {
+    margin-top: 4px; padding-top: 4px;
+    border-top: 1px solid var(--gray-200);
+    font-weight: 700;
+}
+.pp-con-lai { font-size: 15px; font-family: ui-monospace, Menlo, monospace; }
+.pp-con-lai.positive { color: #10B981; }
+.pp-con-lai.negative { color: #EF4444; }
+
+.payment-list-wrap { margin-top: 4px; }
+.payment-list-header,
+.payment-row {
+    display: grid;
+    grid-template-columns: 78px 1fr 1fr 90px 20px;
+    gap: 4px;
+    align-items: center;
+    font-size: 12px;
+}
+.payment-list-header {
+    font-weight: 600; color: var(--gray-600);
+    padding: 4px 0; border-bottom: 1px solid #FEF3C7;
+}
+.payment-list-header .text-right { text-align: right; }
+.payment-list {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 260px; overflow-y: auto;
+}
+.payment-row {
+    padding: 4px 0; border-bottom: 1px dashed #FEF3C7;
+}
+.payment-row:last-child { border-bottom: none; }
+.payment-cell {
+    padding: 2px 4px; min-height: 20px;
+    display: inline-block; border-radius: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.payment-cell.editable-cell:hover {
+    background: #FEF3C7; cursor: text;
+}
+.payment-so-tien-tt, .payment-so-tien-vnd {
+    text-align: right;
+    font-family: ui-monospace, Menlo, monospace;
+}
+.payment-so-tien-vnd { color: #059669; font-weight: 600; }
+.btn-del-payment {
+    border: none; background: transparent; color: var(--gray-400);
+    cursor: pointer; padding: 0; font-size: 16px; line-height: 1;
+    border-radius: 3px; width: 20px; height: 20px;
+}
+.btn-del-payment:hover { color: #EF4444; background: #FEE2E2; }
+
+.btn-add-payment {
+    width: 100%; margin-top: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 6px 10px;
+    background: #fff; border: 1px dashed #F59E0B; color: #92400E;
+    border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 600;
+    transition: all 0.15s;
+}
+.btn-add-payment:hover { background: #FEF3C7; border-style: solid; }
+.btn-add-payment i { width: 14px; height: 14px; }
+
+.inline-edit-input.payment-ti-gia-input {
+    width: 80px; text-align: right;
+}
+
+/* Responsive stack on narrow screens */
+@media (max-width: 1279px) {
+    .shipment-body-grid { flex-direction: column; }
+    .payment-panel { flex: 1 1 100%; width: 100%; }
+}
