@@ -2268,18 +2268,50 @@ class InventoryPickerDialog {
     initImageZoomHover() {
         if (!this.modalElement) return;
 
+        const ZOOM_SIZE = 420;
         let zoomEl = null;
+
+        // Inline all critical styles so cached CSS cannot defeat the preview.
+        const applyInlineStyles = (el) => {
+            Object.assign(el.style, {
+                position: 'fixed',
+                zIndex: '99999',
+                pointerEvents: 'none',
+                width: ZOOM_SIZE + 'px',
+                height: ZOOM_SIZE + 'px',
+                objectFit: 'contain',
+                background: '#fff',
+                borderRadius: '12px',
+                border: '2px solid #e5e7eb',
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.35)',
+                padding: '8px',
+                opacity: '0',
+                transform: 'scale(0.85)',
+                transition: 'opacity 0.12s ease, transform 0.12s ease',
+                display: 'block',
+                left: '0px',
+                top: '0px'
+            });
+        };
 
         const getOrCreateZoom = () => {
             if (!zoomEl) {
                 zoomEl = document.createElement('img');
                 zoomEl.className = 'inventory-zoom-preview';
+                applyInlineStyles(zoomEl);
                 document.body.appendChild(zoomEl);
             }
             return zoomEl;
         };
 
-        const ZOOM_SIZE = 420;
+        const showZoom = (el) => {
+            el.style.opacity = '1';
+            el.style.transform = 'scale(1)';
+        };
+        const hideZoom = (el) => {
+            el.style.opacity = '0';
+            el.style.transform = 'scale(0.85)';
+        };
 
         const positionZoom = (e, el) => {
             const offset = 20;
@@ -2288,6 +2320,7 @@ class InventoryPickerDialog {
             let y = e.clientY - h / 2;
 
             if (x + w > window.innerWidth) x = e.clientX - w - offset;
+            if (x < 4) x = 4;
             if (y < 4) y = 4;
             if (y + h > window.innerHeight - 4) y = window.innerHeight - h - 4;
 
@@ -2298,28 +2331,29 @@ class InventoryPickerDialog {
         const listContainer = this.modalElement.querySelector('#inventoryProductsList');
         if (!listContainer) return;
 
-        // Use mousemove — fires continuously and sidesteps mouseenter's
-        // no-bubble problem entirely. We drive show/hide from hit-testing.
+        // mousemove fires continuously and sidesteps mouseenter's no-bubble
+        // problem. Hit-test .inventory-thumb (img or placeholder) on each move.
         let currentThumb = null;
         listContainer.addEventListener('mousemove', (e) => {
             const thumb = e.target.closest('.inventory-thumb');
-            if (thumb) {
+            const src = thumb && thumb.tagName === 'IMG' ? thumb.src : null;
+            if (thumb && src) {
                 const zoom = getOrCreateZoom();
                 if (currentThumb !== thumb) {
                     currentThumb = thumb;
-                    if (zoom.src !== thumb.src) zoom.src = thumb.src;
-                    zoom.classList.add('visible');
+                    if (zoom.src !== src) zoom.src = src;
+                    showZoom(zoom);
                 }
                 positionZoom(e, zoom);
             } else if (currentThumb) {
                 currentThumb = null;
-                if (zoomEl) zoomEl.classList.remove('visible');
+                if (zoomEl) hideZoom(zoomEl);
             }
         });
 
         listContainer.addEventListener('mouseleave', () => {
             currentThumb = null;
-            if (zoomEl) zoomEl.classList.remove('visible');
+            if (zoomEl) hideZoom(zoomEl);
         });
 
         // Clean up zoom element when modal is closed

@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [purchase-orders] Inventory picker: inline styles + cache-bust để zoom preview chắc chắn hiện
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/dialogs.js`, `purchase-orders/index.html` |
+| **Chi tiết** | User báo 2 lần fix trước vẫn chỉ thấy thumb scale 1.15 — preview 420×420 không xuất hiện. Nguyên nhân khả năng: **GitHub Pages / browser cache** `modal.css` cũ (không có class `.inventory-zoom-preview.visible` mới) HOẶC `dialogs.js` cũ. **Fix bulletproof:** (A) Inline toàn bộ critical styles (`position:fixed`, `zIndex:99999`, size, shadow, opacity/transform) trực tiếp vào element qua `applyInlineStyles()` — không phụ thuộc CSS external; show/hide bằng `showZoom()`/`hideZoom()` set style trực tiếp thay vì toggle class. (B) Guard chỉ show khi `thumb.tagName === 'IMG'` và có `src` (tránh trigger trên `.inventory-thumb-placeholder`). (C) Thêm `?v=20260418b` vào `css/modal.css` và `js/dialogs.js` trong `index.html` → ép browser/Pages load bản mới. |
+| **Status** | ✅ Done |
+
 ### [purchase-orders] Inventory picker: preview zoom phóng to 420×420 + dùng mousemove
 | | |
 |---|---|
