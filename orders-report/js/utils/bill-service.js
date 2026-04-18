@@ -1380,8 +1380,33 @@ ${
                 };
             }
 
-            // Send via Official API v1 (page_access_token) with JSON
-            const pageAccessToken =
+            // Build JSON payload - send image via content_ids (Official API docs §3.3)
+            const billPayload = {
+                action: 'reply_inbox',
+                content_ids: contentId ? [contentId] : [],
+            };
+
+            // Send via Official API v1 (page_access_token) with JSON.
+            // Auto-refresh PAT and retry once if Pancake reports token was renewed
+            // (response: {success:false, message:'access_token renewed ...'}).
+            const _postBill = async (patToken) => {
+                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${pageId}/conversations/${convId}/messages`,
+                    patToken
+                );
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify(billPayload),
+                });
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    throw new Error(`Send failed: ${resp.status} - ${errorText}`);
+                }
+                return resp.json();
+            };
+
+            let pageAccessToken =
                 await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error(
@@ -1389,33 +1414,21 @@ ${
                 );
             }
 
-            // Build URL using Official API v1 (pages.fm/api/public_api/v1/)
-            const sendUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${convId}/messages`,
-                pageAccessToken
-            );
+            let sendResult = await _postBill(pageAccessToken);
 
-            // Build JSON payload - send image via content_ids (Official API docs §3.3)
-            const billPayload = {
-                action: 'reply_inbox',
-                content_ids: contentId ? [contentId] : [],
-            };
-
-            const sendResponse = await fetch(sendUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify(billPayload),
-            });
-
-            if (!sendResponse.ok) {
-                const errorText = await sendResponse.text();
-                throw new Error(`Send failed: ${sendResponse.status} - ${errorText}`);
+            // Detect "access_token renewed" → refresh PAT and retry once
+            const isRenewedMsg = (m) =>
+                typeof m === 'string' && /access_token\s+renewed/i.test(m);
+            if (sendResult.success === false && isRenewedMsg(sendResult.message)) {
+                console.warn('[BILL-SERVICE] 🔄 PAT rotated by Pancake, refreshing and retrying once');
+                const refreshed = await window.pancakeTokenManager?.refreshPageAccessToken?.(pageId);
+                if (refreshed) {
+                    pageAccessToken = refreshed;
+                    sendResult = await _postBill(pageAccessToken);
+                } else {
+                    console.error('[BILL-SERVICE] PAT refresh failed, cannot retry');
+                }
             }
-
-            const sendResult = await sendResponse.json();
 
             // Check if API returned success: false (Facebook policy errors, etc.)
             if (sendResult.success === false) {

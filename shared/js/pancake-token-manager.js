@@ -1406,6 +1406,57 @@ class PancakeTokenManager {
     }
 
     /**
+     * Invalidate cached page_access_token (memory + localStorage).
+     * Use when Pancake returns "access_token renewed please use new access_token".
+     * Does NOT touch Render DB (next save will overwrite).
+     * @param {string} pageId
+     */
+    invalidatePageAccessToken(pageId) {
+        if (!pageId) return;
+        delete this.pageAccessTokens[pageId];
+        try {
+            const key = this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS;
+            const localData = localStorage.getItem(key);
+            if (localData) {
+                const parsed = JSON.parse(localData);
+                if (parsed[pageId]) {
+                    delete parsed[pageId];
+                    localStorage.setItem(key, JSON.stringify(parsed));
+                }
+            }
+            if (window.indexedDBStorage) {
+                window.indexedDBStorage.getItem(key).then(idbData => {
+                    if (idbData && idbData[pageId]) {
+                        delete idbData[pageId];
+                        window.indexedDBStorage.setItem(key, idbData);
+                    }
+                }).catch(() => {});
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] invalidate localStorage failed:', e.message);
+        }
+        console.log('[PANCAKE-TOKEN] 🗑️ Invalidated PAT cache for page:', pageId);
+    }
+
+    /**
+     * Force refresh PAT for a page: invalidate cache → regenerate from JWT → return new token.
+     * Call this when API returns "access_token renewed please use new access_token".
+     * @param {string} pageId
+     * @returns {Promise<string|null>}
+     */
+    async refreshPageAccessToken(pageId) {
+        this.invalidatePageAccessToken(pageId);
+        console.log('[PANCAKE-TOKEN] 🔄 Refreshing PAT for page:', pageId);
+        const fresh = await this.generatePageAccessToken(pageId);
+        if (fresh) {
+            console.log('[PANCAKE-TOKEN] ✅ PAT refreshed:', fresh.substring(0, 50) + '...');
+        } else {
+            console.error('[PANCAKE-TOKEN] ❌ PAT refresh failed for page:', pageId);
+        }
+        return fresh;
+    }
+
+    /**
      * Get all page access tokens info (for display)
      * @returns {Array}
      */

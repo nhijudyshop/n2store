@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [orders] Fix bulk gửi bill báo "access_token renewed" — auto refresh PAT + retry 1 lần
+| | |
+|---|---|
+| **Files** | `shared/js/pancake-token-manager.js`, `orders-report/js/utils/bill-service.js` |
+| **Chi tiết** | **Bug:** "Gửi Bill hàng loạt" trong modal kết quả fail với `{success:false, message:'access_token renewed please use new access_token'}` — Pancake rotate PAT, cache client stale. Single send ở cột "Phiếu bán hàng" thỉnh thoảng pass vì PAT mới chưa rotate. **Fix:** (A) Thêm `invalidatePageAccessToken(pageId)` + `refreshPageAccessToken(pageId)` vào `PancakeTokenManager` — xoá cache (memory + localStorage key `pancake_page_access_tokens` + IndexedDB) rồi gọi `generatePageAccessToken` để sinh PAT mới từ JWT. (B) Trong `sendBillToCustomer`, tách request body thành helper `_postBill(pat)`, sau lần POST đầu kiểm `success:false` + `message` match `/access_token\s+renewed/i` → gọi `refreshPageAccessToken` → retry 1 lần. Không ảnh hưởng 24h policy / e_code 551 / extension bypass đã có. |
+| **Status** | ✅ Done |
+
 ### [balance-history] Live Mode: ẩn dòng "Mô tả" duplicate trong card
 | | |
 |---|---|
