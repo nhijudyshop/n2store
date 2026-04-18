@@ -2157,13 +2157,15 @@ function _aggregateDotEntry(dotSo) {
 }
 
 function _calcPaymentTotals(entry) {
+    // All amounts are in the SAME foreign currency unit (e.g. CNY).
+    // VND is display-only (via tỉ giá) and must NOT enter CÒN LẠI math.
     const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const tiGia = parseFloat(entry.tiGia) || 0;
     const tongTT = payments.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0);
-    const tongTTVND = tongTT * tiGia;
+    const tongTTVND = tongTT * tiGia; // display note only
     const tongChiPhi = parseFloat(entry.tongChiPhi) || 0;
     const tongTienHD = parseFloat(entry.tongTienHoaDon) || 0;
-    const conLai = tongTTVND - tongChiPhi - tongTienHD;
+    const conLai = tongTT - tongChiPhi - tongTienHD; // foreign-currency math
     return { tongTT, tongTTVND, tongChiPhi, tongTienHD, conLai, tiGia };
 }
 
@@ -2200,20 +2202,23 @@ function renderPaymentDotSection(entry) {
             <div class="payment-dot-head" onclick="togglePaymentDotSection(this)">
                 <i class="payment-dot-chevron" data-lucide="chevron-down"></i>
                 <span class="payment-dot-label">Đợt ${dotAttr}</span>
-                <span class="payment-dot-dates" title="${_escAttr(datesText)}">Ngày giao: ${_escAttr(datesText)}</span>
-                <span class="payment-dot-conlai ${conLaiClass}">CÒN LẠI: ${formatNumber(totals.conLai)}</span>
+                <span class="payment-dot-dates" title="${_escAttr(datesText)}">${_escAttr(datesText)}</span>
+                <span class="payment-dot-conlai ${conLaiClass}">CÒN: ${formatNumber(totals.conLai)}</span>
             </div>
             <div class="payment-dot-body">
                 <div class="payment-rate-row">
-                    <label>Tỉ giá quy đổi (→ VND):</label>
+                    <label>Tỉ giá (→ VND):</label>
                     <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
                 </div>
                 <div class="payment-panel-totals">
-                    <div class="pp-total-row"><span>Tổng TT:</span><strong class="pp-total-tt">${formatNumber(totals.tongTT)}</strong></div>
-                    <div class="pp-total-row"><span>Tổng VND:</span><strong class="pp-total-vnd">${formatNumber(totals.tongTTVND)}</strong></div>
-                    <div class="pp-total-row muted"><span>Tổng HĐ:</span><strong>${formatNumber(totals.tongTienHD)}</strong></div>
-                    <div class="pp-total-row muted"><span>Tổng CP:</span><strong>${formatNumber(totals.tongChiPhi)}</strong></div>
-                    <div class="pp-total-row pp-con-lai-row"><span>CÒN LẠI:</span><strong class="pp-con-lai ${conLaiClass}">${formatNumber(totals.conLai)}</strong></div>
+                    <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}</strong></div>
+                    <div class="pp-line pp-line-vnd"><span class="pp-label">Tổng VND</span><strong class="pp-value pp-total-vnd">${formatNumber(totals.tongTTVND)}</strong></div>
+                    <div class="pp-line"><span class="pp-label">Tổng HĐ</span><strong class="pp-value">${formatNumber(totals.tongTienHD)}</strong></div>
+                    <div class="pp-line"><span class="pp-label">Tổng CP</span><strong class="pp-value">${formatNumber(totals.tongChiPhi)}</strong></div>
+                    <div class="pp-conlai ${conLaiClass}">
+                        <span class="pp-conlai-label">CÒN LẠI</span>
+                        <strong class="pp-conlai-value pp-con-lai">${formatNumber(totals.conLai)}</strong>
+                    </div>
                 </div>
                 <div class="payment-list-wrap">
                     <div class="payment-list-header">
@@ -2277,9 +2282,15 @@ function _refreshPaymentDotSectionUI(dotSo) {
     }
     const headConLai = section.querySelector('.payment-dot-conlai');
     if (headConLai) {
-        headConLai.textContent = `CÒN LẠI: ${formatNumber(totals.conLai)}`;
+        headConLai.textContent = `CÒN: ${formatNumber(totals.conLai)}`;
         headConLai.classList.toggle('positive', totals.conLai >= 0);
         headConLai.classList.toggle('negative', totals.conLai < 0);
+    }
+    // Update outer CÒN LẠI block color wrapper too
+    const conLaiWrap = section.querySelector('.pp-conlai');
+    if (conLaiWrap) {
+        conLaiWrap.classList.toggle('positive', totals.conLai >= 0);
+        conLaiWrap.classList.toggle('negative', totals.conLai < 0);
     }
 
     // Per-row VND cells

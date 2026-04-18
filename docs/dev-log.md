@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Slide-over CK: CÒN LẠI tính theo ngoại tệ + phóng to số kế toán
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/table-renderer.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html` |
+| **Chi tiết** | **Fix formula:** Trước đó `conLai = tongTTVND - tongChiPhi - tongTienHD` — trộn đơn vị (VND trừ ngoại tệ) → sai số nghìn lần (vd `39.503.950 − 132.822 = 39.371.128` — vô nghĩa). User confirm: **tất cả tính theo ngoại tệ** (Tổng HĐ, Tổng CP, Tổng TT cùng đơn vị CNY/USD/etc), VND chỉ hiển thị tham khảo. Sửa `_calcPaymentTotals`: `conLai = tongTT − tongChiPhi − tongTienHD` (cùng đơn vị). Giữ dòng Tổng VND ngang hàng với Tổng TT/HĐ/CP (user yêu cầu "vnd vẫn đi bình thường"). **Phóng to UX kế toán:** Tăng width slide-over 480 → 640px. Font size: Tổng TT/VND/HĐ/CP 28px bold monospace, CÒN LẠI **40px weight 900** bordered 3px (xanh ≥0 / đỏ <0), card border-radius 12px shadow nhẹ. Payment row: ngày 15px, số tiền TT 18px, VND 16px green, ghi chú 14px, font monospace weight 700-800 cho tất cả số. Slide-over header 18px, dot-label badge 15px, ti-gia 16px. Payment list bọc card trắng border-radius 10px padding 14px. Add button padding 14px border 2px dashed. Inline edit input 17-18px typing UX. Cache-bust `?v=20260418-payment-big-numbers`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Fix fetch fail khi user có tên tiếng Việt có dấu (header non ISO-8859-1)
 | | |
 |---|---|
