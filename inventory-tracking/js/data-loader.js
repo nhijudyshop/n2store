@@ -205,6 +205,12 @@ function flattenNCCData() {
     globalState.filteredShipments = [...globalState.shipments];
 
     console.log(`[DATA] Flattened: ${globalState.orderBookings.length} datHang, ${globalState.shipments.length} shipments`);
+
+    // Keep the horizontal stats bar in sync with any data mutation
+    // (chi phí, tiền HĐ, tổng món, kiện/KG, payment changes, etc.)
+    if (typeof updateInventoryStatsBar === 'function') {
+        updateInventoryStatsBar();
+    }
 }
 
 /**
