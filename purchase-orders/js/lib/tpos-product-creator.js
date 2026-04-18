@@ -583,6 +583,36 @@ window.TPOSProductCreator = (function () {
     // =====================================================
 
     /**
+     * Pre-upload check: query TPOS for any Product with DefaultCode == productCode
+     * or DefaultCode starts with productCode (biến thể của parent template).
+     * @param {string} productCode
+     * @returns {Promise<{exists: boolean, variants: Array}>}
+     *   variants: [{ Id, DefaultCode, ProductTmplId, Barcode, NameGet, AttributeValues }]
+     */
+    async function checkProductExists(productCode) {
+        try {
+            // startswith bao hàm cả exact match và biến thể (Q130 → Q130, Q130T, Q130D…)
+            const url = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode,'${encodeURIComponent(productCode)}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet,AttributeValues`;
+            const resp = await window.TPOSClient.authenticatedFetch(url);
+            if (!resp.ok) {
+                console.warn(`[TPOSCreator] checkProductExists ${productCode} HTTP ${resp.status}`);
+                return { exists: false, variants: [] };
+            }
+            const data = await resp.json();
+            const variants = data.value || [];
+
+            // Loại false-positive: chỉ giữ SP có DefaultCode === productCode
+            // hoặc DefaultCode = productCode + {1-4 ký tự variant}  (vd Q130T, Q130D1)
+            const re = new RegExp(`^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z0-9]{0,4}$`, 'i');
+            const matches = variants.filter(v => re.test(v.DefaultCode || ''));
+            return { exists: matches.length > 0, variants: matches };
+        } catch (err) {
+            console.warn(`[TPOSCreator] checkProductExists ${productCode} error:`, err);
+            return { exists: false, variants: [] };
+        }
+    }
+
+    /**
      * POST product to TPOS API with retry for 429
      * @param {Object} payload - TPOS product payload
      * @param {number} maxRetries - max retry attempts for 429
@@ -862,6 +892,43 @@ window.TPOSProductCreator = (function () {
         // Note: 'processing' status is set in batch before parallel launch (see syncOrderToTPOS)
 
         try {
+            // Pre-check TPOS: nếu mã (hoặc biến thể của mã) đã tồn tại → skip POST
+            const existing = await checkProductExists(productCode);
+            if (existing.exists) {
+                console.log(`[TPOSCreator] ${productCode} đã tồn tại trên TPOS (${existing.variants.length} SP) — skip upload`);
+                const productData = {
+                    Id: existing.variants[0].ProductTmplId,
+                    ProductVariants: existing.variants.map(v => ({
+                        Id: v.Id,
+                        Barcode: v.Barcode || v.DefaultCode,
+                        DefaultCode: v.DefaultCode,
+                        NameGet: v.NameGet || null,
+                        AttributeValues: v.AttributeValues || null
+                    }))
+                };
+
+                // Need combos to match variant barcodes if items have variants
+                let preAllCombinations = null;
+                if (allAttrIds.size > 0) {
+                    const resolvedValues = resolveAttributeValues([...allAttrIds]);
+                    if (resolvedValues.length > 0) {
+                        const attrGroups = groupByAttribute(resolvedValues);
+                        preAllCombinations = cartesianProduct([...attrGroups.values()]);
+                    }
+                }
+
+                let variantUpdates = null;
+                if (preAllCombinations && productData.ProductVariants.length > 0) {
+                    variantUpdates = matchVariantBarcodes(groupItems, productData.ProductVariants);
+                }
+
+                return {
+                    success: true, productCode, alreadyExists: true,
+                    itemIds,
+                    syncData: { status: 'success', tposProductId: productData.Id, error: null, variantUpdates, tposImageUrl: null }
+                };
+            }
+
             // Convert image to base64 for TPOS (fire-and-forget style, don't block on failure)
             let imageBase64 = null;
             if (imageUrl) {
@@ -1223,6 +1290,7 @@ window.TPOSProductCreator = (function () {
         buildAttributeLines,
         buildProductVariants,
         createTPOSProduct,
+        checkProductExists,
         convertImageToBase64
     };
 

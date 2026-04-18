@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-18
+
+### [orders] Pre-check TPOS trước khi upload sản phẩm — skip nếu mã đã tồn tại (cả biến thể & cha)
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/lib/tpos-product-creator.js` |
+| **Chi tiết** | **Vấn đề:** Trước đây chỉ dựa vào TPOS trả `400` để phát hiện duplicate — tốn thêm 1 round-trip + không 100% đáng tin. **Fix:** Thêm `checkProductExists(productCode)` — GET `Product?$filter=startswith(DefaultCode,'{code}')` + regex filter `^{code}[A-Z0-9]{0,4}$` (tránh false-positive Q13 match Q130). Match cả sản phẩm cha (Q130) lẫn biến thể (Q130T, Q130D1). Trong `processGroup`: gọi precheck TRƯỚC khi POST InsertV2 — nếu tồn tại: skip upload + build productData từ variants có sẵn → `matchVariantBarcodes` như flow "already exists" cũ. Giữ 400-fallback của `createTPOSProduct` như safety net. Export thêm `checkProductExists`. |
+| **Status** | ✅ Done |
+
 ## 2026-04-17
 
 ### [customer-hub][render] Giao dịch Nạp Tay: hiện rút tay thủ công + lưu người thực hiện
