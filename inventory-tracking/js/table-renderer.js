@@ -832,11 +832,17 @@ function renderProductRow(opts) {
                 </td>
             ` : ''}
             ${canViewCost ? `
-                <td class="col-cost text-right cost-cell">
+                <td class="col-cost text-right cost-cell editable-cell"
+                    data-cost-id="${costItem?.id || ''}"
+                    data-invoice-id="${_escAttr(invoiceId)}"
+                    ondblclick="startInlineEditCost(this)" title="Nhấp đúp để sửa">
                     ${costItem ? `<strong class="cost-value">${formatNumber(costItem.soTien)}</strong>` : ''}
                 </td>
-                <td class="col-cost-note cost-note-cell">
-                    ${costItem ? `<span class="cost-label">${costItem.loai}</span>` : ''}
+                <td class="col-cost-note cost-note-cell editable-cell"
+                    data-cost-id="${costItem?.id || ''}"
+                    data-invoice-id="${_escAttr(invoiceId)}"
+                    ondblclick="startInlineEditCostNote(this)" title="Nhấp đúp để sửa">
+                    ${costItem ? `<span class="cost-label">${costItem.loai || ''}</span>` : ''}
                 </td>
             ` : ''}
         </tr>
@@ -1794,8 +1800,248 @@ async function removeTableImage(invoiceId, imageUrl) {
     }
 }
 
+// =====================================================
+// INLINE EDIT — Chi Phí & Ghi Chú CP
+// =====================================================
+
+function _findCostByIdAcrossDots(costId) {
+    for (const ncc of globalState.nccList) {
+        for (const dot of (ncc.dotHang || [])) {
+            const c = (dot.chiPhiHangVe || []).find(x => x.id === costId);
+            if (c) return { dot, cost: c };
+        }
+    }
+    return null;
+}
+
+function _findDotByInvoiceId(invoiceId) {
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        if (dot) return dot;
+    }
+    return null;
+}
+
+function _renderCostValueHtml(soTien) {
+    return soTien > 0 ? `<strong class="cost-value">${formatNumber(soTien)}</strong>` : '';
+}
+
+function _renderCostNoteHtml(loai) {
+    return loai ? `<span class="cost-label">${loai}</span>` : '';
+}
+
+function _refreshCostTotal(td) {
+    const table = td.closest('table');
+    if (!table) return;
+    const cells = table.querySelectorAll('tbody .cost-value');
+    let total = 0;
+    cells.forEach(el => {
+        const n = parseFloat(el.textContent.replace(/[.,\s]/g, '')) || 0;
+        total += n;
+    });
+    const tfoot = table.querySelector('tfoot .total-cost');
+    if (tfoot) tfoot.textContent = formatNumber(total);
+}
+
+function startInlineEditCost(td) {
+    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (td.querySelector('input')) return;
+
+    const costId = td.dataset.costId || '';
+    const invoiceId = td.dataset.invoiceId;
+    if (!invoiceId) return;
+
+    const oldEl = td.querySelector('.cost-value');
+    const oldSoTien = oldEl ? (parseFloat(oldEl.textContent.replace(/[.,\s]/g, '')) || 0) : 0;
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '1';
+    input.className = 'inline-edit-input';
+    input.value = oldSoTien > 0 ? String(oldSoTien) : '';
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    const restore = () => { td.innerHTML = _renderCostValueHtml(oldSoTien); };
+    const commit = () => commitInlineEditCost(td, input, costId, invoiceId, oldSoTien);
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            restore();
+        }
+    });
+}
+
+async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
+    const newSoTien = parseFloat(input.value) || 0;
+
+    if (newSoTien === oldSoTien) {
+        td.innerHTML = _renderCostValueHtml(oldSoTien);
+        return;
+    }
+
+    let targetDot = null;
+    let costRecord = null;
+    if (costId) {
+        const found = _findCostByIdAcrossDots(costId);
+        if (found) { targetDot = found.dot; costRecord = found.cost; }
+    }
+    if (!targetDot) {
+        targetDot = _findDotByInvoiceId(invoiceId);
+    }
+    if (!targetDot) {
+        td.innerHTML = _renderCostValueHtml(oldSoTien);
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    try {
+        if (!Array.isArray(targetDot.chiPhiHangVe)) targetDot.chiPhiHangVe = [];
+
+        if (costRecord) {
+            if (newSoTien === 0) {
+                targetDot.chiPhiHangVe = targetDot.chiPhiHangVe.filter(x => x.id !== costRecord.id);
+                td.dataset.costId = '';
+                const noteCell = td.parentElement?.querySelector('.cost-note-cell');
+                if (noteCell) {
+                    noteCell.dataset.costId = '';
+                    noteCell.innerHTML = '';
+                }
+            } else {
+                costRecord.soTien = newSoTien;
+            }
+        } else if (newSoTien > 0) {
+            const newId = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            targetDot.chiPhiHangVe.push({ id: newId, loai: '', soTien: newSoTien });
+            td.dataset.costId = newId;
+            const noteCell = td.parentElement?.querySelector('.cost-note-cell');
+            if (noteCell) noteCell.dataset.costId = newId;
+        }
+
+        targetDot.tongChiPhi = targetDot.chiPhiHangVe.reduce((s, c) => s + (c.soTien || 0), 0);
+
+        await shipmentsApi.update(targetDot.id, {
+            chiPhiHangVe: targetDot.chiPhiHangVe,
+            tongChiPhi: targetDot.tongChiPhi
+        });
+
+        td.innerHTML = _renderCostValueHtml(newSoTien);
+        _refreshCostTotal(td);
+        flattenNCCData();
+        window.notificationManager?.success('Đã cập nhật chi phí');
+    } catch (error) {
+        console.error('[INLINE-COST] Error:', error);
+        td.innerHTML = _renderCostValueHtml(oldSoTien);
+        window.notificationManager?.error('Không thể cập nhật: ' + error.message);
+    }
+}
+
+function startInlineEditCostNote(td) {
+    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (td.querySelector('input')) return;
+
+    const costId = td.dataset.costId || '';
+    const invoiceId = td.dataset.invoiceId;
+    if (!invoiceId) return;
+
+    const oldEl = td.querySelector('.cost-label');
+    const oldLoai = oldEl ? oldEl.textContent : '';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = oldLoai;
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    const restore = () => { td.innerHTML = _renderCostNoteHtml(oldLoai); };
+    const commit = () => commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai);
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            restore();
+        }
+    });
+}
+
+async function commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai) {
+    const newLoai = input.value.trim();
+
+    if (newLoai === oldLoai) {
+        td.innerHTML = _renderCostNoteHtml(oldLoai);
+        return;
+    }
+
+    if (!costId && !newLoai) {
+        td.innerHTML = '';
+        return;
+    }
+
+    let targetDot = null;
+    let costRecord = null;
+    if (costId) {
+        const found = _findCostByIdAcrossDots(costId);
+        if (found) { targetDot = found.dot; costRecord = found.cost; }
+    }
+    if (!targetDot) {
+        targetDot = _findDotByInvoiceId(invoiceId);
+    }
+    if (!targetDot) {
+        td.innerHTML = _renderCostNoteHtml(oldLoai);
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    try {
+        if (!Array.isArray(targetDot.chiPhiHangVe)) targetDot.chiPhiHangVe = [];
+
+        if (costRecord) {
+            costRecord.loai = newLoai;
+        } else if (newLoai) {
+            const newId = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            targetDot.chiPhiHangVe.push({ id: newId, loai: newLoai, soTien: 0 });
+            td.dataset.costId = newId;
+            const amtCell = td.parentElement?.querySelector('.cost-cell');
+            if (amtCell) amtCell.dataset.costId = newId;
+        }
+
+        await shipmentsApi.update(targetDot.id, {
+            chiPhiHangVe: targetDot.chiPhiHangVe
+        });
+
+        td.innerHTML = _renderCostNoteHtml(newLoai);
+        flattenNCCData();
+        window.notificationManager?.success('Đã cập nhật ghi chú CP');
+    } catch (error) {
+        console.error('[INLINE-COST-NOTE] Error:', error);
+        td.innerHTML = _renderCostNoteHtml(oldLoai);
+        window.notificationManager?.error('Không thể cập nhật: ' + error.message);
+    }
+}
+
 // Expose functions globally for inline event handlers
 window.startInlineEdit = startInlineEdit;
 window.startInlineEditNcc = startInlineEditNcc;
+window.startInlineEditCost = startInlineEditCost;
+window.startInlineEditCostNote = startInlineEditCostNote;
 window.addTableImage = addTableImage;
 window.removeTableImage = removeTableImage;

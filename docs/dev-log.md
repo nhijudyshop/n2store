@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Inline edit: Chi Phí & Ghi Chú CP trong bảng đợt nhập
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/table-renderer.js`, `inventory-tracking/index.html` |
+| **Chi tiết** | Cột **CHI PHÍ** và **GHI CHÚ CP** trong bảng đợt nhập (`renderInvoicesSection`) trước đây chỉ hiển thị, muốn sửa phải mở modal. Giờ đôi click thẳng vào ô để sửa inline (giống `maSP`/`giaDonVi`/etc). Thêm 4 hàm: `startInlineEditCost`/`commitInlineEditCost` (số tiền, numeric) và `startInlineEditCostNote`/`commitInlineEditCostNote` (loại, text). Logic update: cost lưu trên từng `dot.chiPhiHangVe` (không phải shipment merge), nên dùng `_findCostByIdAcrossDots(costId)` để locate cost record gốc; nếu ô trống (chưa có costItem) → tạo cost mới gắn vào dot của invoice trên row đó (`_findDotByInvoiceId(invoiceId)`). Set `soTien=0` ở ô đã có → xóa cost entry. Sau commit: cập nhật `targetDot.tongChiPhi`, gọi `shipmentsApi.update`, recompute tfoot total qua `_refreshCostTotal` (sum `.cost-value` trong tbody), `flattenNCCData()` rebuild merged shipments. Permission gate `permissionHelper.can('edit_chiPhiHangVe')` (admin only). Cache-bust `?v=20260418-cost-inline`. |
+| **Status** | ✅ Done |
+
 ### [orders] Overview tab: đổi toàn bộ logic GIỎ TRỐNG sang định nghĩa "đơn SL=0"
 | | |
 |---|---|
