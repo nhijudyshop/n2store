@@ -480,11 +480,21 @@ router.get('/:customerId', async (req, res) => {
 
         // --- Liệt kê tất cả DEPOSIT sau WITHDRAW cuối ---
         // (nếu chưa có WITHDRAW thì lastWithdrawIdx = -1, startIdx = 0 => liệt kê tất cả)
+        const stripTicketSuffix = (n) => n ? n.replace(/\s*\(ticket\s+[A-Z]+-\d{4}-\d+\)\s*$/i, '').trim() : n;
+        const stripImgTag = (n) => n ? n.replace(/\n?\[Ảnh GD:[^\]]+\]/g, '').trim() : n;
         for (let i = lastWithdrawIdx + 1; i < txs.length; i++) {
             if (skipIdx.has(i)) continue;
             const tx = txs[i];
             if (tx.type === 'DEPOSIT') {
-                walletNoteLines.push(`ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                if (tx.source === 'RETURN_GOODS' && tx.note) {
+                    const cleanNote = stripTicketSuffix(tx.note);
+                    walletNoteLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                } else if (tx.source === 'MANUAL_ADJUSTMENT' && tx.note) {
+                    const cleanNote = stripImgTag(tx.note);
+                    walletNoteLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                } else {
+                    walletNoteLines.push(`ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                }
             }
         }
         // Frontend sẽ thêm "-> 0Đ" / "-> Còn nợ XXK" dựa trên COD

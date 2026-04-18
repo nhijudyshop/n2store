@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [render] walletNoteLines: dùng note gốc cho ticket Khách Gửi (RETURN_GOODS) và nạp tay (MANUAL_ADJUSTMENT)
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js` |
+| **Chi tiết** | **Bug:** Khi tạo phiếu bán hàng qua Sale Modal tab 1 orders-report cho khách có công nợ từ ticket Khách Gửi (`RETURN_CLIENT` resolve bằng `compensation_type='deposit'` → `source='RETURN_GOODS'`) hoặc admin nạp tay (`source='MANUAL_ADJUSTMENT'`), ghi chú auto-fill đều ra `"ĐÃ NHẬN X ACB DD/MM"` giống CK bank transfer — không phản ánh đúng nguồn. Nguyên nhân: vòng lặp build `walletNoteLines` tại `wallets.js:483-489` format mọi DEPOSIT như CK, không check `tx.source`. **Fix:** Thêm 2 nhánh trước fallback: (1) `source='RETURN_GOODS'` + có `note` → push `note` đã strip suffix `(ticket XXX-YYYY-NNNNN)` qua regex `/\s*\(ticket\s+[A-Z]+-\d{4}-\d+\)\s*$/i`. (2) `source='MANUAL_ADJUSTMENT'` + có `note` → push `note` đã strip tag `[Ảnh GD: ...]` qua regex `/\n?\[Ảnh GD:[^\]]+\]/g`. CK thật (BANK_TRANSFER) và các source khác vẫn fallback `"ĐÃ NHẬN X ACB DD/MM"`. Không đụng Thu Về (virtual_credit) và Fast Sale (tab1-fast-sale.js có logic riêng đã đúng). |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Inline edit: Chi Phí & Ghi Chú CP trong bảng đợt nhập
 | | |
 |---|---|
