@@ -4168,7 +4168,7 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 
 .payment-slideover-content {
     position: absolute; top: 0; right: 0; bottom: 0;
-    width: 640px; max-width: 96vw;
+    width: 832px; max-width: 96vw;
     background: #fff;
     box-shadow: -6px 0 24px rgba(0, 0, 0, 0.12);
     display: flex; flex-direction: column;
@@ -4218,9 +4218,10 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 }
 .payment-dot-head {
     display: grid;
-    grid-template-columns: 20px auto 1fr auto;
+    /* chevron | Đợt badge | Tỉ giá block | CÒN LẠI stretches to fill remaining */
+    grid-template-columns: 20px auto auto 1fr;
     align-items: center; gap: 12px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     background: #FEFCE8;
     cursor: pointer;
     user-select: none;
@@ -4229,6 +4230,37 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .payment-dot-chevron { width: 20px; height: 20px; transition: transform 0.18s; color: #92400E; }
 .payment-dot-section.collapsed .payment-dot-chevron { transform: rotate(-90deg); }
 .payment-dot-section.collapsed .payment-dot-body { display: none; }
+
+/* Compact tỉ giá block in the head — stops click bubbling to toggle */
+.pp-head-rate {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1.5px solid #FDE68A;
+    border-radius: 8px;
+    cursor: default;
+}
+.pp-head-rate label { font-size: 14px; color: var(--gray-700); font-weight: 600; white-space: nowrap; }
+.pp-head-rate .payment-ti-gia {
+    min-width: 72px; padding: 4px 10px; border-radius: 5px;
+    background: #FEFCE8; border: 1px solid #FDE68A; font-weight: 800;
+    text-align: right; cursor: text; font-size: 16px;
+    font-family: ui-monospace, Menlo, monospace;
+    color: #92400E;
+}
+.pp-head-rate .payment-ti-gia:hover { border-color: #F59E0B; background: #FEF3C7; }
+
+/* Compact CÒN LẠI inside the head (fills remaining width) */
+.pp-conlai.pp-conlai-compact {
+    margin-top: 0;
+    padding: 8px 16px;
+    border-width: 2px;
+    box-shadow: none;
+    gap: 14px;
+}
+.pp-conlai-compact .pp-conlai-label { font-size: 15px; }
+.pp-conlai-compact .pp-conlai-value { font-size: 28px; line-height: 1; }
+.pp-conlai-compact .vnd-inline { font-size: 0.56em; }
 .payment-dot-label {
     font-weight: 700; color: #92400E; font-size: 15px;
     background: #fff; border: 1px solid #FDE68A; padding: 3px 12px; border-radius: 14px;
@@ -4332,30 +4364,36 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 
 .pp-breakdown {
     display: none;
-    padding: 8px 14px 10px 30px;
+    padding: 10px 18px 12px 34px;
     background: var(--gray-50);
     border-left: 3px solid #FDE68A;
     border-radius: 6px;
-    margin: 2px 0 6px;
-    font-size: 14px;
+    margin: 2px 0 8px;
 }
 .pp-line-expandable.expanded + .pp-breakdown { display: block; }
 .pp-breakdown-row {
-    display: flex; justify-content: space-between;
-    padding: 5px 0;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0;
     color: var(--gray-800);
     border-bottom: 1px dashed var(--gray-200);
 }
 .pp-breakdown-row:last-child { border-bottom: none; }
-.bd-ngay { font-weight: 700; font-size: 14px; color: var(--gray-700); }
+.bd-ngay {
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--gray-700);
+}
 .bd-so-tien {
     font-family: ui-monospace, Menlo, monospace;
-    font-weight: 800; font-size: 16px;
+    font-weight: 800;
+    font-size: 26px;
     color: var(--gray-900);
+    letter-spacing: -0.015em;
 }
+.bd-so-tien .vnd-inline { font-size: 0.62em; }
 .pp-breakdown-empty {
-    padding: 6px 0; color: var(--gray-500);
-    font-style: italic; font-size: 13px;
+    padding: 8px 0; color: var(--gray-500);
+    font-style: italic; font-size: 15px;
 }
 
 .pp-conlai {
@@ -4394,9 +4432,9 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .payment-list-header,
 .payment-row {
     display: grid;
-    /* ngày auto (narrow), số tiền auto fit, ghi chú fills all remaining, del 32px */
-    grid-template-columns: 96px auto 1fr 32px;
-    gap: 6px;
+    /* Fixed số tiền width → header "Ghi chú" aligns with content "Ghi chú" column */
+    grid-template-columns: 100px 220px 1fr 32px;
+    gap: 8px;
     align-items: center;
 }
 .payment-list-header {

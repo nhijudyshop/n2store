@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Slide-over CK: panel +30%, head gom Tỉ giá + CÒN LẠI, VND /1000, breakdown to
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/table-renderer.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html` |
+| **Chi tiết** | **4 thay đổi UX theo yêu cầu user:** (1) **Panel width 640 → 832px (+30%)**, không gian dư chuyển vào cột ghi chú. Grid payment-row cố định `100px 220px 1fr 32px` → header "Ghi chú" + content column thẳng hàng chính xác (trước đây số tiền `auto` khiến lệch). Ghi chú cell thêm `title="${ghiChu}"` → hover hiện tooltip native browser (nội dung dài không bị cắt khi xem). (2) **VND /1000 thay vì /1000 * 1000**: `_vndSuffixHtml` đổi `Math.round(vnd/1000)` → hiển thị "10.001 (39.504)" thay vì "10.001 (39.504.000)". Áp dụng mọi nơi (Tổng TT/HĐ/CP, payment rows, breakdown, CÒN LẠI). (3) **Head gom Tỉ giá + CÒN LẠI**: xóa dates list (`16/4/2026, 14/4/2026...`) và pill "CÒN: X" khỏi head; thêm box Tỉ giá `.pp-head-rate` (`onclick="event.stopPropagation()"` chặn bubble lên `togglePaymentDotSection`) và `.pp-conlai.pp-conlai-compact` chiếm 1fr cuối (value 28px + VND suffix 0.56em). Body bỏ `.payment-top-row` hoàn toàn (chuyển lên head). Grid head: `20px auto auto 1fr`. Refresh UI giờ re-render cả head + body (`_renderDotHeadHtml` helper mới) để tỉ giá + CÒN LẠI + VND suffix đồng bộ. (4) **Breakdown font = main line**: `.bd-ngay` 14→17px (bằng `.pp-label`), `.bd-so-tien` 16→26px (bằng `.pp-value`), `.vnd-inline` trong breakdown 0.62em, padding row 5→8px. Cache-bust `?v=20260418-payment-wide-head`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Slide-over CK: CÒN LẠI lên top, VND inline, breakdown HĐ/CP theo ngày
 | | |
 |---|---|

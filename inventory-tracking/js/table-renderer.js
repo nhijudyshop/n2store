@@ -2177,12 +2177,13 @@ function _calcPaymentTotals(entry) {
     return { tongTT, tongTTVND, tongChiPhi, tongTienHD, conLai, tiGia };
 }
 
-// Format VND suffix (rounded to nearest 1000 VND) — displayed in parentheses next to foreign amount.
+// Format VND suffix (VND / 1000, rounded) — displayed in parentheses next to foreign amount.
+// Example: soTien=10001, tiGia=3950 → vnd=39,503,950 → show "(39.504)" meaning 39,504 thousand VND.
 function _vndSuffixHtml(soTienForeign, tiGia) {
     if (!tiGia || !soTienForeign) return '';
     const vnd = soTienForeign * tiGia;
-    const rounded = Math.round(vnd / 1000) * 1000;
-    return ` <span class="vnd-inline">(${formatNumber(rounded)})</span>`;
+    const k = Math.round(vnd / 1000);
+    return ` <span class="vnd-inline">(${formatNumber(k)})</span>`;
 }
 
 // Formatter for soTienTT inline edit — includes VND suffix so optimistic UI restores correctly.
@@ -2209,11 +2210,13 @@ function _renderPaymentRow(dotSo, tiGia, p) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
     const soTienDisplay = soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
     const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
+    const ghiChu = p.ghiChu || '';
+    const ghiChuTooltip = ghiChu ? _escAttr(ghiChu) : 'Nhấp đúp để sửa';
     return `
         <li class="payment-row" ${dataAttrs}>
             <span class="payment-cell payment-ngay-tt editable-cell" ${dataAttrs} data-field="ngayTT" ondblclick="startInlineEditPaymentNgay(this)" title="Nhấp đúp để sửa">${formatDateDisplay(p.ngayTT) || '—'}</span>
             <span class="payment-cell payment-so-tien-tt editable-cell" ${dataAttrs} data-field="soTienTT" ondblclick="startInlineEditPaymentSoTien(this)" title="Nhấp đúp để sửa">${soTienDisplay}</span>
-            <span class="payment-cell payment-ghi-chu editable-cell" ${dataAttrs} data-field="ghiChu" ondblclick="startInlineEditPaymentNote(this)" title="Nhấp đúp để sửa">${_escAttr(p.ghiChu || '')}</span>
+            <span class="payment-cell payment-ghi-chu editable-cell" ${dataAttrs} data-field="ghiChu" ondblclick="startInlineEditPaymentNote(this)" title="${ghiChuTooltip}">${_escAttr(ghiChu)}</span>
             <button class="btn-del-payment" ${dataAttrs} onclick="deletePayment(this)" title="Xóa dòng">×</button>
         </li>
     `;
@@ -2227,23 +2230,13 @@ function _formatNgayList(list) {
 function _renderDotSectionBodyHtml(entry) {
     const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const totals = _calcPaymentTotals(entry);
-    const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
     const dotAttr = entry.dotSo;
     const rows = payments.map(p => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
     const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
     const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
 
+    // Tỉ giá and CÒN LẠI now live in the dot head (sticky at top). Body starts with totals.
     return `
-        <div class="payment-top-row">
-            <div class="pp-conlai ${conLaiClass}">
-                <span class="pp-conlai-label">CÒN LẠI</span>
-                <strong class="pp-conlai-value pp-con-lai">${formatNumber(totals.conLai)}</strong>
-            </div>
-            <div class="payment-rate-row">
-                <label>Tỉ giá (→ VND):</label>
-                <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
-            </div>
-        </div>
         <div class="payment-panel-totals">
             <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}${_vndSuffixHtml(totals.tongTT, totals.tiGia)}</strong></div>
             <div class="pp-group">
@@ -2278,19 +2271,31 @@ function _renderDotSectionBodyHtml(entry) {
     `;
 }
 
-function renderPaymentDotSection(entry) {
+function _renderDotHeadHtml(entry) {
     const totals = _calcPaymentTotals(entry);
     const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
     const dotAttr = entry.dotSo;
-    const datesText = _formatNgayList(entry.ngayDiHangList) || '(chưa có đợt)';
+    const vndSuf = _vndSuffixHtml(totals.conLai, totals.tiGia);
+    return `
+        <i class="payment-dot-chevron" data-lucide="chevron-down"></i>
+        <span class="payment-dot-label">Đợt ${dotAttr}</span>
+        <div class="pp-head-rate" onclick="event.stopPropagation()">
+            <label>Tỉ giá:</label>
+            <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
+        </div>
+        <div class="pp-conlai pp-conlai-compact ${conLaiClass}">
+            <span class="pp-conlai-label">CÒN LẠI</span>
+            <strong class="pp-conlai-value pp-con-lai">${formatNumber(totals.conLai)}${vndSuf}</strong>
+        </div>
+    `;
+}
 
+function renderPaymentDotSection(entry) {
+    const dotAttr = entry.dotSo;
     return `
         <section class="payment-dot-section" data-dot-so="${dotAttr}">
             <div class="payment-dot-head" onclick="togglePaymentDotSection(this)">
-                <i class="payment-dot-chevron" data-lucide="chevron-down"></i>
-                <span class="payment-dot-label">Đợt ${dotAttr}</span>
-                <span class="payment-dot-dates" title="${_escAttr(datesText)}">${_escAttr(datesText)}</span>
-                <span class="payment-dot-conlai ${conLaiClass}">CÒN: ${formatNumber(totals.conLai)}</span>
+                ${_renderDotHeadHtml(entry)}
             </div>
             <div class="payment-dot-body">
                 ${_renderDotSectionBodyHtml(entry)}
@@ -2324,23 +2329,16 @@ function _refreshPaymentDotSectionUI(dotSo) {
     if (!section) return;
 
     const entry = _aggregateDotEntry(dotSo);
-    const totals = _calcPaymentTotals(entry);
 
     // Preserve breakdown expansion state across the re-render
     const expandedKinds = [...section.querySelectorAll('.pp-line-expandable.expanded')]
         .map(el => el.dataset.breakdownKind);
 
-    // Full body re-render (simpler + keeps VND suffixes consistent everywhere)
+    // Full re-render of both head and body so CÒN LẠI + tỉ giá + VND suffixes stay consistent.
+    const headEl = section.querySelector('.payment-dot-head');
+    if (headEl) headEl.innerHTML = _renderDotHeadHtml(entry);
     const bodyEl = section.querySelector('.payment-dot-body');
     if (bodyEl) bodyEl.innerHTML = _renderDotSectionBodyHtml(entry);
-
-    // Update section header CÒN pill (the compact one in the head row)
-    const headConLai = section.querySelector('.payment-dot-head .payment-dot-conlai');
-    if (headConLai) {
-        headConLai.textContent = `CÒN: ${formatNumber(totals.conLai)}`;
-        headConLai.classList.toggle('positive', totals.conLai >= 0);
-        headConLai.classList.toggle('negative', totals.conLai < 0);
-    }
 
     // Restore breakdown expansion
     expandedKinds.forEach(kind => {
