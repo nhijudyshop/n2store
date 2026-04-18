@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [purchase-orders] Inventory picker: preview zoom phóng to 420×420 + dùng mousemove
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/dialogs.js`, `purchase-orders/css/modal.css` |
+| **Chi tiết** | Lần fix trước đổi sang `mouseover`/`mouseout` vẫn không đủ: user báo "chỉ hơi nổi lên" (chỉ thấy `:hover scale(1.15)` CSS, preview lớn không xuất hiện). Viết lại logic bằng **`mousemove`** duy nhất trên `#inventoryProductsList` — bắn liên tục, hit-test `.inventory-thumb` mỗi lần move để show/hide/position preview + dùng `currentThumb` track ref tránh set `src` lặp. Bypass hoàn toàn vấn đề mouseenter không bubble. Preview size bump **280×280 → 420×420**, shadow đậm hơn (`0 24px 60px rgba(0,0,0,0.35)`), transition nhanh hơn (200ms → 150ms) để user thấy ảnh rõ ngay. |
+| **Status** | ✅ Done |
+
 ### [purchase-orders] Fix hover zoom ảnh trong modal "Chọn sản phẩm từ kho"
 | | |
 |---|---|

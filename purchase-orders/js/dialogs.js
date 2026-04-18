@@ -2279,9 +2279,11 @@ class InventoryPickerDialog {
             return zoomEl;
         };
 
+        const ZOOM_SIZE = 420;
+
         const positionZoom = (e, el) => {
-            const offset = 16;
-            const w = 280, h = 280;
+            const offset = 20;
+            const w = ZOOM_SIZE, h = ZOOM_SIZE;
             let x = e.clientX + offset;
             let y = e.clientY - h / 2;
 
@@ -2296,35 +2298,28 @@ class InventoryPickerDialog {
         const listContainer = this.modalElement.querySelector('#inventoryProductsList');
         if (!listContainer) return;
 
-        // mouseenter/mouseleave do NOT bubble, so delegation via those events
-        // fails — use mouseover/mouseout (bubble-friendly) with a thumb guard.
-        listContainer.addEventListener('mouseover', (e) => {
-            const thumb = e.target.closest('.inventory-thumb');
-            if (!thumb) return;
-            const from = e.relatedTarget && e.relatedTarget.closest
-                ? e.relatedTarget.closest('.inventory-thumb')
-                : null;
-            if (from === thumb) return;
-            const zoom = getOrCreateZoom();
-            if (zoom.src !== thumb.src) zoom.src = thumb.src;
-            zoom.classList.add('visible');
-            positionZoom(e, zoom);
-        });
-
+        // Use mousemove — fires continuously and sidesteps mouseenter's
+        // no-bubble problem entirely. We drive show/hide from hit-testing.
+        let currentThumb = null;
         listContainer.addEventListener('mousemove', (e) => {
             const thumb = e.target.closest('.inventory-thumb');
-            if (!thumb || !zoomEl) return;
-            positionZoom(e, zoomEl);
+            if (thumb) {
+                const zoom = getOrCreateZoom();
+                if (currentThumb !== thumb) {
+                    currentThumb = thumb;
+                    if (zoom.src !== thumb.src) zoom.src = thumb.src;
+                    zoom.classList.add('visible');
+                }
+                positionZoom(e, zoom);
+            } else if (currentThumb) {
+                currentThumb = null;
+                if (zoomEl) zoomEl.classList.remove('visible');
+            }
         });
 
-        listContainer.addEventListener('mouseout', (e) => {
-            const thumb = e.target.closest('.inventory-thumb');
-            if (!thumb || !zoomEl) return;
-            const to = e.relatedTarget && e.relatedTarget.closest
-                ? e.relatedTarget.closest('.inventory-thumb')
-                : null;
-            if (to === thumb) return;
-            zoomEl.classList.remove('visible');
+        listContainer.addEventListener('mouseleave', () => {
+            currentThumb = null;
+            if (zoomEl) zoomEl.classList.remove('visible');
         });
 
         // Clean up zoom element when modal is closed

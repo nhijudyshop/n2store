@@ -543,17 +543,17 @@
     position: fixed;
     z-index: var(--z-image-preview);
     pointer-events: none;
-    width: 280px;
-    height: 280px;
+    width: 420px;
+    height: 420px;
     object-fit: contain;
     background: #fff;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 2px solid #e5e7eb;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
     opacity: 0;
     transform: scale(0.7);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    padding: 6px;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    padding: 8px;
 }
 
 .inventory-zoom-preview.visible {
