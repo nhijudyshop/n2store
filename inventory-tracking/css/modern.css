@@ -4253,43 +4253,110 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
     font-size: 14px;
 }
 
+/* Top row: CÒN LẠI (stretches left) + Tỉ giá (fixed right) */
+.payment-top-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 14px;
+}
+.payment-top-row .pp-conlai {
+    flex: 1 1 auto;
+    margin-top: 0;
+    padding: 14px 18px;
+}
 .payment-rate-row {
     display: flex; align-items: center; gap: 10px;
-    margin-bottom: 12px;
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1.5px solid #FDE68A;
+    border-radius: 10px;
 }
-.payment-rate-row label { font-size: 14px; color: var(--gray-700); font-weight: 500; }
+.payment-rate-row label { font-size: 14px; color: var(--gray-700); font-weight: 600; white-space: nowrap; }
 .payment-ti-gia {
     min-width: 96px; padding: 6px 12px; border-radius: 6px;
-    background: #fff; border: 1px solid #FDE68A; font-weight: 700;
-    text-align: right; cursor: text; font-size: 16px;
+    background: #FEFCE8; border: 1px solid #FDE68A; font-weight: 800;
+    text-align: right; cursor: text; font-size: 18px;
     font-family: ui-monospace, Menlo, monospace;
+    color: #92400E;
 }
-.payment-ti-gia:hover { border-color: #F59E0B; }
+.payment-ti-gia:hover { border-color: #F59E0B; background: #FEF3C7; }
 
 /* Big accounting numbers — maximize readability, fill available space */
 .payment-panel-totals {
-    background: #fff; border-radius: 12px; padding: 18px 22px;
+    background: #fff; border-radius: 12px; padding: 14px 20px;
     border: 1.5px solid #FEF3C7; margin-bottom: 14px;
-    display: flex; flex-direction: column; gap: 12px;
+    display: flex; flex-direction: column; gap: 2px;
 }
 .pp-line {
     display: flex; justify-content: space-between; align-items: baseline;
-    padding: 6px 0;
+    padding: 10px 0;
     border-bottom: 1px dashed var(--gray-200);
 }
 .pp-line:last-of-type { border-bottom: none; }
+.pp-group { display: contents; }
+.pp-group .pp-line { border-bottom: 1px dashed var(--gray-200); }
+.pp-group:last-of-type .pp-line-expandable:not(.expanded) { border-bottom: none; }
 .pp-label {
     color: var(--gray-700); font-weight: 600;
-    font-size: 18px; letter-spacing: 0.01em;
+    font-size: 17px; letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; gap: 4px;
 }
 .pp-value {
     font-family: ui-monospace, Menlo, monospace;
     font-weight: 800;
-    font-size: 28px;
+    font-size: 26px;
     color: var(--gray-900);
     letter-spacing: -0.015em;
 }
-.pp-line-vnd .pp-value { color: #059669; }
+.vnd-inline {
+    display: inline;
+    margin-left: 4px;
+    font-size: 0.62em;
+    font-weight: 600;
+    color: #059669;
+    letter-spacing: 0;
+}
+
+/* Expandable HĐ/CP lines */
+.pp-line-expandable { cursor: pointer; user-select: none; }
+.pp-line-expandable:hover { background: var(--gray-50); border-radius: 4px; }
+.pp-line-chevron {
+    width: 16px; height: 16px;
+    transition: transform 0.18s;
+    color: var(--gray-500);
+    margin-right: 2px;
+}
+.pp-line-expandable.expanded .pp-line-chevron { transform: rotate(90deg); color: #92400E; }
+
+.pp-breakdown {
+    display: none;
+    padding: 8px 14px 10px 30px;
+    background: var(--gray-50);
+    border-left: 3px solid #FDE68A;
+    border-radius: 6px;
+    margin: 2px 0 6px;
+    font-size: 14px;
+}
+.pp-line-expandable.expanded + .pp-breakdown { display: block; }
+.pp-breakdown-row {
+    display: flex; justify-content: space-between;
+    padding: 5px 0;
+    color: var(--gray-800);
+    border-bottom: 1px dashed var(--gray-200);
+}
+.pp-breakdown-row:last-child { border-bottom: none; }
+.bd-ngay { font-weight: 700; font-size: 14px; color: var(--gray-700); }
+.bd-so-tien {
+    font-family: ui-monospace, Menlo, monospace;
+    font-weight: 800; font-size: 16px;
+    color: var(--gray-900);
+}
+.pp-breakdown-empty {
+    padding: 6px 0; color: var(--gray-500);
+    font-style: italic; font-size: 13px;
+}
 
 .pp-conlai {
     margin-top: 10px; padding: 20px 22px;
@@ -4327,8 +4394,9 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .payment-list-header,
 .payment-row {
     display: grid;
-    grid-template-columns: 120px 1fr 1fr 1fr 32px;
-    gap: 10px;
+    /* ngày auto (narrow), số tiền auto fit, ghi chú fills all remaining, del 32px */
+    grid-template-columns: 96px auto 1fr 32px;
+    gap: 6px;
     align-items: center;
 }
 .payment-list-header {
@@ -4358,14 +4426,23 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
     font-weight: 700; color: var(--gray-800);
     font-size: 15px;
 }
-.payment-so-tien-tt, .payment-so-tien-vnd {
+.payment-so-tien-tt {
     justify-content: flex-end;
     font-family: ui-monospace, Menlo, monospace;
     font-weight: 800;
+    color: var(--gray-900);
+    font-size: 18px;
+    min-width: 140px;
 }
-.payment-so-tien-tt { color: var(--gray-900); font-size: 18px; }
-.payment-so-tien-vnd { color: #059669; font-weight: 700; font-size: 16px; }
-.payment-ghi-chu { font-size: 14px; color: var(--gray-600); font-weight: 500; }
+.payment-so-tien-tt .vnd-inline { font-size: 0.66em; }
+/* Ghi chú: bold, same size as số tiền, stretches to fill space */
+.payment-ghi-chu {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gray-800);
+    min-width: 0;
+    overflow: hidden; text-overflow: ellipsis;
+}
 
 .btn-del-payment {
     border: none; background: transparent; color: var(--gray-400);

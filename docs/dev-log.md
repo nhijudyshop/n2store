@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Slide-over CK: CÒN LẠI lên top, VND inline, breakdown HĐ/CP theo ngày
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/table-renderer.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html` |
+| **Chi tiết** | **4 thay đổi UX/layout theo yêu cầu user:** (1) **CÒN LẠI lên top-row cạnh Tỉ giá** — bỏ CÒN LẠI box nằm dưới tổng, thay bằng `.payment-top-row` flex: CÒN LẠI (flex:1 chiếm hết không gian trống bên trái) + khung tỉ giá (flex:0 bên phải). (2) **Tổng HĐ / Tổng CP click để expand breakdown theo ngày** — mỗi line có chevron, click toggle class `.expanded`, CSS adjacent sibling `.pp-line-expandable.expanded + .pp-breakdown` show/hide. Breakdown hiển thị `[ngày giao — số tiền (VND)]` sort desc. Aggregator `_aggregateDotEntry` + `getAllDotsAggregated` thêm `hdByDate`/`cpByDate` gom theo `ngayDiHang`. (3) **Bỏ dòng Tổng VND + cột VND** — thay bằng VND suffix inline trong ngoặc sau mỗi số ngoại tệ: `10.001 (39.504.000)` với VND làm tròn 1000 (`Math.round(vnd/1000)*1000`). Helper `_vndSuffixHtml(soTien, tiGia)`. Áp dụng cho Tổng TT, Tổng HĐ, Tổng CP, mỗi payment row, và breakdown row. VND style `0.62em` green nhỏ hơn số chính. (4) **Grid 4 cột payment row** (bỏ cột VND): `96px auto 1fr 32px` = ngày (hẹp) + số tiền (auto, min 140px) + ghi chú (chiếm hết không gian trống) + del. **Ghi chú bold 18px** (cùng size số tiền) cho dễ nhìn. **Refactor refresh:** tách `_renderDotSectionBodyHtml(entry)` reusable cho `renderPaymentDotSection` và `_refreshPaymentDotSectionUI` — sau mỗi payment edit full-rebuild body (giữ breakdown expanded state qua `expandedKinds` snapshot). `addPayment`/`deletePayment` đơn giản hóa, chỉ gọi `_persistPaymentByDot` (refresh tự lo DOM). `startInlineEditPaymentSoTien` capture tỉ giá và formatter include VND suffix cho optimistic UI. Cache-bust `?v=20260418-payment-breakdown`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Slide-over CK: CÒN LẠI tính theo ngoại tệ + phóng to số kế toán
 | | |
 |---|---|

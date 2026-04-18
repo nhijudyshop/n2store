@@ -437,15 +437,21 @@ function getAllDotsAggregated() {
                 tongChiPhi: 0,
                 thanhToanCK: [],
                 tiGia: 0,
-                _dotIds: []
+                _dotIds: [],
+                hdByDate: {},
+                cpByDate: {}
             };
         }
         const entry = byDot[dotSo];
-        if (dot.ngayDiHang) entry.ngayDiHangSet.add(dot.ngayDiHang);
-        entry.tongTienHoaDon += parseFloat(dot.tongTienHD) || 0;
-        entry.tongChiPhi += parseFloat(dot.tongChiPhi) || 0;
+        const ngay = dot.ngayDiHang;
+        if (ngay) entry.ngayDiHangSet.add(ngay);
+        const hd = parseFloat(dot.tongTienHD) || 0;
+        const cp = parseFloat(dot.tongChiPhi) || 0;
+        entry.tongTienHoaDon += hd;
+        entry.tongChiPhi += cp;
+        if (hd > 0 && ngay) entry.hdByDate[ngay] = (entry.hdByDate[ngay] || 0) + hd;
+        if (cp > 0 && ngay) entry.cpByDate[ngay] = (entry.cpByDate[ngay] || 0) + cp;
         entry._dotIds.push(dot.id);
-        // Absorb payment data from whichever row carries it (backend keeps rows in sync).
         if ((!entry.thanhToanCK || entry.thanhToanCK.length === 0)
             && Array.isArray(dot.thanhToanCK) && dot.thanhToanCK.length > 0) {
             entry.thanhToanCK = dot.thanhToanCK;
@@ -462,7 +468,9 @@ function getAllDotsAggregated() {
         tongChiPhi: entry.tongChiPhi,
         thanhToanCK: entry.thanhToanCK,
         tiGia: entry.tiGia,
-        _dotIds: entry._dotIds
+        _dotIds: entry._dotIds,
+        hdByDate: entry.hdByDate,
+        cpByDate: entry.cpByDate
     })).sort((a, b) => a.dotSo - b.dotSo);
 }
 

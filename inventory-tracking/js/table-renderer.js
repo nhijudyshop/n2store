@@ -2139,10 +2139,17 @@ function _aggregateDotEntry(dotSo) {
     let tongChiPhi = 0;
     let thanhToanCK = [];
     let tiGia = 0;
+    const hdByDate = {};
+    const cpByDate = {};
     dots.forEach(d => {
-        if (d.ngayDiHang) dateSet.add(d.ngayDiHang);
-        tongTienHoaDon += parseFloat(d.tongTienHD) || 0;
-        tongChiPhi += parseFloat(d.tongChiPhi) || 0;
+        const ngay = d.ngayDiHang;
+        if (ngay) dateSet.add(ngay);
+        const hd = parseFloat(d.tongTienHD) || 0;
+        const cp = parseFloat(d.tongChiPhi) || 0;
+        tongTienHoaDon += hd;
+        tongChiPhi += cp;
+        if (hd > 0 && ngay) hdByDate[ngay] = (hdByDate[ngay] || 0) + hd;
+        if (cp > 0 && ngay) cpByDate[ngay] = (cpByDate[ngay] || 0) + cp;
         if ((!thanhToanCK || thanhToanCK.length === 0)
             && Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0) {
             thanhToanCK = d.thanhToanCK;
@@ -2152,7 +2159,8 @@ function _aggregateDotEntry(dotSo) {
     return {
         dotSo: parseInt(dotSo, 10) || 1,
         ngayDiHangList: [...dateSet].sort((a, b) => new Date(b) - new Date(a)),
-        tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia
+        tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia,
+        hdByDate, cpByDate
     };
 }
 
@@ -2169,15 +2177,42 @@ function _calcPaymentTotals(entry) {
     return { tongTT, tongTTVND, tongChiPhi, tongTienHD, conLai, tiGia };
 }
 
+// Format VND suffix (rounded to nearest 1000 VND) — displayed in parentheses next to foreign amount.
+function _vndSuffixHtml(soTienForeign, tiGia) {
+    if (!tiGia || !soTienForeign) return '';
+    const vnd = soTienForeign * tiGia;
+    const rounded = Math.round(vnd / 1000) * 1000;
+    return ` <span class="vnd-inline">(${formatNumber(rounded)})</span>`;
+}
+
+// Formatter for soTienTT inline edit — includes VND suffix so optimistic UI restores correctly.
+function _formatSoTienWithVnd(val, tiGia) {
+    const n = parseFloat(val) || 0;
+    if (n <= 0) return '—';
+    return `${formatNumber(n)}${_vndSuffixHtml(n, tiGia)}`;
+}
+
+function _renderBreakdownRows(breakdownObj, tiGia) {
+    const entries = Object.entries(breakdownObj || {}).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+    if (entries.length === 0) {
+        return '<div class="pp-breakdown-empty">Chưa có dữ liệu theo ngày.</div>';
+    }
+    return entries.map(([ngay, soTien]) => `
+        <div class="pp-breakdown-row">
+            <span class="bd-ngay">${formatDateDisplay(ngay)}</span>
+            <span class="bd-so-tien">${formatNumber(soTien)}${_vndSuffixHtml(soTien, tiGia)}</span>
+        </div>
+    `).join('');
+}
+
 function _renderPaymentRow(dotSo, tiGia, p) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
-    const soTienVND = soTienTT * tiGia;
+    const soTienDisplay = soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
     const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
     return `
         <li class="payment-row" ${dataAttrs}>
             <span class="payment-cell payment-ngay-tt editable-cell" ${dataAttrs} data-field="ngayTT" ondblclick="startInlineEditPaymentNgay(this)" title="Nhấp đúp để sửa">${formatDateDisplay(p.ngayTT) || '—'}</span>
-            <span class="payment-cell payment-so-tien-tt editable-cell" ${dataAttrs} data-field="soTienTT" ondblclick="startInlineEditPaymentSoTien(this)" title="Nhấp đúp để sửa">${soTienTT > 0 ? formatNumber(soTienTT) : '—'}</span>
-            <span class="payment-cell payment-so-tien-vnd">${soTienVND > 0 ? formatNumber(soTienVND) : '—'}</span>
+            <span class="payment-cell payment-so-tien-tt editable-cell" ${dataAttrs} data-field="soTienTT" ondblclick="startInlineEditPaymentSoTien(this)" title="Nhấp đúp để sửa">${soTienDisplay}</span>
             <span class="payment-cell payment-ghi-chu editable-cell" ${dataAttrs} data-field="ghiChu" ondblclick="startInlineEditPaymentNote(this)" title="Nhấp đúp để sửa">${_escAttr(p.ghiChu || '')}</span>
             <button class="btn-del-payment" ${dataAttrs} onclick="deletePayment(this)" title="Xóa dòng">×</button>
         </li>
@@ -2189,13 +2224,65 @@ function _formatNgayList(list) {
     return list.map(formatDateDisplay).filter(Boolean).join(', ');
 }
 
-function renderPaymentDotSection(entry) {
+function _renderDotSectionBodyHtml(entry) {
     const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const totals = _calcPaymentTotals(entry);
     const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
     const dotAttr = entry.dotSo;
-    const datesText = _formatNgayList(entry.ngayDiHangList) || '(chưa có đợt)';
     const rows = payments.map(p => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
+    const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
+    const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
+
+    return `
+        <div class="payment-top-row">
+            <div class="pp-conlai ${conLaiClass}">
+                <span class="pp-conlai-label">CÒN LẠI</span>
+                <strong class="pp-conlai-value pp-con-lai">${formatNumber(totals.conLai)}</strong>
+            </div>
+            <div class="payment-rate-row">
+                <label>Tỉ giá (→ VND):</label>
+                <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
+            </div>
+        </div>
+        <div class="payment-panel-totals">
+            <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}${_vndSuffixHtml(totals.tongTT, totals.tiGia)}</strong></div>
+            <div class="pp-group">
+                <div class="pp-line pp-line-expandable" data-breakdown-kind="hd" onclick="togglePaymentBreakdown(this)">
+                    <span class="pp-label"><i class="pp-line-chevron" data-lucide="chevron-right"></i>Tổng HĐ</span>
+                    <strong class="pp-value pp-total-hd">${formatNumber(totals.tongTienHD)}${_vndSuffixHtml(totals.tongTienHD, totals.tiGia)}</strong>
+                </div>
+                <div class="pp-breakdown">${hdBreakdown}</div>
+            </div>
+            <div class="pp-group">
+                <div class="pp-line pp-line-expandable" data-breakdown-kind="cp" onclick="togglePaymentBreakdown(this)">
+                    <span class="pp-label"><i class="pp-line-chevron" data-lucide="chevron-right"></i>Tổng CP</span>
+                    <strong class="pp-value pp-total-cp">${formatNumber(totals.tongChiPhi)}${_vndSuffixHtml(totals.tongChiPhi, totals.tiGia)}</strong>
+                </div>
+                <div class="pp-breakdown">${cpBreakdown}</div>
+            </div>
+        </div>
+        <div class="payment-list-wrap">
+            <div class="payment-list-header">
+                <span>Ngày TT</span>
+                <span class="text-right">Số tiền</span>
+                <span>Ghi chú</span>
+                <span></span>
+            </div>
+            <ul class="payment-list">
+                ${rows}
+            </ul>
+        </div>
+        <button class="btn-add-payment" data-dot-so="${dotAttr}" onclick="addPayment(this)">
+            <i data-lucide="plus"></i> Thêm thanh toán
+        </button>
+    `;
+}
+
+function renderPaymentDotSection(entry) {
+    const totals = _calcPaymentTotals(entry);
+    const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
+    const dotAttr = entry.dotSo;
+    const datesText = _formatNgayList(entry.ngayDiHangList) || '(chưa có đợt)';
 
     return `
         <section class="payment-dot-section" data-dot-so="${dotAttr}">
@@ -2206,38 +2293,14 @@ function renderPaymentDotSection(entry) {
                 <span class="payment-dot-conlai ${conLaiClass}">CÒN: ${formatNumber(totals.conLai)}</span>
             </div>
             <div class="payment-dot-body">
-                <div class="payment-rate-row">
-                    <label>Tỉ giá (→ VND):</label>
-                    <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
-                </div>
-                <div class="payment-panel-totals">
-                    <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}</strong></div>
-                    <div class="pp-line pp-line-vnd"><span class="pp-label">Tổng VND</span><strong class="pp-value pp-total-vnd">${formatNumber(totals.tongTTVND)}</strong></div>
-                    <div class="pp-line"><span class="pp-label">Tổng HĐ</span><strong class="pp-value">${formatNumber(totals.tongTienHD)}</strong></div>
-                    <div class="pp-line"><span class="pp-label">Tổng CP</span><strong class="pp-value">${formatNumber(totals.tongChiPhi)}</strong></div>
-                    <div class="pp-conlai ${conLaiClass}">
-                        <span class="pp-conlai-label">CÒN LẠI</span>
-                        <strong class="pp-conlai-value pp-con-lai">${formatNumber(totals.conLai)}</strong>
-                    </div>
-                </div>
-                <div class="payment-list-wrap">
-                    <div class="payment-list-header">
-                        <span>Ngày TT</span>
-                        <span class="text-right">Số tiền</span>
-                        <span class="text-right">VND</span>
-                        <span>Ghi chú</span>
-                        <span></span>
-                    </div>
-                    <ul class="payment-list">
-                        ${rows}
-                    </ul>
-                </div>
-                <button class="btn-add-payment" data-dot-so="${dotAttr}" onclick="addPayment(this)">
-                    <i data-lucide="plus"></i> Thêm thanh toán
-                </button>
+                ${_renderDotSectionBodyHtml(entry)}
             </div>
         </section>
     `;
+}
+
+function togglePaymentBreakdown(el) {
+    el.classList.toggle('expanded');
 }
 
 function renderPaymentSlideOverBody() {
@@ -2263,47 +2326,29 @@ function _refreshPaymentDotSectionUI(dotSo) {
     const entry = _aggregateDotEntry(dotSo);
     const totals = _calcPaymentTotals(entry);
 
-    // Tỉ giá display
-    const tiGiaEl = section.querySelector('.payment-ti-gia');
-    if (tiGiaEl && !tiGiaEl.querySelector('input')) {
-        tiGiaEl.textContent = totals.tiGia > 0 ? String(totals.tiGia) : '—';
-    }
+    // Preserve breakdown expansion state across the re-render
+    const expandedKinds = [...section.querySelectorAll('.pp-line-expandable.expanded')]
+        .map(el => el.dataset.breakdownKind);
 
-    // Totals
-    const ttEl = section.querySelector('.pp-total-tt');
-    if (ttEl) ttEl.textContent = formatNumber(totals.tongTT);
-    const vndEl = section.querySelector('.pp-total-vnd');
-    if (vndEl) vndEl.textContent = formatNumber(totals.tongTTVND);
-    const conLaiEl = section.querySelector('.pp-con-lai');
-    if (conLaiEl) {
-        conLaiEl.textContent = formatNumber(totals.conLai);
-        conLaiEl.classList.toggle('positive', totals.conLai >= 0);
-        conLaiEl.classList.toggle('negative', totals.conLai < 0);
-    }
-    const headConLai = section.querySelector('.payment-dot-conlai');
+    // Full body re-render (simpler + keeps VND suffixes consistent everywhere)
+    const bodyEl = section.querySelector('.payment-dot-body');
+    if (bodyEl) bodyEl.innerHTML = _renderDotSectionBodyHtml(entry);
+
+    // Update section header CÒN pill (the compact one in the head row)
+    const headConLai = section.querySelector('.payment-dot-head .payment-dot-conlai');
     if (headConLai) {
         headConLai.textContent = `CÒN: ${formatNumber(totals.conLai)}`;
         headConLai.classList.toggle('positive', totals.conLai >= 0);
         headConLai.classList.toggle('negative', totals.conLai < 0);
     }
-    // Update outer CÒN LẠI block color wrapper too
-    const conLaiWrap = section.querySelector('.pp-conlai');
-    if (conLaiWrap) {
-        conLaiWrap.classList.toggle('positive', totals.conLai >= 0);
-        conLaiWrap.classList.toggle('negative', totals.conLai < 0);
-    }
 
-    // Per-row VND cells
-    const rows = section.querySelectorAll('.payment-row');
-    rows.forEach(row => {
-        const ttCell = row.querySelector('.payment-so-tien-tt');
-        const vndCell = row.querySelector('.payment-so-tien-vnd');
-        if (ttCell && vndCell && !ttCell.querySelector('input')) {
-            const tt = parseFloat((ttCell.textContent || '').replace(/[.,\s]/g, '')) || 0;
-            const vnd = tt * totals.tiGia;
-            vndCell.textContent = vnd > 0 ? formatNumber(vnd) : '—';
-        }
+    // Restore breakdown expansion
+    expandedKinds.forEach(kind => {
+        const el = section.querySelector(`.pp-line-expandable[data-breakdown-kind="${kind}"]`);
+        if (el) el.classList.add('expanded');
     });
+
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 async function _persistPaymentByDot(dotSo, patch) {
@@ -2435,8 +2480,11 @@ function startInlineEditPaymentNgay(el) {
 }
 
 function startInlineEditPaymentSoTien(el) {
+    // Capture tỉ giá at handler-open time so optimistic UI includes VND suffix.
+    const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
+    const tiGia = _getTiGiaForDot(dotSo);
     _startInlineEditPaymentGeneric(el, 'number',
-        v => (parseFloat(v) > 0) ? formatNumber(parseFloat(v)) : '—',
+        v => _formatSoTienWithVnd(v, tiGia),
         v => parseFloat(v) || 0
     );
 }
@@ -2460,13 +2508,8 @@ async function addPayment(btn) {
     const updated = [...payments, newPayment];
 
     try {
+        // _persistPaymentByDot triggers _refreshPaymentDotSectionUI which full-rebuilds the body.
         await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
-        const section = document.querySelector(`.payment-dot-section[data-dot-so="${dotSo}"]`);
-        const listEl = section?.querySelector('.payment-list');
-        if (listEl) {
-            const tiGia = _getTiGiaForDot(dotSo);
-            listEl.insertAdjacentHTML('beforeend', _renderPaymentRow(dotSo, tiGia, newPayment));
-        }
         window.notificationManager?.success('Đã thêm dòng thanh toán');
     } catch (error) {
         console.error('[PAYMENT] Add error:', error);
@@ -2483,8 +2526,6 @@ async function deletePayment(btn) {
 
     try {
         await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
-        const row = btn.closest('.payment-row');
-        if (row) row.remove();
         window.notificationManager?.success('Đã xóa dòng thanh toán');
     } catch (error) {
         console.error('[PAYMENT] Delete error:', error);
@@ -2526,5 +2567,6 @@ window.startInlineEditPaymentNote = startInlineEditPaymentNote;
 window.addPayment = addPayment;
 window.deletePayment = deletePayment;
 window.togglePaymentDotSection = togglePaymentDotSection;
+window.togglePaymentBreakdown = togglePaymentBreakdown;
 window.openPaymentSlideOver = openPaymentSlideOver;
 window.closePaymentSlideOver = closePaymentSlideOver;
