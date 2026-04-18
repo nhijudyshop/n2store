@@ -1051,6 +1051,23 @@ body {
 }
 
 /* Column widths */
+/* Shrink numeric/status columns so Ảnh + Ghi Chú get more breathing room */
+.invoice-table .col-qty,
+.invoice-table .col-price,
+.invoice-table .col-amount,
+.invoice-table .col-total,
+.invoice-table .col-shortage {
+    width: 1%;            /* Shrink to content in an auto-layout table */
+    white-space: nowrap;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+}
+.invoice-table .col-qty      { min-width: 52px; max-width: 64px; text-align: center; }
+.invoice-table .col-price    { min-width: 60px; max-width: 76px; text-align: right; }
+.invoice-table .col-amount   { min-width: 70px; max-width: 90px; text-align: right; }
+.invoice-table .col-total    { min-width: 60px; max-width: 76px; text-align: center; }
+.invoice-table .col-shortage { min-width: 52px; max-width: 64px; text-align: center; }
+
 .invoice-table .col-ncc { width: 50px; text-align: center; vertical-align: middle; }
 
 /* NCC done checkbox */
@@ -1252,8 +1269,15 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
 .invoice-table .col-shortage { width: auto; white-space: nowrap; vertical-align: middle; cursor: pointer; }
 .invoice-table .col-shortage:hover { background-color: rgba(74, 124, 255, 0.08); }
 .invoice-table tfoot .total-row td { cursor: default; }
-.invoice-table .col-image { width: 200px; vertical-align: middle; }
-.invoice-table .col-invoice-note { width: 60px; vertical-align: middle; font-size: 12px; }
+.invoice-table .col-image { width: 300px; min-width: 260px; vertical-align: middle; }
+/* Ghi chú: to rộng, chiếm không gian còn lại của bảng */
+.invoice-table .col-invoice-note {
+    width: auto;
+    min-width: 240px;
+    vertical-align: middle;
+    font-size: 14px;
+    white-space: normal;
+}
 .invoice-table .col-cost { width: 100px; }
 .invoice-table .col-cost-note { min-width: 120px; }
 .invoice-table .col-note { min-width: 100px; }
