@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [purchase-orders] Fix hover zoom ảnh trong modal "Chọn sản phẩm từ kho"
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/dialogs.js` |
+| **Chi tiết** | **Bug:** Đưa chuột vào ảnh sản phẩm trong modal inventory picker không phóng to preview. Nguyên nhân: listener dùng `mouseenter`/`mouseleave` delegate trên `#inventoryProductsList`, nhưng 2 event này **không bubble**, nên delegation không fire khi hover vào `.inventory-thumb` con — kể cả `capture: true` cũng không giải quyết tin cậy được. **Fix:** Đổi sang `mouseover`/`mouseout` (bubble tự nhiên) + guard `relatedTarget.closest('.inventory-thumb')` để không toggle khi di chuột giữa 2 vùng trong cùng 1 thumb. Giữ nguyên CSS hover scale + preview element. |
+| **Status** | ✅ Done |
+
 ### [inventory][render] Migration 059: fix rows stt=901 với ten_ncc thuần số (backfill trước parser fix)
 | | |
 |---|---|

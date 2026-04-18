@@ -2296,26 +2296,36 @@ class InventoryPickerDialog {
         const listContainer = this.modalElement.querySelector('#inventoryProductsList');
         if (!listContainer) return;
 
-        listContainer.addEventListener('mouseenter', (e) => {
+        // mouseenter/mouseleave do NOT bubble, so delegation via those events
+        // fails — use mouseover/mouseout (bubble-friendly) with a thumb guard.
+        listContainer.addEventListener('mouseover', (e) => {
             const thumb = e.target.closest('.inventory-thumb');
             if (!thumb) return;
+            const from = e.relatedTarget && e.relatedTarget.closest
+                ? e.relatedTarget.closest('.inventory-thumb')
+                : null;
+            if (from === thumb) return;
             const zoom = getOrCreateZoom();
-            zoom.src = thumb.src;
+            if (zoom.src !== thumb.src) zoom.src = thumb.src;
             zoom.classList.add('visible');
             positionZoom(e, zoom);
-        }, true);
+        });
 
         listContainer.addEventListener('mousemove', (e) => {
             const thumb = e.target.closest('.inventory-thumb');
             if (!thumb || !zoomEl) return;
             positionZoom(e, zoomEl);
-        }, true);
+        });
 
-        listContainer.addEventListener('mouseleave', (e) => {
+        listContainer.addEventListener('mouseout', (e) => {
             const thumb = e.target.closest('.inventory-thumb');
             if (!thumb || !zoomEl) return;
+            const to = e.relatedTarget && e.relatedTarget.closest
+                ? e.relatedTarget.closest('.inventory-thumb')
+                : null;
+            if (to === thumb) return;
             zoomEl.classList.remove('visible');
-        }, true);
+        });
 
         // Clean up zoom element when modal is closed
         this._zoomCleanup = () => {
