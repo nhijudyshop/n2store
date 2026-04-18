@@ -14,7 +14,7 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="../shared/css/modern.css">
-    <link rel="stylesheet" href="css/modern.css?v=20260418-payment-wide-head">
+    <link rel="stylesheet" href="css/modern.css?v=20260418-stats-bar">
 
     <!-- Navigation Manager -->
     <!-- ES Module: Shared utilities -->
@@ -264,24 +264,48 @@
                 </div>
             </div>
 
-            <!-- Add Shipment Button -->
+            <!-- Action bar: stats on left, buttons on right -->
             <div class="action-bar">
-                <button class="btn btn-primary" id="btnAddShipment">
-                    <i data-lucide="plus"></i>
-                    <span>Thêm Đợt Hàng</span>
-                </button>
-                <button class="btn btn-outline btn-image-manager" id="btnOpenImageManager" onclick="ImageManager.open()">
-                    <i data-lucide="camera"></i>
-                    <span>Quản Lý Ảnh</span>
-                </button>
-                <button class="btn btn-outline" id="btnTogglePaymentPanel" title="Bật/Tắt panel Thanh Toán CK của các đợt">
-                    <i data-lucide="wallet"></i>
-                    <span>Thanh Toán CK</span>
-                </button>
-                <button class="btn btn-outline" id="btnExportTracking">
-                    <i data-lucide="download"></i>
-                    <span>Xuất Excel</span>
-                </button>
+                <div class="inventory-stats-bar" id="inventoryStatsBar">
+                    <div class="stat-box" title="Tổng số KG của tất cả các đợt">
+                        <span class="stat-label">Tổng KG</span>
+                        <span class="stat-value" id="statTongKg">0</span>
+                    </div>
+                    <div class="stat-box" title="Tổng tiền hóa đơn của tất cả các đợt">
+                        <span class="stat-label">Tổng HĐ</span>
+                        <span class="stat-value" id="statTongHD">0</span>
+                    </div>
+                    <div class="stat-box" title="Tổng chi phí của tất cả các đợt">
+                        <span class="stat-label">Tổng CP</span>
+                        <span class="stat-value" id="statTongCP">0</span>
+                    </div>
+                    <div class="stat-box" title="Tổng tiền đã chuyển khoản của tất cả các đợt">
+                        <span class="stat-label">Tổng TT</span>
+                        <span class="stat-value" id="statTongTT">0</span>
+                    </div>
+                    <div class="stat-box stat-box-conlai" title="Còn lại = Tổng TT − Tổng HĐ − Tổng CP">
+                        <span class="stat-label">Còn Lại</span>
+                        <span class="stat-value" id="statConLai">0</span>
+                    </div>
+                </div>
+                <div class="action-bar-buttons">
+                    <button class="btn btn-primary" id="btnAddShipment">
+                        <i data-lucide="plus"></i>
+                        <span>Thêm Đợt Hàng</span>
+                    </button>
+                    <button class="btn btn-outline btn-image-manager" id="btnOpenImageManager" onclick="ImageManager.open()">
+                        <i data-lucide="camera"></i>
+                        <span>Quản Lý Ảnh</span>
+                    </button>
+                    <button class="btn btn-outline" id="btnTogglePaymentPanel" title="Mở panel Thanh Toán CK theo đợt">
+                        <i data-lucide="wallet"></i>
+                        <span>Thanh Toán CK</span>
+                    </button>
+                    <button class="btn btn-outline" id="btnExportTracking">
+                        <i data-lucide="download"></i>
+                        <span>Xuất Excel</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Shipments List -->
@@ -780,12 +804,12 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/api-client.js?v=20260418-payment-wide-head"></script>
+    <script src="js/api-client.js?v=20260418-stats-bar"></script>
     <script src="js/permission-helper.js"></script>
-    <script src="js/data-loader.js?v=20260418-payment-wide-head"></script>
+    <script src="js/data-loader.js?v=20260418-stats-bar"></script>
     <script src="js/text-parser.js"></script>
     <script src="js/balance-calculator.js"></script>
-    <script src="js/table-renderer.js?v=20260418-payment-wide-head"></script>
+    <script src="js/table-renderer.js?v=20260418-stats-bar"></script>
     <script src="js/modal-shipment.js"></script>
     <script src="js/modal-shortage.js"></script>
     <script src="js/modal-variant.js"></script>
@@ -812,6 +836,6 @@
     <script src="js/ai-queue-manager.js"></script>
     <script src="js/modal-ai-preview.js"></script>
 
-    <script src="js/main.js?v=20260418-payment-wide-head"></script>
+    <script src="js/main.js?v=20260418-stats-bar"></script>
 </body>
 </html>

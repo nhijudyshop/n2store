@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Stats bar ngang trên action-bar: Tổng KG / HĐ / CP / TT / Còn Lại
+| | |
+|---|---|
+| **Files** | `inventory-tracking/index.html`, `inventory-tracking/js/table-renderer.js`, `inventory-tracking/css/modern.css` |
+| **Chi tiết** | Thêm 5 ô thống kê ngang bên trái nút "Thêm Đợt Hàng" trong action-bar: Tổng KG, Tổng HĐ, Tổng CP, Tổng TT, Còn Lại. **Layout:** `.action-bar` đổi `justify-content: flex-end` → `space-between` + flex-wrap, stats group (`.inventory-stats-bar`) bên trái, buttons group (`.action-bar-buttons`) bên phải. Mỗi stat-box: label uppercase 11.5px xám + value 22px monospace bold. Stat "Còn Lại" dynamic color (xanh ≥0 / đỏ <0) qua class `positive`/`negative` trên box. **Aggregation logic (`updateInventoryStatsBar`):** Tổng KG/HĐ/CP sum từ `globalState.shipments` (grouped theo ngày+dotSo, mỗi shipment unique). Tổng TT sum từ `getAllDotsAggregated()` (grouped theo dotSo alone) — tránh double-count khi 1 đợt span nhiều ngày (nhiều shipment card cùng dotSo chia sẻ cùng thanhToanCK). Còn Lại = Tổng TT − Tổng HĐ − Tổng CP (cùng đơn vị ngoại tệ). **Hook update:** gọi cuối `renderShipments()` (initial + filter) và cuối `_persistPaymentByDot()` (sau payment CRUD) để stats luôn fresh. Cache-bust `?v=20260418-stats-bar`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Slide-over CK: panel +30%, head gom Tỉ giá + CÒN LẠI, VND /1000, breakdown to
 | | |
 |---|---|

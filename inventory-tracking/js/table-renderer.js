@@ -441,6 +441,57 @@ function renderShipments(shipments) {
     if (typeof NoteManager !== 'undefined') {
         NoteManager.onTableRendered();
     }
+
+    // Refresh the horizontal stats bar (Tổng KG / HĐ / CP / TT / CÒN LẠI)
+    updateInventoryStatsBar();
+}
+
+/**
+ * Aggregate totals across ALL đợt and push to the header stats bar.
+ * - Tổng KG / HĐ / CP: summed from shipments (one per (ngày, dotSo) group).
+ * - Tổng TT / CÒN LẠI: summed from dotEntries (one per dotSo) so payments aren't double-counted
+ *   when one đợt spans multiple dates.
+ */
+function updateInventoryStatsBar() {
+    const bar = document.getElementById('inventoryStatsBar');
+    if (!bar) return;
+
+    const shipments = globalState.shipments || [];
+    let tongKg = 0, tongHD = 0, tongCP = 0;
+    shipments.forEach(s => {
+        tongKg += parseFloat(s.tongKg) || 0;
+        tongHD += parseFloat(s.tongTienHoaDon) || 0;
+        tongCP += parseFloat(s.tongChiPhi) || 0;
+    });
+
+    let tongTT = 0;
+    if (typeof getAllDotsAggregated === 'function') {
+        const dotEntries = getAllDotsAggregated();
+        dotEntries.forEach(e => {
+            const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
+            tongTT += payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
+        });
+    }
+
+    const conLai = tongTT - tongHD - tongCP;
+
+    const kgEl = document.getElementById('statTongKg');
+    if (kgEl) kgEl.textContent = `${formatNumber(tongKg)}`;
+    const hdEl = document.getElementById('statTongHD');
+    if (hdEl) hdEl.textContent = formatNumber(tongHD);
+    const cpEl = document.getElementById('statTongCP');
+    if (cpEl) cpEl.textContent = formatNumber(tongCP);
+    const ttEl = document.getElementById('statTongTT');
+    if (ttEl) ttEl.textContent = formatNumber(tongTT);
+    const conLaiEl = document.getElementById('statConLai');
+    if (conLaiEl) {
+        conLaiEl.textContent = formatNumber(conLai);
+        const box = conLaiEl.closest('.stat-box');
+        if (box) {
+            box.classList.toggle('positive', conLai >= 0);
+            box.classList.toggle('negative', conLai < 0);
+        }
+    }
 }
 
 /**
@@ -2361,6 +2412,7 @@ async function _persistPaymentByDot(dotSo, patch) {
     await shipmentsApi.updatePaymentByDot(ds, patch);
     flattenNCCData();
     _refreshPaymentDotSectionUI(ds);
+    updateInventoryStatsBar();
 }
 
 function _getPaymentsForDot(dotSo) {
