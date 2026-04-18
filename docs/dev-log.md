@@ -8,6 +8,20 @@
 
 ## 2026-04-18
 
+### [orders][render] Bỏ auto-gắn tag GIỎ TRỐNG — giữ filter lọc SL=0 + cleanup-mode
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-empty-cart-auto-sync.js`, `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js`, `orders-report/tab1-orders.html`, `n2store-realtime/server.js`, `n2store-realtime/tpos-client.js` (deleted) |
+| **Chi tiết** | Yêu cầu: bỏ hoàn toàn việc gắn tag GIỎ TRỐNG (cả auto lẫn tay), giữ "GIỎ TRỐNG" chỉ như filter lọc đơn `TotalQuantity=0`, nếu đơn lỡ có tag GIỎ TRỐNG → tự động xóa cả TPOS tag lẫn XL state. **Thực hiện:** (A) Rewrite `tab1-empty-cart-auto-sync.js` sang cleanup-only mode: `batchEmptyCartSync` giờ scan orders → phát hiện TPOS tag `GIỎ TRỐNG` → call AssignTag trực tiếp (dùng `window.tokenManager` + `API_CONFIG.smartFetch`) để gỡ + clear XL state nếu `subTag=GIO_TRONG`. Bỏ hook `updateOrderInTable` (không còn watch SL change). Giữ `window.scheduleEmptyCartSync`/`window.batchEmptyCartSync` API không vỡ caller cũ. (B) Xóa `GIO_TRONG` khỏi `PTAG_SUBTAGS` + icon map + sửa tooltip — picker XL không còn hiện option GIỎ TRỐNG. (C) Thêm module-level cache `_slZeroCodes`/`_slZeroIds` rebuild từ `allOrders` trong `_ptagComputeCounts`; stats formula `gioTrong = _slZeroCodes.size` thay vì đếm `subTagCounts['GIO_TRONG']`; filter `subtag_GIO_TRONG` trong `orderPassesProcessingTagFilter` chuyển sang check `_isOrderSLZero()` (lazy rebuild nếu cache rỗng). (D) Xóa `GIO_TRONG` khỏi `SUBTAG_TO_TPOS` mapping trong `tab1-tag-sync.js`. (E) Render server: xóa endpoint `POST /api/tpos/empty-cart-sync`, xóa `CREATE TABLE tpos_empty_cart_sync`, xóa `require('./tpos-client')` → xóa file `tpos-client.js`. Overview tab (overview-statistics.js) giữ nguyên — sẽ tự động hiển thị 0 count sau khi cleanup chạy xong do tag TPOS bị gỡ sạch. |
+| **Status** | ✅ Done |
+
+### [orders] Phone Widget — Rewrite UI, auto-reconnect, tones (ringback/answer/hangup), accept/reject incoming
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-widget.js` |
+| **Chi tiết** | **UI redesign**: Widget to hơn (280→320px), dark glass gradient, status dot animated (registered=pulse xanh, calling=pulse cam, error=đỏ), header có status bar riêng hiển thị trạng thái rõ ràng tiếng Việt ("Đang đổ chuông...", "Đã kết nối", "Ext 107 • Sẵn sàng"). Dialpad nút lớn, hover lift-shadow, active gradient xanh. Caller avatar circle có glow animation khi đang gọi (active=xanh, ringing=cam). FAB bigger với shake animation khi có cuộc gọi đến. **Auto-reconnect**: `registrationFailed`, `disconnected`, `unregistered` → `scheduleReconnect()` với exponential backoff (1s→2s→4s...→max 30s), reset attempt khi `registered` thành công; status hiển thị countdown + lần thử. **Audio tones** (Web Audio API, không cần file): `startRingback()` 425Hz 1s on / 4s off (VN pattern) khi session `progress`, `playAnsweredTone()` beep tăng 600→1000Hz khi `accepted`, `playHangupTone()` beep giảm 800→300Hz khi `ended`/`failed`/user bấm cúp, `startIncomingRing()` two-tone 520/660Hz loop khi có cuộc gọi đến, `playKeypadClick()` click ngắn 880Hz khi bấm phím. AudioContext auto-unlock on first widget click. **Incoming call như điện thoại thật**: Không auto-answer nữa — hiện banner "Cuộc gọi đến" với số gọi đến, 2 nút Accept (xanh pulse) / Reject (đỏ), ring liên tục đến khi user chọn; nếu đang có cuộc gọi khác thì auto-reject 486 Busy. Public API thêm `acceptIncoming()`, `rejectIncoming()`. |
+| **Status** | ✅ Done |
+
 ### [orders] Gửi Bill hàng loạt — chuyển sang đa nhiệm với concurrency pool + PAT refresh dedupe
 | | |
 |---|---|

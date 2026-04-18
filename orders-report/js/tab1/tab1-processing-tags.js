@@ -16,6 +16,26 @@
     const PTAG_API_BASE = 'https://n2store-fallback.onrender.com/api/realtime/processing-tags';
     const PTAG_LOG = '[PTAG v2]';
 
+    // Cache orders có SL=0 (TotalQuantity === 0) — dùng cho filter "GIỎ TRỐNG"
+    // (từ 2026-04-18 tag GIỎ TRỐNG không còn gắn; filter chuyển sang lọc theo SL)
+    let _slZeroCodes = new Set();
+    let _slZeroIds = new Set();
+    function _rebuildSlZeroCache(orders) {
+        _slZeroCodes = new Set();
+        _slZeroIds = new Set();
+        for (const o of (orders || [])) {
+            if (!o) continue;
+            if (Number(o.TotalQuantity || 0) === 0) {
+                if (o.Code) _slZeroCodes.add(String(o.Code));
+                if (o.Id) _slZeroIds.add(String(o.Id));
+            }
+        }
+    }
+    function _isOrderSLZero(codeOrId) {
+        const s = String(codeOrId);
+        return _slZeroCodes.has(s) || _slZeroIds.has(s);
+    }
+
     // =====================================================
     // SECTION 1: CONSTANTS
     // =====================================================
@@ -68,8 +88,8 @@
         CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'ĐƠN CHƯA PHẢN HỒI', category: 2 },
         BAN_HANG:       { key: 'BAN_HANG',        label: 'BÁN HÀNG',           category: 2 },
         // Category 3 — KHÔNG CẦN CHỐT
+        // Note (2026-04-18): GIO_TRONG removed — filter "GIỎ TRỐNG" nay lọc theo TotalQuantity=0
         DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3 },
-        GIO_TRONG:          { key: 'GIO_TRONG',         label: 'GIỎ TRỐNG',         category: 3 },
         // Category 4 — KHÁCH XÃ
         NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC HẾT HÀNG',              category: 4 },
         KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'KHÁCH HỦY NGUYÊN ĐƠN',      category: 4 },
@@ -105,7 +125,7 @@
         subtag_BAN_HANG: 'Khách đang mua thêm, seller đang chào hàng.',
         // Sub-tags cat 3
         subtag_DA_GOP_KHONG_CHOT: 'Đơn khách mua 2 page đã gộp vào 1 đơn khác.',
-        subtag_GIO_TRONG: 'Đơn không có SP, đã xử lý trước đó.',
+        subtag_GIO_TRONG: 'Lọc đơn có SL = 0.',
         // Sub-tags cat 4
         subtag_NCC_HET_HANG: 'Báo khách hết hàng hoặc đổi qua mẫu khác.',
         subtag_KHACH_HUY_DON: 'Khách báo lý do không nhận: đi công tác, không có tiền, đổi ý.',
@@ -117,7 +137,7 @@
     const PTAG_SUBTAG_ICONS = {
         CHUA_PHAN_HOI: '💬', BAN_HANG: '🛒',
         NCC_HET_HANG: '🚫',
-        DA_GOP_KHONG_CHOT: '🔗', GIO_TRONG: '🛒',
+        DA_GOP_KHONG_CHOT: '🔗',
         KHACH_HUY_DON: '❌', KHACH_KO_LIEN_LAC: '📵'
     };
 
@@ -1326,7 +1346,6 @@
                 badges += `<span class="ptag-badge" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}</span>`;
             } else {
                 // Cat 2/3/4: render only subtag badge (parent category implicit).
-                // Special: GIO_TRONG shows alone without parent "KHÔNG CẦN CHỐT".
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
                 if (label) {
@@ -2064,6 +2083,9 @@
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
+        // Rebuild SL=0 cache (dùng cho stats "GIỎ TRỐNG" + filter subtag_GIO_TRONG)
+        _rebuildSlZeroCache(allOrders);
+
         const allDataCodes = new Set(allOrders.map(o => String(o.Code)).filter(Boolean));
         let taggedCount = 0;
         let hasCategoryCount = 0;
@@ -2158,7 +2180,8 @@
             }
             if (summaryEl) {
                 const koCan = catCounts[3] || 0;
-                const gioTrong = subTagCounts['GIO_TRONG'] || 0;
+                // gioTrong = đơn có SL=0 (không còn dùng subtag GIO_TRONG — đã bỏ auto-tag)
+                const gioTrong = _slZeroCodes.size;
                 const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
                 const donChot = totalOrders - koCan;
                 const raDon = catCounts[0] || 0;
@@ -4651,6 +4674,15 @@
             } else if (filter === '__don_chot__') {
                 // Đơn Chốt = tất cả trừ Cat 3 (Không cần chốt)
                 passesBase = !data || data.category === null || data.category === undefined || data.category !== 3;
+            } else if (filter === 'subtag_GIO_TRONG') {
+                // (2026-04-18) Tag GIỎ TRỐNG không còn gắn vào đơn → filter này
+                // chuyển sang lọc theo TotalQuantity === 0 (dùng cache _slZeroCodes).
+                // Lazy rebuild nếu cache rỗng (panel chưa mở ở session này).
+                if (_slZeroCodes.size === 0 && _slZeroIds.size === 0) {
+                    const allOrdersLookup = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+                    _rebuildSlZeroCache(allOrdersLookup);
+                }
+                passesBase = _isOrderSLZero(orderCodeOrId);
             } else if (!data) {
                 passesBase = false;
             } else if (filter.startsWith('cat_')) {

@@ -35,23 +35,22 @@
         4: 'KHÁCH XÃ SAU CHỐT'
     };
 
-    // Subtag (XL subtag id → TPOS tag name). 1 chiều XL→TPOS cho 7 subtag thường,
-    // + bidirectional REMOVE cho 3 subtag đặc biệt (GIO_TRONG, DA_GOP_KHONG_CHOT, NCC_HET_HANG).
+    // Subtag (XL subtag id → TPOS tag name). 1 chiều XL→TPOS cho subtag thường,
+    // + bidirectional REMOVE cho 2 subtag đặc biệt (DA_GOP_KHONG_CHOT, NCC_HET_HANG).
+    // (2026-04-18) GIO_TRONG đã loại khỏi mapping — tag GIỎ TRỐNG không còn gắn;
+    // xem tab1-empty-cart-auto-sync.js (cleanup-only mode).
     const SUBTAG_TO_TPOS = {
         // Cat 2 — MỤC XỬ LÝ
         CHUA_PHAN_HOI:     'ĐƠN CHƯA PHẢN HỒI',
         BAN_HANG:          'BÁN HÀNG',
         // Cat 3 — KHÔNG CẦN CHỐT  (⚠ bidirectional REMOVE)
         DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KO CHỐT',
-        GIO_TRONG:         'GIỎ TRỐNG',
         // Cat 4 — KHÁCH XÃ SAU CHỐT  (⚠ bidirectional REMOVE: NCC_HET_HANG)
         NCC_HET_HANG:      'NCC HẾT HÀNG',
         KHACH_HUY_DON:     'KHÁCH HỦY NGUYÊN ĐƠN',
         KHACH_KO_LIEN_LAC: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC'
     };
 
-    // GIO_TRONG bị loại khỏi bidirectional REMOVE — server n2store-realtime tự
-    // quản lý độc lập theo SL (xem tab1-empty-cart-auto-sync.js).
     const BIDIRECTIONAL_REMOVE_SUBTAGS = new Set([
         'DA_GOP_KHONG_CHOT', 'NCC_HET_HANG'
     ]);
