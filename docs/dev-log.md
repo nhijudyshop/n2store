@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [orders] Modal Lịch Sử Tag T: hiển thị redirect + đếm đúng
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-bulk-tags.js` |
+| **Chi tiết** | **Bug:** Trong modal "Lịch Sử Tag T Chờ Hàng", các đơn bị redirect (do có tag "ĐÃ GỘP KO CHỐT" → tự chuyển sang đơn cùng SĐT có STT lớn nhất) không được đánh dấu — chỉ render flat `sttList`, bỏ qua `redirectedList` đã có trong Firebase. Ngoài ra `summary.totalSuccess` ở chỗ lưu chỉ tính `sttList.length`, không cộng `redirectedList.length` → count hiển thị thiếu so với modal kết quả ngay-sau-khi-gán. **Fix:** (1) `renderBulkTagHistoryItem()` re-compute `totalSuccess`/`totalFailed` từ `results` (đọc cả `redirectedList`), dùng giá trị này cho header ✓/✗ và tiêu đề section — entries cũ có summary sai vẫn hiển thị đúng, không cần migrate data. Render từng tag-item copy pattern của `showBulkTagResultModal`: format `"STT X, Y, Z, A → B, C → D"` + ghi chú `"↳ Chuyển sang đơn cùng SĐT"` cho các entry có redirect. (2) Chỗ lưu Firebase (`historyEntry.summary`) cũng được sửa cộng cả `redirectedList.length` → entries mới lưu đúng từ đầu. |
+| **Status** | ✅ Done |
+
 ### [purchase-orders] Inventory picker: inline styles + cache-bust để zoom preview chắc chắn hiện
 | | |
 |---|---|

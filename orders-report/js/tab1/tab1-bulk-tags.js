@@ -1070,8 +1070,11 @@ async function saveBulkTagHistory(results) {
             username: username,
             results: results, // {success: [...], failed: [...]}
             summary: {
-                totalSuccess: results.success.reduce((sum, r) => sum + r.sttList.length, 0),
-                totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0)
+                totalSuccess: results.success.reduce(
+                    (sum, r) => sum + (r.sttList?.length || 0) + (r.redirectedList?.length || 0),
+                    0
+                ),
+                totalFailed: results.failed.reduce((sum, r) => sum + (r.sttList?.length || 0), 0)
             }
         };
 
@@ -1263,7 +1266,17 @@ async function showBulkTagHistoryModal() {
 
 // Render a single history item (new format)
 function renderBulkTagHistoryItem(entry, index) {
-    const { dateFormatted, username, results, summary } = entry;
+    const { dateFormatted, username, results } = entry;
+
+    // Re-compute totals from results (cộng cả redirectedList) — entries cũ có summary sai vẫn hiển thị đúng
+    const computedTotalSuccess = (results.success || []).reduce(
+        (sum, r) => sum + (r.sttList?.length || 0) + (r.redirectedList?.length || 0),
+        0
+    );
+    const computedTotalFailed = (results.failed || []).reduce(
+        (sum, r) => sum + (r.sttList?.length || 0),
+        0
+    );
 
     // Build success section
     let successHtml = '';
@@ -1272,16 +1285,39 @@ function renderBulkTagHistoryItem(entry, index) {
             <div class="bulk-tag-history-success">
                 <div class="bulk-tag-history-success-title">
                     <i class="fas fa-check-circle"></i>
-                    Thành công (${summary.totalSuccess} đơn):
+                    Thành công (${computedTotalSuccess} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
-                    ${results.success.map(r => `
+                    ${results.success.map(r => {
+            const normalSttDisplay = r.sttList?.length > 0
+                ? `STT ${r.sttList.join(', ')}`
+                : '';
+            const redirectedDisplay = r.redirectedList?.length > 0
+                ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
+                : '';
+
+            let sttDisplay = '';
+            if (normalSttDisplay && redirectedDisplay) {
+                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+            } else if (normalSttDisplay) {
+                sttDisplay = normalSttDisplay;
+            } else if (redirectedDisplay) {
+                sttDisplay = `STT ${redirectedDisplay}`;
+            }
+
+            const redirectNote = r.redirectedList?.length > 0
+                ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                : '';
+
+            return `
                         <div class="bulk-tag-history-tag-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
+                            <span class="stt-list">${sttDisplay}</span>
+                            ${redirectNote}
                         </div>
-                    `).join('')}
+                    `;
+        }).join('')}
                 </div>
             </div>
         `;
@@ -1294,7 +1330,7 @@ function renderBulkTagHistoryItem(entry, index) {
             <div class="bulk-tag-history-failed">
                 <div class="bulk-tag-history-failed-title">
                     <i class="fas fa-times-circle"></i>
-                    Thất bại (${summary.totalFailed} đơn):
+                    Thất bại (${computedTotalFailed} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
                     ${results.failed.map(r => `
@@ -1324,8 +1360,8 @@ function renderBulkTagHistoryItem(entry, index) {
                     </div>
                 </div>
                 <div class="history-summary">
-                    <span class="success-count"><i class="fas fa-check"></i> ${summary.totalSuccess}</span>
-                    <span class="failed-count"><i class="fas fa-times"></i> ${summary.totalFailed}</span>
+                    <span class="success-count"><i class="fas fa-check"></i> ${computedTotalSuccess}</span>
+                    <span class="failed-count"><i class="fas fa-times"></i> ${computedTotalFailed}</span>
                     <i class="fas fa-chevron-down expand-icon"></i>
                 </div>
             </div>
