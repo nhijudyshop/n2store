@@ -510,12 +510,7 @@ function createShipmentCard(shipment) {
             </div>
         </div>
         <div class="shipment-body hidden">
-            <div class="shipment-body-grid">
-                <div class="invoice-wrapper">
-                    ${renderInvoicesSection(shipment)}
-                </div>
-                ${canViewCost ? renderPaymentPanel(shipment) : ''}
-            </div>
+            ${renderInvoicesSection(shipment)}
             ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
         </div>
     `;
@@ -2123,37 +2118,59 @@ async function commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai) {
 }
 
 // =====================================================
-// PAYMENT PANEL (per-đợt thanh toán CK)
+// PAYMENT SLIDE-OVER (Thanh Toán CK — grouped by dotSo, spans all dates)
 // =====================================================
 
-function _findDotsByNgayDotSo(ngayDiHang, dotSo) {
+function _findDotsByDotSo(dotSo) {
+    const ds = parseInt(dotSo, 10) || 1;
     const out = [];
     for (const ncc of globalState.nccList) {
         for (const dot of (ncc.dotHang || [])) {
-            if (dot.ngayDiHang === ngayDiHang && (dot.dotSo || 1) === (parseInt(dotSo, 10) || 1)) {
-                out.push(dot);
-            }
+            if ((dot.dotSo || 1) === ds) out.push(dot);
         }
     }
     return out;
 }
 
-function _calcPaymentTotals(shipment) {
-    const payments = Array.isArray(shipment.thanhToanCK) ? shipment.thanhToanCK : [];
-    const tiGia = parseFloat(shipment.tiGia) || 0;
+function _aggregateDotEntry(dotSo) {
+    const dots = _findDotsByDotSo(dotSo);
+    const dateSet = new Set();
+    let tongTienHoaDon = 0;
+    let tongChiPhi = 0;
+    let thanhToanCK = [];
+    let tiGia = 0;
+    dots.forEach(d => {
+        if (d.ngayDiHang) dateSet.add(d.ngayDiHang);
+        tongTienHoaDon += parseFloat(d.tongTienHD) || 0;
+        tongChiPhi += parseFloat(d.tongChiPhi) || 0;
+        if ((!thanhToanCK || thanhToanCK.length === 0)
+            && Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0) {
+            thanhToanCK = d.thanhToanCK;
+        }
+        if (!tiGia && d.tiGia) tiGia = parseFloat(d.tiGia) || 0;
+    });
+    return {
+        dotSo: parseInt(dotSo, 10) || 1,
+        ngayDiHangList: [...dateSet].sort((a, b) => new Date(b) - new Date(a)),
+        tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia
+    };
+}
+
+function _calcPaymentTotals(entry) {
+    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    const tiGia = parseFloat(entry.tiGia) || 0;
     const tongTT = payments.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0);
     const tongTTVND = tongTT * tiGia;
-    const tongChiPhi = parseFloat(shipment.tongChiPhi) || 0;
-    const tongTienHD = parseFloat(shipment.tongTienHoaDon) || 0;
+    const tongChiPhi = parseFloat(entry.tongChiPhi) || 0;
+    const tongTienHD = parseFloat(entry.tongTienHoaDon) || 0;
     const conLai = tongTTVND - tongChiPhi - tongTienHD;
     return { tongTT, tongTTVND, tongChiPhi, tongTienHD, conLai, tiGia };
 }
 
-function _renderPaymentRow(shipment, p) {
-    const tiGia = parseFloat(shipment.tiGia) || 0;
+function _renderPaymentRow(dotSo, tiGia, p) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
     const soTienVND = soTienTT * tiGia;
-    const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-ngay-di-hang="${_escAttr(shipment.ngayDiHang)}" data-dot-so="${shipment.dotSo || 1}"`;
+    const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
     return `
         <li class="payment-row" ${dataAttrs}>
             <span class="payment-cell payment-ngay-tt editable-cell" ${dataAttrs} data-field="ngayTT" ondblclick="startInlineEditPaymentNgay(this)" title="Nhấp đúp để sửa">${formatDateDisplay(p.ngayTT) || '—'}</span>
@@ -2165,96 +2182,108 @@ function _renderPaymentRow(shipment, p) {
     `;
 }
 
-function renderPaymentPanel(shipment) {
-    const payments = Array.isArray(shipment.thanhToanCK) ? shipment.thanhToanCK : [];
-    const totals = _calcPaymentTotals(shipment);
-    const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
-    const ngayAttr = _escAttr(shipment.ngayDiHang);
-    const dotAttr = shipment.dotSo || 1;
+function _formatNgayList(list) {
+    if (!Array.isArray(list) || list.length === 0) return '';
+    return list.map(formatDateDisplay).filter(Boolean).join(', ');
+}
 
-    const rows = payments.map(p => _renderPaymentRow(shipment, p)).join('');
+function renderPaymentDotSection(entry) {
+    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    const totals = _calcPaymentTotals(entry);
+    const conLaiClass = totals.conLai >= 0 ? 'positive' : 'negative';
+    const dotAttr = entry.dotSo;
+    const datesText = _formatNgayList(entry.ngayDiHangList) || '(chưa có đợt)';
+    const rows = payments.map(p => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
 
     return `
-        <aside class="payment-panel" data-shipment-id="${_escAttr(shipment.id)}" data-ngay-di-hang="${ngayAttr}" data-dot-so="${dotAttr}">
-            <header class="payment-panel-header">
-                <div class="payment-panel-title">
-                    <i data-lucide="wallet"></i>
-                    <span>Thanh Toán CK</span>
-                </div>
-                <div class="payment-panel-rate">
-                    <label>Tỉ giá:</label>
-                    <span class="payment-ti-gia editable-cell" data-ngay-di-hang="${ngayAttr}" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
-                </div>
-            </header>
-            <div class="payment-panel-totals">
-                <div class="pp-total-row"><span>Tổng TT:</span><strong class="pp-total-tt">${formatNumber(totals.tongTT)}</strong></div>
-                <div class="pp-total-row"><span>Tổng VND:</span><strong class="pp-total-vnd">${formatNumber(totals.tongTTVND)}</strong></div>
-                <div class="pp-total-row muted"><span>Tổng HĐ:</span><strong>${formatNumber(totals.tongTienHD)}</strong></div>
-                <div class="pp-total-row muted"><span>Tổng CP:</span><strong>${formatNumber(totals.tongChiPhi)}</strong></div>
-                <div class="pp-total-row pp-con-lai-row"><span>CÒN LẠI:</span><strong class="pp-con-lai ${conLaiClass}">${formatNumber(totals.conLai)}</strong></div>
+        <section class="payment-dot-section" data-dot-so="${dotAttr}">
+            <div class="payment-dot-head" onclick="togglePaymentDotSection(this)">
+                <i class="payment-dot-chevron" data-lucide="chevron-down"></i>
+                <span class="payment-dot-label">Đợt ${dotAttr}</span>
+                <span class="payment-dot-dates" title="${_escAttr(datesText)}">Ngày giao: ${_escAttr(datesText)}</span>
+                <span class="payment-dot-conlai ${conLaiClass}">CÒN LẠI: ${formatNumber(totals.conLai)}</span>
             </div>
-            <div class="payment-list-wrap">
-                <div class="payment-list-header">
-                    <span>Ngày TT</span>
-                    <span class="text-right">Số tiền</span>
-                    <span class="text-right">VND</span>
-                    <span>Ghi chú</span>
-                    <span></span>
+            <div class="payment-dot-body">
+                <div class="payment-rate-row">
+                    <label>Tỉ giá quy đổi (→ VND):</label>
+                    <span class="payment-ti-gia editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditTiGia(this)" title="Nhấp đúp để sửa">${totals.tiGia > 0 ? totals.tiGia : '—'}</span>
                 </div>
-                <ul class="payment-list">
-                    ${rows}
-                </ul>
+                <div class="payment-panel-totals">
+                    <div class="pp-total-row"><span>Tổng TT:</span><strong class="pp-total-tt">${formatNumber(totals.tongTT)}</strong></div>
+                    <div class="pp-total-row"><span>Tổng VND:</span><strong class="pp-total-vnd">${formatNumber(totals.tongTTVND)}</strong></div>
+                    <div class="pp-total-row muted"><span>Tổng HĐ:</span><strong>${formatNumber(totals.tongTienHD)}</strong></div>
+                    <div class="pp-total-row muted"><span>Tổng CP:</span><strong>${formatNumber(totals.tongChiPhi)}</strong></div>
+                    <div class="pp-total-row pp-con-lai-row"><span>CÒN LẠI:</span><strong class="pp-con-lai ${conLaiClass}">${formatNumber(totals.conLai)}</strong></div>
+                </div>
+                <div class="payment-list-wrap">
+                    <div class="payment-list-header">
+                        <span>Ngày TT</span>
+                        <span class="text-right">Số tiền</span>
+                        <span class="text-right">VND</span>
+                        <span>Ghi chú</span>
+                        <span></span>
+                    </div>
+                    <ul class="payment-list">
+                        ${rows}
+                    </ul>
+                </div>
+                <button class="btn-add-payment" data-dot-so="${dotAttr}" onclick="addPayment(this)">
+                    <i data-lucide="plus"></i> Thêm thanh toán
+                </button>
             </div>
-            <button class="btn-add-payment" data-ngay-di-hang="${ngayAttr}" data-dot-so="${dotAttr}" onclick="addPayment(this)">
-                <i data-lucide="plus"></i> Thêm thanh toán
-            </button>
-        </aside>
+        </section>
     `;
 }
 
-function _refreshPaymentPanelUI(ngayDiHang, dotSo) {
-    const panel = document.querySelector(`.payment-panel[data-ngay-di-hang="${CSS.escape(ngayDiHang)}"][data-dot-so="${dotSo}"]`);
-    if (!panel) return;
+function renderPaymentSlideOverBody() {
+    if (!permissionHelper?.can('view_chiPhiHangVe')) {
+        return '<div class="payment-empty">Không có quyền xem.</div>';
+    }
+    const entries = (typeof getAllDotsAggregated === 'function') ? getAllDotsAggregated() : [];
+    if (entries.length === 0) {
+        return '<div class="payment-empty">Chưa có đợt hàng nào. Thêm đợt hàng trước.</div>';
+    }
+    return entries.map(renderPaymentDotSection).join('');
+}
 
-    // Rebuild a pseudo-shipment object for the calc helpers, sourced from memory.
-    const dots = _findDotsByNgayDotSo(ngayDiHang, dotSo);
-    if (dots.length === 0) return;
-    const first = dots[0];
-    const payments = Array.isArray(first.thanhToanCK) ? first.thanhToanCK : [];
-    const tiGia = parseFloat(first.tiGia) || 0;
-    const tongChiPhi = dots.reduce((s, d) => s + (parseFloat(d.tongChiPhi) || 0), 0);
-    const tongTienHD = dots.reduce((s, d) => s + (parseFloat(d.tongTienHD) || 0), 0);
-    const synthetic = {
-        id: panel.dataset.shipmentId,
-        ngayDiHang,
-        dotSo,
-        thanhToanCK: payments,
-        tiGia,
-        tongChiPhi,
-        tongTienHoaDon: tongTienHD
-    };
-    const totals = _calcPaymentTotals(synthetic);
+function togglePaymentDotSection(headEl) {
+    const section = headEl.closest('.payment-dot-section');
+    if (section) section.classList.toggle('collapsed');
+}
 
-    // Update tỉ giá display
-    const tiGiaEl = panel.querySelector('.payment-ti-gia');
+function _refreshPaymentDotSectionUI(dotSo) {
+    const section = document.querySelector(`.payment-dot-section[data-dot-so="${dotSo}"]`);
+    if (!section) return;
+
+    const entry = _aggregateDotEntry(dotSo);
+    const totals = _calcPaymentTotals(entry);
+
+    // Tỉ giá display
+    const tiGiaEl = section.querySelector('.payment-ti-gia');
     if (tiGiaEl && !tiGiaEl.querySelector('input')) {
         tiGiaEl.textContent = totals.tiGia > 0 ? String(totals.tiGia) : '—';
     }
 
-    // Update totals
-    const ttEl = panel.querySelector('.pp-total-tt');
+    // Totals
+    const ttEl = section.querySelector('.pp-total-tt');
     if (ttEl) ttEl.textContent = formatNumber(totals.tongTT);
-    const vndEl = panel.querySelector('.pp-total-vnd');
+    const vndEl = section.querySelector('.pp-total-vnd');
     if (vndEl) vndEl.textContent = formatNumber(totals.tongTTVND);
-    const conLaiEl = panel.querySelector('.pp-con-lai');
+    const conLaiEl = section.querySelector('.pp-con-lai');
     if (conLaiEl) {
         conLaiEl.textContent = formatNumber(totals.conLai);
         conLaiEl.classList.toggle('positive', totals.conLai >= 0);
         conLaiEl.classList.toggle('negative', totals.conLai < 0);
     }
+    const headConLai = section.querySelector('.payment-dot-conlai');
+    if (headConLai) {
+        headConLai.textContent = `CÒN LẠI: ${formatNumber(totals.conLai)}`;
+        headConLai.classList.toggle('positive', totals.conLai >= 0);
+        headConLai.classList.toggle('negative', totals.conLai < 0);
+    }
 
-    // Update per-row VND columns (soTienTT * tiGia)
-    const rows = panel.querySelectorAll('.payment-row');
+    // Per-row VND cells
+    const rows = section.querySelectorAll('.payment-row');
     rows.forEach(row => {
         const ttCell = row.querySelector('.payment-so-tien-tt');
         const vndCell = row.querySelector('.payment-so-tien-vnd');
@@ -2266,28 +2295,29 @@ function _refreshPaymentPanelUI(ngayDiHang, dotSo) {
     });
 }
 
-async function _persistPaymentGroup(ngayDiHang, dotSo, patch) {
-    const dots = _findDotsByNgayDotSo(ngayDiHang, dotSo);
+async function _persistPaymentByDot(dotSo, patch) {
+    const ds = parseInt(dotSo, 10) || 1;
+    const dots = _findDotsByDotSo(ds);
     if (patch.thanhToanCK !== undefined) {
         dots.forEach(d => { d.thanhToanCK = patch.thanhToanCK; });
     }
     if (patch.tiGia !== undefined) {
         dots.forEach(d => { d.tiGia = patch.tiGia; });
     }
-    await shipmentsApi.updatePaymentByDot(ngayDiHang, dotSo, patch);
+    await shipmentsApi.updatePaymentByDot(ds, patch);
     flattenNCCData();
-    _refreshPaymentPanelUI(ngayDiHang, dotSo);
+    _refreshPaymentDotSectionUI(ds);
 }
 
-function _getPaymentsForGroup(ngayDiHang, dotSo) {
-    const dots = _findDotsByNgayDotSo(ngayDiHang, dotSo);
+function _getPaymentsForDot(dotSo) {
+    const dots = _findDotsByDotSo(dotSo);
     if (dots.length === 0) return [];
     const found = dots.find(d => Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0);
     return found ? [...found.thanhToanCK] : [];
 }
 
-function _getTiGiaForGroup(ngayDiHang, dotSo) {
-    const dots = _findDotsByNgayDotSo(ngayDiHang, dotSo);
+function _getTiGiaForDot(dotSo) {
+    const dots = _findDotsByDotSo(dotSo);
     for (const d of dots) {
         if (d.tiGia) return parseFloat(d.tiGia) || 0;
     }
@@ -2300,9 +2330,8 @@ function startInlineEditTiGia(el) {
     if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
     if (el.querySelector('input')) return;
 
-    const ngayDiHang = el.dataset.ngayDiHang;
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
-    const oldVal = _getTiGiaForGroup(ngayDiHang, dotSo);
+    const oldVal = _getTiGiaForDot(dotSo);
 
     const input = document.createElement('input');
     input.type = 'number';
@@ -2319,10 +2348,9 @@ function startInlineEditTiGia(el) {
     const commit = async () => {
         const newVal = parseFloat(input.value) || 0;
         if (newVal === oldVal) { restore(); return; }
-        // Optimistic UI — replace input with value so _refreshPaymentPanelUI can recompute VND cells.
         el.textContent = newVal > 0 ? String(newVal) : '—';
         try {
-            await _persistPaymentGroup(ngayDiHang, dotSo, { tiGia: newVal });
+            await _persistPaymentByDot(dotSo, { tiGia: newVal });
             window.notificationManager?.success('Đã cập nhật tỉ giá');
         } catch (error) {
             console.error('[PAYMENT] Ti gia update error:', error);
@@ -2345,12 +2373,11 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
     if (el.querySelector('input')) return;
 
     const paymentId = el.dataset.paymentId;
-    const ngayDiHang = el.dataset.ngayDiHang;
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
     const field = el.dataset.field;
     if (!paymentId || !field) return;
 
-    const payments = _getPaymentsForGroup(ngayDiHang, dotSo);
+    const payments = _getPaymentsForDot(dotSo);
     const record = payments.find(p => p.id === paymentId);
     if (!record) return;
 
@@ -2371,11 +2398,9 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
         const newVal = parser(input.value);
         if (newVal === oldVal || (newVal === '' && !oldVal) || (Number.isNaN(newVal))) { restore(); return; }
         const updated = payments.map(p => p.id === paymentId ? { ...p, [field]: newVal } : p);
-        // Optimistic UI: replace input with formatted new value BEFORE persist so
-        // _refreshPaymentPanelUI inside _persistPaymentGroup can read the new cell text.
         el.innerHTML = formatter(newVal);
         try {
-            await _persistPaymentGroup(ngayDiHang, dotSo, { thanhToanCK: updated });
+            await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
             window.notificationManager?.success('Đã cập nhật thanh toán');
         } catch (error) {
             console.error('[PAYMENT] Update error:', error);
@@ -2416,23 +2441,20 @@ function startInlineEditPaymentNote(el) {
 
 async function addPayment(btn) {
     if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
-    const ngayDiHang = btn.dataset.ngayDiHang;
     const dotSo = parseInt(btn.dataset.dotSo, 10) || 1;
-    const payments = _getPaymentsForGroup(ngayDiHang, dotSo);
+    const payments = _getPaymentsForDot(dotSo);
     const newId = `tt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const today = new Date().toISOString().slice(0, 10);
     const newPayment = { id: newId, ngayTT: today, soTienTT: 0, ghiChu: '' };
     const updated = [...payments, newPayment];
 
     try {
-        await _persistPaymentGroup(ngayDiHang, dotSo, { thanhToanCK: updated });
-        // Re-render the list
-        const panel = document.querySelector(`.payment-panel[data-ngay-di-hang="${CSS.escape(ngayDiHang)}"][data-dot-so="${dotSo}"]`);
-        const listEl = panel?.querySelector('.payment-list');
+        await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
+        const section = document.querySelector(`.payment-dot-section[data-dot-so="${dotSo}"]`);
+        const listEl = section?.querySelector('.payment-list');
         if (listEl) {
-            const syntheticShipment = { ngayDiHang, dotSo, tiGia: _getTiGiaForGroup(ngayDiHang, dotSo) };
-            listEl.insertAdjacentHTML('beforeend', _renderPaymentRow(syntheticShipment, newPayment));
-            if (window.lucide?.createIcons) window.lucide.createIcons();
+            const tiGia = _getTiGiaForDot(dotSo);
+            listEl.insertAdjacentHTML('beforeend', _renderPaymentRow(dotSo, tiGia, newPayment));
         }
         window.notificationManager?.success('Đã thêm dòng thanh toán');
     } catch (error) {
@@ -2444,13 +2466,12 @@ async function addPayment(btn) {
 async function deletePayment(btn) {
     if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
     const paymentId = btn.dataset.paymentId;
-    const ngayDiHang = btn.dataset.ngayDiHang;
     const dotSo = parseInt(btn.dataset.dotSo, 10) || 1;
-    const payments = _getPaymentsForGroup(ngayDiHang, dotSo);
+    const payments = _getPaymentsForDot(dotSo);
     const updated = payments.filter(p => p.id !== paymentId);
 
     try {
-        await _persistPaymentGroup(ngayDiHang, dotSo, { thanhToanCK: updated });
+        await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
         const row = btn.closest('.payment-row');
         if (row) row.remove();
         window.notificationManager?.success('Đã xóa dòng thanh toán');
@@ -2458,6 +2479,26 @@ async function deletePayment(btn) {
         console.error('[PAYMENT] Delete error:', error);
         window.notificationManager?.error('Không thể xóa: ' + error.message);
     }
+}
+
+// ---------- Slide-over open/close ----------
+
+function openPaymentSlideOver() {
+    const slideOver = document.getElementById('paymentSlideOver');
+    if (!slideOver) return;
+    const body = slideOver.querySelector('#paymentSlideOverBody');
+    if (body) body.innerHTML = renderPaymentSlideOverBody();
+    slideOver.classList.remove('hidden');
+    // Sau tick kế để transition hoạt động
+    requestAnimationFrame(() => slideOver.classList.add('open'));
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function closePaymentSlideOver() {
+    const slideOver = document.getElementById('paymentSlideOver');
+    if (!slideOver) return;
+    slideOver.classList.remove('open');
+    setTimeout(() => slideOver.classList.add('hidden'), 250);
 }
 
 // Expose functions globally for inline event handlers
@@ -2473,3 +2514,6 @@ window.startInlineEditPaymentSoTien = startInlineEditPaymentSoTien;
 window.startInlineEditPaymentNote = startInlineEditPaymentNote;
 window.addPayment = addPayment;
 window.deletePayment = deletePayment;
+window.togglePaymentDotSection = togglePaymentDotSection;
+window.openPaymentSlideOver = openPaymentSlideOver;
+window.closePaymentSlideOver = closePaymentSlideOver;

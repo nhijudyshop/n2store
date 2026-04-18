@@ -302,27 +302,25 @@ class InventoryTrackingApp {
             });
         }
 
-        // Toggle payment panel (per-đợt thanh toán CK)
+        // Open Payment CK slide-over (grouped by dotSo across all dates)
         const btnTogglePaymentPanel = document.getElementById('btnTogglePaymentPanel');
         if (btnTogglePaymentPanel) {
-            const PAYMENT_PANEL_KEY = 'inv_paymentPanelVisible';
-            const applyState = (visible) => {
-                const container = document.getElementById('shipmentsContainer');
-                if (container) container.classList.toggle('payment-panel-hidden', !visible);
-                btnTogglePaymentPanel.classList.toggle('active', visible);
-            };
-            const saved = localStorage.getItem(PAYMENT_PANEL_KEY);
-            const initialVisible = saved === null ? true : saved === '1';
-            applyState(initialVisible);
-
             btnTogglePaymentPanel.addEventListener('click', () => {
-                const container = document.getElementById('shipmentsContainer');
-                const currentlyHidden = container?.classList.contains('payment-panel-hidden');
-                const next = !!currentlyHidden; // If hidden, show next (true). If visible, hide next (false).
-                applyState(next);
-                localStorage.setItem(PAYMENT_PANEL_KEY, next ? '1' : '0');
+                if (typeof openPaymentSlideOver === 'function') {
+                    openPaymentSlideOver();
+                }
             });
         }
+
+        // Close slide-over with Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const slideOver = document.getElementById('paymentSlideOver');
+                if (slideOver && !slideOver.classList.contains('hidden') && typeof closePaymentSlideOver === 'function') {
+                    closePaymentSlideOver();
+                }
+            }
+        });
 
         // Add prepayment button
         const btnAddPrepayment = document.getElementById('btnAddPrepayment');

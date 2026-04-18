@@ -419,6 +419,54 @@ function getAllDotHangAsShipments() {
 }
 
 /**
+ * Aggregate every shipment by dotSo alone (logical "đợt hàng" spans multiple delivery dates).
+ * Used by the Payment CK slide-over panel.
+ * Returns: [{ dotSo, ngayDiHangList[], tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia }]
+ */
+function getAllDotsAggregated() {
+    const allDotHang = getAllDotHang();
+    const byDot = {};
+
+    allDotHang.forEach(dot => {
+        const dotSo = dot.dotSo || 1;
+        if (!byDot[dotSo]) {
+            byDot[dotSo] = {
+                dotSo,
+                ngayDiHangSet: new Set(),
+                tongTienHoaDon: 0,
+                tongChiPhi: 0,
+                thanhToanCK: [],
+                tiGia: 0,
+                _dotIds: []
+            };
+        }
+        const entry = byDot[dotSo];
+        if (dot.ngayDiHang) entry.ngayDiHangSet.add(dot.ngayDiHang);
+        entry.tongTienHoaDon += parseFloat(dot.tongTienHD) || 0;
+        entry.tongChiPhi += parseFloat(dot.tongChiPhi) || 0;
+        entry._dotIds.push(dot.id);
+        // Absorb payment data from whichever row carries it (backend keeps rows in sync).
+        if ((!entry.thanhToanCK || entry.thanhToanCK.length === 0)
+            && Array.isArray(dot.thanhToanCK) && dot.thanhToanCK.length > 0) {
+            entry.thanhToanCK = dot.thanhToanCK;
+        }
+        if (!entry.tiGia && dot.tiGia) {
+            entry.tiGia = parseFloat(dot.tiGia) || 0;
+        }
+    });
+
+    return Object.values(byDot).map(entry => ({
+        dotSo: entry.dotSo,
+        ngayDiHangList: [...entry.ngayDiHangSet].sort((a, b) => new Date(b) - new Date(a)),
+        tongTienHoaDon: entry.tongTienHoaDon,
+        tongChiPhi: entry.tongChiPhi,
+        thanhToanCK: entry.thanhToanCK,
+        tiGia: entry.tiGia,
+        _dotIds: entry._dotIds
+    })).sort((a, b) => a.dotSo - b.dotSo);
+}
+
+/**
  * Find specific datHang in an NCC
  */
 function findDatHang(sttNCC, datHangId) {

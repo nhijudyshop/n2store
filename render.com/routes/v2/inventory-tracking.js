@@ -563,17 +563,17 @@ router.post('/shipments', async (req, res) => {
 
         const shipmentId = id || generateId('dot');
 
-        // Inherit payment data from existing rows in the same (ngay_di_hang, dot_so) group
-        // so a newly added NCC immediately sees the shared payment/tỉ giá of its đợt.
+        // Inherit payment data from existing rows of the SAME dot_so (logical đợt spans multiple dates).
+        // So a newly added shipment/NCC under the same đợt immediately sees the shared payment/tỉ giá.
         // Client-provided values take precedence when non-empty.
         let effThanhToanCK = thanh_toan_ck;
         let effTiGia = ti_gia;
         if ((!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) || !ti_gia) {
             const groupRes = await db.query(
                 `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
-                 WHERE ngay_di_hang = $1 AND dot_so = $2
+                 WHERE dot_so = $1
                  ORDER BY created_at ASC LIMIT 1`,
-                [ngay_di_hang, resolvedDotSo]
+                [resolvedDotSo]
             );
             if (groupRes.rows[0]) {
                 if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) {
@@ -686,28 +686,27 @@ router.put('/shipments/:id', async (req, res) => {
     }
 });
 
-// Update payment data (thanh_toan_ck + ti_gia) for ALL NCC rows in a (ngay_di_hang, dot_so) group.
-// This keeps per-đợt payment consistent across every supplier row belonging to the same đợt.
+// Update payment data (thanh_toan_ck + ti_gia) for ALL rows sharing the same dot_so
+// (logical "đợt hàng" spans multiple ngay_di_hang). One đợt = one payment schedule.
 router.patch('/shipments/payment-by-dot', async (req, res) => {
     try {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
-        const { ngay_di_hang, dot_so, thanh_toan_ck, ti_gia } = req.body;
+        const { dot_so, thanh_toan_ck, ti_gia } = req.body;
 
-        if (!ngay_di_hang || dot_so === undefined || dot_so === null) {
-            return res.status(400).json({ success: false, error: 'ngay_di_hang and dot_so required' });
+        if (dot_so === undefined || dot_so === null) {
+            return res.status(400).json({ success: false, error: 'dot_so required' });
         }
 
         const result = await db.query(`
             UPDATE inventory_shipments SET
-                thanh_toan_ck = COALESCE($3, thanh_toan_ck),
-                ti_gia = COALESCE($4, ti_gia),
-                updated_by = $5,
+                thanh_toan_ck = COALESCE($2, thanh_toan_ck),
+                ti_gia = COALESCE($3, ti_gia),
+                updated_by = $4,
                 updated_at = NOW()
-            WHERE ngay_di_hang = $1 AND dot_so = $2
-            RETURNING id, thanh_toan_ck, ti_gia
+            WHERE dot_so = $1
+            RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia
         `, [
-            ngay_di_hang,
             parseInt(dot_so, 10),
             thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
             ti_gia !== undefined ? ti_gia : null,

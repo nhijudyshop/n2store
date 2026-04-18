@@ -228,10 +228,10 @@ const shipmentsApi = {
         return result.data;
     },
 
-    // Sync thanh_toan_ck + ti_gia to every NCC row in the same (ngay_di_hang, dot_so) group.
-    // Payment is per-đợt, but rows are per-NCC — this keeps them consistent.
-    async updatePaymentByDot(ngayDiHang, dotSo, patch = {}) {
-        const body = { ngay_di_hang: ngayDiHang, dot_so: dotSo };
+    // Sync thanh_toan_ck + ti_gia to every shipment row sharing the same dot_so.
+    // Payment is per-logical-đợt (spans all delivery dates with that dotSo).
+    async updatePaymentByDot(dotSo, patch = {}) {
+        const body = { dot_so: dotSo };
         if (patch.thanhToanCK !== undefined) body.thanh_toan_ck = patch.thanhToanCK;
         if (patch.tiGia !== undefined) body.ti_gia = patch.tiGia;
         const result = await apiFetch('/shipments/payment-by-dot', {
