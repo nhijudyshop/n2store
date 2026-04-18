@@ -2048,14 +2048,26 @@ function updateActionButtons() {
 
     // Show "In hàng loạt PBH" button when at least one selected order has an invoice (PBH)
     const bulkPrintBillBtn = document.getElementById('bulkPrintBillBtn');
-    if (bulkPrintBillBtn) {
+    const bulkSendBillBtn = document.getElementById('bulkSendBillBtn');
+    if (bulkPrintBillBtn || bulkSendBillBtn) {
         let hasAnyInvoice = false;
+        let hasAnySendable = false;  // has invoice + Messenger info
         if (checkedCount > 0 && window.InvoiceStatusStore) {
+            const orderStore = window.OrderStore;
+            const displayed = window.displayedData || [];
             for (const id of selectedOrderIds) {
-                if (window.InvoiceStatusStore.get(id)) { hasAnyInvoice = true; break; }
+                if (!window.InvoiceStatusStore.get(id)) continue;
+                hasAnyInvoice = true;
+                if (!hasAnySendable) {
+                    const o = orderStore?.get(id)
+                        || displayed.find(x => String(x.Id) === String(id));
+                    if (o?.Facebook_ASUserId && o?.Facebook_PostId) hasAnySendable = true;
+                }
+                if (hasAnyInvoice && hasAnySendable) break;
             }
         }
-        bulkPrintBillBtn.style.display = hasAnyInvoice ? 'flex' : 'none';
+        if (bulkPrintBillBtn) bulkPrintBillBtn.style.display = hasAnyInvoice ? 'flex' : 'none';
+        if (bulkSendBillBtn) bulkSendBillBtn.style.display = hasAnySendable ? 'flex' : 'none';
     }
 }
 

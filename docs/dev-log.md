@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [orders] Gửi Bill hàng loạt từ bảng chính qua Messenger (checkbox-selected)
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-table.js`, `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Chi tiết** | Yêu cầu: chọn nhiều đơn bằng checkbox ở bảng chính rồi gửi hình bill qua Messenger một lần. **Thực hiện:** (A) Thêm nút **"Gửi Bill hàng loạt"** vào action bar sticky (cạnh "In hàng loạt PBH") — hiển thị khi ≥1 đơn được chọn có PBH + `Facebook_ASUserId` + `Facebook_PostId`. (B) `updateActionButtons` giờ tính thêm `hasAnySendable` (có PBH + có Messenger info) trong cùng vòng lặp với `hasAnyInvoice` — zero chi phí thêm. (C) Hàm mới `bulkSendSelectedBills()` trong IIFE invoice-status: loop `selectedOrderIds` → filter (`InvoiceStatusStore.get` + Messenger info + `isBillSent` để skip đơn đã gửi) → confirm với breakdown skip (chưa PBH / thiếu MSG / đã gửi) → tuần tự `performActualSend(..., 'main', null)` với delay 1.5s giữa các đơn (khớp pattern `sendBillBatch` tránh rate-limit Pancake và cho phép PAT auto-refresh đã fix ở commit trước kịp kick-in). Progress hiển thị trên button `{i}/{n}`, summary toast cuối cùng. Dùng lại toàn bộ pipeline single send (generateBillImage → uploadImage → POST content_ids với PAT refresh retry), không duplicate logic. Helper `_buildEnrichedFromInvoice` refactor từ đoạn build payload trong `sendBillFromMainTable` (không sửa single flow). |
+| **Status** | ✅ Done |
+
 ### [orders] Fix bulk gửi bill báo "access_token renewed" — auto refresh PAT + retry 1 lần
 | | |
 |---|---|

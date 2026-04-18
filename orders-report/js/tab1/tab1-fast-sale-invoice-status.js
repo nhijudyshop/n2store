@@ -2501,6 +2501,163 @@
     }
 
     // =====================================================
+    // BULK SEND BILL FROM MAIN TABLE
+    // Gửi hình bill qua Messenger cho các đơn đã tick checkbox
+    // =====================================================
+
+    /**
+     * Build enrichedOrder payload from an invoice entry (same shape as sendBillFromMainTable)
+     */
+    function _buildEnrichedFromInvoice(invoiceData, orderId) {
+        let carrierName = invoiceData.CarrierName;
+        if (!carrierName && invoiceData.ReceiverAddress
+            && typeof window.extractDistrictFromAddress === 'function') {
+            const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+            if (districtInfo) carrierName = getCarrierNameFromDistrict(districtInfo);
+        }
+        return {
+            Id: invoiceData.Id,
+            Number: invoiceData.Number,
+            Reference: invoiceData.Reference,
+            DateInvoice: invoiceData.DateInvoice,
+            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName,
+            DeliveryPrice: invoiceData.DeliveryPrice,
+            CashOnDelivery: invoiceData.CashOnDelivery,
+            PaymentAmount: invoiceData.PaymentAmount,
+            Discount: invoiceData.Discount,
+            AmountTotal: invoiceData.AmountTotal,
+            AmountUntaxed: invoiceData.AmountUntaxed,
+            CarrierName: carrierName,
+            UserName: invoiceData.UserName,
+            SessionIndex: invoiceData.SessionIndex,
+            Comment: invoiceData.Comment,
+            DeliveryNote: invoiceData.DeliveryNote,
+            SaleOnlineIds: [orderId],
+            OrderLines: invoiceData.OrderLines || [],
+            Partner: {
+                Name: invoiceData.ReceiverName,
+                Phone: invoiceData.ReceiverPhone,
+                Street: invoiceData.ReceiverAddress,
+            },
+        };
+    }
+
+    /**
+     * Bulk send bill images via Messenger for checkbox-selected orders on the main table.
+     * Filters out orders without PBH / without Messenger info / already sent.
+     * Sequential send with 1.5s delay between orders (matching sendBillBatch).
+     */
+    async function bulkSendSelectedBills() {
+        const ids = Array.from(window.selectedOrderIds || []);
+        if (ids.length === 0) {
+            window.notificationManager?.warning('Chưa chọn đơn nào');
+            return;
+        }
+
+        const displayedData = window.displayedData || [];
+        const orderStore = window.OrderStore;
+
+        const eligible = [];     // { orderId, order, invoiceData, psid, channelId }
+        const skipNoInvoice = [];
+        const skipNoMessenger = [];
+        const skipAlreadySent = [];
+
+        for (const orderId of ids) {
+            const invoiceData = InvoiceStatusStore.get(orderId);
+            if (!invoiceData) { skipNoInvoice.push(orderId); continue; }
+
+            const order = orderStore?.get(orderId)
+                || displayedData.find(o => String(o.Id) === String(orderId));
+            if (!order) { skipNoInvoice.push(orderId); continue; }
+
+            const psid = order.Facebook_ASUserId;
+            const postId = order.Facebook_PostId;
+            const channelId = postId ? postId.split('_')[0] : null;
+            if (!psid || !channelId) { skipNoMessenger.push(orderId); continue; }
+
+            if (InvoiceStatusStore.isBillSent(orderId)) { skipAlreadySent.push(orderId); continue; }
+
+            eligible.push({ orderId, order, invoiceData, psid, channelId });
+        }
+
+        if (eligible.length === 0) {
+            const parts = [];
+            if (skipNoInvoice.length) parts.push(`${skipNoInvoice.length} chưa có PBH`);
+            if (skipNoMessenger.length) parts.push(`${skipNoMessenger.length} thiếu Messenger info`);
+            if (skipAlreadySent.length) parts.push(`${skipAlreadySent.length} đã gửi`);
+            window.notificationManager?.warning(
+                `Không có đơn nào hợp lệ để gửi (${parts.join(', ') || 'tất cả bị bỏ qua'})`,
+                5000
+            );
+            return;
+        }
+
+        // Confirm with summary
+        const skipLines = [];
+        if (skipNoInvoice.length) skipLines.push(`• ${skipNoInvoice.length} đơn chưa có PBH`);
+        if (skipNoMessenger.length) skipLines.push(`• ${skipNoMessenger.length} đơn thiếu thông tin Messenger`);
+        if (skipAlreadySent.length) skipLines.push(`• ${skipAlreadySent.length} đơn đã gửi bill trước đó`);
+        const skipSummary = skipLines.length ? `\n\nBỏ qua:\n${skipLines.join('\n')}` : '';
+        const msg = `Gửi hình bill qua Messenger cho ${eligible.length} đơn?${skipSummary}`;
+        if (!confirm(msg)) return;
+
+        const btn = document.getElementById('bulkSendBillBtn');
+        const originalHtml = btn?.innerHTML;
+        if (btn) { btn.disabled = true; }
+
+        let sent = 0;
+        let failed = 0;
+        const errors = [];
+
+        for (let i = 0; i < eligible.length; i++) {
+            const { orderId, order, invoiceData, psid, channelId } = eligible[i];
+
+            if (btn) {
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${i + 1}/${eligible.length}`;
+            }
+
+            try {
+                const enrichedOrder = _buildEnrichedFromInvoice(invoiceData, orderId);
+                await performActualSend(
+                    enrichedOrder,
+                    channelId,
+                    psid,
+                    orderId,
+                    order.Code || order.Name || orderId,
+                    'main',
+                    null
+                );
+                sent++;
+            } catch (err) {
+                console.error(`[BULK-SEND-BILL] Error for order ${orderId}:`, err);
+                failed++;
+                errors.push(`${order.Code || orderId}: ${err.message}`);
+            }
+
+            // Delay between sends (avoid rate limit + PAT rotation)
+            if (i < eligible.length - 1) {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml || '<i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt';
+        }
+
+        const resultMsg = `Gửi bill: ${sent} thành công${failed > 0 ? `, ${failed} lỗi` : ''}`;
+        if (failed > 0) {
+            console.warn('[BULK-SEND-BILL] Errors:', errors);
+            window.notificationManager?.warning(resultMsg + ' (xem console để biết chi tiết)', 6000);
+        } else {
+            window.notificationManager?.success(resultMsg, 4000);
+        }
+
+        // Refresh action buttons (bill-sent orders should drop from sendable list)
+        if (typeof window.updateActionButtons === 'function') window.updateActionButtons();
+    }
+
+    // =====================================================
     // DELETE INVOICE FROM STORE
     // =====================================================
 
@@ -3308,6 +3465,7 @@
         window.sendBillFromMainTable = sendBillFromMainTable;
         window.sendBillManually = sendBillManually;
         window.sendBillBatch = sendBillBatch;
+        window.bulkSendSelectedBills = bulkSendSelectedBills;
 
         /**
          * Force create PBH for an order — bypass all duplicate guards
