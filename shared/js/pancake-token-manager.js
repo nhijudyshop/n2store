@@ -1441,19 +1441,39 @@ class PancakeTokenManager {
     /**
      * Force refresh PAT for a page: invalidate cache → regenerate from JWT → return new token.
      * Call this when API returns "access_token renewed please use new access_token".
+     * In-flight dedupe: concurrent callers for the same pageId share one refresh promise,
+     * avoiding N parallel hits to generate_page_access_token when bulk-sending.
      * @param {string} pageId
      * @returns {Promise<string|null>}
      */
     async refreshPageAccessToken(pageId) {
-        this.invalidatePageAccessToken(pageId);
-        console.log('[PANCAKE-TOKEN] 🔄 Refreshing PAT for page:', pageId);
-        const fresh = await this.generatePageAccessToken(pageId);
-        if (fresh) {
-            console.log('[PANCAKE-TOKEN] ✅ PAT refreshed:', fresh.substring(0, 50) + '...');
-        } else {
-            console.error('[PANCAKE-TOKEN] ❌ PAT refresh failed for page:', pageId);
+        if (!this._patRefreshInFlight) this._patRefreshInFlight = new Map();
+
+        const existing = this._patRefreshInFlight.get(pageId);
+        if (existing) {
+            console.log('[PANCAKE-TOKEN] ⏳ Joining in-flight PAT refresh for page:', pageId);
+            return existing;
         }
-        return fresh;
+
+        const promise = (async () => {
+            this.invalidatePageAccessToken(pageId);
+            console.log('[PANCAKE-TOKEN] 🔄 Refreshing PAT for page:', pageId);
+            const fresh = await this.generatePageAccessToken(pageId);
+            if (fresh) {
+                console.log('[PANCAKE-TOKEN] ✅ PAT refreshed:', fresh.substring(0, 50) + '...');
+            } else {
+                console.error('[PANCAKE-TOKEN] ❌ PAT refresh failed for page:', pageId);
+            }
+            return fresh;
+        })();
+
+        this._patRefreshInFlight.set(pageId, promise);
+        promise.finally(() => {
+            if (this._patRefreshInFlight.get(pageId) === promise) {
+                this._patRefreshInFlight.delete(pageId);
+            }
+        });
+        return promise;
     }
 
     /**

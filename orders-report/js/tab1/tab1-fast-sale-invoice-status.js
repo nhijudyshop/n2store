@@ -2545,7 +2545,13 @@
     /**
      * Bulk send bill images via Messenger for checkbox-selected orders on the main table.
      * Filters out orders without PBH / without Messenger info / already sent.
-     * Sequential send with 1.5s delay between orders (matching sendBillBatch).
+     *
+     * Concurrency model: a small pool of N workers pulls from a shared queue.
+     * - Per-page concurrency cap (PER_PAGE_CONCURRENCY) prevents hammering the same
+     *   Pancake page (PAT rotation + rate limit).
+     * - Global cap (GLOBAL_CONCURRENCY) bounds total parallelism across all pages.
+     * - Thanks to refreshPageAccessToken in-flight dedupe, N concurrent workers on
+     *   the same page that hit "access_token renewed" share one refresh promise.
      */
     async function bulkSendSelectedBills() {
         const ids = Array.from(window.selectedOrderIds || []);
@@ -2592,53 +2598,92 @@
             return;
         }
 
+        // Tunable concurrency (override via window.BULK_BILL_CONCURRENCY / _PER_PAGE)
+        const GLOBAL_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_CONCURRENCY) || 4);
+        const PER_PAGE_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_PER_PAGE_CONCURRENCY) || 2);
+
         // Confirm with summary
         const skipLines = [];
         if (skipNoInvoice.length) skipLines.push(`• ${skipNoInvoice.length} đơn chưa có PBH`);
         if (skipNoMessenger.length) skipLines.push(`• ${skipNoMessenger.length} đơn thiếu thông tin Messenger`);
         if (skipAlreadySent.length) skipLines.push(`• ${skipAlreadySent.length} đơn đã gửi bill trước đó`);
         const skipSummary = skipLines.length ? `\n\nBỏ qua:\n${skipLines.join('\n')}` : '';
-        const msg = `Gửi hình bill qua Messenger cho ${eligible.length} đơn?${skipSummary}`;
+        const msg = `Gửi song song hình bill qua Messenger cho ${eligible.length} đơn?\n`
+            + `(concurrency: ${GLOBAL_CONCURRENCY} global / ${PER_PAGE_CONCURRENCY} per page)${skipSummary}`;
         if (!confirm(msg)) return;
 
         const btn = document.getElementById('bulkSendBillBtn');
         const originalHtml = btn?.innerHTML;
         if (btn) { btn.disabled = true; }
 
+        const total = eligible.length;
         let sent = 0;
         let failed = 0;
+        let done = 0;
         const errors = [];
+        const pageInFlight = new Map();  // pageId → count
 
-        for (let i = 0; i < eligible.length; i++) {
-            const { orderId, order, invoiceData, psid, channelId } = eligible[i];
-
+        const updateBtn = () => {
             if (btn) {
-                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${i + 1}/${eligible.length}`;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${done}/${total}`;
             }
+        };
+        updateBtn();
 
-            try {
-                const enrichedOrder = _buildEnrichedFromInvoice(invoiceData, orderId);
-                await performActualSend(
-                    enrichedOrder,
-                    channelId,
-                    psid,
-                    orderId,
-                    order.Code || order.Name || orderId,
-                    'main',
-                    null
-                );
-                sent++;
-            } catch (err) {
-                console.error(`[BULK-SEND-BILL] Error for order ${orderId}:`, err);
-                failed++;
-                errors.push(`${order.Code || orderId}: ${err.message}`);
-            }
+        // Shared queue — workers pull from front. Skip items whose page is at cap,
+        // push them back if so (fair-ish scheduling with small retry).
+        const queue = eligible.slice();
 
-            // Delay between sends (avoid rate limit + PAT rotation)
-            if (i < eligible.length - 1) {
-                await new Promise(r => setTimeout(r, 1500));
+        const worker = async () => {
+            while (queue.length > 0) {
+                // Find next item whose page is under the per-page cap
+                let idx = -1;
+                for (let i = 0; i < queue.length; i++) {
+                    const pid = queue[i].channelId;
+                    if ((pageInFlight.get(pid) || 0) < PER_PAGE_CONCURRENCY) {
+                        idx = i;
+                        break;
+                    }
+                }
+                if (idx === -1) {
+                    // All remaining items are on pages at cap — yield briefly
+                    await new Promise(r => setTimeout(r, 100));
+                    continue;
+                }
+
+                const item = queue.splice(idx, 1)[0];
+                const { orderId, order, invoiceData, psid, channelId } = item;
+                pageInFlight.set(channelId, (pageInFlight.get(channelId) || 0) + 1);
+
+                try {
+                    const enrichedOrder = _buildEnrichedFromInvoice(invoiceData, orderId);
+                    await performActualSend(
+                        enrichedOrder,
+                        channelId,
+                        psid,
+                        orderId,
+                        order.Code || order.Name || orderId,
+                        'main',
+                        null
+                    );
+                    sent++;
+                } catch (err) {
+                    console.error(`[BULK-SEND-BILL] Error for order ${orderId}:`, err);
+                    failed++;
+                    errors.push(`${order.Code || orderId}: ${err.message}`);
+                } finally {
+                    pageInFlight.set(channelId, (pageInFlight.get(channelId) || 1) - 1);
+                    done++;
+                    updateBtn();
+                }
             }
-        }
+        };
+
+        const workers = Array.from(
+            { length: Math.min(GLOBAL_CONCURRENCY, total) },
+            () => worker()
+        );
+        await Promise.all(workers);
 
         if (btn) {
             btn.disabled = false;

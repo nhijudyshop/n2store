@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [orders] Gửi Bill hàng loạt — chuyển sang đa nhiệm với concurrency pool + PAT refresh dedupe
+| | |
+|---|---|
+| **Files** | `shared/js/pancake-token-manager.js`, `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Chi tiết** | Đổi `bulkSendSelectedBills` từ gửi tuần tự (1.5s delay/đơn) sang **concurrency pool**: N worker kéo từ shared queue. Tunable qua `window.BULK_BILL_CONCURRENCY` (default **4 global**) và `window.BULK_BILL_PER_PAGE_CONCURRENCY` (default **2 per page**) — per-page cap tránh dồn 1 page gây rate-limit/PAT rotation storm, global cap bound tổng parallelism. Worker scan queue tìm item có page chưa đụng cap, nếu tất cả remaining đều ở cap thì yield 100ms rồi scan lại. Để tránh N concurrent workers cùng gặp "access_token renewed" gọi regenerate PAT N lần, thêm **in-flight dedupe** cho `refreshPageAccessToken` trong `PancakeTokenManager`: `_patRefreshInFlight: Map<pageId, Promise>` — concurrent callers cho cùng page share 1 promise. Progress counter `{done}/{total}` update tại `finally` của mỗi worker. Confirm dialog nay hiển thị cả concurrency values. Thời gian gửi ~N đơn ≈ `ceil(N/GLOBAL) × t_per_send` thay vì `N × (t_per_send + 1.5s)`. |
+| **Status** | ✅ Done |
+
 ### [orders] Gửi Bill hàng loạt từ bảng chính qua Messenger (checkbox-selected)
 | | |
 |---|---|
