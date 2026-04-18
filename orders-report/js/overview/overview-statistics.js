@@ -241,15 +241,20 @@ function computeTagXLCounts(orderSubset, ptagMap) {
     const untaggedOrders = [];
     let untaggedAmount = 0;
 
-    // GIỎ TRỐNG validation
-    let hasGioTrongValidationError = false;
-    const gioTrongInvalidOrders = [];
-
     orderSubset.forEach(order => {
         const code = String(order.Code || '');
         const amount = order.TotalAmount || 0;
         const tagData = ptagMap[code];
         const productCount = order.Details?.length || 0;
+
+        // (2026-04-18) GIỎ TRỐNG giờ định nghĩa = đơn SL=0 (không còn subTag riêng).
+        // Đếm độc lập với XL state, ghi thẳng vào subTagCounts để render/filter flow reuse.
+        if (productCount === 0) {
+            subTagCounts['GIO_TRONG'] = (subTagCounts['GIO_TRONG'] || 0) + 1;
+            subTagAmounts['GIO_TRONG'] = (subTagAmounts['GIO_TRONG'] || 0) + amount;
+            if (!subTagOrders['GIO_TRONG']) subTagOrders['GIO_TRONG'] = [];
+            subTagOrders['GIO_TRONG'].push(order);
+        }
 
         // Flags: count across ALL orders (including untagged) — must be before early return
         if (tagData) {
@@ -295,25 +300,13 @@ function computeTagXLCounts(orderSubset, ptagMap) {
             }
         }
 
-        // Sub-tags for cat 2, 3, 4
-        if ((cat === 2 || cat === 3 || cat === 4) && tagData.subTag) {
+        // Sub-tags for cat 2, 3, 4 — GIO_TRONG đã đếm ở trên (theo SL=0), skip để tránh double-count
+        if ((cat === 2 || cat === 3 || cat === 4) && tagData.subTag && tagData.subTag !== 'GIO_TRONG') {
             if (subTagCounts[tagData.subTag] !== undefined) {
                 subTagCounts[tagData.subTag]++;
                 subTagAmounts[tagData.subTag] += amount;
                 subTagOrders[tagData.subTag].push(order);
             }
-        }
-
-        // GIỎ TRỐNG validation
-        const isGioTrong = cat === 3 && tagData.subTag === 'GIO_TRONG';
-        const isGop = cat === 3 && tagData.subTag === 'DA_GOP_KHONG_CHOT';
-        if (isGioTrong && productCount > 0) {
-            hasGioTrongValidationError = true;
-            gioTrongInvalidOrders.push(order);
-        }
-        if (productCount === 0 && !isGioTrong && !isGop) {
-            hasGioTrongValidationError = true;
-            gioTrongInvalidOrders.push(order);
         }
     });
 
@@ -326,7 +319,10 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         subTagCounts, subTagAmounts, subTagOrders,
         flagCounts, flagAmounts, flagOrders,
         untaggedOrders, untaggedAmount,
-        hasGioTrongValidationError, gioTrongInvalidOrders,
+        // (2026-04-18) Validation "GIỎ TRỐNG" đã bỏ — GIO_TRONG nay chỉ là đơn SL=0.
+        // Giữ field để không vỡ callers cũ, nhưng luôn false/[]
+        hasGioTrongValidationError: false,
+        gioTrongInvalidOrders: [],
         badges: { total, donChot }
     };
 }
@@ -532,6 +528,7 @@ function calculateTagStats(orders) {
         const orderAmount = order.TotalAmount || 0;
         const statusText = order.StatusText || order.Status || '';
         const orderId = order.Id || order.Code;
+        const productCount = order.Details?.length || 0;
         if (!orderTagsMap.has(orderId)) orderTagsMap.set(orderId, { tagKeys: new Set(), order });
 
         if (statusText === 'Đơn hàng') {
@@ -543,11 +540,22 @@ function calculateTagStats(orders) {
             orderTagsMap.get(orderId).tagKeys.add('ordered');
         }
 
+        // (2026-04-18) gio_trong: tag GIỎ TRỐNG đã bỏ, nay định nghĩa = đơn SL=0
+        if (productCount === 0) {
+            const stat = tagStatsMap.get('gio_trong');
+            if (!ordersPerCategory.get('gio_trong').has(orderId)) {
+                ordersPerCategory.get('gio_trong').add(orderId);
+                stat.count++; stat.totalAmount += orderAmount; stat.orders.push(order);
+            }
+            orderTagsMap.get(orderId).tagKeys.add('gio_trong');
+        }
+
         orderTags.forEach(orderTag => {
             const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
             if (!tagName) return;
             LIVE_STAT_TAGS.forEach(liveTag => {
                 if (liveTag.isSpecial) return;
+                if (liveTag.key === 'gio_trong') return; // đã xử lý theo SL=0 ở trên
                 if ((liveTag.patterns || []).some(p => tagName.startsWith(p))) {
                     const stat = tagStatsMap.get(liveTag.key);
                     if (!ordersPerCategory.get(liveTag.key).has(orderId)) {
@@ -629,6 +637,7 @@ function calculateEmployeeTagStats_legacy(orders) {
             const orderAmount = order.TotalAmount || 0;
             const statusText = order.StatusText || order.Status || '';
             const orderId = order.Id || order.Code;
+            const productCount = order.Details?.length || 0;
 
             // Initialize tag set for this order
             if (!orderTagsMap.has(orderId)) {
@@ -648,6 +657,18 @@ function calculateEmployeeTagStats_legacy(orders) {
                 orderTagsMap.get(orderId).tagKeys.add('ordered');
             }
 
+            // (2026-04-18) gio_trong: tag GIỎ TRỐNG đã bỏ, nay định nghĩa = đơn SL=0
+            if (productCount === 0) {
+                const stat = tagStatsMap.get('gio_trong');
+                if (!ordersPerCategory.get('gio_trong').has(orderId)) {
+                    ordersPerCategory.get('gio_trong').add(orderId);
+                    stat.count++;
+                    stat.totalAmount += orderAmount;
+                    stat.orders.push(order);
+                }
+                orderTagsMap.get(orderId).tagKeys.add('gio_trong');
+            }
+
             // Check each order's tags against predefined patterns
             orderTags.forEach(orderTag => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
@@ -655,6 +676,7 @@ function calculateEmployeeTagStats_legacy(orders) {
 
                 LIVE_STAT_TAGS.forEach(liveTag => {
                     if (liveTag.isSpecial) return;
+                    if (liveTag.key === 'gio_trong') return; // đã xử lý theo SL=0 ở trên
 
                     const patterns = liveTag.patterns || [];
                     const matches = patterns.some(p => tagName.startsWith(p));
@@ -698,36 +720,11 @@ function calculateEmployeeTagStats_legacy(orders) {
             }
         });
 
-        // Validate GIỎ TRỐNG logic for this employee
-        let hasGioTrongValidationError = false;
-        const gioTrongInvalidOrders = [];
-
-        empOrders.forEach(order => {
-            const orderId = order.Id || order.Code;
-            const productCount = order.Details?.length || 0;
-            const orderData = orderTagsMap.get(orderId);
-            const tagKeys = orderData?.tagKeys || new Set();
-
-            const hasGioTrongTag = tagKeys.has('gio_trong');
-            const hasGopTag = tagKeys.has('gop');
-
-            // Case 1: Has giỏ trống tag but has products
-            if (hasGioTrongTag && productCount > 0) {
-                hasGioTrongValidationError = true;
-                gioTrongInvalidOrders.push(order);
-            }
-
-            // Case 2: No products but missing giỏ trống or gộp tag
-            if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
-                hasGioTrongValidationError = true;
-                gioTrongInvalidOrders.push(order);
-            }
-        });
-
-        // Add validation error flag to gio_trong stat
+        // (2026-04-18) Validation GIỎ TRỐNG đã bỏ — gio_trong giờ định nghĩa = SL=0
+        // (không còn case "có tag nhưng có SP" hay "không SP mà thiếu tag").
         const gioTrongStat = tagStatsMap.get('gio_trong');
-        gioTrongStat.hasValidationError = hasGioTrongValidationError;
-        gioTrongStat.invalidOrders = gioTrongInvalidOrders;
+        gioTrongStat.hasValidationError = false;
+        gioTrongStat.invalidOrders = [];
 
         // Calculate percentages and prepare tag breakdown
         const tagBreakdown = [];
@@ -1198,10 +1195,7 @@ function _buildTagXLRows(stats) {
     rows += _buildStatRow('cat_3', `${cat3.emoji} ${cat3.short}`, cat3.color, null, stats.catCounts[3], total, stats.catAmounts[3], { isCategoryRow: true });
     for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
         if (meta.category === 3 && (stats.subTagCounts[key] || 0) > 0) {
-            const highlight = key === 'GIO_TRONG' && stats.hasGioTrongValidationError;
-            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key], total, stats.subTagAmounts[key] || 0, {
-                indent: true, highlight, rowClass: highlight ? 'duplicate-row-red' : ''
-            });
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key], total, stats.subTagAmounts[key] || 0, { indent: true });
         }
     }
 
@@ -1400,16 +1394,6 @@ function viewEmployeeTagXLOrders(empName, start, end, key) {
         return stt >= start && stt <= end;
     });
     const result = _filterOrdersByTagXLKey(orders, processingTagsMap, key);
-
-    // Special handling for GIO_TRONG validation
-    if (key === 'subtag_GIO_TRONG') {
-        const stats = computeTagXLCounts(orders, processingTagsMap);
-        if (stats.hasGioTrongValidationError && stats.gioTrongInvalidOrders.length > 0) {
-            showGioTrongValidationModal(result.orders, stats.gioTrongInvalidOrders, `${empName} - `);
-            return;
-        }
-    }
-
     showOrdersDetailModal(`${empName} - ${result.displayName}`, result.orders);
 }
 
@@ -1458,18 +1442,14 @@ function _filterOrdersByTagXLKey(orders, ptagMap, key) {
         const st = key.replace('subtag_', '');
         const meta = PTAG_SUBTAGS_META[st];
         displayName = meta ? meta.label : st;
-        filtered = orders.filter(o => {
-            const td = ptagMap[String(o.Code || '')];
-            return td && td.subTag === st;
-        });
-
-        // Special handling for GIO_TRONG validation
         if (st === 'GIO_TRONG') {
-            const stats = computeTagXLCounts(orders, ptagMap);
-            if (stats.hasGioTrongValidationError && stats.gioTrongInvalidOrders.length > 0) {
-                showGioTrongValidationModal(filtered, stats.gioTrongInvalidOrders);
-                return { orders: filtered, displayName };
-            }
+            // (2026-04-18) GIO_TRONG = đơn SL=0 (không còn dựa trên XL subTag)
+            filtered = orders.filter(o => (o.Details?.length || 0) === 0);
+        } else {
+            filtered = orders.filter(o => {
+                const td = ptagMap[String(o.Code || '')];
+                return td && td.subTag === st;
+            });
         }
     } else if (key === 'flag_CHO_LIVE') {
         displayName = '📺 CHỜ LIVE';
@@ -1528,8 +1508,6 @@ function renderTagStatsTable(stats, totalOrders) {
             rowClass = s.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
         } else if (isWrongTag) {
             rowClass = s.hasError ? 'duplicate-row-red' : 'duplicate-row-green';
-        } else if (s.key === 'gio_trong' && s.hasValidationError) {
-            rowClass = 'duplicate-row-red';
         }
 
         return `
@@ -1638,8 +1616,6 @@ function renderEmployeeStats(stats, allOrders) {
                 rowClass = tag.hasUnacceptableDuplicate ? 'duplicate-row-red' : 'duplicate-row-green';
             } else if (isWrongTag) {
                 rowClass = tag.hasError ? 'duplicate-row-red' : 'duplicate-row-green';
-            } else if (tag.key === 'gio_trong' && tag.hasValidationError) {
-                rowClass = 'duplicate-row-red';
             }
 
             return `

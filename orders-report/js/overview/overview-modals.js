@@ -102,7 +102,8 @@ function closeOrdersDetailModal() {
 
 /**
  * Calculate empty cart reasons breakdown
- * Orders with "Giỏ Trống" tag + other tags (excluding "thẻ khách lạ" related tags)
+ * (2026-04-18) "Giỏ Trống" nay = đơn SL=0. Scan các tag TPOS còn lại trên các đơn SL=0
+ * để thống kê lý do (ví dụ "CHỜ LIVE", "QUA LẤY"...).
  */
 function calculateEmptyCartReasons(orders) {
     const reasonsMap = new Map();
@@ -112,32 +113,22 @@ function calculateEmptyCartReasons(orders) {
     const excludedPatterns = ['thẻ khách lạ', 'the khach la', 'khách lạ'];
 
     orders.forEach(order => {
-        const orderTags = parseOrderTags(order.Tags);
-        if (!orderTags || orderTags.length === 0) return;
-
-        // Find if order has "giỏ trống" tag
-        const hasGioTrong = orderTags.some(tag => {
-            const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-            return tagName === 'giỏ trống' || tagName === 'gio trong';
-        });
-
-        if (!hasGioTrong) return;
+        const productCount = order.Details?.length || 0;
+        if (productCount !== 0) return;
 
         totalEmptyCartOrders++;
 
-        // Get other tags (excluding "giỏ trống" and "thẻ khách lạ" variations)
+        const orderTags = parseOrderTags(order.Tags);
+        if (!orderTags || orderTags.length === 0) return;
+
         orderTags.forEach(tag => {
             const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
             const originalTagName = tag.Name || tag.name || '';
 
-            // Skip the "giỏ trống" tag itself
+            // Skip "giỏ trống" tag (nếu còn sót legacy) + excluded patterns
             if (tagName === 'giỏ trống' || tagName === 'gio trong') return;
+            if (excludedPatterns.some(p => tagName.includes(p))) return;
 
-            // Skip excluded patterns (thẻ khách lạ)
-            const isExcluded = excludedPatterns.some(p => tagName.includes(p));
-            if (isExcluded) return;
-
-            // Count this tag as a reason
             const key = tagName;
             if (!reasonsMap.has(key)) {
                 reasonsMap.set(key, {
@@ -154,14 +145,10 @@ function calculateEmptyCartReasons(orders) {
         });
     });
 
-    // Convert to array and sort by count descending
     const reasons = Array.from(reasonsMap.values())
         .sort((a, b) => b.count - a.count);
 
-    return {
-        totalEmptyCartOrders,
-        reasons
-    };
+    return { totalEmptyCartOrders, reasons };
 }
 
 /**
@@ -253,22 +240,18 @@ function viewEmptyCartReasonOrders(tagNameLower) {
     const cached = cachedOrderDetails[currentTableName];
     const orders = cached?.orders || [];
 
-    // Filter orders that have both "giỏ trống" and the specific tag
+    // (2026-04-18) Filter = đơn SL=0 AND có tag đích (thay cho "giỏ trống + tag đích")
     const filteredOrders = orders.filter(order => {
+        const productCount = order.Details?.length || 0;
+        if (productCount !== 0) return false;
+
         const orderTags = parseOrderTags(order.Tags);
         if (!orderTags || orderTags.length === 0) return false;
 
-        const hasGioTrong = orderTags.some(tag => {
-            const name = (tag.Name || tag.name || '').toLowerCase().trim();
-            return name === 'giỏ trống' || name === 'gio trong';
-        });
-
-        const hasTargetTag = orderTags.some(tag => {
+        return orderTags.some(tag => {
             const name = (tag.Name || tag.name || '').toLowerCase().trim();
             return name === tagNameLower;
         });
-
-        return hasGioTrong && hasTargetTag;
     });
 
     // Find display name from first matching order
@@ -373,25 +356,20 @@ function viewTagOrders(pattern, type) {
     } else if (type === 'tag') {
         // Find the matching LIVE_STAT_TAGS definition
         const liveTag = LIVE_STAT_TAGS.find(t => t.key === pattern);
-        if (liveTag && liveTag.patterns) {
+        if (liveTag) {
             displayName = liveTag.displayName;
-            // Filter orders matching any of the patterns
-            filteredOrders = orders.filter(order => {
-                const orderTags = parseOrderTags(order.Tags);
-                return orderTags.some(tag => {
-                    const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-                    return liveTag.patterns.some(p => tagName.startsWith(p));
-                });
-            });
-
-            // Special handling for GIỎ TRỐNG - find validation errors
             if (pattern === 'gio_trong') {
-                const invalidOrders = findGioTrongValidationErrors(orders);
-                if (invalidOrders.length > 0) {
-                    // Show invalid orders in a special modal
-                    showGioTrongValidationModal(filteredOrders, invalidOrders);
-                    return;
-                }
+                // (2026-04-18) GIO_TRONG = đơn SL=0 (không còn match theo TPOS tag)
+                filteredOrders = orders.filter(o => (o.Details?.length || 0) === 0);
+            } else if (liveTag.patterns) {
+                // Filter orders matching any of the patterns
+                filteredOrders = orders.filter(order => {
+                    const orderTags = parseOrderTags(order.Tags);
+                    return orderTags.some(tag => {
+                        const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
+                        return liveTag.patterns.some(p => tagName.startsWith(p));
+                    });
+                });
             }
         }
     } else {
@@ -526,6 +504,9 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
                     const statusText = order.StatusText || order.Status || '';
                     return statusText === 'Đơn hàng';
                 });
+            } else if (tagKey === 'gio_trong') {
+                // (2026-04-18) GIO_TRONG = đơn SL=0
+                filteredOrders = empOrders.filter(o => (o.Details?.length || 0) === 0);
             } else if (liveTag.patterns) {
                 // Handle tag patterns
                 filteredOrders = empOrders.filter(order => {
@@ -535,16 +516,6 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
                         return liveTag.patterns.some(p => tagName.startsWith(p));
                     });
                 });
-
-                // Special handling for GIỎ TRỐNG - find validation errors
-                if (tagKey === 'gio_trong') {
-                    const invalidOrders = findGioTrongValidationErrors(empOrders);
-                    if (invalidOrders.length > 0) {
-                        // Show with validation errors
-                        showGioTrongValidationModal(filteredOrders, invalidOrders, `${empName} - `);
-                        return;
-                    }
-                }
             }
         }
     }
@@ -553,50 +524,12 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
 }
 
 /**
- * Find GIỎ TRỐNG validation errors
- * Returns orders that violate the rules:
- * 1. Has "giỏ trống" tag but product count > 0
- * 2. Has product count = 0 but no "giỏ trống" or "đã gộp ko chốt" tag
+ * (2026-04-18) Validation GIỎ TRỐNG đã bỏ — GIO_TRONG giờ định nghĩa = đơn SL=0,
+ * không còn case "có tag nhưng có SP" hay "không SP mà thiếu tag".
+ * Giữ function để không vỡ callers cũ; luôn return [].
  */
-function findGioTrongValidationErrors(orders) {
-    const invalidOrders = [];
-    const gioTrongPatterns = ['giỏ trống'];
-    const gopPatterns = ['đã gộp ko chốt', 'đã gộp không chốt'];
-
-    orders.forEach(order => {
-        const orderTags = parseOrderTags(order.Tags);
-        const productCount = order.Details?.length || 0;
-
-        // Check if order has giỏ trống tag
-        const hasGioTrongTag = orderTags.some(tag => {
-            const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-            return gioTrongPatterns.some(p => tagName.startsWith(p));
-        });
-
-        // Check if order has gộp tag
-        const hasGopTag = orderTags.some(tag => {
-            const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-            return gopPatterns.some(p => tagName.startsWith(p));
-        });
-
-        // Case 1: Has giỏ trống tag but has products
-        if (hasGioTrongTag && productCount > 0) {
-            invalidOrders.push({
-                order: order,
-                reason: `Có tag "giỏ trống" nhưng có ${productCount} sản phẩm`
-            });
-        }
-
-        // Case 2: No products but missing giỏ trống or gộp tag
-        if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
-            invalidOrders.push({
-                order: order,
-                reason: 'Không có sản phẩm nhưng thiếu tag "giỏ trống" hoặc "đã gộp ko chốt"'
-            });
-        }
-    });
-
-    return invalidOrders;
+function findGioTrongValidationErrors(_orders) {
+    return [];
 }
 
 /**

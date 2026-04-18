@@ -8,11 +8,25 @@
 
 ## 2026-04-18
 
+### [orders] Overview tab: đổi toàn bộ logic GIỎ TRỐNG sang định nghĩa "đơn SL=0"
+| | |
+|---|---|
+| **Files** | `orders-report/js/overview/overview-statistics.js`, `orders-report/js/overview/overview-modals.js` |
+| **Chi tiết** | Sau khi bỏ auto-tag ở tab1, tab "Báo Cáo Tổng Hợp" vẫn đếm GIỎ TRỐNG theo XL subTag / TPOS tag pattern → sẽ luôn về 0. User yêu cầu đồng bộ: GIO_TRONG ở mọi chỗ trong overview = đơn có SL=0 (`order.Details.length === 0`). **Thực hiện:** (A) `computeTagXLCounts`: bỏ validation `hasGioTrongValidationError`/`gioTrongInvalidOrders` (luôn false/[]), populate `subTagCounts.GIO_TRONG` từ đếm đơn SL=0 (độc lập XL state), skip double-count khi XL còn orphan subTag=GIO_TRONG. (B) `calculateTagStats` + `calculateEmployeeTagStats_legacy`: thay pattern match `'giỏ trống'` trên TPOS tags bằng kiểm tra `productCount === 0`, bỏ hẳn validation per-employee. (C) Click handlers `_filterOrdersByTagXLKey`, `viewTagOrders`, `viewEmployeeTagOrders`, `viewEmployeeTagXLOrders`: click GIỎ TRỐNG → filter `productCount === 0` thay vì match XL subTag / TPOS tag. (D) `findGioTrongValidationErrors` stub về `return []` (giữ function tránh vỡ caller). (E) `calculateEmptyCartReasons`: đổi sang scan tag còn lại trên các đơn SL=0 (tránh "đơn có tag giỏ trống" vì tag đã bỏ). (F) Xóa các nhánh `rowClass = 'duplicate-row-red'` theo `hasValidationError` đã dead. |
+| **Status** | ✅ Done |
+
 ### [orders][render] Bỏ auto-gắn tag GIỎ TRỐNG — giữ filter lọc SL=0 + cleanup-mode
 | | |
 |---|---|
 | **Files** | `orders-report/js/tab1/tab1-empty-cart-auto-sync.js`, `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js`, `orders-report/tab1-orders.html`, `n2store-realtime/server.js`, `n2store-realtime/tpos-client.js` (deleted) |
 | **Chi tiết** | Yêu cầu: bỏ hoàn toàn việc gắn tag GIỎ TRỐNG (cả auto lẫn tay), giữ "GIỎ TRỐNG" chỉ như filter lọc đơn `TotalQuantity=0`, nếu đơn lỡ có tag GIỎ TRỐNG → tự động xóa cả TPOS tag lẫn XL state. **Thực hiện:** (A) Rewrite `tab1-empty-cart-auto-sync.js` sang cleanup-only mode: `batchEmptyCartSync` giờ scan orders → phát hiện TPOS tag `GIỎ TRỐNG` → call AssignTag trực tiếp (dùng `window.tokenManager` + `API_CONFIG.smartFetch`) để gỡ + clear XL state nếu `subTag=GIO_TRONG`. Bỏ hook `updateOrderInTable` (không còn watch SL change). Giữ `window.scheduleEmptyCartSync`/`window.batchEmptyCartSync` API không vỡ caller cũ. (B) Xóa `GIO_TRONG` khỏi `PTAG_SUBTAGS` + icon map + sửa tooltip — picker XL không còn hiện option GIỎ TRỐNG. (C) Thêm module-level cache `_slZeroCodes`/`_slZeroIds` rebuild từ `allOrders` trong `_ptagComputeCounts`; stats formula `gioTrong = _slZeroCodes.size` thay vì đếm `subTagCounts['GIO_TRONG']`; filter `subtag_GIO_TRONG` trong `orderPassesProcessingTagFilter` chuyển sang check `_isOrderSLZero()` (lazy rebuild nếu cache rỗng). (D) Xóa `GIO_TRONG` khỏi `SUBTAG_TO_TPOS` mapping trong `tab1-tag-sync.js`. (E) Render server: xóa endpoint `POST /api/tpos/empty-cart-sync`, xóa `CREATE TABLE tpos_empty_cart_sync`, xóa `require('./tpos-client')` → xóa file `tpos-client.js`. Overview tab (overview-statistics.js) giữ nguyên — sẽ tự động hiển thị 0 count sau khi cleanup chạy xong do tag TPOS bị gỡ sạch. |
+| **Status** | ✅ Done |
+
+### [orders] Phone Widget — Quick ext switcher chip trên header
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-widget.js` |
+| **Chi tiết** | Thêm **chip "Ext 107 ▾"** ngay trên header (pill xanh) — click mở popover list tất cả extensions, click một ext → instant switch: `switchExt(ext)` load config từ `getExtensions()`, `saveConfig()`, `updateExtChipLabel()`, `disconnect()` + `init()` lại ngay (không cần mở panel settings). Ext hiện tại highlight xanh ✓. Chặn đổi khi đang có cuộc gọi (`currentSession`). Popover auto-close khi click ra ngoài. Chip label sync với `config.extension` khi apply settings hoặc switchExt. |
 | **Status** | ✅ Done |
 
 ### [orders] Phone Widget — Rewrite UI, auto-reconnect, tones (ringback/answer/hangup), accept/reject incoming
