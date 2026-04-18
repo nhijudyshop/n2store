@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory][render] Migration 059: fix rows stt=901 với ten_ncc thuần số (backfill trước parser fix)
+| | |
+|---|---|
+| **Files** | `render.com/migrations/059_fix_numeric_ten_ncc_rows.sql` |
+| **Chi tiết** | Trước khi parser fix deploy, user tạo rows với input `"24"`, `"44"`, `"14"`, `"5"` → stt=901 ten=số. Rows này bị mapping ảnh skip vì `sttNCC >= 900`. Migration: với mọi row `stt_ncc >= 900 AND ten_ncc ~ '^\\d+$'` → `UPDATE stt_ncc = CAST(ten_ncc AS INT), ten_ncc = NULL`, upsert supplier, guard collision tại `(date, dot, new_stt_ncc)`. 5 rows trên 2026-04-12 đã map đúng (stt=5/10/14/24/44); HANG LAY THEM giữ nguyên 901 (ten không phải số). |
+| **Status** | ✅ Done |
+
 ### [orders] Pre-check TPOS trước khi upload sản phẩm — skip nếu mã đã tồn tại (cả biến thể & cha)
 | | |
 |---|---|
