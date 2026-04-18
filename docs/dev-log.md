@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking] Fix fetch fail khi user có tên tiếng Việt có dấu (header non ISO-8859-1)
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/api-client.js` |
+| **Chi tiết** | **Bug:** Nick boss "Trường Giang" (hoặc bất kỳ tên Unicode non-Latin-1) mở trang `inventory-tracking/index.html` — toàn bộ API call fail ngay tại browser: `TypeError: Failed to execute 'fetch' on 'Window': Failed to read the 'headers' property from 'RequestInit': String contains non ISO-8859-1 code point`. Stack: `apiFetch` → `suppliersApi.getAll` → `loadNCCData` → `loadShipmentsData` → `InventoryTrackingApp.loadData`. Bảng Theo Dõi Nhập Hàng trống trơn. **Nguyên nhân:** `apiFetch()` gắn header `x-auth-data` bằng raw `JSON.stringify({userName: userInfo.displayName, ...})` (dòng 23-26). Browser HTTP header không cho phép ký tự ngoài ISO-8859-1 — "ư", "à", "ễ"… vượt Latin-1 → reject trước khi gửi request. User ASCII (admin/boss01) không bị. **Fix:** Bọc `btoa(unescape(encodeURIComponent(authJson)))` — encode UTF-8 → base64 ASCII-safe, khớp pattern đã dùng ở `delivery-report/js/delivery-report.js:1217,1262,1280` và decoder server đã sẵn sàng tại `render.com/routes/v2/inventory-tracking.js:64-79` (`Buffer.from(authData,'base64')` → `decodeURIComponent(escape(...))`). Chỉ sửa 1 chỗ duy nhất trong toàn bộ repo (grep xác nhận). Không đụng server (đã tương thích, tránh break các consumer khác). |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Slide-over "Thanh Toán CK" group theo đợt (dotSo spans nhiều ngày)
 | | |
 |---|---|

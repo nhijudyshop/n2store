@@ -20,10 +20,13 @@ async function apiFetch(path, options = {}) {
     try {
         const userInfo = authManager?.getUserInfo();
         if (userInfo) {
-            headers['x-auth-data'] = JSON.stringify({
+            const authJson = JSON.stringify({
                 userName: userInfo.displayName || userInfo.username || 'anonymous',
                 userId: userInfo.uid || userInfo.username || 'anonymous'
             });
+            // Base64-encode để header chấp nhận ký tự Unicode (vd tên tiếng Việt có dấu).
+            // Server decode: Buffer.from(authData,'base64') → decodeURIComponent(escape(...))
+            headers['x-auth-data'] = btoa(unescape(encodeURIComponent(authJson)));
         }
     } catch (_) { /* ignore */ }
 
