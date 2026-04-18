@@ -8,6 +8,13 @@
 
 ## 2026-04-18
 
+### [inventory-tracking][user-management] Permission mới `view_thanhToanCK` + admin bypass
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/permission-helper.js`, `inventory-tracking/js/table-renderer.js`, `inventory-tracking/index.html`, `user-management/js/permissions-registry.js` |
+| **Chi tiết** | **Mục tiêu:** Gom quyền "Xem stats bar (5 ô Tổng KG/HĐ/CP/TT/Còn Lại) + mở nút Thanh Toán CK + xem/chỉnh sửa nội dung panel" thành 1 dòng quyền duy nhất để admin cấp cho user khi cần. **Permission key:** `view_thanhToanCK` (1 quyền gộp thay vì nhiều). **permission-helper.js:** (A) Thêm `view_thanhToanCK: false` vào `DEFAULT_PERMISSIONS` và `true` vào `ADMIN_PERMISSIONS`. (B) **Admin bypass mới** — `loadPermissions()` kiểm tra `result.data.isAdmin` từ Render API: nếu true → `this.permissions = { ...ADMIN_PERMISSIONS }` (full access), else merge DEFAULT + user's detailed_permissions. Trước đây comment nói "NO admin bypass" nhưng giờ có bypass code-level để permission mới tự động hoạt động cho admin không cần migration DB. (C) `applyToUI()` gate `#inventoryStatsBar` + `#btnTogglePaymentPanel` display theo `view_thanhToanCK`. **table-renderer.js:** Thay `view_chiPhiHangVe`/`edit_chiPhiHangVe` bằng `view_thanhToanCK` ở 5 chỗ trong slide-over context: `renderPaymentSlideOverBody` (line 2363), `startInlineEditTiGia`, `_startInlineEditPaymentGeneric`, `addPayment`, `deletePayment`. Giữ nguyên `view_chiPhiHangVe` ở bảng sản phẩm chính (cột CHI PHÍ). Thêm check cho `openPaymentSlideOver` và `updateInventoryStatsBar` để chặn bypass DOM. **permissions-registry.js:** Thêm entry `view_thanhToanCK` trong `inventoryTracking.detailedPermissions` → hiện checkbox "Thanh Toán CK (Stats + Panel)" icon wallet trên UI user-management. Cache-bust `?v=20260418-permission-thanhtoan`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Stats bar ngang trên action-bar: Tổng KG / HĐ / CP / TT / Còn Lại
 | | |
 |---|---|

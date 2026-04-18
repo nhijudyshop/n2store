@@ -38,6 +38,10 @@ const DEFAULT_PERMISSIONS = {
     view_ghiChuAdmin: false,
     edit_ghiChuAdmin: false,
 
+    // Stats bar (Tổng KG/HĐ/CP/TT/Còn Lại) + Thanh Toán CK (mở panel, xem/sửa nội dung)
+    // 1 quyền gộp cho toàn bộ flow tài chính theo đợt của Theo Dõi Nhập Hàng.
+    view_thanhToanCK: false,
+
     // Tab Công Nợ
     view_congNo: false,
     create_prepayment: false,
@@ -85,6 +89,9 @@ const ADMIN_PERMISSIONS = {
     view_ghiChuAdmin: true,
     edit_ghiChuAdmin: true,
 
+    // Stats bar + Thanh Toán CK panel (full access)
+    view_thanhToanCK: true,
+
     // Tab Công Nợ
     view_congNo: true,
     create_prepayment: true,
@@ -108,8 +115,10 @@ class InventoryPermissionHelper {
     }
 
     /**
-     * Load user permissions from Firestore
-     * ALL users (including Admin) use detailedPermissions - NO bypass
+     * Load user permissions from Render API.
+     * Admin users (is_admin=true) get full ADMIN_PERMISSIONS regardless of their
+     * detailed_permissions row — so newly added permission keys immediately work
+     * for admin without requiring DB migration per role.
      */
     async loadPermissions() {
         try {
@@ -119,22 +128,25 @@ class InventoryPermissionHelper {
                 return this.permissions;
             }
 
-            // ALL users check detailedPermissions - NO admin bypass
-            // Admin gets full permissions because they have all permissions set to true in detailedPermissions
-
-            // Load user-specific permissions from Render API (no Firestore)
             const username = auth.userType?.split('-')[0];
             if (username) {
                 try {
                     const url = `${API_BASE}/user-permissions/${encodeURIComponent(username)}`;
                     const response = await fetch(url);
                     const result = await response.json();
-                    if (result.success && result.data?.found && result.data.permissions) {
-                        this.permissions = {
-                            ...DEFAULT_PERMISSIONS,
-                            ...result.data.permissions,
-                        };
-                        console.log('[PERMISSION] User permissions loaded from Render API');
+                    if (result.success && result.data?.found) {
+                        if (result.data.isAdmin) {
+                            // Admin bypass: full access to every permission — always fresh
+                            // whenever new permission keys are introduced.
+                            this.permissions = { ...ADMIN_PERMISSIONS };
+                            console.log('[PERMISSION] Admin bypass → ADMIN_PERMISSIONS');
+                        } else if (result.data.permissions) {
+                            this.permissions = {
+                                ...DEFAULT_PERMISSIONS,
+                                ...result.data.permissions,
+                            };
+                            console.log('[PERMISSION] User permissions loaded from Render API');
+                        }
                     }
                 } catch (apiErr) {
                     console.warn('[PERMISSION] Failed to load permissions from API, using defaults:', apiErr.message);
@@ -223,6 +235,15 @@ class InventoryPermissionHelper {
         if (btnAddShipment) {
             btnAddShipment.style.display = this.can('create_shipment') ? '' : 'none';
         }
+
+        // Stats bar + Thanh Toán CK button — gated by single permission view_thanhToanCK.
+        // Covers: 5 ô thống kê ngang (Tổng KG/HĐ/CP/TT/Còn Lại), nút mở slide-over,
+        // xem nội dung panel, và chỉnh sửa tỉ giá + payment rows bên trong panel.
+        const canThanhToan = this.can('view_thanhToanCK');
+        const statsBar = document.getElementById('inventoryStatsBar');
+        if (statsBar) statsBar.style.display = canThanhToan ? '' : 'none';
+        const btnTogglePayment = document.getElementById('btnTogglePaymentPanel');
+        if (btnTogglePayment) btnTogglePayment.style.display = canThanhToan ? '' : 'none';
 
         // Export button
         const exportButton = document.getElementById('exportButton');

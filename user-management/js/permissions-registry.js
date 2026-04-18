@@ -120,6 +120,7 @@ const PAGES_REGISTRY = {
             delete_shipment: { name: "Xóa đợt hàng", icon: "trash-2", description: "Xóa đợt hàng khỏi hệ thống" },
             view_chiPhiHangVe: { name: "Xem chi phí hàng về", icon: "dollar-sign", description: "Xem chi phí vận chuyển" },
             edit_chiPhiHangVe: { name: "Sửa chi phí hàng về", icon: "edit-3", description: "Chỉnh sửa chi phí vận chuyển" },
+            view_thanhToanCK: { name: "Thanh Toán CK (Stats + Panel)", icon: "wallet", description: "Xem thanh thống kê ngang (Tổng KG/HĐ/CP/TT/Còn Lại), mở & chỉnh sửa panel Thanh Toán CK theo đợt" },
             view_ghiChuAdmin: { name: "Xem ghi chú Admin", icon: "file-text", description: "Xem ghi chú nội bộ" },
             edit_ghiChuAdmin: { name: "Sửa ghi chú Admin", icon: "edit-3", description: "Chỉnh sửa ghi chú nội bộ" },
             edit_soMonThieu: { name: "Cập nhật số thiếu", icon: "clipboard-check", description: "Ghi nhận hàng thiếu" },

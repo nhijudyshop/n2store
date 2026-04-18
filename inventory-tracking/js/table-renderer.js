@@ -455,6 +455,12 @@ function renderShipments(shipments) {
 function updateInventoryStatsBar() {
     const bar = document.getElementById('inventoryStatsBar');
     if (!bar) return;
+    // Gate by permission — keep bar hidden if user lacks access (double check
+    // even though applyToUI already hides it, in case DOM was inspected).
+    if (!permissionHelper?.can('view_thanhToanCK')) {
+        bar.style.display = 'none';
+        return;
+    }
 
     const shipments = globalState.shipments || [];
     let tongKg = 0, tongHD = 0, tongCP = 0;
@@ -2360,7 +2366,7 @@ function togglePaymentBreakdown(el) {
 }
 
 function renderPaymentSlideOverBody() {
-    if (!permissionHelper?.can('view_chiPhiHangVe')) {
+    if (!permissionHelper?.can('view_thanhToanCK')) {
         return '<div class="payment-empty">Không có quyền xem.</div>';
     }
     const entries = (typeof getAllDotsAggregated === 'function') ? getAllDotsAggregated() : [];
@@ -2433,7 +2439,7 @@ function _getTiGiaForDot(dotSo) {
 // ---------- Tỉ giá inline edit ----------
 
 function startInlineEditTiGia(el) {
-    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
     if (el.querySelector('input')) return;
 
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
@@ -2475,7 +2481,7 @@ function startInlineEditTiGia(el) {
 // ---------- Payment row inline edits ----------
 
 function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
-    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
     if (el.querySelector('input')) return;
 
     const paymentId = el.dataset.paymentId;
@@ -2549,7 +2555,7 @@ function startInlineEditPaymentNote(el) {
 // ---------- Add / Delete payment ----------
 
 async function addPayment(btn) {
-    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
     const dotSo = parseInt(btn.dataset.dotSo, 10) || 1;
     const payments = _getPaymentsForDot(dotSo);
     const newId = `tt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -2568,7 +2574,7 @@ async function addPayment(btn) {
 }
 
 async function deletePayment(btn) {
-    if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
     const paymentId = btn.dataset.paymentId;
     const dotSo = parseInt(btn.dataset.dotSo, 10) || 1;
     const payments = _getPaymentsForDot(dotSo);
@@ -2586,6 +2592,7 @@ async function deletePayment(btn) {
 // ---------- Slide-over open/close ----------
 
 function openPaymentSlideOver() {
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
     const slideOver = document.getElementById('paymentSlideOver');
     if (!slideOver) return;
     const body = slideOver.querySelector('#paymentSlideOverBody');
