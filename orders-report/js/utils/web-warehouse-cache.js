@@ -152,11 +152,49 @@ const WebWarehouseCache = (function () {
         return load();
     }
 
+    // =====================================================
+    // SSE REAL-TIME INVALIDATION
+    // Auto-refresh cache when TPOS sync lands in Render DB
+    // =====================================================
+    const SSE_URL =
+        'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
+    let _sseSource = null;
+    let _refreshDebounce = null;
+
+    function _scheduleRefresh() {
+        if (_refreshDebounce) clearTimeout(_refreshDebounce);
+        _refreshDebounce = setTimeout(() => {
+            console.log('[WEB-WAREHOUSE-CACHE] SSE triggered refresh');
+            refresh().catch((e) =>
+                console.warn('[WEB-WAREHOUSE-CACHE] Refresh failed:', e.message)
+            );
+        }, 3000);
+    }
+
+    function setupSSE() {
+        if (typeof EventSource === 'undefined') return;
+        if (_sseSource) return;
+
+        try {
+            _sseSource = new EventSource(SSE_URL);
+            const handle = () => _scheduleRefresh();
+            _sseSource.addEventListener('update', handle);
+            _sseSource.addEventListener('deleted', handle);
+            _sseSource.onerror = () => {
+                // Browser auto-reconnects; just log
+                console.warn('[WEB-WAREHOUSE-CACHE] SSE disconnected, auto-reconnect…');
+            };
+        } catch (e) {
+            console.warn('[WEB-WAREHOUSE-CACHE] SSE setup failed:', e.message);
+        }
+    }
+
     return {
         load,
         getSTT,
         isLoaded,
         refresh,
+        setupSSE,
         get size() {
             return _sttMap.size;
         },
@@ -169,3 +207,6 @@ window.KhoDiChoCache = WebWarehouseCache; // backward compat
 
 // Auto-load on script load (non-blocking)
 WebWarehouseCache.load();
+
+// Auto-subscribe to SSE so cache invalidates when TPOS syncs update Render DB
+WebWarehouseCache.setupSSE();

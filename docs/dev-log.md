@@ -15,6 +15,13 @@
 | **Chi tiết** | Diff dung.txt (Huỳnh OK) vs sai.txt (Pandora NRE) cho thấy combo `PaymentJournalId:1 + PaymentAmount>0 + SaleOnlineIds:[]` gây TPOS NRE. User chỉ định 3 field cần đổi cho social order: `PaymentJournalId: null`, `DateDeposit: null`, `SaleOnlineIds: [crypto.randomUUID()]`. Scope: chỉ áp dụng khi `order._isSocialOrder === true`, tab1 normal flow giữ nguyên logic prepaidAmount. PaymentAmount/CashOnDelivery/các field khác không đổi. |
 | **Status** | ✅ Done |
 
+### [orders] WebWarehouseCache — auto-invalidate khi TPOS sync realtime ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/web-warehouse-cache.js` |
+| **Chi tiết** | Audit các module dùng `web_warehouse` data: **4 đã có SSE realtime** (product-warehouse, order-management, soluong-live, dropped-products-manager), **5 module chỉ write** (purchase-orders, doi-soat, tab1-fast-sale-workflow, chat-products-actions, held-products-manager) — không cần SSE vì không cache/display warehouse list. **WebWarehouseCache** là shared cache dùng cho bill generation (append STT vào tên SP), trước chỉ auto-load 1 lần lúc script load + TTL 30 phút localStorage → nếu TPOS sửa STT/đổi mã, bill có thể hiện STT cũ tối đa 30 phút. **Fix:** thêm `setupSSE()` auto-subscribe `keys=web_warehouse`, nhận update/deleted event → debounce 3s → gọi `refresh()` để build lại map. Auto-subscribe ngay khi script load. Tất cả page dùng bill generation (tab1, chat, held-products releases...) hưởng lợi chỉ với 1 fix. |
+| **Status** | ✅ Done |
+
 ### [web] Product Warehouse — toast notification khi SSE realtime sync ✅
 | | |
 |---|---|
