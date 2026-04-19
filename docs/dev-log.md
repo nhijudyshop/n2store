@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix TPOS NRE — 3 field cho social order: PaymentJournalId/DateDeposit/SaleOnlineIds ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | Diff dung.txt (Huỳnh OK) vs sai.txt (Pandora NRE) cho thấy combo `PaymentJournalId:1 + PaymentAmount>0 + SaleOnlineIds:[]` gây TPOS NRE. User chỉ định 3 field cần đổi cho social order: `PaymentJournalId: null`, `DateDeposit: null`, `SaleOnlineIds: [crypto.randomUUID()]`. Scope: chỉ áp dụng khi `order._isSocialOrder === true`, tab1 normal flow giữ nguyên logic prepaidAmount. PaymentAmount/CashOnDelivery/các field khác không đổi. |
+| **Status** | ✅ Done |
+
 ### [web] Product Warehouse — toast notification khi SSE realtime sync ✅
 | | |
 |---|---|

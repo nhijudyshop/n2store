@@ -1466,8 +1466,13 @@ function buildSaleOrderModelForInsertList() {
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
-        // SaleOnlineIds keeps strict TPOS UUID rule (Edm.Guid) — social IDs aren't UUIDs, leave [].
-        SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : [],
+        // SaleOnlineIds: tab1 uses real TPOS SaleOnline UUID; social orders generate a fresh
+        // UUID so TPOS post-save hooks see a non-empty Collection(Edm.Guid) entry.
+        SaleOnlineIds: order.Id && !order._isSocialOrder
+            ? [order.Id]
+            : (order._isSocialOrder && typeof crypto !== 'undefined' && crypto.randomUUID
+                ? [crypto.randomUUID()]
+                : []),
         // SaleOnlineNames is plain string list — fall back to social id so TPOS sees a non-empty name.
         SaleOnlineNames: order.Code
             ? [order.Code]
@@ -1504,7 +1509,7 @@ function buildSaleOrderModelForInsertList() {
         ShowShipStatus: 'Chưa tiếp nhận',
         SaleOnlineName: order.Code || (order._isSocialOrder ? String(order.Id || '') : ''),
         PartnerShippingId: null,
-        PaymentJournalId: prepaidAmount > 0 ? 1 : null,
+        PaymentJournalId: order._isSocialOrder ? null : (prepaidAmount > 0 ? 1 : null),
         PaymentAmount: prepaidAmount,
         SaleOrderId: null,
         SaleOrderIds: [],
@@ -1559,7 +1564,7 @@ function buildSaleOrderModelForInsertList() {
         QuantityUpdateDeposit: null,
         IsMergeCancel: null,
         IsPickUpAtShop: null,
-        DateDeposit: prepaidAmount > 0 ? new Date().toISOString() : null,
+        DateDeposit: order._isSocialOrder ? null : (prepaidAmount > 0 ? new Date().toISOString() : null),
         IsRefund: null,
         StateCode: 'None',
         ActualPaymentAmount: null,
