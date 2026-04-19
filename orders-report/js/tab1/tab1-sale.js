@@ -701,6 +701,7 @@ async function confirmAndPrintSale() {
                 else alert(msg);
                 return;
             }
+            const saleOnlineId = currentSaleOrderData?.Id;
             if (saleOnlineId && window.InvoiceStatusStore) {
                 const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
                 if (
@@ -955,6 +956,13 @@ async function confirmAndPrintSale() {
         const dataErrorFast = result.DataErrorFast || [];
 
         if (errorOrders.length > 0 || dataErrorFast.length > 0) {
+            // Verbose debug — TPOS NRE messages don't include field name; dumping the full
+            // OrdersError / DataErrorFast and the request payload lets us see which Partner /
+            // OrderLine / Carrier field TPOS choked on.
+            console.error('[SALE-CONFIRM] TPOS rejected order. Full errorOrders:', JSON.stringify(errorOrders, null, 2));
+            console.error('[SALE-CONFIRM] Full dataErrorFast:', JSON.stringify(dataErrorFast, null, 2));
+            console.error('[SALE-CONFIRM] Request body that TPOS rejected:', JSON.stringify(requestBody, null, 2));
+
             const errorMessages = [];
             errorOrders.forEach((o) => {
                 if (o.Error)

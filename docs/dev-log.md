@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [orders] Fix `saleOnlineId is not defined` ReferenceError + verbose debug log cho TPOS error ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | (1) Trong duplicate-guard block của `confirmAndPrintSale` (line 704), `saleOnlineId` được tham chiếu nhưng chưa khai báo trong scope đó (chỉ khai báo `const saleOnlineId = currentSaleOrderData?.Id` ở line 903 và 1091, sau guard block). Catch silent ở line 723 nuốt error → guard không bao giờ chạy nhánh này. Fix: thêm `const saleOnlineId = currentSaleOrderData?.Id;` ngay trước `if (saleOnlineId && window.InvoiceStatusStore)`. (2) Khi TPOS reject với NRE qua `OrdersError[].Error` hoặc `DataErrorFast[].Error`, message gốc ".NET NullReferenceException" không nói field nào. Thêm 3 `console.error` dump full `errorOrders`, `dataErrorFast`, và `requestBody` để lần test sau lộ rõ TPOS NRE field nào (Partner.X, OrderLines[i].Y, Carrier.Z, …). |
+| **Status** | ✅ Done |
+
 ### [orders] TAG filter dropdown: chọn "GIỎ TRỐNG" lọc đơn SL=0 (giữ option trong list)
 | | |
 |---|---|
