@@ -483,8 +483,17 @@ router.get('/product/:tposProductId', async (req, res) => {
         const product = productResult.rows[0];
         let variants = [];
 
-        // If product has a parent, fetch all siblings (variants of same template)
-        if (product.parent_product_code) {
+        // Fetch sibling variants. Prefer tpos_template_id (TPOS-authoritative, numeric)
+        // over parent_product_code (text, prone to drift / manual-entry mismatch).
+        if (product.tpos_template_id) {
+            const variantsResult = await db.query(
+                `SELECT * FROM web_warehouse
+                 WHERE tpos_template_id = $1 AND active = true
+                 ORDER BY name_get ASC`,
+                [product.tpos_template_id]
+            );
+            variants = variantsResult.rows;
+        } else if (product.parent_product_code) {
             const variantsResult = await db.query(
                 `SELECT * FROM web_warehouse
                  WHERE parent_product_code = $1 AND active = true

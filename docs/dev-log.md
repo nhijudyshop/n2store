@@ -8,6 +8,20 @@
 
 ## 2026-04-19
 
+### [render][soluong-live] Fix bug: thêm Q163 lại đổ nhầm variants Q150 vào danh sách
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/web-warehouse.js` |
+| **Chi tiết** | Bug: trên `soluong-live/index.html` search "Q163" autocomplete đúng Q163D/Q163T nhưng click chọn thì Firebase lại update Q150DT/Q150DD. Root cause: `GET /api/v2/web-warehouse/product/:tposProductId` fetch sibling variants theo text `parent_product_code` (L487) — rows Q163 trong `web_warehouse` có `parent_product_code` trỏ nhầm sang template code của Q150 → trả về Q150 variants → client batch-add theo `product_${Id}` = id Q150 → update Q150. Client / Firebase key đúng theo Id, đây là data bug + điểm yếu thiết kế server. Fix hardening: đổi query siblings ưu tiên `tpos_template_id` (số, TPOS-authoritative, không drift), fallback `parent_product_code` cho rows cũ chưa sync template_id. Response shape `{product, variants}` không đổi → client (`shared/js/warehouse-api.js`, `soluong-live/js/main.js`, `soluong-live/firebase-helpers.js`) giữ nguyên. Data patch + audit toàn bộ rows lệch user tự chạy trên Render Postgres (SQL kèm trong plan `child-changed-product-static-hashed-pie.md`). |
+| **Status** | ✅ Done (code); ⏳ data patch SQL chờ user chạy |
+
+### [orders-report][processing-tags] Guard `onPtagBillCreated` chống auto re-tag "ĐÃ RA ĐƠN" khi đơn đã hủy
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Bug: user đổi tag XL (CHỜ HÀNG / ĐƠN CHƯA PHẢN HỒI…) nhưng ~15s sau hệ thống tự đánh lại "ĐÃ RA ĐƠN" dù đơn đã hủy + TPOS không còn đơn. Root cause: `_ptagStartPolling` (15s fallback khi SSE fail, line 774) gọi `loadProcessingTags()` → `backfillPtagFromOrderStatus()` thấy `InvoiceStatusStore.get(saleOnlineId)` trả entry stale (do `.delete()` chỉ xóa LATEST hoặc WS `handleInvoiceUpdate` re-insert sau ActionCancel) → fire `onPtagBillCreated` → set `category = HOAN_TAT`. Fix: thêm guard ngay đầu `onPtagBillCreated` (trước idempotency check line 1138): gọi `InvoiceStatusStore.getAll(saleOnlineId)`, chỉ cho set HOAN_TAT nếu có ≥1 entry active (`StateCode ∉ {cancel, IsMergeCancel}` và `IsMergeCancel !== true`). Nếu không → log `[PTAG] onPtagBillCreated skip ... — không có invoice active trong store` và return. Đây là nút thắt DUY NHẤT set HOAN_TAT trong codebase nên guard này chặn được mọi trigger oan (polling, WS stale, F5 backfill, race). Không đổi logic cancel flow hay bất kỳ file nào khác. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix TPOS NRE — 3 field cho social order: PaymentJournalId/DateDeposit/SaleOnlineIds ✅
 | | |
 |---|---|

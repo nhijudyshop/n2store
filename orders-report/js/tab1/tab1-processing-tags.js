@@ -1134,6 +1134,23 @@
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 
+        // Guard: chỉ set HOAN_TAT khi thực sự còn invoice active trong InvoiceStatusStore.
+        // Entry active = StateCode ∉ {cancel, IsMergeCancel} và IsMergeCancel !== true.
+        // Chặn polling 15s (backfillPtagFromOrderStatus) / WS stale / race re-tag oan
+        // sau khi user đã hủy đơn hoặc đơn không có invoice thật.
+        const invStore = window.InvoiceStatusStore;
+        if (invStore && typeof invStore.getAll === 'function') {
+            const entries = invStore.getAll(saleOnlineId) || [];
+            const hasActive = entries.some(inv => {
+                const sc = inv.StateCode || 'None';
+                return !inv.IsMergeCancel && sc !== 'cancel' && sc !== 'IsMergeCancel';
+            });
+            if (!hasActive) {
+                console.log(`${PTAG_LOG} onPtagBillCreated skip ${orderCode} — không có invoice active trong store (${entries.length} entries)`);
+                return;
+            }
+        }
+
         // Idempotency: already in ĐÃ RA ĐƠN → skip (tránh snapshot đè lên chính snapshot)
         if (data.category === PTAG_CATEGORIES.HOAN_TAT) return;
 
