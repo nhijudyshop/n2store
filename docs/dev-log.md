@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix TPOS NRE round 4 — populate Reference/SaleOnlineName/SaleOnlineNames cho social ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | Diff working (Huỳnh) vs broken (Pandora) cho thấy 3 field text empty là nghi can chính: `Reference: ""`, `SaleOnlineName: ""`, `SaleOnlineNames: []`. Working có `Reference: "260303709"`, `SaleOnlineName: "260303709"`, `SaleOnlineNames: ["260303709"]`. **Fix:** Cho social order (order._isSocialOrder = true), fall back `order.Id` (e.g. "SO-20260416-3057") cho 3 field này. SaleOnlineIds giữ `[]` vì TPOS validate strict UUID type Edm.Guid (Test A đã FAIL HTTP 400 khi set null). PartnerFacebookId/FacebookId/LiveCampaignId giữ null vì social KH không có FB/Live. Sau fix payload social match working pattern, hy vọng TPOS post-save hook không NRE nữa. |
+| **Status** | ✅ Done |
+
 ### [render] TPOS sync round 2 — Fix B/E/F ✅
 | | |
 |---|---|

@@ -1441,7 +1441,9 @@ function buildSaleOrderModelForInsertList() {
         PartnerFacebookId: partner?.FacebookId || order.Facebook_ASUserId || null,
         PartnerFacebook: null,
         PartnerPhone: receiverPhone || null,
-        Reference: order.Code || '',
+        // For social orders without TPOS Code, use social order id ("SO-20260416-3057") as Reference
+        // so TPOS post-save hooks have a non-empty string instead of "" (matches working tab1 pattern).
+        Reference: order.Code || (order._isSocialOrder ? String(order.Id || '') : ''),
         PriceListId: 0,
         AmountTotal: finalAmountTotal,
         TotalQuantity: 0,
@@ -1464,8 +1466,12 @@ function buildSaleOrderModelForInsertList() {
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
+        // SaleOnlineIds keeps strict TPOS UUID rule (Edm.Guid) — social IDs aren't UUIDs, leave [].
         SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : [],
-        SaleOnlineNames: order.Code && !order._isSocialOrder ? [order.Code] : [],
+        // SaleOnlineNames is plain string list — fall back to social id so TPOS sees a non-empty name.
+        SaleOnlineNames: order.Code
+            ? [order.Code]
+            : (order._isSocialOrder && order.Id ? [String(order.Id)] : []),
         Residual: null,
         Type: null,
         RefundOrderId: null,
@@ -1496,7 +1502,7 @@ function buildSaleOrderModelForInsertList() {
         TrackingRefSort: null,
         ShipStatus: 'none',
         ShowShipStatus: 'Chưa tiếp nhận',
-        SaleOnlineName: order.Code || '',
+        SaleOnlineName: order.Code || (order._isSocialOrder ? String(order.Id || '') : ''),
         PartnerShippingId: null,
         PaymentJournalId: prepaidAmount > 0 ? 1 : null,
         PaymentAmount: prepaidAmount,
