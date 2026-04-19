@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [orders] TAG filter dropdown: chọn "GIỎ TRỐNG" lọc đơn SL=0 (giữ option trong list)
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-search.js` |
+| **Chi tiết** | User báo: chọn "GIỎ TRỐNG" trong dropdown TAG filter (cột TAG) → 0 kết quả vì sau khi cleanup không đơn nào còn tag ID đó. Fix: trong `performTableSearch` block "Apply TAG filter", scan `window.availableTags` tìm tag có `Name === 'GIỎ TRỐNG'` trong selectedTags. Nếu có → set `gioTrongSelected = true` và OR thêm điều kiện `TotalQuantity === 0` cho mọi đơn (song song với match tag ID cho các tag khác đang chọn). Giữ option GIỎ TRỐNG trong dropdown (do availableTags load từ TPOS), chỉ đổi behavior khi nó được chọn. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix TPOS NRE "Object reference not set to an instance of an object" khi xác nhận sale ✅
 | | |
 |---|---|

@@ -285,7 +285,25 @@ function _applyFiltersExceptProcessingTag() {
     if (selectedTags.length > 0) {
         // Use Set for O(1) lookup instead of Array.includes
         const selectedTagSet = new Set(selectedTags);
+
+        // (2026-04-19) Special-case: nếu tag "GIỎ TRỐNG" được chọn → match thêm
+        // đơn có TotalQuantity === 0 (tag GIỎ TRỐNG đã bỏ auto-gắn từ 2026-04-18,
+        // nên ID không match đơn nào — phải dùng SL=0 làm điều kiện thay thế).
+        let gioTrongSelected = false;
+        const _availableTags = window.availableTags || [];
+        for (const t of _availableTags) {
+            if (selectedTagSet.has(String(t.Id)) &&
+                String(t.Name || '').trim().toUpperCase() === 'GIỎ TRỐNG') {
+                gioTrongSelected = true;
+                break;
+            }
+        }
+
         tempData = tempData.filter(order => {
+            // GIỎ TRỐNG selected → match đơn SL=0 (OR với các tag khác)
+            if (gioTrongSelected && Number(order.TotalQuantity || 0) === 0) {
+                return true;
+            }
             if (!order.Tags) return false;
 
             try {
