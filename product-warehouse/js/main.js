@@ -1162,7 +1162,7 @@
                 throw new Error(errData.error?.message || `HTTP ${response.status}`);
             }
 
-            showToast('Đã lưu thành công!', 'success');
+            showToast('Đã lưu. Đang đồng bộ TPOS…', 'success');
             closeEditModal();
 
             // Notify SSE clients (soluong-live, order-management) about image update
@@ -1178,7 +1178,10 @@
                 }).catch(e => console.warn('[Edit] Notify image update failed:', e));
             }
 
-            fetchProducts(true);
+            // Render DB lags behind: TPOS socket event (~instant) → listener debounce 3s
+            // → _syncTemplate fetch (~1-2s) → SSE notify. Total ~5-7s.
+            // Delay explicit refresh; SSE handler (setupSSE) will also refresh when sync lands.
+            setTimeout(() => fetchProducts(true), 6000);
         } catch (err) {
             console.error('[Edit] Save failed:', err);
             showToast('Lỗi lưu: ' + err.message, 'error');

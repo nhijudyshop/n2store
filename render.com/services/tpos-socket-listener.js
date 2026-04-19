@@ -178,47 +178,38 @@ class TPOSSocketListener {
         console.log(`[TPOS-SOCKET] ProductTemplate.${action}`, data.data?.Id || data.data?.Ids || '');
 
         switch (action) {
-            case 'created':
-                // Product created or updated — sync this template
-                if (data.data?.Id) {
-                    this._queueTemplateSync(data.data.Id);
-                }
-                break;
-
             case 'deleted':
                 // Template deleted — mark inactive in web_warehouse
                 if (data.data?.Id) {
                     this._deactivateTemplate(data.data.Id);
                 }
-                break;
+                return;
 
             case 'deletedIds':
                 // Bulk delete — mark inactive
                 if (data.data?.Ids && Array.isArray(data.data.Ids)) {
                     data.data.Ids.forEach(id => this._deactivateTemplate(id));
                 }
-                break;
-
-            case 'set_active':
-                // Active status changed — re-sync
-                if (data.data?.Id) {
-                    this._queueTemplateSync(data.data.Id);
-                }
-                break;
+                return;
 
             case 'updatefromfile':
             case 'import_file':
-                // Bulk update from file — trigger incremental sync
-                this._queueIncrementalSync();
-                break;
-
             case 'clearcache':
-                // Cache cleared — trigger incremental sync
+                // Bulk change — trigger incremental sync
                 this._queueIncrementalSync();
-                break;
+                return;
+        }
 
-            default:
-                console.log(`[TPOS-SOCKET] Unhandled ProductTemplate action: ${action}`);
+        // Default: any other action (created, updated, set_active, modified, saved, ...)
+        // → queue template sync if we have an Id, else incremental.
+        // This catches unknown-but-template-related actions without listing every TPOS verb.
+        if (data.data?.Id) {
+            this._queueTemplateSync(data.data.Id);
+        } else if (Array.isArray(data.data?.Ids) && data.data.Ids.length > 0) {
+            data.data.Ids.forEach(id => this._queueTemplateSync(id));
+        } else {
+            console.log(`[TPOS-SOCKET] ProductTemplate.${action} no Id/Ids → incremental sync`);
+            this._queueIncrementalSync();
         }
     }
 
@@ -226,34 +217,29 @@ class TPOSSocketListener {
         this._stats.productEvents++;
         console.log(`[TPOS-SOCKET] Product.${action}`);
 
-        switch (action) {
-            case 'inventory_updated':
-                // Inventory changed — sync affected products
-                if (data.data?.Products && Array.isArray(data.data.Products)) {
-                    data.data.Products.forEach(p => {
-                        if (p.ProductTmplId) this._queueTemplateSync(p.ProductTmplId);
-                    });
-                } else {
-                    // No specific products — incremental sync
-                    this._queueIncrementalSync();
-                }
-                break;
-
-            case 'update_price_file':
-                // Price update from file — incremental sync
-                this._queueIncrementalSync();
-                break;
-
-            case 'deleted':
-                // Variant deleted — sync parent template
-                if (data.data?.ProductTmplId) {
-                    this._queueTemplateSync(data.data.ProductTmplId);
-                }
-                break;
-
-            default:
-                console.log(`[TPOS-SOCKET] Unhandled Product action: ${action}`);
+        // Bulk changes → incremental
+        if (action === 'update_price_file' || action === 'updatefromfile' || action === 'import_file') {
+            this._queueIncrementalSync();
+            return;
         }
+
+        // Inventory change with specific products list
+        if (action === 'inventory_updated' && Array.isArray(data.data?.Products)) {
+            data.data.Products.forEach(p => {
+                if (p.ProductTmplId) this._queueTemplateSync(p.ProductTmplId);
+            });
+            return;
+        }
+
+        // Any other Product.* action with a parent template → sync that template
+        // (covers: deleted, updated, created, changed, ...)
+        if (data.data?.ProductTmplId) {
+            this._queueTemplateSync(data.data.ProductTmplId);
+            return;
+        }
+
+        // Unknown variant event without parent info → fall back to incremental
+        this._queueIncrementalSync();
     }
 
     _handleInventoryEvent(action, data) {

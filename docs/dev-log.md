@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [render] TPOS sync round 2 — Fix B/E/F ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/sync-tpos-products.js`, `render.com/services/tpos-socket-listener.js`, `product-warehouse/js/main.js` |
+| **Chi tiết** | **(B)** Bỏ guard `CASE WHEN price > 0 THEN price ELSE keep` trong `_upsertProduct`, cho phép giá 0 từ TPOS ghi đè → TPOS là nguồn sự thật duy nhất, nếu admin đặt giá 0 (KM, quà tặng) sẽ sync đúng. **(E)** `saveEditProduct` đổi từ fetch ngay lập tức sang `setTimeout(fetchProducts, 6000)` — tránh UI hiện data cũ trong khi Render DB chưa kịp sync qua TPOS socket (3s debounce + 1-2s fetch). Đổi toast thành "Đã lưu. Đang đồng bộ TPOS…" để user biết. SSE handler sẵn có vẫn trigger refresh khi sync xong (belt-and-suspenders). **(F)** Refactor `_handleProductTemplateEvent` và `_handleProductEvent` sang pattern catch-all: explicit handle các action đặc biệt (deleted/deletedIds/updatefromfile/import_file/clearcache/inventory_updated), còn lại nếu có `data.Id`/`data.ProductTmplId` → queueTemplateSync, không thì incremental. Tránh miss action mới (updated, saved, modified…) mà TPOS có thể emit. |
+| **Status** | ✅ Done |
+
 ### [render] Optimize TPOS ↔ Web Warehouse realtime sync (Fix A/C/D) ✅
 | | |
 |---|---|
