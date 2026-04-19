@@ -16,6 +16,23 @@
     'use strict';
 
     // =====================================================
+    // ENDPOINTS (single source of truth)
+    // =====================================================
+    const RENDER_BASE = 'https://n2store-fallback.onrender.com';
+    const API_BASE = RENDER_BASE + '/api';
+    const WAREHOUSE_API = API_BASE + '/v2/web-warehouse';
+    const SSE_ENDPOINT = API_BASE + '/realtime/sse';
+
+    /**
+     * Build an SSE URL for one or more keys.
+     * @param {string|string[]} keys - key or list of keys to subscribe
+     */
+    function buildSseUrl(keys) {
+        const arr = Array.isArray(keys) ? keys : [keys];
+        return `${SSE_ENDPOINT}?keys=${encodeURIComponent(arr.join(','))}`;
+    }
+
+    // =====================================================
     // FORMATTING
     // =====================================================
 
@@ -304,6 +321,11 @@
 
         // SSE
         setupSSE,
+        buildSseUrl,
+        RENDER_BASE,
+        API_BASE,
+        WAREHOUSE_API,
+        SSE_ENDPOINT,
 
         // Image
         initImageZoomHover,

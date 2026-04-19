@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [render,web] TPOS sync edge-case round 3 — Edge 1/2/3/4 ✅
+| | |
+|---|---|
+| **Files** | `shared/js/warehouse-shared.js`, `product-warehouse/js/main.js`, `render.com/routes/v2/web-warehouse.js`, `order-management/js/order-list.js`, `soluong-live/js/soluong-list.js` |
+| **Chi tiết** | **Edge 2 (SSE URL centralize)**: thêm `RENDER_BASE`/`API_BASE`/`WAREHOUSE_API`/`SSE_ENDPOINT` + helper `buildSseUrl(keys)` vào `warehouse-shared.js`. product-warehouse dùng `WS.buildSseUrl('web_warehouse')` + `WS.WAREHOUSE_API`. **Edge 1 (poll race)**: `triggerFullTPOSSync` capture `baselineId = lastSync.id` TRƯỚC khi POST `/sync`, `pollSyncStatus` chỉ accept log có `id > baselineId`. Không bị match nhầm log success cũ. **Edge 3 (notify-image timing)**: `/notify-image-update` không còn `setTimeout 3s` cố định. Response trả ngay cho client, rồi `syncService.incrementalSync().finally(emitImageUpdate)` — emit SSE sau khi sync thực sự xong, có fallback timer 15s tránh treo nếu sync kẹt. **Edge 4 (toast consistency)**: thêm `_tposToast(throttle 5s)` cho `order-management/js/order-list.js` và `soluong-live/js/soluong-list.js` trong cùng handler SSE sẵn có. Hiện toast cho `sync_complete` (stats), `deactivated`, `image_update`. Dùng `window.notificationManager` sẵn có. |
+| **Status** | ✅ Done |
+
 ### [render][soluong-live] Fix bug: thêm Q163 lại đổ nhầm variants Q150 vào danh sách
 | | |
 |---|---|
@@ -21,6 +28,7 @@
 | **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
 | **Chi tiết** | Bug: user đổi tag XL (CHỜ HÀNG / ĐƠN CHƯA PHẢN HỒI…) nhưng ~15s sau hệ thống tự đánh lại "ĐÃ RA ĐƠN" dù đơn đã hủy + TPOS không còn đơn. Root cause: `_ptagStartPolling` (15s fallback khi SSE fail, line 774) gọi `loadProcessingTags()` → `backfillPtagFromOrderStatus()` thấy `InvoiceStatusStore.get(saleOnlineId)` trả entry stale (do `.delete()` chỉ xóa LATEST hoặc WS `handleInvoiceUpdate` re-insert sau ActionCancel) → fire `onPtagBillCreated` → set `category = HOAN_TAT`. Fix: thêm guard ngay đầu `onPtagBillCreated` (trước idempotency check line 1138): gọi `InvoiceStatusStore.getAll(saleOnlineId)`, chỉ cho set HOAN_TAT nếu có ≥1 entry active (`StateCode ∉ {cancel, IsMergeCancel}` và `IsMergeCancel !== true`). Nếu không → log `[PTAG] onPtagBillCreated skip ... — không có invoice active trong store` và return. Đây là nút thắt DUY NHẤT set HOAN_TAT trong codebase nên guard này chặn được mọi trigger oan (polling, WS stale, F5 backfill, race). Không đổi logic cancel flow hay bất kỳ file nào khác. |
 | **Status** | ✅ Done |
+
 
 ### [inbox] Fix TPOS NRE — 3 field cho social order: PaymentJournalId/DateDeposit/SaleOnlineIds ✅
 | | |

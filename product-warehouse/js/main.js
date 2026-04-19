@@ -14,8 +14,8 @@
     // Shared utilities alias
     const WS = window.WarehouseShared;
 
-    // SSE endpoint — same as web-warehouse, listens for TPOS product changes
-    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
+    // SSE endpoint — built from shared endpoints (single source of truth)
+    const SSE_URL = WS.buildSseUrl('web_warehouse');
     let sseCtrl = null;
 
     // =====================================================
@@ -55,7 +55,7 @@
         createdAt: 'created_at',
     };
 
-    const RENDER_API = 'https://n2store-fallback.onrender.com/api/v2/web-warehouse';
+    const RENDER_API = WS.WAREHOUSE_API; // https://.../api/v2/web-warehouse
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev'; // kept for edit/save operations
 
     // =====================================================
@@ -515,6 +515,14 @@
         btn.innerHTML = '<i data-lucide="refresh-cw"></i> Đang đồng bộ…';
         WS.initIcons();
 
+        // Capture baseline before triggering — so poll doesn't match a pre-existing log
+        let baselineId = 0;
+        try {
+            const baseRes = await fetch(`${RENDER_API}/sync/status`);
+            const baseJson = await baseRes.json().catch(() => ({}));
+            baselineId = baseJson?.lastSync?.id || 0;
+        } catch (_) { /* best effort */ }
+
         try {
             const res = await fetch(`${RENDER_API}/sync?type=full`, {
                 method: 'POST',
@@ -527,7 +535,7 @@
             }
 
             showToast('Đã bắt đầu đồng bộ TPOS. Đang chạy nền…', 'info');
-            pollSyncStatus(btn, originalLabel);
+            pollSyncStatus(btn, originalLabel, baselineId);
         } catch (err) {
             console.error('[SyncTPOS] Trigger failed:', err);
             showToast('Lỗi đồng bộ: ' + err.message, 'error');
@@ -535,7 +543,7 @@
         }
     }
 
-    function pollSyncStatus(btn, originalLabel) {
+    function pollSyncStatus(btn, originalLabel, baselineId = 0) {
         if (_syncPollTimer) clearInterval(_syncPollTimer);
 
         let ticks = 0;
@@ -548,7 +556,10 @@
                 const json = await res.json();
                 const last = json.lastSync;
 
-                if (last && last.sync_type === 'full') {
+                // Only accept a log row that is NEWER than the baseline captured before trigger
+                const isNewer = last && (last.id > baselineId);
+
+                if (isNewer && last.sync_type === 'full') {
                     if (last.status === 'success') {
                         clearInterval(_syncPollTimer);
                         _syncPollTimer = null;

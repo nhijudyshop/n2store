@@ -1642,6 +1642,18 @@ window.addEventListener('hashchange', () => {
 let _sseSource = null;
 let _sseImageTimer = null;
 
+// Toast throttle so multiple TPOS events in quick succession only show 1 toast
+let _sseToastAt = 0;
+function _tposToast(message, level = 'info') {
+    const now = Date.now();
+    if (now - _sseToastAt < 5000) return;
+    _sseToastAt = now;
+    const nm = window.notificationManager;
+    if (!nm) return;
+    const fn = nm[level] || nm.info;
+    try { fn.call(nm, message); } catch (_) {}
+}
+
 function setupImageSSE() {
     const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
     try {
@@ -1651,6 +1663,25 @@ function setupImageSSE() {
             try {
                 const payload = JSON.parse(e.data);
                 const action = payload?.data?.action;
+
+                // User-visible notification for TPOS sync events
+                if (action === 'sync_complete') {
+                    const stats = payload.data.stats || {};
+                    const changed = (stats.inserted || 0) + (stats.updated || 0);
+                    if (changed > 0 || stats.deactivated) {
+                        const parts = [];
+                        if (stats.inserted) parts.push(`+${stats.inserted} mới`);
+                        if (stats.updated)  parts.push(`${stats.updated} cập nhật`);
+                        if (stats.deactivated) parts.push(`${stats.deactivated} ngừng`);
+                        _tposToast(`TPOS đồng bộ: ${parts.join(', ')}`, 'success');
+                    }
+                    return;
+                }
+                if (action === 'deactivated') {
+                    _tposToast(`TPOS xóa sản phẩm (${payload.data.count || 1} biến thể)`, 'warning');
+                    return;
+                }
+
                 if (action !== 'image_update') return;
 
                 const tposProductId = payload.data.tposProductId;
@@ -1658,6 +1689,7 @@ function setupImageSSE() {
                 const timestamp = payload.data.timestamp || Date.now();
 
                 console.log('[SSE] Image update received:', { tposProductId, tposTemplateId });
+                _tposToast('TPOS cập nhật ảnh sản phẩm', 'info');
 
                 // Debounce — avoid rapid re-fetches
                 if (_sseImageTimer) clearTimeout(_sseImageTimer);

@@ -1487,26 +1487,46 @@ router.post('/notify-image-update', async (req, res) => {
 
     const timestamp = Date.now();
 
-    // Trigger incremental sync so Render DB picks up the new image_url from TPOS
-    if (syncService) {
-        syncService.incrementalSync().catch(err => {
-            console.warn('[WebWarehouse] Image sync trigger failed:', err.message);
-        });
-    }
+    // Return to caller immediately — sync is async and may take many seconds.
+    res.json({ success: true, timestamp });
 
-    // Broadcast SSE event after a short delay to allow sync to complete
-    setTimeout(() => {
+    // Trigger sync then broadcast image_update ONLY after sync completes,
+    // so clients don't re-fetch before the new image_url lands in Render DB.
+    // Fallback: if sync is already running or times out >15s, emit anyway with
+    // a best-effort timestamp.
+    const emitImageUpdate = () => {
         notifyWarehouseChange({
             action: 'image_update',
             tposProductId: tposProductId || null,
             tposTemplateId: tposTemplateId || null,
             timestamp,
         }, 'update');
-
         console.log(`[WebWarehouse] Image update notified: product=${tposProductId}, template=${tposTemplateId}`);
-    }, 3000);
+    };
 
-    res.json({ success: true, timestamp });
+    if (!syncService) {
+        emitImageUpdate();
+        return;
+    }
+
+    let emitted = false;
+    const fallbackTimer = setTimeout(() => {
+        if (!emitted) {
+            emitted = true;
+            console.warn('[WebWarehouse] Sync took >15s, emitting image_update anyway');
+            emitImageUpdate();
+        }
+    }, 15000);
+
+    syncService.incrementalSync()
+        .catch(err => console.warn('[WebWarehouse] Image sync trigger failed:', err.message))
+        .finally(() => {
+            clearTimeout(fallbackTimer);
+            if (!emitted) {
+                emitted = true;
+                emitImageUpdate();
+            }
+        });
 });
 
 // =====================================================
