@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix TPOS NRE "Object reference not set to an instance of an object" khi xác nhận sale ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | TPOS `InsertListOrderModel` reject với `Object reference not set to an instance of an object.` khi bấm Xác nhận và in (F9) trong modal sale từ Đơn Inbox. Root cause tiếp theo của fix Partner-is-null trước đó (commit a2daaf98): `currentSalePartnerData` được populate từ `fetchTPOSCustomer()` (endpoint `/api/sepay/tpos/customer/{phone}`) trả về shape rút gọn (id/name/address/phone/statusText) — **không có `ExtraAddress`**. `buildSaleOrderModelForInsertList()` (tab1-sale.js:1643) build `Partner.ExtraAddress: partner?.ExtraAddress || null`, gửi null → TPOS .NET server NRE khi dereference `Partner.ExtraAddress.City`. **Fix:** (1) Trong `openSaleModalInSocialTab()` (line 266) thêm safe default `ExtraAddress: { Street, City: {}, District: {}, Ward: {} }` sau khi map customer từ TPOS lookup. (2) Trong `syncPartnerAddressBeforeOrder()` (line 472) sau khi GET `/Partner({id})` thành công, copy `partnerData.ExtraAddress` (đầy đủ City/District/Ward thật) vào `currentSalePartnerData.ExtraAddress` để model gửi đi đúng. Cách 1 lo case không có sync (formAddress trống / sync fail), cách 2 cho data đầy đủ khi sync chạy được. **Verification:** `node --check` OK. |
+| **Status** | ✅ Done |
+
 ### [orders] Phone Widget — UI redesign + auto-reconnect + tones + quick ext switcher
 | | |
 |---|---|

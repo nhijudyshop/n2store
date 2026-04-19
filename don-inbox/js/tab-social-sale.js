@@ -273,6 +273,15 @@ async function openSaleModalInSocialTab(orderId) {
                     Customer: true,
                     Type: 'contact',
                     CompanyType: 'person',
+                    // Safe default — TPOS server NREs ("Object reference not set to an instance of an object")
+                    // when Partner.ExtraAddress is null. syncPartnerAddressBeforeOrder() may overwrite this
+                    // with the real ExtraAddress from GET /Partner({id}) before the order is created.
+                    ExtraAddress: {
+                        Street: c.address || order.address || '',
+                        City: {},
+                        District: {},
+                        Ward: {},
+                    },
                 };
                 mappedOrder.PartnerId = c.id;
                 console.log('[SOCIAL-SALE] TPOS partner found:', c.id, c.name);
@@ -470,6 +479,14 @@ async function syncPartnerAddressBeforeOrder() {
         }
 
         const partnerData = await getResponse.json();
+
+        // Pipe full ExtraAddress (with real City/District/Ward) into currentSalePartnerData so
+        // buildSaleOrderModelForInsertList() builds Partner.ExtraAddress properly. TPOS NREs when
+        // ExtraAddress is null/incomplete (the safe default from openSaleModalInSocialTab is empty objects).
+        if (currentSalePartnerData && partnerData.ExtraAddress) {
+            currentSalePartnerData.ExtraAddress = partnerData.ExtraAddress;
+        }
+
         const tposAddress = partnerData.Street || partnerData.FullAddress || '';
 
         // Compare: if same address, no need to update
