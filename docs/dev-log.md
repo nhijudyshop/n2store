@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [render] Optimize TPOS ↔ Web Warehouse realtime sync (Fix A/C/D) ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/sync-tpos-products.js`, `render.com/services/tpos-socket-listener.js` |
+| **Chi tiết** | Audit realtime sync 2 chiều TPOS (tomato.tpos.vn) ↔ Render Postgres ↔ Web product-warehouse UI. Kiến trúc: TPOS socket (rt-2.tpos.app/chatomni) → tpos-socket-listener debounce 3s → sync-tpos-products upsert web_warehouse → SSE notifyClients → browser EventSource reload. Backup: cron incrementalSync 30 phút. Fix 3 vấn đề: **(A)** `_syncSpecificTemplates` fetch ProductTemplate rồi `_syncTemplate` fetch lại cùng URL → thêm param `preloadedDetail` để skip duplicate → giảm 50% TPOS API calls cho socket-triggered syncs. **(C)** Deactivate logic trong `fullSync` chỉ mark inactive khi `quantity=0` → sản phẩm có tồn nhưng TPOS xóa vẫn active. Đổi thành `tpos_template_id IS NOT NULL AND last_synced_at < syncStartedAt` (guard để không deactivate entries tạo thủ công local). **(D)** `incrementalSync` chỉ fetch 200 template gần nhất → bulk import >200 miss. Thêm pagination (maxPages=10, pageSize=200, tổng 2000) với early-stop khi 1 trang toàn 'unchanged' (hash match) — vừa nhanh vừa bắt kịp bulk changes. |
+| **Status** | ✅ Done |
+
 ### [inbox] Revert round 1 + round 2 — match working tab1 payload exactly (Partner minimal, no City/District/Ward) ✅
 | | |
 |---|---|

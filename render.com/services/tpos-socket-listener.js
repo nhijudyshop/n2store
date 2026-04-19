@@ -357,10 +357,12 @@ class TPOSSocketListener {
                         UOMName: data.UOMName,
                     };
 
+                    // Pass pre-fetched detail to skip duplicate TPOS call inside _syncTemplate
                     await this.syncService._syncTemplate(
-                        { ...templateData, ProductVariants: data.ProductVariants },
+                        templateData,
                         syncStartedAt,
-                        stats
+                        stats,
+                        data
                     );
                     stats.templates++;
                 }

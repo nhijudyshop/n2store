@@ -177,11 +177,12 @@ class TPOSProductSync {
 
             } while (skip < totalTemplates);
 
-            // 3. Deactivate products not seen in this sync (no inventory)
+            // 3. Deactivate products originating from TPOS that were not seen in this full sync.
+            // Guard with tpos_template_id IS NOT NULL to avoid deactivating manual/local entries.
             const deactivated = await this.db.query(
                 `UPDATE web_warehouse SET active = false, updated_at = NOW()
-                 WHERE (last_synced_at IS NULL OR last_synced_at < $1)
-                   AND quantity = 0
+                 WHERE tpos_template_id IS NOT NULL
+                   AND (last_synced_at IS NULL OR last_synced_at < $1)
                    AND active = true`,
                 [syncStartedAt]
             );
@@ -208,10 +209,14 @@ class TPOSProductSync {
 
     /**
      * Sync a single template + its variants
+     * @param {Object} templateData - Basic template data
+     * @param {Date} syncStartedAt
+     * @param {Object} stats
+     * @param {Object|null} preloadedDetail - Optional pre-fetched detail (with ProductVariants) to skip extra TPOS call
      */
-    async _syncTemplate(templateData, syncStartedAt, stats) {
-        // Fetch full template with variants
-        const detail = await this._tposFetch(
+    async _syncTemplate(templateData, syncStartedAt, stats, preloadedDetail = null) {
+        // Use pre-fetched detail if provided (saves a round-trip to TPOS)
+        const detail = preloadedDetail || await this._tposFetch(
             `/api/odata/ProductTemplate(${templateData.Id})?$expand=ProductVariants($expand=AttributeValues)`
         );
 
@@ -397,37 +402,61 @@ class TPOSProductSync {
     // =====================================================
 
     /**
-     * Incremental sync: fetch recently created/updated templates
+     * Incremental sync: paginate recently updated templates.
+     * Stops early when a full page returns only 'unchanged' rows (hash match),
+     * which means we've reached the unchanged-history frontier.
+     *
+     * @param {Object} options
+     * @param {number} options.maxPages - hard cap on pages (default 10 = up to 2000 templates)
+     * @param {number} options.pageSize - templates per page (default 200)
      */
-    async incrementalSync() {
+    async incrementalSync(options = {}) {
+        const { maxPages = 10, pageSize = 200 } = options;
+
         if (this._isRunning) return { skipped: true };
         if (await this._isAlreadyRunning()) return { skipped: true };
 
         this._isRunning = true;
         const logId = await this._createSyncLog('incremental');
         const syncStartedAt = new Date();
-        const stats = { templates: 0, variants: 0, inserted: 0, updated: 0, unchanged: 0, errors: 0 };
+        const stats = { templates: 0, variants: 0, inserted: 0, updated: 0, unchanged: 0, errors: 0, pages: 0 };
 
         console.log('[SYNC] === Incremental sync started ===');
 
         try {
-            // Fetch most recent 200 templates
-            const data = await this._tposFetch(
-                `/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=200&$skip=0&$count=true&$orderby=DateCreated desc`
-            );
+            for (let page = 0; page < maxPages; page++) {
+                const skip = page * pageSize;
+                const data = await this._tposFetch(
+                    `/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=${pageSize}&$skip=${skip}&$count=true&$orderby=DateCreated desc`
+                );
 
-            const templates = data.value || [];
-            console.log(`[SYNC] Incremental: checking ${templates.length} recent templates`);
+                const templates = data.value || [];
+                if (templates.length === 0) break;
 
-            for (const template of templates) {
-                try {
-                    await this._syncTemplate(template, syncStartedAt, stats);
-                    stats.templates++;
-                } catch (err) {
-                    console.error(`[SYNC] Error syncing template ${template.Id}:`, err.message);
-                    stats.errors++;
+                stats.pages++;
+                const unchangedBefore = stats.unchanged;
+                console.log(`[SYNC] Incremental page ${page + 1}: ${templates.length} templates (skip=${skip})`);
+
+                for (const template of templates) {
+                    try {
+                        await this._syncTemplate(template, syncStartedAt, stats);
+                        stats.templates++;
+                    } catch (err) {
+                        console.error(`[SYNC] Error syncing template ${template.Id}:`, err.message);
+                        stats.errors++;
+                    }
+                    await this._delay(RATE_LIMIT_MS);
                 }
-                await this._delay(RATE_LIMIT_MS);
+
+                // Early-stop: if entire page was unchanged (hash match), older pages are too.
+                const unchangedThisPage = stats.unchanged - unchangedBefore;
+                if (unchangedThisPage === templates.length) {
+                    console.log('[SYNC] Incremental: full page unchanged, stopping pagination');
+                    break;
+                }
+
+                // No more pages if we fetched less than a full page
+                if (templates.length < pageSize) break;
             }
 
             await this._updateSyncLog(logId, 'success', stats);
