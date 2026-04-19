@@ -55,6 +55,23 @@ const PhoneWidget = (() => {
         try { const s = localStorage.getItem(STORAGE_KEY); if (s) return JSON.parse(s); } catch {}
         return { wsUrl: DEFAULTS.ws_url, extension: DEFAULTS.sip_extensions[0].ext, authId: DEFAULTS.sip_extensions[0].authId, password: DEFAULTS.sip_extensions[0].password };
     }
+
+    // Try override config with assigned ext (from PhoneExtAssignment). Returns true if config changed.
+    function applyAssignedExt() {
+        try {
+            const assign = window.PhoneExtAssignment;
+            if (!assign) return false;
+            const myExt = assign.getMyExt();
+            if (!myExt) return false;
+            if (config.extension === myExt) return false;
+            const ext = getExtensions().find(e => String(e.ext) === String(myExt));
+            if (!ext) return false;
+            config = { wsUrl: getWsUrl(), extension: ext.ext, authId: ext.authId, password: ext.password };
+            saveConfig();
+            updateExtChipLabel();
+            return true;
+        } catch { return false; }
+    }
     function saveConfig() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {} }
 
     async function loadFromDB() {
@@ -285,6 +302,7 @@ const PhoneWidget = (() => {
                         <div class="pw-f"><label>Mật khẩu</label><input id="pwPassInput" type="password" value="${config.password}"></div>
                     </div>
                     <button class="pw-save" onclick="PhoneWidget.applySettings()">Kết nối lại</button>
+                    <button class="pw-save pw-admin-btn" id="pwAdminBtn" onclick="PhoneWidget.openExtAssignment()" style="display:none;margin-top:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👥 Phân chia Ext nhân viên</button>
                 </div>
 
                 <!-- Incoming call banner -->
@@ -691,11 +709,16 @@ const PhoneWidget = (() => {
     function renderExtPickerList() {
         const list = document.getElementById('pwExtPickerList'); if (!list) return;
         const extensions = getExtensions();
-        list.innerHTML = extensions.map(e => `
+        const assign = window.PhoneExtAssignment;
+        list.innerHTML = extensions.map(e => {
+            const assignedUser = assign?.getUserForExt?.(e.ext) || '';
+            const userLabel = assignedUser ? `<span class="pw-ext-item-label">· ${assignedUser}</span>` : '';
+            return `
             <div class="pw-ext-item ${config.extension === e.ext ? 'active' : ''}" onclick="PhoneWidget.switchExt('${e.ext}')">
-                <span><span class="pw-ext-item-num">${e.ext}</span>${e.label && e.label !== 'Ext ' + e.ext ? `<span class="pw-ext-item-label">${e.label}</span>` : ''}</span>
+                <span><span class="pw-ext-item-num">${e.ext}</span>${userLabel}</span>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
     function toggleExtPicker(ev) {
         if (ev) ev.stopPropagation();
@@ -736,7 +759,17 @@ const PhoneWidget = (() => {
     }
     function updateExtChipLabel() {
         const el = document.getElementById('pwExtChipLabel');
-        if (el) el.textContent = `Ext ${config.extension}`;
+        if (!el) return;
+        let label = `Ext ${config.extension}`;
+        try {
+            const assignedUser = window.PhoneExtAssignment?.getUserForExt?.(config.extension);
+            if (assignedUser) {
+                // Trim long names to keep chip compact
+                const short = assignedUser.length > 10 ? assignedUser.slice(0, 10) + '…' : assignedUser;
+                label = `Ext ${config.extension} · ${short}`;
+            }
+        } catch {}
+        el.textContent = label;
     }
 
     // === HISTORY PANEL ===
@@ -817,7 +850,17 @@ const PhoneWidget = (() => {
     // === SETTINGS ===
     function toggleSettings() {
         const p = document.getElementById('pwSettings');
-        if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        if (!p) return;
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        // Show admin button only for admin users
+        const adminBtn = document.getElementById('pwAdminBtn');
+        if (adminBtn) {
+            const isAdmin = !!window.PhoneExtAssignment?.isAdmin?.();
+            adminBtn.style.display = isAdmin && p.style.display !== 'none' ? 'block' : 'none';
+        }
+    }
+    function openExtAssignment() {
+        try { window.PhoneExtAssignment?.openModal?.(); } catch (err) { addLog('Không mở được modal: ' + err.message, 'error'); }
     }
     function onExtChange() {
         const sel = document.getElementById('pwExtSelect');
@@ -886,6 +929,16 @@ const PhoneWidget = (() => {
     async function init() {
         if (phone) return;
         if (!dbConfig) await loadFromDB();
+        // Wait briefly for ext-assignment to be ready, then apply if user has one assigned
+        try {
+            if (window.PhoneExtAssignment) {
+                await Promise.race([
+                    window.PhoneExtAssignment.init(),
+                    new Promise(r => setTimeout(r, 2000))
+                ]);
+                applyAssignedExt();
+            }
+        } catch {}
         if (!config.wsUrl) config.wsUrl = getWsUrl();
         createWidget();
         try {
@@ -1221,6 +1274,21 @@ const PhoneWidget = (() => {
         setTimeout(() => init(), 3000);
     }
 
+    // When ext-assignment changes (admin reassigns), re-apply if current user got a new ext
+    if (window.PhoneExtAssignment?.onChange) {
+        window.PhoneExtAssignment.onChange(() => {
+            const assign = window.PhoneExtAssignment;
+            if (!assign) return;
+            updateExtChipLabel(); // refresh "Ext 107 · Name" on any change
+            const myExt = assign.getMyExt();
+            if (myExt && String(myExt) !== String(config.extension) && !currentSession) {
+                addLog(`Ext mới được phân chia: ${myExt} — đang kết nối lại`, 'success');
+                const f = getExtensions().find(e => String(e.ext) === String(myExt));
+                if (f) switchExt(f.ext);
+            }
+        });
+    }
+
     // Initialize FAB badge state on widget creation (attach to fabEl creation)
     function _initFabBadgeOnLoad() {
         // Defer until FAB exists
@@ -1235,7 +1303,7 @@ const PhoneWidget = (() => {
         init, makeCall, hangup, toggleMute, toggleSettings, applySettings, onExtChange,
         show, hide, toggle, toggleMinimize, dialFromInput, press, backspace,
         acceptIncoming, rejectIncoming,
-        toggleExtPicker, switchExt,
+        toggleExtPicker, switchExt, openExtAssignment,
         toggleHistory, clearHistory, callFromHistory, pasteFromClipboard,
         callCurrent: dialFromInput, isReady: () => isRegistered
     };

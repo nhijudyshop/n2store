@@ -20,6 +20,13 @@
 | **Chi tiết** | Sau round 2 (spread full Partner), TPOS vẫn NRE. F12 dump cho thấy `Partner.City: null, District: null, Ward: null` cho KH Pandora Kim (PartnerId=565675) — KH inbox được tạo qua /Partner mà chưa parse địa chỉ thành City/District/Ward entities. TPOS server fill `Ship_Receiver` từ Partner.City/District/Ward khi request gửi `Ship_Receiver: null` → dereference null → NRE. So sánh với KH tab1 (Hoa Đỗ Quyên) được tạo qua tab1 có parse đầy đủ → không NRE. **Fix:** gửi `Ship_Receiver` và `Ship_Extras` thành full struct trong `buildSaleOrderModelForInsertList` (giống tab1-fast-sale.js bulk). Ship_Receiver có Name/Phone/Street từ form + City/District/Ward dạng object có leaf null. Ship_Extras với 8 field PickWorkShift/etc. Cả 2 null-safe và TPOS không cần derive từ Partner nữa. Tab1 normal flow không regression vì giữ nguyên hành vi (object có leaves null, TPOS xử lý OK). |
 | **Status** | ✅ Done |
 
+### [orders] Phone Ext Assignment — phân chia extension cho nhân viên (Firestore sync)
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-ext-assignment.js` (new), `orders-report/js/phone-widget.js`, `orders-report/tab1-orders.html` |
+| **Chi tiết** | Module mới `PhoneExtAssignment` — map `displayName → ext` trong Firestore collection `phone_ext_assignments/assignments` (shape `{data:{name→ext}, lastUpdated}`). Pattern theo `DATA-SYNCHRONIZATION.md`: Firestore source of truth + realtime listener + localStorage cache fallback. **API**: `init()`, `getMyExt()` (của user đang login), `getUserForExt(ext)` reverse lookup, `setAssignment/removeAssignment`, `getAll()`, `onChange(fn)`, `isAdmin()`, `openModal()/closeModal()`. **Admin modal**: list tất cả users từ `userEmployeeLoader` (Firestore `users`), mỗi row dropdown "Ext 101 · Label" để gán, auto-save `merge:true` khi chọn, conflict detection — nếu ext đã thuộc người khác → confirm "Chuyển sang X?" + tự remove khỏi người cũ. `openModal` check `checkLogin===0`, non-admin alert từ chối. **Integration với phone-widget**: (1) `applyAssignedExt()` trong `init()` — nếu user có ext được gán, override `config.extension/authId/password` trước khi connect (có race: chờ `PhoneExtAssignment.init()` tối đa 2s). (2) Ext chip label: "Ext 107 · Quỳnh" khi ext đó được gán. (3) Picker list hiện `· Tên` sau mỗi ext đã gán. (4) Settings panel thêm button tím "👥 Phân chia Ext nhân viên" (chỉ admin thấy via `isAdmin()`). (5) Realtime: `onChange` listener — nếu admin đổi ext của mình → auto `switchExt` ngay, `updateExtChipLabel` cho mọi change. |
+| **Status** | ✅ Done |
+
 ### [orders] Phone Widget — Call history, missed badge, VN phone auto-format, paste, keyboard shortcuts, name lookup
 | | |
 |---|---|
