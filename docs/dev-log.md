@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [orders] Phone Widget — UI redesign + auto-reconnect + tones + quick ext switcher
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-widget.js` |
+| **Chi tiết** | Rewrite toàn bộ softphone widget: **(UI)** Widget 320px dark-glass gradient, status dot animated (registered pulse xanh / calling pulse cam / error đỏ), status bar tiếng Việt rõ ràng ("Đang đổ chuông...", "Đã kết nối", "Ext 107 • Sẵn sàng"), caller avatar glow khi call, dialpad nút lớn với hover lift-shadow, FAB shake khi có cuộc gọi đến. **(Auto-reconnect)** `registrationFailed`/`disconnected`/`unregistered` → `scheduleReconnect()` exponential backoff 1→2→4→...→max 30s, reset khi `registered`, countdown trên status. **(Audio tones — Web Audio API)** `startRingback()` 425Hz 1s/4s (VN ring), `playAnsweredTone()` beep 600→1000Hz khi accepted, `playHangupTone()` beep 800→300Hz khi ended/failed, `startIncomingRing()` two-tone 520/660Hz loop, `playKeypadClick()` 880Hz khi bấm phím. **(Incoming như điện thoại thật)** Bỏ auto-answer → hiện banner "Cuộc gọi đến" + số gọi + 2 nút Accept/Reject; đang bận auto-reject 486. **(Quick ext switcher)** Chip "Ext 107 ▾" pill xanh trên header — click mở popover list all extensions, chọn → `switchExt()` disconnect + reconnect ngay; ext hiện tại highlight ✓; chặn đổi khi đang call. Public API thêm `acceptIncoming`, `rejectIncoming`, `toggleExtPicker`, `switchExt`. |
+| **Status** | ✅ Done |
+
 ### [orders] Audit & fix: calculateActualClosedStats cũng dùng SL=0 cho 'giỏ trống'
 | | |
 |---|---|
