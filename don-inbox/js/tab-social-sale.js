@@ -263,6 +263,9 @@ async function openSaleModalInSocialTab(orderId) {
             const result = await window.fetchTPOSCustomer(phone);
             if (result && result.success && result.count > 0) {
                 const c = result.customers[0];
+                // Match working tab1 payload exactly — minimal Partner shape, no City/District/Ward,
+                // no nested ExtraAddress. Spreading full TPOS Partner caused TPOS to NRE on null
+                // top-level City/District/Ward dereferences.
                 currentSalePartnerData = {
                     Id: c.id,
                     Name: c.name || order.customerName || '',
@@ -273,15 +276,6 @@ async function openSaleModalInSocialTab(orderId) {
                     Customer: true,
                     Type: 'contact',
                     CompanyType: 'person',
-                    // Safe default — TPOS server NREs ("Object reference not set to an instance of an object")
-                    // when Partner.ExtraAddress is null. syncPartnerAddressBeforeOrder() may overwrite this
-                    // with the real ExtraAddress from GET /Partner({id}) before the order is created.
-                    ExtraAddress: {
-                        Street: c.address || order.address || '',
-                        City: {},
-                        District: {},
-                        Ward: {},
-                    },
                 };
                 mappedOrder.PartnerId = c.id;
                 console.log('[SOCIAL-SALE] TPOS partner found:', c.id, c.name);
@@ -479,14 +473,6 @@ async function syncPartnerAddressBeforeOrder() {
         }
 
         const partnerData = await getResponse.json();
-
-        // Promote the full partnerData onto currentSalePartnerData so buildSaleOrderModelForInsertList
-        // (which now spreads partner) sends every field TPOS expects (City/District/Ward/RowVersion/
-        // BankAccounts/...). The minimal struct from openSaleModalInSocialTab causes TPOS NRE.
-        if (currentSalePartnerData) {
-            Object.assign(currentSalePartnerData, partnerData);
-        }
-
         const tposAddress = partnerData.Street || partnerData.FullAddress || '';
 
         // Compare: if same address, no need to update

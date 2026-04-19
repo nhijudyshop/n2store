@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Revert round 1 + round 2 — match working tab1 payload exactly (Partner minimal, no City/District/Ward) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js`, `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | Sau khi user capture working payload cho thấy `Partner` chỉ 10 field (Id/Name/DisplayName/Street/Phone/Customer/Type/CompanyType/DateCreated/ExtraAddress:null), KHÔNG có City/District/Ward top-level. Round 2 spread `...(partner || {})` ADD City/District/Ward null từ /Partner({id}) GET vào Partner object → TPOS server thấy `Partner.City: null` → cố dereference → NRE. Round 1 ExtraAddress safe default cũng tạo nested City/District/Ward objects mà working pattern không có. **Fix:** revert cả round 1 + 2 — Partner minimal exactly như tab1, ExtraAddress: null. Bỏ luôn `Object.assign(currentSalePartnerData, partnerData)` trong syncPartnerAddressBeforeOrder. User dặn "đừng sửa/bỏ/thêm payload" → tuân thủ. |
+| **Status** | ✅ Done |
+
 ### [inbox] Revert round 3 — working tab1 payload cũng gửi Ship_Receiver/Ship_Extras null ✅
 | | |
 |---|---|
