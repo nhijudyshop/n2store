@@ -455,6 +455,50 @@
     }
 
     // =====================================================
+    // SSE SYNC NOTIFICATION (throttled)
+    // =====================================================
+    let _lastToastAt = 0;
+    const TOAST_THROTTLE_MS = 5000;
+
+    function showSyncNotification(payload) {
+        const data = payload?.data;
+        if (!data) return;
+
+        // Throttle to avoid spam when many events arrive in quick succession
+        const now = Date.now();
+        if (now - _lastToastAt < TOAST_THROTTLE_MS) return;
+
+        const action = data.action;
+        let message = null;
+        let level = 'info';
+
+        if (action === 'sync_complete') {
+            const stats = data.stats || {};
+            const changed = (stats.inserted || 0) + (stats.updated || 0);
+            const typeLabel = data.syncType === 'full' ? 'toàn bộ' :
+                              data.syncType === 'realtime' ? 'realtime' : 'định kỳ';
+            if (changed === 0 && !stats.deactivated) return; // nothing interesting
+            const parts = [];
+            if (stats.inserted) parts.push(`+${stats.inserted} mới`);
+            if (stats.updated)  parts.push(`${stats.updated} cập nhật`);
+            if (stats.deactivated) parts.push(`${stats.deactivated} ngừng`);
+            message = `Đồng bộ TPOS (${typeLabel}): ${parts.join(', ') || 'không đổi'}`;
+            level = 'success';
+        } else if (action === 'deactivated') {
+            message = `TPOS xóa sản phẩm (${data.count || 1} biến thể)`;
+            level = 'warning';
+        } else if (action === 'image_update') {
+            message = 'TPOS cập nhật ảnh sản phẩm';
+            level = 'info';
+        }
+
+        if (message) {
+            showToast(message, level);
+            _lastToastAt = now;
+        }
+    }
+
+    // =====================================================
     // MANUAL TPOS FULL SYNC
     // =====================================================
     let _syncPollTimer = null;
@@ -1391,6 +1435,10 @@
         // SSE real-time: auto-refresh when TPOS products change
         sseCtrl = WS.setupSSE({
             sseUrl: SSE_URL,
+            onEvent: (payload) => {
+                // Show a non-intrusive toast so user knows sync happened in the background
+                showSyncNotification(payload);
+            },
             onReload: () => {
                 console.log('[ProductWarehouse] SSE triggered refresh');
                 variantCache = {}; // Clear variant cache on TPOS change

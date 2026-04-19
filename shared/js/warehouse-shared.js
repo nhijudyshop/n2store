@@ -115,7 +115,8 @@
      *
      * @param {Object} options
      * @param {string} options.sseUrl - SSE endpoint URL
-     * @param {Function} options.onReload - Called when data should be reloaded
+     * @param {Function} options.onReload - Called when data should be reloaded. Receives last payload.
+     * @param {Function} [options.onEvent] - Optional: called for every event BEFORE debounce. Receives parsed payload.
      * @param {string[]} [options.ignoreActions] - Actions to skip (e.g. ['qty_change', 'update'])
      * @param {number} [options.debounceMs=2000] - Debounce reload calls
      * @returns {{ close: Function, mute: Function }} Control object
@@ -124,6 +125,7 @@
         const {
             sseUrl,
             onReload,
+            onEvent,
             ignoreActions = [],
             debounceMs = 2000,
         } = options;
@@ -131,6 +133,7 @@
         let source = null;
         let reloadTimer = null;
         let muteUntil = 0;
+        let lastPayload = null;
 
         function connect() {
             if (source) { source.close(); source = null; }
@@ -142,18 +145,25 @@
                     // Skip if muted (own action)
                     if (Date.now() < muteUntil) return;
 
+                    let payload = null;
+                    try { payload = JSON.parse(e.data); } catch (_) {}
+
                     // Check for ignored actions
-                    if (ignoreActions.length > 0) {
-                        try {
-                            const payload = JSON.parse(e.data);
-                            const action = payload?.data?.action;
-                            if (ignoreActions.includes(action)) return;
-                        } catch (_) {}
+                    if (ignoreActions.length > 0 && payload) {
+                        const action = payload?.data?.action;
+                        if (ignoreActions.includes(action)) return;
+                    }
+
+                    lastPayload = payload;
+
+                    // Notify caller about the raw event before debounce
+                    if (typeof onEvent === 'function') {
+                        try { onEvent(payload); } catch (err) { console.warn('[SSE] onEvent error:', err); }
                     }
 
                     // Debounced reload
                     if (reloadTimer) clearTimeout(reloadTimer);
-                    reloadTimer = setTimeout(() => onReload(), debounceMs);
+                    reloadTimer = setTimeout(() => onReload(lastPayload), debounceMs);
                 };
 
                 source.addEventListener('update', handleEvent);

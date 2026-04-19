@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [web] Product Warehouse — toast notification khi SSE realtime sync ✅
+| | |
+|---|---|
+| **Files** | `shared/js/warehouse-shared.js`, `product-warehouse/js/main.js`, `product-warehouse/index.html` |
+| **Chi tiết** | **(1)** Fix icon lucide `cloud-download` không tồn tại → đổi sang `cloud`. **(2)** Extend `setupSSE` với `onEvent(payload)` callback — được gọi trước debounce, truyền raw payload cho caller. Giữ backward-compat: `onReload` giờ nhận `lastPayload` làm arg. **(3)** Thêm `showSyncNotification(payload)` trong product-warehouse, nhận diện 3 action: `sync_complete` (hiện stats inserted/updated/deactivated + label realtime/full/định kỳ), `deactivated` (TPOS xóa sản phẩm), `image_update` (ảnh mới). Throttle 5s để tránh spam toast khi nhiều event liên tiếp. Skip toast nếu không có thay đổi thực sự (changed=0 && deactivated=0). |
+| **Status** | ✅ Done |
+
 ### [web] Product Warehouse — nút "Đồng bộ TPOS" thủ công ✅
 | | |
 |---|---|
