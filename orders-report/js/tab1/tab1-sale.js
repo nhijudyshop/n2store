@@ -1466,13 +1466,8 @@ function buildSaleOrderModelForInsertList() {
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
-        // SaleOnlineIds: tab1 uses real TPOS SaleOnline UUID; social orders generate a fresh
-        // UUID so TPOS post-save hooks see a non-empty Collection(Edm.Guid) entry.
-        SaleOnlineIds: order.Id && !order._isSocialOrder
-            ? [order.Id]
-            : (order._isSocialOrder && typeof crypto !== 'undefined' && crypto.randomUUID
-                ? [crypto.randomUUID()]
-                : []),
+        // SaleOnlineIds: tab1 uses real TPOS SaleOnline UUID; social orders send null per user spec.
+        SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : null,
         // SaleOnlineNames is plain string list — fall back to social id so TPOS sees a non-empty name.
         SaleOnlineNames: order.Code
             ? [order.Code]
