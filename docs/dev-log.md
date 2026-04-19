@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [web] Product Warehouse — nút "Đồng bộ TPOS" thủ công ✅
+| | |
+|---|---|
+| **Files** | `product-warehouse/index.html`, `product-warehouse/css/warehouse.css`, `product-warehouse/js/main.js` |
+| **Chi tiết** | Thêm button "Đồng bộ TPOS" (xanh dương, icon cloud-download) vào toolbar product-warehouse, giữa "Tải lại" và "In mã vạch". Click → confirm → POST `/api/v2/web-warehouse/sync?type=full` (endpoint backend đã có sẵn). Button disable + spinner rotate trong lúc sync. Poll `/sync/status` mỗi 5s, max 10 phút, detect `lastSync.sync_type='full' && status='success'` → hiện toast stats (inserted/updated/deactivated) + fetchProducts refresh UI. Nếu `failed` → toast error với message. Timeout 10 phút → warning toast. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix TPOS NRE round 4 — populate Reference/SaleOnlineName/SaleOnlineNames cho social ✅
 | | |
 |---|---|

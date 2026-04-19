@@ -455,6 +455,98 @@
     }
 
     // =====================================================
+    // MANUAL TPOS FULL SYNC
+    // =====================================================
+    let _syncPollTimer = null;
+
+    async function triggerFullTPOSSync() {
+        const btn = $('#btnSyncTPOS');
+        if (!btn || btn.disabled) return;
+
+        if (!confirm('Đồng bộ toàn bộ sản phẩm từ TPOS?\nThao tác này có thể mất vài phút (~4500 sản phẩm).')) return;
+
+        btn.disabled = true;
+        btn.classList.add('syncing');
+        const originalLabel = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="refresh-cw"></i> Đang đồng bộ…';
+        WS.initIcons();
+
+        try {
+            const res = await fetch(`${RENDER_API}/sync?type=full`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const json = await res.json().catch(() => ({}));
+
+            if (!res.ok || !json.success) {
+                throw new Error(json.error || `HTTP ${res.status}`);
+            }
+
+            showToast('Đã bắt đầu đồng bộ TPOS. Đang chạy nền…', 'info');
+            pollSyncStatus(btn, originalLabel);
+        } catch (err) {
+            console.error('[SyncTPOS] Trigger failed:', err);
+            showToast('Lỗi đồng bộ: ' + err.message, 'error');
+            restoreSyncButton(btn, originalLabel);
+        }
+    }
+
+    function pollSyncStatus(btn, originalLabel) {
+        if (_syncPollTimer) clearInterval(_syncPollTimer);
+
+        let ticks = 0;
+        const MAX_TICKS = 120; // 120 * 5s = 10 phút timeout
+
+        _syncPollTimer = setInterval(async () => {
+            ticks++;
+            try {
+                const res = await fetch(`${RENDER_API}/sync/status`);
+                const json = await res.json();
+                const last = json.lastSync;
+
+                if (last && last.sync_type === 'full') {
+                    if (last.status === 'success') {
+                        clearInterval(_syncPollTimer);
+                        _syncPollTimer = null;
+                        const stats = last.stats || {};
+                        showToast(
+                            `Đồng bộ xong: +${stats.inserted || 0} mới, ${stats.updated || 0} cập nhật, ${stats.deactivated || 0} ngừng hiệu lực`,
+                            'success'
+                        );
+                        restoreSyncButton(btn, originalLabel);
+                        fetchProducts(true);
+                        return;
+                    }
+                    if (last.status === 'failed') {
+                        clearInterval(_syncPollTimer);
+                        _syncPollTimer = null;
+                        showToast('Đồng bộ thất bại: ' + (last.error_message || 'unknown'), 'error');
+                        restoreSyncButton(btn, originalLabel);
+                        return;
+                    }
+                }
+
+                if (ticks >= MAX_TICKS) {
+                    clearInterval(_syncPollTimer);
+                    _syncPollTimer = null;
+                    showToast('Đồng bộ quá lâu, kiểm tra server log', 'warning');
+                    restoreSyncButton(btn, originalLabel);
+                }
+            } catch (err) {
+                console.warn('[SyncTPOS] Poll error:', err.message);
+            }
+        }, 5000);
+    }
+
+    function restoreSyncButton(btn, originalLabel) {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.classList.remove('syncing');
+        btn.innerHTML = originalLabel;
+        WS.initIcons();
+    }
+
+    // =====================================================
     // API - Fetch products from Render DB
     // =====================================================
     async function fetchProducts(silent = false) {
@@ -920,6 +1012,9 @@
         $('#refreshButton')?.addEventListener('click', () => {
             fetchProducts();
         });
+
+        // Sync TPOS full (manual)
+        $('#btnSyncTPOS')?.addEventListener('click', triggerFullTPOSSync);
 
         // Column settings modal
         $('#btnColumnSettings')?.addEventListener('click', openColumnSettings);
