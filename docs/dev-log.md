@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [orders] Phone Widget — Call history, missed badge, VN phone auto-format, paste, keyboard shortcuts, name lookup
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-widget.js` |
+| **Chi tiết** | Phase 1 UX: **(Call history)** Panel lịch sử cuộc gọi 50 entries gần nhất (localStorage `phoneWidget_history`), toggle qua nút 🕐 trên header, mỗi item có direction icon (↗ out / ↙ in / ✕ missed), tên KH, SĐT format, thời gian relative, thời lượng, click để gọi lại. Log auto cho mọi cuộc gọi (makeCall outgoing, acceptIncoming incoming, rejectIncoming rejected, ended với duration). **(Missed call badge)** Đếm cuộc nhỡ vào localStorage `phoneWidget_missed`, badge đỏ với số trên FAB (top-right), auto-clear khi mở widget hoặc history panel. **(Auto-format VN phone)** `formatVNPhone()` pattern 3-3-4 cho số 10 chữ / 4-3-4 cho số 11 / nhóm +84. Input listener format live khi gõ, preserve caret position. **(Name lookup)** `lookupCustomerName()` + `lookupOrderCode()` scan `window.allOrders` by phone → hiện tên KH + mã đơn trong sub-line dưới input (xanh khi có đơn). Auto-lookup khi user gõ số thủ công hoặc nhận cuộc gọi đến. `makeCall(phone, name, orderCode)` — fallback lookup nếu caller không truyền. **(Clipboard paste)** Nút 📋 bên trong ô input đọc clipboard + auto-format. **(Keyboard shortcuts)** `Ctrl+Shift+C` toggle widget, `Esc` = reject incoming / hangup, `Enter` = accept incoming, `Space` = toggle mute khi đang call (skip khi đang typing). Public API thêm `toggleHistory`, `clearHistory`, `callFromHistory`, `pasteFromClipboard`. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix TPOS NRE round 2 — gửi full Partner object (City/District/Ward/RowVersion/...) ✅
 | | |
 |---|---|
