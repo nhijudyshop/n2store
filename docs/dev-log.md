@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix HTTP 400 social order — OMIT `SaleOnlineIds` (undefined) thay vì gửi null/[]
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | Đơn social inbox `SO-20260419-1860` fail HTTP 400 từ TPOS `InsertListOrderModel`: `parameters: A null value was found for the property named 'SaleOnlineIds', which has the expected type 'Collection(Edm.Guid)[Nullable=False]'`. Lịch sử thử: (1) `[]` → fail; (2) `[order.Id]` với social Id `"SO-..."` → fail (không phải Guid format); (3) `[crypto.randomUUID()]` (commit fbf0b6b5) → fail (UUID không tồn tại trên TPOS); (4) `null` (commit 822a29f0) → fail (Nullable=False reject literal null). **Fix cuối**: gán `undefined` → `JSON.stringify` tự động bỏ key khỏi payload → TPOS không thấy field → bypass validate Nullable=False. Code: `SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : undefined`. Tab1 normal flow KHÔNG đổi (vẫn `[order.Id]` vì có UUID thật). Chỉ social orders mới bị omit field. |
+| **Status** | ✅ Done — chờ user test |
+
 ### [render,web] TPOS sync edge-case round 3 — Edge 1/2/3/4 ✅
 | | |
 |---|---|

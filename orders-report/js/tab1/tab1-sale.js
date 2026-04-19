@@ -1466,8 +1466,10 @@ function buildSaleOrderModelForInsertList() {
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
-        // SaleOnlineIds: tab1 uses real TPOS SaleOnline UUID; social orders send null per user spec.
-        SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : null,
+        // SaleOnlineIds: tab1 sends real TPOS SaleOnline UUID. Social orders OMIT the field
+        // entirely (undefined → JSON.stringify drops the key). Sending [] or null both fail
+        // because TPOS schema is Collection(Edm.Guid)[Nullable=False] and rejects empty/null.
+        SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : undefined,
         // SaleOnlineNames is plain string list — fall back to social id so TPOS sees a non-empty name.
         SaleOnlineNames: order.Code
             ? [order.Code]
