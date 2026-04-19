@@ -1567,37 +1567,8 @@ function buildSaleOrderModelForInsertList() {
         WiInvoiceTrackingUrl: '',
         WiInvoiceIsReplate: false,
         FormAction: null,
-        // Ship_Receiver / Ship_Extras: TPOS server otherwise derives these from Partner.City/District/Ward;
-        // when those are null (e.g. inbox customers whose address was never parsed), the derivation NREs.
-        // Sending fully-shaped placeholders with null leaf values prevents the dereference crash.
-        Ship_Receiver: {
-            IsNewAddress: false,
-            Name: receiverName,
-            Phone: receiverPhone,
-            Street: receiverAddress,
-            City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
-            District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
-            Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
-            ExtraAddress: partner?.ExtraAddress || {
-                Street: receiverAddress,
-                NewStreet: null,
-                City: { name: null, nameNoSign: null, code: null },
-                District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
-                Ward: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null, districtName: null, districtCode: null },
-                NewCity: null,
-                NewWard: null,
-            },
-        },
-        Ship_Extras: {
-            PickWorkShift: null,
-            PickWorkShiftName: null,
-            DeliverWorkShift: null,
-            DeliverWorkShiftName: null,
-            PaymentTypeId: null,
-            PosId: null,
-            IsDropoff: false,
-            IsInsurance: false,
-        },
+        Ship_Receiver: null,
+        Ship_Extras: null,
         PaymentInfo: [],
         Search: null,
         ShipmentDetailsAship: {

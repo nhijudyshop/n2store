@@ -8,7 +8,12 @@
 
 ## 2026-04-19
 
-### [inbox] Fix TPOS NRE round 3 — gửi Ship_Receiver/Ship_Extras full struct (Partner.City null) ✅
+### [inbox] Revert round 3 — working tab1 payload cũng gửi Ship_Receiver/Ship_Extras null ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | User capture được working request từ tab1 main.html (KH Huỳnh Thành Đạt, đơn NJD/2026/62316 thành công). Payload working cũng gửi `Ship_Receiver: null, Ship_Extras: null` và `Partner: { Id, Name, DisplayName, Street, Phone, Customer, Type, CompanyType, DateCreated, ExtraAddress: null }` — minimal y hệt social. Vậy round 3 fix (full Ship_Receiver struct) **không cần thiết** và lệch với pattern working. Revert về `Ship_Receiver: null, Ship_Extras: null`. **Khác biệt thật giữa working vs broken:** `SaleOnlineIds` (UUID vs `[]`), `Reference` ("260303709" vs ""), `LiveCampaignId` (uuid vs null), `PartnerFacebookId` (FB ID vs null). Hypothesis: TPOS InsertListOrderModel với `is_approve:true` cần SaleOnlineIds non-empty cho post-save hook (update SaleOnline status), `is_approve:true` + `SaleOnlineIds:[]` → NRE. Round 2 (spread Partner) giữ nguyên vì spread trên minimal partner cũng cho minimal output, an toàn. |
+| **Status** | ✅ Done |
 | | |
 |---|---|
 | **Files** | `orders-report/js/tab1/tab1-sale.js` |
