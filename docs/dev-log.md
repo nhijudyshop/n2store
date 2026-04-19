@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix TPOS NRE round 3 — gửi Ship_Receiver/Ship_Extras full struct (Partner.City null) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | Sau round 2 (spread full Partner), TPOS vẫn NRE. F12 dump cho thấy `Partner.City: null, District: null, Ward: null` cho KH Pandora Kim (PartnerId=565675) — KH inbox được tạo qua /Partner mà chưa parse địa chỉ thành City/District/Ward entities. TPOS server fill `Ship_Receiver` từ Partner.City/District/Ward khi request gửi `Ship_Receiver: null` → dereference null → NRE. So sánh với KH tab1 (Hoa Đỗ Quyên) được tạo qua tab1 có parse đầy đủ → không NRE. **Fix:** gửi `Ship_Receiver` và `Ship_Extras` thành full struct trong `buildSaleOrderModelForInsertList` (giống tab1-fast-sale.js bulk). Ship_Receiver có Name/Phone/Street từ form + City/District/Ward dạng object có leaf null. Ship_Extras với 8 field PickWorkShift/etc. Cả 2 null-safe và TPOS không cần derive từ Partner nữa. Tab1 normal flow không regression vì giữ nguyên hành vi (object có leaves null, TPOS xử lý OK). |
+| **Status** | ✅ Done |
+
 ### [orders] Phone Widget — Call history, missed badge, VN phone auto-format, paste, keyboard shortcuts, name lookup
 | | |
 |---|---|
