@@ -1638,16 +1638,20 @@ function buildSaleOrderModelForInsertList() {
             ReturnTotal: 0,
             ConversionPrice: null,
         })),
+        // Spread full partner (when available from TPOS GET) so City/District/Ward/RowVersion/...
+        // are present — TPOS NREs ("Object reference not set to an instance of an object.") when
+        // the minimal struct is sent for an existing PartnerId. Form-edited fields override last.
         Partner: {
+            ...(partner || {}),
             Id: partner?.Id || order.PartnerId || 0,
             Name: receiverName,
             DisplayName: receiverName,
             Street: receiverAddress,
             Phone: receiverPhone,
             Customer: true,
-            Type: 'contact',
-            CompanyType: 'person',
-            DateCreated: new Date().toISOString(),
+            Type: partner?.Type || 'contact',
+            CompanyType: partner?.CompanyType || 'person',
+            DateCreated: partner?.DateCreated || new Date().toISOString(),
             ExtraAddress: partner?.ExtraAddress || null,
         },
         Carrier: {

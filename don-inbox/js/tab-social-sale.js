@@ -480,11 +480,11 @@ async function syncPartnerAddressBeforeOrder() {
 
         const partnerData = await getResponse.json();
 
-        // Pipe full ExtraAddress (with real City/District/Ward) into currentSalePartnerData so
-        // buildSaleOrderModelForInsertList() builds Partner.ExtraAddress properly. TPOS NREs when
-        // ExtraAddress is null/incomplete (the safe default from openSaleModalInSocialTab is empty objects).
-        if (currentSalePartnerData && partnerData.ExtraAddress) {
-            currentSalePartnerData.ExtraAddress = partnerData.ExtraAddress;
+        // Promote the full partnerData onto currentSalePartnerData so buildSaleOrderModelForInsertList
+        // (which now spreads partner) sends every field TPOS expects (City/District/Ward/RowVersion/
+        // BankAccounts/...). The minimal struct from openSaleModalInSocialTab causes TPOS NRE.
+        if (currentSalePartnerData) {
+            Object.assign(currentSalePartnerData, partnerData);
         }
 
         const tposAddress = partnerData.Street || partnerData.FullAddress || '';

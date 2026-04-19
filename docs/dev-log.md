@@ -8,6 +8,13 @@
 
 ## 2026-04-19
 
+### [inbox] Fix TPOS NRE round 2 — gửi full Partner object (City/District/Ward/RowVersion/...) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js`, `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | Sau fix round 1 (populate ExtraAddress), TPOS vẫn NRE. F12 console intercept InsertListOrderModel cho thấy: `Partner` chỉ có 10 fields (Id, Name, DisplayName, Street, Phone, Customer, Type, CompanyType, DateCreated, ExtraAddress) — TPOS expect full Partner với rất nhiều field khác (City/District/Ward top-level, RowVersion, BankAccounts, Status, FullName, Fax, ...). Fix: (1) `buildSaleOrderModelForInsertList` (tab1-sale.js:1641) — spread full `partner` object trước, override các field do form edit (Name/Phone/Street/...). (2) `syncPartnerAddressBeforeOrder` (tab-social-sale.js:486) — đổi từ chỉ copy ExtraAddress sang `Object.assign(currentSalePartnerData, partnerData)` để promote toàn bộ partner data từ TPOS GET. tab1's normal flow cũng được hưởng lợi vì `currentSalePartnerData` của họ từ orderDetails.partner cũng đã là full object. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix `saleOnlineId is not defined` ReferenceError + verbose debug log cho TPOS error ✅
 | | |
 |---|---|
