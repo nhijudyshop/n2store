@@ -852,6 +852,7 @@ function calculateActualClosedStats(orders) {
     orders.forEach(order => {
         const statusText = order.StatusText || order.Status || '';
         const orderTags = parseOrderTags(order.Tags);
+        const productCount = order.Details?.length || 0;
         const matchedClosedTags = [];
 
         // Check if order has "Đơn hàng" status
@@ -862,11 +863,22 @@ function calculateActualClosedStats(orders) {
             result.breakdown.ordered.orders.push(order);
         }
 
+        // (2026-04-18) GIỎ TRỐNG: định nghĩa = đơn SL=0 (không match TPOS tag nữa)
+        if (productCount === 0) {
+            matchedClosedTags.push({
+                pattern: 'giỏ trống',
+                displayName: 'GIỎ TRỐNG',
+                color: '#f59e0b',
+                originalTag: 'GIỎ TRỐNG (SL=0)'
+            });
+        }
+
         // Check each closed tag pattern
         orderTags.forEach(orderTag => {
             const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
 
             CLOSED_TAG_PATTERNS.forEach(pattern => {
+                if (pattern.pattern === 'giỏ trống') return; // đã xử lý theo SL=0
                 let matches = false;
                 if (pattern.type === 'startsWith') {
                     matches = tagName.startsWith(pattern.pattern);

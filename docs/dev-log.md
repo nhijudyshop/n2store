@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-19
+
+### [orders] Audit & fix: calculateActualClosedStats cũng dùng SL=0 cho 'giỏ trống'
+| | |
+|---|---|
+| **Files** | `orders-report/js/overview/overview-statistics.js` |
+| **Chi tiết** | Audit lại toàn bộ logic GIỎ TRỐNG, phát hiện `calculateActualClosedStats` (Closed Orders Stats — flow riêng dùng `LIVE_TAG_PATTERNS` / `CLOSED_TAG_PATTERNS`) vẫn pattern match `'giỏ trống'` trên TPOS tag → sẽ luôn 0 vì tag đã bỏ. **Fix:** trong vòng lặp orders, nếu `productCount === 0` push thẳng matchedClosedTag pattern `'giỏ trống'` (originalTag = 'GIỎ TRỐNG (SL=0)'); skip pattern match `'giỏ trống'` trong vòng tag loop để tránh double-count. `DEFAULT_TRACKED_TAGS` (UI customizable list — user tự bật/tắt tag để track) giữ nguyên — pattern 'giỏ trống' ở đó sẽ tự count = 0, low impact. `tab1-fast-sale.js` xài `TotalQuantity === 0` để skip đơn giỏ trống tránh TPOS API "chưa có chi tiết" — đã đúng SL=0, không sửa. |
+| **Status** | ✅ Done |
+
 ## 2026-04-18
 
 ### [balance-history][live-mode] Bỏ dòng "Gửi ..." phía dưới card để nội dung CK không bị thu nhỏ
