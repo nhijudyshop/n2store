@@ -340,7 +340,331 @@ function createRouter() {
         }
     });
 
+    // ==============================================================
+    // PHONE MANAGEMENT DATA ENDPOINTS (migrated from Firestore)
+    // Tables: phone_ext_assignments, phone_call_history, phone_presence,
+    //         phone_audit_log, phone_contacts
+    // ==============================================================
+
+    // --- EXT ASSIGNMENTS ---
+    router.get('/ext-assignments', async (req, res) => {
+        try {
+            const db = req.app.locals.chatDb;
+            const r = await db.query('SELECT username, ext, assigned_by, assigned_at, updated_at FROM phone_ext_assignments ORDER BY username');
+            const map = {};
+            r.rows.forEach(row => { map[row.username] = row.ext; });
+            res.json({ success: true, assignments: map, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.put('/ext-assignments/:username', async (req, res) => {
+        try {
+            const username = decodeURIComponent(req.params.username);
+            const { ext, assigned_by } = req.body || {};
+            const db = req.app.locals.chatDb;
+            if (!ext) {
+                await db.query('DELETE FROM phone_ext_assignments WHERE username = $1', [username]);
+            } else {
+                await db.query(
+                    `INSERT INTO phone_ext_assignments (username, ext, assigned_by, assigned_at, updated_at)
+                     VALUES ($1, $2, $3, NOW(), NOW())
+                     ON CONFLICT (username) DO UPDATE SET ext = $2, assigned_by = COALESCE($3, phone_ext_assignments.assigned_by), updated_at = NOW()`,
+                    [username, String(ext), assigned_by || null]
+                );
+            }
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.delete('/ext-assignments/:username', async (req, res) => {
+        try {
+            const username = decodeURIComponent(req.params.username);
+            await req.app.locals.chatDb.query('DELETE FROM phone_ext_assignments WHERE username = $1', [username]);
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // --- CALL HISTORY ---
+    router.post('/call-history', async (req, res) => {
+        try {
+            const b = req.body || {};
+            if (!b.phone || !b.direction) return res.status(400).json({ success: false, error: 'phone and direction required' });
+            const db = req.app.locals.chatDb;
+            const r = await db.query(
+                `INSERT INTO phone_call_history
+                 (username, ext, phone, name, direction, duration, order_code, outcome, note, timestamp)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                 RETURNING id`,
+                [
+                    b.username || '',
+                    b.ext || null,
+                    String(b.phone || ''),
+                    b.name || null,
+                    String(b.direction),
+                    parseInt(b.duration || 0, 10) || 0,
+                    b.orderCode || b.order_code || null,
+                    b.outcome || null,
+                    b.note || null,
+                    b.timestamp || Date.now()
+                ]
+            );
+            res.json({ success: true, id: r.rows[0].id });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.get('/call-history', async (req, res) => {
+        try {
+            const { from, to, direction, username, phone, ext, limit } = req.query;
+            const conds = []; const params = []; let idx = 1;
+            if (from) { conds.push(`timestamp >= $${idx++}`); params.push(parseInt(from, 10)); }
+            if (to) { conds.push(`timestamp < $${idx++}`); params.push(parseInt(to, 10)); }
+            if (direction) { conds.push(`direction = $${idx++}`); params.push(direction); }
+            if (username) { conds.push(`username = $${idx++}`); params.push(username); }
+            if (ext) { conds.push(`ext = $${idx++}`); params.push(ext); }
+            if (phone) { conds.push(`phone ILIKE $${idx++}`); params.push('%' + phone + '%'); }
+            const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+            const max = Math.min(parseInt(limit || '500', 10) || 500, 5000);
+            const r = await req.app.locals.chatDb.query(
+                `SELECT id, username, ext, phone, name, direction, duration, order_code, outcome, note, timestamp
+                 FROM phone_call_history ${where} ORDER BY timestamp DESC LIMIT ${max}`,
+                params
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.patch('/call-history/:id', async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const { outcome, note } = req.body || {};
+            if (!id) return res.status(400).json({ success: false, error: 'id required' });
+            await req.app.locals.chatDb.query(
+                `UPDATE phone_call_history SET outcome = COALESCE($2, outcome), note = COALESCE($3, note) WHERE id = $1`,
+                [id, outcome || null, note || null]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // Update most recent call for a user+phone (used by outcome prompt)
+    router.patch('/call-history', async (req, res) => {
+        try {
+            const { username, phone, outcome, note } = req.body || {};
+            if (!username || !phone) return res.status(400).json({ success: false, error: 'username and phone required' });
+            await req.app.locals.chatDb.query(
+                `UPDATE phone_call_history
+                 SET outcome = COALESCE($3, outcome), note = COALESCE($4, note)
+                 WHERE id = (SELECT id FROM phone_call_history WHERE username = $1 AND phone = $2 ORDER BY timestamp DESC LIMIT 1)`,
+                [username, phone, outcome || null, note || null]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // Stats: counts per day
+    router.get('/call-history/stats', async (req, res) => {
+        try {
+            const days = Math.min(parseInt(req.query.days || '30', 10), 365);
+            const since = Date.now() - days * 86400000;
+            const r = await req.app.locals.chatDb.query(
+                `SELECT direction, COUNT(*) AS count, COALESCE(AVG(duration),0)::int AS avg_duration
+                 FROM phone_call_history WHERE timestamp >= $1 GROUP BY direction`,
+                [since]
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // --- PRESENCE ---
+    router.get('/presence', async (req, res) => {
+        try {
+            const r = await req.app.locals.chatDb.query(
+                `SELECT username, state, ext, call_phone, call_name, direction, since, updated_at
+                 FROM phone_presence ORDER BY updated_at DESC`
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/presence', async (req, res) => {
+        try {
+            const b = req.body || {};
+            if (!b.username || !b.state) return res.status(400).json({ success: false, error: 'username and state required' });
+            await req.app.locals.chatDb.query(
+                `INSERT INTO phone_presence (username, state, ext, call_phone, call_name, direction, since, updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+                 ON CONFLICT (username) DO UPDATE SET
+                     state = $2, ext = $3, call_phone = $4, call_name = $5, direction = $6, since = $7, updated_at = NOW()`,
+                [b.username, b.state, b.ext || null, b.callPhone || b.call_phone || null, b.callName || b.call_name || null, b.direction || null, b.since || Date.now()]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // --- AUDIT LOG ---
+    router.post('/audit-log', async (req, res) => {
+        try {
+            const b = req.body || {};
+            if (!b.action) return res.status(400).json({ success: false, error: 'action required' });
+            await req.app.locals.chatDb.query(
+                `INSERT INTO phone_audit_log (username, action, detail, timestamp) VALUES ($1,$2,$3,$4)`,
+                [b.username || '', b.action, b.detail || {}, b.timestamp || Date.now()]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.get('/audit-log', async (req, res) => {
+        try {
+            const { action, limit } = req.query;
+            const conds = []; const params = []; let idx = 1;
+            if (action) { conds.push(`action = $${idx++}`); params.push(action); }
+            const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+            const max = Math.min(parseInt(limit || '200', 10), 2000);
+            const r = await req.app.locals.chatDb.query(
+                `SELECT id, username, action, detail, timestamp, created_at FROM phone_audit_log ${where}
+                 ORDER BY timestamp DESC LIMIT ${max}`,
+                params
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // --- CONTACTS ---
+    router.get('/contacts', async (req, res) => {
+        try {
+            const r = await req.app.locals.chatDb.query(
+                `SELECT id, name, phone, tag, note, created_by, created_at FROM phone_contacts ORDER BY name`
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/contacts', async (req, res) => {
+        try {
+            const b = req.body || {};
+            if (!b.name || !b.phone) return res.status(400).json({ success: false, error: 'name and phone required' });
+            const r = await req.app.locals.chatDb.query(
+                `INSERT INTO phone_contacts (name, phone, tag, note, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+                [b.name, String(b.phone).replace(/[^\d+]/g, ''), b.tag || null, b.note || null, b.created_by || null]
+            );
+            res.json({ success: true, id: r.rows[0].id });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.delete('/contacts/:id', async (req, res) => {
+        try {
+            await req.app.locals.chatDb.query('DELETE FROM phone_contacts WHERE id = $1', [parseInt(req.params.id, 10)]);
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     return router;
 }
 
-module.exports = { attachSipProxy, createRouter };
+// Auto-run migration once DB is ready — idempotent (CREATE TABLE IF NOT EXISTS)
+async function ensurePhoneManagementTables(pool) {
+    if (!pool) return;
+    const sql = `
+        CREATE TABLE IF NOT EXISTS phone_ext_assignments (
+            username VARCHAR(255) PRIMARY KEY,
+            ext VARCHAR(20) NOT NULL,
+            assigned_by VARCHAR(255),
+            assigned_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_ext_assignments_ext ON phone_ext_assignments(ext);
+        CREATE TABLE IF NOT EXISTS phone_call_history (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            ext VARCHAR(20),
+            phone VARCHAR(30) NOT NULL,
+            name VARCHAR(255),
+            direction VARCHAR(10) NOT NULL,
+            duration INTEGER DEFAULT 0,
+            order_code VARCHAR(50),
+            outcome VARCHAR(50),
+            note TEXT,
+            timestamp BIGINT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_call_history_username_ts ON phone_call_history(username, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_history_phone_ts ON phone_call_history(phone, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_history_timestamp ON phone_call_history(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_history_direction ON phone_call_history(direction);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_history_ext ON phone_call_history(ext);
+        CREATE TABLE IF NOT EXISTS phone_presence (
+            username VARCHAR(255) PRIMARY KEY,
+            state VARCHAR(20) NOT NULL,
+            ext VARCHAR(20),
+            call_phone VARCHAR(30),
+            call_name VARCHAR(255),
+            direction VARCHAR(10),
+            since BIGINT,
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_presence_state ON phone_presence(state);
+        CREATE INDEX IF NOT EXISTS idx_phone_presence_updated ON phone_presence(updated_at DESC);
+        CREATE TABLE IF NOT EXISTS phone_audit_log (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            detail JSONB,
+            timestamp BIGINT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_audit_log_username ON phone_audit_log(username);
+        CREATE INDEX IF NOT EXISTS idx_phone_audit_log_action ON phone_audit_log(action);
+        CREATE INDEX IF NOT EXISTS idx_phone_audit_log_timestamp ON phone_audit_log(timestamp DESC);
+        CREATE TABLE IF NOT EXISTS phone_contacts (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            phone VARCHAR(30) NOT NULL,
+            tag VARCHAR(100),
+            note TEXT,
+            created_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_contacts_phone ON phone_contacts(phone);
+        CREATE INDEX IF NOT EXISTS idx_phone_contacts_name ON phone_contacts(name);
+    `;
+    try {
+        await pool.query(sql);
+        console.log(`${MODULE} Phone management tables ensured`);
+    } catch (err) {
+        console.error(`${MODULE} Failed to ensure phone tables:`, err.message);
+    }
+}
+
+module.exports = { attachSipProxy, createRouter, ensurePhoneManagementTables };
