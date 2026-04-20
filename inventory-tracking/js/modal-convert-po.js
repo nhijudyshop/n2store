@@ -14,14 +14,13 @@
 const PO_API_URL = 'https://n2store-fallback.onrender.com/api/v2/purchase-orders';
 
 // State
-let _convertCurrentInvoice = null;   // hoaDon object
-let _convertCurrentShipment = null;  // parent shipment (for ngayDiHang, dotSo)
+let _convertCurrentInvoice = null;   // dotHang entry (flat — contains sanPham[] directly)
 let _convertNccImages = [];          // productImages URLs cho NCC này
 let _convertItems = [];              // working items array
 
 /**
  * Entry point — mở modal convert
- * @param {string} invoiceId - id của hoaDon (NCC)
+ * @param {string} invoiceId - id của dotHang (matches DB row id)
  */
 function openConvertToPurchaseOrderModal(invoiceId) {
     if (!invoiceId) {
@@ -29,31 +28,28 @@ function openConvertToPurchaseOrderModal(invoiceId) {
         return;
     }
 
-    // Tìm hoaDon trong globalState
+    // Tìm dotHang trong nccList — match giống deleteNccInvoice (d.id === invoiceId)
     let foundInvoice = null;
-    let foundShipment = null;
-    outer: for (const ncc of (globalState.nccList || [])) {
-        for (const dot of (ncc.dotHang || [])) {
-            const hd = (dot.hoaDon || []).find(h => String(h.id) === String(invoiceId));
-            if (hd) {
-                foundInvoice = hd;
-                foundShipment = dot;
-                break outer;
-            }
+    for (const ncc of (globalState.nccList || [])) {
+        const dot = (ncc.dotHang || []).find(d => String(d.id) === String(invoiceId));
+        if (dot) {
+            foundInvoice = dot;
+            break;
         }
     }
 
     if (!foundInvoice) {
+        console.warn('[CONVERT-PO] Invoice not found. invoiceId=', invoiceId, 'nccList sample:',
+            (globalState.nccList || []).slice(0, 2).map(n => ({ sttNCC: n.sttNCC, dotIds: (n.dotHang || []).map(d => d.id) })));
         window.notificationManager?.error('Không tìm thấy hóa đơn NCC');
         return;
     }
 
     _convertCurrentInvoice = foundInvoice;
-    _convertCurrentShipment = foundShipment;
 
     // Lấy productImages của NCC (chung cho tất cả items)
     _convertNccImages = typeof getProductImagesForNcc === 'function'
-        ? getProductImagesForNcc(foundInvoice.sttNCC, foundShipment.ngayDiHang, foundShipment.dotSo)
+        ? getProductImagesForNcc(foundInvoice.sttNCC, foundInvoice.ngayDiHang, foundInvoice.dotSo)
         : [];
 
     // Explode sanPham + mauSac thành items candidate
