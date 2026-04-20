@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [inventory-tracking] Hiển thị VND/1000 ở stat bar + "Tổng HĐ" trên header mỗi đợt hàng
+| | |
+|---|---|
+| **Files** | `inventory-tracking/index.html`, `inventory-tracking/js/table-renderer.js`, `inventory-tracking/css/modern.css` |
+| **Chi tiết** | (1) **Stat bar** — thêm `<span class="stat-vnd">` bên dưới stat-value của 4 ô `Tổng HĐ / Tổng CP / Tổng TT / Còn Lại` hiển thị `(VND/1000)` màu xanh, font 11.5px. `updateInventoryStatsBar()` giờ cộng dồn VND per-shipment (×`shipment.tiGia`) và per-dot (×`dot.tiGia`) để không bị sai khi mỗi đợt có tỉ giá khác nhau. Tổng KG không có VND (là cân nặng). `.stat-box-conlai.negative` chuyển `stat-vnd` sang đỏ. (2) **Shipment header** — sau `Tổng XXX KG` thêm `<span class="ship-tong-hd">| Tổng HĐ: xxxx</span>` = `shipment.tongTienHoaDon × shipment.tiGia / 1000`, chỉ hiển thị khi `canViewTT = view_thanhToanCK` để đồng bộ permission với stat bar. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix "Gộp SP Chờ Live": dùng saved campaigns (Cài Đặt Chiến Dịch) thay cho LiveCampaignId của TPOS
 | | |
 |---|---|

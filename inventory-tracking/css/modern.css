@@ -711,6 +711,16 @@ body {
     letter-spacing: -0.015em;
     line-height: 1.1;
 }
+.stat-box .stat-vnd {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #059669;
+    font-family: ui-monospace, Menlo, monospace;
+    line-height: 1.1;
+    min-height: 13px;
+}
+.stat-box .stat-vnd:empty { display: none; }
+.stat-box-conlai.negative .stat-vnd { color: #DC2626; }
 .stat-box-conlai {
     border-width: 2px;
 }
@@ -852,6 +862,11 @@ body {
     text-decoration-color: #e53e3e;
     text-decoration-thickness: 2px;
     opacity: 0.6;
+}
+
+.ship-tong-hd {
+    color: #047857;
+    font-weight: 700;
 }
 
 /* Image Lightbox Overlay */

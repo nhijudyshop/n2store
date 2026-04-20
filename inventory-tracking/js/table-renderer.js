@@ -464,31 +464,50 @@ function updateInventoryStatsBar() {
 
     const shipments = globalState.shipments || [];
     let tongKg = 0, tongHD = 0, tongCP = 0;
+    let tongHDVnd = 0, tongCPVnd = 0;
     shipments.forEach(s => {
+        const hd = parseFloat(s.tongTienHoaDon) || 0;
+        const cp = parseFloat(s.tongChiPhi) || 0;
+        const tg = parseFloat(s.tiGia) || 0;
         tongKg += parseFloat(s.tongKg) || 0;
-        tongHD += parseFloat(s.tongTienHoaDon) || 0;
-        tongCP += parseFloat(s.tongChiPhi) || 0;
+        tongHD += hd;
+        tongCP += cp;
+        tongHDVnd += hd * tg;
+        tongCPVnd += cp * tg;
     });
 
-    let tongTT = 0;
+    let tongTT = 0, tongTTVnd = 0;
     if (typeof getAllDotsAggregated === 'function') {
         const dotEntries = getAllDotsAggregated();
         dotEntries.forEach(e => {
             const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
-            tongTT += payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
+            const tg = parseFloat(e.tiGia) || 0;
+            const tt = payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
+            tongTT += tt;
+            tongTTVnd += tt * tg;
         });
     }
 
     const conLai = tongTT - tongHD - tongCP;
+    const conLaiVnd = tongTTVnd - tongHDVnd - tongCPVnd;
+
+    const setVnd = (id, vnd) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = vnd ? `(${formatNumber(Math.round(vnd / 1000))})` : '';
+    };
 
     const kgEl = document.getElementById('statTongKg');
     if (kgEl) kgEl.textContent = `${formatNumber(tongKg)}`;
     const hdEl = document.getElementById('statTongHD');
     if (hdEl) hdEl.textContent = formatNumber(tongHD);
+    setVnd('statTongHDVnd', tongHDVnd);
     const cpEl = document.getElementById('statTongCP');
     if (cpEl) cpEl.textContent = formatNumber(tongCP);
+    setVnd('statTongCPVnd', tongCPVnd);
     const ttEl = document.getElementById('statTongTT');
     if (ttEl) ttEl.textContent = formatNumber(tongTT);
+    setVnd('statTongTTVnd', tongTTVnd);
     const conLaiEl = document.getElementById('statConLai');
     if (conLaiEl) {
         conLaiEl.textContent = formatNumber(conLai);
@@ -498,6 +517,7 @@ function updateInventoryStatsBar() {
             box.classList.toggle('negative', conLai < 0);
         }
     }
+    setVnd('statConLaiVnd', conLaiVnd);
 }
 
 /**
@@ -516,6 +536,13 @@ function createShipmentCard(shipment) {
     // Build packages info string with checkboxes
     const packages = shipment.kienHang || [];
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
+    const canViewTT = permissionHelper?.can('view_thanhToanCK');
+    const shipHD = parseFloat(shipment.tongTienHoaDon) || 0;
+    const shipTiGia = parseFloat(shipment.tiGia) || 0;
+    const shipHDVnd = shipHD * shipTiGia;
+    const tongHDSuffix = (canViewTT && shipHDVnd > 0)
+        ? ` <span class="ship-tong-hd">| Tổng HĐ: ${formatNumber(Math.round(shipHDVnd / 1000))}</span>`
+        : '';
     let packagesInfo;
     if (packages.length > 0) {
         const packageWeightsHtml = packages.map((p, i) => {
@@ -528,12 +555,12 @@ function createShipmentCard(shipment) {
         }).join(', ');
         const allChecked = packages.every(p => !!p.daNhan);
         const checkAllAttr = allChecked ? ' checked' : '';
-        packagesInfo = `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG` +
+        packagesInfo = `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}` +
             `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
             `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ"${checkAllAttr}>` +
             `</label>`;
     } else {
-        packagesInfo = '0 Kiện';
+        packagesInfo = `0 Kiện${tongHDSuffix}`;
     }
 
     card.innerHTML = `
