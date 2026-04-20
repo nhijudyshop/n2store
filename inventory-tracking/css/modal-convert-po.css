@@ -1,0 +1,231 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. */
+/* =====================================================
+   MODAL CONVERT TO PURCHASE ORDER - INVENTORY TRACKING
+   ===================================================== */
+
+/* NCC header button */
+.btn-convert-po {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin-left: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #6366f1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-convert-po:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+}
+
+.btn-convert-po i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Modal body */
+#modalConvertPO .modal-container {
+    max-width: 960px;
+    width: 92vw;
+}
+
+.convert-po-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.convert-po-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 12px;
+}
+
+.convert-po-grid .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.convert-po-form label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.convert-po-form .form-input {
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.convert-po-form .form-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.convert-po-form textarea.form-input {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Image preview row */
+.convert-po-img-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    background: #f9fafb;
+    border: 1px dashed #e5e7eb;
+    border-radius: 6px;
+}
+
+.convert-po-img-preview img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.convert-po-img-more {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+}
+
+/* Items header */
+.convert-po-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 4px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.convert-po-items-header strong {
+    font-size: 14px;
+    color: #111827;
+}
+
+.convert-po-hint {
+    font-size: 12px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Items table */
+.convert-po-items-wrap {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.convert-po-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.convert-po-items-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f9fafb;
+    padding: 8px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+.convert-po-items-table tbody td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+}
+
+.convert-po-items-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.convert-it-input {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 13px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.convert-it-input:hover {
+    border-color: #e5e7eb;
+    background: #fff;
+}
+
+.convert-it-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.convert-it-check {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+}
+
+/* Totals */
+.convert-po-totals {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-end;
+    padding: 10px 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.convert-po-totals strong {
+    color: #111827;
+    margin-left: 4px;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+    .convert-po-grid {
+        grid-template-columns: 1fr;
+    }
+    .convert-po-totals {
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-end;
+    }
+}
