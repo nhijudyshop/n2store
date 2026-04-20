@@ -467,13 +467,21 @@ router.post('/:id/resolve', async (req, res) => {
 
         // Issue compensation if requested
         if (compensation_amount && compensation_amount > 0) {
-            // Build wallet note: include ticket's internal_note for activity history
-            const walletNoteForVC = ticket.internal_note
-                ? `${ticket.internal_note} (ticket ${ticket.ticket_code})`
-                : note || `Bồi thường ticket ${ticket.ticket_code}`;
-            const walletNoteForDeposit = ticket.internal_note
-                ? `${ticket.internal_note} (ticket ${ticket.ticket_code})`
-                : note || `Hoàn tiền ticket ${ticket.ticket_code}`;
+            // Build wallet note: "Công Nợ Ảo Từ {Loại} ({order_id}) - {internal_note}"
+            const typeLabelMap = {
+                'RETURN_SHIPPER': 'Thu Về',
+                'RETURN_CLIENT': 'Khách Gửi',
+                'BOOM': 'Boom Hàng',
+                'FIX_COD': 'Sửa COD'
+            };
+            const typeLabel = typeLabelMap[ticket.type] || ticket.type || 'Ticket';
+            const orderRef = ticket.order_id || ticket.ticket_code;
+            const internalNoteStr = (ticket.internal_note || '').trim();
+            const unifiedNote = internalNoteStr
+                ? `Công Nợ Ảo Từ ${typeLabel} (${orderRef}) - ${internalNoteStr}`
+                : `Công Nợ Ảo Từ ${typeLabel} (${orderRef})`;
+            const walletNoteForVC = note || unifiedNote;
+            const walletNoteForDeposit = note || unifiedNote;
 
             if (compensation_type === 'virtual_credit') {
                 // Use centralized wallet-event-processor for virtual credit

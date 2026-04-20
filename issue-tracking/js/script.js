@@ -1597,11 +1597,15 @@ async function handleConfirmAction() {
                 }
             } catch (e) { console.warn('[AuditLog] ticket_add_debt log failed:', e); }
 
+            const internalNoteStr = (ticket.internalNote || '').trim();
+            const walletNote = internalNoteStr
+                ? `Công Nợ Ảo Từ Thu Về (${ticket.orderId}) - ${internalNoteStr}`
+                : `Công Nợ Ảo Từ Thu Về (${ticket.orderId})`;
             const resolveData = await ApiService.resolveTicketCredit(pendingActionTicketId, {
                     phone: customerPhone,
                     amount: money,
                     ticket_code: ticketCode,
-                    note: `Công nợ ảo - Thu về đơn ${ticket.orderId}`,
+                    note: walletNote,
                     expires_in_days: 15
             });
 

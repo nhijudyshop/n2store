@@ -1104,27 +1104,25 @@ function autoFillSaleNote() {
             ? window.currentSaleWalletNoteLines
             : [];
 
-        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → dùng ticket's internal_note
+        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → format `Thu Về "X" (ticket_note)`
         let hasReturnShipper = false;
         if (vcList.length > 0) {
             for (const vc of vcList) {
                 if (vc.source_type === 'RETURN_SHIPPER') {
                     hasReturnShipper = true;
-                    if (vc.ticket_note) {
-                        const hasReturnText = vc.ticket_note.toLowerCase().includes('thu về');
-                        noteParts.push(hasReturnText ? vc.ticket_note : `thu về ${vc.ticket_note}`);
-                    } else {
-                        const vcAmount = parseFloat(vc.remaining_amount);
-                        const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : vcAmount;
-                        noteParts.push(`TRỪ ${vcAmountStr} CÔNG NỢ ẢO THU VỀ`);
-                    }
+                    const vcAmount = parseFloat(vc.remaining_amount) || 0;
+                    const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : `${vcAmount}đ`;
+                    const cleanNote = (vc.ticket_note || '').trim();
+                    noteParts.push(cleanNote
+                        ? `Thu Về "${vcAmountStr}" (${cleanNote})`
+                        : `Thu Về "${vcAmountStr}"`);
                 }
             }
         } else if (hasVirtualDebt && walletLines.length === 0) {
             // vcList rỗng do backend không trả (ví dụ vc expired/stale) nhưng virtual_balance > 0
             // → fallback generic để không rơi vào "Nợ Cũ"
             const vbStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
-            noteParts.push(`TRỪ ${vbStr} CÔNG NỢ ẢO THU VỀ`);
+            noteParts.push(`Thu Về "${vbStr}"`);
             hasReturnShipper = true;
         }
 

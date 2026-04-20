@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [wallet/tickets] Format ghi chú ticket thống nhất: `Công Nợ Ảo Từ {Loại} ({order_id}) - {internal_note}` + tab 1 note dạng `Thu Về/Khách Gửi "X" (ticket_note)`
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js`, `render.com/routes/v2/tickets.js`, `render.com/routes/v2/wallets.js`, `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Yêu cầu user**: (1) Ghi chú trong Hoạt động ví phải đồng nhất cho cả "Thu Về" và "Khách Gửi" format `Công Nợ Ảo Từ {Loại} ({order_id}) - {ghi chú ticket}`. (2) Ghi chú trong phiếu bán hàng tab 1 format `{Loại} "{Số Tiền}" ({ghi chú ticket})\n-> CÒN NỢ XK/0Đ`. **Thay đổi**: (1) `issue-tracking/js/script.js:1604` khi cấp công nợ ảo cho RETURN_SHIPPER (Thu Về), note mới = `Công Nợ Ảo Từ Thu Về ({orderId}) - {internalNote}` (cộng internalNote vào, trước đây thiếu). (2) `render.com/routes/v2/tickets.js:469-484` resolve ticket: thống nhất `walletNoteForVC` và `walletNoteForDeposit` dùng `Công Nợ Ảo Từ {typeLabel} ({orderRef}) - {internal_note}` với `typeLabel` map từ `ticket.type` (RETURN_SHIPPER→Thu Về, RETURN_CLIENT→Khách Gửi, BOOM→Boom Hàng, FIX_COD→Sửa COD). (3) `render.com/routes/v2/wallets.js` walletNoteLines: RETURN_GOODS format từ `{cleanNote}` thành `Khách Gửi "{amtStr}" ({cleanNote})` để khớp convention. (4) `sale-modal-common.js` autoFillSaleNote 1a: RETURN_SHIPPER vc format từ `{ticket_note}` thành `Thu Về "{vcAmountStr}" ({ticket_note})`, đồng thời fallback hasVirtualDebt cũng dùng `Thu Về "X"`. **Kết quả expected**: Bond Huynh → `Thu Về "490K" (THU VỀ 1 SET B594H - 490K CHẬT)\n-> CÒN NỢ 180K`. Hồng Diễm → `Khách Gửi "450K" (KHÁCH 65KG MANG CHẬT)\n-> CÒN NỢ 225K`. **Lưu ý**: thay đổi format chỉ áp dụng cho data mới (ticket resolve sau khi deploy); data cũ trong wallet_transactions vẫn hiển thị format cũ ở "Hoạt động ví". |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Fix ghi chú phiếu bán: `-> CÒN NỢ X` khi balance > COD + virtual credit fallback khi vcList rỗng
 | | |
 |---|---|

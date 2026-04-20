@@ -472,10 +472,15 @@ router.get('/:customerId', async (req, res) => {
             if (skipIdx.has(i)) continue;
             const tx = txs[i];
             if (tx.type === 'DEPOSIT') {
-                depositsAfterSum += Math.abs(parseFloat(tx.amount) || 0);
+                const amt = Math.abs(parseFloat(tx.amount) || 0);
+                depositsAfterSum += amt;
+                const amtStr = amt >= 1000 ? `${Math.round(amt / 1000)}K` : `${amt}đ`;
                 if (tx.source === 'RETURN_GOODS' && tx.note) {
+                    // Khách Gửi: format `Khách Gửi "X" (ticket_note)`
                     const cleanNote = stripTicketSuffix(tx.note);
-                    depositLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                    depositLines.push(cleanNote
+                        ? `Khách Gửi "${amtStr}" (${cleanNote})`
+                        : `Khách Gửi "${amtStr}"`);
                 } else if (tx.source === 'MANUAL_ADJUSTMENT' && tx.note) {
                     const cleanNote = stripImgTag(tx.note);
                     depositLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
