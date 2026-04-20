@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [render][orders] Refresh invoice_status table từ TPOS — endpoint server-side + browser shortcut
+| | |
+|---|---|
+| **Files** | `render.com/routes/invoice-status.js`, `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Chi tiết** | **Yêu cầu**: Chạy lại lấy dữ liệu mới nhất TPOS cho toàn bộ entries đang lưu trong Render PostgreSQL `invoice_status` table (không phải refresh browser cache). **Backend endpoint** mới `POST /api/invoice-status/refresh-from-tpos` [invoice-status.js:238]: (1) Query `compound_key, username, sale_online_id, tpos_id FROM invoice_status WHERE tpos_id IS NOT NULL` với filter optional `saleOnlineIds[]`, `limit`, `sinceMs`, `chunkSize`; (2) Group theo `tpos_id` → Map<tposId, [{compoundKey, username, saleOnlineId}]>; (3) Get TPOS token qua `tpos-token-manager` singleton (auto-refresh từ TPOS_USERNAME/TPOS_PASSWORD env vars); (4) Chunk tpos_ids (default 30), fetch trực tiếp TPOS OData (không qua CF Worker) `FastSaleOrder/ODataService.GetView?$filter=(Type eq 'invoice' and (Id eq X or Id eq Y ...))` với `rejectUnauthorized: false` (TPOS self-signed cert); (5) Transaction per chunk: `UPDATE invoice_status SET ... WHERE compound_key = $N` — preserve compound_key/username/sale_online_id, chỉ update tpos fields (ShowState, StateCode, AmountTotal, OrderLines JSONB simplified, carrier, delivery, etc.); (6) Return `{success, total, fetched, updated, missing, errors, elapsedMs}`. **Browser shortcut** `window.refreshPBHFromServer(options)` [tab1-fast-sale-invoice-status.js:3672]: POST tới endpoint, hiển thị notification progress/result, tự động gọi `InvoiceStatusStore.reload()` sau khi xong để sync client cache với data vừa update. Phân biệt với `window.refreshAllPBHFromTPOS()` (browser-side fetch từng chunk) — bản server-side nhanh hơn, không phụ thuộc browser token. |
+| **Status** | ✅ Done — cần deploy Render server + GitHub Pages |
+
 ### [orders] Refresh toàn cột PBH từ TPOS OData — clear cache + batch fetch fresh data
 | | |
 |---|---|

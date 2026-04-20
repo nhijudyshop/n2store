@@ -5,7 +5,13 @@
 // =====================================================
 
 const express = require('express');
+const fetch = require('node-fetch');
+const https = require('https');
 const router = express.Router();
+
+const tposTokenManager = require('../services/tpos-token-manager');
+const TPOS_ODATA_BASE = 'https://services.tpos.dev/api/odata';
+const tposHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // =====================================================
 // INVOICE STATUS - CRUD
@@ -228,6 +234,191 @@ router.post('/entries/batch', async (req, res) => {
     } catch (error) {
         console.error('[INVOICE-STATUS] POST /entries/batch error:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/invoice-status/refresh-from-tpos
+ * Refresh toàn bộ (hoặc một phần) dữ liệu `invoice_status` bằng data mới nhất từ TPOS OData.
+ *
+ * Flow:
+ *   1. Query compound_key + tpos_id từ invoice_status (optional filter theo saleOnlineIds / limit / sinceMs)
+ *   2. Group theo tpos_id (chunk 30)
+ *   3. Fetch OData FastSaleOrder/GetView by Id (direct to TPOS, không qua CF Worker)
+ *   4. UPSERT fresh data vào invoice_status (preserve compound_key + sale_online_id + username)
+ *
+ * Body (optional):
+ *   - saleOnlineIds: string[] - chỉ refresh những đơn này
+ *   - limit: number            - cap số entry xử lý (debug/test)
+ *   - sinceMs: number          - chỉ refresh entries có entry_timestamp >= sinceMs (ví dụ 30 ngày)
+ *   - chunkSize: number        - batch size khi fetch OData (default 30)
+ *
+ * Response: { success, total, fetched, updated, missing, errors, elapsedMs }
+ */
+router.post('/refresh-from-tpos', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+    const startedAt = Date.now();
+    const { saleOnlineIds, limit, sinceMs, chunkSize } = req.body || {};
+    const CHUNK = Math.max(5, Math.min(100, parseInt(chunkSize) || 30));
+
+    try {
+        // 1. Build query lấy entries cần refresh
+        const where = ['tpos_id IS NOT NULL'];
+        const params = [];
+        if (Array.isArray(saleOnlineIds) && saleOnlineIds.length > 0) {
+            params.push(saleOnlineIds);
+            where.push(`sale_online_id = ANY($${params.length})`);
+        }
+        if (sinceMs && !isNaN(parseInt(sinceMs))) {
+            params.push(parseInt(sinceMs));
+            where.push(`entry_timestamp >= $${params.length}`);
+        }
+        let sql = `SELECT compound_key, username, sale_online_id, tpos_id
+                   FROM invoice_status
+                   WHERE ${where.join(' AND ')}
+                   ORDER BY entry_timestamp DESC`;
+        if (limit && !isNaN(parseInt(limit))) {
+            sql += ` LIMIT ${parseInt(limit)}`;
+        }
+
+        const { rows: entries } = await pool.query(sql, params);
+        if (entries.length === 0) {
+            return res.json({
+                success: true, total: 0, fetched: 0, updated: 0, missing: 0, errors: 0,
+                elapsedMs: Date.now() - startedAt,
+            });
+        }
+
+        // 2. tpos_id → [{compound_key, username, sale_online_id}]
+        const tposIdMap = new Map();
+        entries.forEach((e) => {
+            if (!tposIdMap.has(e.tpos_id)) tposIdMap.set(e.tpos_id, []);
+            tposIdMap.get(e.tpos_id).push({
+                compoundKey: e.compound_key,
+                username: e.username,
+                saleOnlineId: e.sale_online_id,
+            });
+        });
+
+        // 3. Get TPOS token (auto-refresh via tpos-token-manager)
+        const token = await tposTokenManager.getToken();
+        const tposIds = Array.from(tposIdMap.keys());
+
+        let fetched = 0;
+        let updated = 0;
+        let errors = 0;
+
+        // 4. Batch fetch OData + UPSERT per chunk
+        for (let i = 0; i < tposIds.length; i += CHUNK) {
+            const chunk = tposIds.slice(i, i + CHUNK);
+            const orFilter = chunk.map((id) => `Id eq ${id}`).join(' or ');
+            const filter = `(Type eq 'invoice' and (${orFilter}))`;
+            const url = `${TPOS_ODATA_BASE}/FastSaleOrder/ODataService.GetView`
+                + `?$top=500&$filter=${encodeURIComponent(filter)}`;
+
+            try {
+                const resp = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'accept': 'application/json' },
+                    agent: tposHttpsAgent,
+                });
+                if (!resp.ok) {
+                    errors++;
+                    console.warn(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length} failed: ${resp.status}`);
+                    continue;
+                }
+                const result = await resp.json();
+                const invoices = Array.isArray(result?.value) ? result.value : [];
+                fetched += invoices.length;
+
+                // Upsert in transaction
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    for (const inv of invoices) {
+                        const targets = tposIdMap.get(inv.Id);
+                        if (!targets) continue;
+                        for (const { compoundKey, username, saleOnlineId } of targets) {
+                            await client.query(`
+                                UPDATE invoice_status SET
+                                    tpos_id = $1, number = $2, reference = $3,
+                                    state = $4, show_state = $5, state_code = $6,
+                                    is_merge_cancel = $7,
+                                    partner_id = $8, partner_display_name = $9,
+                                    amount_total = $10, amount_untaxed = $11,
+                                    delivery_price = $12, cash_on_delivery = $13,
+                                    payment_amount = $14, discount = $15,
+                                    tracking_ref = $16, carrier_name = $17,
+                                    user_name = $18, session_index = $19,
+                                    order_lines = $20,
+                                    receiver_name = $21, receiver_phone = $22,
+                                    receiver_address = $23,
+                                    comment = $24, delivery_note = $25,
+                                    date_invoice = $26, date_created = $27,
+                                    live_campaign_id = $28,
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE compound_key = $29
+                            `, [
+                                inv.Id, inv.Number || null, inv.Reference || null,
+                                inv.State || null, inv.ShowState || null, inv.StateCode || null,
+                                inv.IsMergeCancel === true,
+                                inv.PartnerId || null, inv.PartnerDisplayName || null,
+                                inv.AmountTotal || 0, inv.AmountUntaxed || 0,
+                                inv.DeliveryPrice || 0, inv.CashOnDelivery || 0,
+                                inv.PaymentAmount || 0, inv.Discount || inv.DiscountAmount || 0,
+                                inv.TrackingRef || null,
+                                inv.CarrierName || inv.Carrier?.Name || null,
+                                inv.UserName || null, inv.SessionIndex || null,
+                                JSON.stringify((inv.OrderLines || []).map((l) => ({
+                                    ProductName: l.ProductName || l.ProductNameGet || '',
+                                    ProductUOMQty: l.ProductUOMQty || l.Quantity || 1,
+                                    PriceUnit: l.PriceUnit || l.Price || 0,
+                                    PriceTotal: l.PriceTotal
+                                        || (l.ProductUOMQty || l.Quantity || 1)
+                                            * (l.PriceUnit || l.Price || 0),
+                                    Note: l.Note || '',
+                                }))),
+                                inv.ReceiverName || null, inv.ReceiverPhone || inv.Phone || null,
+                                inv.ReceiverAddress || inv.Address || null,
+                                inv.Comment || null, inv.DeliveryNote || null,
+                                inv.DateInvoice || null, inv.DateCreated || null,
+                                inv.LiveCampaignId || null,
+                                compoundKey,
+                            ]);
+                            updated++;
+                        }
+                    }
+                    await client.query('COMMIT');
+                } catch (txErr) {
+                    await client.query('ROLLBACK');
+                    errors++;
+                    console.error('[INVOICE-REFRESH] Tx failed:', txErr.message);
+                } finally {
+                    client.release();
+                }
+            } catch (e) {
+                errors++;
+                console.error('[INVOICE-REFRESH] Chunk error:', e.message);
+            }
+        }
+
+        const missing = entries.length - updated;
+        const elapsedMs = Date.now() - startedAt;
+        console.log(`[INVOICE-REFRESH] Done: total=${entries.length} fetched=${fetched} updated=${updated} missing=${missing} errors=${errors} in ${elapsedMs}ms`);
+
+        res.json({
+            success: true,
+            total: entries.length,
+            fetched, updated, missing, errors,
+            elapsedMs,
+        });
+    } catch (error) {
+        console.error('[INVOICE-REFRESH] Fatal error:', error);
+        res.status(500).json({
+            error: error.message,
+            elapsedMs: Date.now() - startedAt,
+        });
     }
 });
 

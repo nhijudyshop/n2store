@@ -3662,8 +3662,39 @@
         };
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
-        // Shortcut gọi từ console: refresh cột PBH bằng data mới nhất từ TPOS
+        // Shortcut gọi từ console: refresh cột PBH bằng data mới nhất từ TPOS (browser-side batch)
         window.refreshAllPBHFromTPOS = (options) => InvoiceStatusStore.refreshAllFromTPOS(options);
+        // Shortcut: trigger Render server refresh PBH từ TPOS (server-side — nhanh hơn, không cần browser token)
+        // Server sẽ fetch TPOS OData → UPDATE invoice_status table → client reload() để sync
+        window.refreshPBHFromServer = async (options = {}) => {
+            const { saleOnlineIds, limit, sinceMs, chunkSize } = options;
+            window.notificationManager?.info('🔄 Đang trigger Render refresh PBH từ TPOS...');
+            try {
+                const resp = await fetch(`${API_BASE}/refresh-from-tpos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saleOnlineIds, limit, sinceMs, chunkSize }),
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(`${resp.status}: ${text}`);
+                }
+                const result = await resp.json();
+                console.log('[PBH-SERVER-REFRESH]', result);
+                window.notificationManager?.success(
+                    `✅ Server refresh xong: ${result.updated}/${result.total} entries updated`
+                    + ` (fetched ${result.fetched}, missing ${result.missing}, errors ${result.errors})`
+                    + ` — elapsed ${result.elapsedMs}ms`
+                );
+                // Reload InvoiceStatusStore từ PostgreSQL để sync với data vừa update
+                await InvoiceStatusStore.reload();
+                return result;
+            } catch (e) {
+                console.error('[PBH-SERVER-REFRESH] Error:', e);
+                window.notificationManager?.error(`❌ Server refresh thất bại: ${e.message}`);
+                throw e;
+            }
+        };
         // Assign 'get' method explicitly (cannot use shorthand in object literal due to getter keyword conflict)
         InvoiceStatusStore.get = function (saleOnlineId) {
             if (!saleOnlineId) return null;
