@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] Refresh toàn cột PBH từ TPOS OData — clear cache + batch fetch fresh data
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Chi tiết** | **Yêu cầu**: Xóa cache PBH và fetch dữ liệu mới nhất từ TPOS cho toàn bộ đơn trong bảng (không phải load lại từ PostgreSQL cache — cache có thể drift nếu WebSocket event miss). **Implementation**: Thêm method `InvoiceStatusStore.refreshAllFromTPOS(options)` [tab1-fast-sale-invoice-status.js:1062]. Flow: (1) `clearAll()` xóa memory + localStorage; (2) Chunk `displayedData` thành batch 20 đơn/req (tránh URL quá dài); (3) Mỗi batch fetch OData `FastSaleOrder/ODataService.GetView?$filter=(Type eq 'invoice' and (Reference eq 'a' or Reference eq 'b' or ...))&$top=500&$orderby=DateInvoice desc` — escape single quotes trong Reference; (4) Enable `_batchMode=true` để `set()` skip individual POST; (5) Với mỗi invoice trả về, match order bằng Reference, gọi `Store.set(saleOnlineId, inv, orderShim)` và track compound key; (6) Disable batch mode, gọi `_saveBatchToAPI(savedKeys)` POST 1 lần lên PostgreSQL `/entries/batch`; (7) `_refreshInvoiceStatusUI(allSaleIds)` re-render cell cho cả đơn có và không có phiếu (đơn không có phiếu sẽ show "−"). Notification progress: `info('0/N...')` → `success('✅ N/M đơn có phiếu, X lỗi')`. Expose `window.refreshAllPBHFromTPOS()` để gọi từ DevTools console. Return `{ok, total, found, errors}` cho programmatic use. |
+| **Status** | ✅ Done — gọi `refreshAllPBHFromTPOS()` từ console để chạy |
+
 ### [phone-widget] TTS tiếng Việt khi cuộc gọi thất bại (theo Zoiper5)
 | | |
 |---|---|

@@ -1043,6 +1043,132 @@
             this._refreshInvoiceStatusUI(allKeys);
             this._syncToFulfillmentData();
         },
+
+        /**
+         * Xóa cache và fetch FRESH data từ TPOS OData cho toàn bộ đơn trong bảng.
+         * Khác với reload() (chỉ load cache PostgreSQL), hàm này:
+         *   1. Clear InvoiceStatusStore (memory + localStorage)
+         *   2. Batch fetch FastSaleOrder OData theo Reference (chunk 20 đơn/req)
+         *   3. Store fresh data → batch POST lên PostgreSQL
+         *   4. Re-render toàn bộ cột PBH
+         *
+         * @param {Object} [options]
+         * @param {Array}  [options.orders] - Custom order list, default = displayedData
+         * @returns {Promise<{ok, total, found, errors}>}
+         */
+        async refreshAllFromTPOS(options = {}) {
+            const orders = options.orders
+                || window.displayedData
+                || window.allData
+                || [];
+            if (!orders.length) {
+                window.notificationManager?.warning('Không có đơn nào để refresh PBH');
+                return { ok: false, reason: 'no-orders' };
+            }
+            if (!window.tokenManager?.getAuthHeader) {
+                window.notificationManager?.error('Token manager chưa sẵn sàng');
+                return { ok: false, reason: 'no-token' };
+            }
+
+            const tposOData = window.API_CONFIG?.TPOS_ODATA
+                || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const headers = await window.tokenManager.getAuthHeader();
+
+            // Clear cache trước khi fetch fresh
+            this.clearAll();
+
+            // Chunk orders thành batch 20 để tránh URL quá dài
+            const CHUNK = 20;
+            const chunks = [];
+            for (let i = 0; i < orders.length; i += CHUNK) {
+                chunks.push(orders.slice(i, i + CHUNK));
+            }
+
+            const total = orders.length;
+            let done = 0;
+            let found = 0;
+            let errors = 0;
+            const savedKeys = [];
+
+            this._batchMode = true; // set() sẽ skip individual API save
+            console.log(`[PBH-REFRESH] Bắt đầu refresh ${total} đơn trong ${chunks.length} batch...`);
+            window.notificationManager?.info(`🔄 Đang refresh PBH: 0/${total}...`);
+
+            for (const chunk of chunks) {
+                const orFilter = chunk
+                    .map((o) => `Reference eq '${String(o.Code || '').replace(/'/g, "''")}'`)
+                    .join(' or ');
+                const filter = `(Type eq 'invoice' and (${orFilter}))`;
+                const url = `${tposOData}/FastSaleOrder/ODataService.GetView`
+                    + `?$top=500&$orderby=DateInvoice desc`
+                    + `&$filter=${encodeURIComponent(filter)}`;
+
+                try {
+                    const resp = await fetch(url, {
+                        headers: { ...headers, accept: 'application/json' },
+                    });
+                    if (!resp.ok) {
+                        errors++;
+                        console.warn('[PBH-REFRESH] Batch failed:', resp.status);
+                    } else {
+                        const result = await resp.json();
+                        const invoices = Array.isArray(result?.value) ? result.value : [];
+                        for (const inv of invoices) {
+                            const order = chunk.find((o) => o.Code === inv.Reference);
+                            if (!order) continue;
+                            const orderShim = {
+                                Id: order.Id,
+                                Code: order.Code,
+                                Name: inv.PartnerDisplayName || order.Name || '',
+                                Telephone: inv.Phone || order.Telephone || '',
+                                Address: inv.Address || '',
+                            };
+                            this.set(order.Id, inv, orderShim);
+                            // Tìm compound key vừa tạo để batch save
+                            const soId = String(order.Id);
+                            const tposId = inv.Id;
+                            for (const [k, v] of this._data.entries()) {
+                                if (v.SaleOnlineId === soId && v.Id === tposId) {
+                                    if (!savedKeys.includes(k)) savedKeys.push(k);
+                                    break;
+                                }
+                            }
+                            found++;
+                        }
+                    }
+                } catch (e) {
+                    errors++;
+                    console.error('[PBH-REFRESH] Fetch error:', e);
+                }
+
+                done += chunk.length;
+                console.log(`[PBH-REFRESH] Progress ${done}/${total} (found ${found}, errors ${errors})`);
+            }
+
+            this._batchMode = false;
+
+            // Batch save fresh data lên PostgreSQL (1 request cho tất cả)
+            if (savedKeys.length > 0) {
+                await this._saveBatchToAPI(savedKeys);
+            }
+
+            // Re-render toàn bộ cột PBH (cả đơn có và không có phiếu)
+            const allSaleIds = [];
+            this._data.forEach((value, key) => {
+                const soId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (soId && !allSaleIds.includes(soId)) allSaleIds.push(soId);
+            });
+            orders.forEach((o) => {
+                if (o.Id && !allSaleIds.includes(o.Id)) allSaleIds.push(o.Id);
+            });
+            this._refreshInvoiceStatusUI(allSaleIds);
+            this._syncToFulfillmentData?.();
+
+            window.notificationManager?.success(
+                `✅ Refresh PBH xong: ${found}/${total} đơn có phiếu, ${errors} batch lỗi`
+            );
+            return { ok: true, total, found, errors };
+        },
     };
 
     // =====================================================
@@ -3536,6 +3662,8 @@
         };
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
+        // Shortcut gọi từ console: refresh cột PBH bằng data mới nhất từ TPOS
+        window.refreshAllPBHFromTPOS = (options) => InvoiceStatusStore.refreshAllFromTPOS(options);
         // Assign 'get' method explicitly (cannot use shorthand in object literal due to getter keyword conflict)
         InvoiceStatusStore.get = function (saleOnlineId) {
             if (!saleOnlineId) return null;
