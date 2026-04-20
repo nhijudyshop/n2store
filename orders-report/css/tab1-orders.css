@@ -6986,3 +6986,144 @@ body.action-bar-visible {
 }
 
 .cip-add-note button:hover { opacity: 0.9; }
+
+/* =====================================================
+   ORDER NOTES CELL — CSKH notes history column
+   data-column="cs-notes"
+===================================================== */
+td[data-column="cs-notes"] {
+    min-width: 220px;
+    max-width: 320px;
+    vertical-align: top;
+    padding: 6px 8px;
+}
+.cs-notes-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.note-item {
+    background: #fffbe6;
+    border: 1px solid #ffe58f;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+.note-item.own {
+    background: #f6ffed;
+    border-color: #b7eb8f;
+}
+.note-item .note-text {
+    white-space: pre-wrap;
+    color: #262626;
+}
+.note-item .note-meta {
+    color: #8c8c8c;
+    font-size: 11px;
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.note-item .note-author {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.note-item .note-edited-tag {
+    color: #bfbfbf;
+    font-style: italic;
+    margin-left: 4px;
+}
+.note-item .note-actions {
+    display: none;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.note-item.own:hover .note-actions {
+    display: inline-flex;
+}
+.note-item .note-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    color: #595959;
+    font-size: 11px;
+    line-height: 1;
+}
+.note-item .note-actions .edit-btn:hover { color: #1677ff; }
+.note-item .note-actions .del-btn:hover  { color: #cf1322; }
+.add-note-btn {
+    background: none;
+    border: 1px dashed #bfbfbf;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #595959;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+}
+.add-note-btn:hover {
+    border-color: #1677ff;
+    color: #1677ff;
+    background: #f0f7ff;
+}
+.cs-notes-wrap .note-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 2px;
+}
+.cs-notes-wrap .note-form textarea {
+    width: 100%;
+    min-height: 56px;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    resize: vertical;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.cs-notes-wrap .note-form textarea:focus {
+    outline: none;
+    border-color: #1677ff;
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+}
+.cs-notes-wrap .note-form .btn-row {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+.cs-notes-wrap .note-form button {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    cursor: pointer;
+    color: #262626;
+}
+.cs-notes-wrap .note-form button:hover { border-color: #1677ff; color: #1677ff; }
+.cs-notes-wrap .note-form button.save-btn {
+    background: #1677ff;
+    color: #fff;
+    border-color: #1677ff;
+}
+.cs-notes-wrap .note-form button.save-btn:hover {
+    background: #4096ff;
+    color: #fff;
+}
+.cs-notes-wrap .note-form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

@@ -8,11 +8,24 @@
 
 ## 2026-04-20
 
+### [orders][render] Thêm cột "Ghi chú" CSKH — multi-note history per order, edit/delete own
+| | |
+|---|---|
+| **Files** | `render.com/migrations/create_order_notes.sql` (new), `render.com/routes/order-notes.js` (new), `render.com/server.js`, `orders-report/js/tab1/tab1-order-notes.js` (new), `orders-report/js/tab1/tab1-table.js`, `orders-report/tab1-orders.html`, `orders-report/css/tab1-orders.css`, `docs/render/render.md` |
+| **Chi tiết** | **Yêu cầu**: Thêm cột Ghi chú (CSKH) bên phải cột Tin nhắn để ghi lại quá trình xử lý đơn khi gọi / chat với khách, phục vụ bàn giao giữa nhân viên. Mọi user thêm được note; 1 đơn nhiều note; mỗi note gắn tên người + thời gian; người viết được sửa/xoá note của chính mình; hiển thị đầy đủ ngay trong cell. **Backend**: Render PostgreSQL — bảng `order_notes` (id UUID, order_id, author, text, created_at, updated_at, is_edited) + 5 endpoints `/api/order-notes/*` (load / POST entries / PUT entries/:id / DELETE entries/:id?author / DELETE cleanup). Ownership check server-side: `UPDATE/DELETE ... WHERE id=$1 AND author=$2` → rowCount=0 trả 403. Input validation: text 1–2000 char, author 1–128, orderId 1–64. Cleanup tự động > 180 ngày. **Frontend**: Module IIFE `OrderNotesStore` theo pattern `InvoiceStatusStore` — load-from-API fallback-localStorage, `add/edit/remove`, refresh cell DOM-targeted (không re-render toàn bảng). Dùng `data-column="cs-notes"` tránh đụng cột TPOS note hiện có (`data-column="notes"`). Render inline trong cell: tất cả note (own=xanh lá, others=vàng), hover own note hiện icon ✎/🗑, button "+Thêm ghi chú" ở cuối cell mở textarea inline. User identity lấy từ `window.getUserName()` / localStorage userType. **Table changes**: Thêm `<th data-column="cs-notes">Ghi chú</th>` giữa messages và comments; thêm `${csNotesHTML}` vào `createRowHTML`; cập nhật mọi colspan `18 → 19`. |
+| **Status** | ✅ Done — migration đã chạy trên Render Postgres, chờ deploy server để endpoints hoạt động |
+
 ### [phone-management,phone-widget] Fix NaN timestamp + implement local MediaRecorder recording
 | | |
 |---|---|
 | **Files** | `phone-management/js/phone-management.js`, `orders-report/js/phone-recording.js` (new), `orders-report/js/phone-widget.js`, `orders-report/tab1-orders.html`, `phone-management/index.html` |
 | **Chi tiết** | **Bug 1 — NaN timestamp**: Postgres BIGINT trả về string (node-pg default để preserve precision), `new Date("1745158000000")` → Invalid Date (JS parse string như date string chứ không phải ms). Fix `_toMs()` helper parseInt nếu string, apply cho `_fmtDateTime/_fmtDuration/_relTime`. **Bug 2 — Ghi âm trống**: trước chỉ placeholder. Implement `PhoneRecording` module: AudioContext mix local mic + remote audio track (`<audio id=pwRemoteAudio>` srcObject) → `MediaStreamDestination` → `MediaRecorder(dest.stream, audio/webm;codecs=opus)` → chunks → Blob → IndexedDB `phoneRecordings/recordings` (keyPath id autoIncrement, indexes: timestamp/username/phone). Retention 30 ngày, auto-cleanup on load. Widget hook `session.on('accepted')` → delay 400ms (chờ remote track attach) → `startRecording({username, ext, phone, name, direction, orderCode, timestamp})` nếu `isEnabled()` (check localStorage `phoneMgmt_prefs.recordLocal`). `endCall` stop với final duration. Phone-management tab Ghi âm: `listRecordings()` → render table (thời gian/nhân viên/ext/số/khách/thời lượng/size + mimeType/actions), 3 nút Phát (modal audio HTML5 player)/Tải về (download blob URL)/Xoá. Storage stats footer "Tổng N ghi âm · X MB". Search + user filter. IndexedDB same-origin share giữa orders-report và phone-management (cùng `nhijudyshop.github.io`). |
+
+### [orders] Fix GIỎ TRỐNG đếm sai 100% trên Báo cáo tổng hợp (dùng TotalQuantity thay Details.length)
+| | |
+|---|---|
+| **Files** | `orders-report/js/overview/overview-statistics.js`, `orders-report/js/overview/overview-modals.js`, `orders-report/js/overview/overview-ui.js` |
+| **Chi tiết** | **Bug**: Trên tab "Báo Cáo Tổng Hợp" (overview), thống kê "GIỎ TRỐNG" luôn = 100% tổng đơn (299/299) dù đa số đơn có sản phẩm thực. Cột SL trong modal hiển thị 0 trên mọi dòng. **Root cause**: `allOrders` (từ Tab1 qua TPOS bulk API) chỉ populate `TotalQuantity`, không có mảng `Details`. Nhưng `computeTagXLCounts()` và 6 nơi khác dùng `order.Details?.length || 0` để xác định SL → mặc định = 0 → mọi đơn bị đếm là GIỎ TRỐNG. **Fix**: Thay biểu thức `order.Details?.length || 0` bằng `(order.TotalQuantity ?? order.Details?.length ?? 0)` tại 8 vị trí: `overview-statistics.js` (4 loop counter GIO_TRONG/gio_trong), `overview-modals.js` (2 filter + 2 render cột SL trong modal validation), `overview-ui.js` (1 render cột SL trong modal). Dùng `??` để giữ đúng case `TotalQuantity === 0` (đơn trống thật). |
 | **Status** | ✅ Done |
 
 ### [orders][render] KPI tính theo người thực sự upsell (per-user audit-based attribution)

@@ -325,7 +325,7 @@ function renderTable() {
 
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -387,7 +387,7 @@ function renderAllOrders() {
     if (renderedCount < displayedData.length) {
         const spacer = document.createElement('tr');
         spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
+        spacer.innerHTML = `<td colspan="19" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})
         </td>`;
         tbody.appendChild(spacer);
@@ -523,7 +523,7 @@ const VirtualTable = {
     renderStandard() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -538,7 +538,7 @@ const VirtualTable = {
     renderVisibleRows() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -570,7 +570,7 @@ const VirtualTable = {
 
         // Top spacer (giữ scroll position)
         if (topPadding > 0) {
-            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="18"></td></tr>`;
+            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="19"></td></tr>`;
         }
 
         // Visible rows
@@ -578,7 +578,7 @@ const VirtualTable = {
 
         // Bottom spacer
         if (bottomPadding > 0) {
-            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="18"></td></tr>`;
+            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="19"></td></tr>`;
         }
 
         this.tbody.innerHTML = html;
@@ -846,7 +846,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="19" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})
         </td>`;
         tbody.appendChild(newSpacer);
@@ -996,6 +996,7 @@ function renderByEmployee() {
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="phone">SĐT</th>
                                 <th data-column="messages">Tin nhắn</th>
+                                <th data-column="cs-notes">Ghi chú</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
                                 <th data-column="address">Địa chỉ</th>
@@ -1083,6 +1084,9 @@ function createRowHTML(order) {
     // Get messages and comments columns
     const messagesHTML = renderMessagesColumn(order);
     const commentsHTML = renderCommentsColumn(order);
+    const csNotesHTML = (typeof window.renderNotesCell === 'function')
+        ? window.renderNotesCell(order)
+        : '<td data-column="cs-notes"></td>';
 
     // Add watermark class for edited notes
     const rowClass = order.noteEdited ? 'note-edited' : '';
@@ -1177,6 +1181,7 @@ function createRowHTML(order) {
                 </div>
             </td>
             ${messagesHTML}
+            ${csNotesHTML}
             ${commentsHTML}
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>

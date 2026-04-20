@@ -230,6 +230,7 @@ const adminFirebaseRoutes = require('./routes/admin-firebase');
 const adminRenderRoutes = require('./routes/admin-render');
 const invoiceStatusRoutes = require('./routes/invoice-status');
 const invoiceMappingRoutes = require('./routes/invoice-mapping');
+const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
@@ -320,6 +321,7 @@ app.use('/api/admin/firebase', adminFirebaseRoutes);
 app.use('/api/admin/render', adminRenderRoutes);
 app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/invoice-mapping', invoiceMappingRoutes);
+app.use('/api/order-notes', orderNotesRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)

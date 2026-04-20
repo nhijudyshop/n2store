@@ -245,7 +245,7 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         const code = String(order.Code || '');
         const amount = order.TotalAmount || 0;
         const tagData = ptagMap[code];
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
 
         // (2026-04-18) GIỎ TRỐNG giờ định nghĩa = đơn SL=0 (không còn subTag riêng).
         // Đếm độc lập với XL state, ghi thẳng vào subTagCounts để render/filter flow reuse.
@@ -528,7 +528,7 @@ function calculateTagStats(orders) {
         const orderAmount = order.TotalAmount || 0;
         const statusText = order.StatusText || order.Status || '';
         const orderId = order.Id || order.Code;
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
         if (!orderTagsMap.has(orderId)) orderTagsMap.set(orderId, { tagKeys: new Set(), order });
 
         if (statusText === 'Đơn hàng') {
@@ -637,7 +637,7 @@ function calculateEmployeeTagStats_legacy(orders) {
             const orderAmount = order.TotalAmount || 0;
             const statusText = order.StatusText || order.Status || '';
             const orderId = order.Id || order.Code;
-            const productCount = order.Details?.length || 0;
+            const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
 
             // Initialize tag set for this order
             if (!orderTagsMap.has(orderId)) {
@@ -852,7 +852,7 @@ function calculateActualClosedStats(orders) {
     orders.forEach(order => {
         const statusText = order.StatusText || order.Status || '';
         const orderTags = parseOrderTags(order.Tags);
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
         const matchedClosedTags = [];
 
         // Check if order has "Đơn hàng" status

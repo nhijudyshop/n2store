@@ -33,6 +33,7 @@
   - [API V2 — Web Warehouse](#api-v2--kho-đi-chợ-warehouse)
   - [API V2 — Pending Withdrawals](#api-v2--pending-withdrawals)
   - [Invoice Status](#invoice-status)
+  - [Order Notes](#order-notes)
   - [Invoice NJD Mapping](#invoice-njd-mapping)
   - [Social Orders](#social-orders)
   - [Return Orders](#return-orders)
@@ -442,6 +443,21 @@ Firebase replacement (PostgreSQL):
 | POST | `/api/invoice-status/sent-bills` | Mark đã gửi bill |
 | DELETE | `/api/invoice-status/sent-bills/:id` | Unmark |
 | GET | `/api/invoice-status/stats` | Thống kê |
+
+### Order Notes
+
+CSKH order notes history (multi-entry per order). Author-scoped edit/delete.
+
+| Method | URL | Body / Query | Mô tả |
+|---|---|---|---|
+| GET | `/api/order-notes/load` | — | Load toàn bộ note trong 180 ngày gần nhất |
+| POST | `/api/order-notes/entries` | `{orderId, author, text}` | Tạo note mới |
+| PUT | `/api/order-notes/entries/:id` | `{author, text}` | Sửa — chỉ author sở hữu (403 nếu khác) |
+| DELETE | `/api/order-notes/entries/:id?author=...` | — | Xoá — chỉ author sở hữu |
+| DELETE | `/api/order-notes/cleanup` | — | Xoá note cũ hơn 180 ngày |
+
+Table: `order_notes` (id UUID PK, order_id, author, text, created_at, updated_at, is_edited).
+Route file: `routes/order-notes.js`. Migration: `migrations/create_order_notes.sql`.
 
 ### Invoice NJD Mapping
 

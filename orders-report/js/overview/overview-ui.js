@@ -676,7 +676,7 @@ function renderCachedDetailsTab() {
     filteredOrders.forEach((item) => {
         const order = item.order;
         const originalIndex = item.originalIndex;
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
         const tagsHtml = parseOrderTagsHtml(order.Tags);
         const stt = order.SessionIndex || originalIndex + 1;
 

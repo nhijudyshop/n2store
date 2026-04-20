@@ -113,7 +113,7 @@ function calculateEmptyCartReasons(orders) {
     const excludedPatterns = ['thẻ khách lạ', 'the khach la', 'khách lạ'];
 
     orders.forEach(order => {
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
         if (productCount !== 0) return;
 
         totalEmptyCartOrders++;
@@ -242,7 +242,7 @@ function viewEmptyCartReasonOrders(tagNameLower) {
 
     // (2026-04-18) Filter = đơn SL=0 AND có tag đích (thay cho "giỏ trống + tag đích")
     const filteredOrders = orders.filter(order => {
-        const productCount = order.Details?.length || 0;
+        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
         if (productCount !== 0) return false;
 
         const orderTags = parseOrderTags(order.Tags);
@@ -567,7 +567,7 @@ function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
                             <td class="order-code">${order.Code || ''}</td>
                             <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags, order)}</div></td>
                             <td>${order.Name || order.PartnerName || ''}</td>
-                            <td>${order.Details?.length || 0}</td>
+                            <td>${(order.TotalQuantity ?? order.Details?.length ?? 0)}</td>
                             <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
                         </tr>
                     `).join('')}
@@ -599,7 +599,7 @@ function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
                             <td class="order-code">${item.order.Code || ''}</td>
                             <td><div class="tags-cell">${parseOrderTagsHtml(item.order.Tags)}</div></td>
                             <td>${item.order.Name || item.order.PartnerName || ''}</td>
-                            <td><strong style="color: #ef4444;">${item.order.Details?.length || 0}</strong></td>
+                            <td><strong style="color: #ef4444;">${(item.order.TotalQuantity ?? item.order.Details?.length ?? 0)}</strong></td>
                             <td class="amount">${(item.order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
                             <td style="color: #ef4444; font-size: 12px;">${item.reason}</td>
                         </tr>
