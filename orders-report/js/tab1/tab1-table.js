@@ -995,8 +995,8 @@ function renderByEmployee() {
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="phone">SĐT</th>
+                                <th data-column="cs-notes">GHI CHÚ</th>
                                 <th data-column="messages">Tin nhắn</th>
-                                <th data-column="cs-notes">Ghi chú</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
                                 <th data-column="address">Địa chỉ</th>
@@ -1180,8 +1180,8 @@ function createRowHTML(order) {
                     <span>${highlight(order.Telephone)}</span>
                 </div>
             </td>
-            ${messagesHTML}
             ${csNotesHTML}
+            ${messagesHTML}
             ${commentsHTML}
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
