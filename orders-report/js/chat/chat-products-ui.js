@@ -452,6 +452,43 @@
     };
 
     /**
+     * Force-reload Excel product cache (latest file from TPOS)
+     */
+    window.reloadChatExcelProducts = async function () {
+        const btn = document.getElementById('btnReloadChatExcel');
+        if (!btn || btn.disabled) return;
+        const icon = btn.querySelector('i');
+
+        btn.disabled = true;
+        if (icon) icon.className = 'fas fa-sync-alt fa-spin';
+
+        try {
+            if (!window.productSearchManager || typeof window.productSearchManager.fetchExcelProducts !== 'function') {
+                throw new Error('productSearchManager không khả dụng');
+            }
+            await window.productSearchManager.fetchExcelProducts(true);
+
+            if (window.notificationManager && typeof window.notificationManager.success === 'function') {
+                window.notificationManager.success('Đã tải lại file Excel sản phẩm mới nhất');
+            }
+
+            const input = document.getElementById('chatInlineProductSearch');
+            const query = input ? input.value.trim() : '';
+            if (query.length >= 2 && typeof window.performChatProductSearch === 'function') {
+                window.performChatProductSearch(query);
+            }
+        } catch (error) {
+            console.error('[ChatProducts-UI] Reload Excel failed:', error);
+            if (window.notificationManager && typeof window.notificationManager.error === 'function') {
+                window.notificationManager.error('Tải lại Excel thất bại: ' + (error.message || error));
+            }
+        } finally {
+            btn.disabled = false;
+            if (icon) icon.className = 'fas fa-sync-alt';
+        }
+    };
+
+    /**
      * Perform product search
      */
     window.performChatProductSearch = function (query) {

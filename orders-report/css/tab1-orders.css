@@ -7127,3 +7127,28 @@ td[data-column="cs-notes"] {
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* ====== Gộp SP Chờ Live Modal ====== */
+.mlw-muted { color: #6b7280; font-size: 12px; }
+.mlw-live-header { padding: 10px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+.mlw-live-info { display: flex; flex-direction: column; gap: 4px; }
+.mlw-mode-toggle { display: flex; gap: 10px; align-items: center; font-size: 13px; margin-right: 10px; }
+.mlw-mode-toggle label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.mlw-loading, .mlw-empty { text-align: center; padding: 40px 20px; color: #6b7280; }
+.mlw-loading i, .mlw-empty i { font-size: 32px; margin-bottom: 8px; display: block; }
+.mlw-cluster-card { border: 1px solid #e5e7eb; border-radius: 8px; margin: 8px; padding: 12px; background: #fff; }
+.mlw-cluster-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.mlw-cluster-select { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.mlw-cluster-meta { display: flex; gap: 6px; }
+.mlw-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.mlw-badge-target { background: #dbeafe; color: #1e40af; }
+.mlw-badge-src { background: #fef3c7; color: #92400e; }
+.mlw-cluster-body { font-size: 12px; line-height: 1.5; }
+.mlw-target-info { padding: 6px 8px; background: #f0fdf4; border-left: 3px solid #10b981; margin-bottom: 6px; }
+.mlw-sources-block { margin-bottom: 6px; }
+.mlw-sources-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11px; }
+.mlw-sources-table th, .mlw-sources-table td { border: 1px solid #e5e7eb; padding: 4px 6px; text-align: left; }
+.mlw-sources-table th { background: #f3f4f6; }
+.mlw-ttags-block { padding: 4px 0; }
+.mlw-tag-pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 4px; color: #fff; }
+.mlw-tag-ttag { background: #3b82f6; }

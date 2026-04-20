@@ -8,6 +8,20 @@
 
 ## 2026-04-20
 
+### [orders] Nút "Gộp SP Chờ Live" — gộp giỏ CHO_LIVE từ 2 live cũ sang live mới nhất cùng SĐT
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-merge-live-waiting.js` (mới), `orders-report/tab1-orders.html`, `orders-report/css/tab1-orders.css`, `docs/dev-log.md` |
+| **Chi tiết** | **Yêu cầu**: Thêm nút ngay bên phải "Gộp sản phẩm đơn trùng SĐT" để tự động chuyển sản phẩm + T-tags từ giỏ cũ có flag XL `CHO_LIVE` sang giỏ mới nhất cùng SĐT ở live hiện tại. **Kiến trúc**: IIFE module mới [tab1-merge-live-waiting.js](../orders-report/js/tab1/tab1-merge-live-waiting.js), export `window.showMergeLiveWaitingModal / closeMergeLiveWaitingModal / runMergeLiveWaitingScan / confirmMergeLiveWaiting`. Dependencies tái sử dụng: `normalizeMergePhone`, `getOrderDetails`, `updateOrderWithFullPayload`, `saveMergeHistory` (tab1-merge.js); `ProcessingTagState.getOrderData`, `assignTTagToOrder`, `assignOrderCategory` (tab1-processing-tags.js); global `displayedData`. **2 chế độ quét**: (1) `campaign` — group `displayedData` theo `LiveCampaignId` sort desc theo `latestDate`, live [0] = target, lives [1..2] = sources; chỉ lấy source order có flag `CHO_LIVE`; (2) `date` — target = order mới nhất per SĐT theo `DateCreated`, sources = order cùng SĐT cũ hơn + có `CHO_LIVE`. **Merge per cluster**: fetch target → push source Details với `Id=undefined`, `LiveCampaign_DetailId=null`, `Note = appendNote(Note, 'Hàng Live Cũ')` (idempotent nếu đã chứa marker); recompute totals → PUT target; gán T-tags từ sources sang target qua `assignTTagToOrder`; clear source (`Details=[]`, totals=0) + `assignOrderCategory(code, 3, {subTag: 'DA_GOP_KHONG_CHOT', source: 'Gộp SP Chờ Live'})`; save `saveMergeHistory` với `type='live_waiting'`. **KHÔNG chuyển**: category/subTag/flags/Regular Tags của giỏ nguồn. Modal có toggle radio `2 live liền trước` ⇄ `Tìm theo ngày`, nút Quét, list cluster card với checkbox + preview T-tags + bảng source orders. Script include đặt sau `tab1-merge.js` trong `tab1-orders.html`. |
+| **Status** | ✅ Done — cần QA test với live thật (giỏ có CHO_LIVE cần verify reset sau clear) |
+
+### [chat][orders] Nút tải lại Excel sản phẩm trong search chat-panel
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css`, `orders-report/js/chat/chat-products-ui.js` |
+| **Chi tiết** | Thêm icon button reload `#btnReloadChatExcel` (fa-sync-alt) ngay trong `.chat-order-search-wrapper` bên phải ô tìm sản phẩm ở chat panel. Click gọi `window.reloadChatExcelProducts()`: disable button + spin icon → `productSearchManager.fetchExcelProducts(true)` force reload cache Excel mới nhất từ TPOS → toast success/error qua `notificationManager` → re-run `performChatProductSearch(query)` nếu đang có query ≥ 2 ký tự → restore icon. Tách khỏi nút reload hiện có của edit-modal (`#btnReloadExcel`) — id khác, cùng underlying manager nên share cache sau reload. |
+| **Status** | ✅ Done |
+
 ### [render][orders] Refresh invoice_status table từ TPOS — endpoint server-side + browser shortcut
 | | |
 |---|---|

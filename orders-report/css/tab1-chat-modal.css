@@ -2159,6 +2159,40 @@
     color: #94a3b8;
 }
 
+/* Reload Excel button inside search wrapper */
+.chat-search-reload-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.chat-search-reload-btn:hover:not(:disabled) {
+    background: rgba(68, 65, 196, 0.08);
+    color: #4441c4;
+}
+
+.chat-search-reload-btn:disabled {
+    cursor: not-allowed;
+    color: #94a3b8;
+}
+
+.chat-search-reload-btn i {
+    font-size: 13px;
+}
+
+.chat-search-reload-btn i.fa-spin {
+    color: #4441c4;
+}
+
 /* Search dropdown results */
 .chat-search-dropdown {
     position: absolute;

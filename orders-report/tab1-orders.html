@@ -154,10 +154,16 @@
                 Xóa Cache
             </button>
             <button class="btn-primary" id="mergeProductsBtn" onclick="showMergeDuplicateOrdersModal()"
-                
+
                 title="Gộp sản phẩm từ các đơn có cùng SĐT vào đơn STT lớn nhất">
                 <i class="fas fa-compress-arrows-alt"></i>
                 Gộp sản phẩm đơn trùng SĐT
+            </button>
+            <button class="btn-primary" id="mergeLiveWaitingBtn" onclick="showMergeLiveWaitingModal()"
+                style="background:#0ea5e9"
+                title="Gộp sản phẩm từ giỏ Chờ Live của 2 live cũ liền trước sang giỏ live mới nhất cùng SĐT">
+                <i class="fas fa-tv"></i>
+                Gộp SP Chờ Live
             </button>
             <button class="btn-primary" id="bulkTagModalBtn" onclick="showBulkTagModal()"
                 
@@ -1015,6 +1021,10 @@
                                 <span class="material-symbols-outlined">search</span>
                                 <input type="text" id="chatInlineProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..."
                                     oninput="window.performChatProductSearch(this.value)">
+                                <button type="button" id="btnReloadChatExcel" class="chat-search-reload-btn"
+                                    onclick="window.reloadChatExcelProducts()" title="Tải lại file Excel sản phẩm mới nhất">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
                             </div>
                             <div id="chatInlineSearchResults" class="chat-search-dropdown" style="display:none;"></div>
                         </div>
@@ -1307,6 +1317,9 @@
     <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
     <script src="js/tab1/tab1-merge.js"></script>
 
+    <!-- 13b. Merge SP Chờ Live: chuyển giỏ có flag CHO_LIVE sang live mới nhất cùng SĐT -->
+    <script src="js/tab1/tab1-merge-live-waiting.js"></script>
+
     <!-- 14. Address & Stats: Address lookup, product stats (lines 20744-22045) -->
     <script src="js/tab1/tab1-address-stats.js"></script>
 
@@ -1407,6 +1420,45 @@
                 </button>
                 <button class="merge-btn-confirm" id="confirmMergeBtn" onclick="confirmMergeSelectedClusters()">
                     <i class="fas fa-check"></i> Xác nhận Gộp Đơn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge Live Waiting Modal -->
+    <div class="merge-modal" id="mergeLiveWaitingModal">
+        <div class="merge-modal-content">
+            <div class="merge-modal-header">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-tv"></i> Gộp SP Chờ Live</h3>
+                    <p id="mlwClusterCount" class="mlw-muted">Chưa quét</p>
+                </div>
+                <div class="merge-header-actions">
+                    <div class="mlw-mode-toggle">
+                        <label><input type="radio" name="mlwMode" value="campaign" checked /> 2 live liền trước</label>
+                        <label><input type="radio" name="mlwMode" value="date" /> Tìm theo ngày (tab 1)</label>
+                        <button class="merge-history-btn" onclick="runMergeLiveWaitingScan()" title="Quét lại">
+                            <i class="fas fa-search"></i> Quét
+                        </button>
+                    </div>
+                    <button class="merge-modal-close" onclick="closeMergeLiveWaitingModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="mlwLiveHeader" class="mlw-live-header"></div>
+            <div class="merge-modal-body" id="mlwModalBody">
+                <div class="mlw-empty">
+                    <i class="fas fa-search"></i>
+                    <p>Bấm nút <strong>Quét</strong> để tìm các giỏ Chờ Live cần gộp.</p>
+                </div>
+            </div>
+            <div class="merge-modal-footer">
+                <button class="merge-btn-cancel" onclick="closeMergeLiveWaitingModal()">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button class="merge-btn-confirm" id="mlwConfirmBtn" onclick="confirmMergeLiveWaiting()" disabled>
+                    <i class="fas fa-check"></i> Xác nhận Gộp (0)
                 </button>
             </div>
         </div>
