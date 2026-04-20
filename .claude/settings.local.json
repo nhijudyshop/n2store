@@ -5,7 +5,23 @@
       "Bash(git pull:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/mac/Desktop/n2store && if [ -n \"$(git diff HEAD --name-only 2>/dev/null)\" ]; then git add -u && git commit -m \"auto: session update\" && git push 2>&1; fi",
+            "async": true,
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
