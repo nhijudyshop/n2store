@@ -38,6 +38,12 @@ window.PurchaseOrderHistory = (function () {
     // Summary stats (accumulated from all pages via @odata.count and current page)
     let summaryTotalAmount = 0;
     let summaryTotalResidual = 0;
+    let summaryTotalQty = 0;
+    let qtyLoading = false;
+    // Cache: orderId -> total ProductQty (avoid refetching when paginating back)
+    const qtyCache = new Map();
+    // Token to invalidate in-flight qty requests when page changes
+    let qtyRequestToken = 0;
 
     /**
      * Initialize with default date range (current month)
@@ -221,6 +227,9 @@ window.PurchaseOrderHistory = (function () {
      */
     function renderStatsBar() {
         if (!statsContainer) return;
+        const qtyDisplay = qtyLoading
+            ? '<span style="opacity:0.6;">đang tính...</span>'
+            : `<strong>${VND_FORMAT.format(summaryTotalQty)}</strong> SP`;
         statsContainer.innerHTML = `
             <div class="history-stats">
                 <span class="history-stats__item">
@@ -234,6 +243,11 @@ window.PurchaseOrderHistory = (function () {
                 <span class="history-stats__sep">|</span>
                 <span class="history-stats__item history-stats__item--debt">
                     Nợ: <strong>${formatMoney(summaryTotalResidual)} đ</strong>
+                </span>
+                <span class="history-stats__sep">|</span>
+                <span class="history-stats__item" title="Tổng số lượng sản phẩm trong trang hiện tại">
+                    <i data-lucide="package" style="width:14px;height:14px;"></i>
+                    SL: ${qtyDisplay}
                 </span>
             </div>
         `;
@@ -311,15 +325,58 @@ window.PurchaseOrderHistory = (function () {
             // Compute summary stats from current page data
             summaryTotalAmount = currentData.reduce((sum, item) => sum + (item.AmountTotal || 0), 0);
             summaryTotalResidual = currentData.reduce((sum, item) => sum + (item.Residual || 0), 0);
+            summaryTotalQty = 0;
+            qtyLoading = currentData.length > 0;
 
             renderStatsBar();
             renderTable(currentData);
             renderPagination();
+
+            loadPageQtyStats(currentData, ++qtyRequestToken);
         } catch (error) {
             console.error('[History] Load failed:', error);
             renderError(error.message);
         } finally {
             isLoading = false;
+        }
+    }
+
+    /**
+     * Load total product quantity per order on the current page in parallel,
+     * cache results, then update the stats bar. Aborts if a newer request starts.
+     */
+    async function loadPageQtyStats(items, token) {
+        if (!items || items.length === 0) {
+            qtyLoading = false;
+            summaryTotalQty = 0;
+            renderStatsBar();
+            return;
+        }
+        try {
+            const qtys = await Promise.all(items.map(async item => {
+                if (qtyCache.has(item.Id)) return qtyCache.get(item.Id);
+                try {
+                    const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${item.Id})/OrderLines?$select=ProductQty`;
+                    const res = await window.TPOSClient.authenticatedFetch(url);
+                    if (!res.ok) return 0;
+                    const data = await res.json();
+                    const qty = (data.value || []).reduce((s, l) => s + (l.ProductQty || 0), 0);
+                    qtyCache.set(item.Id, qty);
+                    return qty;
+                } catch (_e) {
+                    return 0;
+                }
+            }));
+            if (token !== qtyRequestToken) return; // Stale response
+            summaryTotalQty = qtys.reduce((s, q) => s + q, 0);
+            qtyLoading = false;
+            renderStatsBar();
+        } catch (err) {
+            console.warn('[History] loadPageQtyStats failed:', err);
+            if (token === qtyRequestToken) {
+                qtyLoading = false;
+                renderStatsBar();
+            }
         }
     }
 

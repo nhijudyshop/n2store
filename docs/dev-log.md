@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] Tab Lịch sử — hiện tổng số lượng sản phẩm trong stats bar
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/history-tab.js` |
+| **Chi tiết** | Stats bar tab Lịch sử (`440 phiếu | Tổng: ... | Nợ: ...`) thêm mục mới `SL: <n> SP` — tổng `ProductQty` của tất cả phiếu trong trang hiện tại (theo cùng scope với `Tổng`/`Nợ`). Thêm state `summaryTotalQty`, `qtyLoading`, `qtyCache` (Map orderId→qty, tránh refetch khi paginate), `qtyRequestToken` (invalidate stale response khi user đổi trang/filter nhanh). Hàm mới `loadPageQtyStats(items, token)` gọi `${PROXY_URL}/api/odata/FastPurchaseOrder(${id})/OrderLines?$select=ProductQty` parallel cho 20 rows/trang, reduce `ProductQty` → tổng. Stats bar render `"đang tính..."` trong lúc fetch, cập nhật giá trị thật sau khi Promise.all resolve. Token check đảm bảo nếu user chuyển trang trước khi fetch xong thì kết quả cũ bị discard. CSS `.history-stats__item` đã inline-flex sẵn, icon `package` (lucide) phân biệt với `file-text`. |
+| **Status** | ✅ Done |
+
 ### [phone-management] Trang quản lý tổng đài OnCallCX — 10 tabs toàn diện + bridge vào orders page
 | | |
 |---|---|
