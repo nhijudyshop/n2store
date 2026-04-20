@@ -1104,7 +1104,16 @@ function autoFillSaleNote() {
             ? window.currentSaleWalletNoteLines
             : [];
 
-        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → format `Thu Về "X" (ticket_note)`
+        // Extract internal_note từ vc.note đã migrate hoặc dùng ticket_note raw
+        const extractVcNote = (vc) => {
+            const raw = (vc.ticket_note || '').trim();
+            if (raw) return raw;
+            const note = (vc.note || '').trim();
+            const migrated = note.match(/^Công Nợ Ảo Từ\s+[^()]+\(.*?\)\s*-\s*(.+)$/);
+            return migrated ? migrated[1].trim() : '';
+        };
+
+        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → format `Thu Về {amt}K ({internal_note})`
         let hasReturnShipper = false;
         if (vcList.length > 0) {
             for (const vc of vcList) {
@@ -1112,17 +1121,17 @@ function autoFillSaleNote() {
                     hasReturnShipper = true;
                     const vcAmount = parseFloat(vc.remaining_amount) || 0;
                     const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : `${vcAmount}đ`;
-                    const cleanNote = (vc.ticket_note || '').trim();
+                    const cleanNote = extractVcNote(vc);
                     noteParts.push(cleanNote
-                        ? `Thu Về "${vcAmountStr}" (${cleanNote})`
-                        : `Thu Về "${vcAmountStr}"`);
+                        ? `Thu Về ${vcAmountStr} (${cleanNote})`
+                        : `Thu Về ${vcAmountStr}`);
                 }
             }
         } else if (hasVirtualDebt && walletLines.length === 0) {
             // vcList rỗng do backend không trả (ví dụ vc expired/stale) nhưng virtual_balance > 0
             // → fallback generic để không rơi vào "Nợ Cũ"
             const vbStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
-            noteParts.push(`Thu Về "${vbStr}"`);
+            noteParts.push(`Thu Về ${vbStr}`);
             hasReturnShipper = true;
         }
 

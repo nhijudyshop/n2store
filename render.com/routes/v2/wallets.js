@@ -367,12 +367,14 @@ router.get('/:customerId', async (req, res) => {
         const wallet = walletResult.rows[0];
 
         // Get active virtual credits with ticket notes
+        // JOIN cả ticket_code và order_id vì vc.source_id có thể là 1 trong 2
         const creditsResult = await db.query(`
             SELECT vc.id, vc.original_amount, vc.remaining_amount, vc.issued_at, vc.expires_at,
                    vc.status, vc.source_type, vc.source_id, vc.note,
                    ct.internal_note as ticket_note
             FROM virtual_credits vc
-            LEFT JOIN customer_tickets ct ON ct.ticket_code = vc.source_id
+            LEFT JOIN customer_tickets ct
+                ON (ct.ticket_code = vc.source_id OR ct.order_id = vc.source_id)
             WHERE vc.phone = $1 AND vc.status = 'ACTIVE' AND vc.expires_at > NOW()
             ORDER BY vc.expires_at ASC
         `, [phone]);
@@ -466,6 +468,15 @@ router.get('/:customerId', async (req, res) => {
         const stripTicketSuffix = (n) => n ? n.replace(/\s*\(ticket\s+[A-Z]+-\d{4}-\d+\)\s*$/i, '').trim() : n;
         const stripImgTag = (n) => n ? n.replace(/\n?\[Ảnh GD:[^\]]+\]/g, '').trim() : n;
 
+        // Extract internal_note từ note đã migrate "Công Nợ Ảo Từ {Loại} ({order}) - {internal_note}"
+        // hoặc fallback strip "(ticket TV-YYYY-XXX)" ở cuối note cũ.
+        const extractInternalNote = (note) => {
+            if (!note) return '';
+            const migrated = note.match(/^Công Nợ Ảo Từ\s+[^()]+\(.*?\)\s*-\s*(.+)$/);
+            if (migrated) return migrated[1].trim();
+            return stripTicketSuffix(note).trim();
+        };
+
         const depositLines = [];
         let depositsAfterSum = 0;
         for (let i = lastWithdrawIdx + 1; i < txs.length; i++) {
@@ -476,11 +487,11 @@ router.get('/:customerId', async (req, res) => {
                 depositsAfterSum += amt;
                 const amtStr = amt >= 1000 ? `${Math.round(amt / 1000)}K` : `${amt}đ`;
                 if (tx.source === 'RETURN_GOODS' && tx.note) {
-                    // Khách Gửi: format `Khách Gửi "X" (ticket_note)`
-                    const cleanNote = stripTicketSuffix(tx.note);
+                    // Khách Gửi: format `Khách Gửi {amt}K ({internal_note})`
+                    const cleanNote = extractInternalNote(tx.note);
                     depositLines.push(cleanNote
-                        ? `Khách Gửi "${amtStr}" (${cleanNote})`
-                        : `Khách Gửi "${amtStr}"`);
+                        ? `Khách Gửi ${amtStr} (${cleanNote})`
+                        : `Khách Gửi ${amtStr}`);
                 } else if (tx.source === 'MANUAL_ADJUSTMENT' && tx.note) {
                     const cleanNote = stripImgTag(tx.note);
                     depositLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);

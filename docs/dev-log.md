@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Fix ghi chú phiếu bán: JOIN vc với order_id, extract internal_note từ note đã migrate, bỏ dấu `"` quanh amount
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Bug 1** (Bond Huynh): Ghi chú thiếu `(THU VỀ 1 SET B594H - 490K CHẬT)` vì backend SQL `LEFT JOIN customer_tickets ct ON ct.ticket_code = vc.source_id` không match khi `vc.source_id = 'NJD/2026/56932'` (= order_id, không phải ticket_code). **Fix**: JOIN mở rộng `ON (ct.ticket_code = vc.source_id OR ct.order_id = vc.source_id)`. **Bug 2** (Hồng Diễm): Sau migration 061, `tx.note = 'Công Nợ Ảo Từ Khách Gửi (NJD/.../XXX) - KHÁCH 65KG MANG CHẬT'`. Backend wrap lại nested thành `Khách Gửi "450K" (Công Nợ Ảo Từ Khách Gửi (NJD/...) - KHÁCH...)`. **Fix**: Thêm helper `extractInternalNote()` parse regex `/^Công Nợ Ảo Từ\s+[^()]+\(.*?\)\s*-\s*(.+)$/` để lấy chỉ phần sau ` - `, fallback `stripTicketSuffix` cho data cũ. Làm tương tự ở frontend `extractVcNote()` (ưu tiên `ticket_note`, fallback parse `vc.note`). **Bug 3** (format): User muốn `Thu Về 490K (...)` không dấu nháy, bỏ `"` quanh amount ở cả backend (RETURN_GOODS) và frontend (RETURN_SHIPPER). **Expected output**: Bond Huynh → `Thu Về 490K (THU VỀ 1 SET B594H - 490K CHẬT)\n-> CÒN NỢ 180K`; Hồng Diễm → `Khách Gửi 450K (KHÁCH 65KG MANG CHẬT)\n-> CÒN NỢ 225K`. |
+| **Status** | ✅ Done |
+
 ### [migration] Migration 061: Normalize wallet note format với backup + rollback
 | | |
 |---|---|
