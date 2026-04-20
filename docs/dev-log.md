@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Ghi chú: phân biệt VC nguyên (Thu Về) vs VC đã consume (Nợ Cũ) theo original_amount vs remaining_amount
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Bug** (Derek Egbert, 0901462798): Ví có VC `original=340K, remaining=2K` (đã consume 338K ở đơn trước). Note hiện tại `Thu Về 2K`, đúng phải là `Nợ Cũ 2K\n-> 0Đ`. **Lý do**: User phân biệt 2 concept — (a) VC vừa cấp (chưa consume) = "Thu Về X (ticket_note)"; (b) VC còn dư sau khi trả đơn = "Nợ Cũ X" (giống case Nguyễn Apple với wallet lines). **Fix**: Loop vcList RETURN_SHIPPER, so sánh `remaining_amount` vs `original_amount`. Nếu `remaining < original` → push `Nợ Cũ {remaining}K` và đánh `hasReturnShipperLegacy=true`; ngược lại push `Thu Về {remaining}K (note)` và đánh `hasReturnShipperFull=true`. **End-cap logic**: khi có `walletLines > 0` HOẶC `hasReturnShipperLegacy` → luôn push `-> CÒN NỢ X / -> 0Đ` (giống convention wallet thật); khi chỉ `hasReturnShipperFull` → chỉ push `-> CÒN NỢ X` khi `remaining > 0`, không push `-> 0Đ` (giữ case Nguyễn Diễm nguyên). **Expected**: Derek → `Nợ Cũ 2K\n-> 0Đ`. Bond Huynh & Nguyễn Diễm & Hồng Diễm không ảnh hưởng vì VC của họ chưa consume / là wallet thật. |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Fix ghi chú phiếu bán: JOIN vc với order_id, extract internal_note từ note đã migrate, bỏ dấu `"` quanh amount
 | | |
 |---|---|

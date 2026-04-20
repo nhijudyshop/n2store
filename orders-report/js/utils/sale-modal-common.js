@@ -1113,18 +1113,27 @@ function autoFillSaleNote() {
             return migrated ? migrated[1].trim() : '';
         };
 
-        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → format `Thu Về {amt}K ({internal_note})`
-        let hasReturnShipper = false;
+        // 1a. RETURN_SHIPPER virtual credits →
+        //   - VC chưa consume (remaining == original): `Thu Về {amt}K ({internal_note})`
+        //   - VC đã consume một phần (remaining < original): `Nợ Cũ {remaining}K` (số dư cũ)
+        let hasReturnShipperFull = false;    // VC nguyên, chưa consume
+        let hasReturnShipperLegacy = false;  // VC đã consume → "Nợ Cũ"
         if (vcList.length > 0) {
             for (const vc of vcList) {
                 if (vc.source_type === 'RETURN_SHIPPER') {
-                    hasReturnShipper = true;
-                    const vcAmount = parseFloat(vc.remaining_amount) || 0;
-                    const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : `${vcAmount}đ`;
-                    const cleanNote = extractVcNote(vc);
-                    noteParts.push(cleanNote
-                        ? `Thu Về ${vcAmountStr} (${cleanNote})`
-                        : `Thu Về ${vcAmountStr}`);
+                    const remaining = parseFloat(vc.remaining_amount) || 0;
+                    const original = parseFloat(vc.original_amount) || 0;
+                    const remainingStr = remaining >= 1000 ? `${Math.round(remaining / 1000)}K` : `${remaining}đ`;
+                    if (original > 0 && remaining < original) {
+                        noteParts.push(`Nợ Cũ ${remainingStr}`);
+                        hasReturnShipperLegacy = true;
+                    } else {
+                        const cleanNote = extractVcNote(vc);
+                        noteParts.push(cleanNote
+                            ? `Thu Về ${remainingStr} (${cleanNote})`
+                            : `Thu Về ${remainingStr}`);
+                        hasReturnShipperFull = true;
+                    }
                 }
             }
         } else if (hasVirtualDebt && walletLines.length === 0) {
@@ -1132,23 +1141,23 @@ function autoFillSaleNote() {
             // → fallback generic để không rơi vào "Nợ Cũ"
             const vbStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
             noteParts.push(`Thu Về ${vbStr}`);
-            hasReturnShipper = true;
+            hasReturnShipperFull = true;
         }
 
         const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
         const remaining = Math.max(0, originalBalance - codValue);
         const debtStr = remaining >= 1000 ? `${Math.round(remaining / 1000)}K` : `${remaining}đ`;
 
-        if (walletLines.length > 0) {
-            // 1b. Wallet note lines (tiền thật: Nợ Cũ + ĐÃ NHẬN)
-            noteParts.push(...walletLines);
+        if (walletLines.length > 0 || hasReturnShipperLegacy) {
+            // 1b. Wallet lines (tiền thật) HOẶC VC consumed ("Nợ Cũ") → luôn push "-> CÒN NỢ/0Đ"
+            if (walletLines.length > 0) noteParts.push(...walletLines);
             if (remaining > 0) {
                 noteParts.push(`-> CÒN NỢ ${debtStr}`);
             } else {
                 noteParts.push(`-> 0Đ`);
             }
-        } else if (hasReturnShipper) {
-            // RS-only: chỉ push "-> CÒN NỢ X" khi còn dư; không push "-> 0Đ" để giữ convention
+        } else if (hasReturnShipperFull) {
+            // Chỉ VC nguyên (chưa consume): push "-> CÒN NỢ X" khi dư; không push "-> 0Đ"
             if (remaining > 0) {
                 noteParts.push(`-> CÒN NỢ ${debtStr}`);
             }
