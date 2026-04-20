@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Ghi chú: luôn push end-cap `-> CÒN NỢ X / -> 0Đ` cho mọi nhánh wallet content
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Yêu cầu user**: Case Nguyễn Diễm (VC full 320K, COD 355K, `remaining=0`) phải có `-> 0Đ` sau dòng `Thu Về 320K (...)`. Trước đó code skip `-> 0Đ` cho nhánh `hasReturnShipperFull`. **Fix**: Gộp `walletLines.length > 0 || hasReturnShipperLegacy || hasReturnShipperFull` vào 1 nhánh chung — luôn push `-> CÒN NỢ X` khi `remaining > 0`, push `-> 0Đ` khi `remaining = 0`. Đơn giản hoá: mọi case có wallet content đều có end-cap. **Verify 5 case**: Bond Huynh (`Thu Về 490K (...)\n-> CÒN NỢ 180K`), Nguyễn Diễm (`Thu Về 320K (...)\n-> 0Đ`), Derek (`Nợ Cũ 2K\n-> 0Đ`), Hồng Diễm (`Khách Gửi 450K (...)\n-> CÒN NỢ 225K`), Apple (`Nợ Cũ 41K\n-> 0Đ\nGG 70K`). |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Ghi chú: phân biệt VC nguyên (Thu Về) vs VC đã consume (Nợ Cũ) theo original_amount vs remaining_amount
 | | |
 |---|---|

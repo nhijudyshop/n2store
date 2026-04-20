@@ -1148,18 +1148,13 @@ function autoFillSaleNote() {
         const remaining = Math.max(0, originalBalance - codValue);
         const debtStr = remaining >= 1000 ? `${Math.round(remaining / 1000)}K` : `${remaining}đ`;
 
-        if (walletLines.length > 0 || hasReturnShipperLegacy) {
-            // 1b. Wallet lines (tiền thật) HOẶC VC consumed ("Nợ Cũ") → luôn push "-> CÒN NỢ/0Đ"
+        if (walletLines.length > 0 || hasReturnShipperLegacy || hasReturnShipperFull) {
+            // Có bất kỳ wallet content nào → luôn push end-cap "-> CÒN NỢ X" hoặc "-> 0Đ"
             if (walletLines.length > 0) noteParts.push(...walletLines);
             if (remaining > 0) {
                 noteParts.push(`-> CÒN NỢ ${debtStr}`);
             } else {
                 noteParts.push(`-> 0Đ`);
-            }
-        } else if (hasReturnShipperFull) {
-            // Chỉ VC nguyên (chưa consume): push "-> CÒN NỢ X" khi dư; không push "-> 0Đ"
-            if (remaining > 0) {
-                noteParts.push(`-> CÒN NỢ ${debtStr}`);
             }
         } else {
             // Fallback cuối: backend không trả walletNoteLines và không có vc/virtual
