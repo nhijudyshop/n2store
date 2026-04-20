@@ -156,6 +156,8 @@ export default {
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'SOCIAL_ORDERS':
                     return handleCustomer360Proxy(request, url, pathname);
+                case 'ORDER_NOTES':
+                    return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_FIREBASE':
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_RENDER':
