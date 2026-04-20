@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] Fix "Gộp SP Chờ Live": dùng saved campaigns (Cài Đặt Chiến Dịch) thay cho LiveCampaignId của TPOS
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-merge-live-waiting.js` |
+| **Chi tiết** | **Bug**: Ban đầu implement nhầm — group `displayedData` theo `order.LiveCampaignId` (TPOS live session ID) và coi đó là "live". Đúng ra phải dùng saved campaigns user tự tạo ở modal "Cài Đặt Chiến Dịch" (`window.campaignManager.allCampaigns`, shape `{id, name, customStartDate, customEndDate, timeFrame}`). **Fix**: thay `groupByLiveCampaign()` bằng `getSortedSavedCampaigns()` (sort `customStartDate` DESC) + `campaignDateRange(c)` (fallback `+3 ngày` khi thiếu customEndDate — match default logic ở tab1-campaign-create.js:159). Mode campaign mới: (1) Target = active campaign (`mgr.activeCampaignId`); (2) Source = 2 campaigns cũ hơn active theo customStartDate DESC; (3) Filter `displayedData` bằng `orderInRange(o.DateCreated, campaignRange)` → `targetOrders` + `sourceOrders`. Annotate mỗi source order với `_mlwCampaignName` để cột "Chiến dịch" trong bảng preview hiển thị tên saved campaign thay vì TPOS LiveCampaignName. Cảnh báo thông minh khi `displayedData` không bao phủ 2 chiến dịch cũ (yêu cầu user mở rộng bộ lọc ngày tab 1). |
+| **Status** | ✅ Done |
+
 ### [orders] Nút "Gộp SP Chờ Live" — gộp giỏ CHO_LIVE từ 2 live cũ sang live mới nhất cùng SĐT
 | | |
 |---|---|

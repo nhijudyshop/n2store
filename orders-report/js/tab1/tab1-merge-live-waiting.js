@@ -100,32 +100,6 @@
     // =====================================================
 
     /**
-     * Group displayedData theo LiveCampaignId, sort desc theo thời gian mới nhất.
-     * Orders không có LiveCampaignId → gom vào nhóm riêng '__no_live__' (không dùng làm target/source live).
-     * @returns {Array<{campaignId, campaignName, latestDate, orders}>}
-     */
-    function groupByLiveCampaign(orders) {
-        const map = new Map();
-        for (const o of orders) {
-            const cid = o.LiveCampaignId || '__no_live__';
-            if (!map.has(cid)) {
-                map.set(cid, {
-                    campaignId: cid,
-                    campaignName: o.LiveCampaignName || (cid === '__no_live__' ? '(Không live)' : cid),
-                    latestDate: o.DateCreated,
-                    orders: []
-                });
-            }
-            const g = map.get(cid);
-            g.orders.push(o);
-            if (new Date(o.DateCreated) > new Date(g.latestDate)) g.latestDate = o.DateCreated;
-        }
-        const arr = Array.from(map.values()).filter(g => g.campaignId !== '__no_live__');
-        arr.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
-        return arr;
-    }
-
-    /**
      * Pick latest order theo DateCreated (fallback SessionIndex) từ danh sách orders cùng SĐT.
      */
     function pickLatestOrder(orders) {
@@ -137,8 +111,47 @@
     }
 
     /**
+     * Convert saved campaign → { start, end } timestamps.
+     * - customStartDate bắt buộc. Nếu thiếu → null (skip).
+     * - customEndDate rỗng → fallback customStartDate + 3 ngày (matching default trong tab1-campaign-create.js).
+     */
+    function campaignDateRange(c) {
+        if (!c || !c.customStartDate) return null;
+        const start = new Date(c.customStartDate).getTime();
+        if (!Number.isFinite(start)) return null;
+        let end;
+        if (c.customEndDate) {
+            end = new Date(c.customEndDate).getTime();
+            if (!Number.isFinite(end)) end = start + 3 * 24 * 3600 * 1000;
+        } else {
+            end = start + 3 * 24 * 3600 * 1000;
+        }
+        return { start, end };
+    }
+
+    function orderInRange(order, range) {
+        if (!range || !order || !order.DateCreated) return false;
+        const t = new Date(order.DateCreated).getTime();
+        if (!Number.isFinite(t)) return false;
+        return t >= range.start && t <= range.end;
+    }
+
+    /**
+     * Lấy danh sách saved campaigns sort theo customStartDate DESC (newest đầu tiên).
+     * Chỉ lấy những campaign có customStartDate hợp lệ.
+     */
+    function getSortedSavedCampaigns() {
+        const mgr = window.campaignManager;
+        if (!mgr || !mgr.allCampaigns) return [];
+        return Object.values(mgr.allCampaigns)
+            .filter(c => c && c.customStartDate)
+            .slice()
+            .sort((a, b) => new Date(b.customStartDate) - new Date(a.customStartDate));
+    }
+
+    /**
      * Tìm cluster theo mode.
-     *  - campaign: group by LiveCampaignId → target = live [0], sources = live [1..2]. Chỉ lấy source orders có flag CHO_LIVE.
+     *  - campaign: dựa vào saved campaigns (Cài Đặt Chiến Dịch). Target = activeCampaign; sources = 2 campaign liền trước theo customStartDate. Chỉ lấy source orders có flag CHO_LIVE.
      *  - date:    target = order mới nhất theo DateCreated per phone; sources = các order cũ hơn cùng SĐT có CHO_LIVE.
      */
     function findClusters(mode) {
@@ -155,16 +168,40 @@
         let meta = { mode };
 
         if (mode === 'campaign') {
-            const lives = groupByLiveCampaign(data);
-            if (lives.length === 0) {
-                return { clusters: [], meta: { mode, message: 'Không tìm thấy LiveCampaign nào trong dữ liệu hiện tại.' } };
+            const mgr = window.campaignManager;
+            if (!mgr || !mgr.activeCampaignId || !mgr.allCampaigns) {
+                return { clusters: [], meta: { mode, message: 'Chưa chọn chiến dịch active. Vào "Cài Đặt Chiến Dịch" chọn 1 chiến dịch trước.' } };
             }
-            const targetLive = lives[0];
-            const sourceLives = lives.slice(1, 3); // tối đa 2 live liền trước
-            meta.targetLive = targetLive;
-            meta.sourceLives = sourceLives;
-            targetOrders = targetLive.orders;
-            sourceOrders = sourceLives.flatMap(l => l.orders);
+            const activeCampaign = mgr.allCampaigns[mgr.activeCampaignId];
+            if (!activeCampaign) {
+                return { clusters: [], meta: { mode, message: `Chiến dịch active (${mgr.activeCampaignId}) không tồn tại trong danh sách.` } };
+            }
+            const activeRange = campaignDateRange(activeCampaign);
+            if (!activeRange) {
+                return { clusters: [], meta: { mode, message: `Chiến dịch "${activeCampaign.name}" chưa có Từ ngày hợp lệ.` } };
+            }
+
+            const sorted = getSortedSavedCampaigns();
+            const activeIdx = sorted.findIndex(c => c.id === activeCampaign.id);
+            const sourceCampaigns = activeIdx >= 0 ? sorted.slice(activeIdx + 1, activeIdx + 3) : [];
+
+            meta.activeCampaign = activeCampaign;
+            meta.sourceCampaigns = sourceCampaigns;
+
+            if (sourceCampaigns.length === 0) {
+                return { clusters: [], meta: { ...meta, message: `Không có chiến dịch nào cũ hơn "${activeCampaign.name}" để quét CHỜ LIVE.` } };
+            }
+
+            const sourceRanges = sourceCampaigns.map(campaignDateRange).filter(Boolean);
+            targetOrders = data.filter(o => orderInRange(o, activeRange));
+            sourceOrders = data.filter(o => sourceRanges.some(r => orderInRange(o, r)));
+
+            if (targetOrders.length === 0) {
+                return { clusters: [], meta: { ...meta, message: `Không có đơn nào trong chiến dịch active "${activeCampaign.name}". Hãy kiểm tra bộ lọc ngày/cache.` } };
+            }
+            if (sourceOrders.length === 0) {
+                return { clusters: [], meta: { ...meta, message: `displayedData không chứa đơn nào trong 2 chiến dịch cũ. Hãy mở rộng bộ lọc ngày tab 1 để bao phủ ${sourceCampaigns.map(c => c.name).join(', ')}.` } };
+            }
         } else {
             // date mode: dùng toàn bộ displayedData; phân loại per-phone
             targetOrders = data;
@@ -201,6 +238,15 @@
 
             if (sources.length === 0) continue;
 
+            // Annotate mỗi source với tên campaign (chỉ ở campaign mode)
+            if (mode === 'campaign' && Array.isArray(meta.sourceCampaigns)) {
+                const campaignRanges = meta.sourceCampaigns.map(c => ({ c, r: campaignDateRange(c) })).filter(x => x.r);
+                sources.forEach(s => {
+                    const hit = campaignRanges.find(({ r }) => orderInRange(s, r));
+                    s._mlwCampaignName = hit ? hit.c.name : '-';
+                });
+            }
+
             const sourceTTags = unionTTags(sources.map(s => getTTagsForOrder(s.Code)));
             clusters.push({
                 id: `mlw_${phone}_${latest.Id}`,
@@ -227,12 +273,23 @@
 
     function renderModeHeader(meta) {
         if (meta.mode === 'campaign') {
-            const t = meta.targetLive;
-            const srcNames = (meta.sourceLives || []).map(s => _escape(s.campaignName)).join(', ') || '(không có live cũ)';
+            const active = meta.activeCampaign;
+            const activeRange = active ? campaignDateRange(active) : null;
+            const activeRangeText = activeRange
+                ? `${formatDateShort(new Date(activeRange.start).toISOString())} — ${formatDateShort(new Date(activeRange.end).toISOString())}`
+                : '(chưa có ngày)';
+            const srcParts = (meta.sourceCampaigns || []).map(c => {
+                const r = campaignDateRange(c);
+                const rangeText = r
+                    ? `${formatDateShort(new Date(r.start).toISOString())} — ${formatDateShort(new Date(r.end).toISOString())}`
+                    : '(-)';
+                return `<div class="mlw-live-row">↳ ${_escape(c.name)} <small>${rangeText}</small></div>`;
+            }).join('') || '<div class="mlw-live-row mlw-muted">(không có chiến dịch cũ)</div>';
             return `
                 <div class="mlw-live-info">
-                    <div><strong>Live mới nhất:</strong> ${_escape(t?.campaignName || '-')} <small>(${formatDateShort(t?.latestDate)})</small></div>
-                    <div><strong>2 live liền trước:</strong> ${srcNames}</div>
+                    <div><strong>Chiến dịch active (live mới):</strong> ${_escape(active?.name || '-')} <small>${activeRangeText}</small></div>
+                    <div><strong>2 chiến dịch liền trước:</strong></div>
+                    ${srcParts}
                 </div>
             `;
         }
@@ -250,7 +307,7 @@
             <tr>
                 <td>${_escape(s.SessionIndex || '')}</td>
                 <td>${_escape(s.Code || '')}</td>
-                <td>${_escape(s.LiveCampaignName || '-')}</td>
+                <td>${_escape(s._mlwCampaignName || s.LiveCampaignName || '-')}</td>
                 <td>${formatDateShort(s.DateCreated)}</td>
                 <td>${_escape(s.TotalQuantity || 0)}</td>
                 <td>${formatVND(s.TotalAmount)}</td>
@@ -272,14 +329,14 @@
                 <div class="mlw-cluster-body">
                     <div class="mlw-target-info">
                         <strong>Giỏ đích (live mới):</strong>
-                        STT ${_escape(tgt.SessionIndex)} — ${_escape(tgt.LiveCampaignName || '-')}
+                        STT ${_escape(tgt.SessionIndex)}
                         — ${formatDateShort(tgt.DateCreated)}
                         — SL ${_escape(tgt.TotalQuantity || 0)}, ${formatVND(tgt.TotalAmount)}
                     </div>
                     <div class="mlw-sources-block">
                         <strong>Giỏ nguồn (có CHỜ LIVE):</strong>
                         <table class="mlw-sources-table">
-                            <thead><tr><th>STT</th><th>Code</th><th>Live</th><th>Ngày</th><th>SL</th><th>Tiền</th></tr></thead>
+                            <thead><tr><th>STT</th><th>Code</th><th>Chiến dịch</th><th>Ngày</th><th>SL</th><th>Tiền</th></tr></thead>
                             <tbody>${sourcesHtml}</tbody>
                         </table>
                     </div>
