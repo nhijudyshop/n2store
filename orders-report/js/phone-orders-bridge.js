@@ -23,7 +23,7 @@ const PhoneOrdersBridge = (() => {
         style.id = STYLES_ID;
         style.textContent = `
         #phoneCallBar {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 99997;
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100001;
             background: linear-gradient(135deg, #15803d, #22c55e);
             color: #fff; padding: 10px 18px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
             display: flex; align-items: center; gap: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -49,8 +49,11 @@ const PhoneOrdersBridge = (() => {
             display: inline-flex; align-items: center; justify-content: center;
             width: 36px; height: 36px; border-radius: 50%; border: none;
             cursor: pointer; font-size: 15px; transition: transform .15s; color: #fff;
+            pointer-events: auto; user-select: none; flex-shrink: 0;
         }
         #phoneCallBar .pcb-btn:hover { transform: scale(1.1); }
+        #phoneCallBar .pcb-btn:active { transform: scale(.95); }
+        #phoneCallBar .pcb-btn * { pointer-events: none; }
         #phoneCallBar .pcb-btn.mute { background: rgba(0,0,0,.25); }
         #phoneCallBar .pcb-btn.mute.active { background: #dc2626; }
         #phoneCallBar .pcb-btn.hangup { background: #dc2626; }
@@ -92,13 +95,27 @@ const PhoneOrdersBridge = (() => {
         document.head.appendChild(style);
     }
 
+    function _onBarClick(e) {
+        const actionEl = e.target.closest('[data-pcb-action]');
+        if (!actionEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const action = actionEl.dataset.pcbAction;
+        if (action === 'mute') toggleMute();
+        else if (action === 'hangup') hangup();
+        else if (action === 'open-widget') openWidget();
+        else if (action === 'scroll-order') {
+            const code = actionEl.dataset.orderCode;
+            if (code) scrollToOrder(code);
+        }
+    }
+
     function _showBar(state, phone, name, orderCode) {
         _injectStyles();
         document.body.classList.add('phone-call-active');
-        const existing = document.getElementById(FLOATING_BAR_ID);
+        let bar = document.getElementById(FLOATING_BAR_ID);
         const displayName = name || phone || 'Đang gọi';
-        const orderLink = orderCode ? `<a href="#" class="pcb-order-link" onclick="PhoneOrdersBridge.scrollToOrder('${orderCode}'); return false;">Đơn ${orderCode}</a>` : '';
-        const stateLabel = state === 'ringing' ? 'Đang đổ chuông...' : state === 'in-call' ? 'Đang kết nối' : 'Đang gọi';
+        const orderLink = orderCode ? `<a href="#" class="pcb-order-link" data-pcb-action="scroll-order" data-order-code="${_esc(orderCode)}">Đơn ${_esc(orderCode)}</a>` : '';
 
         const html = `
             <span class="pcb-icon">📞</span>
@@ -108,20 +125,20 @@ const PhoneOrdersBridge = (() => {
             </div>
             <span class="pcb-timer" id="pcbTimer">00:00</span>
             <textarea class="pcb-note" id="pcbNote" placeholder="📝 Ghi chú nhanh cho cuộc gọi này..." rows="1"></textarea>
-            <button class="pcb-btn mute" id="pcbMute" onclick="PhoneOrdersBridge.toggleMute()" title="Tắt tiếng (Space)">🔇</button>
-            <button class="pcb-btn hangup" onclick="PhoneOrdersBridge.hangup()" title="Cúp máy (Esc)">✕</button>
-            <button class="pcb-btn open-widget" onclick="PhoneOrdersBridge.openWidget()" title="Mở widget">⚙</button>
+            <button type="button" class="pcb-btn mute" id="pcbMute" data-pcb-action="mute" title="Tắt tiếng (Space)">🔇</button>
+            <button type="button" class="pcb-btn hangup" data-pcb-action="hangup" title="Cúp máy (Esc)">✕</button>
+            <button type="button" class="pcb-btn open-widget" data-pcb-action="open-widget" title="Mở widget">⚙</button>
         `;
-        if (existing) {
-            existing.className = state === 'ringing' ? 'ringing' : '';
-            existing.innerHTML = html;
-        } else {
-            const bar = document.createElement('div');
+        if (!bar) {
+            bar = document.createElement('div');
             bar.id = FLOATING_BAR_ID;
-            if (state === 'ringing') bar.className = 'ringing';
-            bar.innerHTML = html;
             document.body.appendChild(bar);
+            // Event delegation — bind once, survives innerHTML rebuilds
+            bar.addEventListener('click', _onBarClick);
         }
+        bar.className = state === 'ringing' ? 'ringing' : '';
+        bar.innerHTML = html;
+
         // Adjust main content padding
         if (!document.getElementById('pcbBodyOffset')) {
             const s = document.createElement('style'); s.id = 'pcbBodyOffset';
