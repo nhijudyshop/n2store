@@ -21,6 +21,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'customer': true,
     'messages': true,
     'messagesContent': true,  // NEW: Hiển thị nội dung tin nhắn (true) hoặc chỉ "-" (false)
+    'cs-notes': true,         // GHI CHÚ (CSKH notes history per order)
     'comments': true,
     'phone': true,
     'qr': true,
