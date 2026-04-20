@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [inventory-tracking] Stat bar VND/1000 size = stat chính, header mỗi đợt hiển thị "Tổng HĐ: ngoại tệ (VND/1000)"
+| | |
+|---|---|
+| **Files** | `inventory-tracking/css/modern.css`, `inventory-tracking/js/table-renderer.js` |
+| **Chi tiết** | (1) `.stat-box .stat-vnd` tăng từ 11.5px → **22px** (bằng stat-value), weight 800, màu xanh #059669. (2) Header mỗi đợt đổi format: `Tổng HĐ: <ship-tong-hd-num>{ngoại tệ}</ship-tong-hd-num> <ship-tong-hd-vnd>({VND/1000})</ship-tong-hd-vnd>` — ngoại tệ đen bold, VND xanh bold trong ngoặc. Permission vẫn dùng `view_thanhToanCK` (admin tự bypass qua ADMIN_PERMISSIONS ở permission-helper.js). |
+| **Status** | ✅ Done |
+
 ### [orders] "Gộp SP Chờ Live": preview table đầy đủ sản phẩm + tag (giống modal "Gộp Đơn Trùng SĐT")
 | | |
 |---|---|

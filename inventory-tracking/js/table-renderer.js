@@ -540,8 +540,11 @@ function createShipmentCard(shipment) {
     const shipHD = parseFloat(shipment.tongTienHoaDon) || 0;
     const shipTiGia = parseFloat(shipment.tiGia) || 0;
     const shipHDVnd = shipHD * shipTiGia;
-    const tongHDSuffix = (canViewTT && shipHDVnd > 0)
-        ? ` <span class="ship-tong-hd">| Tổng HĐ: ${formatNumber(Math.round(shipHDVnd / 1000))}</span>`
+    const vndPart = shipHDVnd > 0
+        ? ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round(shipHDVnd / 1000))})</span>`
+        : '';
+    const tongHDSuffix = (canViewTT && shipHD > 0)
+        ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">${formatNumber(shipHD)}</span>${vndPart}</span>`
         : '';
     let packagesInfo;
     if (packages.length > 0) {
