@@ -13,6 +13,22 @@ const MAX_AGE_DAYS = 180;
 const MAX_TEXT_LEN = 2000;
 const MAX_AUTHOR_LEN = 128;
 const MAX_ORDER_ID_LEN = 64;
+const SSE_KEY = 'order_notes_global';
+
+// Injected from server.js (see initializeNotifiers)
+let notifyClients = null;
+function initializeNotifiers(notify) {
+    notifyClients = notify;
+    console.log('[ORDER-NOTES] SSE notifier initialized');
+}
+function broadcast(action, payload) {
+    if (typeof notifyClients !== 'function') return;
+    try {
+        notifyClients(SSE_KEY, { action, ...payload }, 'update');
+    } catch (e) {
+        console.warn('[ORDER-NOTES] broadcast failed:', e.message);
+    }
+}
 
 function sanitizeString(v, maxLen) {
     if (typeof v !== 'string') return null;
@@ -82,19 +98,17 @@ router.post('/entries', async (req, res) => {
             [orderId, author, text]
         );
         const r = result.rows[0];
-
-        res.json({
-            success: true,
-            note: {
-                id: r.id,
-                orderId: r.order_id,
-                author: r.author,
-                text: r.text,
-                createdAt: r.created_at.getTime(),
-                updatedAt: r.updated_at.getTime(),
-                isEdited: r.is_edited,
-            },
-        });
+        const note = {
+            id: r.id,
+            orderId: r.order_id,
+            author: r.author,
+            text: r.text,
+            createdAt: r.created_at.getTime(),
+            updatedAt: r.updated_at.getTime(),
+            isEdited: r.is_edited,
+        };
+        broadcast('created', { note });
+        res.json({ success: true, note });
     } catch (error) {
         console.error('[ORDER-NOTES] POST /entries error:', error);
         res.status(500).json({ error: error.message });
@@ -130,19 +144,17 @@ router.put('/entries/:id', async (req, res) => {
             return res.status(403).json({ error: 'Not your note (or note not found)' });
         }
         const r = result.rows[0];
-
-        res.json({
-            success: true,
-            note: {
-                id: r.id,
-                orderId: r.order_id,
-                author: r.author,
-                text: r.text,
-                createdAt: r.created_at.getTime(),
-                updatedAt: r.updated_at.getTime(),
-                isEdited: r.is_edited,
-            },
-        });
+        const note = {
+            id: r.id,
+            orderId: r.order_id,
+            author: r.author,
+            text: r.text,
+            createdAt: r.created_at.getTime(),
+            updatedAt: r.updated_at.getTime(),
+            isEdited: r.is_edited,
+        };
+        broadcast('updated', { note });
+        res.json({ success: true, note });
     } catch (error) {
         console.error('[ORDER-NOTES] PUT /entries error:', error);
         res.status(500).json({ error: error.message });
@@ -163,7 +175,7 @@ router.delete('/entries/:id', async (req, res) => {
         if (!author) return res.status(400).json({ error: 'author query param required' });
 
         const result = await pool.query(
-            `DELETE FROM order_notes WHERE id = $1 AND author = $2 RETURNING id`,
+            `DELETE FROM order_notes WHERE id = $1 AND author = $2 RETURNING id, order_id`,
             [id, author]
         );
 
@@ -171,6 +183,7 @@ router.delete('/entries/:id', async (req, res) => {
             return res.status(403).json({ error: 'Not your note (or note not found)' });
         }
 
+        broadcast('deleted', { noteId: result.rows[0].id, orderId: result.rows[0].order_id });
         res.json({ success: true });
     } catch (error) {
         console.error('[ORDER-NOTES] DELETE /entries error:', error);
@@ -201,3 +214,4 @@ router.delete('/cleanup', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.initializeNotifiers = initializeNotifiers;

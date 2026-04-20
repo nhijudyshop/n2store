@@ -362,6 +362,11 @@ initializeNotifiers(
     realtimeSseRoutes.notifyClientsWildcard
 );
 
+// Initialize SSE notifiers in order-notes routes
+if (orderNotesRoutes.initializeNotifiers) {
+    orderNotesRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+
 // Initialize SSE notifiers in web-warehouse routes
 const webWarehouseRouter = require('./routes/v2/web-warehouse');
 if (webWarehouseRouter.initializeNotifiers) {

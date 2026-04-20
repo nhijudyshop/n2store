@@ -15,6 +15,9 @@
     const API_BASE =
         (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
         '/api/order-notes';
+    const SSE_KEY = 'order_notes_global';
+    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=' + encodeURIComponent(SSE_KEY);
+    const POLL_INTERVAL_MS = 30000; // fallback polling when SSE disconnected
 
     // =====================================================
     // STORE
@@ -23,6 +26,8 @@
         _data: new Map(), // orderId -> Array<Note>  (sorted ASC by createdAt)
         _loaded: false,
         _loadPromise: null,
+        _sseSource: null,
+        _pollTimer: null,
 
         async init() {
             if (this._loadPromise) return this._loadPromise;
@@ -32,8 +37,81 @@
                 this._loaded = true;
                 // Re-render all visible notes cells once data is loaded
                 this._refreshAllVisibleCells();
+                this._setupRealtime();
             })();
             return this._loadPromise;
+        },
+
+        _setupRealtime() {
+            this._teardownRealtime();
+            try {
+                const source = new EventSource(SSE_URL);
+                this._sseSource = source;
+                source.addEventListener('update', ev => {
+                    try {
+                        const payload = JSON.parse(ev.data);
+                        const body = payload.data || payload;
+                        this._applyRemoteEvent(body);
+                    } catch (err) {
+                        console.warn('[OrderNotesStore] SSE parse error:', err.message);
+                    }
+                });
+                source.onerror = () => {
+                    console.warn('[OrderNotesStore] SSE error, falling back to polling');
+                    this._teardownRealtime();
+                    this._startPolling();
+                };
+            } catch (err) {
+                console.warn('[OrderNotesStore] EventSource unavailable:', err.message);
+                this._startPolling();
+            }
+        },
+
+        _teardownRealtime() {
+            if (this._sseSource) {
+                try { this._sseSource.close(); } catch (_) {}
+                this._sseSource = null;
+            }
+            if (this._pollTimer) {
+                clearInterval(this._pollTimer);
+                this._pollTimer = null;
+            }
+        },
+
+        _startPolling() {
+            if (this._pollTimer) return;
+            this._pollTimer = setInterval(async () => {
+                const ok = await this._loadFromAPI();
+                if (ok) this._refreshAllVisibleCells();
+            }, POLL_INTERVAL_MS);
+        },
+
+        _applyRemoteEvent(body) {
+            if (!body || !body.action) return;
+            if (body.action === 'created' || body.action === 'updated') {
+                const n = body.note;
+                if (!n?.orderId || !n?.id) return;
+                let arr = this._data.get(n.orderId);
+                if (!arr) {
+                    arr = [];
+                    this._data.set(n.orderId, arr);
+                }
+                const idx = arr.findIndex(x => x.id === n.id);
+                if (idx >= 0) arr[idx] = n;
+                else arr.push(n);
+                this._saveToLocalStorage();
+                this._refreshCell(n.orderId);
+            } else if (body.action === 'deleted') {
+                const { noteId, orderId } = body;
+                if (!orderId || !noteId) return;
+                const arr = this._data.get(orderId);
+                if (arr) {
+                    const i = arr.findIndex(x => x.id === noteId);
+                    if (i >= 0) arr.splice(i, 1);
+                }
+                this._saveToLocalStorage();
+                this._refreshCell(orderId);
+            }
         },
 
         async _loadFromAPI() {
