@@ -78,7 +78,13 @@ app.locals.chatDb = chatDbPool;
 
 // Test database connection on startup
 chatDbPool.query('SELECT NOW()')
-    .then(() => console.log('[DATABASE] PostgreSQL connected successfully'))
+    .then(() => {
+        console.log('[DATABASE] PostgreSQL connected successfully');
+        // Auto-create phone management tables (idempotent)
+        if (typeof ensurePhoneManagementTables === 'function') {
+            ensurePhoneManagementTables(chatDbPool).catch(() => {});
+        }
+    })
     .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
 // =====================================================
@@ -243,7 +249,7 @@ const v2Router = require('./routes/v2');  // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
-const { attachSipProxy, createRouter: createOncallRouter } = require('./routes/oncall-sip-proxy');
+const { attachSipProxy, createRouter: createOncallRouter, ensurePhoneManagementTables } = require('./routes/oncall-sip-proxy');
 const tposTokenManager = require('./services/tpos-token-manager');
 const { createAuthTokenStore } = require('./services/auth-token-store');
 const authTokenStore = createAuthTokenStore(chatDbPool);

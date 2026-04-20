@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [phone-management,render] Migrate data t\u1eeb Firestore \u2192 Render Postgres + fix layout mobile header
+| | |
+|---|---|
+| **Files** | `render.com/routes/oncall-sip-proxy.js`, `render.com/server.js`, `render.com/migrations/phone_management_tables.sql` (new), `orders-report/js/phone-cloud-sync.js` (rewrite), `orders-report/js/phone-ext-assignment.js` (rewrite), `phone-management/js/phone-management.js` (rewrite), `phone-management/css/phone-management.css` |
+| **Chi tiết** | User yêu cầu lưu lên Render DB thay Firestore. **DB migration** tạo 5 bảng: `phone_ext_assignments` (username PK → ext), `phone_call_history` (SERIAL id, indexes username/phone/timestamp/direction/ext), `phone_presence` (username PK, state ENUM-like), `phone_audit_log` (JSONB detail), `phone_contacts`. Auto-create via `ensurePhoneManagementTables()` wire vào `server.js` sau DB connect success. **Render API** thêm 13 endpoints trong `oncall-sip-proxy.js`: GET/PUT/DELETE `/ext-assignments`, POST/GET/PATCH `/call-history` + PATCH `/call-history/:id` + GET `/call-history/stats`, GET/POST `/presence`, GET/POST `/audit-log`, GET/POST/DELETE `/contacts`. **PhoneCloudSync** rewrite: dùng `fetch` POST/PATCH tới Render, `sendBeacon` fallback cho `beforeunload` clear presence. **PhoneExtAssignment** rewrite: dùng REST + localStorage cache + **polling 15s** (Postgres không có realtime như Firestore), optimistic update + rollback on fail. **phone-management page** rewrite: bỏ Firestore queries, dùng `apiGet/apiSend`, Live tab polling 5s thay onSnapshot, stop interval khi switch tab. **Fix layout**: `.mobile-tab-header/.mobile-tab-dropdown/.mobile-dropdown-overlay` mặc định `display:none` trên desktop (trước đó render full list ở góc trái); chỉ hiện >768px với fully styled dropdown. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix GIỎ TRỐNG match — dùng diacritic-insensitive so sánh tên tag
 | | |
 |---|---|

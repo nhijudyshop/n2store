@@ -1,16 +1,12 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-// Phone Management — admin page controller
+// Phone Management — admin page controller (Render Postgres backend)
 // Tabs: dashboard / extensions / staff / history / stats / live / contacts / recordings / config / audit
 
 const PM = (() => {
-    const HISTORY_COLLECTION = 'phone_call_history';
-    const PRESENCE_COLLECTION = 'phone_presence';
-    const AUDIT_COLLECTION = 'phone_audit_log';
-    const CONTACTS_COLLECTION = 'phone_contacts';
-    const RENDER_PHONE_CONFIG = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
+    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const LIVE_POLL_MS = 5000; // poll Live tab every 5s
 
     // State
-    let db = null;
     let currentTab = 'dashboard';
     let users = [];
     let assignments = {};
@@ -19,27 +15,53 @@ const PM = (() => {
     let historyCache = [];
     let historyPage = 1;
     const HISTORY_PAGE_SIZE = 50;
-    let presenceUnsub = null;
+    let livePollTimer = null;
     const charts = {};
 
     function $(sel) { return document.querySelector(sel); }
     function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
 
+    // === FETCH HELPERS ===
+    async function apiGet(path) {
+        try {
+            const r = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return await r.json();
+        } catch (err) {
+            console.warn('[PM] GET', path, err.message);
+            return { success: false, error: err.message };
+        }
+    }
+    async function apiSend(path, method, body) {
+        try {
+            const r = await fetch(`${API_BASE}${path}`, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return await r.json();
+        } catch (err) {
+            console.warn('[PM]', method, path, err.message);
+            return { success: false, error: err.message };
+        }
+    }
+
+    // === FORMAT HELPERS ===
     function _fmtDateTime(ts) {
         if (!ts) return '';
-        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        const d = new Date(ts);
         return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
-    function _fmtTimeOnly(ts) { const d = ts.toDate ? ts.toDate() : new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
     function _fmtDuration(sec) { if (!sec) return '—'; const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,'0')}`; }
     function _fmtPhone(s) { const d = String(s || '').replace(/[^\d+]/g,''); if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3'); return d; }
-    function _relTime(ts) { const t = ts?.toDate ? ts.toDate().getTime() : (ts || Date.now()); const diff = Date.now() - t; if (diff < 60000) return 'vừa xong'; if (diff < 3600000) return `${Math.floor(diff/60000)} phút`; if (diff < 86400000) return `${Math.floor(diff/3600000)} giờ`; return `${Math.floor(diff/86400000)} ngày`; }
+    function _relTime(ts) { const t = ts instanceof Date ? ts.getTime() : (typeof ts === 'string' ? new Date(ts).getTime() : (ts || Date.now())); const diff = Date.now() - t; if (diff < 60000) return 'vừa xong'; if (diff < 3600000) return `${Math.floor(diff/60000)} phút`; if (diff < 86400000) return `${Math.floor(diff/3600000)} giờ`; return `${Math.floor(diff/86400000)} ngày`; }
     function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
     function _dirIcon(d) { const cls = d === 'in' ? 'in' : d === 'missed' ? 'missed' : 'out'; const ch = d === 'in' ? '↙' : d === 'missed' ? '✕' : '↗'; return `<span class="pm-dir-icon ${cls}">${ch}</span>`; }
     function _initialsAvatar(name) { return (name || '?').split(/\s+/).map(p => p[0]).slice(-2).join('').toUpperCase(); }
     function _iconsRefresh() { if (window.lucide?.createIcons) window.lucide.createIcons(); }
 
-    // === AUTH CHECK + INIT ===
+    // === AUTH ===
     async function _waitForAuth(maxMs = 5000) {
         const start = Date.now();
         while (Date.now() - start < maxMs) {
@@ -51,17 +73,16 @@ const PM = (() => {
     }
     function _hasAdminAccess(auth) {
         if (!auth) return false;
-        // Multiple admin detection paths (align with navigation-modern.js)
         const userType = (localStorage.getItem('userType') || '').toLowerCase();
         if (userType.startsWith('admin')) return true;
         if (auth.isAdmin === true) return true;
         if (auth.roleTemplate === 'admin') return true;
         if (auth.checkLogin === 0) return true;
-        // Per-page permission check
         const perms = auth.detailedPermissions?.['phone-management'];
         if (perms && Object.values(perms).some(v => v === true)) return true;
         return false;
     }
+
     async function init() {
         const auth = await _waitForAuth();
         if (!auth) { location.href = '../index.html'; return; }
@@ -72,55 +93,45 @@ const PM = (() => {
         $('#mainContainer').style.display = 'block';
         $('#pmUserChip').innerHTML = `👋 ${_esc(auth.displayName || auth.email || 'Admin')}`;
 
-        try { if (window.firebase?.firestore) db = firebase.firestore(); } catch (e) { console.error(e); }
-
         _setupTabs();
         _setupMobileDropdown();
         _setupLiveFilters();
         await _loadInitial();
 
-        // Default tab
         switchTab('dashboard');
         _iconsRefresh();
     }
 
     async function _loadInitial() {
-        // Load PBX config
-        try {
-            const r = await fetch(RENDER_PHONE_CONFIG); const d = await r.json();
-            if (d?.success && d.config) { dbConfig = d.config; extensions = d.config.sip_extensions || []; }
-        } catch { dbConfig = null; }
+        // PBX config
+        const cfg = await apiGet('/phone-config');
+        if (cfg?.success && cfg.config) { dbConfig = cfg.config; extensions = cfg.config.sip_extensions || []; }
         if (!extensions.length) {
-            // fallback from localStorage
             try { const c = JSON.parse(localStorage.getItem('phoneWidget_dbConfig') || '{}'); extensions = c.sip_extensions || []; dbConfig = dbConfig || c; } catch {}
         }
 
-        // Load users
+        // Users from Firestore (user-employee-loader)
         try {
             if (window.userEmployeeLoader) {
                 await window.userEmployeeLoader.initialize();
                 users = await window.userEmployeeLoader.loadUsers();
             }
-        } catch (e) { users = []; }
+        } catch { users = []; }
 
-        // Load assignments
-        try {
-            if (window.PhoneExtAssignment) {
-                await window.PhoneExtAssignment.init();
-                assignments = window.PhoneExtAssignment.getAll();
-                window.PhoneExtAssignment.onChange((data) => { assignments = data; _renderCurrentTab(); });
-            }
-        } catch {}
+        // Ext assignments from Render
+        const as = await apiGet('/ext-assignments');
+        if (as?.success) { assignments = as.assignments || {}; }
 
-        // Populate history/recording user filters
+        // Populate user filter dropdowns
         const userOpts = users.map(u => `<option value="${_esc(u.displayName)}">${_esc(u.displayName)}</option>`).join('');
         const histUserSel = $('#histUser'); if (histUserSel) histUserSel.innerHTML = '<option value="">Tất cả nhân viên</option>' + userOpts;
         const recUserSel = $('#recUser'); if (recUserSel) recUserSel.innerHTML = '<option value="">Tất cả nhân viên</option>' + userOpts;
 
-        // Default history date range: last 30 days
+        // Default date range
         const today = new Date(); const past = new Date(Date.now() - 30*86400000);
         const iso = d => d.toISOString().slice(0,10);
-        $('#histFrom').value = iso(past); $('#histTo').value = iso(today);
+        if ($('#histFrom')) $('#histFrom').value = iso(past);
+        if ($('#histTo')) $('#histTo').value = iso(today);
     }
 
     // === TABS ===
@@ -152,8 +163,12 @@ const PM = (() => {
             });
         });
     }
-
-    function toggleMobileDropdown() { const dd = $('#pmMobileDropdown'); const ov = $('#pmMobileOverlay'); if (!dd) return; const open = !dd.classList.contains('open'); dd.classList.toggle('open', open); if (ov) ov.classList.toggle('open', open); }
+    function toggleMobileDropdown() {
+        const dd = $('#pmMobileDropdown'); const ov = $('#pmMobileOverlay'); if (!dd) return;
+        const open = !dd.classList.contains('open');
+        dd.classList.toggle('open', open);
+        if (ov) ov.classList.toggle('open', open);
+    }
     function closeMobileDropdown() { $('#pmMobileDropdown')?.classList.remove('open'); $('#pmMobileOverlay')?.classList.remove('open'); }
 
     function switchTab(id) {
@@ -162,6 +177,8 @@ const PM = (() => {
         $$('.pm-tabview').forEach(v => v.classList.toggle('active', v.dataset.tabview === id));
         const title = { dashboard: 'Tổng quan', extensions: 'Extensions', staff: 'Nhân viên', history: 'Lịch sử', stats: 'Thống kê', live: 'Live', contacts: 'Danh bạ', recordings: 'Ghi âm', config: 'Cấu hình', audit: 'Audit log' }[id] || '';
         const mtitle = $('#pmMobileTitle'); if (mtitle) mtitle.textContent = title;
+        // Stop live polling when leaving Live tab
+        if (id !== 'live' && livePollTimer) { clearInterval(livePollTimer); livePollTimer = null; }
         _renderCurrentTab();
         _iconsRefresh();
     }
@@ -182,7 +199,6 @@ const PM = (() => {
     }
 
     function refresh() {
-        // Reset caches + reload current tab
         historyCache = []; historyPage = 1;
         _loadInitial().then(() => _renderCurrentTab());
     }
@@ -190,41 +206,26 @@ const PM = (() => {
     // === DASHBOARD ===
     async function loadDashboard() {
         $('#kpiTotalExt').textContent = extensions.length;
-        $('#kpiOnline').textContent = '...';
-        $('#kpiInCall').textContent = '...';
-        $('#kpiCallsToday').textContent = '...';
-        $('#kpiMissedToday').textContent = '...';
-        $('#kpiAvgDur').textContent = '...';
 
-        // Presence count
-        try {
-            const snap = await db.collection(PRESENCE_COLLECTION).get();
-            let online = 0, inCall = 0;
-            snap.forEach(d => {
-                const s = d.data();
-                if (s.state === 'registered' || s.state === 'in-call' || s.state === 'ringing') online++;
-                if (s.state === 'in-call') inCall++;
-            });
-            $('#kpiOnline').textContent = online;
-            $('#kpiInCall').textContent = inCall;
-        } catch { $('#kpiOnline').textContent = '—'; $('#kpiInCall').textContent = '—'; }
+        // Presence
+        const pres = await apiGet('/presence');
+        let online = 0, inCall = 0;
+        (pres.rows || []).forEach(p => {
+            if (p.state === 'registered' || p.state === 'in-call' || p.state === 'ringing') online++;
+            if (p.state === 'in-call') inCall++;
+        });
+        $('#kpiOnline').textContent = online;
+        $('#kpiInCall').textContent = inCall;
 
         // Calls today
         const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).where('timestamp', '>=', todayStart.getTime()).get();
-            let total = 0, missed = 0, durSum = 0, durCount = 0;
-            snap.forEach(d => {
-                const c = d.data(); total++;
-                if (c.direction === 'missed') missed++;
-                if (c.duration) { durSum += c.duration; durCount++; }
-            });
-            $('#kpiCallsToday').textContent = total;
-            $('#kpiMissedToday').textContent = missed;
-            $('#kpiAvgDur').textContent = durCount ? _fmtDuration(Math.round(durSum/durCount)) : '—';
-        } catch {
-            $('#kpiCallsToday').textContent = '—'; $('#kpiMissedToday').textContent = '—'; $('#kpiAvgDur').textContent = '—';
-        }
+        const th = await apiGet(`/call-history?from=${todayStart.getTime()}&limit=2000`);
+        const rows = th.rows || [];
+        let total = rows.length, missed = 0, durSum = 0, durCount = 0;
+        rows.forEach(c => { if (c.direction === 'missed') missed++; if (c.duration) { durSum += c.duration; durCount++; } });
+        $('#kpiCallsToday').textContent = total;
+        $('#kpiMissedToday').textContent = missed;
+        $('#kpiAvgDur').textContent = durCount ? _fmtDuration(Math.round(durSum/durCount)) : '—';
 
         _loadWeekChart();
         _loadTopAgents();
@@ -237,66 +238,60 @@ const PM = (() => {
         const days = []; const labels = [];
         for (let i = 6; i >= 0; i--) {
             const d = new Date(Date.now() - i*86400000); d.setHours(0,0,0,0);
-            days.push({ start: d.getTime(), end: d.getTime() + 86400000, label: `${d.getDate()}/${d.getMonth()+1}` });
+            days.push({ start: d.getTime(), end: d.getTime() + 86400000 });
             labels.push(`${d.getDate()}/${d.getMonth()+1}`);
         }
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).where('timestamp', '>=', days[0].start).get();
-            const countsOut = Array(7).fill(0), countsIn = Array(7).fill(0), countsMissed = Array(7).fill(0);
-            snap.forEach(d => {
-                const c = d.data();
-                const idx = days.findIndex(day => c.timestamp >= day.start && c.timestamp < day.end);
-                if (idx >= 0) {
-                    if (c.direction === 'missed') countsMissed[idx]++;
-                    else if (c.direction === 'in') countsIn[idx]++;
-                    else countsOut[idx]++;
-                }
-            });
-            if (charts.week) charts.week.destroy();
-            charts.week = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets: [
-                    { label: 'Gọi đi', data: countsOut, backgroundColor: '#22c55e' },
-                    { label: 'Gọi đến', data: countsIn, backgroundColor: '#3b82f6' },
-                    { label: 'Nhỡ', data: countsMissed, backgroundColor: '#ef4444' }
-                ]},
-                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
-            });
-        } catch {}
+        const r = await apiGet(`/call-history?from=${days[0].start}&limit=5000`);
+        const rows = r.rows || [];
+        const out = Array(7).fill(0), incoming = Array(7).fill(0), miss = Array(7).fill(0);
+        rows.forEach(c => {
+            const idx = days.findIndex(d => c.timestamp >= d.start && c.timestamp < d.end);
+            if (idx >= 0) {
+                if (c.direction === 'missed') miss[idx]++;
+                else if (c.direction === 'in') incoming[idx]++;
+                else out[idx]++;
+            }
+        });
+        if (charts.week) charts.week.destroy();
+        charts.week = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets: [
+                { label: 'Gọi đi', data: out, backgroundColor: '#22c55e' },
+                { label: 'Gọi đến', data: incoming, backgroundColor: '#3b82f6' },
+                { label: 'Nhỡ', data: miss, backgroundColor: '#ef4444' }
+            ]},
+            options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+        });
     }
 
     async function _loadTopAgents() {
         const container = $('#topAgentsList'); if (!container) return;
-        try {
-            const weekAgo = Date.now() - 7*86400000;
-            const snap = await db.collection(HISTORY_COLLECTION).where('timestamp', '>=', weekAgo).get();
-            const byUser = {};
-            snap.forEach(d => { const c = d.data(); if (!c.username) return; byUser[c.username] = (byUser[c.username] || 0) + 1; });
-            const sorted = Object.entries(byUser).sort((a,b) => b[1]-a[1]).slice(0,5);
-            container.innerHTML = sorted.length
-                ? sorted.map(([name, n], i) => `<div class="pm-compact-item"><div class="pm-compact-main"><div class="pm-compact-name">#${i+1} ${_esc(name)}</div><div class="pm-compact-meta"><span>Ext ${assignments[name] || '—'}</span></div></div><div class="pm-compact-value">${n}</div></div>`).join('')
-                : '<div style="text-align:center;color:#94a3b8;padding:14px;font-size:12px">Chưa có cuộc gọi trong 7 ngày qua</div>';
-        } catch { container.innerHTML = '<div style="color:#ef4444;padding:14px">Lỗi tải dữ liệu</div>'; }
+        const weekAgo = Date.now() - 7*86400000;
+        const r = await apiGet(`/call-history?from=${weekAgo}&limit=5000`);
+        const byUser = {};
+        (r.rows || []).forEach(c => { if (c.username) byUser[c.username] = (byUser[c.username] || 0) + 1; });
+        const sorted = Object.entries(byUser).sort((a,b) => b[1]-a[1]).slice(0,5);
+        container.innerHTML = sorted.length
+            ? sorted.map(([name, n], i) => `<div class="pm-compact-item"><div class="pm-compact-main"><div class="pm-compact-name">#${i+1} ${_esc(name)}</div><div class="pm-compact-meta"><span>Ext ${assignments[name] || '—'}</span></div></div><div class="pm-compact-value">${n}</div></div>`).join('')
+            : '<div style="text-align:center;color:#94a3b8;padding:14px;font-size:12px">Chưa có cuộc gọi trong 7 ngày qua</div>';
     }
 
     async function _loadRecentCalls() {
         const container = $('#recentCalls'); if (!container) return;
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).orderBy('timestamp','desc').limit(8).get();
-            const rows = []; snap.forEach(d => rows.push(d.data()));
-            container.innerHTML = rows.length
-                ? rows.map(c => `
-                    <div class="pm-compact-item">
-                        ${_dirIcon(c.direction)}
-                        <div class="pm-compact-main">
-                            <div class="pm-compact-name">${_esc(c.name || _fmtPhone(c.phone))}</div>
-                            <div class="pm-compact-meta"><span>${_esc(c.username)}</span><span>• Ext ${c.ext || '—'}</span><span>• ${_relTime(c.timestamp)}</span></div>
-                        </div>
-                        <span class="pm-badge gray">${_fmtDuration(c.duration)}</span>
+        const r = await apiGet('/call-history?limit=8');
+        const rows = r.rows || [];
+        container.innerHTML = rows.length
+            ? rows.map(c => `
+                <div class="pm-compact-item">
+                    ${_dirIcon(c.direction)}
+                    <div class="pm-compact-main">
+                        <div class="pm-compact-name">${_esc(c.name || _fmtPhone(c.phone))}</div>
+                        <div class="pm-compact-meta"><span>${_esc(c.username)}</span><span>• Ext ${c.ext || '—'}</span><span>• ${_relTime(c.timestamp)}</span></div>
                     </div>
-                `).join('')
-                : '<div style="text-align:center;color:#94a3b8;padding:14px;font-size:12px">Chưa có cuộc gọi nào</div>';
-        } catch (e) { container.innerHTML = '<div style="color:#ef4444;padding:14px">Lỗi: ' + e.message + '</div>'; }
+                    <span class="pm-badge gray">${_fmtDuration(c.duration)}</span>
+                </div>
+            `).join('')
+            : '<div style="text-align:center;color:#94a3b8;padding:14px;font-size:12px">Chưa có cuộc gọi nào</div>';
     }
 
     function _loadExtSummary() {
@@ -310,31 +305,26 @@ const PM = (() => {
         `;
     }
 
-    // === EXTENSIONS TAB ===
+    // === EXTENSIONS ===
     async function renderExtensions() {
         const body = $('#extTableBody'); if (!body) return;
-        if (!extensions.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Chưa có extension nào. Kiểm tra cấu hình Render API.</td></tr>'; return; }
-        // Last-call per ext
+        if (!extensions.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Chưa có extension nào.</td></tr>'; return; }
+
+        const lh = await apiGet('/call-history?limit=500');
         const lastByExt = {};
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).orderBy('timestamp','desc').limit(500).get();
-            snap.forEach(d => { const c = d.data(); if (c.ext && !lastByExt[c.ext]) lastByExt[c.ext] = c; });
-        } catch {}
-        // Presence
+        (lh.rows || []).forEach(c => { if (c.ext && !lastByExt[c.ext]) lastByExt[c.ext] = c; });
+        const p = await apiGet('/presence');
         const presenceByUser = {};
-        try {
-            const snap = await db.collection(PRESENCE_COLLECTION).get();
-            snap.forEach(d => presenceByUser[d.id] = d.data());
-        } catch {}
+        (p.rows || []).forEach(r => { presenceByUser[r.username] = r; });
 
         const userByExt = {};
         Object.entries(assignments).forEach(([name, ext]) => { userByExt[ext] = name; });
         const filter = ($('#extSearch').value || '').trim().toLowerCase();
 
-        const rows = extensions.filter(e => {
+        body.innerHTML = extensions.filter(e => {
             if (!filter) return true;
             const user = userByExt[e.ext] || '';
-            return e.ext.includes(filter) || (e.label || '').toLowerCase().includes(filter) || user.toLowerCase().includes(filter);
+            return String(e.ext).includes(filter) || (e.label || '').toLowerCase().includes(filter) || user.toLowerCase().includes(filter);
         }).map((e, idx) => {
             const user = userByExt[e.ext] || '';
             const presence = user ? presenceByUser[user] : null;
@@ -348,7 +338,7 @@ const PM = (() => {
                     <td>${idx + 1}</td>
                     <td class="mono"><b>${e.ext}</b></td>
                     <td>${_esc(e.label || '—')}</td>
-                    <td><select class="pm-input" style="min-width:0" data-ext="${e.ext}" onchange="PM.assignExt('${e.ext}', this.value)">${userOpts}</select></td>
+                    <td><select class="pm-input" style="min-width:0" onchange="PM.assignExt('${e.ext}', this.value)">${userOpts}</select></td>
                     <td>${stateBadge}</td>
                     <td>${last ? `<div><b>${_esc(last.name || _fmtPhone(last.phone))}</b></div><div style="font-size:11px;color:#94a3b8">${_relTime(last.timestamp)} • ${_fmtDuration(last.duration)}</div>` : '—'}</td>
                     <td>
@@ -357,73 +347,58 @@ const PM = (() => {
                     </td>
                 </tr>`;
         }).join('');
-        body.innerHTML = rows;
         _iconsRefresh();
     }
 
     async function assignExt(ext, username) {
-        if (!window.PhoneExtAssignment) return;
         try {
             if (username) {
-                // Conflict check
+                // Conflict check: if someone else has this ext, unassign them first
                 for (const [n, e] of Object.entries(assignments)) {
                     if (n !== username && String(e) === String(ext)) {
                         if (!confirm(`Ext ${ext} đang gán cho ${n}. Chuyển sang ${username}?`)) { renderExtensions(); return; }
-                        await window.PhoneExtAssignment.setAssignment(n, null);
+                        await apiSend(`/ext-assignments/${encodeURIComponent(n)}`, 'PUT', { ext: '' });
                     }
                 }
-                // Also unassign if this user had another ext
-                const prev = assignments[username];
-                if (prev && String(prev) !== String(ext)) {
-                    // will be overridden below
-                }
-                await window.PhoneExtAssignment.setAssignment(username, ext);
+                await apiSend(`/ext-assignments/${encodeURIComponent(username)}`, 'PUT', { ext });
+                await apiSend('/audit-log', 'POST', { username: window.authManager?.getAuthData?.()?.displayName || '', action: 'ext_assign', detail: { target: username, newExt: ext }, timestamp: Date.now() });
             } else {
-                // Remove assignment for whoever holds this ext
                 const owner = Object.entries(assignments).find(([,v]) => String(v) === String(ext));
-                if (owner) await window.PhoneExtAssignment.setAssignment(owner[0], null);
+                if (owner) {
+                    await apiSend(`/ext-assignments/${encodeURIComponent(owner[0])}`, 'PUT', { ext: '' });
+                    await apiSend('/audit-log', 'POST', { username: window.authManager?.getAuthData?.()?.displayName || '', action: 'ext_unassign', detail: { target: owner[0], prevExt: ext }, timestamp: Date.now() });
+                }
             }
-            assignments = window.PhoneExtAssignment.getAll();
+            // Refresh local cache
+            const as = await apiGet('/ext-assignments');
+            if (as?.success) assignments = as.assignments || {};
             renderExtensions();
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
 
+    let _extHistoryFilter = null;
     function viewExtHistory(ext) {
         $('#histUser').value = '';
         switchTab('history');
-        // Use phone filter as "ext:" prefix (client-side will filter by ext)
-        setTimeout(() => {
-            // We add a fake filter via a state flag
-            _extHistoryFilter = ext;
-            applyHistoryFilters();
-            setTimeout(() => { _extHistoryFilter = null; }, 100);
-        }, 100);
+        setTimeout(() => { _extHistoryFilter = ext; applyHistoryFilters(); setTimeout(() => { _extHistoryFilter = null; }, 100); }, 100);
     }
-    let _extHistoryFilter = null;
-
     function openAddExtension() {
         alert('Thêm ext mới: cập nhật qua Render API PUT /api/oncall/phone-config key=sip_extensions');
     }
 
-    // === STAFF TAB ===
+    // === STAFF ===
     async function renderStaff() {
         const body = $('#staffTableBody'); if (!body) return;
         const filter = ($('#staffSearch').value || '').toLowerCase();
         const roleFilter = $('#staffFilterRole').value;
 
-        // Fetch call counts per user this week
         const weekAgo = Date.now() - 7*86400000;
+        const r = await apiGet(`/call-history?from=${weekAgo}&limit=5000`);
         const countByUser = {};
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).where('timestamp', '>=', weekAgo).get();
-            snap.forEach(d => { const c = d.data(); if (!c.username) return; countByUser[c.username] = (countByUser[c.username] || 0) + 1; });
-        } catch {}
-        // Presence
+        (r.rows || []).forEach(c => { if (c.username) countByUser[c.username] = (countByUser[c.username] || 0) + 1; });
+        const pr = await apiGet('/presence');
         const presenceByUser = {};
-        try {
-            const snap = await db.collection(PRESENCE_COLLECTION).get();
-            snap.forEach(d => presenceByUser[d.id] = d.data());
-        } catch {}
+        (pr.rows || []).forEach(row => { presenceByUser[row.username] = row; });
 
         const filtered = users.filter(u => {
             if (filter && !u.displayName.toLowerCase().includes(filter)) return false;
@@ -446,7 +421,7 @@ const PM = (() => {
                     <td>${u.checkLogin === 0 ? '<span class="pm-badge purple">Admin</span>' : '<span class="pm-badge gray">NV</span>'}</td>
                     <td><select class="pm-input" style="min-width:0" onchange="PM.assignUser('${_esc(u.displayName)}', this.value)">${extOpts}</select></td>
                     <td><b>${countByUser[u.displayName] || 0}</b></td>
-                    <td>${stateBadge}${presence?.state === 'in-call' && presence?.callPhone ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px">với ${_esc(presence.callName || _fmtPhone(presence.callPhone))}</div>` : ''}</td>
+                    <td>${stateBadge}${presence?.state === 'in-call' && presence?.call_phone ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px">với ${_esc(presence.call_name || _fmtPhone(presence.call_phone))}</div>` : ''}</td>
                     <td><button class="btn btn-sm btn-outline" onclick="PM.viewUserHistory('${_esc(u.displayName)}')" title="Xem lịch sử"><i data-lucide="list"></i></button></td>
                 </tr>`;
         }).join('');
@@ -454,20 +429,19 @@ const PM = (() => {
     }
 
     async function assignUser(username, ext) {
-        if (!window.PhoneExtAssignment) return;
         try {
             if (ext) {
                 for (const [n, e] of Object.entries(assignments)) {
                     if (n !== username && String(e) === String(ext)) {
                         if (!confirm(`Ext ${ext} đang gán cho ${n}. Chuyển sang ${username}?`)) { renderStaff(); return; }
-                        await window.PhoneExtAssignment.setAssignment(n, null);
+                        await apiSend(`/ext-assignments/${encodeURIComponent(n)}`, 'PUT', { ext: '' });
                     }
                 }
-                await window.PhoneExtAssignment.setAssignment(username, ext);
-            } else {
-                await window.PhoneExtAssignment.setAssignment(username, null);
             }
-            assignments = window.PhoneExtAssignment.getAll();
+            await apiSend(`/ext-assignments/${encodeURIComponent(username)}`, 'PUT', { ext: ext || '' });
+            await apiSend('/audit-log', 'POST', { username: window.authManager?.getAuthData?.()?.displayName || '', action: ext ? 'ext_assign' : 'ext_unassign', detail: { target: username, newExt: ext }, timestamp: Date.now() });
+            const as = await apiGet('/ext-assignments');
+            if (as?.success) assignments = as.assignments || {};
             renderStaff();
         } catch (e) { alert('Lỗi: ' + e.message); }
     }
@@ -477,7 +451,7 @@ const PM = (() => {
         setTimeout(() => { $('#histUser').value = username; applyHistoryFilters(); }, 50);
     }
 
-    // === HISTORY TAB ===
+    // === HISTORY ===
     async function applyHistoryFilters() {
         const body = $('#historyTableBody'); if (!body) return;
         body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Đang tải...</td></tr>';
@@ -488,27 +462,20 @@ const PM = (() => {
         const user = $('#histUser').value;
         const phone = ($('#histPhone').value || '').trim();
 
-        try {
-            let q = db.collection(HISTORY_COLLECTION)
-                .where('timestamp', '>=', from)
-                .where('timestamp', '<', to)
-                .orderBy('timestamp', 'desc')
-                .limit(500);
-            const snap = await q.get();
-            historyCache = [];
-            snap.forEach(d => historyCache.push({ id: d.id, ...d.data() }));
-            // Client-side filters
-            historyCache = historyCache.filter(c => {
-                if (dir && c.direction !== dir) return false;
-                if (user && c.username !== user) return false;
-                if (phone && !String(c.phone || '').includes(phone)) return false;
-                if (_extHistoryFilter && String(c.ext) !== String(_extHistoryFilter)) return false;
-                return true;
-            });
+        const qs = new URLSearchParams();
+        qs.set('from', from); qs.set('to', to); qs.set('limit', 1000);
+        if (dir) qs.set('direction', dir);
+        if (user) qs.set('username', user);
+        if (phone) qs.set('phone', phone);
+        if (_extHistoryFilter) qs.set('ext', _extHistoryFilter);
+
+        const r = await apiGet(`/call-history?${qs}`);
+        if (r?.success) {
+            historyCache = r.rows || [];
             historyPage = 1;
             _renderHistoryPage();
-        } catch (e) {
-            body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(e.message)}</td></tr>`;
+        } else {
+            body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(r.error || 'unknown')}</td></tr>`;
         }
     }
 
@@ -526,12 +493,11 @@ const PM = (() => {
                     <td class="mono">${_fmtPhone(c.phone)}</td>
                     <td>${_esc(c.name || '—')}</td>
                     <td class="mono">${_fmtDuration(c.duration)}</td>
-                    <td>${c.orderCode ? `<a href="../orders-report/tab1-orders.html?q=${encodeURIComponent(c.orderCode)}">${_esc(c.orderCode)}</a>` : '—'}</td>
+                    <td>${c.order_code ? `<a href="../orders-report/tab1-orders.html?q=${encodeURIComponent(c.order_code)}">${_esc(c.order_code)}</a>` : '—'}</td>
                     <td>${c.outcome ? `<span class="pm-badge ${c.outcome === 'success' ? 'green' : 'gray'}">${_esc(c.outcome)}</span>` : ''}${c.note ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px">${_esc(c.note)}</div>` : ''}</td>
                 </tr>
             `).join('')
             : '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Không có kết quả</td></tr>';
-        // Pager
         const pager = $('#historyPager');
         const totalPages = Math.ceil(historyCache.length / HISTORY_PAGE_SIZE) || 1;
         pager.innerHTML = `
@@ -546,16 +512,8 @@ const PM = (() => {
         if (!historyCache.length) { alert('Không có dữ liệu để export'); return; }
         const headers = ['Thời gian','Hướng','Nhân viên','Ext','Số','Khách','Thời lượng (giây)','Đơn','Kết quả','Ghi chú'];
         const rows = historyCache.map(c => [
-            _fmtDateTime(c.timestamp),
-            c.direction || '',
-            c.username || '',
-            c.ext || '',
-            c.phone || '',
-            c.name || '',
-            c.duration || 0,
-            c.orderCode || '',
-            c.outcome || '',
-            c.note || ''
+            _fmtDateTime(c.timestamp), c.direction || '', c.username || '', c.ext || '',
+            c.phone || '', c.name || '', c.duration || 0, c.order_code || '', c.outcome || '', c.note || ''
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
@@ -564,17 +522,13 @@ const PM = (() => {
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
 
-    // === STATISTICS TAB ===
+    // === STATS ===
     async function loadStats() {
         const range = parseInt($('#statsRange').value || '30', 10);
         const since = Date.now() - range * 86400000;
-        let data = [];
-        try {
-            const snap = await db.collection(HISTORY_COLLECTION).where('timestamp', '>=', since).get();
-            snap.forEach(d => data.push(d.data()));
-        } catch (e) { console.warn(e); return; }
+        const r = await apiGet(`/call-history?from=${since}&limit=10000`);
+        const data = r.rows || [];
 
-        // Daily chart
         const byDay = {};
         for (let i = 0; i < range; i++) {
             const d = new Date(Date.now() - i*86400000); d.setHours(0,0,0,0);
@@ -604,7 +558,6 @@ const PM = (() => {
             options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
 
-        // Direction pie
         const dirCount = { Đi: 0, Đến: 0, Nhỡ: 0 };
         data.forEach(c => { const k = c.direction === 'missed' ? 'Nhỡ' : c.direction === 'in' ? 'Đến' : 'Đi'; dirCount[k]++; });
         if (charts.dir) charts.dir.destroy();
@@ -614,7 +567,6 @@ const PM = (() => {
             options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
         });
 
-        // Hourly
         const hourly = Array(24).fill(0);
         data.forEach(c => { const h = new Date(c.timestamp).getHours(); hourly[h]++; });
         if (charts.hourly) charts.hourly.destroy();
@@ -624,13 +576,8 @@ const PM = (() => {
             options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
         });
 
-        // Avg duration per user
         const durByUser = {};
-        data.forEach(c => {
-            if (!c.username || !c.duration) return;
-            if (!durByUser[c.username]) durByUser[c.username] = { sum: 0, cnt: 0 };
-            durByUser[c.username].sum += c.duration; durByUser[c.username].cnt++;
-        });
+        data.forEach(c => { if (!c.username || !c.duration) return; if (!durByUser[c.username]) durByUser[c.username] = { sum: 0, cnt: 0 }; durByUser[c.username].sum += c.duration; durByUser[c.username].cnt++; });
         const avgEntries = Object.entries(durByUser).map(([u, v]) => [u, Math.round(v.sum/v.cnt)]).sort((a,b) => b[1]-a[1]).slice(0,10);
         if (charts.avgDur) charts.avgDur.destroy();
         charts.avgDur = new Chart($('#chartAvgDur'), {
@@ -639,7 +586,6 @@ const PM = (() => {
             options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
         });
 
-        // Top contacts
         const byPhone = {};
         data.forEach(c => { if (!c.phone) return; const k = c.phone; if (!byPhone[k]) byPhone[k] = { phone: k, name: c.name, count: 0, dur: 0 }; byPhone[k].count++; byPhone[k].dur += (c.duration || 0); if (c.name && !byPhone[k].name) byPhone[k].name = c.name; });
         const top = Object.values(byPhone).sort((a,b) => b.count-a.count).slice(0,10);
@@ -648,93 +594,86 @@ const PM = (() => {
             : '<div style="text-align:center;color:#94a3b8;padding:14px">Chưa có dữ liệu</div>';
     }
 
-    // === LIVE TAB ===
-    function startLive() {
-        if (presenceUnsub) { presenceUnsub(); presenceUnsub = null; }
-        const grid = $('#liveGrid'); if (!grid || !db) return;
+    // === LIVE (polling) ===
+    async function startLive() {
+        if (livePollTimer) { clearInterval(livePollTimer); livePollTimer = null; }
+        const grid = $('#liveGrid'); if (!grid) return;
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:24px">Đang tải trạng thái...</div>';
-        presenceUnsub = db.collection(PRESENCE_COLLECTION).onSnapshot(snap => {
-            const items = [];
-            snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-            // Include all users, not just those with presence doc
-            const byUser = Object.fromEntries(items.map(i => [i.id, i]));
-            const merged = users.map(u => byUser[u.displayName] || { id: u.displayName, username: u.displayName, state: 'offline', ext: assignments[u.displayName] || '' });
-            grid.innerHTML = merged.map(p => {
-                const name = p.username || p.id;
-                const stateLabel = p.state === 'in-call' ? 'Đang gọi' : p.state === 'ringing' ? 'Đổ chuông' : p.state === 'registered' ? 'Online' : 'Offline';
-                return `
-                    <div class="pm-live-card ${p.state || 'offline'}">
-                        <div class="pm-live-head">
-                            <div class="pm-live-avatar">${_esc(_initialsAvatar(name))}</div>
-                            <div class="pm-live-name">${_esc(name)}</div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center">
-                            <span class="pm-live-ext">Ext ${p.ext || '—'}</span>
-                            <span class="pm-live-state ${p.state || 'offline'}">${stateLabel}</span>
-                        </div>
-                        ${p.state === 'in-call' && p.callPhone ? `<div class="pm-live-call-info">📞 ${_esc(p.callName || _fmtPhone(p.callPhone))}</div>` : ''}
-                        ${p.since && p.state !== 'offline' ? `<div class="pm-live-since">Từ ${_relTime(p.since)}</div>` : ''}
-                    </div>`;
-            }).join('');
-            _iconsRefresh();
-        });
+        await _refreshLive();
+        livePollTimer = setInterval(_refreshLive, LIVE_POLL_MS);
+    }
+    async function _refreshLive() {
+        const grid = $('#liveGrid'); if (!grid) return;
+        const r = await apiGet('/presence');
+        const byUser = {};
+        (r.rows || []).forEach(row => { byUser[row.username] = row; });
+        const merged = users.map(u => byUser[u.displayName] || { username: u.displayName, state: 'offline', ext: assignments[u.displayName] || '' });
+        grid.innerHTML = merged.map(p => {
+            const name = p.username;
+            const stateLabel = p.state === 'in-call' ? 'Đang gọi' : p.state === 'ringing' ? 'Đổ chuông' : p.state === 'registered' ? 'Online' : 'Offline';
+            return `
+                <div class="pm-live-card ${p.state || 'offline'}">
+                    <div class="pm-live-head">
+                        <div class="pm-live-avatar">${_esc(_initialsAvatar(name))}</div>
+                        <div class="pm-live-name">${_esc(name)}</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span class="pm-live-ext">Ext ${p.ext || '—'}</span>
+                        <span class="pm-live-state ${p.state || 'offline'}">${stateLabel}</span>
+                    </div>
+                    ${p.state === 'in-call' && p.call_phone ? `<div class="pm-live-call-info">📞 ${_esc(p.call_name || _fmtPhone(p.call_phone))}</div>` : ''}
+                    ${p.since && p.state !== 'offline' ? `<div class="pm-live-since">Từ ${_relTime(p.since)}</div>` : ''}
+                </div>`;
+        }).join('');
+        _iconsRefresh();
     }
 
-    // === CONTACTS TAB ===
+    // === CONTACTS ===
     async function loadContacts() {
         const body = $('#contactsTableBody'); if (!body) return;
         body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">Đang tải...</td></tr>';
-        try {
-            const snap = await db.collection(CONTACTS_COLLECTION).orderBy('name').get();
-            const rows = [];
-            snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-            body.innerHTML = rows.length
-                ? rows.map(c => `
-                    <tr>
-                        <td><b>${_esc(c.name)}</b></td>
-                        <td class="mono">${_fmtPhone(c.phone)}</td>
-                        <td>${c.tag ? `<span class="pm-badge blue">${_esc(c.tag)}</span>` : ''}</td>
-                        <td>${_esc(c.note || '')}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline" onclick="PM.copyToClipboard('${_esc(c.phone)}')" title="Copy"><i data-lucide="copy"></i></button>
-                            <button class="btn btn-sm btn-outline" onclick="PM.deleteContact('${c.id}')" title="Xoá"><i data-lucide="trash-2"></i></button>
-                        </td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">Danh bạ trống</td></tr>';
-            _iconsRefresh();
-        } catch { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:20px">Lỗi tải dữ liệu</td></tr>'; }
+        const r = await apiGet('/contacts');
+        const rows = r.rows || [];
+        body.innerHTML = rows.length
+            ? rows.map(c => `
+                <tr>
+                    <td><b>${_esc(c.name)}</b></td>
+                    <td class="mono">${_fmtPhone(c.phone)}</td>
+                    <td>${c.tag ? `<span class="pm-badge blue">${_esc(c.tag)}</span>` : ''}</td>
+                    <td>${_esc(c.note || '')}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="PM.copyToClipboard('${_esc(c.phone)}')" title="Copy"><i data-lucide="copy"></i></button>
+                        <button class="btn btn-sm btn-outline" onclick="PM.deleteContact(${c.id})" title="Xoá"><i data-lucide="trash-2"></i></button>
+                    </td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">Danh bạ trống</td></tr>';
+        _iconsRefresh();
     }
     async function openAddContact() {
         const name = prompt('Tên liên hệ:'); if (!name) return;
         const phone = prompt('Số điện thoại:'); if (!phone) return;
         const tag = prompt('Nhãn (tuỳ chọn):') || '';
         const note = prompt('Ghi chú (tuỳ chọn):') || '';
-        try {
-            await db.collection(CONTACTS_COLLECTION).add({ name, phone: phone.replace(/[^\d+]/g,''), tag, note, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            loadContacts();
-        } catch (e) { alert('Lỗi: ' + e.message); }
+        const r = await apiSend('/contacts', 'POST', { name, phone, tag, note, created_by: window.authManager?.getAuthData?.()?.displayName || '' });
+        if (r?.success) loadContacts(); else alert('Lỗi: ' + (r?.error || 'unknown'));
     }
     async function deleteContact(id) {
         if (!confirm('Xoá liên hệ này?')) return;
-        try { await db.collection(CONTACTS_COLLECTION).doc(id).delete(); loadContacts(); } catch (e) { alert('Lỗi: ' + e.message); }
+        const r = await apiSend(`/contacts/${id}`, 'DELETE');
+        if (r?.success) loadContacts(); else alert('Lỗi: ' + (r?.error || 'unknown'));
     }
     function copyToClipboard(s) { navigator.clipboard.writeText(s).catch(() => {}); }
 
-    // === RECORDINGS TAB (placeholder — local only) ===
+    // === RECORDINGS (placeholder) ===
     async function loadRecordings() {
-        // Recording functionality needs MediaRecorder hookup in phone-widget.
-        // For now just show any records from IndexedDB if widget stored any.
-        const body = $('#recTableBody'); if (!body) return;
-        // Will be populated once phone-widget MediaRecorder is enabled
-        if (body.children.length === 1 && body.children[0].textContent.includes('Chưa có')) return; // already set
+        // local MediaRecorder feature not yet implemented — placeholder remains
     }
 
-    // === CONFIG TAB ===
+    // === CONFIG ===
     function renderConfig() {
         $('#cfgPbxDomain').value = dbConfig?.pbx_domain || 'pbx-ucaas.oncallcx.vn';
         $('#cfgWsUrl').value = dbConfig?.ws_url || '';
-        // Ext pool
         const body = $('#cfgExtPoolBody');
         body.innerHTML = extensions.length
             ? extensions.map(e => `
@@ -746,7 +685,6 @@ const PM = (() => {
                 </tr>
             `).join('')
             : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Chưa tải được ext pool</td></tr>';
-        // Load local prefs
         try {
             const p = JSON.parse(localStorage.getItem('phoneMgmt_prefs') || '{}');
             $('#cfgAutoAnswer').checked = !!p.autoAnswer;
@@ -765,27 +703,24 @@ const PM = (() => {
         localStorage.setItem('phoneMgmt_prefs', JSON.stringify(prefs));
     }
 
-    // === AUDIT TAB ===
+    // === AUDIT ===
     async function loadAudit() {
         const body = $('#auditTableBody'); if (!body) return;
         body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Đang tải...</td></tr>';
         const action = $('#auditAction').value;
-        try {
-            let q = db.collection(AUDIT_COLLECTION).orderBy('timestamp', 'desc').limit(200);
-            const snap = await q.get();
-            const rows = []; snap.forEach(d => rows.push(d.data()));
-            const filtered = action ? rows.filter(r => r.action === action) : rows;
-            body.innerHTML = filtered.length
-                ? filtered.map(r => `
-                    <tr>
-                        <td>${_fmtDateTime(r.timestamp)}</td>
-                        <td><b>${_esc(r.username || '—')}</b></td>
-                        <td><span class="pm-badge ${r.action === 'ext_assign' ? 'green' : r.action === 'ext_unassign' ? 'red' : 'gray'}">${_esc(r.action)}</span></td>
-                        <td style="font-size:11.5px;color:#475569">${_esc(JSON.stringify(r.detail || {}))}</td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Không có audit log</td></tr>';
-        } catch (e) { body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(e.message)}</td></tr>`; }
+        const qs = action ? `?action=${encodeURIComponent(action)}` : '';
+        const r = await apiGet(`/audit-log${qs}`);
+        const rows = r.rows || [];
+        body.innerHTML = rows.length
+            ? rows.map(row => `
+                <tr>
+                    <td>${_fmtDateTime(row.timestamp)}</td>
+                    <td><b>${_esc(row.username || '—')}</b></td>
+                    <td><span class="pm-badge ${row.action === 'ext_assign' ? 'green' : row.action === 'ext_unassign' ? 'red' : 'gray'}">${_esc(row.action)}</span></td>
+                    <td style="font-size:11.5px;color:#475569">${_esc(JSON.stringify(row.detail || {}))}</td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Không có audit log</td></tr>';
     }
 
     // Boot

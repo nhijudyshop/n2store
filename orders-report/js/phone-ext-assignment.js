@@ -1,70 +1,51 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Phone Ext Assignment — map nhân viên ↔ extension
-// Firestore: phone_ext_assignments/assignments { data: { [displayName]: ext }, lastUpdated }
-// Pattern: Firebase as Source of Truth + Realtime Listener (theo docs/architecture/DATA-SYNCHRONIZATION.md)
+// Storage: Render Postgres qua /api/oncall/ext-assignments (GET/PUT/DELETE)
+// Pattern: localStorage cache + polling fallback (Postgres không có realtime)
 
 const PhoneExtAssignment = (() => {
-    const COLLECTION = 'phone_ext_assignments';
-    const DOC_ID = 'assignments';
-    const STORAGE_KEY = 'phoneExtAssignments_v1';
+    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const STORAGE_KEY = 'phoneExtAssignments_v2';
+    const POLL_INTERVAL = 15000; // 15s
 
-    // State
     let _data = {}; // { [displayName]: ext }
-    let _db = null;
-    let _isListening = false;
-    let _unsub = null;
     let _readyPromise = null;
+    let _pollTimer = null;
     const _listeners = [];
-
-    function _getDb() {
-        if (_db) return _db;
-        try { if (window.firebase?.firestore) _db = firebase.firestore(); } catch {}
-        return _db;
-    }
-    function _getDocRef() {
-        const db = _getDb(); if (!db) return null;
-        return db.collection(COLLECTION).doc(DOC_ID);
-    }
 
     function _loadFromLocalStorage() {
         try {
             const s = localStorage.getItem(STORAGE_KEY);
-            if (s) { _data = JSON.parse(s) || {}; }
+            if (s) _data = JSON.parse(s) || {};
         } catch {}
     }
     function _saveToLocalStorage() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_data)); } catch {}
     }
 
-    async function _loadFromFirestore() {
-        const ref = _getDocRef(); if (!ref) return false;
+    async function _fetchFromServer() {
         try {
-            const snap = await ref.get();
-            if (snap.exists) {
-                const raw = snap.data() || {};
-                _data = raw.data || {};
+            const r = await fetch(`${API_BASE}/ext-assignments`, { cache: 'no-store' });
+            if (!r.ok) return false;
+            const d = await r.json();
+            if (d?.success && d.assignments) {
+                const prev = JSON.stringify(_data);
+                _data = d.assignments;
                 _saveToLocalStorage();
+                if (JSON.stringify(_data) !== prev) _notify();
                 return true;
             }
         } catch (err) {
-            console.warn('[PhoneExtAssignment] Firestore load failed:', err.message);
+            console.warn('[PhoneExtAssignment] fetch failed:', err.message);
         }
         return false;
     }
 
-    function _setupRealtimeListener() {
-        const ref = _getDocRef(); if (!ref || _unsub) return;
-        _unsub = ref.onSnapshot(snap => {
-            if (snap.exists) {
-                _isListening = true;
-                const raw = snap.data() || {};
-                _data = raw.data || {};
-                _saveToLocalStorage();
-                _notify();
-                _isListening = false;
-            }
-        }, err => console.warn('[PhoneExtAssignment] listener error:', err.message));
+    function _startPolling() {
+        if (_pollTimer) return;
+        _pollTimer = setInterval(_fetchFromServer, POLL_INTERVAL);
     }
+    function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
 
     function _notify() { _listeners.forEach(fn => { try { fn(_data); } catch {} }); }
     function onChange(fn) { if (typeof fn === 'function') _listeners.push(fn); }
@@ -72,19 +53,17 @@ const PhoneExtAssignment = (() => {
     async function init() {
         if (_readyPromise) return _readyPromise;
         _readyPromise = (async () => {
-            const loaded = await _loadFromFirestore();
-            if (!loaded) _loadFromLocalStorage();
-            _setupRealtimeListener();
+            _loadFromLocalStorage(); // show cached immediately
+            const ok = await _fetchFromServer();
+            if (!ok) console.warn('[PhoneExtAssignment] using local cache (server unreachable)');
+            _startPolling();
             return _data;
         })();
         return _readyPromise;
     }
 
     function getCurrentUserName() {
-        try {
-            const auth = window.authManager?.getAuthData?.();
-            return auth?.displayName || '';
-        } catch { return ''; }
+        try { return window.authManager?.getAuthData?.()?.displayName || ''; } catch { return ''; }
     }
     function isAdmin() {
         try {
@@ -109,17 +88,29 @@ const PhoneExtAssignment = (() => {
 
     async function setAssignment(displayName, ext) {
         if (!displayName) return;
-        const ref = _getDocRef(); if (!ref) return;
         const prevExt = _data[displayName] || '';
+        // Optimistic local update
         const next = { ..._data };
         if (ext) next[displayName] = String(ext);
         else delete next[displayName];
         _data = next;
         _saveToLocalStorage();
+        _notify();
+
         try {
-            await ref.set({ data: _data, lastUpdated: Date.now() }, { merge: true });
+            const r = await fetch(`${API_BASE}/ext-assignments/${encodeURIComponent(displayName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ext: ext || '', assigned_by: getCurrentUserName() })
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             try { window.PhoneCloudSync?.logAudit?.(ext ? 'ext_assign' : 'ext_unassign', { target: displayName, prevExt, newExt: ext || '' }); } catch {}
+            // Re-fetch to stay in sync with server
+            _fetchFromServer();
         } catch (err) {
+            // Rollback local cache
+            if (prevExt) _data[displayName] = prevExt; else delete _data[displayName];
+            _saveToLocalStorage(); _notify();
             console.error('[PhoneExtAssignment] save failed:', err.message);
             throw err;
         }
@@ -129,10 +120,7 @@ const PhoneExtAssignment = (() => {
     // === ADMIN MODAL ===
     let modalEl = null;
     async function openModal() {
-        if (!isAdmin()) {
-            alert('Chỉ admin mới có quyền phân chia extension.');
-            return;
-        }
+        if (!isAdmin()) { alert('Chỉ admin mới có quyền phân chia extension.'); return; }
         await init();
         if (modalEl) { modalEl.style.display = 'flex'; renderModal(); return; }
         const wrap = document.createElement('div');
@@ -168,7 +156,6 @@ const PhoneExtAssignment = (() => {
             .pwa-select:focus{border-color:#3b82f6}
             .pwa-current{font-size:11px;color:#4ade80;min-width:46px;text-align:center;
                 font-family:'SF Mono',monospace;font-weight:600}
-            .pwa-conflict{color:#fbbf24;font-size:11px;margin-left:6px}
             .pwa-foot{padding:12px 18px;border-top:1px solid rgba(255,255,255,.07);
                 display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8}
             .pwa-msg{color:#4ade80;opacity:0;transition:opacity .3s}
@@ -179,7 +166,7 @@ const PhoneExtAssignment = (() => {
                 <div class="pwa-head">
                     <div>
                         <div class="pwa-title">Phân chia Extension cho nhân viên</div>
-                        <div class="pwa-sub">Mỗi nhân viên gán 1 extension — widget sẽ tự chọn khi đăng nhập</div>
+                        <div class="pwa-sub">Dữ liệu lưu trên Render Postgres — auto-sync mỗi 15s</div>
                     </div>
                     <button class="pwa-close" onclick="PhoneExtAssignment.closeModal()">×</button>
                 </div>
@@ -211,7 +198,6 @@ const PhoneExtAssignment = (() => {
             return;
         }
 
-        // Get extensions list from phone widget dbConfig (cached in localStorage)
         let extensions = [];
         try {
             const raw = localStorage.getItem('phoneWidget_dbConfig');
@@ -248,7 +234,6 @@ const PhoneExtAssignment = (() => {
         const row = selectEl.closest('.pwa-row'); if (!row) return;
         const name = row.getAttribute('data-name');
         const ext = selectEl.value;
-        // Check conflict: another user already has this ext
         let conflictUser = '';
         if (ext) {
             for (const [n, e] of Object.entries(_data)) {
@@ -257,19 +242,18 @@ const PhoneExtAssignment = (() => {
         }
         if (conflictUser) {
             const ok = confirm(`Ext ${ext} đang được gán cho ${conflictUser}. Chuyển sang ${name}?`);
-            if (!ok) {
-                selectEl.value = _data[name] || '';
-                return;
-            }
-            // Remove from the other user
+            if (!ok) { selectEl.value = _data[name] || ''; return; }
             await setAssignment(conflictUser, null);
         }
-        await setAssignment(name, ext);
-        const cur = row.querySelector('[data-role="current"]');
-        if (cur) cur.textContent = ext ? 'Ext ' + ext : '—';
-        flashSaved();
-        // Re-render list so the conflict row also updates
-        if (conflictUser) renderModal();
+        try {
+            await setAssignment(name, ext);
+            const cur = row.querySelector('[data-role="current"]');
+            if (cur) cur.textContent = ext ? 'Ext ' + ext : '—';
+            flashSaved();
+            if (conflictUser) renderModal();
+        } catch (err) {
+            alert('Lỗi lưu: ' + err.message);
+        }
     }
 
     function flashSaved() {
@@ -280,16 +264,9 @@ const PhoneExtAssignment = (() => {
 
     function closeModal() { if (modalEl) modalEl.style.display = 'none'; }
 
-    // Auto-init when auth + firebase available
-    function _tryInit() {
-        if (window.firebase?.firestore && !_readyPromise) {
-            init();
-        } else {
-            setTimeout(_tryInit, 500);
-        }
-    }
+    // Auto-init
     if (typeof window !== 'undefined') {
-        setTimeout(_tryInit, 500);
+        setTimeout(() => init(), 500);
     }
 
     return {
@@ -297,8 +274,8 @@ const PhoneExtAssignment = (() => {
         setAssignment, removeAssignment,
         getCurrentUserName, isAdmin,
         openModal, closeModal,
-        onChange,
-        _onSelectChange // internal, referenced from inline onchange
+        onChange, stopPolling,
+        _onSelectChange
     };
 })();
 
