@@ -89,7 +89,12 @@ const PhoneExtAssignment = (() => {
     function isAdmin() {
         try {
             const auth = window.authManager?.getAuthData?.();
-            return auth?.checkLogin === 0;
+            const userType = (localStorage.getItem('userType') || '').toLowerCase();
+            if (userType.startsWith('admin')) return true;
+            if (auth?.isAdmin === true) return true;
+            if (auth?.roleTemplate === 'admin') return true;
+            if (auth?.checkLogin === 0) return true;
+            return false;
         } catch { return false; }
     }
 

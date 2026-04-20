@@ -49,10 +49,23 @@ const PM = (() => {
         }
         return null;
     }
+    function _hasAdminAccess(auth) {
+        if (!auth) return false;
+        // Multiple admin detection paths (align with navigation-modern.js)
+        const userType = (localStorage.getItem('userType') || '').toLowerCase();
+        if (userType.startsWith('admin')) return true;
+        if (auth.isAdmin === true) return true;
+        if (auth.roleTemplate === 'admin') return true;
+        if (auth.checkLogin === 0) return true;
+        // Per-page permission check
+        const perms = auth.detailedPermissions?.['phone-management'];
+        if (perms && Object.values(perms).some(v => v === true)) return true;
+        return false;
+    }
     async function init() {
         const auth = await _waitForAuth();
         if (!auth) { location.href = '../index.html'; return; }
-        if (auth.checkLogin !== 0) {
+        if (!_hasAdminAccess(auth)) {
             $('#accessDenied').style.display = 'flex';
             return;
         }
