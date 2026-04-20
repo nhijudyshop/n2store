@@ -462,41 +462,38 @@ router.get('/:customerId', async (req, res) => {
             if (txs[i].type === 'WITHDRAW') { lastWithdrawIdx = i; break; }
         }
 
-        // --- Tính "Nợ Cũ" = số dư sau WITHDRAW cuối ---
-        const walletNoteLines = [];
-        if (lastWithdrawIdx >= 0) {
-            let running = 0;
-            for (let i = 0; i <= lastWithdrawIdx; i++) {
-                if (skipIdx.has(i)) continue;
-                const tx = txs[i];
-                const amt = parseFloat(tx.amount) || 0;
-                if (tx.type === 'DEPOSIT') running += Math.abs(amt);
-                else if (tx.type === 'WITHDRAW') running -= Math.abs(amt);
-            }
-            if (running > 0) {
-                walletNoteLines.push(`Nợ Cũ ${Math.round(running / 1000)}K`);
-            }
-        }
-
-        // --- Liệt kê tất cả DEPOSIT sau WITHDRAW cuối ---
-        // (nếu chưa có WITHDRAW thì lastWithdrawIdx = -1, startIdx = 0 => liệt kê tất cả)
+        // --- Liệt kê tất cả DEPOSIT sau WITHDRAW cuối (nếu chưa có WITHDRAW thì liệt kê tất cả) ---
         const stripTicketSuffix = (n) => n ? n.replace(/\s*\(ticket\s+[A-Z]+-\d{4}-\d+\)\s*$/i, '').trim() : n;
         const stripImgTag = (n) => n ? n.replace(/\n?\[Ảnh GD:[^\]]+\]/g, '').trim() : n;
+
+        const depositLines = [];
+        let depositsAfterSum = 0;
         for (let i = lastWithdrawIdx + 1; i < txs.length; i++) {
             if (skipIdx.has(i)) continue;
             const tx = txs[i];
             if (tx.type === 'DEPOSIT') {
+                depositsAfterSum += Math.abs(parseFloat(tx.amount) || 0);
                 if (tx.source === 'RETURN_GOODS' && tx.note) {
                     const cleanNote = stripTicketSuffix(tx.note);
-                    walletNoteLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                    depositLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
                 } else if (tx.source === 'MANUAL_ADJUSTMENT' && tx.note) {
                     const cleanNote = stripImgTag(tx.note);
-                    walletNoteLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                    depositLines.push(cleanNote || `ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
                 } else {
-                    walletNoteLines.push(`ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                    depositLines.push(`ĐÃ NHẬN ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
                 }
             }
         }
+
+        // Invariant: wallet.balance = Nợ Cũ + Σ(ĐÃ NHẬN sau WITHDRAW cuối)
+        // Dùng wallet.balance làm chân lý thay vì running (tránh phụ thuộc pairing skipIdx)
+        const walletNoteLines = [];
+        const walletBalanceNum = parseFloat(wallet.balance) || 0;
+        const legacy = walletBalanceNum - depositsAfterSum;
+        if (legacy > 500) {
+            walletNoteLines.push(`Nợ Cũ ${Math.round(legacy / 1000)}K`);
+        }
+        walletNoteLines.push(...depositLines);
         // Frontend sẽ thêm "-> 0Đ" / "-> Còn nợ XXK" dựa trên COD
 
         res.json({

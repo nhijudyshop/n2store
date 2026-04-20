@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Fix ghi chú phiếu bán hàng hiển thị "ĐÃ NHẬN ..." thay vì "Nợ Cũ ..." khi số dư ví là legacy
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Bug**: Khách Nguyễn Apple #7439 (0909338236) có 7 tx ví, số dư còn 41K là legacy (sau +230+1300+2800+170-4459+4459-4459). Ghi chú tự điền SAI `ĐÃ NHẬN 41K ACB 20/04`, đúng phải là `Nợ Cũ 41K`. **Root cause**: (1) Backend `walletNoteLines` tính `running` từ loop tx phụ thuộc pairing WITHDRAW+REFUND theo `reference_id` — nếu pairing fail (ref null/khác format), running âm → không push "Nợ Cũ" → trả `[]`. (2) Frontend fallback khi `walletNoteLines` rỗng tự tạo `ĐÃ NHẬN {balance}K ACB {today}` — sai bản chất. **Fix backend (wallets.js:465-499)**: bỏ block `running`, dùng invariant `wallet.balance = Σ(Nợ Cũ) + Σ(ĐÃ NHẬN sau lastWithdrawIdx)`. Tính `legacy = walletBalance - depositsAfterSum`, nếu `legacy > 500đ` thì push `Nợ Cũ {legacy/1000}K` trước, rồi push các `depositLines`. Dùng `wallet.balance` làm chân lý, không phụ thuộc skipIdx pairing. **Fix frontend (sale-modal-common.js:1129-1140)**: fallback đổi `ĐÃ NHẬN {balance} ACB {today}` → `Nợ Cũ {balance}K` + tính `-> Còn nợ/0Đ` dựa trên COD (giống branch chính). |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Stat bar VND/1000 size = stat chính, header mỗi đợt hiển thị "Tổng HĐ: ngoại tệ (VND/1000)"
 | | |
 |---|---|

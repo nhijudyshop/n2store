@@ -1127,12 +1127,17 @@ function autoFillSaleNote() {
                 noteParts.push(`-> 0Đ`);
             }
         } else if (vcList.length === 0) {
-            // Fallback khi không có walletNoteLines từ backend
-            const today = new Date();
-            const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
-            noteParts.push(`ĐÃ NHẬN ${amountStr} ACB ${dateStr}`);
-            noteParts.push(`-> 0Đ`);
+            // Fallback khi backend không trả walletNoteLines: ghi "Nợ Cũ" (an toàn hơn "ĐÃ NHẬN")
+            const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : `${walletBalance}đ`;
+            noteParts.push(`Nợ Cũ ${amountStr}`);
+            const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+            const remainingWallet = Math.max(0, walletBalance - codValue);
+            if (remainingWallet > 0) {
+                const debtStr = remainingWallet >= 1000 ? `${Math.round(remainingWallet / 1000)}K` : `${remainingWallet}đ`;
+                noteParts.push(`-> Còn nợ ${debtStr}`);
+            } else {
+                noteParts.push(`-> 0Đ`);
+            }
         }
     }
 
