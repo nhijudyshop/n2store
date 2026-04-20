@@ -321,7 +321,25 @@ function _applyFiltersExceptProcessingTag() {
     // Apply Excluded Tags filter (hide orders with certain tags)
     const excludedTags = window.getExcludedTagFilters ? window.getExcludedTagFilters() : [];
     if (excludedTags.length > 0) {
+        const excludedSet = new Set(excludedTags);
+
+        // (2026-04-20) Special-case: Ẩn "GIỎ TRỐNG" → ẩn luôn đơn SL=0 (tag đã bỏ,
+        // nên match theo TotalQuantity thay vì tag ID).
+        let gioTrongExcluded = false;
+        const _availableTags = window.availableTags || [];
+        for (const t of _availableTags) {
+            if (excludedSet.has(String(t.Id)) &&
+                String(t.Name || '').trim().toUpperCase() === 'GIỎ TRỐNG') {
+                gioTrongExcluded = true;
+                break;
+            }
+        }
+
         tempData = tempData.filter(order => {
+            // Ẩn đơn SL=0 nếu Ẩn GIỎ TRỐNG đang active
+            if (gioTrongExcluded && Number(order.TotalQuantity || 0) === 0) {
+                return false;
+            }
             if (!order.Tags) return true; // Orders without tags are not excluded
 
             try {
@@ -329,7 +347,7 @@ function _applyFiltersExceptProcessingTag() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return true;
 
                 // Check if the order has ANY of the excluded tags
-                const hasExcludedTag = orderTags.some(tag => excludedTags.includes(String(tag.Id)));
+                const hasExcludedTag = orderTags.some(tag => excludedSet.has(String(tag.Id)));
                 return !hasExcludedTag; // Return false if order has excluded tag (to hide it)
             } catch (e) {
                 return true;

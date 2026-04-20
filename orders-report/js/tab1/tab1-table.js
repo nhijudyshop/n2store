@@ -90,8 +90,9 @@ function updateRowTagsOnly(orderId, tagsJson, orderCode) {
         return;
     }
 
-    // Parse tags và tạo HTML mới
-    const tagsHTML = parseOrderTags(tagsJson, orderId, orderCode);
+    // Parse tags và tạo HTML mới + virtual badge GIỎ TRỐNG nếu SL=0
+    const _order = window.OrderStore?.get?.(orderId);
+    const tagsHTML = _buildGioTrongBadge(_order) + parseOrderTags(tagsJson, orderId, orderCode);
 
     rows.forEach(row => {
         // Tìm tag cell
@@ -1053,6 +1054,16 @@ function renderByEmployee() {
     }
 }
 
+// (2026-04-20) Virtual badge "GIỎ TRỐNG" cho đơn SL=0 (tag TPOS đã bỏ).
+// Không có nút xóa — badge tự động theo TotalQuantity.
+function _buildGioTrongBadge(order) {
+    if (!order) return '';
+    if (Number(order.TotalQuantity || 0) !== 0) return '';
+    return `<div style="display: inline-flex; align-items: center;" title="Đơn không có sản phẩm (SL=0)">
+        <span class="order-tag" style="background-color: #f59e0b; cursor: default;">GIỎ TRỐNG</span>
+    </div>`;
+}
+
 function createRowHTML(order) {
     if (!order || !order.Id) return "";
     let tagsHTML = "";
@@ -1064,6 +1075,8 @@ function createRowHTML(order) {
             }
         } catch (e) { }
     }
+    // Prepend virtual GIỎ TRỐNG badge nếu đơn SL=0
+    tagsHTML = _buildGioTrongBadge(order) + tagsHTML;
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText, order.PartnerId);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 

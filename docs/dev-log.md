@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] GIỎ TRỐNG — Ẩn lọc đúng đơn SL=0 + render badge tự động trong cột TAG
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-search.js`, `orders-report/js/tab1/tab1-table.js` |
+| **Chi tiết** | User báo 2 vấn đề: (1) Ẩn "GIỎ TRỐNG" vẫn thấy đơn SL=0 (vd STT 257 Lưu Thị Bé SL=0 vẫn hiển thị dù đã chọn Ẩn GIỎ TRỐNG) — do excluded filter dùng tag ID match, không đơn nào có tag ID đó nữa; (2) Cần hiển thị badge "GIỎ TRỐNG" tự động trên các đơn SL=0. **Fix:** (A) [tab1-search.js](orders-report/js/tab1/tab1-search.js) — block "Apply Excluded Tags filter" scan `window.availableTags` tìm tag Name='GIỎ TRỐNG' trong excludedTags, nếu có set `gioTrongExcluded=true` và return `false` cho mọi đơn có `TotalQuantity===0` (song song với match tag ID khác). Mirror logic của TAG filter (commit 785754fe). (B) [tab1-table.js](orders-report/js/tab1/tab1-table.js) — thêm helper `_buildGioTrongBadge(order)` return span.order-tag màu `#f59e0b` "GIỎ TRỐNG" khi `TotalQuantity===0` (không có nút × — badge tự động theo SL). Prepend vào `tagsHTML` trong `createRowHTML` và `updateRowTagsOnly` (lookup order qua `window.OrderStore.get(orderId)`). |
+| **Status** | ✅ Done |
+
 ### [orders] Tab Lịch sử — cột SL + tổng số lượng sản phẩm trong stats bar
 | | |
 |---|---|
