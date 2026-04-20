@@ -182,6 +182,15 @@ const MENU_CONFIG = [
         permissionRequired: "user-management",
     },
     {
+        href: "../phone-management/index.html",
+        icon: "phone-call",
+        text: "Quản Lý Tổng Đài",
+        shortText: "Tổng đài",
+        pageIdentifier: "phone-management",
+        adminOnly: true,
+        permissionRequired: "phone-management",
+    },
+    {
         href: "../balance-history/index.html",
         icon: "wallet",
         text: "Lịch Sử Biến Động Số Dư",

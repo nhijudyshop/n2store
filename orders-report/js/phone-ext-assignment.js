@@ -105,6 +105,7 @@ const PhoneExtAssignment = (() => {
     async function setAssignment(displayName, ext) {
         if (!displayName) return;
         const ref = _getDocRef(); if (!ref) return;
+        const prevExt = _data[displayName] || '';
         const next = { ..._data };
         if (ext) next[displayName] = String(ext);
         else delete next[displayName];
@@ -112,6 +113,7 @@ const PhoneExtAssignment = (() => {
         _saveToLocalStorage();
         try {
             await ref.set({ data: _data, lastUpdated: Date.now() }, { merge: true });
+            try { window.PhoneCloudSync?.logAudit?.(ext ? 'ext_assign' : 'ext_unassign', { target: displayName, prevExt, newExt: ext || '' }); } catch {}
         } catch (err) {
             console.error('[PhoneExtAssignment] save failed:', err.message);
             throw err;

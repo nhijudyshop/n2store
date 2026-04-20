@@ -967,6 +967,13 @@ const PhoneWidget = (() => {
                 isRegistered = true;
                 cancelReconnect();
                 addLog(`Registered ext ${config.extension}`, 'success');
+                try {
+                    window.PhoneCloudSync?.setPresence?.('registered', { ext: config.extension });
+                    window.PhoneCloudSync?.startHeartbeat?.(() => ({
+                        state: currentSession ? 'in-call' : (incomingSession ? 'ringing' : 'registered'),
+                        extra: { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '' }
+                    }));
+                } catch {}
             });
             phone.on('unregistered', () => {
                 setStatus('error', 'Unregistered');
@@ -1156,9 +1163,10 @@ const PhoneWidget = (() => {
             setStatus('connected', 'Đã kết nối');
             addLog('Connected', 'success');
             if (caller) { caller.classList.add('active'); caller.classList.remove('ringing'); }
-            document.getElementById('pwName').textContent = 'Đang nói chuyện';
+            document.getElementById('pwName').textContent = activeCallMeta?.name || 'Đang nói chuyện';
             playAnsweredTone();
             startTimer();
+            try { window.PhoneCloudSync?.setPresence?.('in-call', { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '', direction: activeCallMeta?.direction || '' }); } catch {}
         });
         session.on('confirmed', () => attachAudio(session));
         session.on('ended', (e) => {
@@ -1207,15 +1215,20 @@ const PhoneWidget = (() => {
         // Log to history before clearing state
         if (activeCallMeta && activeCallMeta.phone) {
             const durSec = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
-            addHistoryEntry({
+            const entry = {
                 phone: activeCallMeta.phone,
                 name: activeCallMeta.name,
                 direction: activeCallMeta.direction || 'out',
                 duration: durSec,
-                orderCode: activeCallMeta.orderCode
-            });
+                orderCode: activeCallMeta.orderCode,
+                timestamp: Date.now(),
+                ext: config.extension
+            };
+            addHistoryEntry(entry);
+            try { window.PhoneCloudSync?.logCall?.(entry); } catch {}
             activeCallMeta = null;
         }
+        try { window.PhoneCloudSync?.setPresence?.(isRegistered ? 'registered' : 'offline', { ext: config.extension }); } catch {}
         currentSession = null; isMuted = false; stopTimer();
         const caller = document.getElementById('pwCaller');
         if (caller) caller.classList.remove('active', 'ringing');

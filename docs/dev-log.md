@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-20
+
+### [phone-management] Trang quản lý tổng đài OnCallCX — 10 tabs toàn diện + bridge vào orders page
+| | |
+|---|---|
+| **Files** | `phone-management/index.html` (new), `phone-management/css/phone-management.css` (new), `phone-management/js/phone-management.js` (new), `orders-report/js/phone-cloud-sync.js` (new), `orders-report/js/phone-orders-bridge.js` (new), `orders-report/js/phone-widget.js`, `orders-report/js/phone-ext-assignment.js`, `orders-report/tab1-orders.html`, `shared/js/navigation-modern.js` |
+| **Chi tiết** | **Trang mới `/phone-management/`** (admin-only, `checkLogin===0`) với 10 tab: **Tổng quan** (6 KPI: ext/online/đang gọi/cuộc gọi hôm nay/nhỡ/TB thời lượng + biểu đồ 7 ngày + Top 5 nhân viên + Hoạt động gần đây + Phân chia ext), **Extensions** (table 10 ext với presence dot live, last-call, dropdown gán nhanh, conflict detection), **Nhân viên** (filter role, ext dropdown, call count 7d, presence state), **Lịch sử** (filter ngày/hướng/nhân viên/SĐT, paginated 50/trang, export CSV UTF-8 BOM, link tới đơn hàng), **Thống kê** (Chart.js 4.4: daily stacked line, direction doughnut, hourly peaks bar, avg duration horizontal bar, top contacts), **Live** (Firestore `phone_presence` realtime snapshot → grid card cho mỗi nhân viên: offline/registered/ringing/in-call với animated pulse), **Danh bạ** (shared contacts `phone_contacts` Firestore collection, CRUD), **Ghi âm** (placeholder — OnCallCX portal có "Play Audio" nhưng chưa có REST API, note rõ trong UI), **Cấu hình** (view PBX domain/WS URL, ext pool với auth IDs/password masked, checkboxes tuỳ chọn widget: autoAnswer/recordLocal/popupOnRing/desktopNotify lưu localStorage), **Audit log** (filter action, table 200 entry gần nhất). Import shared navigation-modern sidebar. **Module mới `PhoneCloudSync`** — log mỗi call + presence heartbeat 30s + audit log vào Firestore collections `phone_call_history/phone_presence/phone_audit_log`. **Module mới `PhoneOrdersBridge`** — DOM observer theo dõi pwStatusText + pwCaller class → hiện floating bar đầu trang khi đang gọi (ringing=cam pulse, in-call=xanh với timer, icon animated), highlight row KH đang gọi trong bảng (pulse xanh), quick-note textarea trong bar (auto-save on hangup), outcome prompt popup sau khi cúp máy với 4 nút (thành công/voicemail/không bắt máy/máy bận) + note field, auto-dismiss 30s. Widget hook `PhoneCloudSync.setPresence` tại registered/accepted/endCall + `startHeartbeat` khi registered. Menu item mới trong navigation-modern.js `{href: '../phone-management/index.html', icon: 'phone-call', text: 'Quản Lý Tổng Đài', adminOnly: true, permissionRequired: 'phone-management'}`. |
+| **Status** | ✅ Done |
+
 ## 2026-04-19
 
 ### [inbox] Fix HTTP 400 social order — OMIT `SaleOnlineIds` (undefined) thay vì gửi null/[]

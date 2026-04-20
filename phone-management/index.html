@@ -1,0 +1,331 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quản Lý Tổng Đài - N2STORE</title>
+
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="../shared/css/modern.css" />
+    <link rel="stylesheet" href="../shared/css/typography.css" />
+    <link rel="stylesheet" href="css/phone-management.css" />
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Firebase SDK v8 (compat with existing project pattern) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Shared core -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
+
+    <!-- Navigation sidebar -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Charting for statistics tab -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- User loader (admin pages dùng để list nhân viên) -->
+    <script src="../orders-report/js/core/user-employee-loader.js"></script>
+
+    <!-- Phone modules re-used -->
+    <script src="../orders-report/js/phone-ext-assignment.js"></script>
+    <script src="../orders-report/js/phone-cloud-sync.js"></script>
+</head>
+
+<body>
+    <!-- Access Denied -->
+    <div id="accessDenied" class="access-denied" style="display:none">
+        <h1><i data-lucide="shield-x"></i> Truy cập bị từ chối</h1>
+        <p>Chỉ admin mới được quản lý tổng đài.</p>
+        <a href="../index.html" class="btn btn-primary"><i data-lucide="arrow-left"></i> Quay về</a>
+    </div>
+
+    <!-- Main -->
+    <div id="mainContainer" style="display:none">
+        <!-- Mobile dropdown -->
+        <div class="mobile-tab-header" id="pmMobileHeader">
+            <div class="mobile-header-content" onclick="PM.toggleMobileDropdown()">
+                <div class="mobile-header-left">
+                    <i data-lucide="phone-call" class="mobile-logo-icon"></i>
+                    <span class="mobile-header-title" id="pmMobileTitle">Tổng quan</span>
+                </div>
+                <i data-lucide="chevron-down" class="mobile-header-arrow"></i>
+            </div>
+            <div class="mobile-tab-dropdown" id="pmMobileDropdown"></div>
+            <div class="mobile-dropdown-overlay" id="pmMobileOverlay" onclick="PM.closeMobileDropdown()"></div>
+        </div>
+
+        <main class="main-content">
+            <!-- Top bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="btn-icon" id="menuToggle" aria-label="Mở menu"><i data-lucide="menu"></i></button>
+                    <h1 class="page-title">
+                        <i data-lucide="phone-call"></i> Quản Lý Tổng Đài
+                        <span class="pm-subtitle">OnCallCX UCaaS</span>
+                    </h1>
+                </div>
+                <div class="top-bar-right">
+                    <span class="pm-user-chip" id="pmUserChip"></span>
+                    <button class="btn btn-sm" onclick="PM.refresh()" title="Tải lại">
+                        <i data-lucide="refresh-cw"></i> Làm mới
+                    </button>
+                </div>
+            </header>
+
+            <!-- Tabs (desktop) -->
+            <div class="pm-tabs" id="pmTabs">
+                <button class="pm-tab active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i><span>Tổng quan</span></button>
+                <button class="pm-tab" data-tab="extensions"><i data-lucide="hash"></i><span>Extensions</span></button>
+                <button class="pm-tab" data-tab="staff"><i data-lucide="users"></i><span>Nhân viên</span></button>
+                <button class="pm-tab" data-tab="history"><i data-lucide="list"></i><span>Lịch sử</span></button>
+                <button class="pm-tab" data-tab="stats"><i data-lucide="bar-chart-3"></i><span>Thống kê</span></button>
+                <button class="pm-tab" data-tab="live"><i data-lucide="radio"></i><span>Live</span></button>
+                <button class="pm-tab" data-tab="contacts"><i data-lucide="book-user"></i><span>Danh bạ</span></button>
+                <button class="pm-tab" data-tab="recordings"><i data-lucide="mic"></i><span>Ghi âm</span></button>
+                <button class="pm-tab" data-tab="config"><i data-lucide="settings"></i><span>Cấu hình</span></button>
+                <button class="pm-tab" data-tab="audit"><i data-lucide="scroll-text"></i><span>Audit log</span></button>
+            </div>
+
+            <!-- =============== Tab: Tổng quan =============== -->
+            <section class="pm-tabview active" data-tabview="dashboard">
+                <div class="pm-cards">
+                    <div class="pm-card"><div class="pm-card-label">Tổng extension</div><div class="pm-card-value" id="kpiTotalExt">—</div><i data-lucide="hash" class="pm-card-icon"></i></div>
+                    <div class="pm-card"><div class="pm-card-label">Đang online</div><div class="pm-card-value" id="kpiOnline">—</div><i data-lucide="wifi" class="pm-card-icon green"></i></div>
+                    <div class="pm-card"><div class="pm-card-label">Đang gọi</div><div class="pm-card-value" id="kpiInCall">—</div><i data-lucide="phone-outgoing" class="pm-card-icon orange"></i></div>
+                    <div class="pm-card"><div class="pm-card-label">Cuộc gọi hôm nay</div><div class="pm-card-value" id="kpiCallsToday">—</div><i data-lucide="phone" class="pm-card-icon blue"></i></div>
+                    <div class="pm-card"><div class="pm-card-label">Nhỡ hôm nay</div><div class="pm-card-value" id="kpiMissedToday">—</div><i data-lucide="phone-missed" class="pm-card-icon red"></i></div>
+                    <div class="pm-card"><div class="pm-card-label">Trung bình thời lượng</div><div class="pm-card-value" id="kpiAvgDur">—</div><i data-lucide="timer" class="pm-card-icon purple"></i></div>
+                </div>
+                <div class="pm-grid-2">
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>Cuộc gọi 7 ngày qua</h3></div>
+                        <canvas id="chartCallsWeek" height="150"></canvas>
+                    </div>
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>Top 5 nhân viên</h3></div>
+                        <div id="topAgentsList" class="pm-compact-list"></div>
+                    </div>
+                </div>
+                <div class="pm-grid-2">
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>Hoạt động gần đây</h3></div>
+                        <div id="recentCalls" class="pm-compact-list"></div>
+                    </div>
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>Phân chia extension</h3></div>
+                        <div id="extSummary" class="pm-compact-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Extensions =============== -->
+            <section class="pm-tabview" data-tabview="extensions">
+                <div class="pm-toolbar">
+                    <input type="text" id="extSearch" class="pm-input" placeholder="🔍 Tìm ext / tên nhân viên...">
+                    <button class="btn btn-sm" onclick="PM.openAddExtension()"><i data-lucide="plus"></i> Thêm Ext</button>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="extTable">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Extension</th><th>Nhãn</th><th>Được gán</th>
+                                <th>Trạng thái</th><th>Gọi cuối</th><th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="extTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Nhân viên =============== -->
+            <section class="pm-tabview" data-tabview="staff">
+                <div class="pm-toolbar">
+                    <input type="text" id="staffSearch" class="pm-input" placeholder="🔍 Tìm nhân viên...">
+                    <select id="staffFilterRole" class="pm-input" style="max-width:160px">
+                        <option value="">Tất cả vai trò</option>
+                        <option value="admin">Admin</option>
+                        <option value="user">Nhân viên</option>
+                    </select>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="staffTable">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Nhân viên</th><th>Vai trò</th>
+                                <th>Ext gán</th><th>Cuộc gọi 7d</th><th>Hoạt động</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Lịch sử =============== -->
+            <section class="pm-tabview" data-tabview="history">
+                <div class="pm-toolbar pm-toolbar-wrap">
+                    <input type="date" id="histFrom" class="pm-input">
+                    <input type="date" id="histTo" class="pm-input">
+                    <select id="histDirection" class="pm-input" style="max-width:140px">
+                        <option value="">Mọi hướng</option>
+                        <option value="out">Đi</option>
+                        <option value="in">Đến</option>
+                        <option value="missed">Nhỡ</option>
+                    </select>
+                    <select id="histUser" class="pm-input" style="max-width:180px"><option value="">Tất cả nhân viên</option></select>
+                    <input type="text" id="histPhone" class="pm-input" style="max-width:180px" placeholder="🔍 SĐT">
+                    <button class="btn btn-sm" onclick="PM.applyHistoryFilters()"><i data-lucide="filter"></i> Lọc</button>
+                    <button class="btn btn-sm btn-outline" onclick="PM.exportHistoryCSV()"><i data-lucide="download"></i> CSV</button>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th><th>Hướng</th><th>Nhân viên</th><th>Ext</th>
+                                <th>Số</th><th>Khách</th><th>Thời lượng</th><th>Đơn</th><th>Kết quả</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                    <div class="pm-pagination" id="historyPager"></div>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Thống kê =============== -->
+            <section class="pm-tabview" data-tabview="stats">
+                <div class="pm-toolbar">
+                    <select id="statsRange" class="pm-input" style="max-width:200px" onchange="PM.loadStats()">
+                        <option value="7">7 ngày qua</option>
+                        <option value="30" selected>30 ngày qua</option>
+                        <option value="90">90 ngày qua</option>
+                    </select>
+                </div>
+                <div class="pm-grid-2">
+                    <div class="pm-panel"><div class="pm-panel-head"><h3>Cuộc gọi theo ngày</h3></div><canvas id="chartDaily" height="140"></canvas></div>
+                    <div class="pm-panel"><div class="pm-panel-head"><h3>Phân bố hướng</h3></div><canvas id="chartDirection" height="140"></canvas></div>
+                </div>
+                <div class="pm-grid-2">
+                    <div class="pm-panel"><div class="pm-panel-head"><h3>Giờ cao điểm (0-23h)</h3></div><canvas id="chartHourly" height="140"></canvas></div>
+                    <div class="pm-panel"><div class="pm-panel-head"><h3>Thời lượng trung bình / nhân viên</h3></div><canvas id="chartAvgDur" height="140"></canvas></div>
+                </div>
+                <div class="pm-panel">
+                    <div class="pm-panel-head"><h3>Top liên hệ được gọi nhiều</h3></div>
+                    <div id="topContacts" class="pm-compact-list"></div>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Live =============== -->
+            <section class="pm-tabview" data-tabview="live">
+                <div class="pm-toolbar">
+                    <span class="pm-live-dot"></span>
+                    <span class="pm-live-label">Cập nhật realtime từ Firestore</span>
+                </div>
+                <div class="pm-grid-cards" id="liveGrid"></div>
+            </section>
+
+            <!-- =============== Tab: Danh bạ =============== -->
+            <section class="pm-tabview" data-tabview="contacts">
+                <div class="pm-toolbar">
+                    <input type="text" id="contactSearch" class="pm-input" placeholder="🔍 Tìm danh bạ...">
+                    <button class="btn btn-sm" onclick="PM.openAddContact()"><i data-lucide="plus"></i> Thêm liên hệ</button>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="contactsTable">
+                        <thead><tr><th>Tên</th><th>SĐT</th><th>Nhãn</th><th>Ghi chú</th><th></th></tr></thead>
+                        <tbody id="contactsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Ghi âm =============== -->
+            <section class="pm-tabview" data-tabview="recordings">
+                <div class="pm-panel pm-info-panel">
+                    <i data-lucide="info" class="pm-info-icon"></i>
+                    <div>
+                        <h3>Ghi âm cuộc gọi</h3>
+                        <p>Ghi âm được lưu trên portal OnCallCX (mục <b>PBX → Calls → Show detailed calls</b>). File này chỉ hiển thị ghi âm <b>local</b> (trình duyệt dùng MediaRecorder ghi lại audio track RTP).</p>
+                        <p><b>Cấu hình:</b> bật/tắt ghi âm local trong tab <i>Cấu hình</i>. File lưu trong IndexedDB, auto-xoá sau 30 ngày.</p>
+                    </div>
+                </div>
+                <div class="pm-toolbar">
+                    <input type="text" id="recSearch" class="pm-input" placeholder="🔍 Tìm số / tên KH...">
+                    <select id="recUser" class="pm-input" style="max-width:180px"><option value="">Tất cả nhân viên</option></select>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="recTable">
+                        <thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Ext</th><th>Số</th><th>Khách</th><th>Thời lượng</th><th>File</th><th></th></tr></thead>
+                        <tbody id="recTableBody"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Chưa có ghi âm local nào.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Cấu hình =============== -->
+            <section class="pm-tabview" data-tabview="config">
+                <div class="pm-grid-2">
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>PBX (OnCallCX)</h3></div>
+                        <div class="pm-kv">
+                            <div class="pm-kv-row"><label>Domain</label><input id="cfgPbxDomain" class="pm-input" readonly></div>
+                            <div class="pm-kv-row"><label>WebSocket URL</label><input id="cfgWsUrl" class="pm-input" readonly></div>
+                        </div>
+                        <p class="pm-hint">Cấu hình lưu trong bảng <code>phone_config</code> trên Render Postgres. Dùng Render CLI hoặc endpoint <code>PUT /api/oncall/phone-config</code> để cập nhật.</p>
+                    </div>
+                    <div class="pm-panel">
+                        <div class="pm-panel-head"><h3>Tuỳ chọn Widget</h3></div>
+                        <div class="pm-kv">
+                            <label class="pm-checkbox"><input type="checkbox" id="cfgAutoAnswer" onchange="PM.saveLocalConfig()"> Tự động trả lời</label>
+                            <label class="pm-checkbox"><input type="checkbox" id="cfgRecordLocal" onchange="PM.saveLocalConfig()"> Ghi âm local (MediaRecorder)</label>
+                            <label class="pm-checkbox"><input type="checkbox" id="cfgPopupOnRing" checked onchange="PM.saveLocalConfig()"> Bật popup thông tin KH khi có cuộc gọi</label>
+                            <label class="pm-checkbox"><input type="checkbox" id="cfgDesktopNotify" onchange="PM.saveLocalConfig()"> Thông báo Desktop (Notifications API)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="pm-panel">
+                    <div class="pm-panel-head"><h3>Danh sách extension (pool)</h3></div>
+                    <table class="pm-table pm-table-dense">
+                        <thead><tr><th>Ext</th><th>Nhãn</th><th>Auth ID</th><th>Password</th></tr></thead>
+                        <tbody id="cfgExtPoolBody"></tbody>
+                    </table>
+                    <p class="pm-hint">Ext pool đồng bộ từ Render DB. Thay đổi thông qua <code>PUT /api/oncall/phone-config</code> key=<code>sip_extensions</code>.</p>
+                </div>
+            </section>
+
+            <!-- =============== Tab: Audit log =============== -->
+            <section class="pm-tabview" data-tabview="audit">
+                <div class="pm-toolbar">
+                    <select id="auditAction" class="pm-input" style="max-width:200px" onchange="PM.loadAudit()">
+                        <option value="">Tất cả hành động</option>
+                        <option value="ext_assign">Gán ext</option>
+                        <option value="ext_unassign">Bỏ gán ext</option>
+                        <option value="config_update">Đổi cấu hình</option>
+                    </select>
+                </div>
+                <div class="pm-panel">
+                    <table class="pm-table" id="auditTable">
+                        <thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Hành động</th><th>Chi tiết</th></tr></thead>
+                        <tbody id="auditTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/phone-management.js"></script>
+</body>
+</html>
