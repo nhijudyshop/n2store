@@ -252,6 +252,44 @@ const PhoneWidget = (() => {
         stopIncomingRing();
     }
 
+    // Vietnamese TTS announcements (theo Zoiper5)
+    let _ttsVoice = null;
+    function _loadTtsVoice() {
+        if (!('speechSynthesis' in window)) return;
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length) {
+            _ttsVoice = voices.find(v => v.lang?.startsWith('vi')) || voices.find(v => v.default) || voices[0];
+        }
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        _loadTtsVoice();
+        window.speechSynthesis.onvoiceschanged = _loadTtsVoice;
+    }
+    function speakVN(text) {
+        if (!text || !('speechSynthesis' in window)) return;
+        try {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'vi-VN';
+            u.rate = 1.0;
+            u.pitch = 1.0;
+            u.volume = 0.9;
+            if (_ttsVoice) u.voice = _ttsVoice;
+            window.speechSynthesis.speak(u);
+        } catch {}
+    }
+    function _announceCallFailure(cause, direction) {
+        if (direction !== 'out') return; // chỉ announce cho cuộc gọi đi
+        const c = String(cause || '').toLowerCase();
+        let msg = '';
+        if (c.includes('no answer') || c === 'timer b' || c.includes('timeout')) msg = 'Khách không nhấc máy';
+        else if (c.includes('busy')) msg = 'Máy bận';
+        else if (c.includes('rejected')) msg = 'Khách từ chối cuộc gọi';
+        else if (c.includes('unavailable') || c.includes('not found')) msg = 'Thuê bao không liên lạc được';
+        else if (c.includes('canceled')) return; // user đã bấm cúp, không cần announce
+        if (msg) setTimeout(() => speakVN(msg), 500); // sau hangup tone
+    }
+
     // === CREATE UI ===
     function createWidget() {
         if (widgetEl) return;
@@ -1197,6 +1235,7 @@ const PhoneWidget = (() => {
             stopRingback();
             addLog(`Failed: ${e.cause}`, 'error');
             playHangupTone();
+            _announceCallFailure(e.cause, activeCallMeta?.direction);
             endCall();
         });
         session.on('peerconnection', (e) => {
