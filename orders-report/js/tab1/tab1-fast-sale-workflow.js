@@ -1382,12 +1382,58 @@
             );
             closeCancelOrderModal();
 
-            // Update main table UI - show "−" since invoice was deleted
+            // Fetch fresh invoice từ TPOS OData để hiển thị trạng thái "Huỷ bỏ" thật
+            // (thay vì show "−"). Nếu fetch fail → fallback về "−".
+            let cancelledInvoiceFetched = false;
+            try {
+                const invNumber = order.Number;
+                if (invNumber && window.tokenManager?.getAuthHeader) {
+                    const tposOData = window.API_CONFIG?.TPOS_ODATA
+                        || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const filter = `(Type eq 'invoice' and contains(Number,'${invNumber}'))`;
+                    const url = `${tposOData}/FastSaleOrder/ODataService.GetView`
+                        + `?$top=20&$orderby=DateInvoice desc`
+                        + `&$filter=${encodeURIComponent(filter)}&$count=true`;
+                    const resp = await fetch(url, {
+                        headers: { ...headers, accept: 'application/json' },
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        const inv = (result?.value || [])[0];
+                        if (inv && window.InvoiceStatusStore) {
+                            const orderShim = {
+                                Id: saleOnlineId,
+                                Code: inv.Reference || order.Reference,
+                                Name: inv.PartnerDisplayName || '',
+                                Telephone: inv.Phone || '',
+                                Address: inv.Address || '',
+                            };
+                            window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
+                            cancelledInvoiceFetched = true;
+                            console.log(
+                                '[WORKFLOW] 🔄 Refreshed PBH after cancel:',
+                                invNumber, '→', inv.ShowState
+                            );
+                        }
+                    }
+                }
+            } catch (refreshErr) {
+                console.warn('[WORKFLOW] OData refresh after cancel failed:', refreshErr.message);
+            }
+
+            // Update main table UI
             const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
             if (row) {
                 const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
                 if (invoiceCell) {
-                    invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                    if (cancelledInvoiceFetched && typeof window.renderInvoiceStatusCell === 'function') {
+                        // Render cell với trạng thái "Huỷ bỏ" thật từ TPOS
+                        invoiceCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
+                    } else {
+                        // Fallback: show "−" nếu fetch OData thất bại
+                        invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                    }
                 }
 
                 // Update fulfillment ("Ra đơn") cell immediately

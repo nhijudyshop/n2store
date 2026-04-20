@@ -8,11 +8,25 @@
 
 ## 2026-04-20
 
+### [phone-widget] TTS tiếng Việt khi cuộc gọi thất bại (theo Zoiper5)
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-widget.js` |
+| **Chi tiết** | Theo Zoiper5, khi khách không nhấc máy có announcement tiếng Việt. Implement `speakVN()` dùng Web Speech API (`SpeechSynthesis` với `lang=vi-VN`), auto-detect voice tiếng Việt qua `onvoiceschanged`. Function `_announceCallFailure(cause, direction)` map SIP cause → message: `No Answer / Timer B / Timeout` → "Khách không nhấc máy", `Busy` → "Máy bận", `Rejected` → "Khách từ chối cuộc gọi", `Unavailable / Not Found` → "Thuê bao không liên lạc được"; `Canceled` skip (user cúp chủ động). Chỉ phát cho direction='out', delay 500ms sau hangup tone để không đè nhau. Hook vào `session.on('failed')` handler. |
+| **Status** | ✅ Done |
+
 ### [orders] Thêm sub-tag "KHÔNG ĐỂ HÀNG" (Cat 3) — thay vị trí thống kê TRỐNG bằng KO ĐH
 | | |
 |---|---|
 | **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/overview/overview-core.js`, `orders-report/js/overview/overview-statistics.js` |
 | **Chi tiết** | **Yêu cầu**: Thêm sub-tag manual `KHÔNG ĐỂ HÀNG` trong category 3 (KHÔNG CẦN CHỐT) — click giống `ĐÃ GỘP KHÔNG CHỐT`. Stats ở mini-summary panel (Tab 1 sidebar) và Báo Cáo Tổng Hợp (overall + per-employee) **thay hoàn toàn** số "TRỐNG" (auto SL=0) bằng số đơn có `subTag='KHONG_DE_HANG'`, label rút gọn **"KO ĐH"**. Badge vàng `GIỎ TRỐNG` trên row của bảng đơn **giữ nguyên** (vẫn auto theo SL=0). **Tab1**: `PTAG_SUBTAGS` thêm `KHONG_DE_HANG` (cat 3); `PTAG_TOOLTIPS` thêm `subtag_KHONG_DE_HANG`; mini-summary template đổi `(X TRỐNG + Y GỘP)` → `(X KO ĐH + Y GỘP)`, filter click chuyển `subtag_GIO_TRONG` → `subtag_KHONG_DE_HANG`. **Overview**: `PTAG_SUBTAGS_META` xoá `GIO_TRONG`, thêm `KHONG_DE_HANG`; `computeTagXLCounts` bỏ block auto `subTagCounts['GIO_TRONG']++` theo SL=0 + bỏ exception `!== 'GIO_TRONG'` trong sub-tag counter; `_buildMiniSummary` cat 3 đổi label `(X Trống, Y Gộp)` → `(X KO ĐH, Y Gộp)`; filter handler subtag_ xoá nhánh đặc biệt cho GIO_TRONG. **Backend không cần migration** (subTag lưu dạng free string, dữ liệu cũ `subTag='GIO_TRONG'` ~1061 đơn tự động bị frontend skip an toàn vì key không còn trong subTagCounts init). Row badge `GIỎ TRỐNG` + filter `subtag_GIO_TRONG` (khi click badge) giữ nguyên qua `_slZeroCodes` cache. |
+| **Status** | ✅ Done |
+
+### [orders] Fetch OData sau khi hủy phiếu — hiển thị trạng thái "Huỷ bỏ" thật thay vì "−"
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-workflow.js` |
+| **Chi tiết** | **Yêu cầu**: Khi bấm nút "✕" hủy phiếu thành công, cột PHIẾU BÁN HÀNG đang show "−" (dấu trừ xám) sau khi `InvoiceStatusStore.delete()`. User muốn cell phản ánh trạng thái thật trên TPOS (badge đỏ "Huỷ bỏ" + strikethrough) thay vì "−". **Fix**: Trong `confirmCancelOrderFromMain()` [tab1-fast-sale-workflow.js:1210], sau khi `closeCancelOrderModal()` và trước khi render cell, thêm bước fetch OData `FastSaleOrder/ODataService.GetView?$filter=(Type eq 'invoice' and contains(Number,'${order.Number}'))` (cùng pattern với `handleInvoiceUpdate` trong tab1-tpos-realtime.js:238). Nếu fetch thành công → `InvoiceStatusStore.set(saleOnlineId, inv, orderShim)` để lưu entry mới với `ShowState="Huỷ bỏ"` (Store.set tự tạo compound key mới do entry cũ đã bị xóa ở Step 3). Render cell bằng `window.renderInvoiceStatusCell({ Id: saleOnlineId })` để hiển thị badge đỏ. Fallback "−" giữ nguyên nếu fetch fail (offline/network error/token hết hạn) để không mất UX. Auth qua `tokenManager.getAuthHeader()`, proxy qua Cloudflare Worker `chatomni-proxy`. Không đụng Steps 1-6 (ActionCancel, DeleteStore, wallet refund, quickAssignTag, updateOrderStatus) — chỉ thay đổi bước render cuối. |
 | **Status** | ✅ Done |
 
 ### [orders][render] Thêm cột "Ghi chú" CSKH — multi-note history per order, edit/delete own
