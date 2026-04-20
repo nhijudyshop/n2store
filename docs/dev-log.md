@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] Fix GIỎ TRỐNG match — dùng diacritic-insensitive so sánh tên tag
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-search.js` |
+| **Chi tiết** | User báo Ẩn "GIỎ TRỐNG" vẫn thấy đơn SL=0 (STT 282 Đặng Thảo). Root cause: compare `String(t.Name).trim().toUpperCase() === 'GIỎ TRỐNG'` fail khi Unicode normalization khác (NFC vs NFD — TPOS có thể trả Name decomposed dù pill render OK vì browser tự render giống nhau). **Fix:** tạo helper `_isGioTrongTagName(name)` normalize NFD → strip combining diacritics (`\u0300-\u036f`) → thay `đ`/`Đ` → d → trim → lowercase → compare `'gio trong'`. Dùng ở cả TAG filter (Show) và Excluded filter (Ẩn). |
+| **Status** | ✅ Done |
+
 ### [inventory][orders] Convert NCC Invoice → Purchase Order Draft (nút "Chuyển qua đặt hàng")
 | | |
 |---|---|

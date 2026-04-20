@@ -279,6 +279,19 @@ function _applyFiltersExceptProcessingTag() {
         }
     }
 
+    // (2026-04-20) Helper: kiểm 1 tag có phải "GIỎ TRỐNG" hay không (diacritic-insensitive).
+    // Bảo toàn kể cả khi Unicode normalization khác (NFC vs NFD) hoặc tag name có space thừa.
+    const _isGioTrongTagName = (name) => {
+        if (!name) return false;
+        const stripped = String(name)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/gi, 'd')
+            .trim()
+            .toLowerCase();
+        return stripped === 'gio trong';
+    };
+
     // Apply TAG filter (Multi-select) — OR logic: show orders with ANY selected tag
     const selectedTags = window.getSelectedTagFilters ? window.getSelectedTagFilters() : [];
 
@@ -292,8 +305,7 @@ function _applyFiltersExceptProcessingTag() {
         let gioTrongSelected = false;
         const _availableTags = window.availableTags || [];
         for (const t of _availableTags) {
-            if (selectedTagSet.has(String(t.Id)) &&
-                String(t.Name || '').trim().toUpperCase() === 'GIỎ TRỐNG') {
+            if (selectedTagSet.has(String(t.Id)) && _isGioTrongTagName(t.Name)) {
                 gioTrongSelected = true;
                 break;
             }
@@ -326,10 +338,9 @@ function _applyFiltersExceptProcessingTag() {
         // (2026-04-20) Special-case: Ẩn "GIỎ TRỐNG" → ẩn luôn đơn SL=0 (tag đã bỏ,
         // nên match theo TotalQuantity thay vì tag ID).
         let gioTrongExcluded = false;
-        const _availableTags = window.availableTags || [];
-        for (const t of _availableTags) {
-            if (excludedSet.has(String(t.Id)) &&
-                String(t.Name || '').trim().toUpperCase() === 'GIỎ TRỐNG') {
+        const _availableTagsEx = window.availableTags || [];
+        for (const t of _availableTagsEx) {
+            if (excludedSet.has(String(t.Id)) && _isGioTrongTagName(t.Name)) {
                 gioTrongExcluded = true;
                 break;
             }
