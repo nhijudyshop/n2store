@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] Thêm sub-tag "KHÔNG ĐỂ HÀNG" (Cat 3) — thay vị trí thống kê TRỐNG bằng KO ĐH
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/overview/overview-core.js`, `orders-report/js/overview/overview-statistics.js` |
+| **Chi tiết** | **Yêu cầu**: Thêm sub-tag manual `KHÔNG ĐỂ HÀNG` trong category 3 (KHÔNG CẦN CHỐT) — click giống `ĐÃ GỘP KHÔNG CHỐT`. Stats ở mini-summary panel (Tab 1 sidebar) và Báo Cáo Tổng Hợp (overall + per-employee) **thay hoàn toàn** số "TRỐNG" (auto SL=0) bằng số đơn có `subTag='KHONG_DE_HANG'`, label rút gọn **"KO ĐH"**. Badge vàng `GIỎ TRỐNG` trên row của bảng đơn **giữ nguyên** (vẫn auto theo SL=0). **Tab1**: `PTAG_SUBTAGS` thêm `KHONG_DE_HANG` (cat 3); `PTAG_TOOLTIPS` thêm `subtag_KHONG_DE_HANG`; mini-summary template đổi `(X TRỐNG + Y GỘP)` → `(X KO ĐH + Y GỘP)`, filter click chuyển `subtag_GIO_TRONG` → `subtag_KHONG_DE_HANG`. **Overview**: `PTAG_SUBTAGS_META` xoá `GIO_TRONG`, thêm `KHONG_DE_HANG`; `computeTagXLCounts` bỏ block auto `subTagCounts['GIO_TRONG']++` theo SL=0 + bỏ exception `!== 'GIO_TRONG'` trong sub-tag counter; `_buildMiniSummary` cat 3 đổi label `(X Trống, Y Gộp)` → `(X KO ĐH, Y Gộp)`; filter handler subtag_ xoá nhánh đặc biệt cho GIO_TRONG. **Backend không cần migration** (subTag lưu dạng free string, dữ liệu cũ `subTag='GIO_TRONG'` ~1061 đơn tự động bị frontend skip an toàn vì key không còn trong subTagCounts init). Row badge `GIỎ TRỐNG` + filter `subtag_GIO_TRONG` (khi click badge) giữ nguyên qua `_slZeroCodes` cache. |
+| **Status** | ✅ Done |
+
 ### [orders][render] Thêm cột "Ghi chú" CSKH — multi-note history per order, edit/delete own
 | | |
 |---|---|

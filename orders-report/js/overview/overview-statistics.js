@@ -245,16 +245,6 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         const code = String(order.Code || '');
         const amount = order.TotalAmount || 0;
         const tagData = ptagMap[code];
-        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
-
-        // (2026-04-18) GIỎ TRỐNG giờ định nghĩa = đơn SL=0 (không còn subTag riêng).
-        // Đếm độc lập với XL state, ghi thẳng vào subTagCounts để render/filter flow reuse.
-        if (productCount === 0) {
-            subTagCounts['GIO_TRONG'] = (subTagCounts['GIO_TRONG'] || 0) + 1;
-            subTagAmounts['GIO_TRONG'] = (subTagAmounts['GIO_TRONG'] || 0) + amount;
-            if (!subTagOrders['GIO_TRONG']) subTagOrders['GIO_TRONG'] = [];
-            subTagOrders['GIO_TRONG'].push(order);
-        }
 
         // Flags: count across ALL orders (including untagged) — must be before early return
         if (tagData) {
@@ -300,8 +290,8 @@ function computeTagXLCounts(orderSubset, ptagMap) {
             }
         }
 
-        // Sub-tags for cat 2, 3, 4 — GIO_TRONG đã đếm ở trên (theo SL=0), skip để tránh double-count
-        if ((cat === 2 || cat === 3 || cat === 4) && tagData.subTag && tagData.subTag !== 'GIO_TRONG') {
+        // Sub-tags for cat 2, 3, 4
+        if ((cat === 2 || cat === 3 || cat === 4) && tagData.subTag) {
             if (subTagCounts[tagData.subTag] !== undefined) {
                 subTagCounts[tagData.subTag]++;
                 subTagAmounts[tagData.subTag] += amount;
@@ -384,9 +374,9 @@ function _buildMiniSummary(stats) {
         if (cat === 1) {
             label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${stats.subStateCounts.OKIE_CHO_DI_DON} Okie, ${stats.subStateCounts.CHO_HANG} Chờ)`;
         } else if (cat === 3) {
-            const gioTrong = stats.subTagCounts.GIO_TRONG || 0;
+            const khongDeHang = stats.subTagCounts.KHONG_DE_HANG || 0;
             const gop = stats.subTagCounts.DA_GOP_KHONG_CHOT || 0;
-            label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${gioTrong} Trống, ${gop} Gộp)`;
+            label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${khongDeHang} KO ĐH, ${gop} Gộp)`;
         }
         catItems.push(`<span style="color:${meta.color}; font-size:14px; font-weight:600;">${label}</span>`);
     }
@@ -1454,15 +1444,10 @@ function _filterOrdersByTagXLKey(orders, ptagMap, key) {
         const st = key.replace('subtag_', '');
         const meta = PTAG_SUBTAGS_META[st];
         displayName = meta ? meta.label : st;
-        if (st === 'GIO_TRONG') {
-            // (2026-04-18) GIO_TRONG = đơn SL=0 (không còn dựa trên XL subTag)
-            filtered = orders.filter(o => (o.Details?.length || 0) === 0);
-        } else {
-            filtered = orders.filter(o => {
-                const td = ptagMap[String(o.Code || '')];
-                return td && td.subTag === st;
-            });
-        }
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && td.subTag === st;
+        });
     } else if (key === 'flag_CHO_LIVE') {
         displayName = '📺 CHỜ LIVE';
         filtered = orders.filter(o => {

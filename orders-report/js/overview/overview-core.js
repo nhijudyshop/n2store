@@ -123,7 +123,7 @@ const PTAG_SUBTAGS_META = {
     BAN_HANG: { label: 'BÁN HÀNG', category: 2, icon: '🛒' },
     // Category 3
     DA_GOP_KHONG_CHOT: { label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3, icon: '🔗' },
-    GIO_TRONG: { label: 'GIỎ TRỐNG', category: 3, icon: '🛒' },
+    KHONG_DE_HANG: { label: 'KHÔNG ĐỂ HÀNG', category: 3, icon: '🚫' },
     // Category 4
     NCC_HET_HANG: { label: 'NCC HẾT HÀNG', category: 4, icon: '🚫' },
     KHACH_HUY_DON: { label: 'KHÁCH HỦY NGUYÊN ĐƠN', category: 4, icon: '❌' },

@@ -90,6 +90,7 @@
         // Category 3 — KHÔNG CẦN CHỐT
         // Note (2026-04-18): GIO_TRONG removed — filter "GIỎ TRỐNG" nay lọc theo TotalQuantity=0
         DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3 },
+        KHONG_DE_HANG:     { key: 'KHONG_DE_HANG',     label: 'KHÔNG ĐỂ HÀNG',     category: 3 },
         // Category 4 — KHÁCH XÃ
         NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC HẾT HÀNG',              category: 4 },
         KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'KHÁCH HỦY NGUYÊN ĐƠN',      category: 4 },
@@ -125,6 +126,7 @@
         subtag_BAN_HANG: 'Khách đang mua thêm, seller đang chào hàng.',
         // Sub-tags cat 3
         subtag_DA_GOP_KHONG_CHOT: 'Đơn khách mua 2 page đã gộp vào 1 đơn khác.',
+        subtag_KHONG_DE_HANG: 'Đơn không cần để hàng. Gán thủ công.',
         subtag_GIO_TRONG: 'Lọc đơn có SL = 0.',
         // Sub-tags cat 4
         subtag_NCC_HET_HANG: 'Báo khách hết hàng hoặc đổi qua mẫu khác.',
@@ -2212,8 +2214,7 @@
             }
             if (summaryEl) {
                 const koCan = catCounts[3] || 0;
-                // gioTrong = đơn có SL=0 (không còn dùng subtag GIO_TRONG — đã bỏ auto-tag)
-                const gioTrong = _slZeroCodes.size;
+                const khongDeHang = subTagCounts['KHONG_DE_HANG'] || 0;
                 const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
                 const donChot = totalOrders - koCan;
                 const raDon = catCounts[0] || 0;
@@ -2230,7 +2231,7 @@
                         <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
                         <span> - </span>
                         <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
-                        <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> TRỐNG + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> GỘP)</span>
+                        <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_KHONG_DE_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_KHONG_DE_HANG')">${khongDeHang}</span> KO ĐH + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> GỘP)</span>
                         <span> = </span>
                         <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
                         <span class="ptag-stat-highlight"> CHỐT</span>
