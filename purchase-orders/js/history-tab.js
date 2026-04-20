@@ -342,8 +342,28 @@ window.PurchaseOrderHistory = (function () {
     }
 
     /**
+     * Render the SL cell content for a given order (from cache or placeholder)
+     */
+    function renderQtyCell(orderId) {
+        if (qtyCache.has(orderId)) {
+            return VND_FORMAT.format(qtyCache.get(orderId));
+        }
+        return '<span style="opacity:0.4;">...</span>';
+    }
+
+    /**
+     * Update a single row's SL cell in the DOM
+     */
+    function updateQtyCell(orderId, qty) {
+        if (!tableContainer) return;
+        const cell = tableContainer.querySelector(`.history-qty-cell[data-order-id="${orderId}"]`);
+        if (cell) cell.textContent = VND_FORMAT.format(qty);
+    }
+
+    /**
      * Load total product quantity per order on the current page in parallel,
-     * cache results, then update the stats bar. Aborts if a newer request starts.
+     * cache results, update each row's SL cell, and update the stats bar total.
+     * Aborts if a newer request starts.
      */
     async function loadPageQtyStats(items, token) {
         if (!items || items.length === 0) {
@@ -354,7 +374,9 @@ window.PurchaseOrderHistory = (function () {
         }
         try {
             const qtys = await Promise.all(items.map(async item => {
-                if (qtyCache.has(item.Id)) return qtyCache.get(item.Id);
+                if (qtyCache.has(item.Id)) {
+                    return qtyCache.get(item.Id);
+                }
                 try {
                     const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${item.Id})/OrderLines?$select=ProductQty`;
                     const res = await window.TPOSClient.authenticatedFetch(url);
@@ -362,12 +384,17 @@ window.PurchaseOrderHistory = (function () {
                     const data = await res.json();
                     const qty = (data.value || []).reduce((s, l) => s + (l.ProductQty || 0), 0);
                     qtyCache.set(item.Id, qty);
+                    if (token === qtyRequestToken) updateQtyCell(item.Id, qty);
                     return qty;
                 } catch (_e) {
                     return 0;
                 }
             }));
             if (token !== qtyRequestToken) return; // Stale response
+            // Paint any cached rows we skipped (in case DOM was re-rendered between fetches)
+            items.forEach(item => {
+                if (qtyCache.has(item.Id)) updateQtyCell(item.Id, qtyCache.get(item.Id));
+            });
             summaryTotalQty = qtys.reduce((s, q) => s + q, 0);
             qtyLoading = false;
             renderStatsBar();
@@ -475,6 +502,7 @@ window.PurchaseOrderHistory = (function () {
                     <td style="text-align:center;">
                         <span class="date-main">${formatDateShort(item.DateInvoice)}</span>
                     </td>
+                    <td class="text-right history-qty-cell" data-order-id="${item.Id}" style="width:50px;font-weight:600;color:var(--color-text-secondary);">${renderQtyCell(item.Id)}</td>
                     <td class="text-right"><span class="price-value">${formatMoney(amountTotal)}</span></td>
                     <td class="text-right">
                         <span style="font-weight:600;color:${residualColor};">${formatMoney(residual)}</span>
@@ -497,7 +525,7 @@ window.PurchaseOrderHistory = (function () {
                     </td>
                 </tr>
                 <tr class="expand-row" id="expand-${item.Id}" style="display: ${isExpanded ? 'table-row' : 'none'};">
-                    <td colspan="9" style="padding: 0; background: #f8fafc;">
+                    <td colspan="10" style="padding: 0; background: #f8fafc;">
                         <div class="expand-content" id="expand-content-${item.Id}">
                             ${isExpanded ? renderExpandedContent(item.Id, item) : ''}
                         </div>
@@ -515,6 +543,7 @@ window.PurchaseOrderHistory = (function () {
                             <th>Số phiếu</th>
                             <th>NCC</th>
                             <th style="width:60px;text-align:center;">Ngày</th>
+                            <th class="text-right" style="width:50px;" title="Tổng số lượng sản phẩm">SL</th>
                             <th class="text-right">Tổng tiền</th>
                             <th class="text-right" style="width:120px;">Còn nợ</th>
                             <th class="th-filter-wrap" style="width:110px;">
