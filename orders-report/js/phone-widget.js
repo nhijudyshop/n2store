@@ -1167,6 +1167,24 @@ const PhoneWidget = (() => {
             playAnsweredTone();
             startTimer();
             try { window.PhoneCloudSync?.setPresence?.('in-call', { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '', direction: activeCallMeta?.direction || '' }); } catch {}
+            // Start local recording if enabled
+            try {
+                if (window.PhoneRecording?.isEnabled?.() && activeCallMeta?.phone) {
+                    const user = window.authManager?.getAuthData?.()?.displayName || '';
+                    // Delay 400ms to let remote track attach to <audio id=pwRemoteAudio>
+                    setTimeout(() => {
+                        window.PhoneRecording.startRecording({
+                            username: user,
+                            ext: config.extension,
+                            phone: activeCallMeta.phone,
+                            name: activeCallMeta.name,
+                            direction: activeCallMeta.direction,
+                            orderCode: activeCallMeta.orderCode,
+                            timestamp: Date.now()
+                        });
+                    }, 400);
+                }
+            } catch (err) { addLog('Ghi âm lỗi: ' + err.message, 'error'); }
         });
         session.on('confirmed', () => attachAudio(session));
         session.on('ended', (e) => {
@@ -1226,6 +1244,12 @@ const PhoneWidget = (() => {
             };
             addHistoryEntry(entry);
             try { window.PhoneCloudSync?.logCall?.(entry); } catch {}
+            // Stop local recording & save with duration
+            try {
+                if (window.PhoneRecording) {
+                    window.PhoneRecording.stopRecording({ duration: durSec });
+                }
+            } catch {}
             activeCallMeta = null;
         }
         try { window.PhoneCloudSync?.setPresence?.(isRegistered ? 'registered' : 'offline', { ext: config.extension }); } catch {}

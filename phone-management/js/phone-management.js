@@ -48,14 +48,23 @@ const PM = (() => {
     }
 
     // === FORMAT HELPERS ===
+    function _toMs(ts) {
+        // Postgres BIGINT comes back as string — parseInt to get number
+        if (ts == null) return 0;
+        if (ts instanceof Date) return ts.getTime();
+        if (typeof ts === 'number') return ts;
+        const n = parseInt(ts, 10);
+        return isNaN(n) ? 0 : n;
+    }
     function _fmtDateTime(ts) {
-        if (!ts) return '';
-        const d = new Date(ts);
+        const ms = _toMs(ts); if (!ms) return '';
+        const d = new Date(ms);
+        if (isNaN(d.getTime())) return '';
         return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
-    function _fmtDuration(sec) { if (!sec) return '—'; const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,'0')}`; }
+    function _fmtDuration(sec) { const n = parseInt(sec, 10) || 0; if (!n) return '—'; const m = Math.floor(n/60), s = n%60; return `${m}:${String(s).padStart(2,'0')}`; }
     function _fmtPhone(s) { const d = String(s || '').replace(/[^\d+]/g,''); if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3'); return d; }
-    function _relTime(ts) { const t = ts instanceof Date ? ts.getTime() : (typeof ts === 'string' ? new Date(ts).getTime() : (ts || Date.now())); const diff = Date.now() - t; if (diff < 60000) return 'vừa xong'; if (diff < 3600000) return `${Math.floor(diff/60000)} phút`; if (diff < 86400000) return `${Math.floor(diff/3600000)} giờ`; return `${Math.floor(diff/86400000)} ngày`; }
+    function _relTime(ts) { const ms = _toMs(ts); if (!ms) return ''; const diff = Date.now() - ms; if (diff < 60000) return 'vừa xong'; if (diff < 3600000) return `${Math.floor(diff/60000)} phút`; if (diff < 86400000) return `${Math.floor(diff/3600000)} giờ`; return `${Math.floor(diff/86400000)} ngày`; }
     function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
     function _dirIcon(d) { const cls = d === 'in' ? 'in' : d === 'missed' ? 'missed' : 'out'; const ch = d === 'in' ? '↙' : d === 'missed' ? '✕' : '↗'; return `<span class="pm-dir-icon ${cls}">${ch}</span>`; }
     function _initialsAvatar(name) { return (name || '?').split(/\s+/).map(p => p[0]).slice(-2).join('').toUpperCase(); }
@@ -162,6 +171,8 @@ const PM = (() => {
                 tr.style.display = !f || txt.includes(f) ? '' : 'none';
             });
         });
+        $('#recSearch')?.addEventListener('input', () => { if (currentTab === 'recordings') loadRecordings(); });
+        $('#recUser')?.addEventListener('change', () => { if (currentTab === 'recordings') loadRecordings(); });
     }
     function toggleMobileDropdown() {
         const dd = $('#pmMobileDropdown'); const ov = $('#pmMobileOverlay'); if (!dd) return;
@@ -665,9 +676,123 @@ const PM = (() => {
     }
     function copyToClipboard(s) { navigator.clipboard.writeText(s).catch(() => {}); }
 
-    // === RECORDINGS (placeholder) ===
+    // === RECORDINGS (local IndexedDB) ===
     async function loadRecordings() {
-        // local MediaRecorder feature not yet implemented — placeholder remains
+        const body = $('#recTableBody'); if (!body) return;
+        if (!window.PhoneRecording) {
+            body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Module ghi âm chưa load</td></tr>';
+            return;
+        }
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>';
+        try {
+            const recs = await window.PhoneRecording.listRecordings();
+            const search = ($('#recSearch')?.value || '').toLowerCase().trim();
+            const userFilter = $('#recUser')?.value || '';
+            const filtered = recs.filter(r => {
+                if (userFilter && r.username !== userFilter) return false;
+                if (search) {
+                    const hay = `${r.phone || ''} ${r.name || ''} ${r.username || ''}`.toLowerCase();
+                    if (!hay.includes(search)) return false;
+                }
+                return true;
+            });
+            if (!filtered.length) {
+                body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">
+                    Chưa có ghi âm local nào.<br>
+                    <small>Bật "Ghi âm local" trong tab <b>Cấu hình</b> trên máy đang dùng widget để bắt đầu lưu.</small>
+                </td></tr>`;
+                return;
+            }
+            body.innerHTML = filtered.map(r => {
+                const sizeKB = Math.round((r.size || 0) / 1024);
+                return `
+                <tr data-rec-id="${r.id}">
+                    <td>${_fmtDateTime(r.timestamp)}</td>
+                    <td>${_esc(r.username || '—')}</td>
+                    <td class="mono">${r.ext || '—'}</td>
+                    <td class="mono">${_fmtPhone(r.phone)}</td>
+                    <td>${_esc(r.name || '—')}</td>
+                    <td class="mono">${_fmtDuration(r.duration)}</td>
+                    <td style="font-size:11px;color:#64748b">${sizeKB} KB<br><span style="font-family:'SF Mono',monospace;font-size:10px">${_esc(r.mimeType || '')}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="PM.playRecording(${r.id})" title="Phát"><i data-lucide="play"></i></button>
+                        <button class="btn btn-sm btn-outline" onclick="PM.downloadRecording(${r.id})" title="Tải về"><i data-lucide="download"></i></button>
+                        <button class="btn btn-sm btn-outline" onclick="PM.deleteRecording(${r.id})" title="Xoá"><i data-lucide="trash-2"></i></button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            _iconsRefresh();
+
+            // Storage stats footer
+            const stats = await window.PhoneRecording.getStorageStats();
+            const mb = (stats.bytes / 1024 / 1024).toFixed(2);
+            const existing = document.getElementById('recStorageFooter');
+            if (existing) existing.remove();
+            if (stats.count) {
+                const footer = document.createElement('div');
+                footer.id = 'recStorageFooter';
+                footer.style.cssText = 'text-align:center;padding:10px;font-size:11px;color:#64748b;background:#f8fafc;border-top:1px solid #e2e8f0';
+                footer.textContent = `Tổng ${stats.count} ghi âm • ${mb} MB (IndexedDB) • Auto-xoá sau 30 ngày`;
+                body.closest('.pm-panel')?.appendChild(footer);
+            }
+        } catch (err) {
+            body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(err.message)}</td></tr>`;
+        }
+    }
+
+    let _currentAudioUrl = null;
+    async function playRecording(id) {
+        try {
+            const r = await window.PhoneRecording.getRecordingUrl(id);
+            if (!r) { alert('Không tìm thấy ghi âm'); return; }
+            _openPlayerModal(r);
+        } catch (err) { alert('Lỗi: ' + err.message); }
+    }
+    function _openPlayerModal(r) {
+        const existing = document.getElementById('recPlayerModal'); if (existing) existing.remove();
+        if (_currentAudioUrl) { try { URL.revokeObjectURL(_currentAudioUrl); } catch {} }
+        _currentAudioUrl = r.url;
+        const wrap = document.createElement('div');
+        wrap.id = 'recPlayerModal';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+        wrap.innerHTML = `
+            <div style="background:#fff;border-radius:12px;padding:20px;width:min(480px,90vw);box-shadow:0 24px 60px rgba(0,0,0,.4)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <h3 style="margin:0;font-size:14px;color:#0f172a">🎙 ${_esc(r.name || _fmtPhone(r.phone))}</h3>
+                    <button onclick="this.closest('#recPlayerModal').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#94a3b8;line-height:1">×</button>
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:10px">
+                    ${_fmtDateTime(r.timestamp)} · ${_esc(r.username)} · Ext ${r.ext} · ${_fmtDuration(r.duration)}
+                </div>
+                <audio controls autoplay style="width:100%" src="${r.url}"></audio>
+                <div style="margin-top:10px;text-align:right">
+                    <a href="${r.url}" download="${_esc(r.filename)}" class="btn btn-sm btn-outline" style="text-decoration:none;margin-right:6px"><i data-lucide="download"></i> Tải về</a>
+                    <button class="btn btn-sm btn-danger" onclick="PM.deleteRecording(${r.id}); this.closest('#recPlayerModal').remove();"><i data-lucide="trash-2"></i> Xoá</button>
+                </div>
+            </div>
+        `;
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        document.body.appendChild(wrap);
+        _iconsRefresh();
+    }
+
+    async function downloadRecording(id) {
+        try {
+            const r = await window.PhoneRecording.getRecordingUrl(id);
+            if (!r) { alert('Không tìm thấy ghi âm'); return; }
+            const a = document.createElement('a'); a.href = r.url; a.download = r.filename;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => { try { URL.revokeObjectURL(r.url); } catch {} }, 3000);
+        } catch (err) { alert('Lỗi: ' + err.message); }
+    }
+
+    async function deleteRecording(id) {
+        if (!confirm('Xoá ghi âm này? Hành động không thể hoàn tác.')) return;
+        try {
+            await window.PhoneRecording.deleteRecording(id);
+            loadRecordings();
+        } catch (err) { alert('Lỗi: ' + err.message); }
     }
 
     // === CONFIG ===
@@ -735,7 +860,8 @@ const PM = (() => {
         viewExtHistory, viewUserHistory,
         openAddExtension, openAddContact, deleteContact, copyToClipboard,
         applyHistoryFilters, exportHistoryCSV, gotoHistoryPage,
-        saveLocalConfig
+        saveLocalConfig,
+        playRecording, downloadRecording, deleteRecording
     };
 })();
 

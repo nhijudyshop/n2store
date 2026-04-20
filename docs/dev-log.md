@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [phone-management,phone-widget] Fix NaN timestamp + implement local MediaRecorder recording
+| | |
+|---|---|
+| **Files** | `phone-management/js/phone-management.js`, `orders-report/js/phone-recording.js` (new), `orders-report/js/phone-widget.js`, `orders-report/tab1-orders.html`, `phone-management/index.html` |
+| **Chi tiết** | **Bug 1 — NaN timestamp**: Postgres BIGINT trả về string (node-pg default để preserve precision), `new Date("1745158000000")` → Invalid Date (JS parse string như date string chứ không phải ms). Fix `_toMs()` helper parseInt nếu string, apply cho `_fmtDateTime/_fmtDuration/_relTime`. **Bug 2 — Ghi âm trống**: trước chỉ placeholder. Implement `PhoneRecording` module: AudioContext mix local mic + remote audio track (`<audio id=pwRemoteAudio>` srcObject) → `MediaStreamDestination` → `MediaRecorder(dest.stream, audio/webm;codecs=opus)` → chunks → Blob → IndexedDB `phoneRecordings/recordings` (keyPath id autoIncrement, indexes: timestamp/username/phone). Retention 30 ngày, auto-cleanup on load. Widget hook `session.on('accepted')` → delay 400ms (chờ remote track attach) → `startRecording({username, ext, phone, name, direction, orderCode, timestamp})` nếu `isEnabled()` (check localStorage `phoneMgmt_prefs.recordLocal`). `endCall` stop với final duration. Phone-management tab Ghi âm: `listRecordings()` → render table (thời gian/nhân viên/ext/số/khách/thời lượng/size + mimeType/actions), 3 nút Phát (modal audio HTML5 player)/Tải về (download blob URL)/Xoá. Storage stats footer "Tổng N ghi âm · X MB". Search + user filter. IndexedDB same-origin share giữa orders-report và phone-management (cùng `nhijudyshop.github.io`). |
+| **Status** | ✅ Done |
+
 ### [orders][render] KPI tính theo người thực sự upsell (per-user audit-based attribution)
 | | |
 |---|---|
