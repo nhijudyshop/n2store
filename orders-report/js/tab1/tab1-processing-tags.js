@@ -1340,7 +1340,21 @@
             `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${orderCode}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` +
             `</div>`;
 
+        // (2026-04-20) Virtual badge GIỎ TRỐNG cho đơn SL=0 (display-only,
+        // không đụng XL state/subTag). Click → filter subtag_GIO_TRONG (SL=0).
+        const _oIdEarly = _ptagResolveId(orderCode);
+        const _oEarly = _oIdEarly && typeof window.getAllOrders === 'function'
+            ? window.getAllOrders().find(o => o.Id === _oIdEarly)
+            : null;
+        const _isSLZero = _oEarly && Number(_oEarly.TotalQuantity || 0) === 0;
+        const gioTrongBadge = _isSLZero
+            ? `<span class="ptag-badge" style="border-color:#f59e0b;color:#92400e;background:#fef3c7;cursor:pointer;" onclick="window._ptagSetFilter('subtag_GIO_TRONG'); event.stopPropagation();" title="Đơn SL=0 — click để lọc">GIỎ TRỐNG</span>`
+            : '';
+
         if (!data) {
+            if (gioTrongBadge) {
+                return `<div class="ptag-cell">${btns}<div class="ptag-cell-badges">${gioTrongBadge}</div></div>`;
+            }
             return `<div class="ptag-cell">${btns}</div>`;
         }
 
@@ -1437,7 +1451,8 @@
             ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
         });
 
-        let badgesContent = badges;
+        // Prepend virtual GIỎ TRỐNG badge nếu đơn SL=0 (trước category badge)
+        let badgesContent = gioTrongBadge + badges;
         if (flagBadges) badgesContent += `<div class="ptag-cell-flags-row">${flagBadges}</div>`;
         if (ttagBadges) badgesContent += `<div class="ptag-cell-ttag-row">${ttagBadges}</div>`;
         const badgesRow = badgesContent ? `<div class="ptag-cell-badges">${badgesContent}</div>` : '';

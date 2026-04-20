@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] TAG XL column — prepend badge GIỎ TRỐNG cho đơn SL=0 (click filter SL=0)
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | User yêu cầu hiển thị badge GIỎ TRỐNG trong cột TAG XL giống cột TAG (prepend, không có nút ×, click để filter). **Thực hiện:** Trong `renderProcessingTagCell(orderCode)` lookup order qua `_ptagResolveId` + `window.getAllOrders()`; check `_isSLZero = Number(TotalQuantity||0) === 0`. Nếu true → build `gioTrongBadge` = span `.ptag-badge` border `#f59e0b`, text `#92400e`, bg `#fef3c7`, cursor pointer, onclick `window._ptagSetFilter('subtag_GIO_TRONG')` (filter panel XL đã có logic SL=0). Prepend vào `badgesContent = gioTrongBadge + badges` trước category/flag/tTag. Xử lý cả case `!data` (đơn chưa gán XL) — vẫn render badge. Display-only, không ghi XL state/subTag. |
+| **Status** | ✅ Done |
+
 ### [phone-management,render] Migrate data t\u1eeb Firestore \u2192 Render Postgres + fix layout mobile header
 | | |
 |---|---|
