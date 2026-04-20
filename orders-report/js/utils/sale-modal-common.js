@@ -1092,13 +1092,24 @@ function autoFillSaleNote() {
     const noteParts = [];
 
     // 1. Wallet balance → generate note based on source type
-    const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
-    if (walletBalance > 0) {
-        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → use ticket's internal_note
+    // Dùng originalBalance (tổng số dư thật) thay vì value (có thể bị cap theo COD)
+    // để tính "-> CÒN NỢ X" chính xác khi balance > COD.
+    const prepaidField = document.getElementById('salePrepaidAmount');
+    const prepaidValue = parseFloat(prepaidField?.value) || 0;
+    const originalBalance = parseFloat(prepaidField?.dataset?.originalBalance) || prepaidValue;
+    const hasVirtualDebt = prepaidField?.dataset?.hasVirtualDebt === '1';
+    if (originalBalance > 0) {
         const vcList = (typeof currentSaleVirtualCredits !== 'undefined') ? currentSaleVirtualCredits : [];
+        const walletLines = Array.isArray(window.currentSaleWalletNoteLines)
+            ? window.currentSaleWalletNoteLines
+            : [];
+
+        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → dùng ticket's internal_note
+        let hasReturnShipper = false;
         if (vcList.length > 0) {
             for (const vc of vcList) {
                 if (vc.source_type === 'RETURN_SHIPPER') {
+                    hasReturnShipper = true;
                     if (vc.ticket_note) {
                         const hasReturnText = vc.ticket_note.toLowerCase().includes('thu về');
                         noteParts.push(hasReturnText ? vc.ticket_note : `thu về ${vc.ticket_note}`);
@@ -1109,32 +1120,37 @@ function autoFillSaleNote() {
                     }
                 }
             }
+        } else if (hasVirtualDebt && walletLines.length === 0) {
+            // vcList rỗng do backend không trả (ví dụ vc expired/stale) nhưng virtual_balance > 0
+            // → fallback generic để không rơi vào "Nợ Cũ"
+            const vbStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
+            noteParts.push(`TRỪ ${vbStr} CÔNG NỢ ẢO THU VỀ`);
+            hasReturnShipper = true;
         }
 
-        // 1b. Wallet note lines — hiển thị tất cả (Nợ Cũ + ĐÃ NHẬN)
-        const walletLines = Array.isArray(window.currentSaleWalletNoteLines)
-            ? window.currentSaleWalletNoteLines
-            : [];
+        const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+        const remaining = Math.max(0, originalBalance - codValue);
+        const debtStr = remaining >= 1000 ? `${Math.round(remaining / 1000)}K` : `${remaining}đ`;
+
         if (walletLines.length > 0) {
+            // 1b. Wallet note lines (tiền thật: Nợ Cũ + ĐÃ NHẬN)
             noteParts.push(...walletLines);
-            // Tính số dư ví còn lại sau khi trừ COD
-            const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-            const remainingWallet = Math.max(0, walletBalance - codValue);
-            if (remainingWallet > 0) {
-                const debtStr = remainingWallet >= 1000 ? `${Math.round(remainingWallet / 1000)}K` : `${remainingWallet}đ`;
-                noteParts.push(`-> Còn nợ ${debtStr}`);
+            if (remaining > 0) {
+                noteParts.push(`-> CÒN NỢ ${debtStr}`);
             } else {
                 noteParts.push(`-> 0Đ`);
             }
-        } else if (vcList.length === 0) {
-            // Fallback khi backend không trả walletNoteLines: ghi "Nợ Cũ" (an toàn hơn "ĐÃ NHẬN")
-            const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : `${walletBalance}đ`;
+        } else if (hasReturnShipper) {
+            // RS-only: chỉ push "-> CÒN NỢ X" khi còn dư; không push "-> 0Đ" để giữ convention
+            if (remaining > 0) {
+                noteParts.push(`-> CÒN NỢ ${debtStr}`);
+            }
+        } else {
+            // Fallback cuối: backend không trả walletNoteLines và không có vc/virtual
+            const amountStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
             noteParts.push(`Nợ Cũ ${amountStr}`);
-            const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-            const remainingWallet = Math.max(0, walletBalance - codValue);
-            if (remainingWallet > 0) {
-                const debtStr = remainingWallet >= 1000 ? `${Math.round(remainingWallet / 1000)}K` : `${remainingWallet}đ`;
-                noteParts.push(`-> Còn nợ ${debtStr}`);
+            if (remaining > 0) {
+                noteParts.push(`-> CÒN NỢ ${debtStr}`);
             } else {
                 noteParts.push(`-> 0Đ`);
             }

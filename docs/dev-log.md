@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Fix ghi chú phiếu bán: `-> CÒN NỢ X` khi balance > COD + virtual credit fallback khi vcList rỗng
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Bug 1** (Bond Huynh #4520, 0906370834): balance ảo 490K > COD 310K. Note SAI `Nợ Cũ 310K\n-> 0Đ`, đúng phải `THU VỀ 1 SET B594H - 490K CHẬT\n-> CÒN NỢ 180K`. **Bug 2** (Hồng Diễm, 0969069410): balance thật 450K (tx RETURN_GOODS "KHÁCH 65KG MANG CHẬT") > COD 225K. Note SAI `KHÁCH 65KG MANG CHẬT\n-> 0Đ`, đúng phải `\n-> CÒN NỢ 225K`. **Root cause**: `autoFillSaleNote()` lấy `walletBalance = prepaidAmount.value` — field này bị **cap bởi COD** nên `remaining = balance - COD = 0` sai. Ngoài ra branch RS-only (vcList có RETURN_SHIPPER, walletLines rỗng) không push `-> CÒN NỢ X`. **Fix**: (1) Dùng `prepaidAmount.dataset.originalBalance` (số dư gốc, không bị cap) thay cho `.value`. (2) Refactor thành 3 nhánh rõ: `walletLines.length > 0` (tiền thật) push walletLines + `-> CÒN NỢ/0Đ`; `hasReturnShipper` (chỉ ảo) push ticket_note + `-> CÒN NỢ X` khi dư (không push `-> 0Đ` để giữ case Nguyễn Diễm balance < COD không có dòng thừa); fallback cuối push `Nợ Cũ X`. (3) Thêm fallback khi `vcList` rỗng nhưng `hasVirtualDebt=1` (vc expired/stale) → push `TRỪ X CÔNG NỢ ẢO THU VỀ` thay vì rơi vào "Nợ Cũ". (4) Đổi "-> Còn nợ" → "-> CÒN NỢ" all-caps theo convention user. |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Fix ghi chú phiếu bán hàng hiển thị "ĐÃ NHẬN ..." thay vì "Nợ Cũ ..." khi số dư ví là legacy
 | | |
 |---|---|
