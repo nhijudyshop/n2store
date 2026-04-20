@@ -15,6 +15,7 @@
     <!-- Styles -->
     <link rel="stylesheet" href="../shared/css/modern.css">
     <link rel="stylesheet" href="css/modern.css?v=20260418-stats-autoupdate">
+    <link rel="stylesheet" href="css/modal-convert-po.css">
 
     <!-- Navigation Manager -->
     <!-- ES Module: Shared utilities -->
@@ -639,6 +640,28 @@
         </div>
     </div>
 
+    <!-- Modal: Convert NCC Invoice → Purchase Order Draft -->
+    <div class="modal" id="modalConvertPO">
+        <div class="modal-overlay" onclick="closeModal('modalConvertPO')"></div>
+        <div class="modal-container modal-xl">
+            <div class="modal-header">
+                <h3><i data-lucide="shopping-cart"></i> Chuyển NCC qua Đặt hàng Nháp</h3>
+                <button class="modal-close" onclick="closeModal('modalConvertPO')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalConvertPOBody">
+                <!-- Rendered by modal-convert-po.js -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalConvertPO')">Hủy</button>
+                <button class="btn btn-primary" id="btnConfirmConvertPO">
+                    <i data-lucide="send"></i> Chuyển qua đặt hàng
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add Table Image (paste or file) -->
     <div class="modal" id="modalAddTableImage">
         <div class="modal-overlay" onclick="closeModal('modalAddTableImage')"></div>
@@ -813,6 +836,7 @@
     <script src="js/modal-shipment.js"></script>
     <script src="js/modal-shortage.js"></script>
     <script src="js/modal-variant.js"></script>
+    <script src="js/modal-convert-po.js"></script>
     <script src="js/image-upload.js"></script>
     <script src="js/modal-image-manager.js"></script>
     <script src="js/note-manager.js"></script>

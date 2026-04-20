@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [inventory][orders] Convert NCC Invoice → Purchase Order Draft (nút "Chuyển qua đặt hàng")
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-convert-po.js` (new), `inventory-tracking/css/modal-convert-po.css` (new), `inventory-tracking/js/table-renderer.js`, `inventory-tracking/index.html` |
+| **Chi tiết** | Thêm nút icon `shopping-cart` ở NCC header (bên cạnh nút Xóa NCC) trong bảng [Theo Dõi Nhập Hàng SL]. Click → mở modal `modalConvertPO` tóm tắt 1 hóa đơn NCC. Logic flow: (1) `openConvertToPurchaseOrderModal(invoiceId)` tìm `hoaDon` + `parentShipment` trong `globalState.nccList[].dotHang[].hoaDon[]`; (2) Lấy `productImages` của NCC qua `getProductImagesForNcc(sttNCC, ngayDiHang, dotSo)` — chung cho tất cả items; (3) **Explode `sanPham[].mauSac[]` thành items phẳng** — mỗi biến thể (vd "Đen / S") = 1 dòng item với `variant = mau`, `quantity = soLuong`; nếu sản phẩm không có `mauSac` → 1 item với `quantity = tongSoLuong`; (4) Render form: supplier (prefill `tenNCC`), orderDate (hôm nay), invoiceAmount (prefill `tongTienHD`), notes (prefill `ghiChu`), ảnh sản phẩm thumbnails, bảng items tất cả input chỉnh sửa được + checkbox include, totals live update; (5) Click "Chuyển qua đặt hàng" → build `orderData` với `status:'DRAFT'`, supplier `{name, code: name[:3].toUpperCase()}`, items map với `sellingPrice:''` (để user điền sau ở màn Nháp), `subtotal = purchasePrice * quantity`, `productImages` copy từ NCC, `selectedAttributeValueIds:[]`, `tposSynced:false`; (6) POST trực tiếp tới `https://n2store-fallback.onrender.com/api/v2/purchase-orders` với header `X-Auth-Data` (raw JSON `{userId,userName,email}`) match format của `purchase-orders/js/service.js:58-67`; (7) Success → toast "Đã tạo đơn Nháp với N sản phẩm" + close modal (không điều hướng tab). DRAFT skip validation items/financials (xem `purchase-orders/js/service.js:117-119`) → tạo được dù thiếu giá/items. CSS riêng `modal-convert-po.css` cho nút `.btn-convert-po` (icon indigo, hover indigo-50), modal grid 3-cột (supplier/date/amount), items table sticky header max-height 380px scroll, inputs borderless hover/focus highlight. |
+| **Status** | ✅ Done — chờ user test |
+
 ### [orders] GIỎ TRỐNG — Ẩn lọc đúng đơn SL=0 + render badge tự động trong cột TAG
 | | |
 |---|---|
