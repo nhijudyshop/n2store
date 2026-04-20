@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders] "Gộp SP Chờ Live": preview table đầy đủ sản phẩm + tag (giống modal "Gộp Đơn Trùng SĐT")
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-merge-live-waiting.js`, `orders-report/css/tab1-orders.css` |
+| **Chi tiết** | **Yêu cầu**: Preview cluster phải chi tiết như modal "Gộp Sản Phẩm Đơn Trùng SĐT" — cột "Sau Khi Gộp" + từng cột source + cột đích, mỗi cell hiển thị hình SP + tên + code + SL + giá + Note; header cột hiển thị đầy đủ tags (Regular + T-tags + XL flags) dưới dạng pill màu. **Fix**: (1) Thêm bước `fetchDetailsForClusters()` trong `runScan` — batch `getOrderDetails` (5 orders/batch, 250ms delay giữa batch) cho TẤT CẢ target + sources, gán `__fullDetails` lên mỗi order; (2) Thay layout info đơn giản cũ bằng `<table class="merge-cluster-table">` tái dùng CSS sẵn có `.merge-cluster-card / .merge-cluster-table / .merge-product-item / .merge-tag-pill / .merged-col / .target-col`; (3) `renderTagPills(order)` gộp Regular Tags (parse từ `order.Tags` JSON, màu từ `Tag.Color`), T-tags (`ProcessingTagState.getOrderData(code).tTags`, xanh #3b82f6), và XL Flags (CHO_LIVE xanh lá #10b981, các flag khác tím #7c3aed); (4) `renderMergedPreviewTags(cluster)` = target tags giữ nguyên + T-tags mới từ sources (dedup theo name); (5) `renderProductCell(p, {markTransfer})` — cell SP có badge "Hàng Live Cũ" khi là sản phẩm sẽ chuyển; (6) `mergedProducts` = `[...target.__fullDetails, ...sources.flatMap(Details → {..., Note: appendNote(Note,'Hàng Live Cũ'), __isTransferred: true})]`; (7) `mergeOneCluster` tận dụng `src.__fullDetails` đã fetch để tránh fetch lại. CSS dọn dẹp: xoá các class layout cũ không dùng, thêm `.mlw-transfer-badge` và `.mlw-live-row`. |
+| **Status** | ✅ Done |
+
 ### [inventory-tracking] Hiển thị VND/1000 ở stat bar + "Tổng HĐ" trên header mỗi đợt hàng
 | | |
 |---|---|

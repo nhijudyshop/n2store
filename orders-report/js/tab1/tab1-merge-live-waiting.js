@@ -296,51 +296,180 @@
         return `<div class="mlw-live-info"><strong>Chế độ:</strong> Tìm theo ngày (lọc tab 1 hiện tại)</div>`;
     }
 
+    // --- Tags rendering (regular + T-tags + flags) ---
+    function parseRegularTags(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string' && raw.trim()) {
+            try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+            catch { return []; }
+        }
+        return [];
+    }
+
+    function getXLFlagPills(orderCode) {
+        // Chỉ hiển thị flags hiện có để user nhìn; KHÔNG chuyển qua target khi merge.
+        const state = window.ProcessingTagState;
+        if (!state || !orderCode) return [];
+        const data = state.getOrderData(String(orderCode));
+        if (!data) return [];
+        const pills = [];
+        (data.flags || []).forEach(f => {
+            const id = (typeof f === 'object' && f) ? f.id : f;
+            const name = (typeof f === 'object' && f && f.name) ? f.name : id;
+            pills.push({ name, color: id === 'CHO_LIVE' ? '#10b981' : '#7c3aed', kind: 'flag' });
+        });
+        return pills;
+    }
+
+    function renderTagPills(order, { includeTTags = true, extraTags = [] } = {}) {
+        const pills = [];
+        parseRegularTags(order.Tags).forEach(t => {
+            pills.push({ name: t.Name || '', color: t.Color || '#6b7280', kind: 'regular' });
+        });
+        if (includeTTags) {
+            getTTagsForOrder(order.Code).forEach(t => {
+                pills.push({ name: t.name, color: '#3b82f6', kind: 'ttag' });
+            });
+        }
+        getXLFlagPills(order.Code).forEach(p => pills.push(p));
+        extraTags.forEach(t => pills.push(t));
+        if (!pills.length) return '<div class="merge-header-tags merge-empty"><span class="merge-tag-pill" style="background:#9ca3af;">Không có tag</span></div>';
+        const html = pills.map(p =>
+            `<span class="merge-tag-pill" style="background:${p.color}" title="${_escape(p.name)}">${_escape(p.name)}</span>`
+        ).join('');
+        return `<div class="merge-header-tags">${html}</div>`;
+    }
+
+    function renderMergedPreviewTags(cluster) {
+        // "Sau khi gộp" = target tags (regular + T-tags + flags GIỮ NGUYÊN ở target) + T-tags từ sources (thêm mới)
+        const target = cluster.targetOrder;
+        const pills = [];
+        parseRegularTags(target.Tags).forEach(t =>
+            pills.push({ name: t.Name || '', color: t.Color || '#6b7280', kind: 'regular' })
+        );
+        getTTagsForOrder(target.Code).forEach(t =>
+            pills.push({ name: t.name, color: '#3b82f6', kind: 'ttag' })
+        );
+        // Thêm T-tags từ sources (dedup theo name)
+        const existingNames = new Set(pills.map(p => p.name));
+        (cluster.sourceTTags || []).forEach(t => {
+            if (!existingNames.has(t.name)) {
+                pills.push({ name: t.name, color: '#3b82f6', kind: 'ttag' });
+                existingNames.add(t.name);
+            }
+        });
+        // Target flags giữ nguyên (XL tag của target không đổi)
+        getXLFlagPills(target.Code).forEach(p => pills.push(p));
+        if (!pills.length) return '<div class="merge-header-tags merge-empty"><span class="merge-tag-pill" style="background:#9ca3af;">Không có tag</span></div>';
+        const html = pills.map(p =>
+            `<span class="merge-tag-pill" style="background:${p.color}" title="${_escape(p.name)}">${_escape(p.name)}</span>`
+        ).join('');
+        return `<div class="merge-header-tags">${html}</div>`;
+    }
+
+    // --- Product rendering ---
+    function renderProductCell(p, { markTransfer = false } = {}) {
+        if (!p) return '';
+        const imgUrl = p.ProductImageUrl || p.ImageUrl || '';
+        const imgHtml = imgUrl
+            ? `<img src="${_escape(imgUrl)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+            : `<div class="merge-product-img" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;"><i class="fas fa-box"></i></div>`;
+        const productCode = p.ProductCode || (p.ProductName || '').match(/\[([^\]]+)\]/)?.[1] || '';
+        const productName = p.ProductName || p.ProductNameGet || 'Sản phẩm';
+        const price = p.Price ? `${Number(p.Price).toLocaleString('vi-VN')}đ` : '';
+        const note = p.Note || '';
+        const transferBadge = markTransfer ? '<span class="mlw-transfer-badge">Hàng Live Cũ</span>' : '';
+        return `
+            <div class="merge-product-item">
+                ${imgHtml}
+                <div class="merge-product-info">
+                    <div class="merge-product-name" title="${_escape(productName)}">${_escape(productName)}</div>
+                    ${productCode ? `<span class="merge-product-code">${_escape(productCode)}</span>` : ''}
+                    <div class="merge-product-details">
+                        <span class="qty">SL: ${_escape(p.Quantity || 0)}</span>
+                        ${price ? ` | <span class="price">${_escape(price)}</span>` : ''}
+                    </div>
+                    ${note ? `<div class="merge-product-note">Note: ${_escape(note)}</div>` : ''}
+                    ${transferBadge}
+                </div>
+            </div>
+        `;
+    }
+
+    // --- Cluster card: layout bảng 3+ cột (Sau Khi Gộp | sources... | Đích) ---
     function renderClusterCard(cluster) {
         const tgt = cluster.targetOrder;
         const checked = mlwState.selected.has(cluster.id) ? 'checked' : '';
-        const tTagsHtml = cluster.sourceTTags.length
-            ? cluster.sourceTTags.map(t => `<span class="mlw-tag-pill mlw-tag-ttag">${_escape(t.name)}</span>`).join('')
-            : '<span class="mlw-muted">(không có T-tag)</span>';
 
-        const sourcesHtml = cluster.sourceOrders.map(s => `
-            <tr>
-                <td>${_escape(s.SessionIndex || '')}</td>
-                <td>${_escape(s.Code || '')}</td>
-                <td>${_escape(s._mlwCampaignName || s.LiveCampaignName || '-')}</td>
-                <td>${formatDateShort(s.DateCreated)}</td>
-                <td>${_escape(s.TotalQuantity || 0)}</td>
-                <td>${formatVND(s.TotalAmount)}</td>
-            </tr>
-        `).join('');
+        // Build merged products: target Details + source Details (với note "Hàng Live Cũ")
+        const targetDetails = Array.isArray(tgt.__fullDetails) ? tgt.__fullDetails : [];
+        const sourcesFlatDetails = cluster.sourceOrders.flatMap(s =>
+            (Array.isArray(s.__fullDetails) ? s.__fullDetails : []).map(d => ({
+                ...d,
+                Note: appendNote(d.Note, NOTE_MARKER),
+                __isTransferred: true
+            }))
+        );
+        const mergedProducts = [...targetDetails, ...sourcesFlatDetails];
+
+        // Build headers: Sau Khi Gộp | sources (theo STT asc) | Đích
+        const sourcesSorted = cluster.sourceOrders.slice().sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
+
+        const headers = [
+            `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${_escape(tgt.SessionIndex)})</small>${renderMergedPreviewTags(cluster)}</th>`
+        ];
+        sourcesSorted.forEach(s => {
+            headers.push(`<th>
+                STT ${_escape(s.SessionIndex || '')} — ${_escape(s.PartnerName || 'N/A')}
+                <br><small>${_escape(s._mlwCampaignName || '-')} · ${formatDateShort(s.DateCreated)}</small>
+                ${renderTagPills(s)}
+            </th>`);
+        });
+        headers.push(`<th class="target-col">
+            STT ${_escape(tgt.SessionIndex)} — ${_escape(tgt.PartnerName || 'N/A')} (Đích)
+            <br><small>${formatDateShort(tgt.DateCreated)}</small>
+            ${renderTagPills(tgt)}
+        </th>`);
+
+        // Rows: max = max(mergedProducts, each source, target)
+        const maxRows = Math.max(
+            mergedProducts.length,
+            ...sourcesSorted.map(s => (s.__fullDetails || []).length),
+            targetDetails.length,
+            1
+        );
+
+        const rows = [];
+        for (let i = 0; i < maxRows; i++) {
+            const cells = [];
+            // Merged col
+            const mp = mergedProducts[i];
+            cells.push(`<td class="merged-col">${mp ? renderProductCell(mp, { markTransfer: !!mp.__isTransferred }) : ''}</td>`);
+            // Source cols
+            sourcesSorted.forEach(s => {
+                const p = (s.__fullDetails || [])[i];
+                cells.push(`<td>${p ? renderProductCell(p) : ''}</td>`);
+            });
+            // Target col
+            const tp = targetDetails[i];
+            cells.push(`<td class="target-col">${tp ? renderProductCell(tp) : ''}</td>`);
+            rows.push(`<tr>${cells.join('')}</tr>`);
+        }
 
         return `
-            <div class="mlw-cluster-card" data-cluster-id="${_escape(cluster.id)}">
-                <div class="mlw-cluster-header">
-                    <label class="mlw-cluster-select">
-                        <input type="checkbox" class="mlw-cluster-checkbox" data-cluster-id="${_escape(cluster.id)}" ${checked} />
-                        <span><strong>${_escape(cluster.phone)}</strong> — ${_escape(tgt.PartnerName || '(không tên)')}</span>
-                    </label>
-                    <div class="mlw-cluster-meta">
-                        <span class="mlw-badge mlw-badge-target">Target STT ${_escape(tgt.SessionIndex || '')}</span>
-                        <span class="mlw-badge mlw-badge-src">${cluster.sourceOrders.length} giỏ nguồn</span>
-                    </div>
+            <div class="merge-cluster-card mlw-cluster-card" data-cluster-id="${_escape(cluster.id)}">
+                <div class="merge-cluster-header">
+                    <input type="checkbox" class="merge-cluster-checkbox mlw-cluster-checkbox"
+                        data-cluster-id="${_escape(cluster.id)}" ${checked} />
+                    <div class="merge-cluster-title"># ${_escape(cluster.phone)} — ${_escape(tgt.PartnerName || 'N/A')}</div>
+                    <div class="merge-cluster-phone"><i class="fas fa-phone"></i> ${_escape(cluster.phone)}</div>
                 </div>
-                <div class="mlw-cluster-body">
-                    <div class="mlw-target-info">
-                        <strong>Giỏ đích (live mới):</strong>
-                        STT ${_escape(tgt.SessionIndex)}
-                        — ${formatDateShort(tgt.DateCreated)}
-                        — SL ${_escape(tgt.TotalQuantity || 0)}, ${formatVND(tgt.TotalAmount)}
-                    </div>
-                    <div class="mlw-sources-block">
-                        <strong>Giỏ nguồn (có CHỜ LIVE):</strong>
-                        <table class="mlw-sources-table">
-                            <thead><tr><th>STT</th><th>Code</th><th>Chiến dịch</th><th>Ngày</th><th>SL</th><th>Tiền</th></tr></thead>
-                            <tbody>${sourcesHtml}</tbody>
-                        </table>
-                    </div>
-                    <div class="mlw-ttags-block"><strong>T-tags sẽ chuyển:</strong> ${tTagsHtml}</div>
+                <div class="merge-cluster-table-wrapper">
+                    <table class="merge-cluster-table">
+                        <thead><tr>${headers.join('')}</tr></thead>
+                        <tbody>${rows.join('')}</tbody>
+                    </table>
                 </div>
             </div>
         `;
@@ -390,6 +519,34 @@
     // SCAN (click "Quét")
     // =====================================================
 
+    async function fetchDetailsForClusters(clusters) {
+        // Collect unique order IDs (target + sources)
+        const ids = new Set();
+        clusters.forEach(c => {
+            if (c.targetOrder?.Id) ids.add(c.targetOrder.Id);
+            c.sourceOrders.forEach(s => { if (s?.Id) ids.add(s.Id); });
+        });
+        const idArr = Array.from(ids);
+        const detailsMap = new Map();
+        const batchSize = 5;
+        const body = document.getElementById('mlwModalBody');
+        for (let i = 0; i < idArr.length; i += batchSize) {
+            const batch = idArr.slice(i, i + batchSize);
+            const results = await Promise.all(batch.map(id => window.getOrderDetails(id).catch(() => null)));
+            results.forEach((r, idx) => {
+                if (r) detailsMap.set(batch[idx], Array.isArray(r.Details) ? r.Details : []);
+            });
+            const loaded = Math.min(i + batchSize, idArr.length);
+            if (body) body.innerHTML = `<div class="mlw-loading"><i class="fas fa-spinner fa-spin"></i><p>Đang tải chi tiết ${loaded}/${idArr.length} đơn...</p></div>`;
+            if (i + batchSize < idArr.length) await new Promise(r => setTimeout(r, 250));
+        }
+        // Attach __fullDetails
+        clusters.forEach(c => {
+            c.targetOrder.__fullDetails = detailsMap.get(c.targetOrder.Id) || [];
+            c.sourceOrders.forEach(s => { s.__fullDetails = detailsMap.get(s.Id) || []; });
+        });
+    }
+
     async function runScan() {
         const body = document.getElementById('mlwModalBody');
         if (body) body.innerHTML = `<div class="mlw-loading"><i class="fas fa-spinner fa-spin"></i><p>Đang quét...</p></div>`;
@@ -399,18 +556,28 @@
         mlwState.selected.clear();
 
         const { clusters, meta } = findClusters(mode);
-        mlwState.clusters = clusters;
 
         // Cập nhật header info
         const header = document.getElementById('mlwLiveHeader');
         if (header) header.innerHTML = renderModeHeader(meta);
 
         if (meta.message) {
+            mlwState.clusters = [];
             if (body) body.innerHTML = `<div class="mlw-empty"><i class="fas fa-info-circle"></i><p>${_escape(meta.message)}</p></div>`;
             updateConfirmBtn();
             return;
         }
 
+        // Fetch Details (blocking) để render product list
+        try {
+            await fetchDetailsForClusters(clusters);
+        } catch (err) {
+            console.error(`${LOG} fetchDetailsForClusters error:`, err);
+            if (body) body.innerHTML = `<div class="mlw-empty"><i class="fas fa-exclamation-triangle" style="color:#ef4444"></i><p>Lỗi tải chi tiết đơn: ${_escape(err.message || String(err))}</p></div>`;
+            return;
+        }
+
+        mlwState.clusters = clusters;
         renderModalBody();
     }
 
@@ -422,18 +589,22 @@
         const logs = [];
         const log = (m) => { logs.push(m); console.log(`${LOG} ${m}`); };
 
-        // 1. Fetch full target
+        // 1. Fetch full target (cần full object cho PUT payload, không chỉ Details đã cache)
         const targetFull = await window.getOrderDetails(cluster.targetOrder.Id);
         if (!targetFull) throw new Error(`Không fetch được giỏ đích ${cluster.targetOrder.Id}`);
 
         const newDetails = Array.isArray(targetFull.Details) ? [...targetFull.Details] : [];
         let transferredCount = 0;
 
-        // 2. For each source: fetch + copy
+        // 2. For each source: tận dụng __fullDetails đã fetch ở scan; fetch lại nếu thiếu
         for (const src of cluster.sourceOrders) {
-            const srcFull = await window.getOrderDetails(src.Id);
-            if (!srcFull) { log(`SKIP source ${src.Id} (fetch fail)`); continue; }
-            const srcDetails = Array.isArray(srcFull.Details) ? srcFull.Details : [];
+            let srcDetails = Array.isArray(src.__fullDetails) ? src.__fullDetails : null;
+            if (!srcDetails) {
+                const srcFull = await window.getOrderDetails(src.Id);
+                if (!srcFull) { log(`SKIP source ${src.Id} (fetch fail)`); continue; }
+                srcDetails = Array.isArray(srcFull.Details) ? srcFull.Details : [];
+                src.__fullDetails = srcDetails;
+            }
             for (const d of srcDetails) {
                 const copy = {
                     ...d,
@@ -445,8 +616,6 @@
                 newDetails.push(copy);
                 transferredCount++;
             }
-            // Cache source details để saveMergeHistory ghi lại
-            src.__fullDetails = srcDetails;
         }
 
         // 3. Recompute totals
