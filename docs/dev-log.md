@@ -13,7 +13,8 @@
 |---|---|
 | **Files** | `render.com/migrations/061_normalize_wallet_note_format.sql`, `render.com/migrations/061_rollback_normalize_wallet_note.sql`, `render.com/migrations/061_run_normalize_note.js` |
 | **Chi tiết** | Migration để transform note cũ sang format thống nhất (tương thích với thay đổi code trước đó). **Target**: `virtual_credits.note` và `wallet_transactions.note` cho 3 pattern: (1) RETURN_SHIPPER VC → "Công Nợ Ảo Từ Thu Về ({order_id}) - {internal_note}"; (2) VIRTUAL_CREDIT_ISSUE tx mirror → copy từ vc.note đã transform; (3) RETURN_GOODS tx → "Công Nợ Ảo Từ Khách Gửi ({order_id}) - {internal_note}". **An toàn**: (a) **Backup tự động** vào bảng `wallet_note_backup_061 (id, table_name, row_id, original_note, migrated_at)` trước khi UPDATE; (b) **Idempotent** — dùng `WHERE note NOT LIKE 'Công Nợ Ảo Từ%'` để skip rows đã transform; (c) **Transaction-wrapped** — BEGIN/COMMIT/ROLLBACK nếu fail; (d) **Rollback khả dụng** — restore từ backup table. **Runner `061_run_normalize_note.js`** hỗ trợ 4 mode: `--dry-run` (default, preview count + 5 sample rows), `--apply` (thực thi), `--rollback` (restore), `--verify` (stats). **Quy trình khuyến nghị**: `--dry-run` → review sample → `--apply` → check UI → nếu OK giữ, nếu sai chạy `--rollback`. Backup table KHÔNG tự xóa (audit trail). |
-| **Status** | ✅ Ready to run — user cần tự chạy trên DB production |
+| **Kết quả chạy (2026-04-20)** | ✅ Đã apply production: 201 rows transformed (79 virtual_credits + 37 wallet_transactions RG + 85 wt VC mirror). Backup: 201 rows trong `wallet_note_backup_061`. Còn 3 orphan (vc#98, vc#68, vc#47) — admin manual/ticket bị xóa — giữ nguyên không ảnh hưởng UI. |
+| **Status** | ✅ Done — production applied |
 
 ### [wallet/tickets] Format ghi chú ticket thống nhất: `Công Nợ Ảo Từ {Loại} ({order_id}) - {internal_note}` + tab 1 note dạng `Thu Về/Khách Gửi "X" (ticket_note)`
 | | |
