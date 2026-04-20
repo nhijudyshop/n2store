@@ -538,6 +538,41 @@ router.post('/kpi-base/check-exists', async (req, res) => {
 });
 
 /**
+ * GET /api/realtime/kpi-base/list-codes
+ * List all order_codes for migration / bulk reprocessing.
+ * Optional query: ?limit=N&offset=M (default: all)
+ * IMPORTANT: Must be registered BEFORE /:orderCode routes
+ */
+router.get('/kpi-base/list-codes', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const limit = parseInt(req.query.limit) || null;
+        const offset = parseInt(req.query.offset) || 0;
+
+        let query = 'SELECT order_code, created_at FROM kpi_base ORDER BY created_at DESC';
+        const params = [];
+        if (limit) {
+            query += ' LIMIT $1 OFFSET $2';
+            params.push(limit, offset);
+        }
+
+        const result = await pool.query(query, params);
+        const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM kpi_base');
+
+        res.json({
+            orderCodes: result.rows.map(r => r.order_code),
+            total: totalResult.rows[0].total,
+            returned: result.rows.length
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-base/list-codes error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/kpi-base/:orderCode
  * Get KPI base data by order code
  */

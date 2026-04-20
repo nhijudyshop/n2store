@@ -1,0 +1,178 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!--
+  Migration: Re-attribute KPI per user (audit-based)
+  Chạy 1 lần sau khi deploy logic mới. Nó loop tất cả orderCode trong kpi_base
+  và gọi window.kpiManager.recalculateAndSaveKPI() để re-tính + ghi lại theo
+  người thực sự upsell trong audit log.
+
+  ⚠️ BACKUP TRƯỚC:  pg_dump kpi_statistics → kpi_statistics_backup_YYYYMMDD
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration: KPI per-user attribution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; max-width: 900px; margin: 40px auto; padding: 24px; color: #111; }
+        h1 { font-size: 22px; margin-bottom: 8px; }
+        .warning { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; margin: 16px 0; }
+        .info { background: #eff6ff; border: 1px solid #3b82f6; padding: 12px 16px; border-radius: 8px; margin: 16px 0; }
+        .actions { display: flex; gap: 12px; margin: 16px 0; }
+        button { padding: 10px 18px; font-size: 14px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; }
+        button.primary { background: #2563eb; color: white; }
+        button.test { background: #16a34a; color: white; }
+        button.danger { background: #dc2626; color: white; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .progress-bar { background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden; margin: 12px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg,#2563eb,#3b82f6); transition: width 0.3s; }
+        .log { background: #1f2937; color: #d1d5db; font-family: monospace; font-size: 12px; padding: 12px; border-radius: 6px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+        .stat { display: inline-block; margin-right: 16px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; font-size: 13px; }
+        .stat strong { font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Migration: KPI per-user attribution</h1>
+    <p>Re-tính KPI cho mọi đơn theo người thực sự upsell trong audit log (thay vì chủ đơn theo STT).</p>
+
+    <div class="warning">
+        <strong>⚠️ BẮT BUỘC backup PostgreSQL trước khi chạy:</strong>
+        <pre style="margin:6px 0;font-size:12px;">pg_dump $DB_URL -t kpi_statistics > kpi_statistics_backup_$(date +%Y%m%d).sql</pre>
+    </div>
+
+    <div class="info">
+        <strong>Logic:</strong>
+        <ol style="margin:6px 0 0 20px;font-size:13px;">
+            <li>Fetch toàn bộ orderCode từ <code>kpi_base</code></li>
+            <li>Với mỗi orderCode → DELETE cũ + PATCH lại theo per-user audit log</li>
+            <li>Throttle 100ms giữa các request</li>
+            <li>Đơn không có upsell → bị xóa khỏi tab KPI</li>
+        </ol>
+    </div>
+
+    <div id="status" style="margin:16px 0;">
+        <span class="stat">Tổng đơn: <strong id="statTotal">—</strong></span>
+        <span class="stat">Đã xử lý: <strong id="statDone">0</strong></span>
+        <span class="stat">Lỗi: <strong id="statError">0</strong></span>
+        <span class="stat">Bỏ qua (no audit): <strong id="statSkip">0</strong></span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="actions">
+        <button class="primary" id="btnLoad">1. Load danh sách đơn</button>
+        <button class="test" id="btnTest" disabled>2. Test 10 đơn (dry-run check)</button>
+        <button class="danger" id="btnRun" disabled>3. Chạy migration toàn bộ</button>
+    </div>
+
+    <div class="log" id="log">Sẵn sàng. Click "Load danh sách đơn" để bắt đầu.\n</div>
+
+    <script src="../shared/js/attribute-values-loader.js"></script>
+    <script src="../shared/js/warehouse-api.js"></script>
+    <script src="js/managers/kpi-manager.js"></script>
+
+    <script>
+        if (typeof initializeFirebaseApp === 'function') initializeFirebaseApp();
+
+        const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
+        const THROTTLE_MS = 100;
+
+        let allOrderCodes = [];
+        const stats = { total: 0, done: 0, error: 0, skip: 0 };
+
+        const logEl = document.getElementById('log');
+        function log(msg) {
+            const time = new Date().toTimeString().substring(0, 8);
+            logEl.textContent += `[${time}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = stats.total;
+            document.getElementById('statDone').textContent = stats.done;
+            document.getElementById('statError').textContent = stats.error;
+            document.getElementById('statSkip').textContent = stats.skip;
+            const pct = stats.total ? Math.floor(((stats.done + stats.error + stats.skip) / stats.total) * 100) : 0;
+            document.getElementById('progressFill').style.width = pct + '%';
+        }
+
+        document.getElementById('btnLoad').addEventListener('click', async () => {
+            log('Đang fetch danh sách orderCode...');
+            try {
+                const r = await fetch(`${KPI_API}/kpi-base/list-codes`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                allOrderCodes = data.orderCodes || [];
+                stats.total = allOrderCodes.length;
+                updateStats();
+                log(`✓ Tải ${allOrderCodes.length} orderCode.`);
+                document.getElementById('btnTest').disabled = false;
+                document.getElementById('btnRun').disabled = false;
+            } catch (e) {
+                log(`✗ Lỗi: ${e.message}`);
+            }
+        });
+
+        async function processOne(orderCode) {
+            try {
+                const result = await window.kpiManager.recalculateAndSaveKPI(orderCode);
+                if (!result) {
+                    stats.skip++;
+                    log(`  · ${orderCode}: skip (no BASE/products)`);
+                    return;
+                }
+                const users = Object.entries(result.perUserKPI || {})
+                    .filter(([_, kpi]) => kpi > 0)
+                    .map(([uid, kpi]) => `${result.perUserNames[uid] || uid}=${kpi}`)
+                    .join(', ');
+                if (users) {
+                    log(`  ✓ ${orderCode}: ${users}`);
+                } else {
+                    log(`  · ${orderCode}: 0 KPI (no upsell)`);
+                }
+                stats.done++;
+            } catch (e) {
+                stats.error++;
+                log(`  ✗ ${orderCode}: ${e.message}`);
+            }
+            updateStats();
+        }
+
+        async function processBatch(codes) {
+            for (let i = 0; i < codes.length; i++) {
+                await processOne(codes[i]);
+                if (i < codes.length - 1) await new Promise(r => setTimeout(r, THROTTLE_MS));
+            }
+        }
+
+        document.getElementById('btnTest').addEventListener('click', async () => {
+            if (!allOrderCodes.length) return;
+            const sample = allOrderCodes.slice(0, 10);
+            log(`\n=== TEST: 10 đơn đầu (KHÔNG ảnh hưởng đơn còn lại) ===`);
+            stats.done = 0; stats.error = 0; stats.skip = 0;
+            updateStats();
+            await processBatch(sample);
+            log(`=== TEST xong: ${stats.done} done, ${stats.error} error, ${stats.skip} skip ===\n`);
+        });
+
+        document.getElementById('btnRun').addEventListener('click', async () => {
+            if (!allOrderCodes.length) return;
+            if (!confirm(`Chạy migration ${allOrderCodes.length} đơn? Đã backup chưa?`)) return;
+            log(`\n=== MIGRATION FULL: ${allOrderCodes.length} đơn ===`);
+            stats.done = 0; stats.error = 0; stats.skip = 0;
+            updateStats();
+            const startTime = Date.now();
+            await processBatch(allOrderCodes);
+            const elapsed = Math.round((Date.now() - startTime) / 1000);
+            log(`=== HOÀN TẤT (${elapsed}s): ${stats.done} done, ${stats.error} error, ${stats.skip} skip ===`);
+            alert(`Migration xong: ${stats.done} đơn đã re-attribute.\nLỗi: ${stats.error}, Skip: ${stats.skip}`);
+        });
+    </script>
+</body>
+</html>

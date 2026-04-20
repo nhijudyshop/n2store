@@ -390,20 +390,24 @@ describe('Feature: kpi-upselling-products, Property 18: Employee determination v
     });
 
     /**
-     * Source code verification: kpi-manager.js uses getAssignedEmployeeForSTT
-     * in recalculateAndSaveKPI instead of base.userId.
+     * Source code verification: kpi-manager.js attributes KPI per-user from audit log,
+     * NOT from STT-based getAssignedEmployeeForSTT. The helper still exists as a
+     * legacy fallback inside saveKPIStatistics, but recalculateAndSaveKPI loops
+     * result.perUserKPI to attribute KPI to the actual upseller(s).
      */
-    it('source code should use getAssignedEmployeeForSTT in recalculateAndSaveKPI', () => {
-        // Must contain the new helper function
-        expect(sourceCode).toContain('getAssignedEmployeeForSTT');
-        // recalculateAndSaveKPI should call getAssignedEmployeeForSTT
-        expect(sourceCode).toContain('getAssignedEmployeeForSTT(base.stt, base.campaignName)');
-        // Should NOT use base.userId as employeeUserId in recalculateAndSaveKPI
-        // (the old buggy pattern was: const employeeUserId = base.userId)
-        expect(sourceCode).not.toMatch(/recalculateAndSaveKPI[\s\S]*?const employeeUserId = base\.userId/);
-        // Should handle unassigned case
-        expect(sourceCode).toContain("=== 'unassigned'");
-        // Should export getAssignedEmployeeForSTT
+    it('source code should attribute KPI per-user via perUserKPI loop in recalculateAndSaveKPI', () => {
+        const fnStart = sourceCode.indexOf('async function recalculateAndSaveKPI');
+        expect(fnStart).toBeGreaterThan(-1);
+        const fnBody = sourceCode.substring(fnStart, fnStart + 2500);
+
+        // Must loop perUserKPI from calculateNetKPI result
+        expect(fnBody).toContain('result.perUserKPI');
+        // Must wipe stale entries before re-attribution (DELETE then PATCH)
+        expect(fnBody).toContain('/kpi-statistics/order/');
+        // Must NOT bind a single employeeUserId from STT in recalculateAndSaveKPI
+        expect(fnBody).not.toMatch(/employeeUserId\s*=\s*assignedEmployee\.userId/);
+        expect(fnBody).not.toMatch(/employeeUserId\s*=\s*base\.userId/);
+        // Helper still exported for legacy callers / fallbacks
         expect(sourceCode).toContain('getAssignedEmployeeForSTT');
     });
 });

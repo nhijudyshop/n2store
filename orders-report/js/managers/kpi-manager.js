@@ -353,7 +353,10 @@
     // Calculate NET KPI
     // ========================================
     async function calculateNetKPI(orderCode) {
-        const emptyResult = { netProducts: 0, kpiAmount: 0, details: {}, baseProductCount: 0 };
+        const emptyResult = {
+            netProducts: 0, kpiAmount: 0, details: {}, baseProductCount: 0,
+            perUserNet: {}, perUserKPI: {}, perUserNames: {}
+        };
         if (!orderCode) return emptyResult;
 
         try {
@@ -414,15 +417,54 @@
                 return true;
             });
 
-            // Group by productId and calculate net
+            // Sort logs theo thời gian ASC để áp dụng last-add-wins khi remove
+            newProductLogs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            // Per-product attribution stack: { pid: [{userId, userName, qty}, ...] }
+            // Mỗi 'add' push vào cuối; mỗi 'remove' pop ngược từ cuối (last-add-wins).
+            const stackPerProduct = {};
             const netPerProduct = {};
+            const perUserNames = {};
+
             for (const log of newProductLogs) {
                 const pid = String(log.productId);
+                const qty = log.quantity || 0;
+                if (qty <= 0) continue;
+
                 if (!netPerProduct[pid]) {
-                    netPerProduct[pid] = { code: log.productCode, name: log.productName, added: 0, removed: 0, net: 0, price: 0 };
+                    netPerProduct[pid] = {
+                        code: log.productCode, name: log.productName,
+                        added: 0, removed: 0, net: 0, price: 0,
+                        perUser: {}
+                    };
+                    stackPerProduct[pid] = [];
                 }
-                if (log.action === 'add') netPerProduct[pid].added += (log.quantity || 0);
-                else if (log.action === 'remove') netPerProduct[pid].removed += (log.quantity || 0);
+                if (log.userId && log.userName) perUserNames[log.userId] = log.userName;
+
+                if (log.action === 'add') {
+                    netPerProduct[pid].added += qty;
+                    stackPerProduct[pid].push({
+                        userId: log.userId || 'unknown',
+                        userName: log.userName || 'Unknown',
+                        qty
+                    });
+                } else if (log.action === 'remove') {
+                    netPerProduct[pid].removed += qty;
+                    let remaining = qty;
+                    const stack = stackPerProduct[pid];
+                    while (remaining > 0 && stack.length > 0) {
+                        const top = stack[stack.length - 1];
+                        if (top.qty <= remaining) {
+                            remaining -= top.qty;
+                            stack.pop();
+                        } else {
+                            top.qty -= remaining;
+                            remaining = 0;
+                        }
+                    }
+                    // remaining > 0 → remove vượt số đã add (vd remove SP trong BASE
+                    // nhưng filter BASE không bắt được). Bỏ qua, không trừ ai.
+                }
             }
 
             // For value-based KPI: fetch current prices from TPOS
@@ -438,23 +480,37 @@
                 } catch (e) {}
             }
 
+            // Compute net per user from remaining stack entries
+            const perUserNet = {};
+            const perUserKPI = {};
             let totalNet = 0;
             let totalKPIAmount = 0;
+
             for (const [pid, data] of Object.entries(netPerProduct)) {
-                data.net = Math.max(0, data.added - data.removed);
-                totalNet += data.net;
-                if (KPI_MODE === 'value' && data.price > 0) {
-                    totalKPIAmount += data.net * data.price;
-                } else {
-                    totalKPIAmount += data.net * KPI_AMOUNT_PER_DIFFERENCE;
+                const unitKPI = (KPI_MODE === 'value' && data.price > 0)
+                    ? data.price : KPI_AMOUNT_PER_DIFFERENCE;
+
+                let productNet = 0;
+                for (const entry of stackPerProduct[pid]) {
+                    if (entry.qty <= 0) continue;
+                    productNet += entry.qty;
+                    perUserNet[entry.userId] = (perUserNet[entry.userId] || 0) + entry.qty;
+                    perUserKPI[entry.userId] = (perUserKPI[entry.userId] || 0) + entry.qty * unitKPI;
+                    data.perUser[entry.userId] = (data.perUser[entry.userId] || 0) + entry.qty;
                 }
+                data.net = productNet;
+                totalNet += productNet;
+                totalKPIAmount += productNet * unitKPI;
             }
 
             return {
                 netProducts: totalNet,
                 kpiAmount: totalKPIAmount,
                 details: netPerProduct,
-                baseProductCount: baseProductIds.size
+                baseProductCount: baseProductIds.size,
+                perUserNet,
+                perUserKPI,
+                perUserNames
             };
         } catch (e) {
             console.error('[KPI] calculateNetKPI error:', e);
@@ -469,12 +525,15 @@
         if (!userId || !date || !statistics) return;
 
         try {
-            // Get employee name
-            let userName = null;
-            try {
-                const assigned = await getAssignedEmployeeForSTT(statistics.stt, statistics.campaignName);
-                if (assigned.userName && assigned.userName !== 'Chưa phân') userName = assigned.userName;
-            } catch (e) {}
+            // Ưu tiên userName do caller truyền vào (từ audit log).
+            // Fallback employee_ranges chỉ khi caller không cung cấp (vd. legacy callers).
+            let userName = statistics.userName || null;
+            if (!userName) {
+                try {
+                    const assigned = await getAssignedEmployeeForSTT(statistics.stt, statistics.campaignName);
+                    if (assigned.userName && assigned.userName !== 'Chưa phân') userName = assigned.userName;
+                } catch (e) {}
+            }
 
             // Atomic server-side upsert — no client-side read-modify-write race condition
             await kpiAPI('PATCH', `/kpi-statistics/${encodeURIComponent(userId)}/${date}/order`, {
@@ -504,21 +563,18 @@
             if (!base) return null;
             if (!base.products || base.products.length === 0) return null;
 
-            // Recover STT if BASE has 0
+            // Recover STT if BASE has 0 (vẫn cần để lưu metadata trong statistics)
             let stt = base.stt || 0;
             if (!stt && base.orderId && window.OrderStore) {
                 const storeOrder = window.OrderStore.get(base.orderId);
                 if (storeOrder) {
                     stt = parseInt(storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt || 0) || 0;
                     if (stt) {
-                        // Update BASE with recovered STT
                         try { await kpiAPI('PUT', `/kpi-base/${encodeURIComponent(orderCode)}`, { ...base, stt }); } catch (e) {}
                         console.log(`[KPI] Recovered STT=${stt} for ${orderCode}`);
                     }
                 }
             }
-            const assignedEmployee = await getAssignedEmployeeForSTT(stt, base.campaignName);
-            const employeeUserId = assignedEmployee.userId;
 
             const result = await calculateNetKPI(orderCode);
 
@@ -526,24 +582,48 @@
             const baseDate = base.createdAt
                 ? new Date(base.createdAt).toISOString().substring(0, 10)
                 : getCurrentDateString();
-            await saveKPIStatistics(employeeUserId, baseDate, {
-                orderCode: orderCode,
-                orderId: base.orderId || null,
-                stt: stt,
-                campaignName: base.campaignName || null,
-                netProducts: result.netProducts,
-                kpi: result.kpiAmount,
-                hasDiscrepancy: false,
-                details: result.details
-            });
 
-            // UI badge + toast (non-blocking)
+            // Wipe TẤT CẢ entries của orderCode này khỏi mọi user/date row trước khi
+            // ghi lại (idempotent re-attribution: nếu trước đây ghi cho A nhưng giờ
+            // tính cho B, A phải bị xóa). Server endpoint đã có sẵn, atomic.
+            try {
+                await kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
+            } catch (e) {
+                console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
+            }
+
+            // Ghi entry cho TỪNG user có KPI > 0. Đơn không có upsell → không ghi entry nào.
+            const userIds = Object.keys(result.perUserKPI || {});
+            for (const userId of userIds) {
+                const userKPI = result.perUserKPI[userId] || 0;
+                const userNet = result.perUserNet[userId] || 0;
+                if (userKPI <= 0) continue;
+
+                await saveKPIStatistics(userId, baseDate, {
+                    orderCode: orderCode,
+                    orderId: base.orderId || null,
+                    stt: stt,
+                    campaignName: base.campaignName || null,
+                    netProducts: userNet,
+                    kpi: userKPI,
+                    hasDiscrepancy: false,
+                    details: result.details,
+                    userName: result.perUserNames[userId] || null
+                });
+            }
+
+            // UI badge + toast (non-blocking) — vẫn hiển thị tổng KPI của đơn
             try {
                 updateKPIBadge(orderCode, result.netProducts, result.kpiAmount, true);
                 showKPIToast(result.netProducts, result.kpiAmount);
             } catch (e) {}
 
-            return { netProducts: result.netProducts, kpiAmount: result.kpiAmount };
+            return {
+                netProducts: result.netProducts,
+                kpiAmount: result.kpiAmount,
+                perUserKPI: result.perUserKPI,
+                perUserNames: result.perUserNames
+            };
         } catch (e) {
             console.error('[KPI] recalculateAndSaveKPI error:', e);
             return null;
@@ -690,7 +770,10 @@
     // Reconcile KPI — compare audit-based KPI with current TPOS products
     // ========================================
     async function reconcileKPI(orderId, campaignName, orderCodeHint) {
-        const result = { orderId, hasDiscrepancy: false, actualNet: null, discrepancies: [] };
+        const result = {
+            orderId, hasDiscrepancy: false, actualNet: null,
+            actualPerUser: {}, actualPerUserNames: {}, discrepancies: []
+        };
         if (!orderId) return result;
 
         try {
@@ -715,6 +798,8 @@
             // Calculate actual NET from audit logs (always works, doesn't need TPOS)
             const kpiResult = await calculateNetKPI(orderCode);
             result.actualNet = kpiResult.netProducts;
+            result.actualPerUser = kpiResult.perUserKPI || {};
+            result.actualPerUserNames = kpiResult.perUserNames || {};
 
             // Try to get current products from TPOS for cross-check
             const currentProducts = await fetchProductsFromTPOS(orderId);

@@ -1128,11 +1128,65 @@ const KPICommission = {
                 </tr>`;
             }
 
+            // Per-user attribution breakdown (audit-based, không phải chủ đơn)
+            this.renderPerUserBreakdown(kpiResult);
+
         } catch (error) {
             console.error('[KPI Tab] Error rendering NET KPI tab:', error);
             this.hideEl('kpiCompareLoading');
             this.showEl('kpiCompareEmpty');
         }
+    },
+
+    renderPerUserBreakdown(kpiResult) {
+        const wrapper = document.getElementById('kpiCompareWrapper');
+        if (!wrapper) return;
+
+        let breakdownEl = document.getElementById('kpiPerUserBreakdown');
+        if (!breakdownEl) {
+            breakdownEl = document.createElement('div');
+            breakdownEl.id = 'kpiPerUserBreakdown';
+            breakdownEl.style.cssText = 'margin-top:16px;padding:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;';
+            wrapper.appendChild(breakdownEl);
+        }
+
+        const perUserKPI = kpiResult.perUserKPI || {};
+        const perUserNet = kpiResult.perUserNet || {};
+        const perUserNames = kpiResult.perUserNames || {};
+        const userIds = Object.keys(perUserKPI).filter(uid => (perUserKPI[uid] || 0) > 0);
+
+        if (userIds.length === 0) {
+            breakdownEl.innerHTML = '<div style="color:#6b7280;font-size:13px;">Chưa có nhân viên nào được tính KPI cho đơn này.</div>';
+            return;
+        }
+
+        userIds.sort((a, b) => (perUserKPI[b] || 0) - (perUserKPI[a] || 0));
+
+        let rows = '';
+        userIds.forEach((uid, i) => {
+            rows += `<tr>
+                <td>${i + 1}</td>
+                <td>${this.escapeHtml(perUserNames[uid] || uid)}</td>
+                <td><strong>${perUserNet[uid] || 0}</strong></td>
+                <td><strong>${this.formatCurrency(perUserKPI[uid] || 0)}</strong></td>
+            </tr>`;
+        });
+
+        breakdownEl.innerHTML = `
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">
+                KPI theo nhân viên (dựa trên audit log — người thực sự upsell)
+            </div>
+            <table style="width:100%;font-size:13px;border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f3f4f6;">
+                        <th style="padding:6px 8px;text-align:left;border:1px solid #e5e7eb;">#</th>
+                        <th style="padding:6px 8px;text-align:left;border:1px solid #e5e7eb;">Nhân viên</th>
+                        <th style="padding:6px 8px;text-align:left;border:1px solid #e5e7eb;">SP NET</th>
+                        <th style="padding:6px 8px;text-align:left;border:1px solid #e5e7eb;">KPI</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>`;
     },
 
     // ========================================

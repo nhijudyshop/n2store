@@ -655,16 +655,19 @@ describe('21.3 recalculateAndSaveKPI: employee determined via Employee_Range (ST
         expect(getAssignedEmployeeForSTT(21, 'Live_Sale_25_12', campaignRanges, generalRanges).userId).toBe('emp_B');
     });
 
-    it('source code should use getAssignedEmployeeForSTT in recalculateAndSaveKPI', () => {
+    it('source code should attribute KPI per-user from audit log, not STT-based assignment', () => {
         const sourceCode = readN2File('orders-report/js/managers/kpi-manager.js');
 
-        // recalculateAndSaveKPI should call getAssignedEmployeeForSTT
         const fnStart = sourceCode.indexOf('async function recalculateAndSaveKPI');
         expect(fnStart).toBeGreaterThan(-1);
-        const fnBody = sourceCode.substring(fnStart, fnStart + 1500);
+        const fnBody = sourceCode.substring(fnStart, fnStart + 2500);
 
-        expect(fnBody).toContain('getAssignedEmployeeForSTT');
-        // Should NOT use base.userId directly for employee determination
+        // New behavior: loop perUserKPI from calculateNetKPI result
+        expect(fnBody).toContain('result.perUserKPI');
+        // Must wipe stale entries before re-attribution
+        expect(fnBody).toContain('/kpi-statistics/order/');
+        // Must NOT bind a single employeeUserId for the whole order
+        expect(fnBody).not.toMatch(/employeeUserId\s*=\s*assignedEmployee\.userId/);
         expect(fnBody).not.toMatch(/employeeUserId\s*=\s*base\.userId/);
     });
 });
