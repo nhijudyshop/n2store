@@ -1137,11 +1137,11 @@ function autoFillSaleNote() {
                 }
             }
         } else if (hasVirtualDebt && walletLines.length === 0) {
-            // vcList rỗng do backend không trả (ví dụ vc expired/stale) nhưng virtual_balance > 0
-            // → fallback generic để không rơi vào "Nợ Cũ"
+            // vcList rỗng (vc expired/inactive/consumed fully) nhưng virtual_balance > 0
+            // → số dư ảo còn lại là "Nợ Cũ" (dư cũ, không phải mới thu về)
             const vbStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
-            noteParts.push(`Thu Về ${vbStr}`);
-            hasReturnShipperFull = true;
+            noteParts.push(`Nợ Cũ ${vbStr}`);
+            hasReturnShipperLegacy = true;
         }
 
         const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;

@@ -8,6 +8,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] Fix thật sự Derek: vcList rỗng do vc EXPIRED → fallback phải là "Nợ Cũ" không phải "Thu Về"
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Root cause xác định qua query DB**: Derek Egbert (0901462798) có vc#69 `status=ACTIVE, original=340K, remaining=2K, expires_at=2026-04-08` — hôm nay 2026-04-20 → **EXPIRED**. Backend SQL `WHERE vc.expires_at > NOW()` loại vc này → `vcList = []` ở frontend. Nhưng `virtual_balance` trong `customer_wallets` vẫn = 2K (không auto-expire). Code fallback cũ `hasVirtualDebt && walletLines.length === 0` push `Thu Về 2K` với `hasReturnShipperFull=true`, sai vì balance này là dư cũ. **Fix**: Đổi fallback từ `Thu Về {vbStr}` → `Nợ Cũ {vbStr}` và set `hasReturnShipperLegacy=true`. Lý do: khi vcList rỗng mà virtual_balance > 0, vc đã expired/inactive/consumed hết các entry active → phần còn lại luôn là dư cũ, không thể là "mới thu về". End-cap `walletLines || Legacy || Full` vẫn push `-> 0Đ` đúng. **Expected sau hard-reload**: Derek → `Nợ Cũ 2K\n-> 0Đ`. |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Ghi chú: luôn push end-cap `-> CÒN NỢ X / -> 0Đ` cho mọi nhánh wallet content
 | | |
 |---|---|
