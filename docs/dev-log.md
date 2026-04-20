@@ -56,6 +56,13 @@
 | **Chi tiết** | User báo Ẩn "GIỎ TRỐNG" vẫn thấy đơn SL=0 (STT 282 Đặng Thảo). Root cause: compare `String(t.Name).trim().toUpperCase() === 'GIỎ TRỐNG'` fail khi Unicode normalization khác (NFC vs NFD — TPOS có thể trả Name decomposed dù pill render OK vì browser tự render giống nhau). **Fix:** tạo helper `_isGioTrongTagName(name)` normalize NFD → strip combining diacritics (`\u0300-\u036f`) → thay `đ`/`Đ` → d → trim → lowercase → compare `'gio trong'`. Dùng ở cả TAG filter (Show) và Excluded filter (Ẩn). |
 | **Status** | ✅ Done |
 
+### [inventory][orders] Fix "Không tìm thấy hóa đơn NCC" — match dotHang.id thay vì nested hoaDon.id
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-convert-po.js` |
+| **Chi tiết** | Sau khi deploy, click nút "Chuyển qua đặt hàng" báo lỗi "Không tìm thấy hóa đơn NCC". **Root cause:** nhầm 2 level cấu trúc dữ liệu. Ở `globalState.nccList[].dotHang[]` mỗi entry là FLAT (chứa `sanPham[]` trực tiếp, **KHÔNG có nested `hoaDon[]`**). Schema `shipment.hoaDon[]` chỉ tồn tại ở UI aggregate của `getAllDotHangAsShipments()` — gom nhiều `dotHang` cùng `(ngayDiHang, dotSo)` thành 1 shipment UI với `hoaDon[i].id = dot.id`. Modal đang iterate `ncc.dotHang[].hoaDon[].find(h => h.id === invoiceId)` → luôn miss. **Fix:** mirror logic `deleteNccInvoice` ([crud-operations.js:340](inventory-tracking/js/crud-operations.js#L340)) — match `d.id === invoiceId` trực tiếp với `dotHang` entry. Loại biến `_convertCurrentShipment` (không cần — `dotHang` đã có `ngayDiHang`, `dotSo`, `sttNCC`, `sanPham[]`, `anhHoaDon`, `tongTienHD`, `ghiChu`). Thêm `console.warn` log sample data khi miss để debug. |
+| **Status** | ✅ Done |
+
 ### [inventory][orders] Convert NCC Invoice → Purchase Order Draft (nút "Chuyển qua đặt hàng")
 | | |
 |---|---|
