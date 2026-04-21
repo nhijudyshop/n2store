@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inventory] Fix duplicate Chi Phí Hàng Về khi save/load đợt hàng
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/crud-operations.js` |
+| **Chi tiết** | User báo mở edit "Sửa Đợt Hàng" thấy list Chi Phí Hàng Về bị nhân đôi (TIỀN XE 40 / BAO 50 / CÔNG 250 lặp 2 lần), cột CHI PHÍ + GHI CHÚ CP trên bảng cũng duplicate. **Root cause**: `chiPhiHangVe` và `ghiChuAdmin` là dữ liệu per-đợt nhưng `createShipment` + `updateShipment` ghi cùng value vào TẤT CẢ N dotHang rows (mỗi NCC 1 row); khi load `getAllDotHangAsShipments` lại `push(...dot.chiPhiHangVe)` concat từ mọi dot → N× duplication mỗi lần save/load. Với đợt có 2 NCC → list gấp đôi (khớp screenshot 6 items = 3 items × 2 NCC). **Fix 2 phía**: (1) [data-loader.js:393](inventory-tracking/js/data-loader.js#L393) đổi concat sang "take first non-empty" như pattern `thanhToanCK` có sẵn, + thêm `ghiChuAdmin` same semantics; thêm `ghiChuAdmin: ''` vào initial shipment object. (2) [crud-operations.js:41-43,109-111](inventory-tracking/js/crud-operations.js#L41) write chỉ lên dotHang đầu tiên (dùng flag `isFirstInvoice` / `isFirstUpdate` có sẵn cho `kienHang`), các dot sau ghi `[]`/`0`/`''`. Từ lần save tiếp theo data DB sẽ tự được "normalize" — dot[0] giữ costs, dot[1..N] set rỗng → read take-first-non-empty luôn trả đúng 1 bản copy. |
+| **Status** | ✅ Done |
+
 ### [inventory] Convert NCC→PO: bỏ mutually-exclusive Size Số / Size Chữ
 | | |
 |---|---|

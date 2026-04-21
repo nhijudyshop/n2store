@@ -364,6 +364,7 @@ function getAllDotHangAsShipments() {
                 tongMonThieu: 0,
                 chiPhiHangVe: [],
                 tongChiPhi: 0,
+                ghiChuAdmin: '',
                 // Payment data is per-đợt (synced across all NCC rows in the group).
                 // Take the first non-empty value we encounter — backend keeps rows in sync.
                 thanhToanCK: [],
@@ -390,8 +391,15 @@ function getAllDotHangAsShipments() {
                 byKey[key].kienHang.push({ ...k, _dotId: dot.id, _dotKienIdx: idx });
             });
         }
-        if (dot.chiPhiHangVe && dot.chiPhiHangVe.length > 0) {
-            byKey[key].chiPhiHangVe.push(...dot.chiPhiHangVe);
+        // chiPhiHangVe is per-đợt (same value mirrored across NCC rows for legacy reasons).
+        // Take the first non-empty — concat would N× duplicate costs.
+        if ((!byKey[key].chiPhiHangVe || byKey[key].chiPhiHangVe.length === 0)
+            && Array.isArray(dot.chiPhiHangVe) && dot.chiPhiHangVe.length > 0) {
+            byKey[key].chiPhiHangVe = [...dot.chiPhiHangVe];
+        }
+        // ghiChuAdmin same semantics — first non-empty wins.
+        if (!byKey[key].ghiChuAdmin && dot.ghiChuAdmin) {
+            byKey[key].ghiChuAdmin = dot.ghiChuAdmin;
         }
 
         // Absorb per-đợt payment data from whichever row carries it.

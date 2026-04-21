@@ -38,9 +38,10 @@ async function createShipment(data) {
                 ghiChuThieu: invoice.ghiChuThieu || '',
                 anhHoaDon: invoice.anhHoaDon || [],
                 ghiChu: invoice.ghiChu || '',
-                chiPhiHangVe: data.chiPhiHangVe || [],
-                tongChiPhi: data.tongChiPhi || 0,
-                ghiChuAdmin: data.ghiChuAdmin || ''
+                // Costs/admin note are per-đợt — only store on first row to avoid N× duplication on re-read
+                chiPhiHangVe: isFirstInvoice ? (data.chiPhiHangVe || []) : [],
+                tongChiPhi: isFirstInvoice ? (data.tongChiPhi || 0) : 0,
+                ghiChuAdmin: isFirstInvoice ? (data.ghiChuAdmin || '') : ''
             };
 
             // Save via API
@@ -106,9 +107,10 @@ async function updateShipment(id, data) {
                 ghiChuThieu: invoice.ghiChuThieu,
                 anhHoaDon: invoice.anhHoaDon,
                 ghiChu: invoice.ghiChu,
-                chiPhiHangVe: data.chiPhiHangVe,
-                tongChiPhi: data.tongChiPhi,
-                ghiChuAdmin: data.ghiChuAdmin
+                // Costs/admin note are per-đợt — only store on first row to avoid N× duplication on re-read
+                chiPhiHangVe: isFirstUpdate ? data.chiPhiHangVe : [],
+                tongChiPhi: isFirstUpdate ? data.tongChiPhi : 0,
+                ghiChuAdmin: isFirstUpdate ? data.ghiChuAdmin : ''
             };
 
             const saved = await shipmentsApi.update(invoice.id, updateData);
