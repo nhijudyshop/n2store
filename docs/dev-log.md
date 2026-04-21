@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders][processing-tags] Thêm toggle "Auto T" — bật/tắt clear T-tag khi đơn ra đơn (per-user persistent)
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Request: có user muốn giữ T-tag để tracking sản phẩm đã ra, user khác muốn clear cho gọn. **Solution**: thêm nút toggle `Auto T` kế bên nút `RT` trong thanh search (chip nhỏ, dot xanh/xám + label), default ON (match behavior cũ). State lưu per-user qua `window.userStorageManager.saveToLocalStorage(AUTO_T_CLEAR_KEY, val)` — key `auto_t_clear_on_bill` tự append `_${username}` (pattern từ [user-storage-manager.js:94](orders-report/js/core/user-storage-manager.js#L94)). **Implementation**: (1) [tab1-orders.html:434](orders-report/tab1-orders.html#L434) thêm `<button id="autoTToggle">` sau `tposRtToggle` với onclick → `window.toggleAutoTClear()`; (2) [tab1-processing-tags.js](orders-report/js/tab1/tab1-processing-tags.js) thêm `AUTO_T_CLEAR_KEY` + state `_autoTClearEnabled = true`, 3 helper `_updateAutoTToggleUI` (đổi dot/bg/color), `_loadAutoTClearSetting` (load từ userStorageManager), `toggleAutoTClear` (flip + save + log); init block chạy sau DOMContentLoaded với retry 20×200ms cho trường hợp `userStorageManager` chưa ready; (3) modify [onPtagBillCreated:1173](orders-report/js/tab1/tab1-processing-tags.js#L1173) conditional: `if (_autoTClearEnabled) data.tTags = []`. **Rollback logic không đổi**: `previousPosition` snapshot vẫn chứa full tTags trước auto-tag, `onPtagBillCancelled` restore đúng cho cả 2 case ON/OFF (nếu OFF thì restore = current → no-op). **TPOS sync**: push state đúng theo `data.tTags` hiện tại → khi OFF sẽ giữ T-tag trên TPOS sau khi ra đơn. |
+| **Status** | ✅ Done |
+
 ### [orders][processing-tags] Fix T-tag bị xóa oan sau rollback + history ghi sai user (TPOS-SYNC race + log author)
 | | |
 |---|---|

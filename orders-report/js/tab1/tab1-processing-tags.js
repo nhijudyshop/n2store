@@ -16,6 +16,12 @@
     const PTAG_API_BASE = 'https://n2store-fallback.onrender.com/api/realtime/processing-tags';
     const PTAG_LOG = '[PTAG v2]';
 
+    // Auto T toggle — bật/tắt clear T-tag khi onPtagBillCreated chạy (đơn ra đơn).
+    // State lưu per-user qua window.userStorageManager (key append `_${username}`).
+    // Default ON = match behavior cũ (clear T-tags khi ra đơn).
+    const AUTO_T_CLEAR_KEY = 'auto_t_clear_on_bill';
+    let _autoTClearEnabled = true;
+
     // Cache orders có SL=0 (TotalQuantity === 0) — dùng cho filter "GIỎ TRỐNG"
     // (từ 2026-04-18 tag GIỎ TRỐNG không còn gắn; filter chuyển sang lọc theo SL)
     let _slZeroCodes = new Set();
@@ -1165,12 +1171,15 @@
             snapshotAt: Date.now()
         };
 
-        // Chuyển sang ĐÃ RA ĐƠN — clear tTags (Tx sản phẩm) + reset subTag/subState
+        // Chuyển sang ĐÃ RA ĐƠN — reset subTag/subState; clear tTags theo toggle Auto T
         // tTags đã được snapshot, sẽ restore khi hủy phiếu
         data.category = PTAG_CATEGORIES.HOAN_TAT;
         data.subTag = null;
         data.subState = null;
-        data.tTags = [];
+        if (_autoTClearEnabled) {
+            data.tTags = [];
+        }
+        // Nếu Auto T OFF: giữ nguyên data.tTags (user muốn tracking T-tag sau khi ra đơn)
         data.assignedAt = Date.now();
         data.previousPosition = snapshot;
 
@@ -5677,5 +5686,61 @@
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
 
+    // =====================================================
+    // AUTO T TOGGLE — bật/tắt clear T-tag khi đơn ra đơn
+    // =====================================================
+
+    function _updateAutoTToggleUI() {
+        const btn = document.getElementById('autoTToggle');
+        const dot = document.getElementById('autoTDot');
+        if (!btn || !dot) return;
+        if (_autoTClearEnabled) {
+            dot.style.background = '#22c55e';
+            btn.style.background = '#f0fdf4';
+            btn.style.color = '#16a34a';
+            btn.style.borderColor = '#86efac';
+        } else {
+            dot.style.background = '#d1d5db';
+            btn.style.background = '#f9fafb';
+            btn.style.color = '#6b7280';
+            btn.style.borderColor = '#d1d5db';
+        }
+    }
+
+    function _loadAutoTClearSetting() {
+        if (!window.userStorageManager) return false;
+        const v = window.userStorageManager.loadFromLocalStorage(AUTO_T_CLEAR_KEY);
+        if (v !== null && v !== undefined) {
+            _autoTClearEnabled = (v === true || v === 'true');
+        }
+        _updateAutoTToggleUI();
+        return true;
+    }
+
+    function toggleAutoTClear() {
+        _autoTClearEnabled = !_autoTClearEnabled;
+        _updateAutoTToggleUI();
+        if (window.userStorageManager) {
+            window.userStorageManager.saveToLocalStorage(AUTO_T_CLEAR_KEY, _autoTClearEnabled);
+        }
+        console.log(`${PTAG_LOG} Auto T clear on bill:`, _autoTClearEnabled ? 'ON' : 'OFF');
+    }
+
+    window.toggleAutoTClear = toggleAutoTClear;
+
+    // Init: load setting sau khi DOM + userStorageManager ready (retry tối đa 20×200ms)
+    (function _initAutoTToggle() {
+        let attempts = 0;
+        const maxAttempts = 20;
+        const tryLoad = () => {
+            if (_loadAutoTClearSetting()) return;
+            if (++attempts < maxAttempts) setTimeout(tryLoad, 200);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryLoad);
+        } else {
+            tryLoad();
+        }
+    })();
 
 })();
