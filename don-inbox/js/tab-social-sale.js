@@ -253,11 +253,11 @@ async function openSaleModalInSocialTab(orderId) {
     };
 
     // Enrich từng product với full TPOS data (UOM, NameGet, ImageUrl) trước khi mở sale modal.
-    // Bug TPOS NRE "Object reference not set to an instance of an object" xảy ra khi
-    // payload OrderLines[].ProductUOMId không khớp UOM thật của variant — populateSaleModalWithOrder
-    // Details branch hardcode ProductUOMId=1 (sale-modal-common.js:744). Pattern này khớp với
-    // addProductToSaleFromSearch (tab1-sale.js:265-339) — flow F2 search đã verified hoạt động.
+    // Pattern khớp với addProductToSaleFromSearch (tab1-sale.js:265-339) — flow F2 search đã verified hoạt động.
+    // Nếu fetch fail → product có thể bị broken trên TPOS (UOM null, variant orphaned, etc.) → invoice POST sẽ NRE.
+    // Track broken products để show modal block + ngăn user submit (tránh confusing TPOS NRE error).
     mappedOrder.orderLines = [];
+    const brokenProducts = []; // { tposId, code, name, error }
     for (const p of (order.products || [])) {
         const name = (p.productName || p.name || '').trim();
         const code = (p.productCode || '').trim();
@@ -267,7 +267,7 @@ async function openSaleModalInSocialTab(orderId) {
         if (!(name || code || variant || price > 0 || purchase > 0)) continue;
 
         const tposId = parseInt(p.tposProductId) || 0;
-        const buildMinimalLine = (idForLine, priceForLine) => ({
+        const buildMinimalLine = (idForLine, priceForLine, broken = false) => ({
             ProductId: idForLine,
             Product: null,
             ProductUOMId: 1,
@@ -283,10 +283,17 @@ async function openSaleModalInSocialTab(orderId) {
             SaleOnlineDetailId: null,
             Discount: 0,
             Weight: 0,
+            _brokenOnTPOS: broken,
         });
 
-        if (!tposId || !window.productSearchManager?.getFullProductDetails) {
-            mappedOrder.orderLines.push(buildMinimalLine(tposId, price));
+        if (!tposId) {
+            // Không có TPOS Id → buildSaleOrderModelForInsertList validate sẽ chặn ở line 791-802. Allow.
+            mappedOrder.orderLines.push(buildMinimalLine(tposId, price, false));
+            continue;
+        }
+
+        if (!window.productSearchManager?.getFullProductDetails) {
+            mappedOrder.orderLines.push(buildMinimalLine(tposId, price, false));
             continue;
         }
 
@@ -320,9 +327,26 @@ async function openSaleModalInSocialTab(orderId) {
                 Weight: fullProduct.Weight || 0,
             });
         } catch (err) {
-            console.warn('[SOCIAL-SALE] Enrich product failed, fallback minimal:', tposId, err.message);
-            mappedOrder.orderLines.push(buildMinimalLine(tposId, price));
+            // 500/404 từ TPOS = product/variant bị orphan/broken trên TPOS server-side.
+            // Invoice POST với product này CHẮC CHẮN sẽ NRE — block trước khi user mất công nhập form.
+            console.warn('[SOCIAL-SALE] Product broken on TPOS, will block submit:', tposId, code, err.message);
+            brokenProducts.push({ tposId, code, name, error: err.message });
+            mappedOrder.orderLines.push(buildMinimalLine(tposId, price, true));
         }
+    }
+
+    if (brokenProducts.length > 0) {
+        const list = brokenProducts.map(b => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
+        const msg =
+            `Sản phẩm sau bị lỗi trên TPOS (HTTP 500), không thể tạo phiếu:\n\n${list}\n\n` +
+            `Cách xử lý:\n` +
+            `1. Kiểm tra & sửa SP trên TPOS (UOM bị null hoặc variant đã xoá)\n` +
+            `2. Hoặc xoá SP khỏi đơn rồi thêm SP khác qua "Tìm kiếm [F2]"`;
+        if (window.notificationManager) {
+            window.notificationManager.error(msg, 0, { persistent: true, title: 'SP lỗi TPOS' });
+        }
+        // Đánh dấu để socialConfirmAndPrintSale chặn submit
+        mappedOrder._brokenProducts = brokenProducts;
     }
 
     currentSaleOrderData = mappedOrder;
@@ -594,6 +618,20 @@ async function syncPartnerAddressBeforeOrder() {
  * Syncs partner address before creating the order.
  */
 async function socialConfirmAndPrintSale() {
+    // Block submit nếu có product bị broken trên TPOS (đã detect khi enrich ở openSaleModalInSocialTab).
+    // Tránh user mất công nhập form rồi gặp TPOS NRE không rõ nguyên nhân.
+    const broken = currentSaleOrderData?._brokenProducts;
+    if (Array.isArray(broken) && broken.length > 0) {
+        const list = broken.map(b => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
+        alert(
+            `Không thể tạo phiếu — sản phẩm sau bị lỗi trên TPOS (HTTP 500):\n\n${list}\n\n` +
+            `Vui lòng:\n` +
+            `1. Kiểm tra & sửa SP trên TPOS, HOẶC\n` +
+            `2. Đóng modal → mở lại đơn → xoá SP lỗi → thêm SP khác qua "Tìm kiếm [F2]"`
+        );
+        return;
+    }
+
     // Sync address first (only for social orders with existing partner)
     await syncPartnerAddressBeforeOrder();
 

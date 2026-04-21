@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inbox] Detect broken TPOS product (HTTP 500) khi enrich + block submit với cảnh báo rõ ràng
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | User báo bug NRE vẫn còn sau commit enrich UOM. Log mới: `GET /api/odata/Product(117683)?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues` trả **HTTP 500 Internal Server Error**. Variant 117683 (B1555T) bị broken trên TPOS server-side (UOM null hoặc orphaned). Khi enrich fail, fallback minimal line vẫn gửi `ProductId: 117683` lên `InsertListOrderModel` → TPOS chạy cùng broken code path → NRE. **Đây là TPOS data issue, không phải code client** — không thể fix bằng code, chỉ có thể detect và cảnh báo user. **Fix**: trong enrich step, khi `getFullProductDetails` throw → push vào `brokenProducts[]` (lưu `tposId, code, name, error`). Sau loop, nếu có broken → notification persistent listing SP lỗi + hướng dẫn (sửa trên TPOS hoặc xoá SP rồi thêm qua F2 search). Set `mappedOrder._brokenProducts`. Trong `socialConfirmAndPrintSale`, check `currentSaleOrderData._brokenProducts` ở đầu → nếu có thì `alert()` block submit. Tránh user mất công nhập form rồi gặp TPOS NRE không rõ nguyên nhân. |
+| **Status** | ✅ Done |
+
 ### [inbox] Enrich social-order products bằng full TPOS UOM trước khi mở sale modal — fix TPOS NRE
 | | |
 |---|---|
