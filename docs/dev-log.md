@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [phone-widget] Auto-register — mọi máy mở main.html tự bật 10 line
+| | |
+|---|---|
+| **Files** | `orders-report/js/phone-auto-register.js` (new), `orders-report/tab1-orders.html` |
+| **Chi tiết** | User muốn bất kỳ máy nào mở main.html đều tự động register đủ 10 extension (không chỉ ext chính của user). Module mới `PhoneAutoRegister`: load extensions từ `/api/oncall/phone-config` → tạo 1 `JsSIP.UA` instance per ext **(skip ext chính user đã được gán qua `PhoneExtAssignment.getMyExt()`)** → tất cả register lên PBX. Background UAs **không handle media**: `newRTCSession` listener chỉ log, không `answer()` / `terminate()` → JsSIP auto-gửi 180 Ringing. Khi có cuộc gọi đến ext X: PBX fork INVITE tới tất cả contact đã register (primary widget của user được gán + N background UAs từ các máy khác). Primary widget ring UI bình thường, user answer → PBX gửi CANCEL tới các background → JsSIP cleanup. Nếu không ai answer trong 120s, JsSIP auto-timeout. Stagger 200ms giữa các UA start để tránh burst WS connection. Auto-start sau 8s (chờ widget chính register xong). Disable qua localStorage: `PhoneAutoRegister.setEnabled(false)`. Status: `PhoneAutoRegister.getStatus()` → `{started, enabled, myExt, total, registered, details}`. `beforeunload` → `stop()` tất cả UAs. |
+| **Status** | ✅ Done |
+
 ### [phone-management] Monitor page — treo 10 line 24/7 trong 1 browser tab
 | | |
 |---|---|
