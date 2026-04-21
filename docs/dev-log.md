@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-22
+
+### [orders][processing-tags] Fix T-tag bị xóa oan sau rollback + history ghi sai user (TPOS-SYNC race + log author)
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js` |
+| **Chi tiết** | Sau refactor auto-tag, user báo: hủy PBH → rollback restore `T8 LÓT TULIP` đúng, nhưng ngay sau đó T-tag bị xóa và history ghi là user `tamtam - T8 LÓT TULIP` (đáng lẽ phải là "Hệ thống"). **Root cause 1 (race)**: `onPtagBillCancelled` → `syncXLToTPOS('bill-cancelled')` fire-and-forget push state (có `T8 LÓT TULIP`) lên TPOS. Nhưng TPOS WebSocket có thể push event với tags CŨ (chưa có T-tag) sau khi forward sync `_syncingForward` đã release → `handleTPOSTagsChanged` block (e2) [tab1-tag-sync.js:609-623](orders-report/js/tab1/tab1-tag-sync.js#L609) thấy XL có T-tag mà TPOS không có → xóa oan. **Root cause 2 (log author)**: [tab1-tag-sync.js:620](orders-report/js/tab1/tab1-tag-sync.js#L620) gọi `removeTTagFromOrder(orderCode, ttagId)` không pass source; [tab1-processing-tags.js:1044](orders-report/js/tab1/tab1-processing-tags.js#L1044) `_ptagAddHistory(orderCode, 'REMOVE_TTAG', tagId)` không pass userName → default lấy current user `tamtam` từ authManager → history log sai. **Fix 2 layers**: **(1) Cooldown guard**: thêm `_recentForwardSyncAt` Map + `FORWARD_SYNC_COOLDOWN_MS = 10000` trong [tab1-tag-sync.js](orders-report/js/tab1/tab1-tag-sync.js); `syncXLToTPOS` finally set timestamp, `handleTPOSTagsChanged` check `Date.now() - lastForward < 10000` → skip reverse sync 10s sau forward. Đủ để stale WS events được "tiêu hóa". **(2) Log author đúng**: đổi signature `removeTTagFromOrder(orderCode, tagId, source)`; 2 call sites trong `handleTPOSTagsChanged` (T_MY remove + Tx pattern remove) pass `'TPOS-SYNC'`; centralize mapping trong `_ptagAddHistory`: nếu `userName.startsWith('TPOS-SYNC')` → replace bằng `'Hệ thống'`. Fix này cover cả `assignTTagToOrder`/`toggleOrderFlag`/`assignOrderCategory` vốn đã pass source='TPOS-SYNC*' nhưng history hiển thị literal string. Giờ tất cả TPOS-SYNC-triggered actions đều log "Hệ thống" đồng nhất. |
+| **Status** | ✅ Done |
+
 ## 2026-04-21
 
 ### [orders][processing-tags] Bỏ toàn bộ polling/listener auto-tag ĐÃ RA ĐƠN — chỉ giữ trigger khi tạo/hủy PBH qua UI app

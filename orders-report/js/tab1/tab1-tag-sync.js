@@ -120,6 +120,13 @@
     const _syncingForward = new Set(); // Set<orderCode>
     const _syncingReverse = new Set(); // Set<orderCode>
 
+    // Cooldown: sau khi forward sync xong, block reverse sync trong N ms.
+    // Lý do: TPOS có thể push WebSocket event với tags CŨ (trước khi AssignTag
+    // của forward sync apply) → reverse sync sẽ thấy XL có tag mà TPOS "không có"
+    // → xóa oan. 10s đủ để WS event stale được tiêu hóa.
+    const _recentForwardSyncAt = new Map(); // orderCode → timestamp (ms)
+    const FORWARD_SYNC_COOLDOWN_MS = 10000;
+
     // =====================================================
     // HELPERS
     // =====================================================
@@ -436,6 +443,7 @@
             console.error(`${LOG} [XL→TPOS] error:`, e.message || e);
         } finally {
             _syncingForward.delete(orderCode);
+            _recentForwardSyncAt.set(orderCode, Date.now());
         }
     }
 
@@ -478,6 +486,15 @@
         }
         if (_syncingForward.has(orderCode)) {
             console.log(`${LOG} [TPOS→XL] Skip ${orderCode} — đang forward sync`);
+            return;
+        }
+        // Cooldown: block reverse sync 10s sau forward sync để tránh stale WS event
+        // ghi đè state vừa push lên TPOS (vd: rollback restore T-tag → WS event cũ
+        // chưa có T-tag → reverse sync remove T-tag oan).
+        const lastForward = _recentForwardSyncAt.get(orderCode) || 0;
+        const cooldownRemaining = FORWARD_SYNC_COOLDOWN_MS - (Date.now() - lastForward);
+        if (cooldownRemaining > 0) {
+            console.log(`${LOG} [TPOS→XL] Skip ${orderCode} — cooldown ${cooldownRemaining}ms sau forward sync`);
             return;
         }
         if (_syncingReverse.has(orderCode)) return;
@@ -567,7 +584,7 @@
             } else if (!hasTMYTPOS && hasTMYXL) {
                 console.log(`${LOG} [TPOS→XL] REMOVE T_MY → ${orderCode}`);
                 if (typeof window.removeTTagFromOrder === 'function') {
-                    await window.removeTTagFromOrder(orderCode, 'T_MY');
+                    await window.removeTTagFromOrder(orderCode, 'T_MY', 'TPOS-SYNC');
                 }
             }
 
@@ -617,7 +634,7 @@
                 if (!tposNamesUpper.has(_normalizeName(def.name || ''))) {
                     console.log(`${LOG} [TPOS→XL] REMOVE T-tag ${ttagId} → ${orderCode}`);
                     if (typeof window.removeTTagFromOrder === 'function') {
-                        await window.removeTTagFromOrder(orderCode, ttagId);
+                        await window.removeTTagFromOrder(orderCode, ttagId, 'TPOS-SYNC');
                     }
                 }
             }

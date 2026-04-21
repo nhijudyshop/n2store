@@ -1031,7 +1031,7 @@
         }
     }
 
-    async function removeTTagFromOrder(orderCode, tagId) {
+    async function removeTTagFromOrder(orderCode, tagId, source) {
         const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
         data.tTags = (data.tTags || []).filter(t => _ptagTTagId(t) !== tagId);
@@ -1041,7 +1041,7 @@
         }
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
-        _ptagAddHistory(orderCode, 'REMOVE_TTAG', tagId);
+        _ptagAddHistory(orderCode, 'REMOVE_TTAG', tagId, source || null);
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
@@ -4804,6 +4804,10 @@
     }
 
     function _ptagAddHistory(orderCode, action, value, userName) {
+        // Treat TPOS-SYNC sources as "Hệ thống" cho history (user thật không gây ra)
+        if (userName && String(userName).startsWith('TPOS-SYNC')) {
+            userName = 'Hệ thống';
+        }
         const userInfo = userName ? { user: userName, userId: null } : _ptagGetCurrentUser();
         // Defensive: coerce value to string to prevent "[object Object]" storage
         let safeValue = value;
