@@ -383,7 +383,7 @@ function formatColors(mauSac) {
 }
 
 /**
- * Toggle shipment card expand/collapse
+ * Toggle shipment card expand/collapse — persist state via UIState
  */
 function toggleShipmentCard(card) {
     const body = card.querySelector('.shipment-body');
@@ -394,10 +394,12 @@ function toggleShipmentCard(card) {
         body.classList.remove('hidden');
         card.classList.remove('collapsed');
         if (chevron) chevron.style.transform = 'rotate(90deg)';
+        if (window.UIState && card.dataset.id) window.UIState.setExpanded(card.dataset.id, true);
     } else {
         body.classList.add('hidden');
         card.classList.add('collapsed');
         if (chevron) chevron.style.transform = 'rotate(0deg)';
+        if (window.UIState && card.dataset.id) window.UIState.setExpanded(card.dataset.id, false);
     }
 }
 
@@ -426,7 +428,12 @@ function renderShipments(shipments) {
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    // Render each shipment (collapsed by default)
+    // Cleanup stale ids before render
+    if (window.UIState && typeof window.UIState.pruneExpanded === 'function') {
+        window.UIState.pruneExpanded(shipments.map(s => s.id));
+    }
+
+    // Render each shipment (expand state loaded from UIState, default collapsed)
     shipments.forEach(shipment => {
         const card = createShipmentCard(shipment);
         container.appendChild(card);
@@ -435,6 +442,11 @@ function renderShipments(shipments) {
     // Re-initialize icons
     if (window.lucide) {
         lucide.createIcons();
+    }
+
+    // Apply persisted details columns visibility to all tables
+    if (window.UIState && window.UIState.isDetailsVisible()) {
+        _applyDetailColsVisibility(true);
     }
 
     // Fetch and render notes for visible invoices
@@ -525,7 +537,8 @@ function updateInventoryStatsBar() {
  */
 function createShipmentCard(shipment) {
     const card = document.createElement('div');
-    card.className = 'shipment-card collapsed';
+    const wasExpanded = !!(window.UIState && window.UIState.isExpanded(shipment.id));
+    card.className = 'shipment-card' + (wasExpanded ? '' : ' collapsed');
     card.dataset.id = shipment.id;
 
     const canEdit = permissionHelper?.can('edit_shipment');
@@ -596,11 +609,19 @@ function createShipmentCard(shipment) {
                 </button>
             </div>
         </div>
-        <div class="shipment-body hidden">
+        <div class="shipment-body${wasExpanded ? '' : ' hidden'}">
             ${renderInvoicesSection(shipment)}
             ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
         </div>
     `;
+
+    // Apply chevron rotation for expanded cards (icons render async via lucide)
+    if (wasExpanded) {
+        requestAnimationFrame(() => {
+            const chevron = card.querySelector('.shipment-chevron');
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
+        });
+    }
 
     // Click header to toggle body
     const header = card.querySelector('.shipment-header');
@@ -944,19 +965,32 @@ function renderProductRow(opts) {
 
 
 /**
- * Toggle visibility of Mô tả & Chi tiết màu sắc columns
+ * Toggle visibility of Mô tả & Chi tiết màu sắc columns — apply to ALL tables
+ * và persist qua UIState để F5 nhớ lựa chọn của user.
  */
 function toggleDetailColumns(btn) {
-    const table = btn.closest('table');
-    if (!table) return;
-    const isHidden = table.classList.toggle('detail-cols-hidden');
-    // Update arrow direction
-    btn.innerHTML = isHidden ? '&#9654;' : '&#9664;';
-    // Update tfoot colspan
-    const tfootLabel = table.querySelector('.tfoot-total-label');
-    if (tfootLabel) {
-        tfootLabel.setAttribute('colspan', isHidden ? '5' : '7');
-    }
+    const clickedTable = btn.closest('table');
+    if (!clickedTable) return;
+    // Base new state off the table that was clicked
+    const newHidden = !clickedTable.classList.contains('detail-cols-hidden');
+    _applyDetailColsVisibility(!newHidden);
+    if (window.UIState) window.UIState.setDetailsVisible(!newHidden);
+}
+
+/**
+ * Apply `detail-cols-hidden` class to all invoice tables + arrow + tfoot colspan.
+ * @param {boolean} visible - true = show columns, false = hide
+ */
+function _applyDetailColsVisibility(visible) {
+    const tables = document.querySelectorAll('table.invoice-table');
+    tables.forEach(t => {
+        if (visible) t.classList.remove('detail-cols-hidden');
+        else t.classList.add('detail-cols-hidden');
+        const toggleBtn = t.querySelector('.detail-toggle');
+        if (toggleBtn) toggleBtn.innerHTML = visible ? '&#9664;' : '&#9654;';
+        const tfootLabel = t.querySelector('.tfoot-total-label');
+        if (tfootLabel) tfootLabel.setAttribute('colspan', visible ? '7' : '5');
+    });
 }
 
 /**
