@@ -820,7 +820,10 @@
                             this.set(soId, order, originalOrder);
                             // Save NJD mapping to DB
                             _saveNjdToDb(soId, order.Reference, order);
-                            // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng'
+                            // Auto-tag ĐÃ RA ĐƠN — nguồn DUY NHẤT, chỉ chạy khi user tạo PBH thành công
+                            if (typeof window.onPtagBillCreated === 'function') {
+                                window.onPtagBillCreated(soId);
+                            }
                         });
                     }
                 });
@@ -1552,20 +1555,6 @@
                 if (inv.Number) _queueDeliveryGroupLookup([inv.Number]);
                 // Re-render PBH cell cho row này
                 refreshInvoiceStatusCellForOrder(saleOnlineId);
-
-                // Trigger tag ĐÃ RA ĐƠN theo trạng thái đơn derived từ StateCode
-                // (set nếu = 'Đơn hàng', rollback nếu rời)
-                try {
-                    const derived = deriveOrderStatusFromStateCode(
-                        inv.StateCode || 'None',
-                        inv.IsMergeCancel === true
-                    );
-                    if (typeof window.onPtagOrderStatusChanged === 'function') {
-                        window.onPtagOrderStatusChanged(saleOnlineId, derived.text);
-                    }
-                } catch (e) {
-                    console.warn('[INVOICE-WS] onPtagOrderStatusChanged hook failed:', e.message);
-                }
             }
             console.log('[INVOICE-WS] Updated invoice for', orderCode, '→', inv.ShowState, inv.StateCode);
             return inv;
@@ -3377,11 +3366,6 @@
                     // Also update the order reference
                     order.Status = 'order';
                     order.StatusText = 'Đơn hàng';
-
-                    // Hook: trigger tag ĐÃ RA ĐƠN theo Status mới
-                    if (typeof window.onPtagOrderStatusChanged === 'function') {
-                        window.onPtagOrderStatusChanged(saleOnlineId, 'Đơn hàng');
-                    }
 
                     // Update UI
                     const statusBadge = document.querySelector(

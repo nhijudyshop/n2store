@@ -457,7 +457,10 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
+                // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
+                if (typeof window.onPtagBillCancelled === 'function') {
+                    await window.onPtagBillCancelled(saleOnlineId);
+                }
             }
             // Delete NJD mapping from Render DB
             if (typeof window._deleteNjdFromDb === 'function') {
@@ -1331,7 +1334,10 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
+                // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
+                if (typeof window.onPtagBillCancelled === 'function') {
+                    await window.onPtagBillCancelled(saleOnlineId);
+                }
             }
             // Delete NJD mapping from Render DB
             if (typeof window._deleteNjdFromDb === 'function') {

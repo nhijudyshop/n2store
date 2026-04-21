@@ -469,9 +469,6 @@
             ProcessingTagState._isLoaded = true;
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
 
-            // Backfill: tag ĐÃ RA ĐƠN cho mọi đơn Status='Đơn hàng' chưa có category=0
-            try { backfillPtagFromOrderStatus(); } catch (e) { console.warn(`${PTAG_LOG} Backfill failed:`, e); }
-
             // Nếu user đang có filter active → re-apply qua performTableSearch để bảng phản
             // ánh đúng sau khi data mới load (tránh trường hợp row mới xuất hiện không bị filter).
             if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
@@ -1138,8 +1135,8 @@
 
         // Guard: chỉ set HOAN_TAT khi thực sự còn invoice active trong InvoiceStatusStore.
         // Entry active = StateCode ∉ {cancel, IsMergeCancel} và IsMergeCancel !== true.
-        // Chặn polling 15s (backfillPtagFromOrderStatus) / WS stale / race re-tag oan
-        // sau khi user đã hủy đơn hoặc đơn không có invoice thật.
+        // Guard này vẫn hữu ích để chặn re-tag oan khi onPtagBillCreated bị gọi 2 lần
+        // (edge case: PBH vừa tạo xong thì user hủy ngay, nhưng call đã on queue).
         const invStore = window.InvoiceStatusStore;
         if (invStore && typeof invStore.getAll === 'function') {
             const entries = invStore.getAll(saleOnlineId) || [];
@@ -5398,65 +5395,6 @@
     window.onPtagBillCreated = onPtagBillCreated;
     window.onPtagBillCancelled = onPtagBillCancelled;
     window.onPtagPackingSlipPrinted = onPtagPackingSlipPrinted;
-    window.onPtagOrderStatusChanged = onPtagOrderStatusChanged;
-    window.backfillPtagFromOrderStatus = backfillPtagFromOrderStatus;
-
-    // Status-driven trigger: tag ĐÃ RA ĐƠN theo order.Status === 'Đơn hàng'
-    // Thay thế cơ chế cũ (auto-tag khi tạo PBH thành công).
-    // - newStatus === 'Đơn hàng' → forward sang onPtagBillCreated (snapshot + set HOAN_TAT)
-    // - newStatus !== 'Đơn hàng' VÀ category hiện tại = HOAN_TAT → rollback qua onPtagBillCancelled
-    // Idempotency đã có sẵn trong 2 hàm gốc nên gọi lại an toàn.
-    async function onPtagOrderStatusChanged(orderIdOrCode, newStatus) {
-        if (!orderIdOrCode) return;
-        const isDonHang = newStatus === 'Đơn hàng' || newStatus === 'order';
-        if (isDonHang) {
-            return onPtagBillCreated(orderIdOrCode);
-        }
-        // Status rời 'Đơn hàng' → rollback nếu trước đó đã auto-tag
-        const orderCode = _ptagResolveCode(orderIdOrCode) || orderIdOrCode;
-        const data = ProcessingTagState.getOrderData(orderCode)
-            || ProcessingTagState.getOrderDataByIdFallback(orderIdOrCode);
-        if (data && data.category === PTAG_CATEGORIES.HOAN_TAT) {
-            return onPtagBillCancelled(orderIdOrCode);
-        }
-    }
-
-    // Backfill: scan allOrders đã load, tag ĐÃ RA ĐƠN cho mọi đơn có invoice
-    // (PBH) với trạng thái derived = 'Đơn hàng', chưa có category=0.
-    // Gọi sau loadProcessingTags().
-    //
-    // Nguồn trạng thái: InvoiceStatusStore (FastSaleOrder.StateCode) — KHÔNG
-    // dùng order.Status (SaleOnline_Order) nữa. Mapping derive ở
-    // tab1-fast-sale-invoice-status.js#deriveOrderStatusFromStateCode.
-    function backfillPtagFromOrderStatus() {
-        if (!ProcessingTagState._isLoaded) return;
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        if (!allOrders.length) return;
-        const store = window.InvoiceStatusStore;
-        if (!store || typeof store.get !== 'function') return;
-        let count = 0;
-        for (const o of allOrders) {
-            const inv = store.get(o.Id);
-            if (!inv) continue; // không có PBH → bỏ qua
-            const stateCode = inv.StateCode || 'None';
-            const isMergeCancel = inv.IsMergeCancel === true;
-            // Inline mapping (đồng bộ với deriveOrderStatusFromStateCode)
-            if (isMergeCancel) continue;
-            const draftCodes = ['draft', 'NotEnoughInventory'];
-            const cancelCodes = ['cancel', 'IsMergeCancel'];
-            if (draftCodes.includes(stateCode)) continue;
-            if (cancelCodes.includes(stateCode)) continue;
-            // Còn lại = 'Đơn hàng' (CrossCheck*, None)
-            const orderCode = String(o.Code || '');
-            if (!orderCode) continue;
-            const data = ProcessingTagState.getOrderData(orderCode);
-            if (data && data.category === PTAG_CATEGORIES.HOAN_TAT) continue;
-            // Fire-and-forget — onPtagBillCreated tự idempotent
-            onPtagBillCreated(o.Id || orderCode);
-            count++;
-        }
-        if (count > 0) console.log(`${PTAG_LOG} Backfill ĐÃ RA ĐƠN (từ PBH): ${count} orders`);
-    }
 
     // Filter (called from tab1-search.js)
     window.getActiveProcessingTagFilter = getActiveProcessingTagFilter;

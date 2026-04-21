@@ -1090,7 +1090,10 @@ async function confirmAndPrintSale() {
                     orderData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(socialId, orderData, currentSaleOrderData);
                     console.log('[SALE-CONFIRM] Stored invoice for social order:', socialId);
-                    // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng' (xem onPtagOrderStatusChanged)
+                    // Auto-tag ĐÃ RA ĐƠN cho social order (storeFromApiResult skip orders không có SaleOnlineIds)
+                    if (typeof window.onPtagBillCreated === 'function') {
+                        window.onPtagBillCreated(socialId);
+                    }
                 }
             }
 
@@ -1271,7 +1274,10 @@ async function confirmAndPrintSale() {
                     'Number:',
                     createResult.Number
                 );
-                // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng' (xem onPtagOrderStatusChanged)
+                // Auto-tag ĐÃ RA ĐƠN cho social order (storeFromApiResult skip orders không có SaleOnlineIds)
+                if (typeof window.onPtagBillCreated === 'function') {
+                    window.onPtagBillCreated(socialOrderId);
+                }
             }
 
             // Update social order status to 'order'

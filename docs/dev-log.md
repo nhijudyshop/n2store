@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [orders][processing-tags] Bỏ toàn bộ polling/listener auto-tag ĐÃ RA ĐƠN — chỉ giữ trigger khi tạo/hủy PBH qua UI app
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`, `orders-report/js/tab1/tab1-table.js`, `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-fast-sale-workflow.js`, `orders-report/js/tab1/tab1-sale.js` |
+| **Chi tiết** | User report loop vô hạn: đơn `62342` bị tag `ĐÃ RA ĐƠN (auto)` liên tục mỗi phút, dù user đã đổi sang `ĐƠN CHƯA PHẢN HỒI`. **Root cause**: 4 nguồn auto-tag chạy đồng thời — (1) polling 15s `backfillPtagFromOrderStatus()` tại [tab1-processing-tags.js:473], (2) WebSocket fetch invoice → `onPtagOrderStatusChanged` tại [tab1-fast-sale-invoice-status.js:1556-1568], (3) hook sau updateOrderStatus tại [:3381-3384], (4) dropdown status tại [tab1-table.js:1892-1895]. Khi user đổi tag tay, polling/listener lần sau lại override vì idempotency check chỉ xem `category === HOAN_TAT` (FALSE sau user đổi) — không tôn trọng intent user. **Fix**: bỏ hết 4 nguồn auto-trigger, chỉ giữ **2 trigger trực tiếp**: (A) khi `storeFromApiResult()` nhận response thành công từ POST `FastSaleOrder/InsertListOrderModel` → gọi `onPtagBillCreated(soId)` cho mỗi order trong `OrdersSucessed`; (G/H) khi user hủy PBH qua modal workflow (`ActionCancel`) → gọi `onPtagBillCancelled(saleOnlineId)` ngay sau `InvoiceStatusStore.delete` để restore snapshot `previousPosition` (tag xử lý + T-tags trước khi ra đơn). Thêm cover cho social order (flow `_isSocialOrder`) vì `storeFromApiResult` skip orders không có `SaleOnlineIds` — gọi trực tiếp `onPtagBillCreated(socialId)` sau `InvoiceStatusStore.set` ở 2 điểm [tab1-sale.js:1091, :1267]. Xóa sạch 2 function `onPtagOrderStatusChanged` [tab1-processing-tags.js:5409-5422] và `backfillPtagFromOrderStatus` [:5431-5459] + exports, không còn caller. Giữ nguyên core `onPtagBillCreated`/`onPtagBillCancelled`/`onPtagPackingSlipPrinted` và cơ chế snapshot/restore `previousPosition`. **Trade-off đã chấp nhận**: nếu PBH bị hủy từ TPOS (không qua UI app) → tag `ĐÃ RA ĐƠN` không tự rollback, user phải đổi tag tay. |
+| **Status** | ✅ Done |
+
 ### [inventory] Fix duplicate Chi Phí Hàng Về khi save/load đợt hàng
 | | |
 |---|---|

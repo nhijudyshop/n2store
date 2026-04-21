@@ -1889,11 +1889,6 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
             }
         });
 
-        // Hook: trigger tag ĐÃ RA ĐƠN theo Status mới (set nếu = 'Đơn hàng', rollback nếu rời)
-        if (typeof window.onPtagOrderStatusChanged === 'function') {
-            window.onPtagOrderStatusChanged(orderId, newValue);
-        }
-
         // Inline UI Update
         const badges = document.querySelectorAll(`.status-badge[data-order-id="${orderId}"]`);
         badges.forEach(badge => {
