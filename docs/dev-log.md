@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inbox] Enrich social-order products bằng full TPOS UOM trước khi mở sale modal — fix TPOS NRE
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | Bug "Object reference not set to an instance of an object" vẫn còn sau commit trước (đổi picker endpoint sang VariantPrice). **Root cause thực sự**: `openSaleModalInSocialTab` map `order.products` → `mappedOrder.Details` không có UOM info. `populateSaleModalWithOrder` Details branch ([sale-modal-common.js:744](orders-report/js/utils/sale-modal-common.js#L744)) hardcode `ProductUOMId: 1, Product: null`. Khi `buildSaleOrderModelForInsertList` build payload, `OrderLines[].ProductUOMId=1` — nếu TPOS variant có UOM Id thật khác 1 (ví dụ "Bộ"=2, "Set"=3) → TPOS server-side resolve UOM mismatch → NRE. So sánh với `addProductToSaleFromSearch` (sale modal F2 search) tại [tab1-sale.js:265-339](orders-report/js/tab1/tab1-sale.js#L265-L339) — flow này luôn fetch `/odata/Product(${id})?$expand=UOM,...` qua `productSearchManager.getFullProductDetails` rồi build `newLine` với `ProductUOMId: fullProduct.UOM?.Id` đúng. **Fix**: thêm bước enrich trong `openSaleModalInSocialTab` (sau khi build mappedOrder, trước `currentSaleOrderData = mappedOrder`) — for-each product có `tposProductId`, gọi `getFullProductDetails(tposId)`, build `mappedOrder.orderLines` (camelCase) với cùng structure như `addProductToSaleFromSearch.newLine` (Product object đầy đủ, ProductUOMId từ TPOS UOM, NameGet, ImageUrl). `populateSaleModalWithOrder` sẽ pick up branch `if (order.orderLines)` ([sale-modal-common.js:738](orders-report/js/utils/sale-modal-common.js#L738)) thay vì Details fallback → ProductUOMId đúng → TPOS không NRE. Edge case: nếu fetch fail (404, network) → fallback minimal line với UOMId=1 (giữ behavior cũ, không phá order). Cache `fullProductCache` Map nên lần 2 cùng product không gọi API. |
+| **Status** | ✅ Done |
+
 ### [customer-hub] Wallet activity: "Nạp từ CK" → "Khách CK" + font to đậm
 | | |
 |---|---|

@@ -252,6 +252,79 @@ async function openSaleModalInSocialTab(orderId) {
         _isSocialOrder: true,
     };
 
+    // Enrich từng product với full TPOS data (UOM, NameGet, ImageUrl) trước khi mở sale modal.
+    // Bug TPOS NRE "Object reference not set to an instance of an object" xảy ra khi
+    // payload OrderLines[].ProductUOMId không khớp UOM thật của variant — populateSaleModalWithOrder
+    // Details branch hardcode ProductUOMId=1 (sale-modal-common.js:744). Pattern này khớp với
+    // addProductToSaleFromSearch (tab1-sale.js:265-339) — flow F2 search đã verified hoạt động.
+    mappedOrder.orderLines = [];
+    for (const p of (order.products || [])) {
+        const name = (p.productName || p.name || '').trim();
+        const code = (p.productCode || '').trim();
+        const variant = (p.variant || '').trim();
+        const price = parseFloat(String(p.sellingPrice || p.price || 0).replace(/[,.]/g, '')) || 0;
+        const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
+        if (!(name || code || variant || price > 0 || purchase > 0)) continue;
+
+        const tposId = parseInt(p.tposProductId) || 0;
+        const buildMinimalLine = (idForLine, priceForLine) => ({
+            ProductId: idForLine,
+            Product: null,
+            ProductUOMId: 1,
+            ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
+            ProductUOMQty: p.quantity || 1,
+            Quantity: p.quantity || 1,
+            PriceUnit: priceForLine,
+            Price: priceForLine,
+            ProductName: name,
+            ProductNameGet: code ? `[${code}] ${name}` : name,
+            ProductUOMName: 'Cái',
+            Note: variant || null,
+            SaleOnlineDetailId: null,
+            Discount: 0,
+            Weight: 0,
+        });
+
+        if (!tposId || !window.productSearchManager?.getFullProductDetails) {
+            mappedOrder.orderLines.push(buildMinimalLine(tposId, price));
+            continue;
+        }
+
+        try {
+            const fullProduct = await window.productSearchManager.getFullProductDetails(tposId);
+            const salePrice = price || fullProduct.PriceVariant || fullProduct.ListPrice || 0;
+            mappedOrder.orderLines.push({
+                ProductId: fullProduct.Id,
+                Product: {
+                    Id: fullProduct.Id,
+                    Name: fullProduct.Name,
+                    DefaultCode: fullProduct.DefaultCode,
+                    NameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    ImageUrl: fullProduct.ImageUrl,
+                },
+                ProductUOMId: fullProduct.UOM?.Id || 1,
+                ProductUOM: {
+                    Id: fullProduct.UOM?.Id || 1,
+                    Name: fullProduct.UOM?.Name || 'Cái',
+                },
+                ProductUOMQty: p.quantity || 1,
+                Quantity: p.quantity || 1,
+                PriceUnit: salePrice,
+                Price: salePrice,
+                ProductName: fullProduct.Name,
+                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductUOMName: fullProduct.UOM?.Name || 'Cái',
+                Note: variant || null,
+                SaleOnlineDetailId: null,
+                Discount: 0,
+                Weight: fullProduct.Weight || 0,
+            });
+        } catch (err) {
+            console.warn('[SOCIAL-SALE] Enrich product failed, fallback minimal:', tposId, err.message);
+            mappedOrder.orderLines.push(buildMinimalLine(tposId, price));
+        }
+    }
+
     currentSaleOrderData = mappedOrder;
     currentSalePartnerData = null;
 
