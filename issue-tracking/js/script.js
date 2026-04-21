@@ -1430,7 +1430,17 @@ async function handleConfirmAction() {
                 loadingId = notificationManager.loading(message, `Bước ${step}/5`);
             });
 
-            console.log('[APP] Refund completed, refundOrderId:', result.refundOrderId);
+            console.log('[APP] Refund completed, refundOrderId:', result.refundOrderId, 'alreadyRefunded:', !!result.alreadyRefunded);
+
+            // Nếu TPOS báo đơn đã được trả hết trước đó → vẫn cập nhật ticket nhưng thông báo cho user
+            if (result.alreadyRefunded) {
+                notificationManager.remove(loadingId);
+                notificationManager.warning(
+                    'TPOS báo đơn này đã được trả hết trước đó. Bỏ qua bước hoàn TPOS, chỉ cập nhật trạng thái ticket.',
+                    6000,
+                    'Đã trả hết trên TPOS'
+                );
+            }
 
             // Update loading: Saving to Firebase
             notificationManager.remove(loadingId);
@@ -1445,8 +1455,9 @@ async function handleConfirmAction() {
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: nextStatus,
                 ...(nextStatus === 'COMPLETED' ? { completedAt: Date.now() } : { receivedAt: Date.now() }),
-                refundOrderId: result.refundOrderId,
-                refundNumber: result.confirmResult?.value?.[0]?.Number || null
+                refundOrderId: result.refundOrderId || null,
+                refundNumber: result.confirmResult?.value?.[0]?.Number || null,
+                ...(result.alreadyRefunded ? { alreadyRefundedOnTpos: true } : {})
             });
 
             // Thông báo chờ đối soát nếu cần
@@ -1511,6 +1522,14 @@ async function handleConfirmAction() {
                             'Cảnh báo'
                         );
                     }
+                } else if (result.alreadyRefunded) {
+                    // TPOS đã trả hàng trước đó → không có HTML để validate → không tự động cộng ví, yêu cầu kiểm tra tay
+                    console.warn('[APP] Skipping wallet credit - TPOS already refunded before, cannot validate amount');
+                    notificationManager.warning(
+                        `TPOS đã trả hết trước đó, không tự động cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}. Vui lòng kiểm tra Customer 360 nếu cần xử lý thủ công.`,
+                        8000,
+                        'Cần xử lý ví thủ công'
+                    );
                 } else {
                     // Amount mismatch - DO NOT auto-credit, warn user
                     console.error('[APP] Amount mismatch! Expected:', compensationAmount, 'TPOS:', refundAmountFromHtml);
@@ -1529,8 +1548,12 @@ async function handleConfirmAction() {
             }
 
             // Show success notification
-            const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
-            notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
+            if (result.alreadyRefunded) {
+                notificationManager.success('Đã cập nhật ticket (TPOS đã trả hết trước đó)', 3000, 'Nhận hàng thành công');
+            } else {
+                const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
+                notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
+            }
 
             // Show print dialog with the HTML bill (only if enabled in settings)
             if (result.printHtml && appSettings.printBillEnabled) {

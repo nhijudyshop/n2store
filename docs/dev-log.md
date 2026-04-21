@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [issue-tracking] Xử lý ActionRefund 400 "Đơn hàng đã được trả hết" — skip TPOS flow, vẫn đóng ticket
+| | |
+|---|---|
+| **Files** | `shared/js/api-service.js`, `issue-tracking/js/script.js` |
+| **Chi tiết** | User bấm "Nhận hàng" cho ticket Boom 427786 → TPOS trả 400 BusinessException: `"Đơn hàng này đã được trả hết"` → flow refund throw Error → ticket stuck ở `PENDING_GOODS`, không cập nhật được trạng thái. **Root cause**: đơn đã được hoàn trên TPOS trước đó (có thể do warehouse xử lý tay) nên `ActionRefund` không tạo được phiếu mới, nhưng code treat mọi 400 là fatal error. **Fix**: (1) [shared/js/api-service.js:849](shared/js/api-service.js#L849) — parse response khi `!refundResponse.ok`, nếu `error.message` chứa `"đã được trả hết"` → return sớm với `{ alreadyRefunded: true, refundOrderId: null, printHtml: null, confirmResult: null, refundAmountFromHtml: null, message }` thay vì throw; (2) [issue-tracking/js/script.js:1427](issue-tracking/js/script.js#L1427) — handle `result.alreadyRefunded`: show warning toast "Đã trả hết trên TPOS", vẫn gọi `updateTicket` với `refundOrderId: null` + flag `alreadyRefundedOnTpos: true`; (3) success message phân biệt "Đã cập nhật ticket (TPOS đã trả hết trước đó)" vs "Đã tạo phiếu hoàn: …"; (4) wallet credit cho `RETURN_CLIENT` thêm nhánh `else if (result.alreadyRefunded)` — không auto-credit vì không có `refundAmountFromHtml` để validate, thay bằng warning yêu cầu kiểm tra Customer 360 thủ công. Không print dialog vì `printHtml = null`. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Fix công nợ ảo "Thu Về" không ghi note ticket vào wallet transaction
 | | |
 |---|---|

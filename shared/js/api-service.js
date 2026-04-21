@@ -849,6 +849,28 @@ const ApiService = {
         if (!refundResponse.ok) {
             const errorText = await refundResponse.text();
             console.error('[API] ActionRefund failed:', errorText);
+
+            // TPOS đã trả hàng trước đó: bỏ qua toàn bộ refund flow, coi như thành công
+            // TPOS BusinessException message: "Đơn hàng này đã được trả hết"
+            try {
+                const errorData = JSON.parse(errorText);
+                const msg = errorData?.error?.message || '';
+                if (msg.includes('đã được trả hết') || msg.includes('đã được trả')) {
+                    console.warn('[API] Order already refunded on TPOS - skipping refund flow, treating as success');
+                    reportProgress(5, 'Đơn đã được trả hết trước đó trên TPOS');
+                    return {
+                        alreadyRefunded: true,
+                        refundOrderId: null,
+                        printHtml: null,
+                        confirmResult: null,
+                        refundAmountFromHtml: null,
+                        message: msg
+                    };
+                }
+            } catch (_parseErr) {
+                // Không phải JSON hợp lệ → fallthrough để throw lỗi gốc
+            }
+
             throw new Error(`ActionRefund failed: ${refundResponse.status}`);
         }
 
