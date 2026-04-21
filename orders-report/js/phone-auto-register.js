@@ -21,8 +21,11 @@ const PhoneAutoRegister = (() => {
     let started = false;
 
     function isEnabled() {
+        // Default OFF — auto-register từ mọi browser có thể khiến PBX chọn sai contact khi fork
+        // (background UA ở máy khác register sau cùng → PBX route INVITE tới nó thay vì primary widget).
+        // Bật qua console: PhoneAutoRegister.setEnabled(true). Khuyến nghị chỉ dùng Monitor page.
         const v = localStorage.getItem(STATE_KEY);
-        return v === null || v === 'true'; // default ON
+        return v === 'true';
     }
     function setEnabled(b) {
         localStorage.setItem(STATE_KEY, String(!!b));
