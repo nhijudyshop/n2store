@@ -225,13 +225,14 @@ const WalletIntegration = (function() {
         try {
             const response = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}`);
             if (!response.ok) {
-                if (response.status === 404) return null;
+                // 404 = customer not found, 410 = endpoint deprecated (fallback to v2 wallet API)
+                if (response.status === 404 || response.status === 410) return null;
                 throw new Error(`Customer API error: ${response.status}`);
             }
             const result = await response.json();
             return result.data;
         } catch (error) {
-            console.error('[WALLET] Get customer 360 failed:', error.message);
+            console.warn('[WALLET] Get customer 360 failed (falling back to v2 wallet API):', error.message);
             return null;
         }
     }
@@ -370,10 +371,12 @@ const WalletIntegration = (function() {
                         background: white;
                         border-radius: 12px;
                         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                        max-width: 500px;
-                        width: 90%;
+                        max-width: 760px;
+                        width: 92%;
                         max-height: 90vh;
                         overflow: hidden;
+                        display: flex;
+                        flex-direction: column;
                     }
                     #wallet-detail-modal .modal-header {
                         display: flex;
@@ -482,7 +485,7 @@ const WalletIntegration = (function() {
 
         // Always fetch transactions from dedicated API (customer360 doesn't include transactions)
         try {
-            const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=50`);
+            const txResponse = await fetch(`${CONFIG.API_URL}/v2/wallets/${normalizedPhone}/transactions?limit=50`);
             if (txResponse.ok) {
                 const txResult = await txResponse.json();
                 recentTransactions = txResult.data || [];
@@ -524,23 +527,18 @@ const WalletIntegration = (function() {
             return;
         }
 
-        // Separate transactions:
-        // - "Available" only shown when totalBalance > 0, limited to recent deposits
-        // - "Completed" shows all withdrawal transactions
-        // Note: amount may be string from API, so parse to float
-
-        // If balance is 0 or negative, no transactions are "available" - the money has been used
-        const depositTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) > 0);
-        const withdrawalTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) <= 0);
-
-        // Only show deposits as "available" if there's actual balance remaining
-        const availableTransactions = totalBalance > 0 ? depositTransactions : [];
-        const completedTransactions = totalBalance > 0 ? withdrawalTransactions : recentTransactions;
-
-        // Format balance display
+        // Format balance display (must be computed BEFORE filters that reference totalBalance)
         const totalBalance = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
         const realBalance = parseFloat(wallet.balance) || 0;
         const virtualBalance = parseFloat(wallet.virtual_balance) || 0;
+
+        // Separate transactions:
+        // - "Available" only shown when totalBalance > 0, limited to recent deposits
+        // - "Completed" shows all withdrawal transactions
+        const depositTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) > 0);
+        const withdrawalTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) <= 0);
+        const availableTransactions = totalBalance > 0 ? depositTransactions : [];
+        const completedTransactions = totalBalance > 0 ? withdrawalTransactions : recentTransactions;
 
         document.getElementById('wallet-modal-body').innerHTML = `
             <div style="padding: 10px;">

@@ -383,8 +383,8 @@
             background: white;
             border-radius: 14px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-            max-width: 480px;
-            width: 92%;
+            max-width: 760px;
+            width: 94%;
             max-height: 85vh;
             display: flex;
             flex-direction: column;
@@ -496,9 +496,9 @@
             font-size: 13px;
             font-weight: 600;
             color: #1e293b;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.45;
         }
         .wdm-tx-thumb {
             width: 26px;
