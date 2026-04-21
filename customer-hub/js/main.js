@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize or re-render customer profile
         if (!customerProfileModule) {
             customerProfileModule = new CustomerProfileModule('modal-content', permissionHelper);
+            window.customerProfileModule = customerProfileModule; // expose for alias refresh
         }
         await customerProfileModule.render(phone);
     };

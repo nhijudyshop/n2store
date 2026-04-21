@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [customer-hub] Bỏ Reset Password + wire Audit Log + fix Aliases URL sai
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/main.js`, `customer-hub/index.html` |
+| **Chi tiết** | Kiểm tra lại 3 nút ở header modal Customer Profile: **(1) Reset Password** — vô nghĩa vì khách hàng không có tài khoản/mật khẩu (chỉ là kho dữ liệu KH), xóa hẳn nút. **(2) Audit Log** — trước chưa có handler, nay wire vào `_showAuditLogDialog()` (method mới): mở modal `#audit-log-popup` (z-index 10000), query Firestore `edit_history` `where entityId=phone AND entityType='customer' orderBy timestamp desc limit 200`, render list entry dạng card (actionType badge, performer, module, timestamp, description, oldData/newData diff). Map `actionType` → nhãn Việt (`wallet_add_debt → Cộng ví`, `customer_info_update → Cập nhật KH`, ...). Click backdrop hoặc nút X để đóng. Thêm `_escapeHtml` helper làm class method. **(3) Aliases** — function `window.addCustomerAlias` / `removeCustomerAlias` đã định nghĩa ở cuối file nhưng fetch URL sai: `/api/sepay/...` (relative → github.io 404). Fix dùng `${window.ApiService.RENDER_API_URL}/sepay/customer/:phone/alias` để route qua CF Worker proxy → Render backend (endpoint có sẵn ở `sepay-wallet-operations.js:1035-1167`, migration `025_add_aliases_and_display_name.sql` đã deploy). Thêm `window.customerProfileModule = ...` khi khởi tạo trong `main.js` để `addCustomerAlias` / `removeCustomerAlias` gọi được `.render(phone)` refresh modal sau khi thêm/xóa. Cache-bust `?v=20260421-audit-alias`. |
+| **Status** | ✅ Done — push để GitHub Pages deploy |
+
 ### [customer-hub] Fix nút X đóng Customer Profile — defensive 3-layer + cache-bust
 | | |
 |---|---|

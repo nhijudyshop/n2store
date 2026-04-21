@@ -37,13 +37,9 @@ export class CustomerProfileModule {
                         </span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button id="audit-log-btn" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                        <button id="audit-log-btn" type="button" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                             <span class="material-symbols-outlined text-lg">history</span>
                             Audit Log
-                        </button>
-                        <button id="reset-password-btn" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
-                            <span class="material-symbols-outlined text-lg">lock_reset</span>
-                            Reset Password
                         </button>
                         <button id="modal-close-btn" type="button" onclick="window.closeCustomerModal && window.closeCustomerModal()" class="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg transition-colors cursor-pointer" title="Đóng" style="position: relative; z-index: 60;">
                             <span class="material-symbols-outlined text-2xl pointer-events-none">close</span>
@@ -116,6 +112,15 @@ export class CustomerProfileModule {
                     }
                     document.body.style.overflow = '';
                 }
+            });
+        }
+
+        // Bind Audit Log button
+        const auditBtn = this.container.querySelector('#audit-log-btn');
+        if (auditBtn) {
+            auditBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this._showAuditLogDialog();
             });
         }
     }
@@ -1536,6 +1541,134 @@ export class CustomerProfileModule {
     formatCurrency(amount) {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
     }
+
+    async _showAuditLogDialog() {
+        if (!this.customerPhone) return;
+
+        const existing = document.getElementById('audit-log-popup');
+        if (existing) existing.remove();
+
+        const popup = document.createElement('div');
+        popup.id = 'audit-log-popup';
+        popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+        popup.innerHTML = `
+            <div style="background:#fff;border-radius:12px;width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.3);">
+                <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="color:#6366f1;">history</span>
+                        <h3 style="margin:0;font-size:16px;font-weight:700;color:#111827;">Audit Log — ${this.customerPhone}</h3>
+                    </div>
+                    <button id="audit-log-close" style="border:none;background:transparent;cursor:pointer;padding:4px;">
+                        <span class="material-symbols-outlined" style="color:#6b7280;">close</span>
+                    </button>
+                </div>
+                <div id="audit-log-body" style="flex:1;overflow-y:auto;padding:16px 20px;">
+                    <div style="display:flex;align-items:center;justify-content:center;padding:40px;color:#6b7280;">
+                        <span class="material-symbols-outlined animate-spin" style="margin-right:8px;">progress_activity</span>
+                        Đang tải lịch sử...
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+
+        popup.querySelector('#audit-log-close').addEventListener('click', () => popup.remove());
+        popup.addEventListener('click', (e) => { if (e.target === popup) popup.remove(); });
+
+        const body = popup.querySelector('#audit-log-body');
+
+        try {
+            const db = typeof window.initializeFirestore === 'function'
+                ? window.initializeFirestore({ enablePersistence: false })
+                : (window.firebase && window.firebase.firestore && window.firebase.firestore());
+            if (!db) throw new Error('Firestore chưa sẵn sàng');
+
+            const snapshot = await db.collection('edit_history')
+                .where('entityId', '==', this.customerPhone)
+                .where('entityType', '==', 'customer')
+                .orderBy('timestamp', 'desc')
+                .limit(200)
+                .get();
+
+            if (snapshot.empty) {
+                body.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;">Chưa có lịch sử thay đổi nào cho khách này.</div>`;
+                return;
+            }
+
+            const rows = snapshot.docs.map(doc => {
+                const d = doc.data();
+                const ts = d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : (d.timestamp ? new Date(d.timestamp) : null);
+                const when = ts ? ts.toLocaleString('vi-VN') : '—';
+                const user = d.performerUserName || d.performerUserId || 'Unknown';
+                const actionLabel = this._auditActionLabel(d.actionType);
+                const desc = this._escapeHtml(d.description || '');
+                const details = this._auditDetailsBlock(d);
+                return `
+                    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafafa;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="padding:2px 8px;border-radius:6px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:600;">${actionLabel}</span>
+                                <span style="font-size:13px;color:#111827;font-weight:500;">${this._escapeHtml(user)}</span>
+                                ${d.module ? `<span style="color:#9ca3af;font-size:12px;">· ${this._escapeHtml(d.module)}</span>` : ''}
+                            </div>
+                            <span style="color:#6b7280;font-size:12px;white-space:nowrap;">${when}</span>
+                        </div>
+                        ${desc ? `<div style="font-size:13px;color:#374151;margin-bottom:6px;">${desc}</div>` : ''}
+                        ${details}
+                    </div>
+                `;
+            }).join('');
+
+            body.innerHTML = rows;
+        } catch (error) {
+            console.error('[AuditLog] load failed:', error);
+            body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải lịch sử: ${this._escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    _escapeHtml(s) {
+        return s == null ? '' : String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    _auditActionLabel(actionType) {
+        const map = {
+            'wallet_add_debt': 'Cộng ví',
+            'wallet_subtract_debt': 'Trừ ví',
+            'wallet_adjust_debt': 'Điều chỉnh ví',
+            'wallet_transaction': 'Giao dịch ví',
+            'customer_info_update': 'Cập nhật KH',
+            'customer_info_update_bh': 'Cập nhật KH (BH)',
+            'ticket_create': 'Tạo ticket',
+            'ticket_add_debt': 'Ticket cộng nợ',
+            'ticket_receive_goods': 'Ticket nhận hàng',
+            'ticket_payment': 'Ticket thanh toán',
+            'ticket_update': 'Cập nhật ticket',
+            'transaction_assign': 'Gán giao dịch',
+            'transaction_approve': 'Duyệt giao dịch',
+            'transaction_adjust': 'Chỉnh giao dịch',
+            'transaction_verify': 'Verify giao dịch',
+            'livemode_confirm_customer': 'Xác nhận KH (live)',
+            'accountant_entry_create': 'Kế toán ghi nhận',
+            'add': 'Thêm', 'edit': 'Sửa', 'delete': 'Xóa', 'update': 'Cập nhật', 'mark': 'Đánh dấu'
+        };
+        return map[actionType] || actionType || '—';
+    }
+
+    _auditDetailsBlock(d) {
+        const parts = [];
+        if (d.oldData && Object.keys(d.oldData).length) {
+            parts.push(`<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Trước:</b> <code style="background:#fee2e2;color:#991b1b;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.oldData))}</code></div>`);
+        }
+        if (d.newData && Object.keys(d.newData).length) {
+            parts.push(`<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Sau:</b> <code style="background:#dcfce7;color:#166534;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.newData))}</code></div>`);
+        }
+        return parts.join('');
+    }
 }
 
 // =====================================================
@@ -1560,7 +1693,8 @@ window.showAddAliasDialog = function(phone) {
  */
 window.addCustomerAlias = async function(phone, alias) {
     try {
-        const response = await fetch(`/api/sepay/customer/${phone}/alias`, {
+        const baseUrl = (window.ApiService && window.ApiService.RENDER_API_URL) || '/api';
+        const response = await fetch(`${baseUrl}/sepay/customer/${phone}/alias`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1573,12 +1707,9 @@ window.addCustomerAlias = async function(phone, alias) {
         if (result.success) {
             console.log('[ALIAS] Added alias:', alias, 'for phone:', phone);
 
-            // Reload the customer profile to show updated aliases
-            // Try to find and call the module's render function
             if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
                 window.customerProfileModule.render(phone);
             } else {
-                // Fallback: reload the page
                 location.reload();
             }
         } else {
@@ -1601,7 +1732,8 @@ window.removeCustomerAlias = async function(phone, alias) {
     }
 
     try {
-        const response = await fetch(`/api/sepay/customer/${phone}/alias`, {
+        const baseUrl = (window.ApiService && window.ApiService.RENDER_API_URL) || '/api';
+        const response = await fetch(`${baseUrl}/sepay/customer/${phone}/alias`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -1614,7 +1746,6 @@ window.removeCustomerAlias = async function(phone, alias) {
         if (result.success) {
             console.log('[ALIAS] Removed alias:', alias, 'from phone:', phone);
 
-            // Reload the customer profile to show updated aliases
             if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
                 window.customerProfileModule.render(phone);
             } else {
