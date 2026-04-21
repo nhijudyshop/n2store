@@ -66,6 +66,13 @@
 
 ## 2026-04-20
 
+### [orders/wallet] MANUAL_ADJUSTMENT (điều chỉnh ví sai SĐT) được coi như CK nạp → note "Đã Nhận X ACB dd/mm"
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | **Bug** (Chăm Sóc Sau Sinh, 0906456725): Ví có TX#6845 `type='ADJUSTMENT', source='MANUAL_ADJUSTMENT', amount=+100K @20/04` (điều chỉnh ví sai SĐT — chuyển từ 0925022377 sang). TX#6964 `type='WITHDRAW', amount=-100K @21/04` (thanh toán đơn 62379). Balance = 0, field prepaid = 100K. Note SAI `Nợ Cũ 100K → 0Đ`, đúng phải `Đã Nhận 100K ACB 20/04 → 0Đ`. **Root cause**: Backend query txs `WHERE type IN ('DEPOSIT', 'WITHDRAW')` — loại ADJUSTMENT → walletNoteLines rỗng → frontend fallback cuối push "Nợ Cũ". **Fix**: (1) Backend thêm query `latestDeposit` = tx DEPOSIT/ADJUSTMENT-positive gần nhất (bất kể consumed), trả trong response. (2) Frontend lưu `window.currentSaleLatestDeposit`. (3) Fallback cuối: nếu `|latestDeposit.amount - originalBalance| < 500đ` → push `Đã Nhận X ACB dd/mm` (dùng `created_at` của tx); ngược lại giữ `Nợ Cũ X`. **Lý do business**: điều chỉnh ví sai SĐT thực chất là 1 lần CK nhận (chỉ bị gán sai khách ban đầu), nên khi gán đúng vẫn coi là CK. **Verify các case**: Chăm Sóc → `Đã Nhận 100K ACB 20/04\n-> 0Đ` (match); Apple → `Nợ Cũ 41K\n-> 0Đ\nGG 70K` (walletLines có nên không vào fallback); Bond Huynh/Nguyễn Diễm/Derek → không ảnh hưởng (vc flow). |
+| **Status** | ✅ Done |
+
 ### [orders/wallet] Fix thật sự Derek: vcList rỗng do vc EXPIRED → fallback phải là "Nợ Cũ" không phải "Thu Về"
 | | |
 |---|---|

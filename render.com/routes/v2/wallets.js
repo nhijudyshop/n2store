@@ -427,6 +427,21 @@ router.get('/:customerId', async (req, res) => {
         // Backward compat: keep lastDeposit fields from the last available deposit
         const lastDeposit = availableDeposits.length > 0 ? availableDeposits[availableDeposits.length - 1] : null;
 
+        // latestDeposit: tx DEPOSIT/ADJUSTMENT-positive gần nhất bất kể đã consumed
+        // (để frontend autoFillSaleNote format "Đã Nhận X ACB dd/mm" khi balance match)
+        const latestDepositResult = await db.query(`
+            SELECT amount::float AS amount, source, note, created_at, reference_id
+            FROM wallet_transactions
+            WHERE phone = $1
+              AND (
+                (type = 'DEPOSIT' AND source <> 'ORDER_CANCEL_REFUND')
+                OR (type = 'ADJUSTMENT' AND amount > 0)
+              )
+            ORDER BY created_at DESC
+            LIMIT 1
+        `, [phone]);
+        const latestDeposit = latestDepositResult.rows[0] || null;
+
         // ===== walletNoteLines: pre-computed lines cho auto-fill ghi chú phiếu bán hàng =====
         // Walk chronological, output mỗi tx 1 dòng (CK / TT), bỏ qua cặp WITHDRAW + REFUND cùng amount + cùng reference_id
         const txs = txResult.rows;
@@ -521,7 +536,8 @@ router.get('/:customerId', async (req, res) => {
                 availableDeposits,
                 walletNoteLines,
                 lastDepositAmount: lastDeposit ? lastDeposit.amount : null,
-                lastDepositDate: lastDeposit ? lastDeposit.date : null
+                lastDepositDate: lastDeposit ? lastDeposit.date : null,
+                latestDeposit
             }
         });
     } catch (error) {

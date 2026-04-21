@@ -1037,6 +1037,10 @@ async function fetchDebtForSaleModal(phone) {
                 ? result.data.walletNoteLines
                 : [];
 
+            // Store latest DEPOSIT/ADJUSTMENT-positive tx (bất kể consumed)
+            // để fallback autoFillSaleNote format "Đã Nhận X ACB dd/mm" khi balance match
+            window.currentSaleLatestDeposit = result.data.latestDeposit || null;
+
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
                 prepaidAmountField.dataset.originalBalance = totalBalance.toString();
@@ -1158,8 +1162,20 @@ function autoFillSaleNote() {
             }
         } else {
             // Fallback cuối: backend không trả walletNoteLines và không có vc/virtual
+            // Nếu balance match `latestDeposit` (tx DEPOSIT/ADJUSTMENT+ gần nhất)
+            // → format "Đã Nhận X ACB dd/mm" (MANUAL_ADJUSTMENT = điều chỉnh ví sai SĐT cũng tính là CK)
+            // Ngược lại → "Nợ Cũ X" (legacy balance)
             const amountStr = originalBalance >= 1000 ? `${Math.round(originalBalance / 1000)}K` : `${originalBalance}đ`;
-            noteParts.push(`Nợ Cũ ${amountStr}`);
+            const latestDep = window.currentSaleLatestDeposit;
+            const latestAmt = latestDep ? parseFloat(latestDep.amount) || 0 : 0;
+            if (latestDep && Math.abs(latestAmt - originalBalance) < 500) {
+                const d = new Date(latestDep.created_at);
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                noteParts.push(`Đã Nhận ${amountStr} ACB ${dd}/${mm}`);
+            } else {
+                noteParts.push(`Nợ Cũ ${amountStr}`);
+            }
             if (remaining > 0) {
                 noteParts.push(`-> CÒN NỢ ${debtStr}`);
             } else {
