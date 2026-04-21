@@ -801,15 +801,20 @@ const PM = (() => {
         $('#cfgWsUrl').value = dbConfig?.ws_url || '';
         const body = $('#cfgExtPoolBody');
         body.innerHTML = extensions.length
-            ? extensions.map(e => `
-                <tr>
+            ? extensions.map((e, idx) => `
+                <tr data-ext-idx="${idx}">
                     <td class="mono"><b>${e.ext}</b></td>
-                    <td>${_esc(e.label || '')}</td>
-                    <td class="mono" style="font-size:11px">${_esc(e.authId || '')}</td>
-                    <td class="mono" style="font-size:11px">${e.password ? '••••••••' : '—'}</td>
+                    <td><input class="pm-input" style="min-width:120px;font-size:12px" value="${_esc(e.label || '')}" data-field="label"></td>
+                    <td><input class="pm-input" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.authId || '')}" data-field="authId" placeholder="authId từ OnCallCX"></td>
+                    <td style="display:flex;gap:4px;align-items:center">
+                        <input class="pm-input" type="password" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.password || '')}" data-field="password" placeholder="••••••••">
+                        <button class="btn btn-sm btn-outline" onclick="PM.toggleExtPwd(this)" title="Hiện/ẩn"><i data-lucide="eye"></i></button>
+                        <button class="btn btn-sm" style="background:#22c55e" onclick="PM.saveExt(${idx})" title="Lưu"><i data-lucide="check"></i></button>
+                    </td>
                 </tr>
             `).join('')
             : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Chưa tải được ext pool</td></tr>';
+        _iconsRefresh();
         try {
             const p = JSON.parse(localStorage.getItem('phoneMgmt_prefs') || '{}');
             $('#cfgAutoAnswer').checked = !!p.autoAnswer;
@@ -826,6 +831,38 @@ const PM = (() => {
             desktopNotify: $('#cfgDesktopNotify').checked
         };
         localStorage.setItem('phoneMgmt_prefs', JSON.stringify(prefs));
+    }
+
+    function toggleExtPwd(btn) {
+        const input = btn.closest('td').querySelector('input[data-field="password"]');
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    async function saveExt(idx) {
+        const row = document.querySelector(`tr[data-ext-idx="${idx}"]`); if (!row) return;
+        const label = row.querySelector('[data-field="label"]').value.trim();
+        const authId = row.querySelector('[data-field="authId"]').value.trim();
+        const password = row.querySelector('[data-field="password"]').value;
+        if (!authId || !password) { alert('authId và password không được trống'); return; }
+        const updated = [...extensions];
+        updated[idx] = { ...updated[idx], label, authId, password };
+        const r = await apiSend('/phone-config', 'PUT', { key: 'sip_extensions', value: updated });
+        if (r?.success) {
+            extensions = updated;
+            if (dbConfig) dbConfig.sip_extensions = updated;
+            try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig || { sip_extensions: updated })); } catch {}
+            await apiSend('/audit-log', 'POST', {
+                username: window.authManager?.getAuthData?.()?.displayName || '',
+                action: 'config_update',
+                detail: { ext: updated[idx].ext, field: 'credentials' },
+                timestamp: Date.now()
+            });
+            const saveBtn = row.querySelector('button[onclick*="saveExt"]');
+            if (saveBtn) { saveBtn.style.background = '#15803d'; saveBtn.innerHTML = '<i data-lucide="check-check"></i>'; _iconsRefresh(); setTimeout(() => { saveBtn.style.background = '#22c55e'; saveBtn.innerHTML = '<i data-lucide="check"></i>'; _iconsRefresh(); }, 1500); }
+        } else {
+            alert('Lỗi lưu: ' + (r?.error || 'unknown'));
+        }
     }
 
     // === AUDIT ===
@@ -860,7 +897,7 @@ const PM = (() => {
         viewExtHistory, viewUserHistory,
         openAddExtension, openAddContact, deleteContact, copyToClipboard,
         applyHistoryFilters, exportHistoryCSV, gotoHistoryPage,
-        saveLocalConfig,
+        saveLocalConfig, saveExt, toggleExtPwd,
         playRecording, downloadRecording, deleteRecording
     };
 })();
