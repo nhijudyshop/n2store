@@ -239,6 +239,9 @@ function _renderConvertModal() {
                 <button type="button" id="poBtnAddItem2" class="po-btn-outline">
                     <i data-lucide="plus"></i> Thêm sản phẩm
                 </button>
+                <button type="button" id="poBtnGenAllCodes" class="po-btn-outline po-btn-gen-all" title="Tự tạo mã SP cho mọi dòng còn thiếu">
+                    <i data-lucide="refresh-cw"></i> Tạo mã tất cả
+                </button>
                 <div class="po-tot-group po-tot-final">
                     <span class="po-tot-label">THÀNH TIỀN:</span>
                     <strong id="poFinalAmount">0 đ</strong>
@@ -368,6 +371,10 @@ function _bindMainEvents() {
         if (btn) btn.onclick = () => _addBlankItem();
     });
 
+    // Generate codes for all items
+    const genAllBtn = document.getElementById('poBtnGenAllCodes');
+    if (genAllBtn) genAllBtn.onclick = () => _generateCodesForAll(genAllBtn);
+
     // NCC thumbnail click → toggle selection
     const nccPreview = document.getElementById('poNccImgPreview');
     if (nccPreview) {
@@ -437,6 +444,75 @@ function _onItemClick(e) {
  * - Dùng generateProductCodeFromMax (async: check form items + Firestore + TPOS)
  * - Firebase không load trong inventory → check DB trả 0 (OK, fallback an toàn).
  */
+/**
+ * Sinh mã SP cho TẤT CẢ items còn thiếu (productName có nhưng productCode rỗng).
+ * Sequential (không parallel) — mỗi item sinh xong update vào form để iter kế tiếp
+ * lấy max đúng (tránh trùng mã khi nhiều item cùng prefix).
+ */
+async function _generateCodesForAll(btn) {
+    const gen = window.ProductCodeGenerator;
+    if (!gen) {
+        window.notificationManager?.error('ProductCodeGenerator chưa load');
+        return;
+    }
+
+    const targets = _convertItems.filter(i =>
+        (i.productName || '').trim() && !(i.productCode || '').trim()
+    );
+    if (targets.length === 0) {
+        window.notificationManager?.info('Tất cả sản phẩm đã có mã');
+        return;
+    }
+
+    const originalHTML = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+    }
+
+    let success = 0;
+    let failed = 0;
+    try {
+        for (let i = 0; i < targets.length; i++) {
+            const item = targets[i];
+            if (btn) btn.innerHTML = `<i data-lucide="loader"></i> Đang tạo... ${i + 1}/${targets.length}`;
+            if (window.lucide) lucide.createIcons();
+
+            try {
+                const existing = _convertItems
+                    .filter(x => x._key !== item._key)
+                    .map(x => ({ productCode: x.productCode || '' }));
+                const code = await gen.generateProductCodeFromMax(item.productName, existing, 30);
+                if (code) {
+                    item.productCode = code;
+                    const row = document.querySelector(`tr[data-key="${item._key}"]`);
+                    const input = row?.querySelector('input[data-field="productCode"]');
+                    if (input) input.value = code;
+                    success++;
+                } else {
+                    failed++;
+                }
+            } catch (err) {
+                console.error('[CONVERT-PO] Gen code failed for item:', item, err);
+                failed++;
+            }
+        }
+
+        if (success > 0 && failed === 0) {
+            window.notificationManager?.success(`Đã tạo mã cho ${success} sản phẩm`);
+        } else if (success > 0 && failed > 0) {
+            window.notificationManager?.warning(`Tạo được ${success}/${targets.length} mã (${failed} lỗi)`);
+        } else {
+            window.notificationManager?.error('Không tạo được mã nào');
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
 async function _generateCodeForItem(itemKey, btn) {
     const item = _convertItems.find(i => i._key === itemKey);
     if (!item) return;
