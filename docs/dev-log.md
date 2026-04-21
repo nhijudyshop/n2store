@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [customer-hub] Wallet activity: "Nạp từ CK" → "Khách CK" + font to đậm
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js` |
+| **Chi tiết** | Screenshot profile khách (tab Hoạt động ví) user yêu cầu: (1) label "Nạp từ CK (Duyệt bởi ...)" hiển thị thành "Khách CK (Duyệt bởi ...)" vì tiền vào là từ khách chuyển khoản; (2) toàn bộ dòng giao dịch ví in đậm + tăng font cho dễ đọc. Note gốc được backend `render.com/services/wallet-event-processor.js` + `routes/v2/balance-history.js` lưu kèm text "Nạp từ CK" → thay vì migrate DB, replace ngay trên frontend khi render (giống pattern `Approved by` → `Duyệt bởi` ở fallback activities). Thêm `.replace(/Nạp từ CK/gi, 'Khách CK')` vào bước làm sạch `note` trong nhánh render `walletTransactions` (`_renderActivities`). Font: `.wallet-tx-line` padding 6→8px; amount 15→17px; detail 13→15px + color đậm hơn (`#475569` → `#1e293b`) + thêm `font-weight:700`; thumb 24→28px; balance-after 14→16px. |
+| **Status** | ✅ Done |
+
 ### [inbox,picker] Fix "Không tìm thấy đơn hàng" + TPOS NRE khi tạo phiếu từ "Tạo đơn mới"
 | | |
 |---|---|

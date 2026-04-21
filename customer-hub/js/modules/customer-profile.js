@@ -694,7 +694,10 @@ export class CustomerProfileModule {
                             // Extract image URL and clean note text
                             const rawNote = tx.note || tx.source || '';
                             const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
-                            const note = rawNote.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
+                            const note = rawNote
+                                .replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '')
+                                .replace(/Nạp từ CK/gi, 'Khách CK')
+                                .trim();
                             let detailParts = [];
                             if (isAdjust) {
                                 const wp = tx.wrong_customer_phone || '';
@@ -765,11 +768,11 @@ export class CustomerProfileModule {
                             const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
                             const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
                             return `
-                                <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
-                                    <span style="font-size:15px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
-                                    <span style="flex:1; font-size:13px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
-                                    ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:24px;height:24px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
-                                    <span style="font-size:14px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
+                                <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
+                                    <span style="font-size:17px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
+                                    <span style="flex:1; font-size:15px; font-weight:700; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
+                                    ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
+                                    <span style="font-size:16px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>
                             `;
                         }).join('')}
