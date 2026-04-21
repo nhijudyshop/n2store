@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-21
+
+### [phone-management] Monitor page — treo 10 line 24/7 trong 1 browser tab
+| | |
+|---|---|
+| **Files** | `phone-management/monitor.html` (new), `phone-management/index.html` |
+| **Chi tiết** | User hỏi có cách nào treo 10 line cùng lúc mà không cần mở web widget trên từng máy. Phương án khả thi nhất (không đụng Render): tạo **Monitor page** mở trên 1 PC dự phòng luôn-on. Page khởi tạo **10 `JsSIP.UA` instance** (mỗi ext 1 UA), tất cả register tới OnCallCX PBX cùng lúc → dashboard luôn thấy 10 line xanh. **UI**: header với 2 nút "Bật tất cả / Tắt tất cả" + nút xin permission Notification. Grid card mỗi ext: số + nhãn + trạng thái (offline/registered/calling/in-call/error), user được gán (đọc từ Render `/ext-assignments`), nút Bắt/Từ chối khi có cuộc gọi đến. Summary chip: Total / Registered / Calling / Offline. Ring tone Web Audio API (500Hz nhịp 1s/1.5s). Desktop notification khi incoming. Cuộc gọi nhỡ (session failed chưa answer) auto log vào Render `/call-history` với direction='missed'. Admin check (userType admin / isAdmin / roleTemplate / checkLogin). Refresh assignments mỗi 30s để cập nhật label user. Nút Monitor trong top-bar phone-management (gradient cam) `target="_blank"`. Reuse JsSIP + phone-cloud-sync có sẵn. **Không phải server-side SIP** (cần hand-roll UDP + Digest Auth + media handling — phức tạp, Render free tier có thể block UDP). Page hoạt động 24/7 miễn là tab active (đề xuất user set tab không sleep qua `chrome://flags` hoặc extension "Tab Reloader"). |
+| **Status** | ✅ Done |
+
 ## 2026-04-20
 
 ### [orders/wallet] Fix thật sự Derek: vcList rỗng do vc EXPIRED → fallback phải là "Nợ Cũ" không phải "Thu Về"

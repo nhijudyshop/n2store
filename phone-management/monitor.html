@@ -1,0 +1,385 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor 10 Line - N2STORE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b); color: #e2e8f0; min-height: 100vh; }
+header { padding: 16px 24px; background: rgba(15,23,42,.8); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255,255,255,.08); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.brand { font-size: 18px; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 10px; }
+.brand .emoji { font-size: 24px; }
+.brand .badge { font-size: 10px; background: #22c55e; color: #fff; padding: 3px 8px; border-radius: 10px; letter-spacing: .5px; font-weight: 700; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+.toolbar { display: flex; gap: 10px; align-items: center; }
+.btn { padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); color: #e2e8f0; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all .15s; }
+.btn:hover { background: rgba(255,255,255,.1); }
+.btn.primary { background: linear-gradient(135deg, #22c55e, #15803d); border-color: transparent; }
+.btn.danger { background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: transparent; }
+.summary { padding: 16px 24px; display: flex; gap: 16px; flex-wrap: wrap; }
+.chip { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); padding: 8px 14px; border-radius: 10px; font-size: 12px; color: #cbd5e1; }
+.chip b { color: #f1f5f9; font-size: 14px; margin-left: 4px; }
+.chip.green b { color: #4ade80; }
+.chip.red b { color: #f87171; }
+.chip.blue b { color: #60a5fa; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 0 24px 24px; }
+.line-card { background: rgba(30,41,59,.5); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; padding: 14px; transition: all .2s; position: relative; overflow: hidden; }
+.line-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #64748b; transition: background .2s; }
+.line-card.registered::before { background: linear-gradient(90deg, #22c55e, #15803d); }
+.line-card.registered { border-color: rgba(34,197,94,.3); box-shadow: 0 0 0 1px rgba(34,197,94,.1); }
+.line-card.calling::before { background: linear-gradient(90deg, #3b82f6, #1d4ed8); animation: shimmer 1s infinite; }
+.line-card.in-call::before { background: linear-gradient(90deg, #f59e0b, #d97706); animation: shimmer 1s infinite; }
+.line-card.error::before { background: #ef4444; }
+@keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.line-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.line-num { font-size: 22px; font-weight: 800; color: #f1f5f9; font-family: 'SF Mono', Monaco, monospace; }
+.line-name { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+.line-status { font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; background: rgba(100,116,139,.2); color: #94a3b8; }
+.line-status.registered { background: rgba(34,197,94,.15); color: #4ade80; }
+.line-status.calling { background: rgba(59,130,246,.15); color: #93c5fd; animation: pulse 1s infinite; }
+.line-status.in-call { background: rgba(245,158,11,.15); color: #fbbf24; }
+.line-status.error { background: rgba(239,68,68,.15); color: #f87171; }
+.line-user { font-size: 12px; color: #cbd5e1; margin-top: 4px; }
+.line-call { font-size: 11px; color: #fbbf24; padding: 6px 10px; background: rgba(245,158,11,.1); border-radius: 6px; margin-top: 8px; }
+.line-log { font-size: 9px; color: #64748b; font-family: 'SF Mono', Monaco, monospace; max-height: 30px; overflow-y: auto; margin-top: 6px; }
+.line-log::-webkit-scrollbar { width: 2px; }
+.line-log::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); }
+.line-actions { display: flex; gap: 4px; margin-top: 8px; }
+.line-actions button { flex: 1; padding: 5px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: #cbd5e1; cursor: pointer; font-size: 10px; border-radius: 5px; transition: background .12s; font-family: inherit; }
+.line-actions button:hover { background: rgba(255,255,255,.1); }
+.line-actions button.accept { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.3); color: #4ade80; }
+.line-actions button.reject { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.3); color: #f87171; }
+.instructions { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2); border-radius: 10px; padding: 12px 16px; margin: 16px 24px; font-size: 12px; color: #bfdbfe; line-height: 1.5; }
+.instructions b { color: #dbeafe; }
+audio { display: none; }
+.noise { font-size: 10px; color: #475569; padding: 4px 8px; display: inline-block; }
+</style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <span class="emoji">📡</span>
+            <span>Monitor 10 Line</span>
+            <span class="badge" id="masterBadge">IDLE</span>
+        </div>
+        <div class="toolbar">
+            <button class="btn primary" id="btnStartAll">▶ Bật tất cả</button>
+            <button class="btn danger" id="btnStopAll">■ Tắt tất cả</button>
+            <button class="btn" id="btnNotify" title="Cho phép thông báo desktop">🔔 Cho phép thông báo</button>
+        </div>
+    </header>
+
+    <div class="instructions">
+        <b>Hướng dẫn:</b> Page này register <b>tất cả 10 extension</b> lên OnCallCX PBX. Để ext luôn online 24/7, mở tab này trên <b>1 máy tính dự phòng</b> và giữ tab luôn active (không sleep). Các cuộc gọi đến sẽ hiện thông báo desktop + ghi vào lịch sử Render DB. Tab này chỉ phục vụ monitor — muốn gọi/nghe thực sự, dùng widget ở trang chính.
+    </div>
+
+    <div class="summary" id="summary">
+        <span class="chip">Tổng: <b id="sTotal">0</b></span>
+        <span class="chip green">Registered: <b id="sReg">0</b></span>
+        <span class="chip blue">Calling: <b id="sCalling">0</b></span>
+        <span class="chip red">Offline: <b id="sOff">0</b></span>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <audio id="ringAudio"></audio>
+
+    <!-- Firebase (auth) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- Auth manager -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+
+    <!-- JsSIP -->
+    <script src="../orders-report/js/lib/jssip.min.js"></script>
+
+    <!-- Phone cloud sync (log calls to Render) -->
+    <script src="../orders-report/js/phone-cloud-sync.js"></script>
+
+    <script>
+(() => {
+    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const DEFAULT_WS = 'wss://45-76-155-207.sslip.io/ws';
+    const DEFAULT_DOMAIN = 'pbx-ucaas.oncallcx.vn';
+
+    const lines = []; // { ext, authId, password, label, ua, session, state, cardEl, logLines: [] }
+    let extensions = [];
+    let assignments = {};
+
+    function $(id) { return document.getElementById(id); }
+    function _log(ln, msg) {
+        ln.logLines.push(`${new Date().toLocaleTimeString('vi-VN')} ${msg}`);
+        if (ln.logLines.length > 6) ln.logLines.shift();
+        const el = ln.cardEl?.querySelector('.line-log');
+        if (el) el.textContent = ln.logLines.slice(-3).join(' · ');
+    }
+    function _setState(ln, state, extra = {}) {
+        ln.state = state;
+        if (!ln.cardEl) return;
+        ln.cardEl.className = 'line-card ' + state;
+        const statusEl = ln.cardEl.querySelector('.line-status');
+        const labels = { offline: 'Offline', registered: 'Online', calling: 'Đang gọi', 'in-call': 'Nghe máy', error: 'Lỗi' };
+        statusEl.className = 'line-status ' + state;
+        statusEl.textContent = labels[state] || state;
+        const callEl = ln.cardEl.querySelector('.line-call');
+        if (state === 'calling' || state === 'in-call') {
+            callEl.style.display = 'block';
+            callEl.textContent = `📞 ${extra.caller || extra.phone || '—'}`;
+        } else callEl.style.display = 'none';
+        const actionsEl = ln.cardEl.querySelector('.line-actions');
+        actionsEl.innerHTML = state === 'calling' && ln.incomingSession
+            ? `<button class="accept" data-act="accept">Bắt máy</button><button class="reject" data-act="reject">Từ chối</button>`
+            : state === 'in-call'
+            ? `<button class="reject" data-act="hangup">Cúp máy</button>`
+            : '';
+        _updateSummary();
+    }
+    function _updateSummary() {
+        $('sTotal').textContent = lines.length;
+        $('sReg').textContent = lines.filter(l => l.state === 'registered').length;
+        $('sCalling').textContent = lines.filter(l => l.state === 'calling' || l.state === 'in-call').length;
+        $('sOff').textContent = lines.filter(l => l.state === 'offline' || l.state === 'error').length;
+        const reg = lines.filter(l => l.state !== 'offline' && l.state !== 'error').length;
+        const badge = $('masterBadge');
+        badge.textContent = reg === 0 ? 'IDLE' : reg === lines.length ? 'ALL ONLINE' : `${reg}/${lines.length} ONLINE`;
+        badge.style.background = reg === 0 ? '#64748b' : reg === lines.length ? '#22c55e' : '#f59e0b';
+    }
+
+    function _buildCard(ln) {
+        const card = document.createElement('div');
+        card.className = 'line-card offline';
+        const assignedUser = assignments[Object.keys(assignments).find(n => String(assignments[n]) === String(ln.ext))] || '';
+        card.innerHTML = `
+            <div class="line-head">
+                <div>
+                    <div class="line-num">${ln.ext}</div>
+                    <div class="line-name">${ln.label || 'Ext ' + ln.ext}</div>
+                </div>
+                <span class="line-status offline">Offline</span>
+            </div>
+            <div class="line-user">${assignedUser ? '👤 ' + assignedUser : '— Chưa gán —'}</div>
+            <div class="line-call" style="display:none"></div>
+            <div class="line-actions"></div>
+            <div class="line-log"></div>
+        `;
+        card.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-act]');
+            if (!btn) return;
+            const act = btn.dataset.act;
+            if (act === 'accept') _acceptIncoming(ln);
+            else if (act === 'reject') _rejectIncoming(ln);
+            else if (act === 'hangup') _hangup(ln);
+        });
+        return card;
+    }
+
+    async function _startLine(ln) {
+        if (ln.ua) return;
+        try {
+            const socket = new JsSIP.WebSocketInterface(DEFAULT_WS);
+            const ua = new JsSIP.UA({
+                sockets: [socket],
+                uri: `sip:${ln.ext}@${DEFAULT_DOMAIN}`,
+                authorization_user: ln.authId,
+                password: ln.password,
+                display_name: ln.ext,
+                register: true,
+                register_expires: 120,
+                session_timers: false,
+                connection_recovery_min_interval: 2,
+                connection_recovery_max_interval: 30
+            });
+            ln.ua = ua;
+            ua.on('connected', () => _log(ln, 'WS connected'));
+            ua.on('disconnected', () => { _setState(ln, 'error'); _log(ln, 'WS disconnected'); });
+            ua.on('registered', () => { _setState(ln, 'registered'); _log(ln, 'Registered'); });
+            ua.on('unregistered', () => { _setState(ln, 'offline'); _log(ln, 'Unregistered'); });
+            ua.on('registrationFailed', (e) => { _setState(ln, 'error'); _log(ln, 'Reg failed: ' + e.cause); });
+            ua.on('newRTCSession', (e) => {
+                if (e.originator !== 'remote') return;
+                _handleIncoming(ln, e.session);
+            });
+            ua.start();
+        } catch (err) {
+            _setState(ln, 'error');
+            _log(ln, 'Start error: ' + err.message);
+        }
+    }
+    function _stopLine(ln) {
+        try { ln.session?.terminate(); } catch {}
+        try { ln.ua?.stop(); } catch {}
+        ln.ua = null; ln.session = null; ln.incomingSession = null;
+        _setState(ln, 'offline');
+    }
+
+    function _handleIncoming(ln, session) {
+        ln.incomingSession = session;
+        const caller = session.remote_identity.uri.user || 'Không rõ';
+        ln.callerPhone = caller;
+        _setState(ln, 'calling', { caller });
+        _log(ln, 'Incoming: ' + caller);
+        _notify(ln.ext, caller);
+        _playRing();
+        session.on('failed', () => { _stopRing(); ln.incomingSession = null; _setState(ln, 'registered'); _log(ln, 'Failed/Missed'); _logMissedCall(ln, caller); });
+        session.on('ended', () => { _stopRing(); ln.incomingSession = null; ln.session = null; _setState(ln, 'registered'); });
+        session.on('accepted', () => { _stopRing(); ln.session = session; ln.incomingSession = null; _setState(ln, 'in-call', { caller }); });
+    }
+
+    function _acceptIncoming(ln) {
+        if (!ln.incomingSession) return;
+        try {
+            ln.incomingSession.answer({ mediaConstraints: { audio: true, video: false } });
+            _log(ln, 'Accepted');
+        } catch (err) { _log(ln, 'Answer err: ' + err.message); }
+    }
+    function _rejectIncoming(ln) {
+        if (!ln.incomingSession) return;
+        try { ln.incomingSession.terminate({ status_code: 486, reason_phrase: 'Busy Here' }); } catch {}
+        _log(ln, 'Rejected');
+        _stopRing();
+    }
+    function _hangup(ln) {
+        try { ln.session?.terminate(); } catch {}
+        _log(ln, 'Hangup');
+    }
+    function _logMissedCall(ln, caller) {
+        // Push to Render DB as missed call for this ext
+        const user = (Object.keys(assignments).find(n => String(assignments[n]) === String(ln.ext))) || '';
+        fetch(`${API_BASE}/call-history`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: user,
+                ext: ln.ext,
+                phone: caller,
+                direction: 'missed',
+                duration: 0,
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
+    }
+
+    // Audio ring (plays on any incoming)
+    let ringAudioCtx = null;
+    let ringInterval = null;
+    function _playRing() {
+        _stopRing();
+        try {
+            ringAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const tick = () => {
+                const osc = ringAudioCtx.createOscillator();
+                const gain = ringAudioCtx.createGain();
+                osc.frequency.value = 500;
+                osc.connect(gain); gain.connect(ringAudioCtx.destination);
+                gain.gain.setValueAtTime(0, ringAudioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, ringAudioCtx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.2, ringAudioCtx.currentTime + 0.8);
+                gain.gain.linearRampToValueAtTime(0, ringAudioCtx.currentTime + 1);
+                osc.start(); osc.stop(ringAudioCtx.currentTime + 1);
+            };
+            tick();
+            ringInterval = setInterval(tick, 2500);
+        } catch {}
+    }
+    function _stopRing() {
+        if (ringInterval) clearInterval(ringInterval);
+        ringInterval = null;
+        if (ringAudioCtx) { try { ringAudioCtx.close(); } catch {} ringAudioCtx = null; }
+    }
+
+    function _notify(ext, caller) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            new Notification(`📞 Ext ${ext}`, { body: `Cuộc gọi đến từ ${caller}`, icon: '../shared/images/logo.jpg', tag: `call-${ext}` });
+        } catch {}
+    }
+
+    // BOOT
+    async function boot() {
+        // Wait for auth (admin only)
+        for (let i = 0; i < 30; i++) {
+            if (window.authManager?.getAuthData?.()) break;
+            await new Promise(r => setTimeout(r, 200));
+        }
+        const auth = window.authManager?.getAuthData?.();
+        const userType = (localStorage.getItem('userType') || '').toLowerCase();
+        const isAdmin = userType.startsWith('admin') || auth?.isAdmin === true || auth?.roleTemplate === 'admin' || auth?.checkLogin === 0;
+        if (!isAdmin) {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#f87171"><h2>🛡 Truy cập bị từ chối</h2><p>Chỉ admin mới dùng được Monitor.</p><a href="../index.html" style="color:#60a5fa">← Quay về</a></div>';
+            return;
+        }
+
+        // Load phone config
+        try {
+            const cfgRes = await fetch(`${API_BASE}/phone-config`);
+            const cfg = await cfgRes.json();
+            if (cfg?.success && cfg.config?.sip_extensions) {
+                extensions = cfg.config.sip_extensions;
+                try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(cfg.config)); } catch {}
+            }
+        } catch {}
+        if (!extensions.length) {
+            try { const c = JSON.parse(localStorage.getItem('phoneWidget_dbConfig') || '{}'); extensions = c.sip_extensions || []; } catch {}
+        }
+        // Load assignments
+        try {
+            const a = await (await fetch(`${API_BASE}/ext-assignments`)).json();
+            if (a?.success) assignments = a.assignments || {};
+        } catch {}
+
+        // Build grid
+        const grid = $('grid');
+        extensions.forEach(e => {
+            const ln = { ext: e.ext, authId: e.authId, password: e.password, label: e.label || 'Ext ' + e.ext, state: 'offline', logLines: [] };
+            ln.cardEl = _buildCard(ln);
+            grid.appendChild(ln.cardEl);
+            lines.push(ln);
+        });
+        _updateSummary();
+
+        // Wire controls
+        $('btnStartAll').addEventListener('click', () => { lines.forEach(ln => _startLine(ln)); });
+        $('btnStopAll').addEventListener('click', () => { lines.forEach(ln => _stopLine(ln)); });
+        $('btnNotify').addEventListener('click', async () => {
+            if ('Notification' in window) {
+                const p = await Notification.requestPermission();
+                $('btnNotify').textContent = p === 'granted' ? '✓ Đã bật thông báo' : '🔔 Cho phép thông báo';
+            }
+        });
+
+        // Refresh assignments every 30s to update user labels
+        setInterval(async () => {
+            try {
+                const a = await (await fetch(`${API_BASE}/ext-assignments`)).json();
+                if (a?.success) {
+                    assignments = a.assignments || {};
+                    lines.forEach(ln => {
+                        const user = Object.keys(assignments).find(n => String(assignments[n]) === String(ln.ext)) || '';
+                        const userEl = ln.cardEl?.querySelector('.line-user');
+                        if (userEl) userEl.textContent = user ? '👤 ' + user : '— Chưa gán —';
+                    });
+                }
+            } catch {}
+        }, 30000);
+    }
+
+    boot();
+})();
+    </script>
+</body>
+</html>
