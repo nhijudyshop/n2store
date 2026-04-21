@@ -18,6 +18,24 @@ function _dateHasPackagesForDot(dateStr, dotSo) {
 /**
  * Open shipment modal
  */
+/**
+ * Format NCC value cho input edit: khôi phục định dạng user nhập ban đầu.
+ *   sttNCC < 900 + có tenNCC  → "1 LẤY THÊM"
+ *   sttNCC < 900 không tenNCC → "10"  (số thuần = NCC có sẵn)
+ *   sttNCC >= 900 (auto-assigned) → chỉ tenNCC
+ *   Không có cả hai → rỗng
+ */
+function _fmtNccValue(invoice) {
+    if (!invoice) return '';
+    const stt = parseInt(invoice.sttNCC) || 0;
+    const name = (invoice.tenNCC || '').trim();
+    if (stt > 0 && stt < 900) {
+        return name ? `${stt} ${name}` : String(stt);
+    }
+    // stt >= 900 (auto) or stt === 0 → show name only
+    return name || (stt > 0 ? String(stt) : '');
+}
+
 function openShipmentModal(shipment = null) {
     currentShipmentData = shipment;
 
@@ -183,7 +201,7 @@ function renderInvoiceForm(invoice, index) {
         <div class="invoice-form" data-index="${index}">
             <div class="invoice-header">
                 <label>NCC</label>
-                <input type="text" class="form-input invoice-ten-ncc" value="${invoice?.tenNCC || ''}" placeholder="Tên NCC (bắt buộc)" style="flex: 1;" required>
+                <input type="text" class="form-input invoice-ten-ncc" value="${_fmtNccValue(invoice)}" placeholder="Tên NCC (bắt buộc)" style="flex: 1;" required>
                 <button type="button" class="btn btn-sm btn-outline btn-remove-invoice" title="Xóa hóa đơn">
                     <i data-lucide="trash-2"></i>
                 </button>
