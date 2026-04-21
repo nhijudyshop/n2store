@@ -20,12 +20,25 @@ const PhoneAutoRegister = (() => {
     let myExt = null;
     let started = false;
 
+    function _isAdmin() {
+        try {
+            const auth = window.authManager?.getAuthData?.();
+            const userType = (localStorage.getItem('userType') || '').toLowerCase();
+            if (userType.startsWith('admin')) return true;
+            if (auth?.isAdmin === true) return true;
+            if (auth?.roleTemplate === 'admin') return true;
+            if (auth?.checkLogin === 0) return true;
+            return false;
+        } catch { return false; }
+    }
     function isEnabled() {
-        // Default OFF — auto-register từ mọi browser có thể khiến PBX chọn sai contact khi fork
-        // (background UA ở máy khác register sau cùng → PBX route INVITE tới nó thay vì primary widget).
-        // Bật qua console: PhoneAutoRegister.setEnabled(true). Khuyến nghị chỉ dùng Monitor page.
+        // Admin: default ON (admin thường có máy dedicated, cần treo 10 line)
+        // Non-admin: default OFF (tránh multi-contact conflict khi nhiều NV cùng mở)
+        // Override qua localStorage: PhoneAutoRegister.setEnabled(true|false)
         const v = localStorage.getItem(STATE_KEY);
-        return v === 'true';
+        if (v === 'true') return true;
+        if (v === 'false') return false;
+        return _isAdmin();
     }
     function setEnabled(b) {
         localStorage.setItem(STATE_KEY, String(!!b));
