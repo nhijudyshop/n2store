@@ -784,31 +784,28 @@ async function _confirmConvertToPO() {
         btn.innerHTML = 'Đang tải ảnh...';
     }
 
-    // User-selected NCC images to promote to invoiceImages
+    // Chỉ upload ảnh hóa đơn (invoiceImages). Không upload product images per-item —
+    // user yêu cầu tiết kiệm bandwidth: PO chỉ cần ảnh hóa đơn, không cần ảnh SP.
+    //   - anhHoaDon: ảnh hóa đơn có sẵn của dotHang (thường rỗng)
+    //   - selectedFromNcc: ảnh user click chọn trong thumbnails NCC preview
     const selectedFromNcc = productImgsRaw.filter(u => _selectedInvoiceImgs.has(u));
 
     let anhHoaDon = [];
-    let productImgs = [];
     let selectedUploaded = [];
     try {
-        // Upload in parallel — 3 buckets:
-        // 1. anhHoaDon (existing invoice photos)
-        // 2. productImgs (all NCC product photos for item-level)
-        // 3. selectedFromNcc (user clicked these to promote to invoiceImages)
-        [anhHoaDon, productImgs, selectedUploaded] = await Promise.all([
+        [anhHoaDon, selectedUploaded] = await Promise.all([
             _normalizeImageUrls(anhHoaDonRaw, 'purchase-orders/invoices', (c, t) => {
                 if (btn && t > 0) btn.innerHTML = `Đang tải ảnh HĐ... ${c}/${t}`;
             }),
-            _normalizeImageUrls(productImgsRaw, 'purchase-orders/products', (c, t) => {
-                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh SP... ${c}/${t}`;
-            }),
-            _normalizeImageUrls(selectedFromNcc, 'purchase-orders/invoices', null)
+            _normalizeImageUrls(selectedFromNcc, 'purchase-orders/invoices', (c, t) => {
+                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh đã chọn... ${c}/${t}`;
+            })
         ]);
     } catch (err) {
-        console.error('[CONVERT-PO] Image upload batch failed:', err);
+        console.error('[CONVERT-PO] Image upload failed:', err);
     }
 
-    // invoiceImages = anhHoaDon + user-promoted NCC images (dedupe)
+    // invoiceImages = anhHoaDon + ảnh NCC đã chọn (dedupe). productImages per-item bỏ trống.
     const mergedInvoiceImgs = [...new Set([...anhHoaDon, ...selectedUploaded])];
 
     const orderData = {
@@ -835,13 +832,13 @@ async function _confirmConvertToPO() {
                 purchasePrice: price,
                 sellingPrice: it.sellingPrice === '' ? '' : _parseVND(it.sellingPrice),
                 subtotal: price * qty,
-                productImages: [...productImgs],
+                productImages: [],
                 priceImages: [],
                 selectedAttributeValueIds: [],
                 tposProductId: '',
                 tposProductTmplId: '',
                 tposSynced: false,
-                tposImageUrl: productImgs[0] || ''
+                tposImageUrl: ''
             };
         })
     };
@@ -850,10 +847,8 @@ async function _confirmConvertToPO() {
         supplier, invoiceAmount, totalAmount, finalAmount,
         invoiceImages: orderData.invoiceImages,
         itemCount: orderData.items.length,
-        firstItemProductImages: orderData.items[0]?.productImages,
-        firstItemTposImageUrl: orderData.items[0]?.tposImageUrl,
-        rawAnhHoaDon: anhHoaDonRaw,
-        rawNccImages: productImgsRaw
+        selectedFromNcc: selectedFromNcc.length,
+        rawAnhHoaDon: anhHoaDonRaw.length
     });
 
     if (btn) btn.innerHTML = 'Đang tạo đơn...';
