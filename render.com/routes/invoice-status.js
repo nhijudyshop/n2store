@@ -10,7 +10,8 @@ const https = require('https');
 const router = express.Router();
 
 const tposTokenManager = require('../services/tpos-token-manager');
-const TPOS_ODATA_BASE = 'https://services.tpos.dev/api/odata';
+// Dùng đúng URL TPOS production (cùng URL CF Worker forward tới + tpos-customer-service)
+const TPOS_ODATA_BASE = 'https://tomato.tpos.vn/odata';
 const tposHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // =====================================================
@@ -320,17 +321,25 @@ router.post('/refresh-from-tpos', async (req, res) => {
 
             try {
                 const resp = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'accept': 'application/json' },
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json',
+                    },
                     agent: tposHttpsAgent,
                 });
                 if (!resp.ok) {
                     errors++;
-                    console.warn(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length} failed: ${resp.status}`);
+                    const errText = await resp.text().catch(() => '');
+                    console.warn(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length} FAILED: ${resp.status} ${resp.statusText} | URL: ${url.substring(0, 200)} | Body: ${errText.substring(0, 500)}`);
                     continue;
                 }
                 const result = await resp.json();
                 const invoices = Array.isArray(result?.value) ? result.value : [];
                 fetched += invoices.length;
+                if (invoices.length === 0) {
+                    console.log(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length}: TPOS trả 0 kết quả cho ${chunk.length} ids (đã xóa trên TPOS?). Sample id: ${chunk[0]}`);
+                }
 
                 // Upsert in transaction
                 const client = await pool.connect();
