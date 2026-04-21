@@ -4,11 +4,25 @@
  * TPOS IMAGE PROXY (Shared)
  * =====================================================
  * Proxies TPOS product images through Cloudflare Worker
- * to bypass CORS/CDN errors (ERR_FAILED).
+ * (primary) with Render server fallback on failure.
+ *
+ * Why two proxies:
+ *   - Browser HTTP/2 caps concurrent streams per-origin.
+ *     With 100+ TPOS images on one page, vn.img1.tpos.vn
+ *     starts returning ERR_HTTP2_SERVER_REFUSED_STREAM.
+ *   - CF Worker proxies via a different origin, and can be
+ *     hit in parallel with the Render proxy to spread load
+ *     across two browser-visible origins.
+ *
+ * Fallback behavior:
+ *   - Primary: CF Worker
+ *   - On <img> onerror → rewrite src to Render proxy once
+ *   - After Render fails → hide image (default onerror behavior)
  *
  * Usage:
- *   proxyImageUrl(url) → proxied URL string
- *   proxyImgTag(url, alt) → <img> HTML with onerror fallback
+ *   proxyImageUrl(url) → primary (CF Worker) proxied URL
+ *   fallbackImageUrl(url) → Render proxied URL (only on primary failure)
+ *   proxyImgTag(url, alt) → <img> HTML with fallback chain
  *
  * Only proxies vn.img1.tpos.vn URLs. Others pass through.
  * =====================================================
@@ -18,6 +32,9 @@
     'use strict';
 
     const TPOS_CDN_PATTERN = /vn\.img1\.tpos\.vn/;
+    const PROXIED_PATTERN = /\/api\/image-proxy\?/;
+    const RENDER_URL = 'https://n2store-fallback.onrender.com';
+    const FAILED_MARK_ATTR = 'data-tpos-fallback';
 
     function getWorkerUrl() {
         return window.WORKER_URL
@@ -25,30 +42,82 @@
             || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     }
 
+    function extractOriginalUrl(src) {
+        if (!src) return '';
+        const match = src.match(/[?&]url=([^&]+)/);
+        if (!match) return src;
+        try {
+            return decodeURIComponent(match[1]);
+        } catch (_) {
+            return src;
+        }
+    }
+
     /**
-     * Convert a TPOS CDN URL to proxied URL via CF Worker
+     * Convert a TPOS CDN URL to CF Worker proxied URL.
      * Non-TPOS URLs pass through unchanged.
      */
     function proxyImageUrl(url) {
         if (!url) return '';
         if (!TPOS_CDN_PATTERN.test(url)) return url;
+        if (PROXIED_PATTERN.test(url)) return url;
         return `${getWorkerUrl()}/api/image-proxy?url=${encodeURIComponent(url)}`;
     }
 
     /**
-     * Generate <img> tag with proxy URL + onerror fallback
+     * Render-server fallback URL — used when CF Worker fails.
+     */
+    function fallbackImageUrl(url) {
+        if (!url) return '';
+        const original = PROXIED_PATTERN.test(url) ? extractOriginalUrl(url) : url;
+        if (!TPOS_CDN_PATTERN.test(original)) return original;
+        return `${RENDER_URL}/api/image-proxy?url=${encodeURIComponent(original)}`;
+    }
+
+    /**
+     * onerror handler: swap CF Worker → Render proxy once.
+     * After Render fails, hide the image.
+     * Idempotent — marks the element so it only attempts fallback once.
+     */
+    function handleImageError(img) {
+        if (!img || img.getAttribute(FAILED_MARK_ATTR) === 'done') {
+            if (img) img.style.display = 'none';
+            const sib = img && img.nextElementSibling;
+            if (sib) sib.style.display = 'flex';
+            return;
+        }
+        img.setAttribute(FAILED_MARK_ATTR, 'done');
+        const current = img.getAttribute('src') || '';
+        const next = fallbackImageUrl(current);
+        if (next && next !== current) {
+            img.src = next;
+        } else {
+            img.style.display = 'none';
+            const sib = img.nextElementSibling;
+            if (sib) sib.style.display = 'flex';
+        }
+    }
+
+    // Expose handler on window so inline onerror can call it
+    window.__tposImgFallback = handleImageError;
+
+    /**
+     * Generate <img> tag with proxy URL + fallback chain.
+     * If caller passed their own onerror (via extraAttrs), we still
+     * wire our fallback first.
      */
     function proxyImgTag(url, alt, extraAttrs) {
         if (!url) return '';
         const proxied = proxyImageUrl(url);
         const altEsc = (alt || '').replace(/"/g, '&quot;');
         const attrs = extraAttrs || '';
-        return `<img src="${proxied}" alt="${altEsc}" ${attrs} onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex'">`;
+        return `<img src="${proxied}" alt="${altEsc}" ${attrs} onerror="window.__tposImgFallback&&window.__tposImgFallback(this)">`;
     }
 
     /**
      * Auto-intercept: MutationObserver rewrites all TPOS CDN img src
-     * to go through CF Worker proxy. Covers dynamically added images.
+     * to go through CF Worker proxy + installs fallback. Covers dynamically
+     * added images.
      */
     function interceptImages(root) {
         const imgs = (root || document).querySelectorAll('img[src]');
@@ -58,8 +127,18 @@
     function rewriteImg(img) {
         const src = img.getAttribute('src') || '';
         if (!TPOS_CDN_PATTERN.test(src)) return;
-        if (src.includes('/api/image-proxy')) return; // already proxied
-        img.setAttribute('src', proxyImageUrl(src));
+        if (!PROXIED_PATTERN.test(src)) {
+            img.setAttribute('src', proxyImageUrl(src));
+        }
+        // Always attach fallback onerror even for pre-proxied URLs
+        if (!img.getAttribute('data-tpos-fallback-wired')) {
+            img.setAttribute('data-tpos-fallback-wired', '1');
+            const prev = img.getAttribute('onerror') || '';
+            const hook = 'window.__tposImgFallback&&window.__tposImgFallback(this);';
+            if (!prev.includes('__tposImgFallback')) {
+                img.setAttribute('onerror', hook + prev);
+            }
+        }
     }
 
     // Observe DOM for new images
@@ -101,8 +180,10 @@
     // Expose
     window.TPOSImageProxy = {
         proxyImageUrl,
+        fallbackImageUrl,
         proxyImgTag,
-        interceptImages
+        interceptImages,
+        handleImageError
     };
 
 })();

@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [shared,pancake,image] Pancake PAT per-page preferred account + negative cache; TPOS image render fallback
+| | |
+|---|---|
+| **Files** | `shared/js/pancake-token-manager.js`, `shared/js/tpos-image-proxy.js` |
+| **Chi tiết** | Phân tích log (`text.txt`): (1) `generatePageAccessToken` lặp qua TẤT CẢ accounts cho mỗi page mỗi lần fetch — page 112678138086607 luôn cần thử Thu Huyền+Thu Lai fail rồi mới tới "Con Nhoc" succeed (3 API calls thay vì 1); page 193642490509664 tất cả 5 accounts đều fail ("Gói cước hết hạn" / "Thiếu quyền Admin") → mỗi lần fetchConversations đốt 5 API calls vô ích. (2) TPOS image `net::ERR_HTTP2_SERVER_REFUSED_STREAM` hàng loạt trên `vn.img1.tpos.vn` — browser HTTP/2 bị cap concurrent streams per-origin, CF Worker proxy một mình không đủ. **Fix pancake-token-manager**: (a) `savePageAccessToken(pageId, token, pageName, generatedBy)` nhận thêm accountId của account sinh PAT thành công, PUT lên `/api/pancake-page-tokens/:pageId` với `generatedBy` (cột `generated_by` đã có sẵn trong schema). (b) `_orderAccountsForPage(pageId)` reorder: preferred generatedBy → accounts có pageId trong `acc.pages[]` → active account → others. (c) Negative cache localStorage `pancake_pat_negative_cache` với TTL 15 phút: khi tất cả accounts fail cho 1 page → `markPageNegativeCached`; `isPageNegativeCached` ngắt sớm các lần gọi tiếp → không burn API. Expose `clearPageNegativeCache(pageId)` cho admin force retry. (d) Unchanged server-side — route render đã hỗ trợ `generatedBy` field. **Fix tpos-image-proxy**: thêm `fallbackImageUrl(url)` trỏ về `n2store-fallback.onrender.com/api/image-proxy`; `handleImageError(img)` onerror handler swap CF Worker → Render proxy 1 lần (`data-tpos-fallback=done` đánh dấu để không loop). Rewrite `proxyImgTag` và MutationObserver `rewriteImg` wire `window.__tposImgFallback` làm onerror. Spread 2 origins giúp browser HTTP/2 không bị refuse. |
+| **Status** | ✅ Done — pancake hoạt động liên tục nhờ negative cache; images có fallback đôi |
+
 ### [customer-hub] Bỏ Reset Password + wire Audit Log + fix Aliases URL sai
 | | |
 |---|---|

@@ -30,8 +30,14 @@ class PancakeTokenManager {
             JWT_TOKEN_EXPIRY: 'pancake_jwt_token_expiry',
             JWT_ACCOUNT_ID: 'tpos_pancake_active_account_id',
             PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens',
-            ALL_ACCOUNTS: 'pancake_all_accounts' // NEW: Store all accounts for multi-account sending
+            ALL_ACCOUNTS: 'pancake_all_accounts', // NEW: Store all accounts for multi-account sending
+            PAT_NEGATIVE_CACHE: 'pancake_pat_negative_cache' // NEW: { pageId: { at, count, reason } } — pages where ALL accounts failed
         };
+
+        // Negative-cache TTL: skip retry for pages where all accounts failed recently.
+        // Reason for skip: expired subscription / missing admin rights won't fix within minutes;
+        // 5 failed PAT calls per page × every render wastes time + spams Pancake API.
+        this.PAT_NEGATIVE_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
     }
 
     // =====================================================
@@ -1204,7 +1210,7 @@ class PancakeTokenManager {
      * @param {string} pageName - Optional page name
      * @returns {Promise<boolean>}
      */
-    async savePageAccessToken(pageId, token, pageName = '') {
+    async savePageAccessToken(pageId, token, pageName = '', generatedBy = null) {
         try {
             if (!pageId || !token) {
                 throw new Error('pageId và token không được để trống');
@@ -1222,12 +1228,17 @@ class PancakeTokenManager {
                 console.warn('[PANCAKE-TOKEN] Could not decode page_access_token:', e);
             }
 
+            // Preserve prior generatedBy if caller didn't supply one
+            const prevGeneratedBy = this.pageAccessTokens[pageId]?.generatedBy || null;
+            const effectiveGeneratedBy = generatedBy || prevGeneratedBy || null;
+
             const data = {
                 token: token,
                 pageId: pageId,
                 pageName: pageName,
                 timestamp: timestamp,
-                savedAt: Date.now()
+                savedAt: Date.now(),
+                generatedBy: effectiveGeneratedBy
             };
 
             // Update in-memory cache first
@@ -1241,18 +1252,109 @@ class PancakeTokenManager {
                 await fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token, pageName, timestamp })
+                    body: JSON.stringify({ token, pageName, timestamp, generatedBy: effectiveGeneratedBy })
                 });
             } catch (e) {
                 console.warn('[PANCAKE-TOKEN] Render DB page token save failed:', e.message);
             }
 
-            console.log('[PANCAKE-TOKEN] ✅ page_access_token saved for page:', pageId);
+            console.log('[PANCAKE-TOKEN] ✅ page_access_token saved for page:', pageId, effectiveGeneratedBy ? `(via ${effectiveGeneratedBy.substring(0, 8)})` : '');
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error saving page_access_token:', error);
             return false;
         }
+    }
+
+    // =====================================================
+    // NEGATIVE CACHE — skip PAT retry when all accounts recently failed.
+    // Why: a page where every account lacks access (expired sub / no admin)
+    // cannot start working mid-session; retrying wastes 5× API calls per fetch.
+    // =====================================================
+    _getNegativeCache() {
+        try {
+            const raw = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAT_NEGATIVE_CACHE);
+            return raw ? JSON.parse(raw) : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    _saveNegativeCache(cache) {
+        try {
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAT_NEGATIVE_CACHE, JSON.stringify(cache));
+        } catch (_) {}
+    }
+
+    isPageNegativeCached(pageId) {
+        const cache = this._getNegativeCache();
+        const entry = cache[pageId];
+        if (!entry) return false;
+        if (Date.now() - (entry.at || 0) > this.PAT_NEGATIVE_CACHE_TTL_MS) {
+            delete cache[pageId];
+            this._saveNegativeCache(cache);
+            return false;
+        }
+        return true;
+    }
+
+    markPageNegativeCached(pageId, reason) {
+        const cache = this._getNegativeCache();
+        const prior = cache[pageId] || {};
+        cache[pageId] = {
+            at: Date.now(),
+            count: (prior.count || 0) + 1,
+            reason: reason || prior.reason || 'unknown'
+        };
+        this._saveNegativeCache(cache);
+    }
+
+    clearPageNegativeCache(pageId) {
+        const cache = this._getNegativeCache();
+        if (pageId) {
+            delete cache[pageId];
+        } else {
+            for (const k of Object.keys(cache)) delete cache[k];
+        }
+        this._saveNegativeCache(cache);
+        console.log('[PANCAKE-TOKEN] 🗑️ Cleared PAT negative cache', pageId ? `for ${pageId}` : '(all)');
+    }
+
+    /**
+     * Pick the account most likely to succeed for this page.
+     * Priority:
+     *   1. Last known successful account (generatedBy from prior PAT)
+     *   2. Accounts whose cached pages[] lists this pageId
+     *   3. Any other valid account
+     */
+    _orderAccountsForPage(pageId) {
+        const ordered = [];
+        const seen = new Set();
+
+        const add = (id) => {
+            if (!id || seen.has(id)) return;
+            const acc = this.accounts[id];
+            if (!acc || !acc.token || this.isTokenExpired(acc.exp)) return;
+            ordered.push({ token: acc.token, name: acc.name, id });
+            seen.add(id);
+        };
+
+        // 1. Preferred account from previous successful PAT
+        const preferredId = this.pageAccessTokens[pageId]?.generatedBy;
+        if (preferredId) add(preferredId);
+
+        // 2. Accounts whose pages[] includes this pageId
+        for (const [id, acc] of Object.entries(this.accounts)) {
+            if (!Array.isArray(acc.pages) || acc.pages.length === 0) continue;
+            const hasPage = acc.pages.some(p => String(p.id || p.pageId || p) === String(pageId));
+            if (hasPage) add(id);
+        }
+
+        // 3. Active account then everyone else
+        add(this.activeAccountId);
+        for (const id of Object.keys(this.accounts)) add(id);
+
+        return ordered;
     }
 
     /**
@@ -1289,22 +1391,22 @@ class PancakeTokenManager {
             await this.getToken();
         }
 
-        // Collect accounts to try: active first, then all others
-        const tokensToTry = [];
-        if (this.currentToken) {
-            tokensToTry.push({ token: this.currentToken, name: this.accounts[this.activeAccountId]?.name || 'active', id: this.activeAccountId });
+        // Short-circuit if this page recently had every account fail — retrying just burns API calls.
+        if (this.isPageNegativeCached(pageId)) {
+            const entry = this._getNegativeCache()[pageId];
+            console.warn('[PANCAKE-TOKEN] ⏭️ Skip PAT generation (negative-cached):', pageId, entry?.reason || '');
+            return null;
         }
-        for (const [id, acc] of Object.entries(this.accounts)) {
-            if (id !== this.activeAccountId && acc.token && !this.isTokenExpired(acc.exp)) {
-                tokensToTry.push({ token: acc.token, name: acc.name, id });
-            }
-        }
+
+        // Order accounts by likelihood of success: preferred generator → page-listed → active → others.
+        const tokensToTry = this._orderAccountsForPage(pageId);
 
         if (tokensToTry.length === 0) {
             console.error('[PANCAKE-TOKEN] No accounts available to generate page_access_token');
             return null;
         }
 
+        let lastFailureReason = null;
         for (const account of tokensToTry) {
             try {
                 console.log('[PANCAKE-TOKEN] Generating PAT for page:', pageId, '| account:', account.name);
@@ -1323,18 +1425,21 @@ class PancakeTokenManager {
 
                 if (result.success && result.page_access_token) {
                     console.log('[PANCAKE-TOKEN] ✅ PAT generated via account:', account.name);
-                    await this.savePageAccessToken(pageId, result.page_access_token);
+                    await this.savePageAccessToken(pageId, result.page_access_token, '', account.id);
                     return result.page_access_token;
                 }
 
                 // Permission error → try next account
-                console.warn('[PANCAKE-TOKEN] Account', account.name, 'failed:', result.message || 'no token');
+                lastFailureReason = result.message || 'no token';
+                console.warn('[PANCAKE-TOKEN] Account', account.name, 'failed:', lastFailureReason);
             } catch (error) {
-                console.warn('[PANCAKE-TOKEN] Account', account.name, 'error:', error.message);
+                lastFailureReason = error.message || 'network error';
+                console.warn('[PANCAKE-TOKEN] Account', account.name, 'error:', lastFailureReason);
             }
         }
 
         console.error('[PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page:', pageId);
+        this.markPageNegativeCached(pageId, lastFailureReason);
         return null;
     }
 
