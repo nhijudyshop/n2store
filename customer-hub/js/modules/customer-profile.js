@@ -740,8 +740,18 @@ export class CustomerProfileModule {
                                     }
                                     __suppressOperator = true;
                                 } else {
-                                    if (note) detailParts.push(note);
-                                    if (date) detailParts.push(date);
+                                    // Tách "(Duyệt bởi X)" cuối note → đưa ra sau date
+                                    const approverMatch = note.match(/\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i);
+                                    if (approverMatch) {
+                                        const head = note.slice(0, approverMatch.index).trim();
+                                        if (head) detailParts.push(head);
+                                        if (date) detailParts.push(date);
+                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">(${approverMatch[1]} ${approverMatch[2].trim()})</span>`);
+                                        __suppressOperator = true;
+                                    } else {
+                                        if (note) detailParts.push(note);
+                                        if (date) detailParts.push(date);
+                                    }
                                 }
                             }
 
