@@ -20,8 +20,8 @@ Truy cập [portal](https://pbx-ucaas.oncallcx.vn/portal/pbxDashboard.xhtml) →
 |-------|---------|
 | Name to Display | **Hotline N2Store** |
 | Internal Number | **100** |
-| Dial In Number of (DID) | **Số hotline công ty** (vd 02873000100) |
-| Display Public Number | Same as DID |
+| Dial In Number of (DID) | **0994325426** |
+| Display Public Number | **0994325426** (Same as DID) |
 | PIN | (để trống) |
 | E-Mail | (để trống — không phải user thật) |
 
@@ -105,7 +105,7 @@ Nếu muốn routing khác ngoài giờ (vd ngoài 8h-17h → voicemail):
 
 ## Bước 6: Test
 
-1. Trên điện thoại (ngoài hệ thống) gọi số công ty **02873000100**
+1. Trên điện thoại (ngoài hệ thống) gọi số công ty **0994325426**
 2. Tất cả 10 máy / 10 ext browser widget phải ring cùng lúc
 3. Bất kỳ ai bắt máy → cuộc gọi nối máy đó, 9 máy kia tắt chuông
 4. Verify log: **Portal → PBX → Calls** → thấy CDR với From/To/Duration
@@ -115,7 +115,7 @@ Nếu muốn routing khác ngoài giờ (vd ngoài 8h-17h → voicemail):
 ## Luồng hoạt động
 
 ```
-Khách gọi 02873000100
+Khách gọi 0994325426
          ↓
 PBX OnCallCX nhận DID
          ↓
@@ -145,13 +145,20 @@ Cuộc gọi 2 bên: khách ↔ user
 
 ---
 
+## Số hotline công ty
+
+**`0994325426`** (Gmobile/Vietnamobile 099x)
+
+Khi khách gọi số này → OnCallCX PBX sẽ nhận → route theo cấu hình ACD của ext 100.
+
 ## Các câu cần hỏi FPT/OnCallCX support
 
-1. **DID**: Số hotline công ty là gì? Dải DID hiện có cấp bao nhiêu số?
-2. **Trunk**: Client trunk SIP đã setup chưa? Carrier nào?
-3. **REST API**: Có click-to-call REST API để gọi ra từ code không?
-4. **Webhook**: Có push event "incoming call" sang URL của mình không?
-5. **Recording**: Call recording có sẵn không? Lưu bao lâu? Download thế nào?
+1. ~~**DID**: Số hotline công ty là gì?~~ → **0994325426**
+2. **Trunk**: Client trunk SIP đã setup chưa? Carrier nào (Gmobile/Viettel/VNPT)?
+3. **Gán DID vào ext**: Trên portal đã map `0994325426` vào ext nào? Nếu đang map 1 ext cứng, cần đổi sang ext 100 (ACD).
+4. **REST API**: Có click-to-call REST API để gọi ra từ code không?
+5. **Webhook**: Có push event "incoming call" sang URL của mình không?
+6. **Recording**: Call recording có sẵn không? Lưu bao lâu? Download thế nào?
 
 Hotline FPT UCaaS: theo hợp đồng dịch vụ.
 
