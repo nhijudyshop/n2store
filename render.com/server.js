@@ -251,6 +251,13 @@ const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
 const { attachSipProxy, createRouter: createOncallRouter, ensurePhoneManagementTables } = require('./routes/oncall-sip-proxy');
+const { SipRegistrarController } = require('./services/sip-registrar-controller');
+const sipRegController = new SipRegistrarController(chatDbPool);
+app.locals.sipRegController = sipRegController;
+// Auto-start server-side SIP registrar (handoff logic: hold exts không có browser active)
+setTimeout(() => {
+    sipRegController.start().catch(err => console.error('[SIP-CTRL] start failed:', err.message));
+}, 8000); // delay 8s để DB + migration sẵn sàng
 const tposTokenManager = require('./services/tpos-token-manager');
 const { createAuthTokenStore } = require('./services/auth-token-store');
 const authTokenStore = createAuthTokenStore(chatDbPool);

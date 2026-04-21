@@ -659,6 +659,39 @@ function createRouter() {
         }
     });
 
+    // --- SERVER-SIDE SIP REGISTRAR (handoff: giữ ext khi không có browser) ---
+    router.get('/server-registrar', async (req, res) => {
+        try {
+            const ctl = req.app.locals.sipRegController;
+            if (!ctl) return res.json({ success: false, error: 'not_initialized' });
+            res.json({ success: true, ...ctl.getStatus() });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/server-registrar/start', async (req, res) => {
+        try {
+            const ctl = req.app.locals.sipRegController;
+            if (!ctl) return res.status(500).json({ success: false, error: 'not_initialized' });
+            await ctl.start();
+            res.json({ success: true, ...ctl.getStatus() });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/server-registrar/stop', async (req, res) => {
+        try {
+            const ctl = req.app.locals.sipRegController;
+            if (!ctl) return res.status(500).json({ success: false, error: 'not_initialized' });
+            await ctl.stop();
+            res.json({ success: true, ...ctl.getStatus() });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     router.delete('/auto-register-lock', async (req, res) => {
         try {
             const { session } = req.body || {};
