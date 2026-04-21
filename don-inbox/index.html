@@ -2033,6 +2033,8 @@
         <!-- Override confirmAndPrintSale with address sync wrapper (must be right after tab1-sale.js) -->
         <script>
             if (typeof overrideConfirmAndPrintSale === 'function') overrideConfirmAndPrintSale();
+            // Inbox-only: route updateSaleOrderWithAPI về Render cho social order (không ảnh hưởng tab1).
+            if (typeof installInboxSaleApiOverride === 'function') installInboxSaleApiOverride();
         </script>
 
         <!-- Tab1 Invoice Status Store + Workflow (reuse for Phieu ban hang, Messenger, Huy don) -->

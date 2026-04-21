@@ -206,6 +206,97 @@ function updateSocialOrderAfterSale(socialOrderId) {
 }
 
 // =====================================================
+// INBOX-ONLY OVERRIDE: updateSaleOrderWithAPI cho social order
+// Shared tab1-sale.js mặc định PUT TPOS SaleOnline_Order. Social order sống trên Render
+// (id SO-xxx không tồn tại trên TPOS → 404). Override updateSaleOrderWithAPI:
+// nếu currentSaleOrderData._isSocialOrder thì sync về Render + SocialOrderState;
+// ngược lại gọi nguyên bản → tab1 behavior không đổi.
+//
+// Dùng bare-name reassignment (giống overrideConfirmAndPrintSale) — pattern này đã chạy
+// OK trong codebase. window.*= có thể không intercept bare-name call trong một số browser.
+// Chỉ gọi ở don-inbox/index.html, không gọi ở orders-report/tab1-orders.html → tab1 giữ nguyên.
+// =====================================================
+function installInboxSaleApiOverride() {
+    if (window._inboxSaleApiOverrideInstalled) return;
+    if (typeof updateSaleOrderWithAPI !== 'function') {
+        console.warn('[SOCIAL-SALE] updateSaleOrderWithAPI chưa load, skip install');
+        return;
+    }
+    window._originalUpdateSaleOrderWithAPI = updateSaleOrderWithAPI;
+    updateSaleOrderWithAPI = async function inboxRoutedUpdateSaleOrderWithAPI() {
+        if (!currentSaleOrderData || !currentSaleOrderData._isSocialOrder) {
+            return window._originalUpdateSaleOrderWithAPI.apply(this, arguments);
+        }
+        return _syncInboxOrderLinesToRender(currentSaleOrderData);
+    };
+    window._inboxSaleApiOverrideInstalled = true;
+    console.log('[SOCIAL-SALE] Installed updateSaleOrderWithAPI override for inbox orders');
+}
+
+async function _syncInboxOrderLinesToRender(saleData) {
+    const socialId = window._lastSocialSaleOrderId || saleData.Id;
+    if (!socialId) {
+        console.error('[SOCIAL-SALE] Missing social order id, skip Render sync');
+        return null;
+    }
+    if (typeof window.updateSocialOrder !== 'function') {
+        console.warn('[SOCIAL-SALE] updateSocialOrder unavailable — products will persist on submit only');
+        return null;
+    }
+
+    const sourceOrder = window.SocialOrderState?.orders?.find((o) => o.id === socialId);
+    const prevByTposId = new Map(
+        (sourceOrder?.products || []).map((p) => [String(p.tposProductId || ''), p])
+    );
+
+    // Convert tab1 orderLines shape → inbox products shape (khớp _collectSocialProducts
+    // tại tab-social-modal.js:240, dùng cùng format với "Tạo đơn mới" / "Chỉnh sửa đơn").
+    const products = (saleData.orderLines || []).map((line) => {
+        const tposId = line.ProductId || line.Product?.Id || 0;
+        const prev = prevByTposId.get(String(tposId)) || {};
+        const quantity = parseInt(line.ProductUOMQty ?? line.Quantity ?? 1) || 1;
+        const sellingPrice = parseFloat(line.PriceUnit ?? line.Price ?? 0) || 0;
+        const mapped = {
+            id: prev.id,
+            productName: line.Product?.Name || line.ProductName || prev.productName || '',
+            variant: line.Note || prev.variant || '',
+            productCode: line.Product?.DefaultCode || line.ProductCode || prev.productCode || '',
+            quantity,
+            purchasePrice: prev.purchasePrice || 0,
+            sellingPrice,
+            productImages: prev.productImages || [],
+            priceImages: prev.priceImages || [],
+            selectedAttributeValueIds: prev.selectedAttributeValueIds || [],
+        };
+        if (tposId) mapped.tposProductId = tposId;
+        if (prev.tposProductTmplId) mapped.tposProductTmplId = prev.tposProductTmplId;
+        return mapped;
+    });
+
+    const totalQuantity = products.reduce((s, p) => s + (p.quantity || 0), 0);
+    const totalAmount = products.reduce(
+        (s, p) => s + (Number(p.sellingPrice) || 0) * (p.quantity || 0),
+        0
+    );
+
+    if (sourceOrder) {
+        sourceOrder.products = products;
+        sourceOrder.totalQuantity = totalQuantity;
+        sourceOrder.totalAmount = totalAmount;
+        sourceOrder.updatedAt = Date.now();
+        if (typeof window.saveSocialOrdersToStorage === 'function') {
+            window.saveSocialOrdersToStorage();
+        }
+    }
+
+    console.log('[SOCIAL-SALE] Syncing inbox order products → Render', {
+        socialId,
+        count: products.length,
+    });
+    return window.updateSocialOrder(socialId, { products, totalQuantity, totalAmount });
+}
+
+// =====================================================
 // OPEN SALE MODAL FROM SOCIAL ORDER (main entry point)
 // =====================================================
 async function openSaleModalInSocialTab(orderId) {
