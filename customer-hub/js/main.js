@@ -80,10 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = ''; // Restore scroll
     };
 
-    // Close modal on backdrop click
+    // Close modal on backdrop / outside click
     if (modalBackdrop) {
         modalBackdrop.addEventListener('click', () => {
             window.closeCustomerModal();
+        });
+    }
+    if (modalContainer) {
+        modalContainer.addEventListener('mousedown', (e) => {
+            // Chỉ đóng khi click bắt đầu ngoài vùng #modal-content (card chính)
+            if (!modalContent) return;
+            if (!modalContent.contains(e.target)) {
+                window.closeCustomerModal();
+            }
         });
     }
 

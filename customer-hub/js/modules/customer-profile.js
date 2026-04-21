@@ -746,7 +746,7 @@ export class CustomerProfileModule {
                                         const head = note.slice(0, approverMatch.index).trim();
                                         if (head) detailParts.push(head);
                                         if (date) detailParts.push(date);
-                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">(${approverMatch[1]} ${approverMatch[2].trim()})</span>`);
+                                        detailParts.push(`<span style="color:#1e293b;font-weight:700;">(${approverMatch[1]} ${approverMatch[2].trim()})</span>`);
                                         __suppressOperator = true;
                                     } else {
                                         if (note) detailParts.push(note);
