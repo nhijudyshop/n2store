@@ -1177,6 +1177,9 @@
                 if (window.inventoryPickerDialog && window.purchaseOrderFormModal) {
                     const fm = window.purchaseOrderFormModal;
                     window.inventoryPickerDialog.open({
+                        // Don-inbox order sẽ tạo phiếu bán hàng lẻ → cần Variant Id chính xác (tránh TPOS NRE khi InsertListOrderModel).
+                        // Endpoint Variant trả [Id, Name, PriceVariant]; purchase price enrich qua fetchProductDetails khi user chọn.
+                        useVariantPrice: true,
                         onSelect: function (products) {
                             // Remove empty items before adding
                             fm.formData.items = fm.formData.items.filter(

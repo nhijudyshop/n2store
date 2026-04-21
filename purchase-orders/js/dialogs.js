@@ -1345,10 +1345,14 @@ class InventoryPickerDialog {
 
     /**
      * Open inventory picker dialog
-     * @param {Object} options - { onSelect }
+     * @param {Object} options - { onSelect, useVariantPrice }
+     *   - useVariantPrice: true → dùng ExportFileWithVariantPrice (trả Variant Id chính xác cho invoice).
+     *     Mặc định false → ExportFileWithStandardPriceV2 (có Standard Price column, dùng cho purchase-orders).
+     *     Don-inbox PHẢI bật vì cần Variant Id đúng để TPOS không NRE khi tạo phiếu bán hàng lẻ.
      */
     async open(options = {}) {
         this.onSelect = options.onSelect;
+        this.useVariantPrice = !!options.useVariantPrice;
         this.searchTerm = '';
         this.filteredProducts = [];
 
@@ -1368,10 +1372,19 @@ class InventoryPickerDialog {
 
     /**
      * localStorage key for caching product list
+     * Variant Excel có Id KHÁC với Standard Excel → tách cache key riêng.
      */
     static CACHE_KEY = 'inventory_products_cache';
+    static CACHE_KEY_VARIANT = 'inventory_products_cache_variant_v1';
     static CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
     static SELECTED_CACHE_KEY = 'inventory_selected_products';
+
+    /** Trả cache key tương ứng nguồn data hiện tại */
+    getCacheKey() {
+        return this.useVariantPrice
+            ? InventoryPickerDialog.CACHE_KEY_VARIANT
+            : InventoryPickerDialog.CACHE_KEY;
+    }
 
     /**
      * Load products from TPOS ExportFileWithStandardPriceV2 API (Excel file)
@@ -1399,8 +1412,13 @@ class InventoryPickerDialog {
                 throw new Error('TPOSClient không khả dụng');
             }
 
+            // Endpoint: VariantPrice trả Variant Id (đúng cho invoice). StandardPriceV2 mới có cả Standard Price column (dùng cho purchase-orders).
+            const endpoint = this.useVariantPrice
+                ? `${this.proxyUrl}/api/Product/ExportFileWithVariantPrice`
+                : `${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`;
+
             const response = await window.TPOSClient.authenticatedFetch(
-                `${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`,
+                endpoint,
                 {
                     method: 'POST',
                     body: JSON.stringify({
@@ -1426,27 +1444,48 @@ class InventoryPickerDialog {
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
 
-            // Convert to JSON array (first row is header)
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+            if (this.useVariantPrice) {
+                // VariantPrice Excel: 3 cột [Id sản phẩm (*), Tên sản phẩm, Giá biến thể] — không có code, không có purchase price.
+                // Parse theo INDEX (header: 1) để khớp với EnhancedProductSearchManager.
+                // Code sẽ trích từ prefix "[CODE] Name" trong tên (TPOS export tên variant theo format này).
+                const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                console.log('[InventoryPicker] VariantPrice Excel parsed, header:', jsonRows[0], 'sample:', jsonRows[1]);
 
-            console.log('[InventoryPicker] Excel parsed, first row:', jsonData[0]);
+                const codeFromName = (name) => {
+                    const m = String(name || '').match(/^\s*\[([^\]]+)\]/);
+                    return m ? m[1].trim() : '';
+                };
 
-            // Map Excel data to our format
-            // Excel columns: Id (*), Mã sản phẩm, Tên sản phẩm, Giá mua, Giá vốn (*)
-            this.products = jsonData.map(row => {
-                // Find ID - try multiple possible column names
-                const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
-                // Find code
-                const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
-                // Find name
-                const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
-                // Giá mua = Purchase price (what we pay to supplier)
-                const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
-                // Giá bán = Selling price (we don't have this in Excel, will fetch from product details)
-                const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
+                this.products = [];
+                for (let i = 1; i < jsonRows.length; i++) {
+                    const row = jsonRows[i];
+                    if (!row || row.length === 0 || !row[0]) continue;
+                    const id = parseInt(row[0]);
+                    if (!id || isNaN(id)) continue;
+                    const name = String(row[1] || '');
+                    const sellingPrice = parseFloat(row[2]) || 0;
+                    this.products.push({
+                        id,
+                        code: codeFromName(name),
+                        name,
+                        purchasePrice: 0, // sẽ enrich khi user chọn → fetchProductDetails
+                        sellingPrice,
+                    });
+                }
+            } else {
+                // StandardPriceV2 Excel: object-based, có Mã sản phẩm + Giá mua + Giá vốn (*).
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                console.log('[InventoryPicker] StandardPriceV2 Excel parsed, first row:', jsonData[0]);
 
-                return { id, code, name, purchasePrice, sellingPrice };
-            }).filter(p => p.id); // Filter out empty rows
+                this.products = jsonData.map(row => {
+                    const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
+                    const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
+                    const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
+                    const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
+                    const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
+                    return { id, code, name, purchasePrice, sellingPrice };
+                }).filter(p => p.id);
+            }
 
             this.filteredProducts = [...this.products];
 
@@ -1490,7 +1529,8 @@ class InventoryPickerDialog {
      */
     loadFromCache() {
         try {
-            const cached = localStorage.getItem(InventoryPickerDialog.CACHE_KEY);
+            const key = this.getCacheKey();
+            const cached = localStorage.getItem(key);
             if (!cached) return null;
 
             const { data, timestamp } = JSON.parse(cached);
@@ -1498,7 +1538,7 @@ class InventoryPickerDialog {
             // Check expiry
             if (Date.now() - timestamp > InventoryPickerDialog.CACHE_EXPIRY) {
                 console.log('[InventoryPicker] Cache expired');
-                localStorage.removeItem(InventoryPickerDialog.CACHE_KEY);
+                localStorage.removeItem(key);
                 return null;
             }
 
@@ -1519,7 +1559,7 @@ class InventoryPickerDialog {
                 data: products,
                 timestamp: Date.now()
             };
-            localStorage.setItem(InventoryPickerDialog.CACHE_KEY, JSON.stringify(cacheData));
+            localStorage.setItem(this.getCacheKey(), JSON.stringify(cacheData));
             console.log(`[InventoryPicker] Saved ${products.length} products to cache`);
         } catch (e) {
             console.warn('[InventoryPicker] Failed to save to cache:', e);

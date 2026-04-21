@@ -410,8 +410,10 @@ async function saveOrder() {
 }
 
 // Lưu đơn xong tự động mở modal phiếu bán hàng lẻ
-function saveOrderAndOpenRetailSale() {
-    const id = saveOrder();
+async function saveOrderAndOpenRetailSale() {
+    // saveOrder là async (có await PancakeValidator.quickLookup) — phải await,
+    // nếu không id trả về là Promise → openRetailSaleFromSocial(Promise) lookup fail → "Không tìm thấy đơn hàng".
+    const id = await saveOrder();
     if (!id) return; // validation failed
     // saveOrder đã đóng modal — mở sale modal ngay sau đó
     openRetailSaleFromSocial(id);

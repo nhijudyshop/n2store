@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inbox,picker] Fix "Không tìm thấy đơn hàng" + TPOS NRE khi tạo phiếu từ "Tạo đơn mới"
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-modal.js`, `don-inbox/index.html`, `purchase-orders/js/dialogs.js` |
+| **Chi tiết** | User báo: bấm "Tạo phiếu bán hàng lẻ" trong modal "Tạo đơn hàng mới" → toast đỏ "Không tìm thấy đơn hàng"; sau đó mở modal sale từ row → click "Xác nhận và in" → TPOS reject "Object reference not set to an instance of an object". F5 + chỉ thêm SP từ ô "Tìm kiếm [F2]" thì OK. **Bug 1**: `saveOrderAndOpenRetailSale()` (`tab-social-modal.js:413`) gọi `saveOrder()` (async vì await `PancakeValidator.quickLookup`) **không có await** → `id` là Promise → `openRetailSaleFromSocial(Promise)` lookup `o.id === Promise` → fail. Fix: wrapper thành `async` + `await saveOrder()`. **Bug 2**: `InventoryPickerDialog` ("Chọn từ Kho SP") dùng endpoint `Product/ExportFileWithStandardPriceV2` — Excel này có **Standard Price column** và Id có thể là Template Id; trong khi ô "Tìm kiếm [F2]" trong sale modal dùng `EnhancedProductSearchManager` với endpoint `Product/ExportFileWithVariantPrice` trả [Id, Name, PriceVariant] — Id là Variant Id chính xác. Khi user chọn SP từ picker với Id sai, payload `OrderLines[0].ProductId` sai variant → TPOS NRE khi resolve UOM/Categ. Fix: thêm option `useVariantPrice` vào `InventoryPickerDialog.open()`; khi true → dùng endpoint VariantPrice + parser array-based [Id, Name, Price] + cache key riêng `inventory_products_cache_variant_v1` (tránh trộn cache cũ); code trích từ prefix `[CODE]` trong tên (TPOS export theo format này); purchasePrice enrich qua `fetchProductDetails` khi user click row. Don-inbox bật `useVariantPrice: true` khi gọi picker; purchase-orders giữ nguyên StandardPriceV2. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix hover zoom ảnh bị kẹt trong bảng purchase-orders
 | | |
 |---|---|
