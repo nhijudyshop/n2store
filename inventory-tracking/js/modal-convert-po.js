@@ -495,17 +495,17 @@ function _renderVariantModal() {
             <div class="pov-col">
                 <div class="pov-col-title">Màu</div>
                 <input type="text" class="pov-search" placeholder="Tìm kiếm..." data-target="povColorList">
-                <div class="pov-options" id="povColorList">${_renderVariantOptions(COLORS, _poVariantSel.color)}</div>
+                <div class="pov-options" id="povColorList">${_poRenderVariantOptions(COLORS, _poVariantSel.color)}</div>
             </div>
             <div class="pov-col">
                 <div class="pov-col-title">Size Số</div>
                 <input type="text" class="pov-search" placeholder="Tìm kiếm..." data-target="povSizeNumList">
-                <div class="pov-options" id="povSizeNumList">${_renderVariantOptions(SNUM, _poVariantSel.sizeNum)}</div>
+                <div class="pov-options" id="povSizeNumList">${_poRenderVariantOptions(SNUM, _poVariantSel.sizeNum)}</div>
             </div>
             <div class="pov-col">
                 <div class="pov-col-title">Size Chữ</div>
                 <input type="text" class="pov-search" placeholder="Tìm kiếm..." data-target="povSizeCharList">
-                <div class="pov-options" id="povSizeCharList">${_renderVariantOptions(SCHAR, _poVariantSel.sizeChar)}</div>
+                <div class="pov-options" id="povSizeCharList">${_poRenderVariantOptions(SCHAR, _poVariantSel.sizeChar)}</div>
             </div>
             <div class="pov-col">
                 <div class="pov-col-title">Danh sách Biến Thể</div>
@@ -516,7 +516,7 @@ function _renderVariantModal() {
 
     // Bind column search
     body.querySelectorAll('.pov-search').forEach(inp => {
-        inp.oninput = (e) => _filterVariantOptions(e.target.dataset.target, e.target.value);
+        inp.oninput = (e) => _poFilterVariantOptions(e.target.dataset.target, e.target.value);
     });
     // Bind option checkboxes (delegate)
     body.querySelectorAll('.pov-options').forEach(col => {
@@ -554,7 +554,7 @@ function _renderVariantModal() {
     _updateVariantCombos();
 }
 
-function _renderVariantOptions(items, selectedSet) {
+function _poRenderVariantOptions(items, selectedSet) {
     if (!items || items.length === 0) return '<div class="pov-empty">Đang tải...</div>';
     return items.map(v => `
         <label class="pov-opt" data-value="${_esc(v)}">
@@ -566,10 +566,10 @@ function _renderVariantOptions(items, selectedSet) {
 
 function _rerenderOption(containerId, items, selectedSet) {
     const el = document.getElementById(containerId);
-    if (el) el.innerHTML = _renderVariantOptions(items, selectedSet);
+    if (el) el.innerHTML = _poRenderVariantOptions(items, selectedSet);
 }
 
-function _filterVariantOptions(containerId, query) {
+function _poFilterVariantOptions(containerId, query) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const q = query.toLowerCase().trim();
