@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inventory] Convert NCC→PO: biến thể độc lập thay cho cartesian Màu×Size
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-convert-po.js` |
+| **Chi tiết** | User yêu cầu BIẾN THỂ cột trong purchase-orders hiển thị dạng "1 giá trị / dòng" (giống hình 1: `Trắng`, `Hồng`, `Xanh`) thay vì gộp `Trắng / M` (hình 2). Root cause: `_generateVariantCombos` nhân cartesian Màu × Size → 1 dòng chứa `color / size`. **Fix**: đổi sang concat phẳng `[...colors, ...sizeChars, ...sizeNums]` — mỗi giá trị thuộc tính đã chọn trở thành 1 dòng biến thể độc lập. VD chọn [Trắng, Đen] + [M, S] → trước: 4 dòng `Trắng/M, Trắng/S, Đen/M, Đen/S` — sau: 4 dòng `Trắng, Đen, M, S`. Flow `_applyVariantToItem` giữ nguyên (splice N dòng vào `_convertItems`). Pre-select qua `split(/\s*\/\s*/)` vẫn tương thích vì single-value string không chứa `/`. Dữ liệu POST sang purchase-orders sẽ render đúng format image 1 (không có dấu /). |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Xử lý ActionRefund 400 "Đơn hàng đã được trả hết" — skip TPOS flow, vẫn đóng ticket
 | | |
 |---|---|

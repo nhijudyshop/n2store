@@ -729,17 +729,9 @@ function _generateVariantCombos() {
     const colors = [..._poVariantSel.color];
     const sizeNums = [..._poVariantSel.sizeNum];
     const sizeChars = [..._poVariantSel.sizeChar];
-    const combos = [];
-    if (colors.length > 0 && sizeChars.length > 0) {
-        for (const c of colors) for (const s of sizeChars) combos.push(`${c} / ${s}`);
-    }
-    if (colors.length > 0 && sizeNums.length > 0) {
-        for (const c of colors) for (const s of sizeNums) combos.push(`${c} / ${s}`);
-    }
-    if (colors.length > 0 && sizeChars.length === 0 && sizeNums.length === 0) combos.push(...colors);
-    if (colors.length === 0 && sizeChars.length > 0) combos.push(...sizeChars);
-    if (colors.length === 0 && sizeNums.length > 0) combos.push(...sizeNums);
-    return combos;
+    // Independent rows: mỗi giá trị thuộc tính đã chọn → 1 dòng biến thể riêng
+    // (không cartesian Màu×Size để khớp format "1 giá trị / dòng" bên purchase-orders)
+    return [...colors, ...sizeChars, ...sizeNums];
 }
 
 function _updateVariantSummary() {
