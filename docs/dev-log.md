@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [issue-tracking] Fix công nợ ảo "Thu Về" không ghi note ticket vào wallet transaction
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js` |
+| **Chi tiết** | User report: khi cấp công nợ ảo cho ticket Thu Về (NJD/2026/61977 — note "THU VỀ ÁO CHẤT Q21X 320K"), wallet activity chỉ hiện `+320K Công Nợ Ảo Từ Thu Về (NJD/2026/61977) - 11:08 21/04/2026` — không có note ticket. Trong khi ticket cũ (61169) lại hiện đủ `... - THU VỀ 1 SET B1463N - 290K CHẬT`. **Root cause**: [issue-tracking/js/script.js:1600](issue-tracking/js/script.js#L1600) đọc `ticket.internalNote` (camelCase), nhưng [shared/js/api-service.js:454](shared/js/api-service.js#L454) map server's `internal_note` → `ticket.note` (không phải `internalNote`). Vì vậy `internalNoteStr` luôn rỗng → `walletNote` build bị thiếu phần ghi chú → POST `/v2/tickets/{id}/resolve-credit` gửi note rút gọn → server lưu vào `wallet_transactions.note` thiếu thông tin. Ticket cũ có note vì có thể đã được resolve qua đường khác (server đọc từ DB, không qua client). **Fix**: đổi `(ticket.internalNote || '').trim()` → `(ticket.note || ticket.internalNote || ticket.internal_note || '').trim()` — đồng bộ với convention UI đã dùng (`ticket.note` ở line 2212, 3279), fallback thêm 2 spelling để an toàn với mọi code path load ticket. Chỉ fix từ giờ về sau; tickets đã resolve với note rút gọn không backfill. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix ví KH trong sale modal: ReferenceError + endpoint 410 + mở rộng khung modal
 | | |
 |---|---|

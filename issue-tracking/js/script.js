@@ -1597,7 +1597,8 @@ async function handleConfirmAction() {
                 }
             } catch (e) { console.warn('[AuditLog] ticket_add_debt log failed:', e); }
 
-            const internalNoteStr = (ticket.internalNote || '').trim();
+            // ticket.note is mapped from server's internal_note (see api-service.js:454)
+            const internalNoteStr = (ticket.note || ticket.internalNote || ticket.internal_note || '').trim();
             const walletNote = internalNoteStr
                 ? `Công Nợ Ảo Từ Thu Về (${ticket.orderId}) - ${internalNoteStr}`
                 : `Công Nợ Ảo Từ Thu Về (${ticket.orderId})`;
