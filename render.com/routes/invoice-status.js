@@ -262,7 +262,8 @@ router.post('/refresh-from-tpos', async (req, res) => {
 
     const startedAt = Date.now();
     const { saleOnlineIds, limit, sinceMs, chunkSize } = req.body || {};
-    const CHUNK = Math.max(5, Math.min(100, parseInt(chunkSize) || 30));
+    // TPOS OData giới hạn tối đa 20 OR clauses per $filter (HTTP 400: "Limit or count 20")
+    const CHUNK = Math.max(5, Math.min(20, parseInt(chunkSize) || 20));
 
     try {
         // 1. Build query lấy entries cần refresh
