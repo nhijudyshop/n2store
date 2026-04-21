@@ -80,28 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = ''; // Restore scroll
     };
 
-    // Close modal on backdrop / outside click
-    if (modalBackdrop) {
-        modalBackdrop.addEventListener('click', () => {
-            window.closeCustomerModal();
-        });
-    }
-    if (modalContainer) {
-        modalContainer.addEventListener('mousedown', (e) => {
-            // Chỉ đóng khi click bắt đầu ngoài vùng #modal-content (card chính)
-            if (!modalContent) return;
-            if (!modalContent.contains(e.target)) {
-                window.closeCustomerModal();
-            }
-        });
-    }
-
-    // Close modal on ESC key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modalContainer?.classList.contains('hidden')) {
-            window.closeCustomerModal();
-        }
-    });
+    // NOTE: Không đóng modal khi click ngoài / ESC — chỉ nút X mới đóng
+    // (user yêu cầu tránh vô tình đóng khi đang thao tác)
 
     // Delegated close: catches any click on #modal-close-btn even after re-render
     document.addEventListener('click', (e) => {
