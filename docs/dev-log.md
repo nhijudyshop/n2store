@@ -8,6 +8,20 @@
 
 ## 2026-04-21
 
+### [orders] Wallet modal (tab1): đồng bộ layout với customer-hub "Hoạt động gần đây"
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-wallet-modal.js` |
+| **Chi tiết** | Modal ví ở tab1 (click wallet badge) đang render dạng card (icon + label + note + balance-change) khác hẳn với `customer-hub/js/modules/customer-profile.js` (dòng đơn compact: `+AMOUNT  mô tả - date (Duyệt bởi X)  → BALANCE`). User muốn đồng bộ. **Fix**: (1) thêm `formatK` (K-format) và `groupCodPayments` (gộp WITHDRAW cùng mã NJD thành 1 dòng thanh toán); (2) rewrite `renderTransaction` theo spec customer-hub: override DEPOSIT+ORDER_CANCEL_REFUND → label "HOÀN", replace "Nạp từ CK" → "Khách CK", extract image `[Ảnh GD: …]`, rewrite COD payment note head thành `Thanh Toán Đơn Hàng #NJD/...` (giữ breakdown hàng+ship), tách `(Duyệt bởi X)` cuối note ra sau date, operator label đỏ `Duyệt bởi/Tạo bởi/Hoàn bởi`; (3) thay CSS `.wdm-tx-item/.wdm-tx-header/.wdm-tx-icon/.wdm-tx-detail/.wdm-tx-note/.wdm-tx-balance` bằng `.wdm-tx-line` compact flex-row với border-left màu + thumbnail `.wdm-tx-thumb`; (4) slice 15 giao dịch sau khi group. Summary header (tổng số dư/tiền thật/công nợ ảo) giữ nguyên. |
+| **Status** | ✅ Done |
+
+### [inbox] Fix sale modal add-product: route social order về Render (override, không sửa tab1)
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | Thêm SP vào sale modal trong don-inbox → notification "Sản phẩm đã được thêm nhưng chưa đồng bộ với server" + console 404 tại `GET /api/odata/SaleOnline_Order(SO-20260421-7046)?$expand=Details,Partner,User,CRMTeam`. **Root cause**: shared `updateSaleOrderWithAPI` ([tab1-sale.js:437](orders-report/js/tab1/tab1-sale.js#L437)) mặc định PUT TPOS `SaleOnline_Order(Id)`. Social order chỉ tồn tại trên Render (`chatomni-proxy/entries`), id `SO-xxx` không resolve trên TPOS → 404. **Yêu cầu người dùng**: không sửa hàm trong tab1 để tránh lỗi tab1; chỉ override từ phía don-inbox để khi thêm SP ở phiếu bán hàng sẽ lưu vào đơn hàng (Render) giống "Tạo đơn mới" / "Chỉnh sửa đơn". **Fix**: thêm `_installInboxSaleApiOverride()` trong tab-social-sale.js — gọi ở đầu `openSaleModalInSocialTab` (idempotent via `window._inboxSaleApiOverrideInstalled`). Installer wrap `window.updateSaleOrderWithAPI`: nếu `currentSaleOrderData._isSocialOrder` → `_syncInboxOrderLinesToRender(data)` (convert `orderLines` TPOS shape → social products shape khớp `_collectSocialProducts` [tab-social-modal.js:240](don-inbox/js/tab-social-modal.js#L240), preserve `purchasePrice/images/selectedAttributeValueIds/tposProductTmplId` lookup by tposProductId, update `SocialOrderState` + `saveSocialOrdersToStorage()` + PUT `updateSocialOrder(socialId, { products, totalQuantity, totalAmount })`); ngược lại gọi nguyên bản → tab1 behavior không đổi. Trick khả thi vì classic script top-level `function` bind vào `window`, reassign `window.updateSaleOrderWithAPI` sẽ intercept bare-name call tại [tab1-sale.js:362](orders-report/js/tab1/tab1-sale.js#L362). |
+| **Status** | ✅ Done
+
 ### [inbox] Detect broken TPOS product (HTTP 500) khi enrich + block submit với cảnh báo rõ ràng
 | | |
 |---|---|

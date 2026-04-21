@@ -30,9 +30,53 @@
         return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
     }
 
+    function formatK(val) {
+        const num = Math.abs(parseFloat(val) || 0);
+        if (num === 0) return '0K';
+        const k = num / 1000;
+        return (Number.isInteger(k) ? k : k.toFixed(1).replace(/\.0$/, '')) + 'K';
+    }
+
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Group COD payments of the same order into a single line
+    function groupCodPayments(txs) {
+        const out = [];
+        const groupMap = new Map();
+        for (const tx of txs) {
+            const rn = tx.note || tx.source || '';
+            const isCod = tx.type === 'WITHDRAW'
+                && (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
+            if (!isCod) { out.push(tx); continue; }
+            const m = rn.match(/#?(NJD\/\d{4}\/\d+)/i)
+                || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+            const orderCode = m ? m[1] : '';
+            const key = `${orderCode}`;
+            if (!orderCode || !groupMap.has(key)) {
+                groupMap.set(key, out.length);
+                out.push({ ...tx, amount: parseFloat(tx.amount) || 0 });
+            } else {
+                const ex = out[groupMap.get(key)];
+                ex.amount = (parseFloat(ex.amount) || 0) + (parseFloat(tx.amount) || 0);
+                const exAfter = (parseFloat(ex.balance_after) || 0) + (parseFloat(ex.virtual_balance_after) || 0);
+                const txAfter = (parseFloat(tx.balance_after) || 0) + (parseFloat(tx.virtual_balance_after) || 0);
+                if (txAfter < exAfter) {
+                    ex.balance_after = tx.balance_after;
+                    ex.virtual_balance_after = tx.virtual_balance_after;
+                }
+                const exBefore = (parseFloat(ex.balance_before) || 0) + (parseFloat(ex.virtual_balance_before) || 0);
+                const txBefore = (parseFloat(tx.balance_before) || 0) + (parseFloat(tx.virtual_balance_before) || 0);
+                if (txBefore > exBefore) {
+                    ex.balance_before = tx.balance_before;
+                    ex.virtual_balance_before = tx.virtual_balance_before;
+                }
+                if ((tx.note || '').length > (ex.note || '').length) ex.note = tx.note;
+            }
+        }
+        return out;
     }
 
     /**
@@ -161,16 +205,17 @@
         // Build transactions list
         let txHTML = '';
         if (transactions.length > 0) {
+            const grouped = groupCodPayments(transactions).slice(0, 15);
             txHTML = `
                 <div class="wdm-activity-header">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <i class="fas fa-wallet" style="font-size:18px;color:#6366f1;"></i>
                         <span style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Hoạt động ví</span>
                     </div>
-                    <span class="wdm-activity-count">${transactions.length} hoạt động</span>
+                    <span class="wdm-activity-count">${grouped.length} hoạt động</span>
                 </div>
                 <div class="wdm-activity-list">
-                    ${transactions.map(tx => renderTransaction(tx)).join('')}
+                    ${grouped.map(tx => renderTransaction(tx)).join('')}
                 </div>
             `;
         }
@@ -179,32 +224,35 @@
     }
 
     /**
-     * Render a single transaction entry
+     * Render a single transaction entry (compact single-line style,
+     * matches customer-hub's "Hoạt động gần đây").
      */
     function renderTransaction(tx) {
-        const cfg = WALLET_TYPE_CONFIG[tx.type] || DEFAULT_CONFIG;
-        const amount = parseFloat(tx.amount) || 0;
+        let cfg = WALLET_TYPE_CONFIG[tx.type] || DEFAULT_CONFIG;
+        let suppressOperator = false;
 
-        // For ADJUSTMENT, sign/color follow the actual sign of amount (DB lưu âm khi trừ, dương khi cộng)
+        // DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (xanh, dấu +)
+        if (tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND') {
+            cfg = { label: 'HOÀN', iconChar: '+', isCredit: true };
+        }
+
+        const amount = parseFloat(tx.amount) || 0;
         const isAdjust = tx.type === 'ADJUSTMENT';
         const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
 
         const sign = isCredit ? '+' : '-';
         const amountColor = isCredit ? '#16a34a' : '#dc2626';
         const bgColor = isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
-        const borderColor = isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
-        const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
         const iconColor = isCredit ? '#16a34a' : '#dc2626';
-        const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
 
         // Dynamic label for ADJUSTMENT
-        let label = cfg.label;
+        let txLabel = cfg.label;
         if (isAdjust) {
             const cp = tx.counterparty_phone;
             if (isCredit) {
-                label = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
+                txLabel = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
             } else {
-                label = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
+                txLabel = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
             }
         }
 
@@ -214,8 +262,16 @@
                 hour: '2-digit', minute: '2-digit'
             })
             : '';
-        const createdBy = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
-        const note = tx.note || tx.source || '';
+        const createdBy = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
+
+        // Extract image URL + clean note text (Nạp từ CK → Khách CK)
+        const rawNote = tx.note || tx.source || '';
+        const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
+        const note = rawNote
+            .replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '')
+            .replace(/Nạp từ CK/gi, 'Khách CK')
+            .trim();
 
         let detailParts = [];
         if (isAdjust) {
@@ -223,24 +279,63 @@
             const cpPhone = tx.correct_customer_phone || '';
             const amtFmt = formatCurrency(Math.abs(amount));
             if (wp && cpPhone) {
-                detailParts.push(escapeHtml(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`));
+                detailParts.push(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${escapeHtml(wp)} → SĐT ${escapeHtml(cpPhone)} (${sign}${amtFmt})`);
             } else if (wp) {
-                detailParts.push(escapeHtml(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`));
+                detailParts.push(`Điều chỉnh trừ ví SĐT ${escapeHtml(wp)} (${sign}${amtFmt})`);
             }
             if (tx.adjustment_reason) detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
             if (date) detailParts.push(date);
         } else {
-            if (note) detailParts.push(escapeHtml(note));
-            if (date) detailParts.push(date);
+            const orderMatch = (rawNote.match(/#?(NJD\/\d{4}\/\d+)/i)
+                || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i));
+            const orderCode = orderMatch ? orderMatch[1] : (tx.reference_id || '');
+
+            const isCodPayment = tx.type === 'WITHDRAW'
+                && (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
+            const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
+
+            if (isCodPayment) {
+                // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
+                const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
+                const rewritten = headRe.test(note)
+                    ? note.replace(headRe, `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`)
+                    : `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`;
+                detailParts.push(rewritten);
+                if (date) detailParts.push(date);
+                if (createdBy) {
+                    detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Tạo ${escapeHtml(createdBy)}</span>`);
+                }
+                suppressOperator = true;
+            } else if (isCancelRefund) {
+                detailParts.push(`Hoàn Tiền Hủy Đơn Công Nợ #${escapeHtml(orderCode)}`);
+                if (date) detailParts.push(date);
+                if (createdBy) {
+                    detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Hủy ${escapeHtml(createdBy)}</span>`);
+                }
+                suppressOperator = true;
+            } else {
+                // Tách "(Duyệt bởi X)" cuối note → đưa ra sau date
+                const approverMatch = note.match(/\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i);
+                if (approverMatch) {
+                    const head = note.slice(0, approverMatch.index).trim();
+                    if (head) detailParts.push(escapeHtml(head));
+                    if (date) detailParts.push(date);
+                    detailParts.push(`<span style="color:#1e293b;font-weight:700;">(${escapeHtml(approverMatch[1])} ${escapeHtml(approverMatch[2].trim())})</span>`);
+                    suppressOperator = true;
+                } else {
+                    if (note) detailParts.push(escapeHtml(note));
+                    if (date) detailParts.push(date);
+                }
+            }
         }
 
         let operatorHtml = '';
         if (isAdjust && tx.adjusted_by) {
             operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">Điều chỉnh bởi ${escapeHtml(tx.adjusted_by)}</span>`;
-        } else if (createdBy) {
-            const isDeposit = tx.type === 'DEPOSIT';
+        } else if (createdBy && !suppressOperator) {
+            const isRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
+            const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
             const isWithdraw = tx.type === 'WITHDRAW';
-            const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
             const labelOp = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
             operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${labelOp} ${escapeHtml(createdBy)}</span>`;
         }
@@ -253,18 +348,15 @@
         const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
         const totalAfter = balAfter + vBalAfter;
 
+        const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
+        const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
+
         return `
-            <div class="wdm-tx-item" style="background:${bgColor};border:1px solid ${borderColor};">
-                <div class="wdm-tx-header">
-                    <div class="wdm-tx-icon" style="background:${iconBg};">
-                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${iconChar}</span>
-                    </div>
-                    <span class="wdm-tx-label" style="color:${amountColor};">${label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
-                </div>
-                <div class="wdm-tx-detail">
-                    <p class="wdm-tx-note">${detailParts.join(' - ')}${operatorHtml}</p>
-                    <p class="wdm-tx-balance">Thay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}</p>
-                </div>
+            <div class="wdm-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="border-left-color:${iconColor};background:${bgColor};">
+                <span class="wdm-tx-amount" style="color:${amountColor};">${sign}${formatK(amount)}</span>
+                <span class="wdm-tx-text">${detailLine}</span>
+                ${imgMatch ? `<img src="${imgMatch[1]}" class="wdm-tx-thumb" alt="Ảnh GD">` : ''}
+                <span class="wdm-tx-after">→ ${formatK(totalAfter)}</span>
             </div>
         `;
     }
@@ -383,46 +475,46 @@
             padding: 0 14px 14px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 4px;
         }
-        .wdm-tx-item {
-            border-radius: 10px;
-            padding: 14px 16px;
-        }
-        .wdm-tx-header {
+        .wdm-tx-line {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
+            gap: 8px;
+            padding: 8px 10px;
+            border-left: 3px solid #16a34a;
+            border-radius: 4px;
         }
-        .wdm-tx-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .wdm-tx-amount {
+            font-size: 15px;
+            font-weight: 800;
+            white-space: nowrap;
             flex-shrink: 0;
         }
-        .wdm-tx-label {
-            font-size: 16px;
-            font-weight: 800;
-        }
-        .wdm-tx-detail {
-            padding-left: 44px;
-        }
-        .wdm-tx-note {
+        .wdm-tx-text {
+            flex: 1;
             font-size: 13px;
-            font-weight: 500;
-            color: #475569;
-            line-height: 1.6;
-            margin: 0;
+            font-weight: 600;
+            color: #1e293b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .wdm-tx-balance {
+        .wdm-tx-thumb {
+            width: 26px;
+            height: 26px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .wdm-tx-after {
             font-size: 14px;
             font-weight: 800;
             color: #1e293b;
-            margin: 6px 0 0;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
     `;
     document.head.appendChild(style);
