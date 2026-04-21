@@ -74,7 +74,7 @@ function _explodeSanPhamToItems(sanPhamArr) {
         if (mauSac.length > 0) {
             for (const mv of mauSac) {
                 items.push(_mkItem({
-                    productCode: p.maSP || '',
+                    productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
                     productName: baseName,
                     variant: mv.mau || '',
                     quantity: parseInt(mv.soLuong) || 0,
@@ -83,7 +83,7 @@ function _explodeSanPhamToItems(sanPhamArr) {
             }
         } else {
             items.push(_mkItem({
-                productCode: p.maSP || '',
+                productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
                 productName: baseName,
                 variant: '',
                 quantity: parseInt(p.tongSoLuong || p.soLuong) || 0,
