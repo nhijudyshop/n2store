@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inventory][orders] Redesign form Convert NCC → PO — layout giống form "Tạo đơn đặt hàng" + nested variant modal 4-cột
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-convert-po.js` (rewrite full), `inventory-tracking/css/modal-convert-po.css` (rewrite full), `inventory-tracking/index.html` (thêm `#modalConvertVariant`) |
+| **Chi tiết** | User yêu cầu form Chuyển NCC qua Đặt hàng Nháp trông y hệt form "Tạo đơn đặt hàng" của [purchase-orders/js/form-modal.js](purchase-orders/js/form-modal.js). **Layout mới (3 rows + table + footer):** (1) Row 1: Nhà cung cấp *(text input)* | Ngày đặt hàng | Số tiền hóa đơn (VND, format shorthand) | Ảnh hóa đơn preview; (2) Row 2: Ghi chú + nút `+` thêm sản phẩm; (3) Ảnh NCC preview row; (4) Bảng items với cột **STT | Tên sản phẩm | Biến thể | Mã sản phẩm | SL | Giá mua (VND) | Giá bán (VND) | Thành tiền (VND) | Thao tác**; (5) Footer totals: Tổng SL, Tổng tiền, Giảm giá (input), Tiền ship (input), Thêm sản phẩm, THÀNH TIỀN. **VND parser `_parseVND`** mirror form-modal.js:1058 — `"100"` → 100000, `"1,5"` → 1500, `"100.000"` → 100000, `"210000"` → 210000 (>=1000 giữ nguyên). **Biến thể**: mỗi item row có nút "Nhấn để tạo biến thể" (dashed) hoặc chip "Đen / S" (active). Click → mở nested modal `#modalConvertVariant` **4-cột** (Màu / Size Số / Size Chữ / Danh sách Biến Thể) matching hình thiết kế — SizeNum và SizeChar mutually exclusive, combos generate trực tiếp vào cột 4. Reuse global `VARIANT_COLORS/SIZE_NUM/SIZE_CHAR` từ [modal-variant.js:16-18](inventory-tracking/js/modal-variant.js#L16) (đã load TPOS ProductAttributeValue cache 24h). Apply: nếu 1 combo → gán vào item gốc; nếu >1 → nhân bản item thành N dòng (copy productCode/name/qty/price, variant khác nhau). **Xóa item** button per row. **Submit**: build orderData với `status:'DRAFT'`, POST lên `https://n2store-fallback.onrender.com/api/v2/purchase-orders` (X-Auth-Data header raw JSON) — logic giữ nguyên, không đổi endpoint. **CSS mới**: prefix `.po-*` cho form + `.pov-*` cho variant modal, z-index 6000 cho nested modal, match colors/spacing form purchase-orders (indigo primary, neutral borders #d1d5db, 8px radius). Modal container `max-width:1400px`. |
+| **Status** | ✅ Done — chờ user test |
+
 ### [phone-widget] Auto-register — mọi máy mở main.html tự bật 10 line
 | | |
 |---|---|
