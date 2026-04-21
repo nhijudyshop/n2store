@@ -276,7 +276,7 @@ router.post('/refresh-from-tpos', async (req, res) => {
             params.push(parseInt(sinceMs));
             where.push(`entry_timestamp >= $${params.length}`);
         }
-        let sql = `SELECT compound_key, username, sale_online_id, tpos_id
+        let sql = `SELECT compound_key, username, sale_online_id, tpos_id, reference
                    FROM invoice_status
                    WHERE ${where.join(' AND ')}
                    ORDER BY entry_timestamp DESC`;
@@ -293,7 +293,9 @@ router.post('/refresh-from-tpos', async (req, res) => {
         }
 
         // 2. tpos_id → [{compound_key, username, sale_online_id}]
+        // Match chính xác theo tpos_id (TPOS trả nhiều invoice/reference)
         const tposIdMap = new Map();
+        const referenceSet = new Set();
         entries.forEach((e) => {
             if (!tposIdMap.has(e.tpos_id)) tposIdMap.set(e.tpos_id, []);
             tposIdMap.get(e.tpos_id).push({
@@ -301,21 +303,26 @@ router.post('/refresh-from-tpos', async (req, res) => {
                 username: e.username,
                 saleOnlineId: e.sale_online_id,
             });
+            if (e.reference) referenceSet.add(e.reference);
         });
 
         // 3. Get TPOS token (auto-refresh via tpos-token-manager)
         const token = await tposTokenManager.getToken();
-        const tposIds = Array.from(tposIdMap.keys());
+        // Filter BẮT BUỘC dùng Reference (Id eq X bị TPOS OData GetView bỏ qua!)
+        // 1 Reference → N invoices, match lại theo tpos_id (Id) sau khi fetch
+        const references = Array.from(referenceSet).filter(Boolean);
 
         let fetched = 0;
         let updated = 0;
         let errors = 0;
 
-        // 4. Batch fetch OData + UPSERT per chunk
-        for (let i = 0; i < tposIds.length; i += CHUNK) {
-            const chunk = tposIds.slice(i, i + CHUNK);
-            const orFilter = chunk.map((id) => `Id eq ${id}`).join(' or ');
-            const filter = `(Type eq 'invoice' and (${orFilter}))`;
+        // 4. Batch fetch OData theo Reference + UPSERT per chunk
+        for (let i = 0; i < references.length; i += CHUNK) {
+            const chunk = references.slice(i, i + CHUNK);
+            const orFilter = chunk
+                .map((r) => `Reference eq '${String(r).replace(/'/g, "''")}'`)
+                .join(' or ');
+            const filter = `(${orFilter})`;
             const url = `${TPOS_ODATA_BASE}/FastSaleOrder/ODataService.GetView`
                 + `?$top=500&$filter=${encodeURIComponent(filter)}`;
 
@@ -331,14 +338,14 @@ router.post('/refresh-from-tpos', async (req, res) => {
                 if (!resp.ok) {
                     errors++;
                     const errText = await resp.text().catch(() => '');
-                    console.warn(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length} FAILED: ${resp.status} ${resp.statusText} | URL: ${url.substring(0, 200)} | Body: ${errText.substring(0, 500)}`);
+                    console.warn(`[INVOICE-REFRESH] Batch ${i}/${references.length} FAILED: ${resp.status} ${resp.statusText} | URL: ${url.substring(0, 200)} | Body: ${errText.substring(0, 500)}`);
                     continue;
                 }
                 const result = await resp.json();
                 const invoices = Array.isArray(result?.value) ? result.value : [];
                 fetched += invoices.length;
                 if (invoices.length === 0) {
-                    console.log(`[INVOICE-REFRESH] Batch ${i}/${tposIds.length}: TPOS trả 0 kết quả cho ${chunk.length} ids (đã xóa trên TPOS?). Sample id: ${chunk[0]}`);
+                    console.log(`[INVOICE-REFRESH] Batch ${i}/${references.length}: TPOS trả 0 kết quả cho ${chunk.length} refs. Sample ref: ${chunk[0]}`);
                 }
 
                 // Upsert in transaction
