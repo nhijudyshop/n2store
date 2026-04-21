@@ -676,14 +676,6 @@ function _renderVariantModal() {
             const set = _poVariantSel[bucket];
             if (cb.checked) {
                 set.add(val);
-                // SizeNum and SizeChar are mutually exclusive
-                if (bucket === 'sizeNum' && _poVariantSel.sizeChar.size > 0) {
-                    _poVariantSel.sizeChar.clear();
-                    _rerenderOption('povSizeCharList', (typeof VARIANT_SIZE_CHAR !== 'undefined') ? VARIANT_SIZE_CHAR : [], _poVariantSel.sizeChar);
-                } else if (bucket === 'sizeChar' && _poVariantSel.sizeNum.size > 0) {
-                    _poVariantSel.sizeNum.clear();
-                    _rerenderOption('povSizeNumList', (typeof VARIANT_SIZE_NUM !== 'undefined') ? VARIANT_SIZE_NUM : [], _poVariantSel.sizeNum);
-                }
             } else {
                 set.delete(val);
             }

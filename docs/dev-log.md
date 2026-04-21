@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [inventory] Convert NCC→PO: bỏ mutually-exclusive Size Số / Size Chữ
+| | |
+|---|---|
+| **Files** | `inventory-tracking/js/modal-convert-po.js` |
+| **Chi tiết** | Sau khi đổi variant combos sang concat phẳng (không cartesian), lý do tồn tại của ràng buộc "Size Số và Size Chữ loại trừ nhau" không còn — user có thể chọn chung cả 2 cột size mà không gây explosion. Xóa block `if (bucket === 'sizeNum' && sizeChar.size > 0) sizeChar.clear()` + nhánh ngược lại trong checkbox handler. Giờ user tick thoải mái cả Size Số (29, 30, 3, 35) lẫn Size Chữ (S, M, L) → mỗi giá trị thành 1 dòng biến thể độc lập. |
+| **Status** | ✅ Done |
+
 ### [inventory] Convert NCC→PO: biến thể độc lập thay cho cartesian Màu×Size
 | | |
 |---|---|
