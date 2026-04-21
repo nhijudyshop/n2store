@@ -20,6 +20,7 @@ let _convertItems = [];                 // items working array
 let _convertDiscount = 0;
 let _convertShipping = 0;
 let _convertItemCounter = 0;
+let _selectedInvoiceImgs = new Set();   // URLs đã chọn làm ảnh hóa đơn (từ ảnh NCC)
 
 // Nested variant modal state
 let _poVariantItemKey = null;           // item._key đang mở variant modal
@@ -53,6 +54,7 @@ function openConvertToPurchaseOrderModal(invoiceId) {
     _convertItems = _explodeSanPhamToItems(found.sanPham || []);
     _convertDiscount = 0;
     _convertShipping = 0;
+    _selectedInvoiceImgs = new Set();
 
     _renderConvertModal();
     openModal('modalConvertPO');
@@ -168,10 +170,8 @@ function _renderConvertModal() {
                 </div>
                 <div class="po-field po-field-img">
                     <label>Ảnh hóa đơn</label>
-                    <div class="po-invoice-img-box">
-                        ${invImgs.length > 0
-                            ? `<img src="${invImgs[0]}" class="po-invoice-thumb" alt="invoice">${invImgs.length > 1 ? `<span class="po-img-count">+${invImgs.length - 1}</span>` : ''}`
-                            : `<span class="po-img-empty">—</span>`}
+                    <div class="po-invoice-img-box" id="poInvoiceImgBox">
+                        ${_renderInvoiceImgSlot()}
                     </div>
                 </div>
             </div>
@@ -189,10 +189,9 @@ function _renderConvertModal() {
 
             ${_convertNccImages.length > 0 ? `
                 <div class="po-ncc-img-row">
-                    <span class="po-ncc-img-label">Ảnh sản phẩm NCC (${_convertNccImages.length})</span>
-                    <div class="po-ncc-img-preview">
-                        ${_convertNccImages.slice(0, 10).map(u => `<img src="${u}" alt="">`).join('')}
-                        ${_convertNccImages.length > 10 ? `<span class="po-img-count">+${_convertNccImages.length - 10}</span>` : ''}
+                    <span class="po-ncc-img-label" title="Click vào ảnh để đưa lên Ảnh hóa đơn">Ảnh sản phẩm NCC (${_convertNccImages.length}) <span class="po-ncc-img-hint">— click để chọn làm ảnh hóa đơn</span></span>
+                    <div class="po-ncc-img-preview" id="poNccImgPreview">
+                        ${_renderNccThumbnails()}
                     </div>
                 </div>
             ` : ''}
@@ -251,6 +250,40 @@ function _renderConvertModal() {
     _bindMainEvents();
     _recalcAll();
     if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Render "Ảnh hóa đơn" slot — includes anhHoaDon (existing) + user-selected NCC images
+ */
+function _renderInvoiceImgSlot() {
+    const anhHoaDon = Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? _convertCurrentInvoice.anhHoaDon : [];
+    const selected = [..._selectedInvoiceImgs];
+    const all = [...anhHoaDon, ...selected];
+    if (all.length === 0) return `<span class="po-img-empty">—</span>`;
+    const firstThumb = `<img src="${all[0]}" class="po-invoice-thumb" alt="invoice">`;
+    const more = all.length > 1 ? `<span class="po-img-count">+${all.length - 1}</span>` : '';
+    return firstThumb + more;
+}
+
+/**
+ * Render NCC thumbnail row (click to toggle selection for invoice slot)
+ */
+function _renderNccThumbnails() {
+    return _convertNccImages.slice(0, 10).map(u => {
+        const selected = _selectedInvoiceImgs.has(u);
+        return `<img src="${u}" alt="" class="po-ncc-thumb ${selected ? 'po-ncc-thumb--selected' : ''}" data-url="${_esc(u)}">`;
+    }).join('')
+    + (_convertNccImages.length > 10 ? `<span class="po-img-count">+${_convertNccImages.length - 10}</span>` : '');
+}
+
+function _toggleNccImgSelection(url) {
+    if (_selectedInvoiceImgs.has(url)) _selectedInvoiceImgs.delete(url);
+    else _selectedInvoiceImgs.add(url);
+    // Re-render both slots
+    const box = document.getElementById('poInvoiceImgBox');
+    const preview = document.getElementById('poNccImgPreview');
+    if (box) box.innerHTML = _renderInvoiceImgSlot();
+    if (preview) preview.innerHTML = _renderNccThumbnails();
 }
 
 function _renderItemRow(it, idx) {
@@ -329,6 +362,17 @@ function _bindMainEvents() {
     [addBtn1, addBtn2].forEach(btn => {
         if (btn) btn.onclick = () => _addBlankItem();
     });
+
+    // NCC thumbnail click → toggle selection
+    const nccPreview = document.getElementById('poNccImgPreview');
+    if (nccPreview) {
+        nccPreview.addEventListener('click', (e) => {
+            const thumb = e.target.closest('.po-ncc-thumb');
+            if (!thumb) return;
+            const url = thumb.dataset.url;
+            if (url) _toggleNccImgSelection(url);
+        });
+    }
 
     // Confirm button in footer
     const btnConfirm = document.getElementById('btnConfirmConvertPO');
@@ -646,24 +690,32 @@ async function _confirmConvertToPO() {
         btn.innerHTML = 'Đang tải ảnh...';
     }
 
+    // User-selected NCC images to promote to invoiceImages
+    const selectedFromNcc = productImgsRaw.filter(u => _selectedInvoiceImgs.has(u));
+
     let anhHoaDon = [];
     let productImgs = [];
+    let selectedUploaded = [];
     try {
-        // Upload in parallel batches
-        [anhHoaDon, productImgs] = await Promise.all([
+        // Upload in parallel — 3 buckets:
+        // 1. anhHoaDon (existing invoice photos)
+        // 2. productImgs (all NCC product photos for item-level)
+        // 3. selectedFromNcc (user clicked these to promote to invoiceImages)
+        [anhHoaDon, productImgs, selectedUploaded] = await Promise.all([
             _normalizeImageUrls(anhHoaDonRaw, 'purchase-orders/invoices', (c, t) => {
-                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh... ${c}/${t}`;
+                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh HĐ... ${c}/${t}`;
             }),
             _normalizeImageUrls(productImgsRaw, 'purchase-orders/products', (c, t) => {
                 if (btn && t > 0) btn.innerHTML = `Đang tải ảnh SP... ${c}/${t}`;
-            })
+            }),
+            _normalizeImageUrls(selectedFromNcc, 'purchase-orders/invoices', null)
         ]);
     } catch (err) {
         console.error('[CONVERT-PO] Image upload batch failed:', err);
     }
 
-    // Merge invoiceImages (dedupe qua Set)
-    const mergedInvoiceImgs = [...new Set([...anhHoaDon, ...productImgs])];
+    // invoiceImages = anhHoaDon + user-promoted NCC images (dedupe)
+    const mergedInvoiceImgs = [...new Set([...anhHoaDon, ...selectedUploaded])];
 
     const orderData = {
         status: 'DRAFT',
