@@ -5708,13 +5708,19 @@
     }
 
     function _loadAutoTClearSetting() {
-        if (!window.userStorageManager) return false;
-        const v = window.userStorageManager.loadFromLocalStorage(AUTO_T_CLEAR_KEY);
-        if (v !== null && v !== undefined) {
-            _autoTClearEnabled = (v === true || v === 'true');
+        // Luôn sync UI với state (ngay cả khi chưa load được setting) để tránh
+        // mismatch UI-vs-state: HTML default styles xám nhưng state default TRUE.
+        if (window.userStorageManager) {
+            const v = window.userStorageManager.loadFromLocalStorage(AUTO_T_CLEAR_KEY);
+            if (v !== null && v !== undefined) {
+                _autoTClearEnabled = (v === true || v === 'true');
+            }
+            _updateAutoTToggleUI();
+            return true;
         }
+        // userStorageManager chưa ready: vẫn sync UI để hiển thị đúng default (ON = xanh)
         _updateAutoTToggleUI();
-        return true;
+        return false;
     }
 
     function toggleAutoTClear() {

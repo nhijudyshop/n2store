@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders][tab1] Fix toggle "Auto T" không persist + UI/state mismatch khi F5 (missing user-storage-manager script)
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | User báo: sau F5, Auto T hiện UI xám (OFF) nhưng khi tạo PBH T-tag vẫn bị clear — phải click bật rồi tắt lại mới work. **Root cause**: `user-storage-manager.js` chỉ được load trong `tab3-product-assignment.html`, **không load trong [tab1-orders.html](orders-report/tab1-orders.html)**. Vì vậy `window.userStorageManager === undefined` trên tab1. Flow F5: (1) JS state `_autoTClearEnabled` default = `true`; (2) `_loadAutoTClearSetting()` check `!window.userStorageManager` → return sớm, **không gọi `_updateAutoTToggleUI()`**; (3) UI giữ nguyên HTML default styles (background xám, dot xám) — trông như OFF; (4) mismatch: UI hiển thị OFF nhưng state = TRUE → tạo PBH vẫn clear T-tag. User click toggle → state flip → `_updateAutoTToggleUI()` chạy → UI/state mới match. **Fix 2 layers**: **(1)** [tab1-orders.html:1194](orders-report/tab1-orders.html#L1194) thêm `<script src="js/core/user-storage-manager.js">` sau cache.js → giờ `window.userStorageManager` luôn available, save/load persist thực sự per-user; **(2)** [tab1-processing-tags.js `_loadAutoTClearSetting`](orders-report/js/tab1/tab1-processing-tags.js) luôn gọi `_updateAutoTToggleUI()` trước khi return — ngay cả khi `userStorageManager` chưa ready, UI vẫn sync với state default (ON = xanh). Side benefit: [tab1-address-stats.js:1018](orders-report/js/tab1/tab1-address-stats.js#L1018) (QR Amount toggle) và [tab1-merge.js:1037](orders-report/js/tab1/tab1-merge.js#L1037) đã null-check `userStorageManager` — giờ cũng persist được per-user thực sự. |
+| **Status** | ✅ Done |
+
 ### [orders][processing-tags] Thêm toggle "Auto T" — bật/tắt clear T-tag khi đơn ra đơn (per-user persistent)
 | | |
 |---|---|
