@@ -189,6 +189,26 @@ audio { display: none; }
         return card;
     }
 
+    function _scheduleRetry(ln, reason) {
+        if (ln._retryTimer) clearTimeout(ln._retryTimer);
+        ln._retryAttempt = (ln._retryAttempt || 0) + 1;
+        const delay = Math.min(5000 * Math.pow(2, Math.min(ln._retryAttempt - 1, 5)), 60000);
+        _log(ln, `Retry ${Math.round(delay/1000)}s #${ln._retryAttempt} (${reason})`);
+        ln._retryTimer = setTimeout(() => {
+            ln._retryTimer = null;
+            try {
+                const conn = ln.ua && (ln.ua.isConnected?.() || ln.ua.transport?.isConnected?.());
+                if (ln.ua && conn) {
+                    ln.ua.register();
+                } else {
+                    // WS dead — full restart
+                    _stopLine(ln, /*keepRetry*/ true);
+                    _startLine(ln);
+                }
+            } catch (err) { _log(ln, 'Retry err: ' + err.message); _scheduleRetry(ln, 'err'); }
+        }, delay);
+    }
+
     async function _startLine(ln) {
         if (ln.ua) return;
         try {
@@ -207,10 +227,22 @@ audio { display: none; }
             });
             ln.ua = ua;
             ua.on('connected', () => _log(ln, 'WS connected'));
-            ua.on('disconnected', () => { _setState(ln, 'error'); _log(ln, 'WS disconnected'); });
-            ua.on('registered', () => { _setState(ln, 'registered'); _log(ln, 'Registered'); });
-            ua.on('unregistered', () => { _setState(ln, 'offline'); _log(ln, 'Unregistered'); });
-            ua.on('registrationFailed', (e) => { _setState(ln, 'error'); _log(ln, 'Reg failed: ' + e.cause); });
+            ua.on('disconnected', () => { _setState(ln, 'error'); _log(ln, 'WS disconnected'); _scheduleRetry(ln, 'ws_disc'); });
+            ua.on('registered', () => {
+                _setState(ln, 'registered');
+                _log(ln, 'Registered');
+                ln._retryAttempt = 0;
+                if (ln._retryTimer) { clearTimeout(ln._retryTimer); ln._retryTimer = null; }
+            });
+            ua.on('unregistered', () => { _setState(ln, 'offline'); _log(ln, 'Unregistered'); _scheduleRetry(ln, 'unreg'); });
+            ua.on('registrationFailed', (e) => {
+                _setState(ln, 'error');
+                _log(ln, 'Reg failed: ' + e.cause);
+                // Don't retry on Authentication Error (credentials sai → retry vô ích)
+                if (!String(e.cause || '').toLowerCase().includes('authentication')) {
+                    _scheduleRetry(ln, 'reg_fail');
+                }
+            });
             ua.on('newRTCSession', (e) => {
                 if (e.originator !== 'remote') return;
                 _handleIncoming(ln, e.session);
@@ -219,13 +251,15 @@ audio { display: none; }
         } catch (err) {
             _setState(ln, 'error');
             _log(ln, 'Start error: ' + err.message);
+            _scheduleRetry(ln, 'start_err');
         }
     }
-    function _stopLine(ln) {
+    function _stopLine(ln, keepRetry = false) {
+        if (!keepRetry && ln._retryTimer) { clearTimeout(ln._retryTimer); ln._retryTimer = null; ln._retryAttempt = 0; }
         try { ln.session?.terminate(); } catch {}
         try { ln.ua?.stop(); } catch {}
         ln.ua = null; ln.session = null; ln.incomingSession = null;
-        _setState(ln, 'offline');
+        if (!keepRetry) _setState(ln, 'offline');
     }
 
     function _handleIncoming(ln, session) {

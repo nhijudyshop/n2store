@@ -149,6 +149,26 @@ const PhoneAutoRegister = (() => {
         console.log(`[PhoneAutoRegister] spawned ${toStart.length} background UAs (skip my ext ${myExt || 'none'})`);
     }
 
+    function _scheduleRetry(entry, ext, wsUrl, domain, reason) {
+        if (entry._retryTimer) clearTimeout(entry._retryTimer);
+        entry._retryAttempt = (entry._retryAttempt || 0) + 1;
+        const delay = Math.min(5000 * Math.pow(2, Math.min(entry._retryAttempt - 1, 5)), 60000);
+        console.log(`[PhoneAutoRegister] ext ${ext.ext} retry ${Math.round(delay/1000)}s #${entry._retryAttempt} (${reason})`);
+        entry._retryTimer = setTimeout(() => {
+            entry._retryTimer = null;
+            try {
+                const conn = entry.ua && (entry.ua.isConnected?.() || entry.ua.transport?.isConnected?.());
+                if (entry.ua && conn) {
+                    entry.ua.register();
+                } else {
+                    try { entry.ua?.stop(); } catch {}
+                    uas.delete(ext.ext);
+                    _startOneUA(ext, wsUrl, domain);
+                }
+            } catch (err) { _scheduleRetry(entry, ext, wsUrl, domain, 'err'); }
+        }, delay);
+    }
+
     function _startOneUA(ext, wsUrl, domain) {
         if (uas.has(ext.ext)) return;
         const entry = { ua: null, registered: false, lastError: null, ext: ext.ext };
@@ -169,18 +189,31 @@ const PhoneAutoRegister = (() => {
                 connection_recovery_max_interval: 30
             });
             entry.ua = ua;
-            ua.on('registered', () => { entry.registered = true; entry.lastError = null; _notifyStatus(); });
-            ua.on('unregistered', () => { entry.registered = false; _notifyStatus(); });
-            ua.on('registrationFailed', (e) => { entry.registered = false; entry.lastError = e.cause; _notifyStatus(); });
+            ua.on('connected', () => {});
+            ua.on('disconnected', () => { entry.registered = false; _notifyStatus(); _scheduleRetry(entry, ext, wsUrl, domain, 'ws_disc'); });
+            ua.on('registered', () => {
+                entry.registered = true; entry.lastError = null;
+                entry._retryAttempt = 0;
+                if (entry._retryTimer) { clearTimeout(entry._retryTimer); entry._retryTimer = null; }
+                _notifyStatus();
+            });
+            ua.on('unregistered', () => { entry.registered = false; _notifyStatus(); _scheduleRetry(entry, ext, wsUrl, domain, 'unreg'); });
+            ua.on('registrationFailed', (e) => {
+                entry.registered = false; entry.lastError = e.cause;
+                _notifyStatus();
+                if (!String(e.cause || '').toLowerCase().includes('authentication')) {
+                    _scheduleRetry(entry, ext, wsUrl, domain, 'reg_fail');
+                }
+            });
             ua.on('newRTCSession', (evt) => {
                 if (evt.originator !== 'remote') return;
-                // Background — auto reject 486 để PBX chuyển ngay tới contact khác (primary)
                 try { evt.session.terminate({ status_code: 486, reason_phrase: 'Busy Here' }); } catch {}
             });
             ua.start();
         } catch (err) {
             entry.lastError = err.message;
             console.warn('[PhoneAutoRegister] UA start failed', ext.ext, err.message);
+            _scheduleRetry(entry, ext, wsUrl, domain, 'start_err');
         }
     }
 
