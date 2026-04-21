@@ -108,6 +108,14 @@
 
             <!-- =============== Tab: Tổng quan =============== -->
             <section class="pm-tabview active" data-tabview="dashboard">
+                <div class="pm-info-panel" style="background:#fef3c7;border-color:#fbbf24;margin-bottom:16px">
+                    <i data-lucide="alert-circle" class="pm-info-icon" style="color:#d97706"></i>
+                    <div>
+                        <h3 style="color:#b45309">Cuộc gọi đến không ring tất cả ext?</h3>
+                        <p>Hiện tại mỗi DID chỉ map 1:1 với 1 ext → nếu ext đó offline, khách không gọi được. <b>Giải pháp đúng</b>: tạo ACD Ring Group trên OnCallCX portal để khách gọi → ring 10 ext cùng lúc.</p>
+                        <p><a href="https://github.com/nhijudyshop/n2store/blob/main/docs/oncall/SETUP-INBOUND-CALLS.md" target="_blank" style="color:#b45309;font-weight:600;text-decoration:underline">📘 Xem hướng dẫn cấu hình chi tiết</a> — chỉ cần click trên OnCallCX portal ~5 phút.</p>
+                    </div>
+                </div>
                 <div class="pm-cards">
                     <div class="pm-card"><div class="pm-card-label">Tổng extension</div><div class="pm-card-value" id="kpiTotalExt">—</div><i data-lucide="hash" class="pm-card-icon"></i></div>
                     <div class="pm-card"><div class="pm-card-label">Đang online</div><div class="pm-card-value" id="kpiOnline">—</div><i data-lucide="wifi" class="pm-card-icon green"></i></div>
