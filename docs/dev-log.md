@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [phone-auto-register,render] Server-side lock singleton + UI toggle trong widget
+| | |
+|---|---|
+| **Files** | `render.com/routes/oncall-sip-proxy.js`, `orders-report/js/phone-auto-register.js` (rewrite), `orders-report/js/phone-widget.js` |
+| **Chi tiết** | User yêu cầu cho ON/OFF với coordination: chỉ 1 máy treo 10 line cùng lúc, máy khác bật → confirm + takeover → máy cũ auto-tắt. **DB**: Bảng `phone_auto_register_lock` singleton (id=1, holder_user/session/device, last_heartbeat, started_at) thêm vào `ensurePhoneManagementTables` auto-create. **Endpoints**: `GET /auto-register-lock` (current holder + expired flag nếu heartbeat >90s), `POST /auto-register-lock` body `{session, user, device, force}` (409 conflict nếu valid holder khác; `force:true` override), `POST /auto-register-lock/heartbeat` `{session}` (trả `lost:true` nếu session không còn là holder), `DELETE /auto-register-lock` `{session}` (release nếu tôi đang giữ). **Client rewrite**: `PhoneAutoRegister` dùng sessionId per-tab (sessionStorage UUID). `enable({force})` flow: GET lock → nếu ai đó giữ và chưa force → return `{conflict:true, holder_user, holder_device, started_at}` để UI confirm → caller gọi lại với `force:true` → `_takeLock` → spawn UAs + start heartbeat 20s + poll 15s. Background UAs trên newRTCSession **respond 486 Busy ngay** (khác lần trước ignore — 486 cho PBX biết chuyển ngay sang contact khác). Polling phát hiện khi mất lock → auto-stop UAs. `beforeunload` → sendBeacon DELETE lock. Default preference OFF, lưu qua localStorage `phoneAutoRegister_enabled_v2`. **UI**: Button "📡 Treo 10 line" trong widget settings panel (admin only). 3 trạng thái: `Bật treo 10 line (trên máy này)`, `Chuyển treo 10 line về máy này` (khi máy khác đang giữ — hiển thị holder_user + device + thời gian đã giữ), `Tắt treo 10 line (X/Y)` (khi máy này đang giữ). Confirm dialog khi toggle. Auto-refresh sau 1s mỗi action. |
+| **Status** | ✅ Done — cần deploy Render (DB auto-migrate) |
+
 ### [inventory][orders] Redesign form Convert NCC → PO — layout giống form "Tạo đơn đặt hàng" + nested variant modal 4-cột
 | | |
 |---|---|

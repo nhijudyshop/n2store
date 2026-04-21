@@ -589,6 +589,94 @@ function createRouter() {
         }
     });
 
+    // --- AUTO-REGISTER LOCK (singleton: chỉ 1 máy giữ lock cùng lúc) ---
+    const LOCK_EXPIRY_MS = 90000; // 90s không heartbeat → hết hạn
+
+    router.get('/auto-register-lock', async (req, res) => {
+        try {
+            const r = await req.app.locals.chatDb.query(
+                'SELECT holder_user, holder_session, holder_device, last_heartbeat, started_at, updated_at FROM phone_auto_register_lock WHERE id = 1'
+            );
+            const row = r.rows[0] || {};
+            const now = Date.now();
+            const expired = !row.last_heartbeat || (now - parseInt(row.last_heartbeat, 10)) > LOCK_EXPIRY_MS;
+            res.json({
+                success: true,
+                locked: !!row.holder_session && !expired,
+                expired,
+                holder_user: row.holder_user || null,
+                holder_session: row.holder_session || null,
+                holder_device: row.holder_device || null,
+                last_heartbeat: row.last_heartbeat ? parseInt(row.last_heartbeat, 10) : null,
+                started_at: row.started_at ? parseInt(row.started_at, 10) : null
+            });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/auto-register-lock', async (req, res) => {
+        try {
+            const { session, user, device, force } = req.body || {};
+            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            const db = req.app.locals.chatDb;
+            const r = await db.query('SELECT holder_session, last_heartbeat FROM phone_auto_register_lock WHERE id = 1');
+            const row = r.rows[0] || {};
+            const now = Date.now();
+            const expired = !row.last_heartbeat || (now - parseInt(row.last_heartbeat || 0, 10)) > LOCK_EXPIRY_MS;
+            // Refuse if someone else holds a valid (non-expired) lock unless force
+            if (row.holder_session && row.holder_session !== session && !expired && !force) {
+                return res.status(409).json({ success: false, error: 'locked_by_other', holder_user: row.holder_user, holder_device: row.holder_device });
+            }
+            await db.query(
+                `UPDATE phone_auto_register_lock
+                 SET holder_user = $1, holder_session = $2, holder_device = $3,
+                     last_heartbeat = $4, started_at = COALESCE(started_at, $4), updated_at = NOW()
+                 WHERE id = 1`,
+                [user || null, session, device || null, now]
+            );
+            // If we force-took, signal previous holder (they will poll and see they no longer hold)
+            res.json({ success: true, taken: true, forced: !!force && row.holder_session && row.holder_session !== session });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.post('/auto-register-lock/heartbeat', async (req, res) => {
+        try {
+            const { session } = req.body || {};
+            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            const db = req.app.locals.chatDb;
+            const r = await db.query(
+                `UPDATE phone_auto_register_lock SET last_heartbeat = $1, updated_at = NOW()
+                 WHERE id = 1 AND holder_session = $2`,
+                [Date.now(), session]
+            );
+            if (r.rowCount === 0) return res.json({ success: false, lost: true });
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.delete('/auto-register-lock', async (req, res) => {
+        try {
+            const { session } = req.body || {};
+            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            const db = req.app.locals.chatDb;
+            const r = await db.query(
+                `UPDATE phone_auto_register_lock
+                 SET holder_user = NULL, holder_session = NULL, holder_device = NULL,
+                     last_heartbeat = NULL, started_at = NULL, updated_at = NOW()
+                 WHERE id = 1 AND holder_session = $1`,
+                [session]
+            );
+            res.json({ success: true, released: r.rowCount > 0 });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     return router;
 }
 
@@ -658,6 +746,18 @@ async function ensurePhoneManagementTables(pool) {
         );
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_phone ON phone_contacts(phone);
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_name ON phone_contacts(name);
+
+        -- Lock singleton: chỉ 1 máy giữ lock auto-register 10 line tại 1 thời điểm
+        CREATE TABLE IF NOT EXISTS phone_auto_register_lock (
+            id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+            holder_user VARCHAR(255),
+            holder_session VARCHAR(64),
+            holder_device VARCHAR(255),
+            last_heartbeat BIGINT,
+            started_at BIGINT,
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+        INSERT INTO phone_auto_register_lock (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
     `;
     try {
         await pool.query(sql);

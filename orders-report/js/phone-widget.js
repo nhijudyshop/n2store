@@ -341,6 +341,8 @@ const PhoneWidget = (() => {
                     </div>
                     <button class="pw-save" onclick="PhoneWidget.applySettings()">Kết nối lại</button>
                     <button class="pw-save pw-admin-btn" id="pwAdminBtn" onclick="PhoneWidget.openExtAssignment()" style="display:none;margin-top:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👥 Phân chia Ext nhân viên</button>
+                    <button class="pw-save pw-admin-btn" id="pwAutoRegBtn" onclick="PhoneWidget.toggleAutoRegister()" style="display:none;margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)">📡 Treo 10 line</button>
+                    <div id="pwAutoRegStatus" style="display:none;font-size:10px;color:#94a3b8;margin-top:4px;text-align:center"></div>
                 </div>
 
                 <!-- Incoming call banner -->
@@ -890,15 +892,69 @@ const PhoneWidget = (() => {
         const p = document.getElementById('pwSettings');
         if (!p) return;
         p.style.display = p.style.display === 'none' ? 'block' : 'none';
-        // Show admin button only for admin users
+        const show = p.style.display !== 'none';
+        const isAdmin = !!window.PhoneExtAssignment?.isAdmin?.();
         const adminBtn = document.getElementById('pwAdminBtn');
-        if (adminBtn) {
-            const isAdmin = !!window.PhoneExtAssignment?.isAdmin?.();
-            adminBtn.style.display = isAdmin && p.style.display !== 'none' ? 'block' : 'none';
-        }
+        if (adminBtn) adminBtn.style.display = isAdmin && show ? 'block' : 'none';
+        const autoBtn = document.getElementById('pwAutoRegBtn');
+        if (autoBtn) { autoBtn.style.display = isAdmin && show ? 'block' : 'none'; if (show) _refreshAutoRegisterUI(); }
     }
     function openExtAssignment() {
         try { window.PhoneExtAssignment?.openModal?.(); } catch (err) { addLog('Không mở được modal: ' + err.message, 'error'); }
+    }
+
+    async function _refreshAutoRegisterUI() {
+        const btn = document.getElementById('pwAutoRegBtn');
+        const st = document.getElementById('pwAutoRegStatus');
+        if (!btn || !window.PhoneAutoRegister) return;
+        const s = window.PhoneAutoRegister.getStatus();
+        const lock = await window.PhoneAutoRegister.getRemoteLock?.();
+        const mine = lock && lock.holder_session === s.sessionId;
+        if (s.started && mine) {
+            btn.innerHTML = `■ Tắt treo 10 line (${s.registered}/${s.total})`;
+            btn.style.background = 'linear-gradient(135deg,#22c55e,#15803d)';
+            if (st) { st.style.display = 'block'; st.textContent = `Đang giữ lock trên máy này`; }
+        } else if (lock && lock.locked) {
+            btn.innerHTML = `📡 Chuyển treo 10 line về máy này`;
+            btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+            if (st) { st.style.display = 'block'; st.textContent = `Đang bật ở: ${lock.holder_user || '?'} · ${lock.holder_device ? lock.holder_device.split(';')[0] : ''}`; }
+        } else {
+            btn.innerHTML = `📡 Bật treo 10 line (trên máy này)`;
+            btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+            if (st) { st.style.display = 'none'; }
+        }
+    }
+
+    async function toggleAutoRegister() {
+        if (!window.PhoneAutoRegister) { addLog('Module auto-register chưa load', 'error'); return; }
+        const s = window.PhoneAutoRegister.getStatus();
+        const lock = await window.PhoneAutoRegister.getRemoteLock?.();
+        const mine = lock && lock.holder_session === s.sessionId;
+        try {
+            if (s.started && mine) {
+                // Currently holding → disable
+                if (!confirm('Tắt treo 10 line trên máy này?')) return;
+                await window.PhoneAutoRegister.disable();
+                addLog('Đã tắt treo 10 line');
+            } else {
+                // Want to enable
+                const r = await window.PhoneAutoRegister.enable();
+                if (r.conflict) {
+                    const who = r.holder_user || '?';
+                    const dev = r.holder_device ? ' (' + r.holder_device.split(';')[0].trim() + ')' : '';
+                    const since = r.started_at ? Math.round((Date.now() - r.started_at) / 60000) + ' phút trước' : '';
+                    if (!confirm(`Máy "${who}"${dev} đang treo 10 line${since ? ' từ ' + since : ''}.\n\nChuyển về máy này? (Máy kia sẽ tự ngắt trong vài giây)`)) return;
+                    const r2 = await window.PhoneAutoRegister.enable({ force: true });
+                    if (r2.conflict) { addLog('Không chuyển được: ' + (r2.error || 'unknown'), 'error'); return; }
+                    addLog('Đã chuyển treo 10 line về máy này', 'success');
+                } else {
+                    addLog('Đã bật treo 10 line trên máy này', 'success');
+                }
+            }
+        } catch (err) {
+            addLog('Lỗi: ' + err.message, 'error');
+        }
+        setTimeout(_refreshAutoRegisterUI, 1000);
     }
     function onExtChange() {
         const sel = document.getElementById('pwExtSelect');
@@ -1379,7 +1435,7 @@ const PhoneWidget = (() => {
         init, makeCall, hangup, toggleMute, toggleSettings, applySettings, onExtChange,
         show, hide, toggle, toggleMinimize, dialFromInput, press, backspace,
         acceptIncoming, rejectIncoming,
-        toggleExtPicker, switchExt, openExtAssignment,
+        toggleExtPicker, switchExt, openExtAssignment, toggleAutoRegister,
         toggleHistory, clearHistory, callFromHistory, pasteFromClipboard,
         callCurrent: dialFromInput, isReady: () => isRegistered
     };
