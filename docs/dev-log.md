@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [orders] Fix hover zoom ảnh bị kẹt trong bảng purchase-orders
+| | |
+|---|---|
+| **Files** | `purchase-orders/css/table.css`, `purchase-orders/js/table-renderer.js` |
+| **Chi tiết** | User báo hover zoom ảnh ở trang `purchase-orders/index.html` (cả tab Chờ hàng và Nháp) bị cắt — ảnh zoom tràn khỏi ô nhưng bị clip bởi `.table-wrapper { overflow-x: auto }` (browser default `overflow-y: auto` cùng lúc → tạo clipping context cho `transform: scale(7/14)`). **Root cause**: CSS `.invoice-thumb:hover .zoomable-image { transform: scale(7) }` và `.mini-thumb:hover { transform: scale(14) }` phóng ảnh bằng transform nhưng element vẫn nằm trong `.table-wrapper` scrollable → visually cut. **Fix**: (1) `table.css` — bỏ transform scale hover, chỉ giữ box-shadow + cursor zoom-in trên thumbnail. (2) `table-renderer.js` — thêm `_setupImageHoverPreview()` gọi trong `bindEvents()`: delegated `mouseover/mousemove/mouseout` trên `this.container`, tạo `<img class="po-image-preview">` một lần trong `document.body` (thoát clipping của table-wrapper), hiển thị theo `getBoundingClientRect()` cạnh thumb với auto-flip trái/phải nếu gần viewport edge. Class `.po-image-preview` đã có sẵn ở `table.css:405` (position:fixed, z-index: --z-image-preview=4000, max 350x350). Pattern giống `form-modal.js` `setupImageHoverPreview` — đồng nhất UX. |
+| **Status** | ✅ Done |
+
 ### [shared,pancake,image] Pancake PAT per-page preferred account + negative cache; TPOS image render fallback
 | | |
 |---|---|

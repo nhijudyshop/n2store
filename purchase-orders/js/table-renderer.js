@@ -955,6 +955,67 @@ class PurchaseOrderTableRenderer {
             const orderId = row.dataset.orderId;
             this.handlers.onViewDetail?.(orderId);
         });
+
+        // Floating image preview on hover (escape table overflow clipping)
+        this._setupImageHoverPreview();
+    }
+
+    _setupImageHoverPreview() {
+        const THUMB_SELECTOR = '.zoomable-image, .mini-thumb';
+
+        const ensurePreview = () => {
+            if (this._imgPreview && document.body.contains(this._imgPreview)) return this._imgPreview;
+            const el = document.createElement('img');
+            el.className = 'po-image-preview';
+            el.style.display = 'none';
+            document.body.appendChild(el);
+            this._imgPreview = el;
+            return el;
+        };
+
+        const positionPreview = (thumb) => {
+            const preview = this._imgPreview;
+            if (!preview) return;
+            const rect = thumb.getBoundingClientRect();
+            const size = 350;
+            const gap = 12;
+            let left = rect.right + gap;
+            let top = rect.top + rect.height / 2 - size / 2;
+            if (left + size > window.innerWidth - 10) {
+                left = rect.left - size - gap;
+            }
+            if (left < 10) left = 10;
+            if (top < 10) top = 10;
+            if (top + size > window.innerHeight - 10) {
+                top = window.innerHeight - size - 10;
+            }
+            preview.style.left = left + 'px';
+            preview.style.top = top + 'px';
+        };
+
+        this.container.addEventListener('mouseover', (e) => {
+            const thumb = e.target.closest(THUMB_SELECTOR);
+            if (!thumb || !thumb.src) return;
+            const preview = ensurePreview();
+            if (preview.src !== thumb.src) preview.src = thumb.src;
+            preview.style.display = 'block';
+            positionPreview(thumb);
+        });
+
+        this.container.addEventListener('mousemove', (e) => {
+            if (!this._imgPreview || this._imgPreview.style.display === 'none') return;
+            const thumb = e.target.closest(THUMB_SELECTOR);
+            if (!thumb) return;
+            positionPreview(thumb);
+        });
+
+        this.container.addEventListener('mouseout', (e) => {
+            const thumb = e.target.closest(THUMB_SELECTOR);
+            if (!thumb) return;
+            const related = e.relatedTarget;
+            if (related && thumb.contains(related)) return;
+            if (this._imgPreview) this._imgPreview.style.display = 'none';
+        });
     }
 
     // ========================================

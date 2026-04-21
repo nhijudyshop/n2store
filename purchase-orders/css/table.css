@@ -363,33 +363,15 @@
 }
 
 .zoomable-image {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s, box-shadow 0.25s ease;
-    transform-origin: left center;
+    transition: box-shadow 0.2s ease;
 }
 
-/* Invoice image zoom - scale 7x */
-.invoice-thumb:hover .zoomable-image {
-    transform: scale(7);
-    z-index: 100;
-    position: relative;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    border-radius: var(--radius-md);
-}
-
-/* Mini image zoom - scale 14x (like React scale-[14]) */
+/* Hover: thumbnail giữ nguyên kích thước, preview hiển thị qua JS floating element
+   (.po-image-preview trong body) để tránh bị cắt bởi overflow của .table-wrapper */
+.invoice-thumb:hover .zoomable-image,
 .mini-thumb:hover {
-    transform: scale(14);
-    z-index: 100;
-    position: relative;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    transform-origin: left center;
-}
-
-/* Ensure zoomed images appear above everything */
-td:has(.zoomable-image:hover),
-td:has(.mini-thumb:hover) {
-    overflow: visible;
-    z-index: 50;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    cursor: zoom-in;
 }
 
 /* Purchase Order Modal - Image thumbnail */
