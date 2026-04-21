@@ -11,6 +11,7 @@
 // =====================================================
 
 const PO_API_URL = 'https://n2store-fallback.onrender.com/api/v2/purchase-orders';
+const UPLOAD_API_URL = 'https://n2store-fallback.onrender.com/api/upload/image';
 
 // -------- State --------
 let _convertCurrentInvoice = null;      // dotHang entry (flat)
@@ -61,9 +62,13 @@ function openConvertToPurchaseOrderModal(invoiceId) {
 function _explodeSanPhamToItems(sanPhamArr) {
     const items = [];
     _convertItemCounter = 0;
+    // Inventory-tracking stores prices in NGHÌN ĐỒNG (shorthand, ×1000 implicit).
+    // Purchase-orders stores full VND. Multiply ×1000 at load time.
+    const INV_TO_VND = 1000;
     for (const p of sanPhamArr) {
         const baseName = (p.moTa && p.moTa !== '-') ? p.moTa : (p.maSP || '');
         const mauSac = Array.isArray(p.mauSac) ? p.mauSac : [];
+        const priceVnd = (parseFloat(p.giaDonVi) || 0) * INV_TO_VND;
         if (mauSac.length > 0) {
             for (const mv of mauSac) {
                 items.push(_mkItem({
@@ -71,7 +76,7 @@ function _explodeSanPhamToItems(sanPhamArr) {
                     productName: baseName,
                     variant: mv.mau || '',
                     quantity: parseInt(mv.soLuong) || 0,
-                    purchasePrice: parseFloat(p.giaDonVi) || 0
+                    purchasePrice: priceVnd
                 }));
             }
         } else {
@@ -80,7 +85,7 @@ function _explodeSanPhamToItems(sanPhamArr) {
                 productName: baseName,
                 variant: '',
                 quantity: parseInt(p.tongSoLuong || p.soLuong) || 0,
-                purchasePrice: parseFloat(p.giaDonVi) || 0
+                purchasePrice: priceVnd
             }));
         }
     }
@@ -139,7 +144,8 @@ function _renderConvertModal() {
 
     const inv = _convertCurrentInvoice;
     const todayIso = new Date().toISOString().split('T')[0];
-    const invoiceAmt = parseFloat(inv.tongTienHD || inv.tongTien) || 0;
+    // Inventory stores tongTienHD in "nghìn" shorthand — multiply ×1000 to get full VND
+    const invoiceAmt = (parseFloat(inv.tongTienHD || inv.tongTien) || 0) * 1000;
     const nccName = inv.tenNCC || String(inv.sttNCC || '');
     const invImgs = Array.isArray(inv.anhHoaDon) ? inv.anhHoaDon : [];
 
@@ -626,14 +632,37 @@ async function _confirmConvertToPO() {
     const totalAmount = validItems.reduce((s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0), 0);
     const finalAmount = totalAmount - (_convertDiscount || 0) + (_convertShipping || 0);
 
-    // Build image URLs — filter out data: URLs (backend rejects them)
-    const isHttpUrl = u => typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+    const btn = document.getElementById('btnConfirmConvertPO');
+    const originalText = btn?.innerHTML;
+
+    // Build image URLs — inventory stores images as base64 data URLs.
+    // Backend rejects data: URLs (see render.com/routes/v2/purchase-orders.js:515).
+    // → Upload base64 URLs to Firebase Storage first to get https URLs.
     const anhHoaDonRaw = Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? _convertCurrentInvoice.anhHoaDon : [];
     const productImgsRaw = Array.isArray(_convertNccImages) ? _convertNccImages : [];
-    const anhHoaDon = anhHoaDonRaw.filter(isHttpUrl);
-    const productImgs = productImgsRaw.filter(isHttpUrl);
-    // Merge both sources into invoiceImages — PO invoice cell shows them combined
-    // dedupe bằng Set (giữ thứ tự đầu tiên)
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = 'Đang tải ảnh...';
+    }
+
+    let anhHoaDon = [];
+    let productImgs = [];
+    try {
+        // Upload in parallel batches
+        [anhHoaDon, productImgs] = await Promise.all([
+            _normalizeImageUrls(anhHoaDonRaw, 'purchase-orders/invoices', (c, t) => {
+                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh... ${c}/${t}`;
+            }),
+            _normalizeImageUrls(productImgsRaw, 'purchase-orders/products', (c, t) => {
+                if (btn && t > 0) btn.innerHTML = `Đang tải ảnh SP... ${c}/${t}`;
+            })
+        ]);
+    } catch (err) {
+        console.error('[CONVERT-PO] Image upload batch failed:', err);
+    }
+
+    // Merge invoiceImages (dedupe qua Set)
     const mergedInvoiceImgs = [...new Set([...anhHoaDon, ...productImgs])];
 
     const orderData = {
@@ -681,9 +710,7 @@ async function _confirmConvertToPO() {
         rawNccImages: productImgsRaw
     });
 
-    const btn = document.getElementById('btnConfirmConvertPO');
-    const originalText = btn?.innerHTML;
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Đang tạo...'; }
+    if (btn) btn.innerHTML = 'Đang tạo đơn...';
 
     try {
         await _createPurchaseOrderDraft(orderData);
@@ -695,6 +722,62 @@ async function _confirmConvertToPO() {
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
     }
+}
+
+/**
+ * Upload a single base64 data URL → Firebase Storage, return https URL
+ * @param {string} dataUrl - "data:image/jpeg;base64,..."
+ * @param {string} folder - folder path on storage (e.g. "purchase-orders/invoices")
+ * @returns {Promise<string>} Firebase Storage URL
+ */
+async function _uploadBase64Image(dataUrl, folder = 'purchase-orders/invoices') {
+    // Extract mime type from data URL header
+    const mimeMatch = /^data:(image\/[a-zA-Z0-9+]+);base64,/.exec(dataUrl);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const fileName = `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const response = await fetch(UPLOAD_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, fileName, folderPath: folder, mimeType })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.success === false || !data.url) {
+        throw new Error(data.error || `Upload failed: ${response.status}`);
+    }
+    return data.url;
+}
+
+/**
+ * Convert array with mix of http URLs and data: URLs → all https URLs.
+ * Uploads base64 entries in parallel and logs progress.
+ */
+async function _normalizeImageUrls(urls, folder, onProgress) {
+    if (!Array.isArray(urls) || urls.length === 0) return [];
+    const isHttp = u => typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+    const isData = u => typeof u === 'string' && u.startsWith('data:');
+
+    let uploadedCount = 0;
+    const total = urls.filter(isData).length;
+    if (total > 0 && typeof onProgress === 'function') onProgress(0, total);
+
+    const results = await Promise.all(urls.map(async (u) => {
+        if (isHttp(u)) return u;
+        if (isData(u)) {
+            try {
+                const url = await _uploadBase64Image(u, folder);
+                uploadedCount++;
+                if (typeof onProgress === 'function') onProgress(uploadedCount, total);
+                return url;
+            } catch (err) {
+                console.warn('[CONVERT-PO] Upload failed, skipping image:', err.message);
+                return null;
+            }
+        }
+        return null;
+    }));
+    return results.filter(Boolean);
 }
 
 async function _createPurchaseOrderDraft(orderData) {
