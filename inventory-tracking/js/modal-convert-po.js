@@ -626,13 +626,23 @@ async function _confirmConvertToPO() {
     const totalAmount = validItems.reduce((s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0), 0);
     const finalAmount = totalAmount - (_convertDiscount || 0) + (_convertShipping || 0);
 
+    // Build image URLs — filter out data: URLs (backend rejects them)
+    const isHttpUrl = u => typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+    const anhHoaDonRaw = Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? _convertCurrentInvoice.anhHoaDon : [];
+    const productImgsRaw = Array.isArray(_convertNccImages) ? _convertNccImages : [];
+    const anhHoaDon = anhHoaDonRaw.filter(isHttpUrl);
+    const productImgs = productImgsRaw.filter(isHttpUrl);
+    // Merge both sources into invoiceImages — PO invoice cell shows them combined
+    // dedupe bằng Set (giữ thứ tự đầu tiên)
+    const mergedInvoiceImgs = [...new Set([...anhHoaDon, ...productImgs])];
+
     const orderData = {
         status: 'DRAFT',
         orderType: window.ShopConfig?.getConfig?.()?.label || 'NJD SHOP',
         supplier: { name: supplier, code: supplier.substring(0, 3).toUpperCase() },
         orderDate: new Date(orderDateStr),
         invoiceAmount,
-        invoiceImages: Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? [..._convertCurrentInvoice.anhHoaDon] : [],
+        invoiceImages: mergedInvoiceImgs,
         notes,
         discountAmount: _convertDiscount || 0,
         shippingFee: _convertShipping || 0,
@@ -650,16 +660,26 @@ async function _confirmConvertToPO() {
                 purchasePrice: price,
                 sellingPrice: it.sellingPrice === '' ? '' : _parseVND(it.sellingPrice),
                 subtotal: price * qty,
-                productImages: [..._convertNccImages],
+                productImages: [...productImgs],
                 priceImages: [],
                 selectedAttributeValueIds: [],
                 tposProductId: '',
                 tposProductTmplId: '',
                 tposSynced: false,
-                tposImageUrl: ''
+                tposImageUrl: productImgs[0] || ''
             };
         })
     };
+
+    console.log('[CONVERT-PO] Submit payload:', {
+        supplier, invoiceAmount, totalAmount, finalAmount,
+        invoiceImages: orderData.invoiceImages,
+        itemCount: orderData.items.length,
+        firstItemProductImages: orderData.items[0]?.productImages,
+        firstItemTposImageUrl: orderData.items[0]?.tposImageUrl,
+        rawAnhHoaDon: anhHoaDonRaw,
+        rawNccImages: productImgsRaw
+    });
 
     const btn = document.getElementById('btnConfirmConvertPO');
     const originalText = btn?.innerHTML;
