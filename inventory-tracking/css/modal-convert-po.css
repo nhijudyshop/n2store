@@ -237,7 +237,42 @@
 .po-col-stt     { width: 40px; text-align: center; font-weight: 600; color: #6b7280; }
 .po-col-name    { min-width: 220px; }
 .po-col-variant { min-width: 180px; }
-.po-col-code    { width: 120px; }
+.po-col-code    { width: 150px; }
+
+/* Wrapper for code input + refresh button */
+.po-code-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.po-code-wrap .po-it-input {
+    flex: 1;
+    min-width: 0;
+}
+.po-btn-gen-code {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    color: #6366f1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.po-btn-gen-code:hover {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+    color: #4338ca;
+}
+.po-btn-gen-code:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.po-btn-gen-code i { width: 14px; height: 14px; }
 .po-col-qty     { width: 70px; }
 .po-col-buy     { width: 120px; }
 .po-col-sell    { width: 120px; }

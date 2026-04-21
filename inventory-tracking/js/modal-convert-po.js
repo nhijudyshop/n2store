@@ -299,7 +299,12 @@ function _renderItemRow(it, idx) {
             </td>
             <td class="po-col-variant">${variantCell}</td>
             <td class="po-col-code">
-                <input type="text" class="po-it-input" data-field="productCode" value="${_esc(it.productCode)}" placeholder="Mã SP">
+                <div class="po-code-wrap">
+                    <input type="text" class="po-it-input" data-field="productCode" value="${_esc(it.productCode)}" placeholder="Mã SP">
+                    <button type="button" class="po-btn-gen-code" data-key="${it._key}" title="Tự tạo mã SP theo tên">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                </div>
             </td>
             <td class="po-col-qty">
                 <input type="number" class="po-it-input po-input-right" data-field="quantity" value="${it.quantity}" min="0">
@@ -407,6 +412,7 @@ function _onItemInput(e) {
 function _onItemClick(e) {
     const delBtn = e.target.closest('.po-btn-del');
     const varBtn = e.target.closest('.po-variant-btn, .po-variant-chip');
+    const genBtn = e.target.closest('.po-btn-gen-code');
     if (delBtn) {
         const key = delBtn.dataset.key;
         _convertItems = _convertItems.filter(i => i._key !== key);
@@ -417,6 +423,70 @@ function _onItemClick(e) {
     if (varBtn) {
         const key = varBtn.dataset.key;
         _openVariantModal(key);
+        return;
+    }
+    if (genBtn) {
+        const key = genBtn.dataset.key;
+        _generateCodeForItem(key, genBtn);
+    }
+}
+
+/**
+ * Gọi ProductCodeGenerator sinh mã SP cho 1 item dựa trên productName.
+ * - Nếu tên SP trống → báo user.
+ * - Dùng generateProductCodeFromMax (async: check form items + Firestore + TPOS)
+ * - Firebase không load trong inventory → check DB trả 0 (OK, fallback an toàn).
+ */
+async function _generateCodeForItem(itemKey, btn) {
+    const item = _convertItems.find(i => i._key === itemKey);
+    if (!item) return;
+
+    const name = (item.productName || '').trim();
+    if (!name) {
+        window.notificationManager?.warning('Nhập tên sản phẩm trước khi tạo mã');
+        return;
+    }
+
+    const gen = window.ProductCodeGenerator;
+    if (!gen) {
+        window.notificationManager?.error('ProductCodeGenerator chưa load');
+        return;
+    }
+
+    // Build existingItems list ở format generator expects
+    const existingItems = _convertItems
+        .filter(i => i._key !== itemKey)
+        .map(i => ({ productCode: i.productCode || '' }));
+
+    // Lock button
+    const originalIcon = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader"></i>';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    try {
+        const code = await gen.generateProductCodeFromMax(name, existingItems, 30);
+        if (!code) {
+            window.notificationManager?.warning('Không thể sinh mã tự động');
+            return;
+        }
+        item.productCode = code;
+        // Update input value in-place (không re-render cả bảng để giữ focus)
+        const row = document.querySelector(`tr[data-key="${itemKey}"]`);
+        const input = row?.querySelector('input[data-field="productCode"]');
+        if (input) input.value = code;
+        window.notificationManager?.success(`Đã tạo mã: ${code}`);
+    } catch (err) {
+        console.error('[CONVERT-PO] Generate code failed:', err);
+        window.notificationManager?.error('Lỗi tạo mã: ' + (err.message || ''));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalIcon;
+            if (window.lucide) lucide.createIcons();
+        }
     }
 }
 
