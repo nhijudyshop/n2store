@@ -45,8 +45,8 @@ export class CustomerProfileModule {
                             <span class="material-symbols-outlined text-lg">lock_reset</span>
                             Reset Password
                         </button>
-                        <button id="modal-close-btn" type="button" class="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg transition-colors" title="Đóng">
-                            <span class="material-symbols-outlined text-2xl">close</span>
+                        <button id="modal-close-btn" type="button" onclick="window.closeCustomerModal && window.closeCustomerModal()" class="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg transition-colors cursor-pointer" title="Đóng" style="position: relative; z-index: 60;">
+                            <span class="material-symbols-outlined text-2xl pointer-events-none">close</span>
                         </button>
                     </div>
                 </div>

@@ -93,6 +93,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Delegated close: catches any click on #modal-close-btn even after re-render
+    document.addEventListener('click', (e) => {
+        const btn = e.target && (e.target.id === 'modal-close-btn' ? e.target : e.target.closest?.('#modal-close-btn'));
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.closeCustomerModal();
+        }
+    }, true);
+
     // --- Update Unlinked Badge Count ---
     async function updateUnlinkedBadge() {
         const badge = document.getElementById('unlinked-badge');

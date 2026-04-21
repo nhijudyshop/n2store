@@ -8,6 +8,13 @@
 
 ## 2026-04-21
 
+### [customer-hub] Fix nút X đóng Customer Profile — defensive 3-layer + cache-bust
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/main.js`, `customer-hub/index.html` |
+| **Chi tiết** | User báo nút X (đỏ, góc phải header modal Customer Profile) vẫn không đóng modal dù đã fix ở commit 4472f8c0. Nguyên nhân có thể là cache trình duyệt giữ JS cũ, hoặc span icon bên trong button chặn click. **Fix 3-layer defensive:** (1) `customer-profile.js:48-50` — thêm lại inline `onclick="window.closeCustomerModal && window.closeCustomerModal()"` kèm `style="position:relative;z-index:60"` và `class="cursor-pointer"` trên button; thêm `pointer-events-none` cho `<span>` icon để click không bị span nuốt. (2) `main.js:95-103` — thêm **document-level event delegation** (capture phase) bắt click trên `#modal-close-btn` dù container bị re-render nhiều lần — đảm bảo luôn fire dù handler bind trước đó bị phá. (3) `index.html:140-141` — thêm query `?v=20260421-close-btn-fix` vào `main.js` và `permissions.js` để GitHub Pages phục vụ JS mới (browser cache busted). **Audit interactions khác:** `audit-log-btn`, `reset-password-btn`, `menuToggle` (mobile) chưa có handler — UI-only stubs, không crash. `window.removeCustomerAlias` / `window.showAddAliasDialog` được reference từ aliases section (header) nhưng function chưa implement ở nhánh `main` (đã implement ở nhánh `claude/add-receipt-time-edit-plcVc` chưa merge) — click "+ Thêm" không làm gì nhưng không báo lỗi. Các buttons khác (search, link-bank-transaction, transaction-activity, wallet-panel, manual-topup-tab, ticket-list) đều đã wire handler OK. |
+| **Status** | ✅ Done — push sau để GitHub Pages build lại |
+
 ### [phone-auto-register,render] Server-side lock singleton + UI toggle trong widget
 | | |
 |---|---|
