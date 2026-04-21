@@ -739,6 +739,30 @@ async function _confirmConvertToPO() {
     // Filter valid items (productName or productCode)
     const validItems = _convertItems.filter(i => (i.productName || '').trim() || (i.productCode || '').trim());
 
+    // Tất cả items (có tên SP) BẮT BUỘC có productCode — ép user bấm nút refresh sinh mã
+    const missingCodeItems = validItems.filter(i => !(i.productCode || '').trim());
+    if (missingCodeItems.length > 0) {
+        const stts = missingCodeItems.map(i => _convertItems.indexOf(i) + 1).join(', ');
+        window.notificationManager?.warning(
+            `Sản phẩm STT ${stts} chưa có Mã SP. Hãy bấm nút 🔄 cạnh ô Mã SP để tự tạo mã, hoặc nhập tay.`
+        );
+        // Highlight input để user dễ nhìn
+        missingCodeItems.forEach(it => {
+            const row = document.querySelector(`tr[data-key="${it._key}"]`);
+            const input = row?.querySelector('input[data-field="productCode"]');
+            if (input) {
+                input.focus();
+                input.style.borderColor = '#ef4444';
+                input.style.boxShadow = '0 0 0 2px rgba(239,68,68,0.2)';
+                setTimeout(() => {
+                    input.style.borderColor = '';
+                    input.style.boxShadow = '';
+                }, 3000);
+            }
+        });
+        return;
+    }
+
     const orderDateStr = document.getElementById('poOrderDate')?.value || new Date().toISOString().split('T')[0];
     const invoiceAmount = _parseVND(document.getElementById('poInvoiceAmount')?.value || 0);
     const notes = (document.getElementById('poNotes')?.value || '').trim();
