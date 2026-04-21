@@ -387,6 +387,13 @@ audio { display: none; }
         });
         _updateSummary();
 
+        // Auto-start all 10 lines on page load (no need to click "Bật tất cả")
+        setTimeout(() => {
+            lines.forEach((ln, idx) => {
+                setTimeout(() => _startLine(ln), idx * 250); // stagger 250ms
+            });
+        }, 500);
+
         // Wire controls
         $('btnStartAll').addEventListener('click', () => { lines.forEach(ln => _startLine(ln)); });
         $('btnStopAll').addEventListener('click', () => { lines.forEach(ln => _stopLine(ln)); });
