@@ -12,7 +12,9 @@
 export const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+    // Include Cache-Control / Pragma / If-* so clients sending cache-busting or conditional
+    // headers don't trip the preflight (doi-soat search sends `cache-control: no-cache`).
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
     'Access-Control-Expose-Headers': 'X-Retry-Count',
     'Access-Control-Max-Age': '86400',
 };
@@ -23,7 +25,7 @@ export const CORS_HEADERS = {
 export const CORS_HEADERS_SIMPLE = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma',
 };
 
 /**
