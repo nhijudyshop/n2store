@@ -730,8 +730,10 @@ async function showMergeDuplicateOrdersModal() {
                 };
             });
 
-            // Calculate merged products preview
-            const mergedProducts = calculateMergedProductsPreview(ordersWithDetails);
+            // Calculate merged products preview — truyền targetOrderId để preview
+            // process target-first (giữ giá target) khớp với executeMergeOrderProducts
+            const targetOrderForPreview = ordersWithDetails[ordersWithDetails.length - 1];
+            const mergedProducts = calculateMergedProductsPreview(ordersWithDetails, targetOrderForPreview.Id);
 
             return {
                 id: `cluster_${index}`,
@@ -762,16 +764,31 @@ async function showMergeDuplicateOrdersModal() {
 
 /**
  * Calculate merged products preview for a cluster.
- * Phải khớp 1:1 với logic trong executeMergeOrderProducts để preview
- * hiển thị đúng kết quả sẽ được gửi lên TPOS.
+ * Phải khớp 1:1 với logic trong executeMergeOrderProducts:
+ *   - Target order xử lý TRƯỚC → giá target giữ nguyên khi source có cùng ProductId
+ *   - `_noid_${size}` synthetic key cho products thiếu ProductId (tránh null collision)
+ *   - Bounds check quantity 999999
+ *   - Concat source note vào target note với ", "
+ *
+ * Caller thường truyền `orders` sort ASC theo STT (target cuối) từ modal; function
+ * này tự reorder target-first để đảm bảo price priority khớp với API thực.
  */
-function calculateMergedProductsPreview(orders) {
-    const productMap = new Map(); // key: ProductId (hoặc _noid_N cho item thiếu ProductId)
+function calculateMergedProductsPreview(orders, targetOrderId = null) {
+    const productMap = new Map();
+    // Reorder: target first, sources theo thứ tự gốc
+    const ordered = targetOrderId
+        ? [
+            ...orders.filter(o => String(o.Id) === String(targetOrderId)),
+            ...orders.filter(o => String(o.Id) !== String(targetOrderId))
+          ]
+        : (orders.length > 1
+            // Fallback heuristic: STT cao nhất = target → đưa lên đầu
+            ? [...orders].sort((a, b) => (b.SessionIndex || 0) - (a.SessionIndex || 0))
+            : orders);
 
-    orders.forEach(order => {
+    ordered.forEach(order => {
         (order.Details || []).forEach(detail => {
             const key = detail.ProductId;
-            // Product thiếu ProductId → dùng unique synthetic key để không collision
             if (!key) {
                 productMap.set(`_noid_${productMap.size}`, { ...detail });
                 return;
@@ -779,8 +796,8 @@ function calculateMergedProductsPreview(orders) {
             if (productMap.has(key)) {
                 const existing = productMap.get(key);
                 const newQty = (existing.Quantity || 0) + (detail.Quantity || 0);
-                existing.Quantity = Math.min(newQty, 999999); // Bounds check khớp với executeMergeOrderProducts
-                // Keep the note from all orders (concat với ", ")
+                existing.Quantity = Math.min(newQty, 999999);
+                // Giá target (insert đầu tiên) được giữ nguyên — khớp với executeMergeOrderProducts
                 if (detail.Note && !existing.Note?.includes(detail.Note)) {
                     existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
                 }
@@ -2147,17 +2164,19 @@ function buildPartialTagCluster(cluster, sourceClearResults) {
     if (!Array.isArray(sourceClearResults) || sourceClearResults.length === 0) return cluster;
     const clearedIds = new Set(sourceClearResults.filter(r => r.cleared).map(r => String(r.sourceId)));
     const filteredSources = (cluster.sourceOrders || []).filter(o => clearedIds.has(String(o.Id)));
+    // Giữ convention `orders[last]` = target như showMergeDuplicateOrdersModal,
+    // sort by STT ascending để khớp display (source STT thấp đầu, target cuối).
+    const allFiltered = [...filteredSources].sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
     return {
         ...cluster,
         sourceOrders: filteredSources,
-        // orders array dùng cho tag "Gộp X Y Z" — chỉ gồm source đã cleared + target
-        orders: [...filteredSources, cluster.targetOrder]
+        orders: [...allFiltered, cluster.targetOrder]
     };
 }
 
 /**
  * Mark local InvoiceStatusStore entries của các source đã clear là "Hủy do gộp đơn".
- * - Đây là đồng bộ LOCAL ONLY (UI sẽ hiển thị "Hủy do gộp đơn" cho cột PBH).
+ * - Mutate in-place trong Map + call _saveBatchToAPI để persist xuống Postgres.
  * - Không cancel invoice bên TPOS (quá destructive, cần user confirm riêng).
  * - Trigger refresh PBH từ TPOS ngầm để đồng bộ state thật (nếu TPOS đã đổi).
  */
@@ -2168,32 +2187,31 @@ function markSourceOrdersMergeCancelled(sourceOrderIds) {
         return;
     }
     const store = window.InvoiceStatusStore;
-    let markedCount = 0;
+    const soIdSet = new Set(sourceOrderIds.map(String).filter(Boolean));
+    const mutatedCompoundKeys = [];
 
-    sourceOrderIds.forEach(soId => {
-        if (!soId) return;
-        const soIdStr = String(soId);
-        // InvoiceStatusStore có thể chứa nhiều entries per saleOnlineId (bill replay) → update hết
-        if (typeof store.getAll === 'function') {
-            const entries = store.getAll(soIdStr) || [];
-            entries.forEach(entry => {
-                if (entry && entry.IsMergeCancel !== true) {
-                    entry.IsMergeCancel = true;
-                    markedCount++;
-                }
-            });
-        } else if (typeof store.get === 'function') {
-            const entry = store.get(soIdStr);
-            if (entry && entry.IsMergeCancel !== true) {
-                entry.IsMergeCancel = true;
-                markedCount++;
-            }
+    // Iterate _data map để tìm mọi entry thuộc các source order → mutate + collect compound keys.
+    // Pattern này giống refreshAllFromTPOS (tab1-fast-sale-invoice-status.js:957-971).
+    if (store._data && typeof store._data.forEach === 'function') {
+        store._data.forEach((entry, compoundKey) => {
+            if (!entry) return;
+            const entrySoId = String(entry.SaleOnlineId || '');
+            if (!soIdSet.has(entrySoId)) return;
+            if (entry.IsMergeCancel === true) return; // Đã mark rồi, skip
+            entry.IsMergeCancel = true;
+            store._data.set(compoundKey, entry);
+            mutatedCompoundKeys.push(compoundKey);
+        });
+    }
+
+    if (mutatedCompoundKeys.length > 0) {
+        console.log(`[MERGE-PBH] ✅ Marked ${mutatedCompoundKeys.length} invoice entry(ies) as merge-cancelled`);
+        // Persist xuống API
+        if (typeof store._saveBatchToAPI === 'function') {
+            Promise.resolve(store._saveBatchToAPI(mutatedCompoundKeys))
+                .catch(e => console.warn('[MERGE-PBH] _saveBatchToAPI failed:', e?.message || e));
         }
-    });
-
-    if (markedCount > 0) {
-        console.log(`[MERGE-PBH] ✅ Marked ${markedCount} invoice entry(ies) as merge-cancelled (local only)`);
-        // Re-render UI nếu store có helper
+        // Re-render UI
         if (typeof store._refreshInvoiceStatusUI === 'function') {
             try { store._refreshInvoiceStatusUI(sourceOrderIds.map(String)); } catch {}
         }
