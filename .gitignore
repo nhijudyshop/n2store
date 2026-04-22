@@ -62,3 +62,13 @@ nul
 
 # Soquy Firestore backups (chứa dữ liệu cá nhân khách hàng)
 render.com/backups/soquy/*.json
+
+# OnCallCX — private recordings + intermediate debug dumps
+downloads/oncallcx-recordings/
+docs/oncallcx-*.html
+docs/oncallcx-*.json
+docs/oncallcx-*.sh
+docs/oncallcx-page-*.html
+docs/oncallcx/*.html
+docs/oncallcx/*.json
+!docs/oncallcx/portal-map.json

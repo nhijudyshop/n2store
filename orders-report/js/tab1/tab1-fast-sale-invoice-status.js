@@ -455,8 +455,7 @@
                 rawShowState === 'Huỷ bỏ' ||
                 rawShowState === 'Hủy bỏ' ||
                 invoiceData.IsMergeCancel === true ||
-                invoiceData.StateCode === 'cancel' ||
-                invoiceData.StateCode === 'IsMergeCancel';
+                invoiceData.StateCode === 'cancel';
             const isFullyPaid = !isCancelled && cashOnDelivery === 0 && paymentAmount > 0;
             const showState = isCancelled
                 ? (rawShowState || 'Huỷ bỏ')
