@@ -1279,9 +1279,10 @@
      * Fetch full product detail from TPOS (needed for UpdateV2)
      */
     async function fetchProductDetail(templateId) {
-        // Full expand: variants/attrs/combo/UOM-lines/suppliers for Phase 2+3 edit sections.
+        // Full $expand matches render.com/config/tpos.config.js:15 — all nested relations
+        // that TPOS exposes for ProductTemplate. Don't drop any; user wants 100% parity.
         const expand = encodeURIComponent(
-            'UOM,UOMCateg,Categ,UOMPO,POSCateg,ProductVariants($expand=AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)'
+            'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)'
         );
         const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
         const response = await window.tokenManager.authenticatedFetch(url, {
@@ -2438,7 +2439,8 @@
     let editComboProducts = [];         // [{ProductId, ProductNameGet, Quantity, ProductPrice}]
     let editUOMLines = [];              // [{UOMId, FactorInv, Name}]
     let editSupplierInfos = [];         // [{PartnerId, PartnerName, ProductCode, Price, MinQty}]
-    let editTagIds = new Set();         // Tag IDs selected for this product
+    let editTagIds = new Set();         // Tag IDs selected for this product (quick lookup)
+    let editTagObjects = [];            // Full Tag objects — preserves Name/Color/other fields from TPOS
 
     async function ensureAttributesList() {
         if (cachedAttributes) return cachedAttributes;
@@ -2862,6 +2864,7 @@
         const wrap = $('#tagsPickerList');
         if (!wrap) return;
         const tags = await ensureTagList();
+        // Keep editTagIds in sync with productTags (source of truth for selection)
         editTagIds = new Set((productTags || []).map(t => t.Id));
         if (!tags.length) {
             wrap.innerHTML = '<span style="font-size:12px;color:#9ca3af;">(Chưa load được nhãn từ TPOS)</span>';
@@ -2881,9 +2884,20 @@
             const btn = e.target.closest('[data-tag-id]');
             if (!btn) return;
             const id = parseInt(btn.dataset.tagId);
-            if (editTagIds.has(id)) editTagIds.delete(id);
-            else editTagIds.add(id);
-            await renderTagsPicker(Array.from(editTagIds).map(id => (cachedTags.find(t => t.Id === id) || { Id: id })));
+            if (editTagIds.has(id)) {
+                editTagIds.delete(id);
+                editTagObjects = editTagObjects.filter(t => t.Id !== id);
+            } else {
+                editTagIds.add(id);
+                // Prefer the full object from editTagObjects (may have extra TPOS fields from original);
+                // fallback to cachedTags entry (has Name/Color); last resort: { Id } stub.
+                const existing = editTagObjects.find(t => t.Id === id);
+                if (!existing) {
+                    const cached = (cachedTags || []).find(t => t.Id === id);
+                    editTagObjects.push(cached ? { ...cached } : { Id: id });
+                }
+            }
+            await renderTagsPicker(editTagObjects);
         });
     }
 
@@ -2929,61 +2943,70 @@
     }
 
     // --------- Hook up into openEditProduct + saveEditProduct ---------
-    /** Populate all Phase 2/3 sections after product detail loaded. */
+    /**
+     * Populate all Phase 2/3 sections after product detail loaded.
+     * **100% preservation rule**: keep original TPOS objects verbatim in `_original` so
+     * merge step can passthrough every field TPOS sent, only overriding what the user edited.
+     */
     async function populateAdvancedSections(detail) {
-        // Variants & AttributeLines
+        // AttributeLines — preserve full line objects (Attribute sub-object + Values array)
         editAttributeLines = (detail.AttributeLines || []).map(l => ({
+            ...l, // passthrough all TPOS fields
             AttributeId: l.AttributeId || l.Attribute?.Id,
             Attribute: l.Attribute || { Id: l.AttributeId, Name: '?' },
             Values: l.Values || [],
         }));
+
+        // ProductVariants — preserve FULL TPOS variant object; UI inputs only override what's edited
         editVariants = (detail.ProductVariants || []).map(v => ({
-            Id: v.Id,
+            ...v, // passthrough every field TPOS returned
+            // Normalized aliases for UI binding (mutating these updates the same properties)
             DefaultCode: v.DefaultCode || '',
             Barcode: v.Barcode || '',
-            PriceVariant: v.PriceVariant || v.ListPrice || 0,
+            PriceVariant: v.PriceVariant ?? v.ListPrice ?? 0,
             Active: v.Active !== false,
             AttributeValues: v.AttributeValues || [],
-            NameGet: v.NameGet,
-            NameTemplate: v.NameTemplate,
-            ListPrice: v.ListPrice || 0, StandardPrice: v.StandardPrice || 0,
-            SaleOK: v.SaleOK !== false, PurchaseOK: v.PurchaseOK !== false, AvailableInPOS: v.AvailableInPOS !== false,
-            Type: v.Type || 'product', TaxesIds: v.TaxesIds || [],
-            UOMId: v.UOMId, QtyAvailable: v.QtyAvailable, EAN13: v.EAN13 || null,
-            Version: v.Version || 0,
         }));
         renderAttributeLines();
         renderVariantsTable();
         bindVariantsTableEvents();
 
-        // Combo
+        // Combo — preserve full combo line object
         const isComboEl = $('#editIsCombo');
         if (isComboEl) isComboEl.checked = !!detail.IsCombo;
         editComboProducts = (detail.ComboProducts || []).map(c => ({
-            ProductId: c.ProductId, ProductNameGet: c.ProductNameGet || c.Product?.NameGet,
-            Quantity: c.Quantity || 1, ProductPrice: c.ProductPrice || 0,
+            ...c, // passthrough every TPOS field (Id, Discount, Sequence, Product sub-object, etc.)
+            ProductNameGet: c.ProductNameGet || c.Product?.NameGet,
+            Quantity: c.Quantity || 1,
+            ProductPrice: c.ProductPrice || 0,
         }));
         renderComboItems();
         bindComboSearchEvents();
 
-        // UOM Lines
+        // UOM Lines — preserve full line + nested UOM object
         editUOMLines = (detail.UOMLines || []).map(u => ({
-            Id: u.Id, UOMId: u.UOMId, Name: u.UOM?.Name || u.Name, FactorInv: u.FactorInv || 1,
+            ...u, // passthrough every TPOS field
+            Name: u.UOM?.Name || u.Name || '',
+            FactorInv: u.FactorInv || 1,
         }));
         renderUOMLines();
         bindUOMLinesEvents();
 
-        // Supplier infos
+        // Supplier infos — preserve full supplier line + Partner
         editSupplierInfos = (detail.ProductSupplierInfos || []).map(s => ({
-            Id: s.Id, PartnerId: s.PartnerId, PartnerName: s.Partner?.Name || s.PartnerName,
+            ...s, // passthrough every TPOS field (Delay, CompanyId, etc.)
+            PartnerName: s.Partner?.Name || s.PartnerName,
             Partner: s.Partner || null,
-            ProductCode: s.ProductCode || '', Price: s.Price || 0, MinQty: s.MinQty || 0,
+            ProductCode: s.ProductCode || '',
+            Price: s.Price || 0,
+            MinQty: s.MinQty || 0,
         }));
         renderSuppliers();
         bindSupplierEvents();
 
-        // Tags
-        await renderTagsPicker(detail.Tags || []);
+        // Tags — store full objects (not just IDs) so Name/Color/other fields preserved
+        editTagObjects = Array.isArray(detail.Tags) ? [...detail.Tags] : [];
+        await renderTagsPicker(editTagObjects);
         bindTagsPickerEvents();
 
         // Audit log — just reset (user must click Load)
@@ -2998,6 +3021,7 @@
         editUOMLines = [];
         editSupplierInfos = [];
         editTagIds = new Set();
+        editTagObjects = [];
         renderAttributeLines();
         renderVariantsTable();
         renderComboItems();
@@ -3016,78 +3040,59 @@
     }
 
     /** Merge advanced sections back into payload before UpdateV2 / InsertV2. */
+    /**
+     * Merge Phase 2/3 sections into payload BEFORE UpdateV2/InsertV2.
+     *
+     * **100% preservation rule**: because `editXxx` arrays contain full TPOS objects
+     * (spread in `populateAdvancedSections`), we passthrough every field TPOS sent and
+     * only override what the user edited in the form. No hardcoded null/0/defaults.
+     */
     function mergeAdvancedIntoPayload(payload) {
-        // Attribute lines
-        payload.AttributeLines = editAttributeLines.map(l => ({
-            Attribute: l.Attribute,
-            Values: l.Values,
-            AttributeId: l.AttributeId,
-        }));
+        // Attribute lines — spread original line verbatim; we don't hard-set internal fields.
+        payload.AttributeLines = editAttributeLines.map(l => ({ ...l }));
         payload.IsProductVariant = editAttributeLines.length > 0;
 
-        // Variants
-        payload.ProductVariants = editVariants.map(v => ({
-            Id: v.Id || 0,
-            EAN13: v.EAN13 || null,
-            DefaultCode: v.DefaultCode || '',
-            NameTemplate: v.NameTemplate || payload.Name || payload.DefaultCode || '',
-            NameNoSign: null,
-            ProductTmplId: payload.Id || 0,
-            UOMId: v.UOMId || payload.UOMId || 1,
-            QtyAvailable: v.QtyAvailable || 0,
-            NameGet: v.NameGet || `${payload.DefaultCode || ''} (${(v.AttributeValues || []).map(a => a.Name).join(', ')})`,
-            Price: null,
-            Barcode: v.Barcode || null,
-            PriceVariant: v.PriceVariant || 0,
-            SaleOK: v.SaleOK !== false,
-            PurchaseOK: v.PurchaseOK !== false,
-            Active: v.Active !== false,
-            ListPrice: v.ListPrice || 0,
-            PurchasePrice: v.PurchasePrice || null,
-            StandardPrice: v.StandardPrice || 0,
-            AvailableInPOS: v.AvailableInPOS !== false,
-            Version: v.Version || 0,
-            Type: v.Type || 'product',
-            CompanyId: null, Tags: null, DateCreated: null,
-            InitInventory: 0, TaxAmount: null, Error: null,
-            AttributeValues: v.AttributeValues || [],
-            TaxesIds: v.TaxesIds || [],
-        }));
+        // Variants — spread original TPOS variant; only override fields the user edited.
+        payload.ProductVariants = editVariants.map(v => {
+            const merged = { ...v };
+            // Ensure required linkage for InsertV2 — only set when missing/zero.
+            if (!merged.Id) merged.Id = 0;
+            if (!merged.ProductTmplId) merged.ProductTmplId = payload.Id || 0;
+            if (!merged.NameTemplate) merged.NameTemplate = payload.Name || payload.DefaultCode || '';
+            if (!merged.NameGet) {
+                merged.NameGet = `${payload.DefaultCode || ''} (${(merged.AttributeValues || []).map(a => a.Name).join(', ')})`.trim();
+            }
+            if (!merged.UOMId) merged.UOMId = payload.UOMId || 1;
+            if (!merged.Type) merged.Type = 'product';
+            return merged;
+        });
         payload.ProductVariantCount = payload.ProductVariants.length;
 
-        // Combo
+        // Combo — spread original combo line; respect IsCombo toggle from form.
         payload.IsCombo = !!$('#editIsCombo')?.checked;
-        payload.ComboProducts = payload.IsCombo ? editComboProducts.map(c => ({
-            ProductId: c.ProductId,
-            ProductNameGet: c.ProductNameGet,
-            Quantity: c.Quantity || 1,
-            ProductPrice: c.ProductPrice || 0,
-        })) : [];
+        payload.ComboProducts = payload.IsCombo ? editComboProducts.map(c => ({ ...c })) : [];
 
-        // UOM Lines
-        payload.UOMLines = editUOMLines.map(u => ({
-            Id: u.Id || 0,
-            UOMId: u.UOMId,
-            UOM: (cachedUOMs || []).find(x => x.Id === u.UOMId) || null,
-            FactorInv: u.FactorInv || 1,
-            Name: u.Name || '',
-        }));
-
-        // Supplier infos
-        payload.ProductSupplierInfos = editSupplierInfos.map(s => ({
-            Id: s.Id || 0,
-            PartnerId: s.PartnerId,
-            Partner: s.Partner,
-            ProductCode: s.ProductCode || '',
-            Price: s.Price || 0,
-            MinQty: s.MinQty || 0,
-        }));
-
-        // Tags
-        payload.Tags = Array.from(editTagIds).map(id => {
-            const t = (cachedTags || []).find(tt => tt.Id === id);
-            return t ? { Id: t.Id, Name: t.Name, Color: t.Color } : { Id: id };
+        // UOM Lines — spread original line; preserve nested UOM object unchanged,
+        // fall back to cache lookup ONLY if TPOS didn't send UOM (e.g. new line added in UI).
+        payload.UOMLines = editUOMLines.map(u => {
+            const merged = { ...u };
+            if (!merged.Id) merged.Id = 0;
+            if (!merged.UOM) {
+                merged.UOM = (cachedUOMs || []).find(x => x.Id === merged.UOMId) || null;
+            }
+            return merged;
         });
+
+        // Supplier infos — spread original supplier line (preserves Delay, CompanyId, etc.)
+        payload.ProductSupplierInfos = editSupplierInfos.map(s => {
+            const merged = { ...s };
+            if (!merged.Id) merged.Id = 0;
+            return merged;
+        });
+
+        // Tags — spread original Tag objects so Name/Color/other fields preserved.
+        // Filter to only currently-selected IDs; add new entries from cache for newly-picked.
+        payload.Tags = editTagObjects.filter(t => editTagIds.has(t.Id)).map(t => ({ ...t }));
 
         return payload;
     }
