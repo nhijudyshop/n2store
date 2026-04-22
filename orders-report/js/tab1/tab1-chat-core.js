@@ -619,7 +619,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // If DB found exact fb_id → fetch conversations directly (precise, no name ambiguity)
         if (targetFbId) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, targetFbId);
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, targetFbId, { signal: opts?.signal });
             foundConvs = (result.conversations || []).filter(c =>
                 String(c.page_id) === String(pageId)
             );
@@ -640,7 +640,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // Last fallback: page-specific API with original PSID
         if (foundConvs.length === 0) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
             foundConvs = (result.conversations || []).filter(c =>
                 String(c.page_id) === String(pageId)
             );
@@ -672,7 +672,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
-        const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+        const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
         const commentConvs = (result.conversations || []).filter(c => c.type === 'COMMENT');
 
         if (commentConvs.length > 0) {
@@ -682,7 +682,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // Fallback: multi-page search
         if (!conv) {
-            const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+            const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid, { signal: opts?.signal });
             const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
             if (mpConvs.length > 0) {
                 mpConvs.sort(_byUpdatedAtDesc);
@@ -698,14 +698,14 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
 
         if (!conv) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
             const convs = result.conversations || [];
             conv = convs.find(c => c.type === 'INBOX') || convs[0] || null;
         }
 
         // Fallback: multi-page search
         if (!conv) {
-            const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+            const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid, { signal: opts?.signal });
             const convs = result.conversations || [];
             conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
                 || convs.find(c => String(c.page_id) === String(pageId))

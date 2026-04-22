@@ -100,27 +100,22 @@ router.post('/:pageId/lock', async (req, res) => {
 
     try {
         // Atomic: acquire only if no active lock.
-        // UPSERT pattern: insert row with lock if missing, else update only if expired.
-        // NOTE: page_id is PK so ON CONFLICT resolves to the existing row.
+        // Single-statement UPSERT — no two-step cleanup (avoids crash-window data corruption).
+        // If row does not exist: insert with token='' + saved_at=0 so smart-merge on client
+        // always treats real PATs (savedAt > 0) as newer. If row exists and lock expired:
+        // update ONLY lock columns, leave token untouched.
         const result = await dbPool.query(`
-            INSERT INTO pancake_page_access_tokens (page_id, token, regen_lock_until, updated_at)
-            VALUES ($1, '__LOCK_PLACEHOLDER__', NOW() + ($2 || ' milliseconds')::interval, NOW())
+            INSERT INTO pancake_page_access_tokens (page_id, token, regen_lock_until, saved_at, updated_at)
+            VALUES ($1, '', NOW() + ($2 || ' milliseconds')::interval, 0, NOW())
             ON CONFLICT (page_id) DO UPDATE
                 SET regen_lock_until = NOW() + ($2 || ' milliseconds')::interval,
                     updated_at = NOW()
                 WHERE pancake_page_access_tokens.regen_lock_until IS NULL
                    OR pancake_page_access_tokens.regen_lock_until < NOW()
-            RETURNING regen_lock_until, token
+            RETURNING regen_lock_until
         `, [pageId, String(ttlMs)]);
 
         if (result.rowCount > 0) {
-            // Cleanup placeholder token if we just inserted one
-            if (result.rows[0].token === '__LOCK_PLACEHOLDER__') {
-                await dbPool.query(
-                    `UPDATE pancake_page_access_tokens SET token = '' WHERE page_id = $1 AND token = '__LOCK_PLACEHOLDER__'`,
-                    [pageId]
-                );
-            }
             return res.json({ acquired: true, lockUntil: result.rows[0].regen_lock_until });
         }
 

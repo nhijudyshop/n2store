@@ -31,13 +31,15 @@
     async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
         const ctrl = new AbortController();
         const externalSignal = options.signal;
+        let abortHandler = null;
 
         // Combine external signal + internal timeout signal
         if (externalSignal) {
             if (externalSignal.aborted) {
                 throw new DOMException('Aborted before fetch', 'AbortError');
             }
-            externalSignal.addEventListener('abort', () => ctrl.abort(), { once: true });
+            abortHandler = () => ctrl.abort();
+            externalSignal.addEventListener('abort', abortHandler);
         }
 
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -56,6 +58,10 @@
             throw err;
         } finally {
             clearTimeout(timer);
+            // Remove external signal listener to avoid leak when signal is long-lived
+            if (externalSignal && abortHandler) {
+                try { externalSignal.removeEventListener('abort', abortHandler); } catch (_) {}
+            }
         }
     }
 

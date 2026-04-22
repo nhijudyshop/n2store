@@ -63,11 +63,15 @@
         const orders = _getVisibleOrders();
         if (orders.length === 0) return;
 
-        // Deduplicate by pageId+psid to avoid double-fetching
+        // Deduplicate by pageId+psid to avoid double-fetching.
+        // Skip orders missing either pageId or psid entirely (they'd dedup under "undefined:undefined").
         const seen = new Set();
         const unique = [];
         for (const o of orders) {
-            const key = `${o.channelId || o.pageId}:${o.psid || o.customerId}`;
+            const pid = o.channelId || o.pageId;
+            const sid = o.psid || o.customerId;
+            if (!pid || !sid) continue;
+            const key = `${pid}:${sid}`;
             if (seen.has(key)) continue;
             seen.add(key);
             unique.push(o);
