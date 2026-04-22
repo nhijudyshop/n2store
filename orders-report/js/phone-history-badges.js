@@ -465,28 +465,40 @@ const PhoneHistoryBadges = (() => {
         return badge;
     }
 
+    // Flag để tắt MutationObserver trong lúc renderBadges tự modify DOM
+    // (append/remove badge) — tránh self-loop: observer fires → renderBadges →
+    // mutation → observer fires → … gây bảng giật khi filter active + SSE events.
+    let _rendering = false;
+
     function renderBadges() {
         _ensureStyles();
-        const cells = document.querySelectorAll('td[data-column="phone"]');
-        cells.forEach(cell => {
-            const container = cell.querySelector('div') || cell;
-            const existing = container.querySelector('.phone-hist-badge');
-            // Extract phone from cell (last span)
-            const span = cell.querySelector('span:last-of-type');
-            const phoneText = span?.textContent || cell.textContent || '';
-            const phone = stripPhone(phoneText);
-            if (!phone) { if (existing) existing.remove(); return; }
-            const { counts } = getCountsFor(phone);
-            if (counts.total === 0) { if (existing) existing.remove(); return; }
-            // Idempotent: keep existing badge — only update content if counts changed
-            // (avoids remove→recreate flicker that kills the tooltip mid-hover)
-            if (existing && existing.dataset.phone === phone) {
-                _updateBadge(existing, phone, counts);
-                return;
-            }
-            if (existing) existing.remove();
-            container.appendChild(_makeBadge(phone, counts));
-        });
+        _rendering = true;
+        try {
+            const cells = document.querySelectorAll('td[data-column="phone"]');
+            cells.forEach(cell => {
+                const container = cell.querySelector('div') || cell;
+                const existing = container.querySelector('.phone-hist-badge');
+                // Extract phone from cell (last span)
+                const span = cell.querySelector('span:last-of-type');
+                const phoneText = span?.textContent || cell.textContent || '';
+                const phone = stripPhone(phoneText);
+                if (!phone) { if (existing) existing.remove(); return; }
+                const { counts } = getCountsFor(phone);
+                if (counts.total === 0) { if (existing) existing.remove(); return; }
+                // Idempotent: keep existing badge — only update content if counts changed
+                // (avoids remove→recreate flicker that kills the tooltip mid-hover)
+                if (existing && existing.dataset.phone === phone) {
+                    const newSig = `${counts.total}|${counts.missed}`;
+                    if (existing.dataset.sig === newSig) return; // no change → skip
+                    _updateBadge(existing, phone, counts);
+                    return;
+                }
+                if (existing) existing.remove();
+                container.appendChild(_makeBadge(phone, counts));
+            });
+        } finally {
+            _rendering = false;
+        }
     }
 
     // Debounced re-render on table mutations.
@@ -501,11 +513,40 @@ const PhoneHistoryBadges = (() => {
         }, 400);
     }
 
+    // Kiểm tra mutation có phải từ chính renderBadges (self-mutation) không.
+    // Nếu toàn bộ mutations chỉ touch .phone-hist-badge / td[data-column="phone"]
+    // hoặc xảy ra khi _rendering=true → skip để tránh loop.
+    function _isSelfMutation(mutations) {
+        if (_rendering) return true;
+        return mutations.every(m => {
+            const target = m.target;
+            if (target?.classList?.contains?.('phone-hist-badge')) return true;
+            if (target?.closest?.('.phone-hist-badge')) return true;
+            // childList mutations: check addedNodes for badge only
+            if (m.type === 'childList') {
+                const nodes = [...m.addedNodes, ...m.removedNodes];
+                if (nodes.length > 0 && nodes.every(n => n.classList?.contains?.('phone-hist-badge'))) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
     function _observeTable() {
-        const table = document.querySelector('#ordersTable') || document.querySelector('.orders-table') || document.querySelector('table');
-        if (!table) { setTimeout(_observeTable, 1000); return; }
-        const observer = new MutationObserver(() => scheduleRender());
-        observer.observe(table, { childList: true, subtree: true });
+        // Narrow scope: chỉ observe tbody (nơi row thay đổi khi filter/render),
+        // không subtree toàn table. Filter mutation ở cell-level qua _isSelfMutation.
+        const tbody = document.getElementById('tableBody')
+            || document.querySelector('#ordersTable tbody')
+            || document.querySelector('.orders-table tbody')
+            || document.querySelector('table tbody');
+        if (!tbody) { setTimeout(_observeTable, 1000); return; }
+        const observer = new MutationObserver((mutations) => {
+            if (_isSelfMutation(mutations)) return;
+            scheduleRender();
+        });
+        // childList only (row add/remove), không cần characterData
+        observer.observe(tbody, { childList: true, subtree: true });
         renderBadges();
     }
 
