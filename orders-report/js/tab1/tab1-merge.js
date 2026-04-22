@@ -2301,7 +2301,19 @@ async function assignTagXLAfterMerge(cluster) {
             console.log(`[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`);
         }
 
-        // --- SOURCE ORDERS: gán KHÔNG CẦN CHỐT / Đã gộp không chốt ---
+        // Step 3: Đánh tTag "GỘP ĐƠN" (GOP_DON) vào target — marker đồng bộ với TPOS tag "Gộp X Y Z"
+        try {
+            const curTarget = window.ProcessingTagState.getOrderData(targetCode);
+            const hasGopDon = (curTarget?.tTags || []).some(t => _mergeXLId(t) === 'GOP_DON');
+            if (!hasGopDon) {
+                await window.assignTTagToOrder(targetCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
+                console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: gán tTag GỘP ĐƠN`);
+            }
+        } catch (e) {
+            console.warn(`[MERGE-PTAG] assignTTagToOrder(GOP_DON) target fail:`, e);
+        }
+
+        // --- SOURCE ORDERS: gán KHÔNG CẦN CHỐT / Đã gộp không chốt + tTag "GỘP ĐƠN" ---
         // Logic tag như cũ: assignOrderCategory(3, DA_GOP_KHONG_CHOT) — preserve flags + tTags
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
@@ -2309,7 +2321,17 @@ async function assignTagXLAfterMerge(cluster) {
                 subTag: 'DA_GOP_KHONG_CHOT',
                 source: 'Hệ thống (gộp đơn)'
             });
-            console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt`);
+            // Gán thêm tTag GỘP ĐƠN để source cũng có marker XL giống target
+            try {
+                const curSrc = window.ProcessingTagState.getOrderData(sourceCode);
+                const srcHasGopDon = (curSrc?.tTags || []).some(t => _mergeXLId(t) === 'GOP_DON');
+                if (!srcHasGopDon) {
+                    await window.assignTTagToOrder(sourceCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
+                }
+            } catch (e) {
+                console.warn(`[MERGE-PTAG] assignTTagToOrder(GOP_DON) source ${sourceCode} fail:`, e);
+            }
+            console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt + GỘP ĐƠN`);
         }
 
         // Refresh panel if visible

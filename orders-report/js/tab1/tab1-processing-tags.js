@@ -151,7 +151,9 @@
 
     // Default T-tags — always present, cannot be deleted, hidden from manager modal
     const DEFAULT_TTAG_DEFS = [
-        { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true }
+        { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true },
+        // Marker cho đơn đã gộp (tag XL-side, pair với TPOS "Gộp X Y Z" tag)
+        { id: 'GOP_DON', name: 'GỘP ĐƠN', productCode: '', createdAt: 0, isDefault: true }
     ];
 
     // ── Flag color palette (for đặc điểm tags) ──
