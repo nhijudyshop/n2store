@@ -11,6 +11,14 @@ const express = require('express');
 const WebSocket = require('ws');
 const { Pool } = require('pg');
 
+// Global safety net — prevent process exit on unhandled rejection / exception.
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_EVENTS = parseInt(process.env.MAX_EVENTS || '1000');
@@ -28,6 +36,11 @@ if (process.env.DATABASE_URL) {
         max: 5,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000
+    });
+
+    // Without this listener, pg.Pool 'error' on idle clients crashes Node.
+    db.on('error', (err) => {
+        console.error('[db pool] Idle client error (non-fatal):', err.message);
     });
 
     db.query('SELECT NOW()')

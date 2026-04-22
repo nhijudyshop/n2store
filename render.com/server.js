@@ -10,6 +10,15 @@ const cors = require('cors');
 const path = require('path');
 const { Pool, types } = require('pg');
 
+// Global safety net — Node 15+ exits process on unhandled rejection by default.
+// We have seen crashes from pg-pool timeouts during DB upgrades. Log + keep alive.
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+});
+
 // Fix timezone: transaction_date is stored as TIMESTAMP WITHOUT TIMEZONE
 // but contains Vietnam time (UTC+7). Render.com server runs in UTC,
 // so pg driver would misinterpret it as UTC. This parser appends +07:00
@@ -70,6 +79,13 @@ const chatDbPool = new Pool({
     max: 20,                      // Maximum 20 connections
     idleTimeoutMillis: 30000,     // Close idle connections after 30s
     connectionTimeoutMillis: 10000 // Timeout waiting for connection
+});
+
+// CRITICAL: pg.Pool emits 'error' on idle client failures. Without a listener,
+// Node crashes with "Unhandled 'error' event". Observed 8 crashes in 24h
+// during DB upgrade — all from missing this listener. See docs/dev-log.md.
+chatDbPool.on('error', (err) => {
+    console.error('[chatDbPool] Idle client error (non-fatal):', err.message);
 });
 
 // Make pool available to routes via app.locals

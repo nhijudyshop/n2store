@@ -15,6 +15,14 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 
+// Global safety net — prevent process exit on unhandled rejection / exception.
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+});
+
 // Use node-fetch for compatibility
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
