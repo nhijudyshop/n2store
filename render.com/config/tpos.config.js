@@ -13,7 +13,8 @@ module.exports = {
     EXPAND_PARAMS:
         process.env.TPOS_EXPAND_PARAMS ||
         // Must match the string used by render.com/services/sync-tpos-products.js and
-        // tpos-socket-listener.js. AttributeLines needs ($expand=Attribute,Values) and
-        // ProductSupplierInfos needs ($expand=Partner) for full TPOS parity.
-        "UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)",
+        // tpos-socket-listener.js. AttributeLines needs ($expand=Attribute,Values).
+        // Note: Partner nested-expand removed — TPOS dropped the Partner navigation
+        // property on ProductSupplierInfoModel (HTTP 400 loop on every sync).
+        "UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos",
 };

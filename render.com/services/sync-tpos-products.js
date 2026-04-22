@@ -230,7 +230,8 @@ class TPOSProductSync {
      */
     async _syncTemplate(templateData, syncStartedAt, stats, preloadedDetail = null) {
         // Full $expand mirrors render.com/config/tpos.config.js — all nested relations user expects from TPOS.
-        const expand = 'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)';
+        // Partner nested-expand removed (TPOS dropped this navigation property; caused HTTP 400 on every sync).
+        const expand = 'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos';
         const detail = preloadedDetail || await this._tposFetch(
             `/api/odata/ProductTemplate(${templateData.Id})?$expand=${encodeURIComponent(expand)}`
         );

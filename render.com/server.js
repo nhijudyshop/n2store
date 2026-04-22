@@ -8,7 +8,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { Pool, types } = require('pg');
+const { types } = require('pg');
 
 // Global safety net — Node 15+ exits process on unhandled rejection by default.
 // We have seen crashes from pg-pool timeouts during DB upgrades. Log + keep alive.
@@ -72,21 +72,12 @@ app.use((req, res, next) => {
 // DATABASE CONNECTION
 // =====================================================
 
-// Initialize PostgreSQL connection pool for SePay and Customers routes
-const chatDbPool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    max: 20,                      // Maximum 20 connections
-    idleTimeoutMillis: 30000,     // Close idle connections after 30s
-    connectionTimeoutMillis: 10000 // Timeout waiting for connection
-});
-
-// CRITICAL: pg.Pool emits 'error' on idle client failures. Without a listener,
-// Node crashes with "Unhandled 'error' event". Observed 8 crashes in 24h
-// during DB upgrade — all from missing this listener. See docs/dev-log.md.
-chatDbPool.on('error', (err) => {
-    console.error('[chatDbPool] Idle client error (non-fatal):', err.message);
-});
+// Reuse the singleton pool from db/pool.js. Previously this file created a
+// SECOND Pool with the same config → each process could hold up to 40
+// connections (20 here + 20 in cron/utils via db/pool.js singleton).
+// Singleton also registers pool.on('error') so idle client failures don't
+// crash the process.
+const chatDbPool = require('./db/pool');
 
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;

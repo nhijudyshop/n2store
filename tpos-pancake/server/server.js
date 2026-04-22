@@ -236,7 +236,10 @@ class PancakeWebSocketClient {
         this.pageIds = pageIds.map(id => String(id));
         this.cookie = cookie;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
+        // Never give up — if we stop reconnecting, the service silently dies
+        // (accounts=N, connected=0) and noone notices. Infinity + 60s cap keeps
+        // retrying indefinitely but doesn't hammer the upstream.
+        this.maxReconnectAttempts = Infinity;
         this.joinErrors = [];
         this.connect();
     }
@@ -289,9 +292,12 @@ class PancakeWebSocketClient {
             this.stopHeartbeat();
 
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
+                // Exponential backoff capped at 60s — prevents hammering while
+                // still retrying indefinitely (maxReconnectAttempts = Infinity).
+                const cappedAttempts = Math.min(this.reconnectAttempts, 5);
+                const delay = Math.min(2000 * Math.pow(2, cappedAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`${this.tag()} Reconnecting in ${delay / 1000}s...`);
+                console.log(`${this.tag()} Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts})`);
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
@@ -643,7 +649,7 @@ app.post('/api/reconnect', (req, res) => {
     for (const client of clients.values()) {
         if (client.token) {
             client.reconnectAttempts = 0;
-            client.maxReconnectAttempts = 10;
+            client.maxReconnectAttempts = Infinity;
             if (client.ws) client.ws.close();
             else client.connect();
             count++;
@@ -651,6 +657,20 @@ app.post('/api/reconnect', (req, res) => {
     }
     res.json({ success: true, message: `Reconnecting ${count} clients` });
 });
+
+// Self-heal: every 60s, check for dead clients (not connected, not retrying)
+// and force reconnect. Prevents silent 'accounts=N, connected=0' state.
+setInterval(() => {
+    for (const client of clients.values()) {
+        if (!client.token) continue;
+        if (client.isConnected) continue;
+        if (client.reconnectTimer) continue; // already scheduled
+        console.warn(`${client.tag ? client.tag() : '[WS]'} Self-heal: client has no pending reconnect — forcing connect`);
+        client.reconnectAttempts = 0;
+        client.maxReconnectAttempts = Infinity;
+        try { client.connect(); } catch (e) { console.error('[Self-heal] connect threw:', e.message); }
+    }
+}, 60000);
 
 app.post('/api/stop', (req, res) => {
     for (const client of clients.values()) {
