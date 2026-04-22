@@ -32,11 +32,14 @@ function getOrderSearchFields(order) {
 }
 
 // ===== TABLE RENDERING =====
-// Diff-based render: reuse rows whose (id + updatedAt + selected + index) chưa đổi.
+// Diff-based render: reuse rows whose (id + updatedAt + selected + displayedStt) chưa đổi.
 // Tránh phá + dựng lại toàn bộ DOM 164 rows × 11 cells mỗi lần filter/search.
+// Dùng `order.stt || (index+1)` thay vì raw index để khi thêm đơn mới không force
+// re-render toàn bộ rows chỉ vì index shift.
 function _rowRenderKey(order, index) {
     const selected = SocialOrderState.selectedOrders.has(order.id) ? 1 : 0;
-    return `${order.id}|${order.updatedAt || 0}|${selected}|${index}`;
+    const displayStt = order.stt || (index + 1);
+    return `${order.id}|${order.updatedAt || 0}|${selected}|${displayStt}`;
 }
 
 function renderTable() {
@@ -155,10 +158,16 @@ function _handleTableClick(e) {
 
 function _handleTableChange(e) {
     const target = e.target;
-    if (target?.dataset?.action === 'toggle-select') {
+    const action = target?.dataset?.action;
+    if (action === 'toggle-select') {
         const orderId = target.dataset.orderId;
         if (orderId && typeof toggleOrderSelection === 'function') {
             toggleOrderSelection(orderId);
+        }
+    } else if (action === 'change-status') {
+        const orderId = target.dataset.orderId;
+        if (orderId && typeof changeSocialOrderStatus === 'function') {
+            changeSocialOrderStatus(orderId, target.value);
         }
     }
 }
@@ -1060,7 +1069,7 @@ function renderStatusCell(order, statusConfig) {
         return `
             <select class="status-select-social"
                     data-order-id="${order.id}"
-                    onchange="changeSocialOrderStatus('${order.id}', this.value)"
+                    data-action="change-status"
                     style="background: ${statusConfig.bgColor}; color: ${statusConfig.textColor}; border: 1px solid ${statusConfig.color};">
                 <option value="draft" ${order.status === 'draft' ? 'selected' : ''}
                     style="background: ${draftConfig.bgColor}; color: ${draftConfig.textColor};">
