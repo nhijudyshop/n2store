@@ -625,7 +625,7 @@
         if (!silent) showLoading(true);
 
         try {
-            const params = buildRenderParams();
+            const params = await buildRenderParams();
             const url = `${RENDER_API}?${params.toString()}`;
 
             const response = await fetch(url);
