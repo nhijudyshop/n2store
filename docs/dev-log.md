@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders][merge] Review round 2 — phát hiện 1 bug nghiêm trọng + fix 3 MEDIUM
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-merge.js](orders-report/js/tab1/tab1-merge.js) (+~60 dòng: `_mergeInProgress` lock, `preMergeTargetDetails/preMergeSourceDetails` trong return, enrich baseCluster cho bulk history), [orders-report/js/tab1/tab1-merge-live-waiting.js](orders-report/js/tab1/tab1-merge-live-waiting.js) (+~20 dòng: reorder T-tag transfer sau source clear). |
+| **Chi tiết** | User yêu cầu kiểm lại toàn bộ 1 lần nữa. Review kỹ cross-module integration phát hiện **1 BUG CRITICAL vô tình mới** từ round 1: `markSourceOrdersMergeCancelled` trigger `store.refreshAllFromTPOS({orders: sourceOrders})` nhưng hàm này (tab1-fast-sale-invoice-status.js:1095) gọi `this.clearAll()` TRƯỚC khi fetch → wipe TOÀN BỘ PBH cache của mọi đơn rồi chỉ refetch 2 source orders → **mất PBH của tất cả các đơn khác trên màn hình**. FIX: xóa call `refreshAllFromTPOS` hoàn toàn, chỉ mutate local + `_saveBatchToAPI` persist. User sẽ tự refresh nếu cần sync TPOS thật. **3 MEDIUM fix thêm**: (1) **Race condition multi-tab**: thêm module-level `_mergeInProgress = new Set()` keyed by TargetOrderId ở đầu `executeMergeOrderProducts`, check-and-set trước khi chạy, delete trong `finally` — nếu lock busy return `{success:false, locked:true, message:"đang được gộp (tab khác?)"}`. Ngăn 2 tab/user chạy cùng lúc trên cùng target gây race 2 PUT → data loss. (2) **Bulk path saveMergeHistory rỗng products**: bulk path trước đây gọi history với `baseCluster.targetOrder` từ `displayedData` không có Details → Firestore ghi `products:[]`. Fix: `executeMergeOrderProducts` return thêm `preMergeTargetDetails`, `preMergeSourceDetails`, `mergedProducts`; caller bulk enrich baseCluster trước khi gọi saveMergeHistory. (3) **Live-waiting T-tag over-tagging ở partial**: `mergeOneCluster` transfer `cluster.sourceTTags` TRƯỚC step 6 clear source → nếu source clear fail, target vẫn có T-tags của source chưa cleared → inconsistent. Fix: đảo thứ tự, transfer T-tags SAU clear loop, chỉ lấy T-tags từ `clearedSourceIds`. **LOW fix**: bulk path `catch {}` empty swallow log lỗi → thay bằng `console.warn` với context. **Review confirmed**: 0 CRITICAL, 0 HIGH sau fix; 3 MEDIUM + 1 LOW đã apply. **Syntax check**: cả 2 file pass node --check. |
+| **Status** | ✅ Code Done. Chú ý: race lock chỉ bảo vệ trong cùng browser tab; cross-browser race vẫn cần server-side ETag (out of scope, RowVersion TPOS forwarded nhưng chưa validate). |
+
 ### [orders][merge] Hardening toàn bộ flow "Gộp đơn trùng SĐT" — 12 bug fix (CRITICAL/HIGH/MEDIUM)
 | | |
 |---|---|
