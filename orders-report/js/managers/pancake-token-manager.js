@@ -316,7 +316,8 @@ class PancakeTokenManager {
     async loadAccounts() {
         try {
             // Load from Render DB (merge into existing accounts)
-            const r = await fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`);
+            const _fetch = window.fetchWithTimeout || fetch;
+            const r = await _fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`, {}, 8000);
             if (r.ok) {
                 const data = await r.json();
                 const dbAccounts = data.accounts || [];
@@ -661,10 +662,11 @@ class PancakeTokenManager {
 
                 try {
                     const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${account.token}`);
-                    const response = await fetch(url, {
+                    const _fetch = window.fetchWithTimeout || fetch;
+                    const response = await _fetch(url, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
-                    });
+                    }, 8000);
 
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}`);
@@ -1393,13 +1395,14 @@ class PancakeTokenManager {
                 `access_token=${accountToken}`
             );
 
-            const response = await fetch(url, {
+            const _fetch = window.fetchWithTimeout || fetch;
+            const response = await _fetch(url, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 }
-            });
+            }, 10000);
 
             const result = await response.json();
 

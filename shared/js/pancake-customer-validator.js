@@ -42,7 +42,8 @@
         if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
         try {
-            const resp = await fetch(`${WORKER_URL}/api/v2/customers/${key}`);
+            const _fetch = (typeof window !== 'undefined' && window.fetchWithTimeout) || fetch;
+            const resp = await _fetch(`${WORKER_URL}/api/v2/customers/${key}`, {}, 8000);
             if (!resp.ok) return null;
             const json = await resp.json();
             if (!json.success || !json.data) return null;
@@ -74,7 +75,8 @@
         if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
         try {
-            const resp = await fetch(`${WORKER_URL}/api/v2/customers/${key}/quick-view`);
+            const _fetch = (typeof window !== 'undefined' && window.fetchWithTimeout) || fetch;
+            const resp = await _fetch(`${WORKER_URL}/api/v2/customers/${key}/quick-view`, {}, 6000);
             if (!resp.ok) return null;
             const json = await resp.json();
             if (!json.success || !json.data) return null;

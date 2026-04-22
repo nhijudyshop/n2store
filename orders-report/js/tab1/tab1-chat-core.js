@@ -188,9 +188,10 @@ function _markRepliedOnServer(psid, pageId) {
     if (!psid) return;
     const body = JSON.stringify({ psid, pageId: pageId || null });
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
-    // Fire and forget to BOTH servers
-    fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
-    fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+    // Fire and forget to BOTH servers — with timeout to avoid zombie fetches
+    const _fetch = window.fetchWithTimeout || fetch;
+    _fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts, 6000).catch(() => {});
+    _fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts, 6000).catch(() => {});
 }
 
 // =====================================================
@@ -353,7 +354,8 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         // Fetch DB notes (customer_notes table) from Render DB
         if (phone) {
             const renderUrl = window.API_CONFIG?.RENDER_URL || 'https://n2store-fallback.onrender.com';
-            fetch(`${renderUrl}/api/v2/customers/${phone}/notes`).then(r => r.json()).then(data => {
+            const _fetch = window.fetchWithTimeout || fetch;
+            _fetch(`${renderUrl}/api/v2/customers/${phone}/notes`, {}, 6000).then(r => r.json()).then(data => {
                 if (data.success && data.data?.length) {
                     for (const n of data.data) {
                         // Avoid duplicates
@@ -1293,11 +1295,12 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
         };
 
         const renderUrl = 'https://n2store-fallback.onrender.com';
-        fetch(`${renderUrl}/api/v2/customers/sync-pancake`, {
+        const _fetch = window.fetchWithTimeout || fetch;
+        _fetch(`${renderUrl}/api/v2/customers/sync-pancake`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-        }).then(r => r.json()).then(data => {
+        }, 8000).then(r => r.json()).then(data => {
             if (data.success) {
                 console.log(`[Chat-Core] Synced customer "${cust.name}" to DB (${data.action})`);
             }

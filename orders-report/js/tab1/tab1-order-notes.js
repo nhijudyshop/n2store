@@ -86,19 +86,24 @@
             }, POLL_INTERVAL_MS);
         },
 
+        _upsertNote(note) {
+            if (!note?.orderId || !note?.id) return;
+            let arr = this._data.get(note.orderId);
+            if (!arr) {
+                arr = [];
+                this._data.set(note.orderId, arr);
+            }
+            const idx = arr.findIndex(x => x.id === note.id);
+            if (idx >= 0) arr[idx] = note;
+            else arr.push(note);
+        },
+
         _applyRemoteEvent(body) {
             if (!body || !body.action) return;
             if (body.action === 'created' || body.action === 'updated') {
                 const n = body.note;
                 if (!n?.orderId || !n?.id) return;
-                let arr = this._data.get(n.orderId);
-                if (!arr) {
-                    arr = [];
-                    this._data.set(n.orderId, arr);
-                }
-                const idx = arr.findIndex(x => x.id === n.id);
-                if (idx >= 0) arr[idx] = n;
-                else arr.push(n);
+                this._upsertNote(n);
                 this._saveToLocalStorage();
                 this._refreshCell(n.orderId);
             } else if (body.action === 'deleted') {
@@ -123,13 +128,8 @@
 
                 this._data.clear();
                 for (const n of body.entries) {
-                    if (!n?.orderId) continue;
-                    let arr = this._data.get(n.orderId);
-                    if (!arr) {
-                        arr = [];
-                        this._data.set(n.orderId, arr);
-                    }
-                    arr.push(n);
+                    // Upsert để defensive dedup server response
+                    this._upsertNote(n);
                 }
                 this._saveToLocalStorage();
                 return true;
@@ -146,8 +146,13 @@
                 const parsed = JSON.parse(raw);
                 if (!parsed || typeof parsed !== 'object') return;
                 this._data.clear();
+                // Dedup cache cũ (bị double do race condition trước khi fix)
                 for (const [orderId, arr] of Object.entries(parsed)) {
-                    if (Array.isArray(arr)) this._data.set(orderId, arr);
+                    if (!Array.isArray(arr)) continue;
+                    for (const n of arr) {
+                        if (n?.id && n.orderId === orderId) this._upsertNote(n);
+                        else if (n?.id && !n.orderId) this._upsertNote({ ...n, orderId });
+                    }
                 }
             } catch (err) {
                 console.warn('[OrderNotesStore] localStorage load failed:', err.message);
@@ -179,12 +184,9 @@
             if (!resp.ok || !body.success) {
                 throw new Error(body.error || `HTTP ${resp.status}`);
             }
-            let arr = this._data.get(orderId);
-            if (!arr) {
-                arr = [];
-                this._data.set(orderId, arr);
-            }
-            arr.push(body.note);
+            // Upsert thay vì push để tránh double khi SSE đã push trước
+            // (SSE connection persistent → event có thể về trước POST response).
+            this._upsertNote(body.note);
             this._saveToLocalStorage();
             this._refreshCell(orderId);
             return body.note;
@@ -201,15 +203,11 @@
             if (!resp.ok || !body.success) {
                 throw new Error(body.error || `HTTP ${resp.status}`);
             }
-            const updated = body.note;
-            const arr = this._data.get(updated.orderId);
-            if (arr) {
-                const idx = arr.findIndex(n => n.id === updated.id);
-                if (idx >= 0) arr[idx] = updated;
-            }
+            // Upsert: nếu SSE delete đến trước response thì vẫn restore được note đã update
+            this._upsertNote(body.note);
             this._saveToLocalStorage();
-            this._refreshCell(updated.orderId);
-            return updated;
+            this._refreshCell(body.note.orderId);
+            return body.note;
         },
 
         async remove(noteId, orderId) {
@@ -290,9 +288,17 @@
     function renderCellInner(orderId) {
         const notes = OrderNotesStore.getAll(orderId);
         const currentUser = getCurrentUser();
+        // Defensive dedup theo id (tránh render double nếu data bị dup ở layer dưới)
+        const seen = new Set();
         const items = notes
             .slice()
             .sort((a, b) => a.createdAt - b.createdAt)
+            .filter(n => {
+                if (!n?.id) return true;
+                if (seen.has(n.id)) return false;
+                seen.add(n.id);
+                return true;
+            })
             .map(n => renderNoteItem(n, currentUser))
             .join('');
         const orderIdAttr = escapeAttr(orderId);
