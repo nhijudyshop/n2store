@@ -3364,7 +3364,9 @@
         console.log('[ProductWarehouse] Initialized with SSE real-time, total products:', totalCount);
     }
 
-    window.warehouseApp = { showImage };
+    // Preserve any keys already set earlier in the IIFE (e.g. `printBarcode` at line 1574).
+    // Previously this was `= { showImage }` which WIPED OUT `printBarcode`, breaking the toolbar button.
+    window.warehouseApp = Object.assign(window.warehouseApp || {}, { showImage });
 
     document.addEventListener('DOMContentLoaded', init);
 })();
