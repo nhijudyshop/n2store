@@ -135,19 +135,19 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
             hasRowVersion: !!payload.RowVersion
         });
 
-        // Build headers — nếu có RowVersion, gửi If-Match để TPOS validate optimistic concurrency.
-        // Nếu đơn đã bị sửa bởi user khác giữa fetch và PUT → TPOS trả 412 Precondition Failed.
-        // Nếu TPOS không support If-Match → header bị ignore, không ảnh hưởng flow hiện tại.
+        // Build headers. DISABLED: If-Match header gây CORS preflight reject (CF Worker
+        // CORS_HEADERS chưa whitelist "If-Match") → "Request header field if-match is not allowed".
+        // RowVersion đã có trong payload body → TPOS vẫn có thể validate concurrency nội bộ.
+        // Khi CF Worker được deploy với If-Match trong Allow-Headers, bật lại block dưới đây.
         const putHeaders = {
             ...headers,
             "Content-Type": "application/json",
             Accept: "application/json",
         };
-        // `!= null` để giữ cả RowVersion=0 (initial record) — tránh silent drop optimistic lock
-        if (payload.RowVersion != null && payload.RowVersion !== '') {
-            // OData chuẩn: If-Match: W/"<rowversion>". Một số TPOS endpoint accept raw value.
-            putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
-        }
+        // NOTE: tạm thời disable until CF Worker allows If-Match header.
+        // if (payload.RowVersion != null && payload.RowVersion !== '') {
+        //     putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
+        // }
 
         // Use direct fetch instead of smartFetch to avoid fallback issues
         const response = await fetch(apiUrl, {
