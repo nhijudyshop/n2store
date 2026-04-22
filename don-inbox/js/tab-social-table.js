@@ -32,9 +32,19 @@ function getOrderSearchFields(order) {
 }
 
 // ===== TABLE RENDERING =====
+// Diff-based render: reuse rows whose (id + updatedAt + selected + index) chưa đổi.
+// Tránh phá + dựng lại toàn bộ DOM 164 rows × 11 cells mỗi lần filter/search.
+function _rowRenderKey(order, index) {
+    const selected = SocialOrderState.selectedOrders.has(order.id) ? 1 : 0;
+    return `${order.id}|${order.updatedAt || 0}|${selected}|${index}`;
+}
+
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     if (!tbody) return;
+
+    // One-time: bind delegated listeners cho cả tbody (thay thế 1800+ inline onclick)
+    _bindTableDelegation(tbody);
 
     const orders = SocialOrderState.filteredOrders;
 
@@ -53,12 +63,36 @@ function renderTable() {
         return;
     }
 
-    let html = '';
-    orders.forEach((order, index) => {
-        html += renderTableRow(order, index);
+    // Map existing rows theo orderId (để tái sử dụng)
+    const existing = new Map();
+    tbody.querySelectorAll('tr[data-order-id]').forEach((tr) => {
+        existing.set(tr.dataset.orderId, tr);
     });
 
-    tbody.innerHTML = html;
+    const fragment = document.createDocumentFragment();
+    const parser = document.createElement('tbody');
+
+    orders.forEach((order, index) => {
+        const key = _rowRenderKey(order, index);
+        const prev = existing.get(order.id);
+        if (prev && prev.dataset.renderKey === key) {
+            // Row không đổi → giữ nguyên DOM node (move từ tbody sang fragment)
+            fragment.appendChild(prev);
+        } else {
+            // Tạo row mới
+            parser.innerHTML = renderTableRow(order, index);
+            const tr = parser.firstElementChild;
+            if (tr) {
+                tr.dataset.renderKey = key;
+                fragment.appendChild(tr);
+            }
+        }
+        existing.delete(order.id);
+    });
+
+    // existing còn lại = rows của order không còn trong filteredOrders → bị drop tự động
+    // khi replaceChildren (những rows này không còn trong fragment)
+    tbody.replaceChildren(fragment);
 
     // Column visibility is handled by CSS <style> element - no per-cell work needed
 
@@ -66,6 +100,66 @@ function renderTable() {
     const pageInfo = document.getElementById('pageInfo');
     if (pageInfo) {
         pageInfo.textContent = `Hiển thị 1 - ${orders.length} của ${SocialOrderState.orders.length}`;
+    }
+}
+
+// ===== EVENT DELEGATION (1 listener trên tbody thay vì 11 onclick × 164 row) =====
+let _tableDelegationBound = false;
+function _bindTableDelegation(tbody) {
+    if (_tableDelegationBound) return;
+    tbody.addEventListener('click', _handleTableClick);
+    tbody.addEventListener('change', _handleTableChange);
+    _tableDelegationBound = true;
+}
+
+function _handleTableClick(e) {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+    // Checkbox dùng 'change' event, bỏ qua ở click handler
+    if (action === 'toggle-select') return;
+
+    const tr = target.closest('tr[data-order-id]');
+    const orderId = tr?.dataset.orderId;
+
+    switch (action) {
+        case 'edit':
+            if (typeof openEditOrderModal === 'function') openEditOrderModal(orderId);
+            break;
+        case 'cancel':
+            if (typeof confirmCancelOrder === 'function') confirmCancelOrder(orderId);
+            break;
+        case 'restore':
+            restoreOrder(orderId);
+            break;
+        case 'permanent-delete':
+            confirmPermanentDeleteOrder(orderId);
+            break;
+        case 'sale':
+            if (typeof openRetailSaleFromSocial === 'function') openRetailSaleFromSocial(orderId);
+            break;
+        case 'tag':
+            if (typeof openTagModal === 'function') openTagModal(orderId);
+            break;
+        case 'copy-phone':
+            if (typeof copyPhone === 'function') copyPhone(target.dataset.phone);
+            break;
+        case 'note-img-preview':
+            e.stopPropagation();
+            if (typeof openNoteImagePreview === 'function') {
+                openNoteImagePreview(target.src || target.dataset.src);
+            }
+            break;
+    }
+}
+
+function _handleTableChange(e) {
+    const target = e.target;
+    if (target?.dataset?.action === 'toggle-select') {
+        const orderId = target.dataset.orderId;
+        if (orderId && typeof toggleOrderSelection === 'function') {
+            toggleOrderSelection(orderId);
+        }
     }
 }
 
@@ -133,29 +227,29 @@ function renderTableRow(order, index) {
     return `
         <tr data-order-id="${order.id}">
             <td>
-                <input type="checkbox" 
-                       class="order-checkbox" 
+                <input type="checkbox"
+                       class="order-checkbox"
                        data-order-id="${order.id}"
-                       ${isSelected ? 'checked' : ''}
-                       onchange="toggleOrderSelection('${order.id}')">
+                       data-action="toggle-select"
+                       ${isSelected ? 'checked' : ''}>
             </td>
             <td data-column="actions">
                 <div class="action-buttons">
                     ${order.status === 'cancelled' ? `
-                        <button class="btn-edit-icon" onclick="restoreOrder('${order.id}')" title="Khôi phục đơn" style="color: #10b981;">
+                        <button class="btn-edit-icon" data-action="restore" title="Khôi phục đơn" style="color: #10b981;">
                             <i class="fas fa-undo"></i>
                         </button>
-                        <button class="tag-icon-btn-red" onclick="confirmPermanentDeleteOrder('${order.id}')" title="Xóa vĩnh viễn">
+                        <button class="tag-icon-btn-red" data-action="permanent-delete" title="Xóa vĩnh viễn">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : `
-                        <button class="btn-edit-icon" onclick="openEditOrderModal('${order.id}')" title="Sửa đơn">
+                        <button class="btn-edit-icon" data-action="edit" title="Sửa đơn">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="tag-icon-btn-red" onclick="socialConfirmCancelOrder('${order.id}')" title="Hủy đơn" style="color: #f59e0b;">
+                        <button class="tag-icon-btn-red" data-action="cancel" title="Hủy đơn" style="color: #f59e0b;">
                             <i class="fas fa-ban"></i>
                         </button>
-                        <button class="btn-edit-icon" onclick="openRetailSaleFromSocial('${order.id}')" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
+                        <button class="btn-edit-icon" data-action="sale" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
                             <i class="fas fa-receipt"></i>
                         </button>
                     `}
@@ -164,7 +258,7 @@ function renderTableRow(order, index) {
             <td data-column="stt" style="text-align: center;">${order.stt || index + 1}</td>
             <td data-column="tag">
                 <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                    <button class="tag-icon-btn" onclick="openTagModal('${order.id}')" title="Gán tag">
+                    <button class="tag-icon-btn" data-action="tag" title="Gán tag">
                         <i class="fas fa-tag"></i>
                     </button>
                     ${tagsHtml}
@@ -181,7 +275,7 @@ function renderTableRow(order, index) {
                     <span>${order.phone || '—'}</span>
                     ${order.phone
             ? `
-                        <button class="copy-phone-btn" onclick="copyPhone('${order.phone}')" 
+                        <button class="copy-phone-btn" data-action="copy-phone" data-phone="${order.phone}"
                                 style="background: none; border: none; cursor: pointer; color: #9ca3af; padding: 2px;">
                             <i class="fas fa-copy" style="font-size: 11px;"></i>
                         </button>
@@ -235,9 +329,8 @@ function renderNoteCell(order) {
         noteImages.forEach((img, i) => {
             if (i < 3) {
                 html += `<div class="note-img-thumb-wrapper" style="position: relative; display: inline-block;">
-                    <img src="${img}" class="note-img-thumb" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb; cursor: pointer;"
-                         onclick="event.stopPropagation(); openNoteImagePreview('${img.replace(/'/g, "\\'")}')"
-                         onmouseenter="showNoteImageHover(this, '${img.replace(/'/g, "\\'")}')"
+                    <img src="${img}" class="note-img-thumb" data-action="note-img-preview" data-idx="${i}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb; cursor: pointer;"
+                         onmouseenter="showNoteImageHover(this, this.src)"
                          onmouseleave="hideNoteImageHover()" />
                 </div>`;
             }
