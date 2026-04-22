@@ -42,7 +42,9 @@ class RealtimeClient {
      * @param {string} baseUrl - Base URL for API (default: current origin)
      */
     constructor(baseUrl = '') {
-        this.baseUrl = baseUrl || window.location.origin;
+        // Default to CF Worker so even a bare `new RealtimeClient()` routes through Cloudflare
+        // and not to window.location.origin (which would be nhijudyshop.github.io in prod → 404).
+        this.baseUrl = baseUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.eventSource = null;
         this.listeners = new Map(); // key -> Set of callbacks
         this.isConnected = false;
