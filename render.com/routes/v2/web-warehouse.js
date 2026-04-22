@@ -262,6 +262,7 @@ router.get('/', async (req, res) => {
         category,
         active,
         has_inventory,
+        template_ids, // comma-separated TPOS template IDs (used by Tag filter on frontend)
     } = req.query;
 
     try {
@@ -301,6 +302,21 @@ router.get('/', async (req, res) => {
             conditions.push(`k.quantity > 0`);
         } else if (has_inventory === 'false') {
             conditions.push(`k.quantity = 0`);
+        }
+
+        // Filter by TPOS template IDs (tag filter bridge — frontend resolves tag → IDs via TPOS)
+        if (template_ids) {
+            const ids = String(template_ids).split(',')
+                .map(s => parseInt(s.trim(), 10))
+                .filter(n => Number.isFinite(n));
+            if (ids.length) {
+                conditions.push(`k.tpos_template_id = ANY($${paramIndex}::int[])`);
+                params.push(ids);
+                paramIndex++;
+            } else {
+                // template_ids was passed but all invalid → return empty set
+                conditions.push(`false`);
+            }
         }
 
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

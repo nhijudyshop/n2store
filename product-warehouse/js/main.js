@@ -408,7 +408,9 @@
             qtyActual: parseFloat(row.tpos_qty_available) || 0,
             qtyForecast: 0,
             unit: row.uom_name || '',
-            label: false,
+            // Tags: forward-compat — if Render sync includes tags JSONB, use it; else empty.
+            tags: Array.isArray(row.tags) ? row.tags : (row.tags && typeof row.tags === 'object' ? [row.tags] : []),
+            label: Array.isArray(row.tags) ? row.tags.length > 0 : false,
             active: row.active !== false,
             allCompany: false,
             note: '',
@@ -422,7 +424,7 @@
     // =====================================================
     // API - Build filter params for Render GET /
     // =====================================================
-    function buildRenderParams() {
+    async function buildRenderParams() {
         const params = new URLSearchParams();
 
         params.set('page', String(currentPage));
@@ -450,6 +452,19 @@
         // Category filter
         const categoryFilter = ($('[data-filter="group"]')?.value || '').trim();
         if (categoryFilter) params.set('category', categoryFilter);
+
+        // Tag filter — resolve Tag → Template IDs via TPOS (bridge until Render schema has tags)
+        const tagVal = $('#filterTag')?.value;
+        if (tagVal && tagVal !== 'all') {
+            const ids = await resolveTagTemplateIds(tagVal);
+            if (ids && ids.length) {
+                // Cap at 500 IDs to avoid URL length limit
+                params.set('template_ids', ids.slice(0, 500).join(','));
+            } else if (ids !== null) {
+                // Tag resolved to 0 products — force empty set
+                params.set('template_ids', '0');
+            }
+        }
 
         return params;
     }
@@ -788,7 +803,7 @@
                         <td data-col="qtyActual" class="td-qty ${getQtyClass(p.qtyActual)}">${formatQty(p.qtyActual)}</td>
                         <td data-col="qtyForecast" class="td-qty">${formatQty(p.qtyForecast)}</td>
                         <td data-col="unit">${escapeHtml(p.unit)}</td>
-                        <td data-col="label">${p.label ? '<span class="label-badge"><i data-lucide="tag"></i></span>' : '-'}</td>
+                        <td data-col="label">${p.tags && p.tags.length ? p.tags.map(t => `<span class="tag-chip" style="background:${t.Color||'#6366f1'};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-right:3px;display:inline-block;">${escapeHtml(t.Name||t.name||'')}</span>`).join('') : '-'}</td>
                         <td data-col="active">${p.active
                             ? '<span class="status-active"><i data-lucide="check-circle-2"></i></span>'
                             : '<span class="status-inactive"><i data-lucide="x"></i></span>'}</td>
@@ -1070,6 +1085,44 @@
 
         // Sync TPOS full (manual)
         $('#btnSyncTPOS')?.addEventListener('click', triggerFullTPOSSync);
+
+        // --- P1 features ---
+        // Create product (opens edit modal in 'create' mode)
+        $('#btnCreateProduct')?.addEventListener('click', openCreateProduct);
+
+        // Export Excel
+        $('#btnExportExcel')?.addEventListener('click', exportToExcel);
+
+        // Import Excel
+        $('#btnImportExcel')?.addEventListener('click', openImportExcel);
+        $('#closeImportExcel')?.addEventListener('click', closeImportExcel);
+        $('#cancelImportExcel')?.addEventListener('click', closeImportExcel);
+        $('#importExcelFile')?.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            if (f) handleImportFile(f);
+        });
+        $('#confirmImportExcel')?.addEventListener('click', confirmImport);
+        $('#downloadImportTemplate')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            downloadImportTemplate();
+        });
+
+        // Bulk price update
+        $('#btnBulkPrice')?.addEventListener('click', openBulkPrice);
+        $('#closeBulkPrice')?.addEventListener('click', closeBulkPrice);
+        $('#cancelBulkPrice')?.addEventListener('click', closeBulkPrice);
+        $('#bulkPriceFile')?.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            if (f) handleBulkPriceFile(f);
+        });
+        $('#confirmBulkPrice')?.addEventListener('click', confirmBulkPrice);
+
+        // Tag filter — loads list lazily
+        $('#filterTag')?.addEventListener('focus', () => { populateTagFilter(); }, { once: true });
+        $('#filterTag')?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchProducts();
+        });
 
         // Column settings modal
         $('#btnColumnSettings')?.addEventListener('click', openColumnSettings);
@@ -1431,6 +1484,793 @@
             console.error('[Delete] Failed:', err);
             showToast('Lỗi xóa: ' + err.message, 'error');
         }
+    }
+
+    // =====================================================
+    // CREATE PRODUCT — reuse edit modal in 'create' mode
+    // =====================================================
+    async function openCreateProduct() {
+        try {
+            showToast('Đang chuẩn bị form...', 'info');
+            await ensureDropdownData();
+            modalMode = 'create';
+            editingProduct = null;
+            editImageBase64 = null;
+
+            const heading = $('#editProductModal h3');
+            if (heading) heading.innerHTML = '<i data-lucide="plus"></i> Thêm sản phẩm mới';
+            const saveBtn = $('#saveEditProduct');
+            if (saveBtn) saveBtn.innerHTML = '<i data-lucide="plus"></i> Tạo sản phẩm';
+
+            // Reset fields
+            $('#editProductId').value = '';
+            $('#editProductName').value = '';
+            $('#editProductCode').value = '';
+            $('#editBarcode').value = '';
+            $('#editListPrice').value = 0;
+            $('#editPurchasePrice').value = 0;
+            $('#editDiscountSale').value = 0;
+            $('#editDiscountPurchase').value = 0;
+            $('#editWeight').value = 0;
+            $('#editTracking').value = 'none';
+            $('#editActive').checked = true;
+            $('#editSaleOK').checked = true;
+            $('#editPurchaseOK').checked = true;
+            $('#editAvailableInPOS').checked = true;
+            $('#editInvoicePolicy').value = 'order';
+            $('#editPurchaseMethod').value = 'receive';
+            $('#editDescriptionSale').value = '';
+            $('#editDescriptionPurchase').value = '';
+            $('#editDescription').value = '';
+
+            populateSelect('#editCategId', cachedCategories, 'Id', 'CompleteName', null);
+            populateSelect('#editPOSCategId', cachedPOSCategories, 'Id', 'Name', null);
+            populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', 1);
+            populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', 1);
+
+            const imgPreview = $('#editImagePreview');
+            if (imgPreview) imgPreview.innerHTML = '<span style="color:#9ca3af;font-size:11px;">No image</span>';
+
+            $('#editProductModal').classList.add('show');
+            WS.initIcons();
+        } catch (err) {
+            console.error('[Create] Prepare form failed:', err);
+            showToast('Lỗi mở form: ' + err.message, 'error');
+        }
+    }
+
+    function _uomPayload(u) {
+        if (!u?.Id) return null;
+        return {
+            Id: u.Id, Name: u.Name, NameNoSign: null,
+            Rounding: u.Rounding ?? 0.001, Active: true,
+            Factor: u.Factor ?? 1, FactorInv: u.FactorInv ?? 1,
+            UOMType: u.UOMType || 'reference',
+            CategoryId: u.CategoryId ?? 1, CategoryName: u.CategoryName || 'Đơn vị'
+        };
+    }
+
+    /**
+     * Build TPOS ProductTemplate InsertV2 payload from a simple product spec.
+     * Payload shape mirrors TPOS tpos-product-creator.js (verified against production).
+     */
+    function _buildInsertPayload(spec) {
+        const categ = cachedCategories?.find(c => c.Id == spec.categId) || null;
+        const uom = cachedUOMs?.find(u => u.Id == spec.uomId) || null;
+        const uomPO = cachedUOMs?.find(u => u.Id == spec.uomPOId) || uom;
+
+        return {
+            Id: 0,
+            Name: spec.name,
+            NameNoSign: null,
+            Description: spec.description || null,
+            Type: 'product',
+            ShowType: 'Có thể lưu trữ',
+            ListPrice: spec.listPrice ?? 0,
+            DiscountSale: spec.discountSale ?? 0,
+            DiscountPurchase: spec.discountPurchase ?? 0,
+            PurchasePrice: spec.purchasePrice ?? 0,
+            StandardPrice: spec.standardPrice ?? spec.purchasePrice ?? 0,
+            SaleOK: spec.saleOK !== false,
+            PurchaseOK: spec.purchaseOK !== false,
+            Active: spec.active !== false,
+            UOMId: uom?.Id || 1,
+            UOMPOId: uomPO?.Id || uom?.Id || 1,
+            UOSId: null,
+            IsProductVariant: false,
+            EAN13: null,
+            DefaultCode: spec.code,
+            QtyAvailable: 0,
+            VirtualAvailable: 0,
+            OutgoingQty: 0,
+            IncomingQty: 0,
+            PropertyCostMethod: null,
+            CategId: categ?.Id || null,
+            CategCompleteName: categ?.CompleteName || null,
+            CategName: categ?.Name || null,
+            Weight: spec.weight ?? 0,
+            Tracking: spec.tracking || 'none',
+            DescriptionPurchase: spec.descriptionPurchase || null,
+            DescriptionSale: spec.descriptionSale || null,
+            CompanyId: 1,
+            NameGet: null,
+            PropertyStockProductionId: null,
+            SaleDelay: 0,
+            InvoicePolicy: spec.invoicePolicy || 'order',
+            PurchaseMethod: spec.purchaseMethod || 'receive',
+            PropertyValuation: null, Valuation: null,
+            AvailableInPOS: spec.availableInPOS !== false,
+            POSCategId: spec.posCategId || null,
+            CostMethod: null,
+            Barcode: spec.barcode || spec.code,
+            Image: spec.imageBase64 || null,
+            ImageUrl: null,
+            Thumbnails: [],
+            ProductVariantCount: 0,
+            LastUpdated: null,
+            UOMCategId: null, BOMCount: 0, Volume: null,
+            CategNameNoSign: null, UOMNameNoSign: null, UOMPONameNoSign: null,
+            IsCombo: false, EnableAll: false, ComboPurchased: null,
+            TaxAmount: null, Version: 0,
+            VariantFirstId: null, VariantFistId: null,
+            ZaloProductId: null,
+            CompanyName: null, CompanyNameNoSign: null,
+            DateCreated: null, InitInventory: 0,
+            UOMViewId: null, ImporterId: null, ProducerId: null,
+            DistributorId: null, OriginCountryId: null,
+            Tags: null, CreatedByName: null, OrderTag: null,
+            StringExtraProperties: null, CreatedById: null, Error: null,
+            UOM: _uomPayload(uom),
+            UOMPO: _uomPayload(uomPO),
+            Categ: categ ? {
+                Id: categ.Id, Name: categ.Name,
+                CompleteName: categ.CompleteName,
+                Type: categ.Type || 'normal',
+                IsPos: categ.IsPos !== false,
+            } : null,
+            AttributeLines: [],
+            ProductVariants: [],
+            UOMLines: [],
+            ComboProducts: [],
+            ProductSupplierInfos: [],
+            Items: [],
+        };
+    }
+
+    /**
+     * POST InsertV2 with retry on 429 (rate limit).
+     * Returns full TPOS response (includes new Id, ProductVariants, etc.)
+     */
+    async function _insertProductTPOS(payload, retries = 2) {
+        const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (response.ok) return response.json();
+            if (response.status === 429 && attempt < retries) {
+                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                continue;
+            }
+            const errData = await response.json().catch(() => ({}));
+            const msg = errData.error?.message || errData.message || `HTTP ${response.status}`;
+            const e = new Error(msg);
+            e.status = response.status;
+            throw e;
+        }
+    }
+
+    async function saveCreateProduct() {
+        const name = $('#editProductName').value.trim();
+        const code = $('#editProductCode').value.trim();
+        if (!name) { showToast('Tên SP bắt buộc', 'error'); return; }
+        if (!code) { showToast('Mã SP bắt buộc', 'error'); return; }
+        if (!$('#editCategId').value) { showToast('Chọn Nhóm SP', 'error'); return; }
+
+        const spec = {
+            name, code,
+            barcode: $('#editBarcode').value.trim(),
+            listPrice: parseFloat($('#editListPrice').value) || 0,
+            purchasePrice: parseFloat($('#editPurchasePrice').value) || 0,
+            standardPrice: parseFloat($('#editPurchasePrice').value) || 0,
+            discountSale: parseFloat($('#editDiscountSale').value) || 0,
+            discountPurchase: parseFloat($('#editDiscountPurchase').value) || 0,
+            categId: parseInt($('#editCategId').value),
+            posCategId: $('#editPOSCategId').value ? parseInt($('#editPOSCategId').value) : null,
+            uomId: parseInt($('#editUOMId').value) || 1,
+            uomPOId: parseInt($('#editUOMPOId').value) || 1,
+            weight: parseFloat($('#editWeight').value) || 0,
+            tracking: $('#editTracking').value,
+            active: $('#editActive').checked,
+            saleOK: $('#editSaleOK').checked,
+            purchaseOK: $('#editPurchaseOK').checked,
+            availableInPOS: $('#editAvailableInPOS').checked,
+            invoicePolicy: $('#editInvoicePolicy').value,
+            purchaseMethod: $('#editPurchaseMethod').value,
+            descriptionSale: $('#editDescriptionSale').value.trim() || null,
+            descriptionPurchase: $('#editDescriptionPurchase').value.trim() || null,
+            description: $('#editDescription').value.trim() || null,
+            imageBase64: editImageBase64,
+        };
+
+        try {
+            showToast('Đang tạo SP...', 'info');
+            const payload = _buildInsertPayload(spec);
+            const data = await _insertProductTPOS(payload);
+            showToast(`Đã tạo SP #${data.Id} (${data.DefaultCode}). Đang đồng bộ...`, 'success');
+            closeEditModal();
+
+            // Kick incremental sync + delayed refresh
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            setTimeout(() => fetchProducts(true), 5000);
+        } catch (err) {
+            console.error('[Create] InsertV2 failed:', err);
+            const hint = err.status === 400 ? ' (mã SP có thể đã tồn tại)' : '';
+            showToast('Lỗi tạo SP: ' + err.message + hint, 'error');
+        }
+    }
+
+    // =====================================================
+    // TAG COLUMN + FILTER (limited: tags aren't in Render schema yet)
+    // =====================================================
+    async function ensureTagList() {
+        if (cachedTags) return cachedTags;
+        try {
+            // TPOS Tag entity filterable by Type='ProductTemplate' (observed in other ERP deployments).
+            // Fallback: fetch all tags if filter unsupported.
+            let url = `${PROXY_URL}/api/odata/Tag?$filter=Type eq 'ProductTemplate'&$orderby=Name asc&$top=500`;
+            let r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) {
+                url = `${PROXY_URL}/api/odata/Tag?$orderby=Name asc&$top=500`;
+                r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            }
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            cachedTags = data.value || [];
+            return cachedTags;
+        } catch (err) {
+            console.warn('[Tag] Load failed:', err.message);
+            cachedTags = [];
+            return [];
+        }
+    }
+
+    async function populateTagFilter() {
+        const sel = $('#filterTag');
+        if (!sel) return;
+        const tags = await ensureTagList();
+        sel.innerHTML = '<option value="all">Tất cả</option>' +
+            tags.map(t => `<option value="${t.Id}">${escapeHtml(t.Name || '')}</option>`).join('');
+        if (!tags.length) {
+            const opt = sel.querySelector('option[value="all"]');
+            if (opt) opt.textContent = 'Tất cả (chưa load được)';
+        }
+    }
+
+    /**
+     * Server-side filter by tag: resolve tag → list of template IDs via TPOS, then pass to Render `ids=` param.
+     * This is a best-effort until Render schema includes tags (Phase 2).
+     */
+    async function resolveTagTemplateIds(tagId) {
+        if (!tagId || tagId === 'all') return null;
+        try {
+            const url = `${PROXY_URL}/api/odata/ProductTemplate?$filter=Tags/any(t: t/Id eq ${tagId})&$top=2000&$select=Id`;
+            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            return (data.value || []).map(t => t.Id);
+        } catch (err) {
+            console.warn('[Tag Filter] Resolve failed:', err.message);
+            showToast('Lỗi filter nhãn: ' + err.message, 'error');
+            return null;
+        }
+    }
+
+    // =====================================================
+    // EXCEL EXPORT (SheetJS)
+    // =====================================================
+    async function ensureSheetJS() {
+        if (window.XLSX) return window.XLSX;
+        // CDN is in HTML with defer; wait for it (<=5s)
+        for (let i = 0; i < 50; i++) {
+            if (window.XLSX) return window.XLSX;
+            await new Promise(r => setTimeout(r, 100));
+        }
+        throw new Error('SheetJS chưa load được');
+    }
+
+    async function exportToExcel() {
+        try {
+            showToast('Đang chuẩn bị xuất Excel...', 'info');
+            const XLSX = await ensureSheetJS();
+
+            // Fetch all rows matching current filters (cap at 5000)
+            const params = new URLSearchParams({
+                page: '1',
+                limit: String(Math.min(totalCount || pageSize, 5000)),
+                sort_by: sortField,
+                sort_order: sortDirection.toUpperCase(),
+            });
+            const searchVal = $('#searchInput')?.value?.trim();
+            if (searchVal) params.set('search', searchVal);
+            const stockVal = $('#filterStock')?.value;
+            if (stockVal === 'in-stock') params.set('has_inventory', 'true');
+            else if (stockVal === 'out-of-stock') params.set('has_inventory', 'false');
+            const groupVal = $('#filterGroup')?.value;
+            if (groupVal && groupVal !== 'all') params.set('category', groupVal);
+            const statusVal = $('#filterStatus')?.value;
+            if (statusVal === 'active') params.set('active', 'true');
+            else if (statusVal === 'inactive') params.set('active', 'false');
+
+            const resp = await fetch(`${RENDER_API}?${params.toString()}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            const rows = (json.data || []).map(r => ({
+                'Mã': r.product_code || '',
+                'Tên': r.product_name || r.name_get || '',
+                'Nhóm SP': r.category || '',
+                'Giá bán': r.selling_price || 0,
+                'Giá mua': r.purchase_price || 0,
+                'Giá vốn': r.standard_price || 0,
+                'Số lượng thực tế': r.tpos_qty_available ?? r.quantity ?? 0,
+                'Đơn vị': r.uom_name || '',
+                'Biến thể': r.variant || '',
+                'Barcode': r.barcode || '',
+                'Hiệu lực': r.active === false ? 'Không' : 'Có',
+                'Ngày tạo': r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '',
+                'TPOS Template ID': r.tpos_template_id || '',
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Sản phẩm');
+
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const fname = `san-pham-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`;
+            XLSX.writeFile(wb, fname);
+            showToast(`Đã xuất ${rows.length} SP → ${fname}`, 'success');
+        } catch (err) {
+            console.error('[Export] Failed:', err);
+            showToast('Lỗi xuất Excel: ' + err.message, 'error');
+        }
+    }
+
+    // =====================================================
+    // EXCEL IMPORT (batch InsertV2 with preview)
+    // =====================================================
+    const IMPORT_COLS = [
+        { key: 'Mã', required: true, alias: ['ma', 'code', 'default_code'] },
+        { key: 'Tên', required: true, alias: ['ten', 'name', 'product_name'] },
+        { key: 'Giá bán', required: true, alias: ['gia_ban', 'list_price', 'selling_price'] },
+        { key: 'Giá mua', required: false, alias: ['gia_mua', 'purchase_price'] },
+        { key: 'Giá vốn', required: false, alias: ['gia_von', 'standard_price'] },
+        { key: 'Nhóm SP', required: true, alias: ['nhom_sp', 'category'] },
+        { key: 'Đơn vị', required: true, alias: ['don_vi', 'uom'] },
+        { key: 'Barcode', required: false, alias: ['barcode', 'ma_vach'] },
+    ];
+
+    let importRows = []; // parsed rows with validation info
+
+    function _normKey(s) {
+        return String(s || '').trim().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, '_');
+    }
+
+    function _findKey(row, target) {
+        const normTarget = _normKey(target.key);
+        const aliases = [normTarget, ...target.alias];
+        for (const k of Object.keys(row)) {
+            if (aliases.includes(_normKey(k))) return k;
+        }
+        return null;
+    }
+
+    function _validateImportRow(raw, idx, categMap, uomMap, existingCodes) {
+        const row = { _idx: idx + 2 }; // +2: 1-indexed + header row
+        const errors = [];
+        for (const col of IMPORT_COLS) {
+            const key = _findKey(raw, col);
+            const val = key ? raw[key] : '';
+            row[col.key] = val === undefined || val === null ? '' : String(val).trim();
+            if (col.required && !row[col.key]) errors.push(`Thiếu "${col.key}"`);
+        }
+        // Check duplicate code
+        if (row['Mã'] && existingCodes.has(String(row['Mã']).trim().toUpperCase())) {
+            errors.push(`Mã "${row['Mã']}" đã tồn tại`);
+        }
+        // Validate prices
+        for (const p of ['Giá bán', 'Giá mua', 'Giá vốn']) {
+            if (row[p]) {
+                const n = parseFloat(String(row[p]).replace(/[,.]/g, m => m === ',' ? '' : '.'));
+                if (isNaN(n) || n < 0) errors.push(`${p} không hợp lệ`);
+                else row[`_${p}`] = n;
+            } else {
+                row[`_${p}`] = 0;
+            }
+        }
+        // Resolve Nhóm SP & Đơn vị
+        if (row['Nhóm SP']) {
+            const c = categMap.get(row['Nhóm SP'].toLowerCase()) || categMap.get(row['Nhóm SP'].toLowerCase().trim());
+            if (c) row._categId = c.Id;
+            else errors.push(`Nhóm SP "${row['Nhóm SP']}" không tồn tại`);
+        }
+        if (row['Đơn vị']) {
+            const u = uomMap.get(row['Đơn vị'].toLowerCase());
+            if (u) row._uomId = u.Id;
+            else errors.push(`Đơn vị "${row['Đơn vị']}" không tồn tại`);
+        }
+        row._errors = errors;
+        row._valid = errors.length === 0;
+        return row;
+    }
+
+    async function openImportExcel() {
+        try {
+            showToast('Đang tải danh mục...', 'info');
+            await ensureDropdownData();
+            await ensureSheetJS();
+            importRows = [];
+            $('#importStepPick').style.display = 'block';
+            $('#importStepPreview').style.display = 'none';
+            $('#importStepProgress').style.display = 'none';
+            $('#confirmImportExcel').style.display = 'none';
+            $('#importExcelFile').value = '';
+            $('#importExcelModal').classList.add('show');
+            WS.initIcons();
+        } catch (err) {
+            showToast('Lỗi mở import: ' + err.message, 'error');
+        }
+    }
+
+    function closeImportExcel() {
+        $('#importExcelModal')?.classList.remove('show');
+        importRows = [];
+    }
+
+    async function handleImportFile(file) {
+        try {
+            const XLSX = await ensureSheetJS();
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+            if (!raw.length) {
+                showToast('File trống', 'error');
+                return;
+            }
+
+            // Build category + uom lookup (by CompleteName or Name, lowercased)
+            const categMap = new Map();
+            cachedCategories.forEach(c => {
+                categMap.set((c.CompleteName || '').toLowerCase(), c);
+                categMap.set((c.Name || '').toLowerCase(), c);
+            });
+            const uomMap = new Map();
+            cachedUOMs.forEach(u => uomMap.set((u.Name || '').toLowerCase(), u));
+
+            // Existing codes from Render (approximate — use /search or full fetch)
+            const existingCodes = new Set();
+            try {
+                const r = await fetch(`${RENDER_API}?page=1&limit=5000&fields=product_code`);
+                if (r.ok) {
+                    const j = await r.json();
+                    (j.data || []).forEach(p => existingCodes.add(String(p.product_code || '').trim().toUpperCase()));
+                }
+            } catch {}
+
+            importRows = raw.map((r, i) => _validateImportRow(r, i, categMap, uomMap, existingCodes));
+            renderImportPreview();
+        } catch (err) {
+            console.error('[Import] Parse failed:', err);
+            showToast('Lỗi đọc file: ' + err.message, 'error');
+        }
+    }
+
+    function renderImportPreview() {
+        const total = importRows.length;
+        const valid = importRows.filter(r => r._valid).length;
+        const errors = total - valid;
+        $('#importTotalRows').textContent = total;
+        $('#importValidRows').textContent = valid;
+        $('#importErrorRows').textContent = errors;
+        $('#importValidRowsBtn').textContent = valid;
+
+        const thead = $('#importPreviewTable thead');
+        const tbody = $('#importPreviewTable tbody');
+        const cols = ['Dòng', ...IMPORT_COLS.map(c => c.key), 'Lỗi'];
+        thead.innerHTML = `<tr>${cols.map(c => `<th style="padding:6px;border:1px solid #e5e7eb;text-align:left;">${c}</th>`).join('')}</tr>`;
+        tbody.innerHTML = importRows.slice(0, 200).map(r => {
+            const err = r._errors.join('; ');
+            return `<tr style="${r._valid ? '' : 'background:#fee2e2;'}">
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
+                ${IMPORT_COLS.map(c => `<td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r[c.key] || '')}</td>`).join('')}
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;color:#dc2626;">${escapeHtml(err)}</td>
+            </tr>`;
+        }).join('');
+
+        $('#importStepPick').style.display = 'none';
+        $('#importStepPreview').style.display = 'block';
+        $('#confirmImportExcel').style.display = valid > 0 ? '' : 'none';
+    }
+
+    async function confirmImport() {
+        const rows = importRows.filter(r => r._valid);
+        if (!rows.length) return;
+        $('#importStepPreview').style.display = 'none';
+        $('#importStepProgress').style.display = 'block';
+        $('#confirmImportExcel').style.display = 'none';
+
+        const errorsDiv = $('#importProgressErrors');
+        errorsDiv.innerHTML = '';
+        let done = 0, ok = 0, failed = 0;
+
+        // Concurrency 3 with rate limit
+        const queue = rows.slice();
+        const workers = Array.from({ length: 3 }, async () => {
+            while (queue.length) {
+                const row = queue.shift();
+                try {
+                    const payload = _buildInsertPayload({
+                        name: row['Tên'],
+                        code: row['Mã'],
+                        barcode: row['Barcode'] || row['Mã'],
+                        listPrice: row['_Giá bán'] || 0,
+                        purchasePrice: row['_Giá mua'] || 0,
+                        standardPrice: row['_Giá vốn'] || row['_Giá mua'] || 0,
+                        categId: row._categId,
+                        uomId: row._uomId,
+                        uomPOId: row._uomId,
+                    });
+                    await _insertProductTPOS(payload);
+                    ok++;
+                } catch (err) {
+                    failed++;
+                    errorsDiv.insertAdjacentHTML('beforeend',
+                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row['Mã'])}): ${escapeHtml(err.message)}</div>`);
+                }
+                done++;
+                const pct = Math.round(done / rows.length * 100);
+                $('#importProgressBar').style.width = pct + '%';
+                $('#importProgressText').textContent = `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
+                await new Promise(r => setTimeout(r, 200)); // rate limit
+            }
+        });
+        await Promise.all(workers);
+
+        showToast(`Hoàn tất: ${ok} thành công, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        setTimeout(() => {
+            closeImportExcel();
+            fetchProducts(true);
+        }, 3000);
+    }
+
+    function downloadImportTemplate() {
+        ensureSheetJS().then(XLSX => {
+            const sample = [{
+                'Mã': 'SP001',
+                'Tên': 'Áo thun trắng',
+                'Giá bán': 150000,
+                'Giá mua': 80000,
+                'Giá vốn': 80000,
+                'Nhóm SP': 'Có thể bán',
+                'Đơn vị': 'Cái',
+                'Barcode': 'SP001',
+            }];
+            const ws = XLSX.utils.json_to_sheet(sample);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Mẫu');
+            XLSX.writeFile(wb, 'mau-nhap-san-pham.xlsx');
+        }).catch(err => showToast('Lỗi tạo mẫu: ' + err.message, 'error'));
+    }
+
+    // =====================================================
+    // BULK PRICE UPDATE (XLSX → UpdateV2 batch)
+    // =====================================================
+    let bulkPriceRows = [];
+
+    async function openBulkPrice() {
+        await ensureSheetJS();
+        bulkPriceRows = [];
+        $('#bulkPriceStepPick').style.display = 'block';
+        $('#bulkPriceStepPreview').style.display = 'none';
+        $('#bulkPriceStepProgress').style.display = 'none';
+        $('#confirmBulkPrice').style.display = 'none';
+        $('#bulkPriceFile').value = '';
+        $('#bulkPriceModal').classList.add('show');
+        WS.initIcons();
+    }
+
+    function closeBulkPrice() {
+        $('#bulkPriceModal')?.classList.remove('show');
+        bulkPriceRows = [];
+    }
+
+    async function handleBulkPriceFile(file) {
+        try {
+            const XLSX = await ensureSheetJS();
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+            if (!raw.length) { showToast('File trống', 'error'); return; }
+
+            // Look up each code in Render
+            showToast('Đang tra cứu SP...', 'info');
+            const rows = [];
+            for (let i = 0; i < raw.length; i++) {
+                const r = raw[i];
+                const codeKey = Object.keys(r).find(k => _normKey(k) === 'ma' || _normKey(k) === 'code' || _normKey(k) === 'default_code');
+                const code = codeKey ? String(r[codeKey] || '').trim() : '';
+                if (!code) {
+                    rows.push({ _idx: i+2, code: '', error: 'Thiếu mã' });
+                    continue;
+                }
+                const findNumKey = (...targets) => {
+                    for (const t of targets) {
+                        const k = Object.keys(r).find(kk => _normKey(kk) === _normKey(t));
+                        if (k && r[k] !== '') return parseFloat(String(r[k]).replace(',', '.'));
+                    }
+                    return null;
+                };
+                const newList = findNumKey('Giá bán', 'gia_ban', 'list_price');
+                const newPurchase = findNumKey('Giá mua', 'gia_mua', 'purchase_price');
+                const newStandard = findNumKey('Giá vốn', 'gia_von', 'standard_price');
+
+                // Find product via search
+                let product = null;
+                try {
+                    const sr = await fetch(`${RENDER_API}/search?q=${encodeURIComponent(code)}&limit=5`);
+                    if (sr.ok) {
+                        const sj = await sr.json();
+                        const list = sj.data || sj || [];
+                        product = list.find(p => String(p.product_code).trim().toUpperCase() === code.toUpperCase())
+                            || list.find(p => String(p.parent_product_code || '').trim().toUpperCase() === code.toUpperCase());
+                    }
+                } catch {}
+
+                if (!product) {
+                    rows.push({ _idx: i+2, code, error: 'Không tìm thấy SP' });
+                    continue;
+                }
+
+                const oldList = product.selling_price;
+                const oldPurchase = product.purchase_price;
+                const oldStandard = product.standard_price;
+                const changed =
+                    (newList !== null && newList !== oldList) ||
+                    (newPurchase !== null && newPurchase !== oldPurchase) ||
+                    (newStandard !== null && newStandard !== oldStandard);
+
+                rows.push({
+                    _idx: i+2, code,
+                    templateId: product.tpos_template_id,
+                    name: product.product_name || product.name_get || '',
+                    oldList, oldPurchase, oldStandard,
+                    newList, newPurchase, newStandard,
+                    changed, error: null,
+                });
+            }
+            bulkPriceRows = rows;
+            renderBulkPricePreview();
+        } catch (err) {
+            console.error('[BulkPrice] Parse failed:', err);
+            showToast('Lỗi đọc file: ' + err.message, 'error');
+        }
+    }
+
+    function renderBulkPricePreview() {
+        const total = bulkPriceRows.length;
+        const changed = bulkPriceRows.filter(r => r.changed && !r.error).length;
+        const unchanged = bulkPriceRows.filter(r => !r.changed && !r.error).length;
+        const missing = bulkPriceRows.filter(r => r.error).length;
+        $('#bulkPriceTotal').textContent = total;
+        $('#bulkPriceChanged').textContent = changed;
+        $('#bulkPriceUnchanged').textContent = unchanged;
+        $('#bulkPriceMissing').textContent = missing;
+        $('#bulkPriceChangedBtn').textContent = changed;
+
+        const fmt = (n) => n == null ? '—' : new Intl.NumberFormat('vi-VN').format(n);
+        const diff = (o, n) => {
+            if (n == null) return fmt(o);
+            if (o === n) return fmt(o);
+            const color = n > o ? '#059669' : '#dc2626';
+            return `<span style="text-decoration:line-through;color:#9ca3af;">${fmt(o)}</span> → <strong style="color:${color};">${fmt(n)}</strong>`;
+        };
+
+        const thead = $('#bulkPricePreviewTable thead');
+        const tbody = $('#bulkPricePreviewTable tbody');
+        thead.innerHTML = `<tr>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Dòng</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Mã</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Tên</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Giá bán</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Giá mua</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Giá vốn</th>
+            <th style="padding:6px;border:1px solid #e5e7eb;">Ghi chú</th>
+        </tr>`;
+        tbody.innerHTML = bulkPriceRows.slice(0, 500).map(r => {
+            if (r.error) {
+                return `<tr style="background:#fee2e2;">
+                    <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
+                    <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.code)}</td>
+                    <td colspan="5" style="padding:4px 6px;border:1px solid #e5e7eb;color:#dc2626;">${escapeHtml(r.error)}</td>
+                </tr>`;
+            }
+            return `<tr style="${r.changed ? 'background:#f0fdf4;' : ''}">
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.code)}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.name)}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${diff(r.oldList, r.newList)}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${diff(r.oldPurchase, r.newPurchase)}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;">${diff(r.oldStandard, r.newStandard)}</td>
+                <td style="padding:4px 6px;border:1px solid #e5e7eb;color:#6b7280;">${r.changed ? 'Sẽ cập nhật' : 'Không đổi'}</td>
+            </tr>`;
+        }).join('');
+
+        $('#bulkPriceStepPick').style.display = 'none';
+        $('#bulkPriceStepPreview').style.display = 'block';
+        $('#confirmBulkPrice').style.display = changed > 0 ? '' : 'none';
+    }
+
+    async function confirmBulkPrice() {
+        const rows = bulkPriceRows.filter(r => r.changed && !r.error);
+        if (!rows.length) return;
+        $('#bulkPriceStepPreview').style.display = 'none';
+        $('#bulkPriceStepProgress').style.display = 'block';
+        $('#confirmBulkPrice').style.display = 'none';
+        const errorsDiv = $('#bulkPriceProgressErrors');
+        errorsDiv.innerHTML = '';
+
+        let done = 0, ok = 0, failed = 0;
+        const queue = rows.slice();
+        const workers = Array.from({ length: 3 }, async () => {
+            while (queue.length) {
+                const row = queue.shift();
+                try {
+                    // Fetch current TPOS payload → patch prices → UpdateV2
+                    const detail = await fetchProductDetail(row.templateId);
+                    const payload = { ...detail };
+                    delete payload['@odata.context'];
+                    if (row.newList != null) payload.ListPrice = row.newList;
+                    if (row.newPurchase != null) payload.PurchasePrice = row.newPurchase;
+                    if (row.newStandard != null) payload.StandardPrice = row.newStandard;
+
+                    const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+                    const r = await window.tokenManager.authenticatedFetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!r.ok) {
+                        const e = await r.json().catch(() => ({}));
+                        throw new Error(e.error?.message || `HTTP ${r.status}`);
+                    }
+                    ok++;
+                } catch (err) {
+                    failed++;
+                    errorsDiv.insertAdjacentHTML('beforeend',
+                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row.code)}): ${escapeHtml(err.message)}</div>`);
+                }
+                done++;
+                const pct = Math.round(done / rows.length * 100);
+                $('#bulkPriceProgressBar').style.width = pct + '%';
+                $('#bulkPriceProgressText').textContent = `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
+                await new Promise(r => setTimeout(r, 250));
+            }
+        });
+        await Promise.all(workers);
+
+        showToast(`Hoàn tất: ${ok} cập nhật, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        setTimeout(() => {
+            closeBulkPrice();
+            fetchProducts(true);
+        }, 3000);
     }
 
     // =====================================================
