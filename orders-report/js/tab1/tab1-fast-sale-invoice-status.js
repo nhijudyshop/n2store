@@ -445,11 +445,25 @@
             const billNumber = invoiceData.Number || invoiceData.Reference || order?.Code || '';
 
             // Determine ShowState based on payment: "Đã thanh toán" if fully prepaid (CashOnDelivery = 0)
+            // NHƯNG: giữ nguyên trạng thái huỷ (cancel/IsMergeCancel) — không được override "Huỷ bỏ" thành "Đã thanh toán"
             const cashOnDelivery = invoiceData.CashOnDelivery || 0;
             const paymentAmount = invoiceData.PaymentAmount || 0;
-            const isFullyPaid = cashOnDelivery === 0 && paymentAmount > 0;
-            const showState = isFullyPaid ? 'Đã thanh toán' : invoiceData.ShowState || 'Nháp';
-            const state = isFullyPaid ? 'paid' : invoiceData.State || 'draft';
+            const rawShowState = invoiceData.ShowState || '';
+            const rawState = invoiceData.State || '';
+            const isCancelled =
+                rawState === 'cancel' ||
+                rawShowState === 'Huỷ bỏ' ||
+                rawShowState === 'Hủy bỏ' ||
+                invoiceData.IsMergeCancel === true ||
+                invoiceData.StateCode === 'cancel' ||
+                invoiceData.StateCode === 'IsMergeCancel';
+            const isFullyPaid = !isCancelled && cashOnDelivery === 0 && paymentAmount > 0;
+            const showState = isCancelled
+                ? (rawShowState || 'Huỷ bỏ')
+                : (isFullyPaid ? 'Đã thanh toán' : (rawShowState || 'Nháp'));
+            const state = isCancelled
+                ? (rawState || 'cancel')
+                : (isFullyPaid ? 'paid' : (rawState || 'draft'));
 
             const soId = String(saleOnlineId);
             const tposId = invoiceData.Id; // FastSaleOrder ID from TPOS
@@ -2689,6 +2703,17 @@
      *   the same page that hit "access_token renewed" share one refresh promise.
      */
     async function bulkSendSelectedBills() {
+        // Cross-pipeline guard: don't run while auto-send is in flight to
+        // prevent overlapping sends on the same orders (isBillSent catches
+        // already-completed sends, but not in-flight ones).
+        if (window.autoSendInProgress) {
+            window.notificationManager?.warning(
+                'Auto-send đang chạy. Vui lòng đợi hoàn thành rồi thử lại.',
+                5000
+            );
+            return;
+        }
+
         const ids = Array.from(window.selectedOrderIds || []);
         if (ids.length === 0) {
             window.notificationManager?.warning('Chưa chọn đơn nào');

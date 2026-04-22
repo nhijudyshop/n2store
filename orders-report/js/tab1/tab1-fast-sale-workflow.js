@@ -994,22 +994,30 @@
             window.showAutoSendToast(progress);
         }
 
-        // Transient error detection for retry decision
-        const isTransient = (err) => {
-            const msg = String(err?.message || '').toLowerCase();
-            if (msg.includes('24') && msg.includes('giờ')) return false;
-            if (msg.includes('24-hour') || msg.includes('policy')) return false;
-            if (msg.includes('không có thông tin messenger')) return false;
-            if (msg.includes('không tìm thấy')) return false;
-            return true; // default: retry (network / token / upload)
-        };
+        // Snapshot results-data reference at start of this run. If the user
+        // creates a new fast-sale mid-flight, showFastSaleResultsModal replaces
+        // window.fastSaleResultsData → sendBillManually(index) would read the
+        // NEW sale's data with our OLD index, causing bill-to-wrong-customer.
+        // Guard below aborts remaining items on reference mismatch.
+        const capturedResultsData = window.fastSaleResultsData;
 
         const pageInFlight = new Map(); // channelId → count
         const queue = items.slice();
         const errors = [];
+        let aborted = false;
 
         const worker = async () => {
-            while (queue.length > 0) {
+            while (queue.length > 0 && !aborted) {
+                // Abort if results-data was replaced by a new fast-sale
+                if (window.fastSaleResultsData !== capturedResultsData) {
+                    console.warn(
+                        '[AUTO-SEND] fastSaleResultsData replaced mid-flight — aborting remaining'
+                    );
+                    aborted = true;
+                    queue.length = 0;
+                    break;
+                }
+
                 // Pick next item whose page is under the per-page cap
                 let idx = -1;
                 for (let i = 0; i < queue.length; i++) {
@@ -1028,6 +1036,21 @@
                 const item = queue.splice(idx, 1)[0];
                 const { order, originalIndex, channelId, saleOnlineId } = item;
 
+                // Identity check: ensure results-data[index] is STILL the order
+                // we captured. If not (rare race), skip this item.
+                if (
+                    capturedResultsData?.success?.[originalIndex] !== order
+                ) {
+                    console.warn(
+                        `[AUTO-SEND] skip ${order.Number}: results-data shifted (stale index)`
+                    );
+                    progress.done++;
+                    if (typeof window.updateAutoSendToast === 'function') {
+                        window.updateAutoSendToast(progress);
+                    }
+                    continue;
+                }
+
                 // Pre-flight idempotency: skip if already sent (guard against
                 // double-send when user reopens modal or resumes from cache).
                 if (saleOnlineId && invStore?.isBillSent?.(saleOnlineId)) {
@@ -1043,56 +1066,41 @@
                     pageInFlight.set(channelId, (pageInFlight.get(channelId) || 0) + 1);
                 }
 
-                let lastError = null;
+                // NO RETRY: retry on an unknown error class can re-send if the
+                // first attempt silently delivered to Pancake but threw during
+                // response parsing / post-send hooks. isBillSent won't be set
+                // in that case (markBillSent is called AFTER result.success,
+                // but if the throw happens inside sendBillToCustomer before
+                // return, mark never runs). Safer to surface failure and let
+                // user manually re-run (pre-flight guard above makes manual
+                // re-run idempotent for successes).
                 try {
-                    for (let attempt = 1; attempt <= 2; attempt++) {
-                        try {
-                            await window.sendBillManually(originalIndex, true);
-                            progress.sent++;
-                            lastError = null;
-                            break;
-                        } catch (e) {
-                            lastError = e;
-                            console.error(
-                                `[AUTO-SEND] Error (attempt ${attempt}/2) for ${order.Number}:`,
-                                e
-                            );
-                            // Critical idempotency: if the first attempt silently succeeded
-                            // (Pancake delivered but client threw post-response), the store
-                            // will have markBillSent → skip retry to avoid double-send.
-                            if (
-                                attempt === 1 &&
-                                saleOnlineId &&
-                                invStore?.isBillSent?.(saleOnlineId)
-                            ) {
-                                console.warn(
-                                    `[AUTO-SEND] ${order.Number}: bill marked sent despite error — skipping retry (avoid double-send)`
-                                );
-                                progress.sent++;
-                                lastError = null;
-                                break;
-                            }
-                            if (attempt === 1 && isTransient(e)) {
-                                await new Promise((r) => setTimeout(r, 2000));
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                    if (lastError) {
+                    await window.sendBillManually(originalIndex, true);
+                    progress.sent++;
+                } catch (e) {
+                    console.error(`[AUTO-SEND] Error for ${order.Number}:`, e);
+                    // Post-send guard: if sendBillManually succeeded the core
+                    // API call but threw in a post-success hook (UI update
+                    // etc), markBillSent will already have run. Treat as sent.
+                    if (saleOnlineId && invStore?.isBillSent?.(saleOnlineId)) {
+                        console.warn(
+                            `[AUTO-SEND] ${order.Number}: throw after markBillSent — counting as sent`
+                        );
+                        progress.sent++;
+                    } else {
                         progress.failed++;
-                        errors.push(`${order.Number || order.Reference}: ${lastError.message}`);
+                        errors.push(`${order.Number || order.Reference}: ${e.message}`);
                     }
                 } finally {
                     if (channelId) {
-                        // Clamp at 0 — decrement even if we crashed mid-retry
+                        // Clamp at 0 — decrement always runs via finally
                         const curr = pageInFlight.get(channelId) || 0;
                         pageInFlight.set(channelId, Math.max(0, curr - 1));
                     }
-                }
-                progress.done++;
-                if (typeof window.updateAutoSendToast === 'function') {
-                    window.updateAutoSendToast(progress);
+                    progress.done++;
+                    if (typeof window.updateAutoSendToast === 'function') {
+                        window.updateAutoSendToast(progress);
+                    }
                 }
             }
         };
@@ -1528,12 +1536,32 @@
             );
             closeCancelOrderModal();
 
-            // Fetch fresh invoice từ TPOS OData để hiển thị trạng thái "Huỷ bỏ" thật
-            // (thay vì show "−"). Nếu fetch fail → fallback về "−".
-            let cancelledInvoiceFetched = false;
-            try {
-                const invNumber = order.Number;
-                if (invNumber && window.tokenManager?.getAuthHeader) {
+            // Tạo synthetic entry "Huỷ bỏ" ngay lập tức để UI update không phụ thuộc OData.
+            // TPOS ActionCancel đã thành công ở Step 1 → state thật sự là cancel.
+            const orderShim = {
+                Id: saleOnlineId,
+                Code: invoiceData.Reference || order.Reference,
+                Name: invoiceData.PartnerDisplayName || order.PartnerDisplayName || '',
+                Telephone: invoiceData.ReceiverPhone || order.Phone || '',
+                Address: invoiceData.ReceiverAddress || '',
+            };
+            const syntheticCancelInv = {
+                ...invoiceData,
+                ShowState: 'Huỷ bỏ',
+                State: 'cancel',
+                StateCode: 'cancel',
+                Error: reason,
+            };
+            if (window.InvoiceStatusStore?.set) {
+                window.InvoiceStatusStore.set(saleOnlineId, syntheticCancelInv, orderShim);
+            }
+
+            // Fetch fresh invoice từ TPOS OData (best-effort, chạy background) để đồng bộ authoritative state.
+            // Không block UI update - nếu fetch thành công sẽ re-render cell lần nữa.
+            (async () => {
+                try {
+                    const invNumber = order.Number;
+                    if (!invNumber || !window.tokenManager?.getAuthHeader) return;
                     const tposOData = window.API_CONFIG?.TPOS_ODATA
                         || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
                     const headers = await window.tokenManager.getAuthHeader();
@@ -1544,42 +1572,28 @@
                     const resp = await fetch(url, {
                         headers: { ...headers, accept: 'application/json' },
                     });
-                    if (resp.ok) {
-                        const result = await resp.json();
-                        const inv = (result?.value || [])[0];
-                        if (inv && window.InvoiceStatusStore) {
-                            const orderShim = {
-                                Id: saleOnlineId,
-                                Code: inv.Reference || order.Reference,
-                                Name: inv.PartnerDisplayName || '',
-                                Telephone: inv.Phone || '',
-                                Address: inv.Address || '',
-                            };
-                            window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
-                            cancelledInvoiceFetched = true;
-                            console.log(
-                                '[WORKFLOW] 🔄 Refreshed PBH after cancel:',
-                                invNumber, '→', inv.ShowState
-                            );
-                        }
+                    if (!resp.ok) return;
+                    const result = await resp.json();
+                    const inv = (result?.value || [])[0];
+                    if (!inv || !window.InvoiceStatusStore) return;
+                    window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
+                    const laterRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                    const laterCell = laterRow?.querySelector('td[data-column="invoice-status"]');
+                    if (laterCell && typeof window.renderInvoiceStatusCell === 'function') {
+                        laterCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
                     }
+                    console.log('[WORKFLOW] 🔄 Refreshed PBH after cancel:', invNumber, '→', inv.ShowState);
+                } catch (refreshErr) {
+                    console.warn('[WORKFLOW] OData refresh after cancel failed:', refreshErr.message);
                 }
-            } catch (refreshErr) {
-                console.warn('[WORKFLOW] OData refresh after cancel failed:', refreshErr.message);
-            }
+            })();
 
-            // Update main table UI
+            // Update main table UI ngay lập tức với synthetic "Huỷ bỏ" state
             const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
             if (row) {
                 const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
-                if (invoiceCell) {
-                    if (cancelledInvoiceFetched && typeof window.renderInvoiceStatusCell === 'function') {
-                        // Render cell với trạng thái "Huỷ bỏ" thật từ TPOS
-                        invoiceCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
-                    } else {
-                        // Fallback: show "−" nếu fetch OData thất bại
-                        invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
-                    }
+                if (invoiceCell && typeof window.renderInvoiceStatusCell === 'function') {
+                    invoiceCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
                 }
 
                 // Update fulfillment ("Ra đơn") cell immediately
