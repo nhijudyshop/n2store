@@ -961,11 +961,27 @@ function renderMergeClusters() {
 }
 
 /**
+ * Safe HTML escape local cho merge module — coerce về string trước khi replace.
+ * Lý do: tab1-chat-messages.js load sau và override window.escapeHtml bằng version
+ * gọi .replace() trực tiếp → crash với number/null input (TypeError).
+ */
+function _escMerge(v) {
+    if (v == null) return '';
+    const s = String(v);
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
  * Render a single cluster card.
  * BUG-10: PartnerName/Telephone/ProductName/Note đến từ TPOS — phải escape khi inject vào innerHTML.
  */
 function renderClusterCard(cluster) {
-    const esc = window.escapeHtml || (s => String(s == null ? '' : s));
+    const esc = _escMerge;
     const isSelected = selectedMergeClusters.has(cluster.id);
     const orderTitles = cluster.orders
         .map(o => `STT ${esc(o.SessionIndex)} - ${esc(o.PartnerName || 'N/A')}`)
@@ -1065,7 +1081,7 @@ function renderClusterCard(cluster) {
  * ImageUrl chỉ dùng trong attribute src → validate scheme để chống javascript: URIs.
  */
 function renderProductItem(product) {
-    const esc = window.escapeHtml || (s => String(s == null ? '' : s));
+    const esc = _escMerge;
     const rawImg = product.ProductImageUrl || product.ImageUrl || '';
     const imgUrl = /^(https?:|\/\/|data:image\/)/i.test(rawImg) ? rawImg : '';
     const imgHtml = imgUrl
@@ -1727,8 +1743,9 @@ function closeMergeHistoryModal() {
 }
 
 /**
- * Shared escapeHtml utility - prevents XSS by encoding HTML entities
- * Also used by tab1-order-history.js, live-comments-readonly-modal.js, etc.
+ * Shared escapeHtml utility - prevents XSS by encoding HTML entities.
+ * Dùng `_escMerge` local-safe (coerce non-string) để tránh crash khi tab1-chat-messages.js
+ * override window.escapeHtml bằng version không coerce. Expose về window nếu chưa có.
  */
 if (!window.escapeHtml) {
     window.escapeHtml = function (text) {
@@ -1738,7 +1755,8 @@ if (!window.escapeHtml) {
         return div.innerHTML;
     };
 }
-const escapeHtml = window.escapeHtml;
+// Module-internal ref — luôn dùng _escMerge an toàn bất kể window.escapeHtml bị ghi đè sau
+const escapeHtml = _escMerge;
 
 // =====================================================
 // MERGE TAG ASSIGNMENT FUNCTIONS
