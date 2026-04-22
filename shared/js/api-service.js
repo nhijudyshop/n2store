@@ -1026,8 +1026,9 @@ const ApiService = {
         console.log('[API] Step 5: PrintRefund');
         reportProgress(5, 'Lấy phiếu in...');
 
-        const TPOS_DIRECT_URL = 'https://tomato.tpos.vn';
-        const printUrl = `${TPOS_DIRECT_URL}/fastsaleorder/PrintRefund/${refundOrderId}`;
+        // Route PrintRefund via CF Worker to avoid browser CORS against tomato.tpos.vn.
+        // CF TPOS_GENERIC catch-all strips /api/ and forwards to tomato.tpos.vn/<path>.
+        const printUrl = `${API_CONFIG.WORKER_URL}/api/fastsaleorder/PrintRefund/${refundOrderId}`;
 
         console.log('[API] PrintRefund URL:', printUrl);
 

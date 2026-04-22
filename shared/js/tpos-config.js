@@ -26,9 +26,11 @@
         proxyUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
         // =====================================================
-        // TPOS API BASE
+        // TPOS API BASE — routed via CF Worker so browser CORS never fails.
+        // CF maps /api/rest/* → tomato.tpos.vn/rest/*, /api/odata/* → tomato.tpos.vn/odata/*
         // =====================================================
-        tposBaseUrl: 'https://tomato.tpos.vn',
+        tposBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
+        tposDirectUrl: 'https://tomato.tpos.vn',  // preserved for non-fetch uses (window.open, links, etc.)
 
         // =====================================================
         // COMMON HEADERS

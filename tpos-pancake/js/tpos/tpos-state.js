@@ -53,7 +53,10 @@ const TposState = {
     proxyBaseUrl: 'https://n2store-fallback.onrender.com',
     workerUrl: (window.API_CONFIG ? window.API_CONFIG.WORKER_URL : 'https://chatomni-proxy.nhijudyshop.workers.dev'),
     tposPancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
-    tposBaseUrl: 'https://tomato.tpos.vn',
+    // CF Worker proxy — strips /api/ prefix then forwards to tomato.tpos.vn
+    // (so `${tposBaseUrl}/rest/...` becomes tomato.tpos.vn/rest/... upstream while
+    // the browser sees CORS headers from Cloudflare).
+    tposBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
     /**
      * Reset state when switching campaigns

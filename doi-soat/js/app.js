@@ -166,7 +166,7 @@
         }
 
         const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-        const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://tomato.tpos.vn';
+        const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
         const url = `${baseUrl}/odata/FastSaleOrder/ODataService.GetDataCrossCheck` +
             `?$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,Team` +
@@ -623,7 +623,7 @@
                 return `${name}: ${checkedQty}/${totalQty}`;
             });
 
-            const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://tomato.tpos.vn';
+            const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
             const url = `${baseUrl}/odata/FastSaleOrder/ODataService.CrossCheckAndOpenOrder?fastSaleOrderId=${currentOrder.Id}`;
 
             const resp = await fetch(url, {
