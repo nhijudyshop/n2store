@@ -156,7 +156,10 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
                 continue;
             }
             console.error(`[MERGE-API] PUT failed:`, errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+            // Non-retryable HTTP (400/401/403/404/409/422/...) → throw với flag để catch không retry
+            const httpErr = new Error(`HTTP ${response.status}: ${errorText}`);
+            httpErr.__noRetry = true;
+            throw httpErr;
         }
 
         // Handle empty response body (PUT often returns 200 OK with no content)
@@ -173,8 +176,12 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
         console.log(`[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`);
         return data || { success: true, orderId: orderData.Id };
     } catch (error) {
-        // Network/fetch failure → retry. Sau khi hết retries thì throw.
+        // Non-retryable HTTP (400/409/...) → throw ngay, không retry.
+        // Chỉ retry khi là network error thuần (fetch reject, TypeError, timeout).
         lastError = error;
+        if (error && error.__noRetry) {
+            throw error;
+        }
         if (attempt < retries) {
             console.warn(`[MERGE-API] PUT ${orderData.Id} network error, retry ${attempt + 1}/${retries}...`, error.message);
             await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
@@ -840,11 +847,15 @@ function renderMergeClusters() {
 }
 
 /**
- * Render a single cluster card
+ * Render a single cluster card.
+ * BUG-10: PartnerName/Telephone/ProductName/Note đến từ TPOS — phải escape khi inject vào innerHTML.
  */
 function renderClusterCard(cluster) {
+    const esc = window.escapeHtml || (s => String(s == null ? '' : s));
     const isSelected = selectedMergeClusters.has(cluster.id);
-    const orderTitles = cluster.orders.map(o => `STT ${o.SessionIndex} - ${o.PartnerName || 'N/A'}`).join(' | ');
+    const orderTitles = cluster.orders
+        .map(o => `STT ${esc(o.SessionIndex)} - ${esc(o.PartnerName || 'N/A')}`)
+        .join(' | ');
 
     // Compute merged tags preview (mirror assignTagsAfterMerge logic)
     const mergedTagsPreview = calculateMergedTagsPreview(cluster);
@@ -855,7 +866,7 @@ function renderClusterCard(cluster) {
     // Build table headers
     const headers = [
         `<th class="merged-col">
-            Sau Khi Gộp<br><small>(STT ${cluster.targetOrder.SessionIndex})</small>
+            Sau Khi Gộp<br><small>(STT ${esc(cluster.targetOrder.SessionIndex)})</small>
             ${mergedTagsHtml}
         </th>`
     ];
@@ -869,7 +880,7 @@ function renderClusterCard(cluster) {
         const tagsHtml = renderMergeTagPills(order.Tags);
 
         headers.push(`<th class="${className}">
-            STT ${order.SessionIndex} - ${order.PartnerName || 'N/A'}${targetLabel}
+            STT ${esc(order.SessionIndex)} - ${esc(order.PartnerName || 'N/A')}${targetLabel}
             ${tagsHtml}
         </th>`);
     });
@@ -912,13 +923,13 @@ function renderClusterCard(cluster) {
     }
 
     return `
-        <div class="merge-cluster-card ${isSelected ? 'selected' : ''}" data-cluster-id="${cluster.id}">
+        <div class="merge-cluster-card ${isSelected ? 'selected' : ''}" data-cluster-id="${esc(cluster.id)}">
             <div class="merge-cluster-header">
                 <input type="checkbox" class="merge-cluster-checkbox"
                     ${isSelected ? 'checked' : ''}
-                    onchange="toggleMergeClusterSelection('${cluster.id}', this.checked)">
+                    onchange="toggleMergeClusterSelection('${esc(cluster.id)}', this.checked)">
                 <div class="merge-cluster-title"># ${orderTitles}</div>
-                <div class="merge-cluster-phone"><i class="fas fa-phone"></i> ${cluster.phone}</div>
+                <div class="merge-cluster-phone"><i class="fas fa-phone"></i> ${esc(cluster.phone)}</div>
             </div>
             <div class="merge-cluster-table-wrapper">
                 <table class="merge-cluster-table">
@@ -935,12 +946,16 @@ function renderClusterCard(cluster) {
 }
 
 /**
- * Render a single product item
+ * Render a single product item.
+ * BUG-10: ProductName/ProductCode/Note đến từ TPOS — escape khi inject vào innerHTML.
+ * ImageUrl chỉ dùng trong attribute src → validate scheme để chống javascript: URIs.
  */
 function renderProductItem(product) {
-    const imgUrl = product.ProductImageUrl || product.ImageUrl || '';
+    const esc = window.escapeHtml || (s => String(s == null ? '' : s));
+    const rawImg = product.ProductImageUrl || product.ImageUrl || '';
+    const imgUrl = /^(https?:|\/\/|data:image\/)/i.test(rawImg) ? rawImg : '';
     const imgHtml = imgUrl
-        ? `<img src="${imgUrl}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        ? `<img src="${esc(imgUrl)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
         : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
 
     const productCode = product.ProductCode || product.ProductName?.match(/\[([^\]]+)\]/)?.[1] || '';
@@ -952,13 +967,13 @@ function renderProductItem(product) {
         <div class="merge-product-item">
             ${imgHtml}
             <div class="merge-product-info">
-                <div class="merge-product-name" title="${productName}">${productName}</div>
-                ${productCode ? `<span class="merge-product-code">${productCode}</span>` : ''}
+                <div class="merge-product-name" title="${esc(productName)}">${esc(productName)}</div>
+                ${productCode ? `<span class="merge-product-code">${esc(productCode)}</span>` : ''}
                 <div class="merge-product-details">
-                    <span class="qty">SL: ${product.Quantity || 0}</span>
-                    ${price ? ` | <span class="price">${price}</span>` : ''}
+                    <span class="qty">SL: ${esc(product.Quantity || 0)}</span>
+                    ${price ? ` | <span class="price">${esc(price)}</span>` : ''}
                 </div>
-                ${note ? `<div class="merge-product-note">Note: ${note}</div>` : ''}
+                ${note ? `<div class="merge-product-note">Note: ${esc(note)}</div>` : ''}
             </div>
         </div>
     `;

@@ -233,8 +233,8 @@ const PhoneWidget = (() => {
 
     // Rising beep: call answered / connected
     function playAnsweredTone() {
-        playBeep({ freq: 600, freqEnd: 1000, duration: 0.18, volume: 0.22, type: 'sine' });
-        playBeep({ freq: 1000, duration: 0.12, volume: 0.18, type: 'sine', delay: 0.22 });
+        playBeep({ freq: 600, freqEnd: 1000, duration: 0.18, volume: 0.10, type: 'sine' });
+        playBeep({ freq: 1000, duration: 0.12, volume: 0.08, type: 'sine', delay: 0.22 });
     }
 
     // Descending beep: hangup / disconnected
