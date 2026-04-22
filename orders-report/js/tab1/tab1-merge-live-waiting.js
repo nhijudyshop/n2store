@@ -669,20 +669,9 @@
         await window.updateOrderWithFullPayload(targetFull, newDetails, totalAmount, totalQuantity);
         log(`Đã cập nhật giỏ đích ${targetFull.Id} (+${transferredCount} SP, dedup → ${newDetails.length} rows)`);
 
-        // 5. Transfer T-tags (đặc điểm) sang target
-        if (typeof window.assignTTagToOrder === 'function') {
-            for (const t of cluster.sourceTTags) {
-                try {
-                    await window.assignTTagToOrder(String(cluster.targetOrder.Code), t.id, SOURCE_LABEL);
-                } catch (e) {
-                    console.warn(`${LOG} assignTTagToOrder fail for ${t.id}:`, e);
-                }
-            }
-        }
-
-        // 6. Clear source orders + gán category 3 / DA_GOP_KHONG_CHOT
-        //    Tận dụng __fullOrder cache → tránh double-fetch. Track cleared IDs
-        //    để đánh dấu InvoiceStatus merge-cancelled local-only.
+        // 5. Clear source orders + gán category 3 / DA_GOP_KHONG_CHOT TRƯỚC khi transfer T-tags.
+        //    Lý do: nếu source clear fail, không nên "over-tag" target với T-tags từ source chưa cleared.
+        //    Tận dụng __fullOrder cache → tránh double-fetch.
         const clearedSourceIds = [];
         const failedSourceIds = [];
         for (const src of cluster.sourceOrders) {
@@ -714,6 +703,21 @@
                     });
                 } catch (e) {
                     console.warn(`${LOG} assignOrderCategory fail for ${src.Code}:`, e);
+                }
+            }
+        }
+
+        // 6. Transfer T-tags (đặc điểm) sang target — chỉ lấy T-tags của sources đã clear
+        //    (ngăn over-tag target bằng T-tags của source chưa clear khi partial).
+        if (typeof window.assignTTagToOrder === 'function' && clearedSourceIds.length > 0) {
+            const clearedSet = new Set(clearedSourceIds.map(String));
+            const clearedSources = cluster.sourceOrders.filter(s => clearedSet.has(String(s.Id)));
+            const clearedTTags = unionTTags(clearedSources.map(s => getTTagsForOrder(s.Code)));
+            for (const t of clearedTTags) {
+                try {
+                    await window.assignTTagToOrder(String(cluster.targetOrder.Code), t.id, SOURCE_LABEL);
+                } catch (e) {
+                    console.warn(`${LOG} assignTTagToOrder fail for ${t.id}:`, e);
                 }
             }
         }

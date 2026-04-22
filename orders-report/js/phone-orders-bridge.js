@@ -9,13 +9,45 @@ const PhoneOrdersBridge = (() => {
     let currentCallPhone = '';
     let currentCallName = '';
     let currentOrderCode = '';
+    let currentOrderId = '';
     let callStartTime = 0;
     let timerInterval = null;
     let noteTextarea = null;
     let lastCompletedCall = null; // for outcome marker
+    let quickNoteSaved = false; // dedupe: only save order note once per call
 
     function _stripPhone(s) { return String(s || '').replace(/[^\d+]/g, ''); }
     function _fmtDur(sec) { const m = Math.floor(sec/60), s = sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+
+    // Resolve internal order.Id from phone via window.allOrders (populated by tab1-fast-sale-invoice-status)
+    function _lookupOrderId(phone) {
+        const d = _stripPhone(phone);
+        if (!d || !Array.isArray(window.allOrders)) return '';
+        const match = window.allOrders.find(o => _stripPhone(o.Telephone) === d);
+        return match?.Id ? String(match.Id) : '';
+    }
+
+    // Save quick-note to order's Ghi chú column. Idempotent per call via quickNoteSaved flag.
+    async function _saveQuickNoteToOrder(orderId, text) {
+        if (!orderId || !text || quickNoteSaved) return;
+        if (!window.OrderNotesStore?.add) {
+            console.warn('[PhoneOrdersBridge] OrderNotesStore chưa sẵn sàng — note không lưu vào cột Ghi chú');
+            return;
+        }
+        quickNoteSaved = true;
+        try {
+            const tagged = `📞 ${text}`.slice(0, 500); // prefix phone icon so CSKH note list phân biệt nguồn
+            await window.OrderNotesStore.add(orderId, tagged);
+            if (window.notificationManager?.show) {
+                window.notificationManager.show('Đã lưu ghi chú cuộc gọi vào đơn', 'success', 2500);
+            }
+        } catch (err) {
+            console.warn('[PhoneOrdersBridge] save quick note failed:', err.message);
+            if (window.notificationManager?.show) {
+                window.notificationManager.show('Không lưu được ghi chú cuộc gọi: ' + err.message, 'error', 4000);
+            }
+        }
+    }
 
     function _injectStyles() {
         if (document.getElementById(STYLES_ID)) return;
@@ -236,8 +268,10 @@ const PhoneOrdersBridge = (() => {
         // Grab note before hangup
         const note = noteTextarea?.value?.trim() || '';
         if (note && currentCallPhone) {
-            // save as pre-hangup note
+            // save as pre-hangup note on CDR
             try { window.PhoneCloudSync?.updateLastCallOutcome?.(_stripPhone(currentCallPhone), { note }); } catch {}
+            // save to order's Ghi chú column (idempotent — observer won't re-save)
+            if (currentOrderId) _saveQuickNoteToOrder(currentOrderId, note);
         }
         if (window.PhoneWidget?.hangup) window.PhoneWidget.hangup();
     }
@@ -275,6 +309,8 @@ const PhoneOrdersBridge = (() => {
                     currentCallPhone = phone;
                     currentCallName = name;
                     currentOrderCode = orderCode;
+                    currentOrderId = _lookupOrderId(cleanPhone);
+                    quickNoteSaved = false; // reset per new call
                     _highlightRow(cleanPhone);
                 }
                 const state = isInCall ? 'in-call' : 'ringing';
@@ -285,14 +321,18 @@ const PhoneOrdersBridge = (() => {
                 }
             } else {
                 if (lastState && lastState !== 'ended') {
-                    // Call ended
+                    // Call ended — grab note BEFORE hiding bar so DOM still has value
+                    const noteText = document.getElementById('pcbNote')?.value?.trim() || '';
                     const phone = currentCallPhone;
                     const name = currentCallName;
+                    const orderId = currentOrderId;
                     const duration = timerInterval ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
                     _hideBar();
                     _clearRowHighlight();
+                    // Save quick note to order's Ghi chú column (fire-and-forget)
+                    if (noteText && orderId) _saveQuickNoteToOrder(orderId, noteText);
                     if (phone && duration > 0) _showOutcomePrompt(phone, name, duration);
-                    currentCallPhone = ''; currentCallName = ''; currentOrderCode = '';
+                    currentCallPhone = ''; currentCallName = ''; currentOrderCode = ''; currentOrderId = '';
                     lastState = 'ended';
                 }
             }

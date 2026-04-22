@@ -203,6 +203,11 @@ if (typeof saveChatProductsToFirebase !== 'undefined') {
 window.getOrderDetails = getOrderDetails;
 window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 
+// Module-level lock tracking in-progress merges để tránh race condition khi user mở 2 tab
+// cùng chạy merge trên cùng 1 target (second PUT sẽ overwrite first + mất products nguồn).
+// Lock keyed by TargetOrderId; set khi bắt đầu, xóa trong finally.
+const _mergeInProgress = new Set();
+
 /**
  * Execute product merge for a single merged order
  * @param {Object} mergedOrder - Merged order object with TargetOrderId and SourceOrderIds
@@ -213,6 +218,18 @@ async function executeMergeOrderProducts(mergedOrder) {
         console.log('[MERGE-API] Not a merged order or no source orders to merge');
         return { success: false, message: 'Not a merged order' };
     }
+
+    // Merge lock: cùng target đang chạy → từ chối để tránh race condition (data loss)
+    const lockKey = String(mergedOrder.TargetOrderId);
+    if (_mergeInProgress.has(lockKey)) {
+        console.warn(`[MERGE-API] 🔒 Target ${lockKey} đang gộp — từ chối concurrent merge`);
+        return {
+            success: false,
+            message: `Đơn đích STT ${mergedOrder.TargetSTT} đang được gộp (tab khác?). Chờ hoàn tất rồi thử lại.`,
+            locked: true
+        };
+    }
+    _mergeInProgress.add(lockKey);
 
     try {
         console.log(`[MERGE-API] Starting merge for phone ${mergedOrder.Telephone}`);
@@ -352,6 +369,10 @@ async function executeMergeOrderProducts(mergedOrder) {
         const clearedCount = sourceClearResults.filter(r => r.cleared).length;
         const failedClearCount = sourceClearResults.length - clearedCount;
 
+        // Snapshot pre-merge Details cho history (bulk path cần vì displayedData không có Details)
+        const preMergeTargetDetails = Array.isArray(targetOrderData.Details) ? targetOrderData.Details : [];
+        const preMergeSourceDetails = sourceOrdersData.map(so => Array.isArray(so?.Details) ? so.Details : []);
+
         if (failedClearCount > 0) {
             // ⚠️ Target đã có đủ products nhưng source chưa được clear → DUPLICATE RISK.
             // Return partial success để caller hiển thị rõ tình trạng và người dùng có thể retry thủ công.
@@ -365,7 +386,10 @@ async function executeMergeOrderProducts(mergedOrder) {
                 sourceClearResults,
                 failedSourceSTTs,
                 totalProducts: allProducts.length,
-                priceDiffs
+                priceDiffs,
+                mergedProducts: allProducts,
+                preMergeTargetDetails,
+                preMergeSourceDetails
             };
         }
 
@@ -380,7 +404,10 @@ async function executeMergeOrderProducts(mergedOrder) {
             sourceSTTs: mergedOrder.SourceSTTs,
             sourceClearResults,
             priceDiffs,
-            totalProducts: allProducts.length
+            totalProducts: allProducts.length,
+            mergedProducts: allProducts,
+            preMergeTargetDetails,
+            preMergeSourceDetails
         };
 
     } catch (error) {
@@ -404,6 +431,8 @@ async function executeMergeOrderProducts(mergedOrder) {
             error: error,
             errorResponse: errorResponse
         };
+    } finally {
+        _mergeInProgress.delete(lockKey);
     }
 }
 
@@ -487,14 +516,22 @@ async function executeBulkMergeOrderProducts() {
             const result = await executeMergeOrderProducts(group);
             results.push({ order: group, result });
 
-            // Gán tag sau khi merge (BUG-2: bulk path trước đây skip tag — gây mất audit trail)
+            // Gán tag sau khi merge (BUG-2: bulk path trước đây skip tag — gây mất audit trail).
+            // Enrich cluster với Details từ pre-merge snapshot (result.preMergeTargetDetails/
+            // preMergeSourceDetails) để history có sản phẩm thực thay vì rỗng.
             if (result.success || result.partial) {
-                // Build cluster shape cho assignTagsAfterMerge; nếu partial, chỉ lấy source đã clear
                 const baseCluster = {
                     phone: group.Telephone,
-                    targetOrder: group._targetOrder,
-                    sourceOrders: group._sourceOrders,
-                    orders: group._allOrders
+                    targetOrder: {
+                        ...group._targetOrder,
+                        Details: result.preMergeTargetDetails || []
+                    },
+                    sourceOrders: group._sourceOrders.map((s, i) => ({
+                        ...s,
+                        Details: (result.preMergeSourceDetails || [])[i] || []
+                    })),
+                    orders: group._allOrders, // DESC — assignTagsAfterMerge sort nội bộ nên thứ tự không matter
+                    mergedProducts: result.mergedProducts || []
                 };
                 const clusterForTagging = result.partial
                     ? buildPartialTagCluster(baseCluster, result.sourceClearResults)
@@ -509,15 +546,23 @@ async function executeBulkMergeOrderProducts() {
                     console.warn(`[MERGE-BULK] Tag assignment error for ${group.Telephone}:`, tagErr);
                 }
 
-                // Save history
+                // Save history với Details đầy đủ (không còn empty products như trước)
                 if (typeof saveMergeHistory === 'function') {
-                    try { await saveMergeHistory(baseCluster, result, result.errorResponse || null); } catch {}
+                    try {
+                        await saveMergeHistory(baseCluster, result, result.errorResponse || null);
+                    } catch (historyErr) {
+                        console.warn(`[MERGE-BULK] saveMergeHistory fail for ${group.Telephone}:`, historyErr);
+                    }
                 }
 
                 // Mark PBH merge-cancelled cho source đã clear
                 const clearedIds = (result.sourceClearResults || []).filter(r => r.cleared).map(r => r.sourceId);
                 if (clearedIds.length > 0 && typeof markSourceOrdersMergeCancelled === 'function') {
-                    try { markSourceOrdersMergeCancelled(clearedIds); } catch {}
+                    try {
+                        markSourceOrdersMergeCancelled(clearedIds);
+                    } catch (pbhErr) {
+                        console.warn(`[MERGE-BULK] markSourceOrdersMergeCancelled fail for ${group.Telephone}:`, pbhErr);
+                    }
                 }
             }
 
