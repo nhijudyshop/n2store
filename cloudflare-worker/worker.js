@@ -38,7 +38,9 @@ import {
     handleCustomer360Proxy,
     handleOncallProxy,
     handleUsersProxy,
-    handleCampaignsProxy
+    handleCampaignsProxy,
+    handleFacebookRenderProxy,
+    handleRenderV2FallbackProxy
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';

@@ -3,7 +3,8 @@
 // Loads config from Render DB (phone_config), connects via Vultr WSS proxy → OnCallCX PBX
 
 // === CONFIG ===
-const RENDER_CONFIG_URL = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
+// Routed via Cloudflare Worker so CORS stays valid even during Render redeploy/502.
+const RENDER_CONFIG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/phone-config';
 
 // Fallback defaults (if DB unreachable)
 const DEFAULTS = {

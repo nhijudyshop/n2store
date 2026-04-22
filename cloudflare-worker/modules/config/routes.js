@@ -71,6 +71,8 @@ export const ROUTES = {
     ONCALL: { pattern: '/api/oncall/*' },
     USERS: { pattern: '/api/users/*' },
     CAMPAIGNS: { pattern: '/api/campaigns/*' },
+    FACEBOOK_RENDER: { pattern: '/facebook/*' },
+    RENDER_V2_FALLBACK: { pattern: '/api/v2/*' },  // catch-all for /api/v2/* not matched above
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -163,6 +165,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/oncall/') || pathname === '/api/oncall') return 'ONCALL';
     if (pathname.startsWith('/api/users/') || pathname === '/api/users') return 'USERS';
     if (pathname.startsWith('/api/campaigns/') || pathname === '/api/campaigns') return 'CAMPAIGNS';
+    if (pathname.startsWith('/facebook/')) return 'FACEBOOK_RENDER';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';
@@ -187,6 +190,10 @@ export function matchRoute(pathname) {
     // TPOS Order patterns
     if (/^\/tpos\/order\/\d+\/lines$/.test(pathname)) return 'TPOS_ORDER_LINES';
     if (/^\/tpos\/order-ref\/.+\/lines$/.test(pathname)) return 'TPOS_ORDER_REF_LINES';
+
+    // /api/v2/* catch-all → Render fallback (MUST come before TPOS_GENERIC, since TPOS does not
+    // own any /api/v2/* paths — every v2 route we've shipped lives on the Render server).
+    if (pathname.startsWith('/api/v2/')) return 'RENDER_V2_FALLBACK';
 
     // Catch-all for /api/* (TPOS generic)
     if (pathname.startsWith('/api/')) return 'TPOS_GENERIC';
