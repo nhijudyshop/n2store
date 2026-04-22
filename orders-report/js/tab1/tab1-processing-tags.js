@@ -793,15 +793,27 @@
         // Resolve orderCode → orderId cho DOM query (data-order-id vẫn dùng orderId)
         const orderId = _ptagResolveId(orderCode);
         const row = orderId ? document.querySelector(`tr[data-order-id="${orderId}"]`) : null;
-        if (!row) return;
-        const cell = row.querySelector('td[data-column="processing-tag"]');
-        if (!cell) return;
-        cell.innerHTML = renderProcessingTagCell(orderCode);
 
-        // Re-filter table if any processing tag filter is active
+        // Inline cell update nếu row đang trong DOM (miss thì đơn đang bị ẩn bởi filter — bỏ qua)
+        if (row) {
+            const cell = row.querySelector('td[data-column="processing-tag"]');
+            if (cell) cell.innerHTML = renderProcessingTagCell(orderCode);
+        }
+
+        // Re-filter table CHỈ khi filter-membership của order này FLIP (vào/ra khỏi filtered view).
+        // Trước đây mỗi SSE event → debounce 50ms → performTableSearch → renderTable full rebuild →
+        // column width recalc → bảng giật ngang liên tục khi SSE stream active. Giờ skip nếu
+        // trạng thái pass/không-pass KHÔNG đổi so với DOM presence.
         if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
+            const passesNow = typeof orderPassesProcessingTagFilter === 'function'
+                ? orderPassesProcessingTagFilter(orderCode)
+                : true;
+            const isInDom = !!row;
+            // passes && in-dom → stays visible; !passes && !in-dom → stays hidden → skip re-filter
+            if (passesNow === isInDom) return;
             clearTimeout(_ptagRefreshFilterTimer);
-            _ptagRefreshFilterTimer = setTimeout(() => window.performTableSearch(), 50);
+            // Debounce 500ms để coalesce burst SSE events (trước là 50ms quá ngắn)
+            _ptagRefreshFilterTimer = setTimeout(() => window.performTableSearch(), 500);
         }
     }
     let _ptagRefreshFilterTimer = null;
