@@ -1149,10 +1149,12 @@ class PancakeTokenManager {
             const data = await r.json();
             const dbTokens = data.tokens || {};
 
-            // Smart merge: keep the newer version for each pageId
+            // Smart merge: keep the newer version for each pageId.
+            // Skip DB rows with empty token or savedAt=0 (these are lock placeholders, not real PATs).
             const mergedTokens = { ...this.pageAccessTokens };
 
             for (const [pageId, dbData] of Object.entries(dbTokens)) {
+                if (!dbData?.token || !(dbData.savedAt > 0)) continue; // skip placeholder
                 const localData = this.pageAccessTokens[pageId];
                 if (!localData || (dbData.savedAt || 0) > (localData.savedAt || 0)) {
                     mergedTokens[pageId] = dbData;
@@ -1246,7 +1248,9 @@ class PancakeTokenManager {
             }
         }
 
-        return data ? data.token : null;
+        // Guard: empty token (lock placeholder row) → treat as no token → triggers regen
+        if (!data?.token) return null;
+        return data.token;
     }
 
     /**
@@ -1259,33 +1263,41 @@ class PancakeTokenManager {
         // poll Render for the new PAT instead of duplicating the work.
         const _fetch = window.fetchWithTimeout || fetch;
         let lockAcquired = false;
+        // Lock TTL 15s covers worst-case polling window (10 × 1.5s = 15s)
+        const LOCK_TTL_MS = 15000;
+        const POLL_FETCH_TIMEOUT_MS = 1500;
+        const POLL_INTERVAL_MS = 500;
+        const POLL_MAX_ITER = 10;
         try {
             const lockRes = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ttlMs: 8000 })
+                body: JSON.stringify({ ttlMs: LOCK_TTL_MS })
             }, 4000);
             if (lockRes.ok) {
                 const data = await lockRes.json();
                 lockAcquired = data.acquired === true;
                 if (!lockAcquired) {
-                    // Another machine holds lock → poll for fresh PAT up to 5s
+                    // Another machine holds lock → poll for fresh PAT
                     console.log('[PANCAKE-TOKEN] Regen lock held by another machine, polling...');
-                    for (let i = 0; i < 10; i++) {
-                        await new Promise(r => setTimeout(r, 500));
+                    const existing = this.pageAccessTokens[pageId];
+                    const baselineSavedAt = existing?.savedAt || 0;
+                    for (let i = 0; i < POLL_MAX_ITER; i++) {
+                        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
                         try {
-                            const r = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens`, {}, 3000);
+                            const r = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens`, {}, POLL_FETCH_TIMEOUT_MS);
                             if (r.ok) {
                                 const d = await r.json();
                                 const fresh = d.tokens?.[pageId];
-                                if (fresh?.token) {
-                                    const existing = this.pageAccessTokens[pageId];
-                                    if (!existing || (fresh.savedAt || 0) > (existing.savedAt || 0)) {
-                                        this.pageAccessTokens[pageId] = fresh;
-                                        this.savePageAccessTokensToLocalStorage();
-                                        console.log('[PANCAKE-TOKEN] ✅ Got PAT from Render (another machine regenerated)');
-                                        return fresh.token;
-                                    }
+                                // Guard: reject empty tokens (happens if lock row was just created but regen not yet saved)
+                                // Also require savedAt > 0 (real tokens have timestamp, placeholder lock row has 0)
+                                const freshToken = fresh?.token;
+                                const freshSavedAt = fresh?.savedAt || 0;
+                                if (freshToken && freshSavedAt > baselineSavedAt) {
+                                    this.pageAccessTokens[pageId] = fresh;
+                                    this.savePageAccessTokensToLocalStorage();
+                                    console.log('[PANCAKE-TOKEN] ✅ Got PAT from Render (another machine regenerated)');
+                                    return freshToken;
                                 }
                             }
                         } catch (_) { /* keep polling */ }
