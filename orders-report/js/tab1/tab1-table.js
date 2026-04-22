@@ -65,9 +65,14 @@ function updateOrderInTable(orderId, updatedOrderData) {
             console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
         }
     } else {
-        // Re-apply all filters and re-render table for non-tag updates
-        // This ensures realtime filter updates (e.g., removing a tag will hide the order if filtering by that tag)
-        performTableSearch();
+        // Re-apply all filters and re-render table for non-tag updates.
+        // Dùng debounced wrapper để coalesce burst WS updates (TPOS realtime) —
+        // tránh re-render liên tục gây giật ngang bảng khi nhiều đơn cùng update.
+        if (typeof window.schedulePerformTableSearch === 'function') {
+            window.schedulePerformTableSearch(150);
+        } else {
+            performTableSearch();
+        }
     }
 
     // 6. Cập nhật stats (nếu tổng tiền thay đổi)

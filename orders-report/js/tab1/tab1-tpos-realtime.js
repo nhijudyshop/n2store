@@ -431,8 +431,11 @@
             }
         }
 
-        // Re-apply search/filters and re-render
-        if (typeof performTableSearch === 'function') {
+        // Re-apply search/filters and re-render — debounce để coalesce burst khi
+        // nhiều order cùng tạo trong live phase, tránh giật bảng.
+        if (typeof window.schedulePerformTableSearch === 'function') {
+            window.schedulePerformTableSearch(150);
+        } else if (typeof performTableSearch === 'function') {
             performTableSearch();
         }
 

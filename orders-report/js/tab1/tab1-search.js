@@ -472,6 +472,21 @@ function performTableSearch() {
     updateSearchResultCount();
 }
 
+// Debounced wrapper — gọi từ event-driven bursts (WS, SSE, Firebase listener…) để
+// coalesce nhiều re-render liên tục thành 1. User-driven callers (click checkbox,
+// search input) nên gọi performTableSearch() trực tiếp để có phản hồi tức thì.
+let _scheduledTableSearchTimer = null;
+function schedulePerformTableSearch(delayMs = 150) {
+    if (_scheduledTableSearchTimer) clearTimeout(_scheduledTableSearchTimer);
+    _scheduledTableSearchTimer = setTimeout(() => {
+        _scheduledTableSearchTimer = null;
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        }
+    }, delayMs);
+}
+window.schedulePerformTableSearch = schedulePerformTableSearch;
+
 // Returns orders filtered by employee assignment (for non-admin users)
 // Used by sidebar panel to show correct counts per user
 window.getEmployeeFilteredOrders = function() {

@@ -804,16 +804,20 @@
         // Trước đây mỗi SSE event → debounce 50ms → performTableSearch → renderTable full rebuild →
         // column width recalc → bảng giật ngang liên tục khi SSE stream active. Giờ skip nếu
         // trạng thái pass/không-pass KHÔNG đổi so với DOM presence.
-        if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
+        if (hasActiveProcessingTagFilters()) {
             const passesNow = typeof orderPassesProcessingTagFilter === 'function'
                 ? orderPassesProcessingTagFilter(orderCode)
                 : true;
             const isInDom = !!row;
             // passes && in-dom → stays visible; !passes && !in-dom → stays hidden → skip re-filter
             if (passesNow === isInDom) return;
-            clearTimeout(_ptagRefreshFilterTimer);
-            // Debounce 500ms để coalesce burst SSE events (trước là 50ms quá ngắn)
-            _ptagRefreshFilterTimer = setTimeout(() => window.performTableSearch(), 500);
+            // Dùng shared debouncer để coalesce với các burst sources khác (WS, Firebase…)
+            if (typeof window.schedulePerformTableSearch === 'function') {
+                window.schedulePerformTableSearch(300);
+            } else if (typeof window.performTableSearch === 'function') {
+                clearTimeout(_ptagRefreshFilterTimer);
+                _ptagRefreshFilterTimer = setTimeout(() => window.performTableSearch(), 500);
+            }
         }
     }
     let _ptagRefreshFilterTimer = null;
