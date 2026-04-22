@@ -172,6 +172,279 @@ const PhoneHistoryBadges = (() => {
     function _isAdmin() {
         try { return !!window.authManager?.isAdminTemplate?.(); } catch { return false; }
     }
+
+    function _esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function _ensureModalStyles() {
+        if (document.getElementById('phoneHistModalStyles')) return;
+        const s = document.createElement('style');
+        s.id = 'phoneHistModalStyles';
+        s.textContent = `
+        .phm-overlay {
+            position: fixed; inset: 0; z-index: 100001;
+            background: rgba(15,23,42,.55); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            animation: phm-fade .15s ease-out;
+        }
+        @keyframes phm-fade { from { opacity: 0; } to { opacity: 1; } }
+        .phm-modal {
+            background: #fff; border-radius: 14px; width: min(620px, 92vw);
+            max-height: 86vh; display: flex; flex-direction: column;
+            box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 0 0 1px rgba(15,23,42,.1);
+            overflow: hidden; animation: phm-pop .18s cubic-bezier(.16,1,.3,1);
+        }
+        @keyframes phm-pop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .phm-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e2e8f0;
+        }
+        .phm-head h3 {
+            margin: 0; font-size: 15px; color: #0f172a;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .phm-head .phm-phone {
+            font-family: 'SF Mono', Monaco, monospace; color: #1d4ed8;
+            background: rgba(59,130,246,.1); padding: 3px 8px; border-radius: 6px;
+            font-size: 13px;
+        }
+        .phm-close {
+            background: none; border: none; cursor: pointer; font-size: 22px;
+            color: #94a3b8; line-height: 1; padding: 0 4px;
+        }
+        .phm-close:hover { color: #0f172a; }
+        .phm-tabs {
+            display: flex; gap: 2px; padding: 0 18px;
+            border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+        }
+        .phm-tab {
+            padding: 10px 16px; border: none; background: transparent; cursor: pointer;
+            font-size: 13px; font-weight: 600; color: #64748b;
+            border-bottom: 2px solid transparent; transition: all .12s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .phm-tab:hover { color: #0f172a; }
+        .phm-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; background: #fff; }
+        .phm-tab .phm-count {
+            background: #e2e8f0; color: #475569; font-size: 10px;
+            padding: 1px 7px; border-radius: 10px; font-weight: 700;
+        }
+        .phm-tab.active .phm-count { background: rgba(79,70,229,.15); color: #4f46e5; }
+        .phm-body { flex: 1; overflow-y: auto; padding: 14px 18px; background: #fff; }
+        .phm-empty { text-align: center; color: #94a3b8; padding: 36px 12px; font-size: 13px; }
+        .phm-loading { text-align: center; color: #94a3b8; padding: 28px; font-size: 12px; }
+
+        .phm-row {
+            display: grid; grid-template-columns: 22px 1fr auto;
+            gap: 10px; align-items: center;
+            padding: 10px 12px; border-radius: 8px;
+            border: 1px solid #e2e8f0; margin-bottom: 8px;
+            transition: background .1s, border-color .1s;
+        }
+        .phm-row:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .phm-row .phm-dir { font-weight: 700; text-align: center; font-size: 14px; }
+        .phm-row .phm-meta { font-size: 12px; line-height: 1.5; min-width: 0; }
+        .phm-row .phm-when { color: #0f172a; font-weight: 600; }
+        .phm-row .phm-sub {
+            color: #64748b; font-size: 11px; margin-top: 2px;
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .phm-row .phm-sub b { color: #334155; font-weight: 600; }
+        .phm-row .phm-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .phm-row audio { width: 240px; height: 32px; }
+
+        .phm-foot {
+            padding: 12px 18px; border-top: 1px solid #e2e8f0;
+            background: #f8fafc; display: flex; gap: 8px; justify-content: space-between;
+            align-items: center; flex-wrap: wrap;
+        }
+        .phm-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+            border: 1px solid #e2e8f0; background: #fff; color: #0f172a;
+            cursor: pointer; text-decoration: none;
+        }
+        .phm-btn:hover { background: #f1f5f9; }
+        .phm-btn.primary { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+        .phm-btn.primary:hover { background: #4338ca; }
+        .phm-btn.green { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .phm-btn.green:hover { background: #15803d; }
+        .phm-btn.danger { color: #b91c1c; }
+        .phm-btn.danger:hover { background: rgba(239,68,68,.08); }
+        `;
+        document.head.appendChild(s);
+    }
+
+    function _openHistoryModal(phone) {
+        _ensureModalStyles();
+        // Close existing
+        document.getElementById('phoneHistModal')?.remove();
+
+        const { counts, calls } = getCountsFor(phone);
+        const firstCall = calls[0] || {};
+        const displayName = firstCall.name || '';
+
+        const overlay = document.createElement('div');
+        overlay.id = 'phoneHistModal';
+        overlay.className = 'phm-overlay';
+        overlay.innerHTML = `
+            <div class="phm-modal" role="dialog" aria-modal="true">
+                <div class="phm-head">
+                    <h3>
+                        <span>📞 Lịch sử cuộc gọi</span>
+                        <span class="phm-phone">${_esc(phone)}</span>
+                        ${displayName ? `<span style="color:#64748b;font-weight:500;font-size:13px">· ${_esc(displayName)}</span>` : ''}
+                    </h3>
+                    <button class="phm-close" aria-label="Đóng">×</button>
+                </div>
+                <div class="phm-tabs">
+                    <button class="phm-tab active" data-phm-tab="oncall">
+                        <span>OnCallCX</span>
+                        <span class="phm-count">${counts.total}</span>
+                    </button>
+                    <button class="phm-tab" data-phm-tab="render">
+                        <span>Render DB</span>
+                        <span class="phm-count" data-phm-render-count>…</span>
+                    </button>
+                </div>
+                <div class="phm-body">
+                    <div data-phm-pane="oncall">${_renderOncallPane(phone, calls, counts)}</div>
+                    <div data-phm-pane="render" style="display:none">
+                        <div class="phm-loading">Đang tải ghi âm…</div>
+                    </div>
+                </div>
+                <div class="phm-foot">
+                    <div style="font-size:11px;color:#64748b">
+                        Admin only · ${counts.total} cuộc gọi · ${counts.out} gọi ra · ${counts.in} gọi vào${counts.missed ? ` · <span style="color:#b91c1c;font-weight:600">${counts.missed} nhỡ</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:6px">
+                        <button class="phm-btn green" data-phm-call><span>📞</span> Gọi ngay</button>
+                        <a class="phm-btn" href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener">↗ Portal OnCallCX</a>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('.phm-close').addEventListener('click', close);
+        overlay.querySelector('[data-phm-call]').addEventListener('click', () => {
+            try { window.PhoneWidget?.makeCall?.(phone); } catch {}
+            close();
+        });
+        // Tab switching
+        overlay.querySelectorAll('.phm-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const k = btn.dataset.phmTab;
+                overlay.querySelectorAll('.phm-tab').forEach(b => b.classList.toggle('active', b === btn));
+                overlay.querySelectorAll('[data-phm-pane]').forEach(p => {
+                    p.style.display = p.dataset.phmPane === k ? '' : 'none';
+                });
+            });
+        });
+        // Esc to close
+        const onKey = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+        document.addEventListener('keydown', onKey);
+
+        // Fetch recordings async (default tab is OnCallCX so loads in background)
+        _loadRenderRecordings(phone, overlay);
+    }
+
+    function _renderOncallPane(phone, calls, counts) {
+        if (!calls.length) {
+            return `<div class="phm-empty">Chưa có cuộc gọi nào với số này.</div>`;
+        }
+        return calls.slice(0, 50).map(c => {
+            const dir = c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out';
+            const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
+            return `
+                <div class="phm-row">
+                    <span class="phm-dir" style="color:${_dirColor(dir)}">${_dirIcon(dir)}</span>
+                    <div class="phm-meta">
+                        <div class="phm-when">${_fmtTs(c.timestamp)} · ${dirLabel}${c.duration ? ` · ${_fmtDur(c.duration)}` : ''}</div>
+                        <div class="phm-sub">
+                            ${c.username ? `<span>NV: <b>${_esc(c.username)}</b></span>` : ''}
+                            ${c.ext ? `<span>Ext: <b>${_esc(c.ext)}</b></span>` : ''}
+                            ${c.order_code ? `<span>Đơn: <b>${_esc(c.order_code)}</b></span>` : ''}
+                            ${c.outcome ? `<span>Kết quả: <b>${_esc(c.outcome)}</b></span>` : ''}
+                        </div>
+                        ${c.note ? `<div style="color:#64748b;font-size:11px;margin-top:4px;font-style:italic">"${_esc(c.note)}"</div>` : ''}
+                    </div>
+                    <div class="phm-actions">
+                        <span style="font-size:10px;color:#94a3b8">Audio: portal</span>
+                    </div>
+                </div>
+            `;
+        }).join('') + (calls.length > 50
+            ? `<div style="text-align:center;color:#94a3b8;font-size:11px;padding:8px">+ ${calls.length - 50} cuộc gọi cũ hơn</div>`
+            : '');
+    }
+
+    async function _loadRenderRecordings(phone, overlay) {
+        const pane = overlay.querySelector('[data-phm-pane="render"]');
+        const countBadge = overlay.querySelector('[data-phm-render-count]');
+        if (!pane) return;
+        try {
+            const r = await fetch(`${API}/call-recordings?phone=${encodeURIComponent(phone)}&limit=200`, { cache: 'no-store' });
+            const d = await r.json().catch(() => ({}));
+            const rows = Array.isArray(d.rows) ? d.rows : [];
+            if (countBadge) countBadge.textContent = String(rows.length);
+            if (!rows.length) {
+                pane.innerHTML = `<div class="phm-empty">
+                    Chưa có ghi âm nào trên Render DB cho số này.<br>
+                    <small style="color:#cbd5e1">Ghi âm sẽ tự động upload sau mỗi cuộc gọi.</small>
+                </div>`;
+                return;
+            }
+            pane.innerHTML = rows.map(rec => {
+                const dir = rec.direction === 'missed' ? 'missed' : rec.direction === 'in' ? 'in' : 'out';
+                const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
+                const audioUrl = `${API}/call-recordings/${rec.id}/audio`;
+                const sizeKB = Math.round((rec.size_bytes || 0) / 1024);
+                return `
+                    <div class="phm-row" data-rec-id="${rec.id}">
+                        <span class="phm-dir" style="color:${_dirColor(dir)}">${_dirIcon(dir)}</span>
+                        <div class="phm-meta">
+                            <div class="phm-when">${_fmtTs(parseInt(rec.timestamp, 10))} · ${dirLabel} · ${_fmtDur(rec.duration)}</div>
+                            <div class="phm-sub">
+                                ${rec.username ? `<span>NV: <b>${_esc(rec.username)}</b></span>` : ''}
+                                ${rec.ext ? `<span>Ext: <b>${_esc(rec.ext)}</b></span>` : ''}
+                                <span>${sizeKB} KB</span>
+                            </div>
+                            <audio controls preload="none" src="${audioUrl}" style="margin-top:6px"></audio>
+                        </div>
+                        <div class="phm-actions">
+                            <a class="phm-btn" href="${audioUrl}" download="call-${rec.id}.webm" title="Tải về"><span>⬇</span></a>
+                            <button class="phm-btn danger" data-phm-del="${rec.id}" title="Xoá"><span>🗑</span></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            // Wire delete buttons
+            pane.querySelectorAll('[data-phm-del]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.phmDel;
+                    if (!confirm('Xoá ghi âm này trên Render DB?')) return;
+                    try {
+                        const resp = await fetch(`${API}/call-recordings/${id}`, { method: 'DELETE' });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                        btn.closest('[data-rec-id]')?.remove();
+                        const remaining = pane.querySelectorAll('[data-rec-id]').length;
+                        if (countBadge) countBadge.textContent = String(remaining);
+                        if (!remaining) {
+                            pane.innerHTML = `<div class="phm-empty">Đã xoá hết ghi âm cho số này.</div>`;
+                        }
+                    } catch (err) { alert('Lỗi: ' + err.message); }
+                });
+            });
+        } catch (err) {
+            pane.innerHTML = `<div class="phm-empty" style="color:#b91c1c">Lỗi tải ghi âm: ${_esc(err.message)}</div>`;
+        }
+    }
     function _makeBadge(phone, counts) {
         const badge = document.createElement('span');
         badge.className = 'phone-hist-badge' + (counts.missed > 0 ? ' has-missed' : '');
