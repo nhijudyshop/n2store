@@ -107,6 +107,7 @@
                 activeFilter: ptagState._activeFilter ?? null,
                 activeFlagFilters,
                 panelPinned: !!ptagState._panelPinned,
+                excluded: (typeof window.getExcludedPtagXlFilters === 'function' && window.getExcludedPtagXlFilters()) || [],
             },
             dateFilter: {
                 enabled: dateModeToggle ? !!dateModeToggle.checked : null,
@@ -180,6 +181,10 @@
             }
             localStorage.setItem('ptag_panel_pinned', JSON.stringify(!!p.panelPinned));
 
+            if (Array.isArray(p.excluded)) {
+                localStorage.setItem('orderTableExcludedPtagXl', JSON.stringify(p.excluded));
+            }
+
             // If state object already exists, also patch it in-memory (it has been initialized
             // earlier from LS, so this is mostly idempotent — kept for safety on hot reload).
             if (window.ProcessingTagState) {
@@ -234,6 +239,7 @@
                 })(),
                 activeFlagFilters: json('ptag_active_flag_filters_v1', []),
                 panelPinned: json('ptag_panel_pinned', false),
+                excluded: json('orderTableExcludedPtagXl', []),
             },
             dateFilter: { enabled: null },
         };

@@ -372,6 +372,11 @@ function _applyFiltersExceptProcessingTag() {
         tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
     }
 
+    // Apply Excluded Tag XL filter (hide orders whose Tag XL matches any excluded key)
+    if (typeof window.hasExcludedPtagXlFilters === 'function' && window.hasExcludedPtagXlFilters()) {
+        tempData = tempData.filter(order => !window.orderHasExcludedPtagXl(String(order.Code || order.Id)));
+    }
+
     return tempData;
 }
 window.getOrdersBeforeProcessingTagFilter = _applyFiltersExceptProcessingTag;

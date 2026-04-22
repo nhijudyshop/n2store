@@ -5414,6 +5414,154 @@
     window.hasActiveProcessingTagFilters = hasActiveProcessingTagFilters;
     window.orderPassesProcessingTagFilter = orderPassesProcessingTagFilter;
 
+    // Helper cho "Ẩn Tag XL" filter — test xem đơn có match 1 filter key hay không.
+    // Swap state tạm thời rồi restore (synchronous, an toàn trong JS single-thread).
+    // Flag keys được lưu dạng 'flag_<id>' → base filter branch xử lý được (line 4751).
+    function _ptagOrderMatchesSingleKey(orderCodeOrId, filterKey) {
+        if (filterKey == null) return false;
+        const savedFilter = ProcessingTagState._activeFilter;
+        const savedFlagFilters = ProcessingTagState._activeFlagFilters;
+        ProcessingTagState._activeFilter = filterKey;
+        ProcessingTagState._activeFlagFilters = new Set();
+        try {
+            return orderPassesProcessingTagFilter(orderCodeOrId);
+        } finally {
+            ProcessingTagState._activeFilter = savedFilter;
+            ProcessingTagState._activeFlagFilters = savedFlagFilters;
+        }
+    }
+    window._ptagOrderMatchesSingleKey = _ptagOrderMatchesSingleKey;
+
+    // Build flat danh sách options (key/label/count/indent/section/search) cho "Ẩn Tag XL"
+    // dropdown — mirror structure của _ptagXlRenderDropdown nhưng không đụng DOM.
+    function _ptagXlGetFilterOptions() {
+        const { totalOrders, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
+        const opts = [];
+
+        opts.push({ key: '__no_tag__', label: '🏷️ Chưa gán Tag XL', count: untaggedCount, search: 'chua gan tag xl' });
+
+        opts.push({ section: true, label: 'PHÂN LOẠI', search: 'phan loai category' });
+
+        opts.push({
+            key: 'cat_0',
+            label: `${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}`,
+            count: catCounts[0] || 0,
+            search: _ptagNormalize(PTAG_CATEGORY_META[0].name)
+        });
+
+        opts.push({
+            key: 'cat_1',
+            label: `${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}`,
+            count: catCounts[1] || 0,
+            search: _ptagNormalize(PTAG_CATEGORY_META[1].name) + ' cho di don oke'
+        });
+        for (const [ssKey, ss] of Object.entries(PTAG_SUBSTATES)) {
+            opts.push({
+                key: 'sub_' + ssKey,
+                label: `↳ ${ss.label}`,
+                labelColor: ss.color,
+                count: subStateCounts[ssKey] || 0,
+                indent: true,
+                search: _ptagNormalize(ss.label)
+            });
+        }
+
+        for (const cat of [2, 3, 4]) {
+            const meta = PTAG_CATEGORY_META[cat];
+            opts.push({
+                key: 'cat_' + cat,
+                label: `${meta.emoji} ${meta.name}`,
+                count: catCounts[cat] || 0,
+                search: _ptagNormalize(meta.name)
+            });
+            for (const [stKey, st] of Object.entries(PTAG_SUBTAGS)) {
+                if (st.category !== cat) continue;
+                const icon = PTAG_SUBTAG_ICONS[stKey] || '•';
+                opts.push({
+                    key: 'subtag_' + stKey,
+                    label: `↳ ${icon} ${st.label}`,
+                    count: subTagCounts[stKey] || 0,
+                    indent: true,
+                    search: _ptagNormalize(st.label)
+                });
+            }
+        }
+
+        opts.push({ section: true, label: 'ĐẶC ĐIỂM (FLAG)', search: 'dac diem flag' });
+        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            opts.push({
+                key: 'flag_' + key,
+                label: `${flag.icon} ${flag.label}`,
+                count: flagCounts[key] || 0,
+                search: _ptagNormalize(flag.label)
+            });
+        }
+        const customFlags = ProcessingTagState.getCustomFlagDefs();
+        for (const cf of customFlags) {
+            opts.push({
+                key: 'flag_' + cf.id,
+                label: `📋 ${cf.label}`,
+                count: flagCounts[cf.id] || 0,
+                indent: true,
+                search: _ptagNormalize(cf.label)
+            });
+        }
+
+        const tTagDefs = ProcessingTagState.getTTagDefinitions();
+        if (tTagDefs.length > 0) {
+            opts.push({ section: true, label: 'TAG T (CHỜ HÀNG)', search: 'tag t cho hang' });
+            for (const def of tTagDefs) {
+                opts.push({
+                    key: 'ttag_' + def.id,
+                    label: `🏷️ ${ProcessingTagState.getTTagLabel(def.id)}`,
+                    count: tTagCounts[def.id] || 0,
+                    search: _ptagNormalize(def.name + ' ' + (def.productCode || ''))
+                });
+            }
+        }
+
+        return opts;
+    }
+    window._ptagXlGetFilterOptions = _ptagXlGetFilterOptions;
+
+    // Resolve label từ filter key (cho display text "Ẩn X tag XL")
+    function _ptagXlResolveKeyLabel(key) {
+        if (!key) return '';
+        if (key === '__no_tag__') return 'Chưa gán';
+        if (key === '__don_chot__') return 'Đơn Chốt';
+        if (key.startsWith('cat_')) {
+            const meta = PTAG_CATEGORY_META[parseInt(key.replace('cat_', ''))];
+            return meta ? meta.short : key;
+        }
+        if (key.startsWith('sub_')) {
+            const ss = PTAG_SUBSTATES[key.replace('sub_', '')];
+            return ss ? ss.label : key.replace('sub_', '');
+        }
+        if (key.startsWith('subtag_')) {
+            const st = PTAG_SUBTAGS[key.replace('subtag_', '')];
+            return st ? st.label : key.replace('subtag_', '');
+        }
+        if (key.startsWith('flag_')) {
+            const fKey = key.replace('flag_', '');
+            const fl = PTAG_FLAGS[fKey];
+            if (fl) return fl.label;
+            const cf = ProcessingTagState.getCustomFlagDef(fKey);
+            return cf ? cf.label : fKey;
+        }
+        if (key.startsWith('ttag_')) {
+            return ProcessingTagState.getTTagName(key.replace('ttag_', '')) || key.replace('ttag_', '');
+        }
+        return key;
+    }
+    window._ptagXlResolveKeyLabel = _ptagXlResolveKeyLabel;
+
+    // Re-render "Ẩn Tag XL" dropdown khi counts thay đổi (từ panel hay realtime update)
+    window._ptagXlRerenderExcludeIfOpen = function() {
+        if (typeof window._excludePtagXlPopulateIfOpen === 'function') {
+            window._excludePtagXlPopulateIfOpen();
+        }
+    };
+
     // --- Cleanup empty tags (custom flags + T-tags with 0 orders) ---
     async function _ptagCleanupEmptyTags() {
         // Compute flag & T-tag counts from ALL tagged orders (across all campaigns)
