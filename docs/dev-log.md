@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders] Fix bug double note CSKH — race SSE vs POST response
+| | |
+|---|---|
+| **Files** | [orders-report/js/tab1/tab1-order-notes.js](orders-report/js/tab1/tab1-order-notes.js) |
+| **Chi tiết** | User báo "tỉ lệ nhập ghi chú bị double dữ liệu". **Root cause**: race condition — SSE connection persistent (`order_notes_global` key) nên event `created` từ server có thể về client TRƯỚC POST response: (1) client POST `/api/order-notes/entries`; (2) server commit + broadcast SSE rồi mới trả response; (3) SSE event về trước → `_applyRemoteEvent` upsert (push vì chưa thấy id) ← note xuất hiện lần 1; (4) POST response về → `add()` chạy `arr.push(body.note)` không dedup ← note xuất hiện lần 2 với cùng id. **Fix**: (a) extract `_upsertNote(note)` helper dedup by id; (b) `add()` và `edit()` dùng `_upsertNote` thay vì `arr.push()` / `arr[idx]=` trực tiếp — cover cả case SSE delete đến trước edit response (resurrect đúng cách); (c) `_loadFromAPI` dùng `_upsertNote` (defensive cho server dup, tuy hiếm); (d) `_loadFromLocalStorage` dùng `_upsertNote` để clean cache cũ bị double từ các session trước khi fix; (e) `renderCellInner` thêm `seen = Set<id>` dedup layer cuối trước DOM — phòng thủ 2 lớp nếu data bị dup ở layer dưới. User refresh page là cache dup sẽ tự clean. |
+| **Status** | ✅ Done |
+
 ### [orders] TAG XL render song song với bảng — loại flash 2 bước paint
 | | |
 |---|---|
