@@ -2718,9 +2718,6 @@ async function preGenerateBillImages() {
     );
     window.preGeneratedBillData.clear();
 
-    // Emit per-item "ready" events so auto-send consumer can start immediately
-    if (!window.preGenEvents) window.preGenEvents = new EventTarget();
-
     let preGenDoneCount = 0;
     const processOne = async (i) => {
         const order = successOrders[i];
@@ -2876,27 +2873,16 @@ async function preGenerateBillImages() {
                 );
             }
 
-            // Cache the data
+            // Cache the data — auto-send consumer reads via window.preGeneratedBillData.get()
+            // on its own schedule, so no event emit needed (fast-path in performActualSend).
             const cacheKey = order.Id || order.Number;
-            const entry = {
+            window.preGeneratedBillData.set(cacheKey, {
                 imageBlob,
                 contentUrl,
                 contentId,
                 enrichedOrder,
                 sendTask,
-            };
-            window.preGeneratedBillData.set(cacheKey, entry);
-
-            // Notify consumers (auto-send) that this bill is ready
-            window.preGenEvents.dispatchEvent(
-                new CustomEvent('bill-ready', {
-                    detail: {
-                        cacheKey,
-                        order,
-                        entry,
-                    },
-                })
-            );
+            });
 
             preGenDoneCount++;
             console.log(
@@ -2923,9 +2909,6 @@ async function preGenerateBillImages() {
         () => worker()
     );
     await Promise.all(workers);
-
-    // Signal completion so auto-send consumer can stop waiting for more items
-    window.preGenEvents.dispatchEvent(new CustomEvent('bill-pregen-complete'));
 
     console.log(
         `[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`

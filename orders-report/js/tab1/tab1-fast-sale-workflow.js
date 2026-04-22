@@ -969,6 +969,7 @@
         // Build work items with page (channelId) for per-page cap
         const displayedData = window.displayedData || [];
         const orderStore = window.OrderStore;
+        const invStore = window.InvoiceStatusStore;
         const items = ordersToSend.map((order) => {
             const originalIndex = successOrders.indexOf(order);
             const saleOnlineId = order.SaleOnlineIds?.[0];
@@ -978,7 +979,7 @@
                 : null;
             const postId = saleOnlineOrder?.Facebook_PostId;
             const channelId = postId ? postId.split('_')[0] : null;
-            return { order, originalIndex, channelId };
+            return { order, originalIndex, channelId, saleOnlineId };
         });
 
         const total = items.length;
@@ -1025,38 +1026,69 @@
                 }
 
                 const item = queue.splice(idx, 1)[0];
-                const { order, originalIndex, channelId } = item;
+                const { order, originalIndex, channelId, saleOnlineId } = item;
+
+                // Pre-flight idempotency: skip if already sent (guard against
+                // double-send when user reopens modal or resumes from cache).
+                if (saleOnlineId && invStore?.isBillSent?.(saleOnlineId)) {
+                    console.log(`[AUTO-SEND] skip ${order.Number}: already sent`);
+                    progress.done++;
+                    if (typeof window.updateAutoSendToast === 'function') {
+                        window.updateAutoSendToast(progress);
+                    }
+                    continue;
+                }
+
                 if (channelId) {
                     pageInFlight.set(channelId, (pageInFlight.get(channelId) || 0) + 1);
                 }
 
                 let lastError = null;
-                for (let attempt = 1; attempt <= 2; attempt++) {
-                    try {
-                        await window.sendBillManually(originalIndex, true);
-                        progress.sent++;
-                        lastError = null;
-                        break;
-                    } catch (e) {
-                        lastError = e;
-                        console.error(
-                            `[AUTO-SEND] Error (attempt ${attempt}/2) for ${order.Number}:`,
-                            e
-                        );
-                        if (attempt === 1 && isTransient(e)) {
-                            await new Promise((r) => setTimeout(r, 2000));
-                            continue;
+                try {
+                    for (let attempt = 1; attempt <= 2; attempt++) {
+                        try {
+                            await window.sendBillManually(originalIndex, true);
+                            progress.sent++;
+                            lastError = null;
+                            break;
+                        } catch (e) {
+                            lastError = e;
+                            console.error(
+                                `[AUTO-SEND] Error (attempt ${attempt}/2) for ${order.Number}:`,
+                                e
+                            );
+                            // Critical idempotency: if the first attempt silently succeeded
+                            // (Pancake delivered but client threw post-response), the store
+                            // will have markBillSent → skip retry to avoid double-send.
+                            if (
+                                attempt === 1 &&
+                                saleOnlineId &&
+                                invStore?.isBillSent?.(saleOnlineId)
+                            ) {
+                                console.warn(
+                                    `[AUTO-SEND] ${order.Number}: bill marked sent despite error — skipping retry (avoid double-send)`
+                                );
+                                progress.sent++;
+                                lastError = null;
+                                break;
+                            }
+                            if (attempt === 1 && isTransient(e)) {
+                                await new Promise((r) => setTimeout(r, 2000));
+                                continue;
+                            }
+                            break;
                         }
-                        break;
                     }
-                }
-                if (lastError) {
-                    progress.failed++;
-                    errors.push(`${order.Number || order.Reference}: ${lastError.message}`);
-                }
-
-                if (channelId) {
-                    pageInFlight.set(channelId, (pageInFlight.get(channelId) || 1) - 1);
+                    if (lastError) {
+                        progress.failed++;
+                        errors.push(`${order.Number || order.Reference}: ${lastError.message}`);
+                    }
+                } finally {
+                    if (channelId) {
+                        // Clamp at 0 — decrement even if we crashed mid-retry
+                        const curr = pageInFlight.get(channelId) || 0;
+                        pageInFlight.set(channelId, Math.max(0, curr - 1));
+                    }
                 }
                 progress.done++;
                 if (typeof window.updateAutoSendToast === 'function') {
