@@ -1334,14 +1334,20 @@
                 const sc = String(inv.StateCode || 'None');
                 return !inv.IsMergeCancel && st !== 'cancel' && sc !== 'cancel' && sc !== 'IsMergeCancel';
             });
-            if (hasActive) candidates.push(orderId);
+            if (hasActive) candidates.push({ orderId, orderCode });
         });
 
         if (candidates.length === 0) return;
         console.log(`${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`);
 
-        for (const orderId of candidates) {
+        for (const { orderId, orderCode } of candidates) {
             try {
+                // Re-check ngay trước khi flip — tránh race: user có thể vừa đổi
+                // category trong lúc reconcile đang lặp (candidates snapshot cũ).
+                // Nếu category không còn là CHO_DI_DON → bỏ qua để tôn trọng
+                // user intent (chặn bug loop-override MỤC XỬ LÝ đã fix ở 0c167717).
+                const currentData = ProcessingTagState.getOrderData(orderCode);
+                if (!currentData || currentData.category !== PTAG_CATEGORIES.CHO_DI_DON) continue;
                 await onPtagBillCreated(orderId);
             } catch (e) {
                 console.warn(`${PTAG_LOG} reconcile failed for ${orderId}:`, e);

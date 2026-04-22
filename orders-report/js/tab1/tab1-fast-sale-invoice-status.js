@@ -1181,6 +1181,12 @@
             this._refreshInvoiceStatusUI(allSaleIds);
             this._syncToFulfillmentData?.();
 
+            // Reconcile tag XL sau khi fetch tươi từ TPOS: nhiều đơn có PBH do user
+            // khác tạo hoặc tạo từ TPOS trực tiếp sẽ lộ ra ở đây.
+            if (typeof window.reconcileTagsWithInvoices === 'function') {
+                window.reconcileTagsWithInvoices().catch(() => {});
+            }
+
             window.notificationManager?.success(
                 `✅ Refresh PBH xong: ${found}/${total} đơn có phiếu, ${errors} batch lỗi`
             );
