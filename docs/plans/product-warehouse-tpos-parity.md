@@ -22,28 +22,31 @@
 
 ## Phase Roadmap
 
-### Phase 1 (P1) — Toolbar cốt lõi
+### Phase 1 (P1) — Toolbar cốt lõi ✅
 - [x] P0: Fix `allProducts` bug (bulk print)
-- [ ] P1.1: Thêm SP (modal Create + InsertV2)
-- [ ] P1.2: Cột Tag thật + filter theo Tag
-- [ ] P1.3: Xuất Excel (filtered set → .xlsx)
-- [ ] P1.4: Nhập Excel (XLSX → batch InsertV2, dry-run preview)
-- [ ] P1.5: Cập nhật giá từ file (XLSX → batch UpdateV2)
+- [x] P1.1: Thêm SP (modal Create + InsertV2)
+- [x] P1.2: Cột Tag + filter theo Tag (via TPOS → template_ids bridge)
+- [x] P1.3: Xuất Excel (filtered set → .xlsx, SheetJS CDN)
+- [x] P1.4: Nhập Excel (XLSX → batch InsertV2, dry-run preview)
+- [x] P1.5: Cập nhật giá từ file (XLSX → batch UpdateV2)
 
-### Phase 2 (P2) — Edit phức tạp
-- [ ] P2.1: Edit biến thể inline (PriceVariant, Barcode, Active)
-- [ ] P2.2: Quản lý thuộc tính (add/remove AttributeLines + regenerate variants)
-- [ ] P2.3: Bulk actions dropdown (archive many, assign tag, bulk price)
+### Phase 2 (P2) — Edit phức tạp ✅
+- [x] P2.1: Edit biến thể inline (DefaultCode, Barcode, PriceVariant, Active per variant)
+- [x] P2.2: Quản lý thuộc tính (add/edit/remove AttributeLines + regenerate variants cartesian)
+- [x] P2.3: Bulk actions dropdown (archive many, activate many, assign tag bulk — add/replace/remove modes, bulk print)
 
-### Phase 3 (P3) — Chức năng nâng cao
-- [ ] P3.1: Combo (ComboProducts) — tạo SP combo
-- [ ] P3.2: UOM quy đổi (UOMLines) — đơn vị tính nhiều cấp
-- [ ] P3.3: Bảng giá (Product_PriceList) — multi-tier pricing
-- [ ] P3.4: StockChangeProductQty — điều chỉnh tồn kho
-- [ ] P3.5: ProductSupplierInfo — nhà cung cấp per SP
-- [ ] P3.6: GetAuditLogEntity — audit trail modal
-- [ ] P3.7: Cấu hình giấy in mã vạch (ProductLabelPaper)
-- [ ] P3.8: Lazada/Shopee sync (skip nếu không có API creds)
+### Phase 3 (P3) — Chức năng nâng cao (partial ✅)
+- [x] P3.1: Combo (ComboProducts) — tạo/sửa SP combo với SP con + qty + price
+- [x] P3.2: UOM quy đổi (UOMLines) — nhiều cấp ĐVT
+- [ ] P3.3: Bảng giá (Product_PriceList) — **SKIP** (hiếm dùng, complex, defer)
+- [x] P3.4: StockChangeProductQty — điều chỉnh tồn kho (3 endpoint fallbacks)
+- [x] P3.5: ProductSupplierInfo — NCC per SP (với search partner)
+- [x] P3.6: GetAuditLogEntity — audit trail (3 endpoint fallbacks)
+- [ ] P3.7: Cấu hình giấy in mã vạch (ProductLabelPaper) — **SKIP** (config-level, UI đã có BarcodeLabelDialog)
+- [ ] P3.8: Lazada/Shopee sync — **SKIP** (không có API creds)
+
+### Tags picker trong edit modal
+- [x] Tag picker hiển thị toàn bộ tag với màu; click để chọn/bỏ chọn; merge vào payload `Tags` khi save.
 
 ---
 

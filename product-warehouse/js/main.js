@@ -789,6 +789,7 @@
                             <div class="action-btns">
                                 <button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>
                                 <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                                <button class="btn-action btn-action-stock" title="Điều chỉnh tồn" style="color:#0ea5e9;"><i data-lucide="package-plus"></i></button>
                                 <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
                                 <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>
                             </div>
@@ -1043,6 +1044,8 @@
             // Row click (exclude checkbox, actions buttons, image)
             if (e.target.closest('.col-checkbox') ||
                 e.target.closest('.btn-action-edit') ||
+                e.target.closest('.btn-action-stock') ||
+                e.target.closest('.btn-action-print') ||
                 e.target.closest('.btn-action-delete') ||
                 e.target.closest('.product-image-cell') ||
                 e.target.closest('.variant-expand-row')) return;
@@ -1122,6 +1125,112 @@
         $('#filterTag')?.addEventListener('change', () => {
             currentPage = 1;
             fetchProducts();
+        });
+
+        // --- P2/P3 features ---
+        // AttributeLines add/edit/delete
+        $('#btnAddAttributeLine')?.addEventListener('click', () => promptAttributeLine(null));
+        $('#attributeLinesList')?.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('[data-edit-attr-line]');
+            if (editBtn) {
+                promptAttributeLine(parseInt(editBtn.dataset.editAttrLine));
+                return;
+            }
+            const delBtn = e.target.closest('[data-del-attr-line]');
+            if (delBtn) {
+                const idx = parseInt(delBtn.dataset.delAttrLine);
+                editAttributeLines.splice(idx, 1);
+                renderAttributeLines();
+            }
+        });
+        $('#btnRegenVariants')?.addEventListener('click', () => {
+            if (!editAttributeLines.length) {
+                showToast('Chưa có thuộc tính — không có gì để tạo biến thể', 'info');
+                return;
+            }
+            if (editVariants.length && !confirm('Tạo lại biến thể sẽ giữ lại các biến thể khớp thuộc tính + tạo biến thể mới. Tiếp tục?')) return;
+            regenerateVariants();
+            showToast(`Đã tạo ${editVariants.length} biến thể`, 'success');
+        });
+
+        // Combo toggle + delete
+        $('#editIsCombo')?.addEventListener('change', () => renderComboItems());
+        $('#comboItemsList')?.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-del-combo]');
+            if (del) {
+                editComboProducts.splice(parseInt(del.dataset.delCombo), 1);
+                renderComboItems();
+            }
+        });
+        $('#comboItemsList')?.addEventListener('change', (e) => {
+            const qty = e.target.closest('[data-combo-qty]');
+            const price = e.target.closest('[data-combo-price]');
+            if (qty) editComboProducts[parseInt(qty.dataset.comboQty)].Quantity = parseInt(qty.value) || 1;
+            if (price) editComboProducts[parseInt(price.dataset.comboPrice)].ProductPrice = parseFloat(price.value) || 0;
+        });
+
+        // UOM Lines add/delete
+        $('#btnAddUOMLine')?.addEventListener('click', () => {
+            const defaultUOM = (cachedUOMs || [])[0];
+            editUOMLines.push({ UOMId: defaultUOM?.Id || 1, Name: defaultUOM?.Name || 'Cái', FactorInv: 1 });
+            renderUOMLines();
+        });
+        $('#uomLinesTbody')?.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-del-uomline]');
+            if (del) {
+                editUOMLines.splice(parseInt(del.dataset.delUomline), 1);
+                renderUOMLines();
+            }
+        });
+
+        // Supplier delete
+        $('#supplierTbody')?.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-del-sup]');
+            if (del) {
+                editSupplierInfos.splice(parseInt(del.dataset.delSup), 1);
+                renderSuppliers();
+            }
+        });
+
+        // Audit log load
+        $('#btnLoadAuditLog')?.addEventListener('click', () => {
+            const id = parseInt($('#editProductId').value);
+            if (id) loadAuditLog(id);
+        });
+
+        // Stock adjust
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            const stockBtn = e.target.closest('.btn-action-stock');
+            if (stockBtn) {
+                e.stopPropagation();
+                const row = stockBtn.closest('tr[data-template-id]');
+                if (row) openStockAdjust(parseInt(row.dataset.templateId, 10));
+            }
+        });
+        $('#closeStockAdjust')?.addEventListener('click', closeStockAdjust);
+        $('#cancelStockAdjust')?.addEventListener('click', closeStockAdjust);
+        $('#confirmStockAdjust')?.addEventListener('click', confirmStockAdjust);
+        $('#stockAdjustModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeStockAdjust();
+        });
+
+        // Bulk actions
+        $('#btnBulkActions')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleBulkMenu();
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.bulk-actions-wrap')) toggleBulkMenu(false);
+        });
+        $('#bulkActionsMenu')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.bulk-action-item');
+            if (btn) handleBulkAction(btn.dataset.action);
+        });
+        $('#closeBulkTag')?.addEventListener('click', closeBulkTagModal);
+        $('#cancelBulkTag')?.addEventListener('click', closeBulkTagModal);
+        $('#confirmBulkTag')?.addEventListener('click', confirmBulkTag);
+        $('#bulkTagModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeBulkTagModal();
         });
 
         // Column settings modal
@@ -1272,6 +1381,9 @@
             $('#editDescriptionPurchase').value = detail.DescriptionPurchase || '';
             $('#editDescription').value = detail.Description || '';
 
+            // Populate Phase 2/3 sections
+            await populateAdvancedSections(detail);
+
             $('#editProductModal').classList.add('show');
             WS.initIcons();
         } catch (err) {
@@ -1285,6 +1397,7 @@
         editingProduct = null;
         editImageBase64 = null;
         modalMode = 'edit';
+        resetAdvancedSections();
     }
 
     /**
@@ -1359,6 +1472,9 @@
         payload.DescriptionSale = $('#editDescriptionSale').value.trim();
         payload.DescriptionPurchase = $('#editDescriptionPurchase').value.trim();
         payload.Description = $('#editDescription').value.trim();
+
+        // Merge Phase 2/3 advanced sections (variants, attrs, combo, uom-lines, supplier, tags)
+        mergeAdvancedIntoPayload(payload);
 
         try {
             showToast('Đang lưu...', 'info');
@@ -1531,6 +1647,15 @@
             const imgPreview = $('#editImagePreview');
             if (imgPreview) imgPreview.innerHTML = '<span style="color:#9ca3af;font-size:11px;">No image</span>';
 
+            // Reset advanced sections + render empty tag picker
+            resetAdvancedSections();
+            await renderTagsPicker([]);
+            bindTagsPickerEvents();
+            bindComboSearchEvents();
+            bindSupplierEvents();
+            bindUOMLinesEvents();
+            bindVariantsTableEvents();
+
             $('#editProductModal').classList.add('show');
             WS.initIcons();
         } catch (err) {
@@ -1698,6 +1823,8 @@
         try {
             showToast('Đang tạo SP...', 'info');
             const payload = _buildInsertPayload(spec);
+            // Merge Phase 2/3 sections if user configured them in the modal
+            mergeAdvancedIntoPayload(payload);
             const data = await _insertProductTPOS(payload);
             showToast(`Đã tạo SP #${data.Id} (${data.DefaultCode}). Đang đồng bộ...`, 'success');
             closeEditModal();
@@ -2271,6 +2398,877 @@
             closeBulkPrice();
             fetchProducts(true);
         }, 3000);
+    }
+
+    // =====================================================
+    // PHASE 2+3: ATTRIBUTES, VARIANTS, COMBO, UOM LINES, SUPPLIER, AUDIT LOG
+    // =====================================================
+    let cachedAttributes = null;        // ProductAttribute list (with Values)
+    let editAttributeLines = [];        // [{AttributeId, Attribute, Values:[]}]
+    let editVariants = [];              // working copy of ProductVariants (Id, DefaultCode, Barcode, PriceVariant, Active, AttributeValues)
+    let editComboProducts = [];         // [{ProductId, ProductNameGet, Quantity, ProductPrice}]
+    let editUOMLines = [];              // [{UOMId, FactorInv, Name}]
+    let editSupplierInfos = [];         // [{PartnerId, PartnerName, ProductCode, Price, MinQty}]
+    let editTagIds = new Set();         // Tag IDs selected for this product
+
+    async function ensureAttributesList() {
+        if (cachedAttributes) return cachedAttributes;
+        try {
+            const url = `${PROXY_URL}/api/odata/ProductAttribute?$expand=Values&$orderby=Id asc&$top=200`;
+            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            cachedAttributes = data.value || [];
+            return cachedAttributes;
+        } catch (err) {
+            console.warn('[Attr] Load failed:', err.message);
+            cachedAttributes = [];
+            return [];
+        }
+    }
+
+    function renderAttributeLines() {
+        const list = $('#attributeLinesList');
+        if (!list) return;
+        if (!editAttributeLines.length) {
+            list.innerHTML = '<div style="color:#9ca3af;font-size:12px;">Chưa có thuộc tính — SP không biến thể.</div>';
+            return;
+        }
+        list.innerHTML = editAttributeLines.map((line, idx) => {
+            const attr = line.Attribute || {};
+            const values = (line.Values || []).map(v => v.Name).join(', ');
+            return `<div style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;background:#fff;">
+                <strong style="min-width:80px;font-size:12px;">${escapeHtml(attr.Name || '?')}</strong>
+                <span style="flex:1;font-size:11px;color:#6b7280;">${escapeHtml(values) || '(chưa chọn giá trị)'}</span>
+                <button type="button" data-edit-attr-line="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Sửa</button>
+                <button type="button" data-del-attr-line="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
+            </div>`;
+        }).join('');
+    }
+
+    async function promptAttributeLine(existingIdx = null) {
+        await ensureAttributesList();
+        if (!cachedAttributes.length) {
+            showToast('Không load được danh sách thuộc tính', 'error');
+            return;
+        }
+        // Build picker: select Attribute + check Values
+        const existing = existingIdx !== null ? editAttributeLines[existingIdx] : null;
+
+        const attrOpts = cachedAttributes.map(a =>
+            `<option value="${a.Id}"${existing && existing.AttributeId === a.Id ? ' selected' : ''}>${escapeHtml(a.Name)}</option>`
+        ).join('');
+
+        const dlg = document.createElement('div');
+        dlg.className = 'column-settings-modal show';
+        dlg.style.zIndex = '10000';
+        dlg.innerHTML = `
+            <div class="column-settings-modal-content" style="max-width:480px;">
+                <div class="column-settings-modal-header">
+                    <h3>${existing ? 'Sửa' : 'Thêm'} thuộc tính</h3>
+                    <button class="column-settings-modal-close" data-act="cancel">&times;</button>
+                </div>
+                <div class="column-settings-modal-body" style="padding:16px;">
+                    <label class="edit-label">Thuộc tính</label>
+                    <select id="_attrSel" class="edit-input" style="margin-bottom:12px;">${attrOpts}</select>
+                    <label class="edit-label">Giá trị</label>
+                    <div id="_attrValList" style="max-height:260px;overflow:auto;display:grid;gap:4px;padding:8px;border:1px solid #e5e7eb;border-radius:6px;"></div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button class="column-settings-btn column-settings-btn-cancel" data-act="cancel">Hủy</button>
+                    <button class="column-settings-btn column-settings-btn-save" data-act="ok"><i data-lucide="check"></i> OK</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dlg);
+        WS.initIcons();
+
+        const renderValues = () => {
+            const sel = dlg.querySelector('#_attrSel');
+            const attr = cachedAttributes.find(a => a.Id == sel.value);
+            const existingIds = new Set((existing?.Values || []).map(v => v.Id));
+            const vals = (attr?.Values || []);
+            dlg.querySelector('#_attrValList').innerHTML = vals.length
+                ? vals.map(v => `<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" value="${v.Id}"${existingIds.has(v.Id) ? ' checked' : ''}> ${escapeHtml(v.Name)}</label>`).join('')
+                : '<div style="color:#9ca3af;font-size:12px;">(Chưa có giá trị — tạo trên TPOS trước)</div>';
+        };
+        renderValues();
+        dlg.querySelector('#_attrSel').addEventListener('change', renderValues);
+
+        return new Promise(resolve => {
+            dlg.addEventListener('click', (e) => {
+                const act = e.target.closest('[data-act]')?.dataset.act;
+                if (act === 'cancel') {
+                    dlg.remove();
+                    resolve(null);
+                } else if (act === 'ok') {
+                    const attrId = parseInt(dlg.querySelector('#_attrSel').value);
+                    const attr = cachedAttributes.find(a => a.Id === attrId);
+                    const checkedIds = Array.from(dlg.querySelectorAll('#_attrValList input:checked')).map(i => parseInt(i.value));
+                    const values = (attr?.Values || []).filter(v => checkedIds.includes(v.Id));
+                    if (!attr || !values.length) {
+                        showToast('Chọn ít nhất 1 giá trị', 'error');
+                        return;
+                    }
+                    const line = {
+                        AttributeId: attr.Id,
+                        Attribute: { Id: attr.Id, Name: attr.Name, Code: attr.Code || null, Sequence: null, CreateVariant: attr.CreateVariant !== false },
+                        Values: values.map(v => ({
+                            Id: v.Id, Name: v.Name, Code: v.Code || null,
+                            Sequence: v.Sequence || null, AttributeId: attr.Id, AttributeName: attr.Name,
+                            PriceExtra: v.PriceExtra || null, NameGet: v.Name, DateCreated: null,
+                        })),
+                    };
+                    if (existingIdx !== null) editAttributeLines[existingIdx] = line;
+                    else editAttributeLines.push(line);
+                    renderAttributeLines();
+                    dlg.remove();
+                    resolve(line);
+                }
+            });
+        });
+    }
+
+    /**
+     * Generate cartesian product of AttributeLines.Values → create new variant rows.
+     * Preserve existing variants (by matching AttributeValues signature) so edits aren't lost.
+     */
+    function regenerateVariants() {
+        if (!editAttributeLines.length) {
+            editVariants = [];
+            renderVariantsTable();
+            return;
+        }
+        // Cartesian product
+        const combos = [[]];
+        for (const line of editAttributeLines) {
+            const next = [];
+            for (const combo of combos) {
+                for (const v of (line.Values || [])) {
+                    next.push([...combo, v]);
+                }
+            }
+            combos.length = 0;
+            combos.push(...next);
+        }
+
+        // Build lookup of existing by signature
+        const sig = (attrValues) => (attrValues || []).map(v => v.Id).sort((a,b)=>a-b).join('|');
+        const existingBySig = new Map();
+        for (const v of editVariants) {
+            existingBySig.set(sig(v.AttributeValues || []), v);
+        }
+
+        const templateCode = $('#editProductCode')?.value?.trim() || 'SP';
+        const listPrice = parseFloat($('#editListPrice')?.value) || 0;
+
+        editVariants = combos.map((combo) => {
+            const signature = sig(combo);
+            const existing = existingBySig.get(signature);
+            if (existing) return existing;
+            // New variant
+            const attrStr = combo.map(v => v.Name).join(', ');
+            return {
+                Id: 0,
+                DefaultCode: `${templateCode}-${combo.map(v => v.Code || v.Name).join('-')}`.replace(/\s+/g, ''),
+                Barcode: null,
+                PriceVariant: listPrice,
+                Active: true,
+                AttributeValues: combo.map(v => ({
+                    Id: v.Id, Name: v.Name, Code: v.Code || null,
+                    Sequence: v.Sequence || null, AttributeId: v.AttributeId, AttributeName: v.AttributeName,
+                    PriceExtra: v.PriceExtra || null, NameGet: v.Name, DateCreated: null,
+                })),
+                NameGet: `[${templateCode}] (${attrStr})`,
+                ListPrice: listPrice, StandardPrice: 0,
+                SaleOK: true, PurchaseOK: true, AvailableInPOS: true,
+                Type: 'product', TaxesIds: [],
+            };
+        });
+        renderVariantsTable();
+    }
+
+    function renderVariantsTable() {
+        const tbody = $('#variantsTbody');
+        if (!tbody) return;
+        if (!editVariants.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#9ca3af;text-align:center;">Chưa có biến thể</td></tr>';
+            return;
+        }
+        tbody.innerHTML = editVariants.map((v, idx) => {
+            const attrStr = (v.AttributeValues || []).map(a => a.Name).join(', ');
+            return `<tr data-variant-idx="${idx}">
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;font-size:11px;">${escapeHtml(attrStr) || '—'}</td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="variant-input" data-field="DefaultCode" value="${escapeHtml(v.DefaultCode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="variant-input" data-field="Barcode" value="${escapeHtml(v.Barcode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="variant-input" data-field="PriceVariant" value="${v.PriceVariant || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;"><input type="checkbox" class="variant-input" data-field="Active" ${v.Active !== false ? 'checked' : ''}></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function bindVariantsTableEvents() {
+        const tbody = $('#variantsTbody');
+        if (!tbody || tbody._bound) return;
+        tbody._bound = true;
+        tbody.addEventListener('change', (e) => {
+            const input = e.target.closest('.variant-input');
+            if (!input) return;
+            const row = input.closest('tr[data-variant-idx]');
+            const idx = parseInt(row.dataset.variantIdx);
+            const field = input.dataset.field;
+            if (!editVariants[idx]) return;
+            if (field === 'Active') editVariants[idx].Active = input.checked;
+            else if (field === 'PriceVariant') editVariants[idx].PriceVariant = parseFloat(input.value) || 0;
+            else editVariants[idx][field] = input.value.trim();
+        });
+    }
+
+    // --------- Combo ---------
+    function renderComboItems() {
+        const wrap = $('#comboWrap');
+        const list = $('#comboItemsList');
+        if (!wrap || !list) return;
+        wrap.style.display = $('#editIsCombo')?.checked ? 'block' : 'none';
+        list.innerHTML = editComboProducts.length
+            ? editComboProducts.map((it, idx) => `
+                <div style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;">
+                    <span style="flex:1;font-size:12px;">${escapeHtml(it.ProductNameGet || '?')}</span>
+                    <input type="number" value="${it.Quantity || 1}" min="1" data-combo-qty="${idx}" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;" title="Số lượng">
+                    <input type="number" value="${it.ProductPrice || 0}" min="0" data-combo-price="${idx}" style="width:90px;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;" title="Đơn giá">
+                    <button type="button" data-del-combo="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
+                </div>`).join('')
+            : '<div style="color:#9ca3af;font-size:12px;">Chưa có SP con.</div>';
+    }
+
+    async function searchComboProduct(query) {
+        if (!query || query.length < 2) return [];
+        try {
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=10&$filter=contains(NameGet,'${encodeURIComponent(query)}') or contains(DefaultCode,'${encodeURIComponent(query)}')`;
+            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) return [];
+            const data = await r.json();
+            return data.value || [];
+        } catch { return []; }
+    }
+
+    function bindComboSearchEvents() {
+        const input = $('#comboSearchInput');
+        const results = $('#comboSearchResults');
+        if (!input || input._bound) return;
+        input._bound = true;
+
+        let timer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const q = input.value.trim();
+                if (!q) { results.style.display = 'none'; return; }
+                const list = await searchComboProduct(q);
+                if (!list.length) {
+                    results.innerHTML = '<div style="padding:8px;color:#9ca3af;">Không tìm thấy</div>';
+                } else {
+                    results.innerHTML = list.map(p => `<div data-combo-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">[${escapeHtml(p.DefaultCode||'')}] ${escapeHtml(p.Name||'')} — ${formatPrice(p.ListPrice||0)}</div>`).join('');
+                }
+                // Position it
+                const rect = input.getBoundingClientRect();
+                results.style.width = rect.width + 'px';
+                results.style.display = 'block';
+                results.dataset.products = JSON.stringify(list);
+            }, 300);
+        });
+        input.addEventListener('blur', () => setTimeout(() => { results.style.display = 'none'; }, 200));
+        results.addEventListener('mousedown', (e) => {
+            const el = e.target.closest('[data-combo-add]');
+            if (!el) return;
+            const pid = parseInt(el.dataset.comboAdd);
+            const list = JSON.parse(results.dataset.products || '[]');
+            const product = list.find(p => p.Id === pid);
+            if (product && !editComboProducts.find(c => c.ProductId === pid)) {
+                editComboProducts.push({
+                    ProductId: product.Id,
+                    ProductNameGet: product.NameGet || `[${product.DefaultCode}] ${product.Name}`,
+                    Quantity: 1,
+                    ProductPrice: product.ListPrice || 0,
+                });
+                renderComboItems();
+            }
+            input.value = '';
+            results.style.display = 'none';
+        });
+    }
+
+    // --------- UOM Lines ---------
+    function renderUOMLines() {
+        const tbody = $('#uomLinesTbody');
+        if (!tbody) return;
+        const uomOpts = (cachedUOMs || []).map(u => `<option value="${u.Id}">${escapeHtml(u.Name)}</option>`).join('');
+        if (!editUOMLines.length) {
+            tbody.innerHTML = '<tr><td colspan="3" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có ĐVT quy đổi</td></tr>';
+            return;
+        }
+        tbody.innerHTML = editUOMLines.map((line, idx) => `
+            <tr data-uomline-idx="${idx}">
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;">
+                    <select class="uomline-input" data-field="UOMId" style="width:100%;padding:2px 4px;font-size:11px;">
+                        ${uomOpts.replace(`value="${line.UOMId}"`, `value="${line.UOMId}" selected`)}
+                    </select>
+                </td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;">
+                    <input type="number" class="uomline-input" data-field="FactorInv" value="${line.FactorInv || 1}" min="0.001" step="0.001" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;">
+                </td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;">
+                    <button type="button" data-del-uomline="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
+                </td>
+            </tr>`).join('');
+    }
+
+    function bindUOMLinesEvents() {
+        const tbody = $('#uomLinesTbody');
+        if (!tbody || tbody._bound) return;
+        tbody._bound = true;
+        tbody.addEventListener('change', (e) => {
+            const input = e.target.closest('.uomline-input');
+            if (!input) return;
+            const row = input.closest('tr[data-uomline-idx]');
+            const idx = parseInt(row.dataset.uomlineIdx);
+            if (!editUOMLines[idx]) return;
+            const field = input.dataset.field;
+            if (field === 'UOMId') {
+                const uomId = parseInt(input.value);
+                const uom = (cachedUOMs || []).find(u => u.Id === uomId);
+                editUOMLines[idx].UOMId = uomId;
+                editUOMLines[idx].Name = uom?.Name || '';
+            } else {
+                editUOMLines[idx].FactorInv = parseFloat(input.value) || 1;
+            }
+        });
+    }
+
+    // --------- Supplier Infos ---------
+    function renderSuppliers() {
+        const tbody = $('#supplierTbody');
+        if (!tbody) return;
+        if (!editSupplierInfos.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có NCC</td></tr>';
+            return;
+        }
+        tbody.innerHTML = editSupplierInfos.map((s, idx) => `
+            <tr data-supplier-idx="${idx}">
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;font-size:12px;">${escapeHtml(s.PartnerName || s.Partner?.Name || '?')}</td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="sup-input" data-field="ProductCode" value="${escapeHtml(s.ProductCode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="sup-input" data-field="Price" value="${s.Price || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="sup-input" data-field="MinQty" value="${s.MinQty || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;"><button type="button" data-del-sup="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button></td>
+            </tr>`).join('');
+    }
+
+    function bindSupplierEvents() {
+        const tbody = $('#supplierTbody');
+        if (tbody && !tbody._bound) {
+            tbody._bound = true;
+            tbody.addEventListener('change', (e) => {
+                const input = e.target.closest('.sup-input');
+                if (!input) return;
+                const row = input.closest('tr[data-supplier-idx]');
+                const idx = parseInt(row.dataset.supplierIdx);
+                if (!editSupplierInfos[idx]) return;
+                const field = input.dataset.field;
+                editSupplierInfos[idx][field] = field === 'ProductCode' ? input.value.trim() : (parseFloat(input.value) || 0);
+            });
+        }
+        const input = $('#supplierSearchInput');
+        const results = $('#supplierSearchResults');
+        if (!input || input._bound) return;
+        input._bound = true;
+
+        let timer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const q = input.value.trim();
+                if (q.length < 2) { results.style.display = 'none'; return; }
+                try {
+                    const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Supplier&Active=true&$top=10&$filter=contains(Name,'${encodeURIComponent(q)}')`;
+                    const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const data = await r.json();
+                    const list = data.value || [];
+                    results.innerHTML = list.length
+                        ? list.map(p => `<div data-sup-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">${escapeHtml(p.Name||'')} — ${escapeHtml(p.Phone||'')}</div>`).join('')
+                        : '<div style="padding:8px;color:#9ca3af;">Không tìm thấy</div>';
+                    results.dataset.partners = JSON.stringify(list);
+                    results.style.display = 'block';
+                } catch (err) {
+                    results.innerHTML = `<div style="padding:8px;color:#dc2626;">${escapeHtml(err.message)}</div>`;
+                    results.style.display = 'block';
+                }
+            }, 300);
+        });
+        input.addEventListener('blur', () => setTimeout(() => { results.style.display = 'none'; }, 200));
+        results.addEventListener('mousedown', (e) => {
+            const el = e.target.closest('[data-sup-add]');
+            if (!el) return;
+            const pid = parseInt(el.dataset.supAdd);
+            const list = JSON.parse(results.dataset.partners || '[]');
+            const p = list.find(x => x.Id === pid);
+            if (p && !editSupplierInfos.find(s => s.PartnerId === pid)) {
+                editSupplierInfos.push({
+                    PartnerId: p.Id, PartnerName: p.Name,
+                    Partner: { Id: p.Id, Name: p.Name, Phone: p.Phone || null },
+                    ProductCode: '', Price: 0, MinQty: 0,
+                });
+                renderSuppliers();
+            }
+            input.value = '';
+            results.style.display = 'none';
+        });
+    }
+
+    // --------- Tag Picker (in edit modal) ---------
+    async function renderTagsPicker(productTags = []) {
+        const wrap = $('#tagsPickerList');
+        if (!wrap) return;
+        const tags = await ensureTagList();
+        editTagIds = new Set((productTags || []).map(t => t.Id));
+        if (!tags.length) {
+            wrap.innerHTML = '<span style="font-size:12px;color:#9ca3af;">(Chưa load được nhãn từ TPOS)</span>';
+            return;
+        }
+        wrap.innerHTML = tags.map(t => {
+            const on = editTagIds.has(t.Id);
+            return `<button type="button" data-tag-id="${t.Id}" style="padding:4px 10px;border-radius:12px;border:1.5px solid ${t.Color || '#6366f1'};background:${on ? (t.Color || '#6366f1') : '#fff'};color:${on ? '#fff' : (t.Color || '#6366f1')};font-size:11px;cursor:pointer;">${escapeHtml(t.Name || '')}</button>`;
+        }).join('');
+    }
+
+    function bindTagsPickerEvents() {
+        const wrap = $('#tagsPickerList');
+        if (!wrap || wrap._bound) return;
+        wrap._bound = true;
+        wrap.addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-tag-id]');
+            if (!btn) return;
+            const id = parseInt(btn.dataset.tagId);
+            if (editTagIds.has(id)) editTagIds.delete(id);
+            else editTagIds.add(id);
+            await renderTagsPicker(Array.from(editTagIds).map(id => (cachedTags.find(t => t.Id === id) || { Id: id })));
+        });
+    }
+
+    // --------- Audit Log ---------
+    async function loadAuditLog(templateId) {
+        const content = $('#auditLogContent');
+        if (!content) return;
+        content.innerHTML = '<div style="color:#9ca3af;">Đang tải...</div>';
+        try {
+            // TPOS audit log endpoint varies; try common paths.
+            const candidates = [
+                `${PROXY_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity(entityId=${templateId},entityType='ProductTemplate')`,
+                `${PROXY_URL}/api/odata/AuditLog?$filter=EntityId eq ${templateId} and EntityType eq 'ProductTemplate'&$orderby=DateCreated desc&$top=50`,
+                `${PROXY_URL}/api/odata/ProductTemplate(${templateId})/ODataService.GetAuditLogEntity`,
+            ];
+            let rows = null;
+            for (const url of candidates) {
+                try {
+                    const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    rows = data.value || data.Items || data.data || (Array.isArray(data) ? data : null);
+                    if (rows) break;
+                } catch {}
+            }
+            if (!rows) {
+                content.innerHTML = '<div style="color:#f59e0b;">Endpoint audit log của TPOS chưa xác định — không load được.</div>';
+                return;
+            }
+            if (!rows.length) {
+                content.innerHTML = '<div style="color:#9ca3af;">Không có lịch sử.</div>';
+                return;
+            }
+            content.innerHTML = rows.slice(0, 30).map(r => `
+                <div style="padding:6px 8px;border-bottom:1px solid #f3f4f6;">
+                    <div><strong>${escapeHtml(r.UserName || r.CreatedByName || 'Ẩn danh')}</strong> — <span style="color:#6b7280;">${escapeHtml(r.Action || r.ActionName || '')}</span></div>
+                    <div style="font-size:11px;color:#9ca3af;">${escapeHtml(r.DateCreated || r.CreatedAt || '')}</div>
+                    ${r.Details || r.Description ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(r.Details || r.Description)}</div>` : ''}
+                </div>`).join('');
+        } catch (err) {
+            content.innerHTML = `<div style="color:#dc2626;">Lỗi: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    // --------- Hook up into openEditProduct + saveEditProduct ---------
+    /** Populate all Phase 2/3 sections after product detail loaded. */
+    async function populateAdvancedSections(detail) {
+        // Variants & AttributeLines
+        editAttributeLines = (detail.AttributeLines || []).map(l => ({
+            AttributeId: l.AttributeId || l.Attribute?.Id,
+            Attribute: l.Attribute || { Id: l.AttributeId, Name: '?' },
+            Values: l.Values || [],
+        }));
+        editVariants = (detail.ProductVariants || []).map(v => ({
+            Id: v.Id,
+            DefaultCode: v.DefaultCode || '',
+            Barcode: v.Barcode || '',
+            PriceVariant: v.PriceVariant || v.ListPrice || 0,
+            Active: v.Active !== false,
+            AttributeValues: v.AttributeValues || [],
+            NameGet: v.NameGet,
+            NameTemplate: v.NameTemplate,
+            ListPrice: v.ListPrice || 0, StandardPrice: v.StandardPrice || 0,
+            SaleOK: v.SaleOK !== false, PurchaseOK: v.PurchaseOK !== false, AvailableInPOS: v.AvailableInPOS !== false,
+            Type: v.Type || 'product', TaxesIds: v.TaxesIds || [],
+            UOMId: v.UOMId, QtyAvailable: v.QtyAvailable, EAN13: v.EAN13 || null,
+            Version: v.Version || 0,
+        }));
+        renderAttributeLines();
+        renderVariantsTable();
+        bindVariantsTableEvents();
+
+        // Combo
+        $('#editIsCombo').checked = !!detail.IsCombo;
+        editComboProducts = (detail.ComboProducts || []).map(c => ({
+            ProductId: c.ProductId, ProductNameGet: c.ProductNameGet || c.Product?.NameGet,
+            Quantity: c.Quantity || 1, ProductPrice: c.ProductPrice || 0,
+        }));
+        renderComboItems();
+        bindComboSearchEvents();
+
+        // UOM Lines
+        editUOMLines = (detail.UOMLines || []).map(u => ({
+            Id: u.Id, UOMId: u.UOMId, Name: u.UOM?.Name || u.Name, FactorInv: u.FactorInv || 1,
+        }));
+        renderUOMLines();
+        bindUOMLinesEvents();
+
+        // Supplier infos
+        editSupplierInfos = (detail.ProductSupplierInfos || []).map(s => ({
+            Id: s.Id, PartnerId: s.PartnerId, PartnerName: s.Partner?.Name || s.PartnerName,
+            Partner: s.Partner || null,
+            ProductCode: s.ProductCode || '', Price: s.Price || 0, MinQty: s.MinQty || 0,
+        }));
+        renderSuppliers();
+        bindSupplierEvents();
+
+        // Tags
+        await renderTagsPicker(detail.Tags || []);
+        bindTagsPickerEvents();
+
+        // Audit log — just reset (user must click Load)
+        $('#auditLogContent').innerHTML = '';
+    }
+
+    function resetAdvancedSections() {
+        editAttributeLines = [];
+        editVariants = [];
+        editComboProducts = [];
+        editUOMLines = [];
+        editSupplierInfos = [];
+        editTagIds = new Set();
+        renderAttributeLines();
+        renderVariantsTable();
+        renderComboItems();
+        renderUOMLines();
+        renderSuppliers();
+        const tagWrap = $('#tagsPickerList');
+        if (tagWrap) tagWrap.innerHTML = '';
+    }
+
+    /** Merge advanced sections back into payload before UpdateV2 / InsertV2. */
+    function mergeAdvancedIntoPayload(payload) {
+        // Attribute lines
+        payload.AttributeLines = editAttributeLines.map(l => ({
+            Attribute: l.Attribute,
+            Values: l.Values,
+            AttributeId: l.AttributeId,
+        }));
+        payload.IsProductVariant = editAttributeLines.length > 0;
+
+        // Variants
+        payload.ProductVariants = editVariants.map(v => ({
+            Id: v.Id || 0,
+            EAN13: v.EAN13 || null,
+            DefaultCode: v.DefaultCode || '',
+            NameTemplate: v.NameTemplate || payload.DefaultCode || '',
+            NameNoSign: null,
+            ProductTmplId: payload.Id || 0,
+            UOMId: v.UOMId || payload.UOMId || 1,
+            QtyAvailable: v.QtyAvailable || 0,
+            NameGet: v.NameGet || `${payload.DefaultCode || ''} (${(v.AttributeValues || []).map(a => a.Name).join(', ')})`,
+            Price: null,
+            Barcode: v.Barcode || null,
+            PriceVariant: v.PriceVariant || 0,
+            SaleOK: v.SaleOK !== false,
+            PurchaseOK: v.PurchaseOK !== false,
+            Active: v.Active !== false,
+            ListPrice: v.ListPrice || 0,
+            PurchasePrice: v.PurchasePrice || null,
+            StandardPrice: v.StandardPrice || 0,
+            AvailableInPOS: v.AvailableInPOS !== false,
+            Version: v.Version || 0,
+            Type: v.Type || 'product',
+            CompanyId: null, Tags: null, DateCreated: null,
+            InitInventory: 0, TaxAmount: null, Error: null,
+            AttributeValues: v.AttributeValues || [],
+            TaxesIds: v.TaxesIds || [],
+        }));
+        payload.ProductVariantCount = payload.ProductVariants.length;
+
+        // Combo
+        payload.IsCombo = !!$('#editIsCombo')?.checked;
+        payload.ComboProducts = payload.IsCombo ? editComboProducts.map(c => ({
+            ProductId: c.ProductId,
+            ProductNameGet: c.ProductNameGet,
+            Quantity: c.Quantity || 1,
+            ProductPrice: c.ProductPrice || 0,
+        })) : [];
+
+        // UOM Lines
+        payload.UOMLines = editUOMLines.map(u => ({
+            Id: u.Id || 0,
+            UOMId: u.UOMId,
+            UOM: (cachedUOMs || []).find(x => x.Id === u.UOMId) || null,
+            FactorInv: u.FactorInv || 1,
+            Name: u.Name || '',
+        }));
+
+        // Supplier infos
+        payload.ProductSupplierInfos = editSupplierInfos.map(s => ({
+            Id: s.Id || 0,
+            PartnerId: s.PartnerId,
+            Partner: s.Partner,
+            ProductCode: s.ProductCode || '',
+            Price: s.Price || 0,
+            MinQty: s.MinQty || 0,
+        }));
+
+        // Tags
+        payload.Tags = Array.from(editTagIds).map(id => {
+            const t = (cachedTags || []).find(tt => tt.Id === id);
+            return t ? { Id: t.Id, Name: t.Name, Color: t.Color } : { Id: id };
+        });
+
+        return payload;
+    }
+
+    // =====================================================
+    // STOCK ADJUST (P3.4)
+    // =====================================================
+    let stockAdjustCtx = null; // { templateId, variants:[{Id, code, qty}] }
+
+    async function openStockAdjust(templateId) {
+        try {
+            showToast('Đang tải tồn kho...', 'info');
+            const detail = await fetchProductDetail(templateId);
+            const variants = (detail.ProductVariants || []).filter(v => v.Active !== false);
+
+            stockAdjustCtx = {
+                templateId,
+                templateName: `${detail.DefaultCode || ''} - ${detail.Name || ''}`,
+                variants: variants.length ? variants : [{
+                    Id: detail.VariantFirstId || null,
+                    DefaultCode: detail.DefaultCode,
+                    NameGet: detail.NameGet || detail.Name,
+                    QtyAvailable: detail.QtyAvailable || 0,
+                }],
+            };
+
+            $('#stockAdjustProductInfo').innerHTML = `<strong>${escapeHtml(stockAdjustCtx.templateName)}</strong>`;
+            const variantSelect = $('#stockAdjustVariantSelect');
+            variantSelect.innerHTML = stockAdjustCtx.variants.map((v, idx) =>
+                `<option value="${idx}">${escapeHtml(v.NameGet || v.DefaultCode || `BT ${idx+1}`)} — Tồn: ${v.QtyAvailable || 0}</option>`
+            ).join('');
+            $('#stockAdjustVariantPick').style.display = stockAdjustCtx.variants.length > 1 ? 'block' : 'none';
+
+            const updateCurrentQty = () => {
+                const idx = parseInt(variantSelect.value) || 0;
+                const v = stockAdjustCtx.variants[idx];
+                $('#stockAdjustCurrentQty').value = v?.QtyAvailable ?? 0;
+                $('#stockAdjustNewQty').value = v?.QtyAvailable ?? 0;
+            };
+            variantSelect.onchange = updateCurrentQty;
+            updateCurrentQty();
+
+            $('#stockAdjustReason').value = '';
+            $('#stockAdjustModal').classList.add('show');
+            WS.initIcons();
+        } catch (err) {
+            console.error('[Stock] Open failed:', err);
+            showToast('Lỗi mở dialog: ' + err.message, 'error');
+        }
+    }
+
+    function closeStockAdjust() {
+        $('#stockAdjustModal')?.classList.remove('show');
+        stockAdjustCtx = null;
+    }
+
+    async function confirmStockAdjust() {
+        if (!stockAdjustCtx) return;
+        const idx = parseInt($('#stockAdjustVariantSelect').value) || 0;
+        const variant = stockAdjustCtx.variants[idx];
+        if (!variant?.Id) { showToast('Không xác định được biến thể', 'error'); return; }
+        const newQty = parseFloat($('#stockAdjustNewQty').value);
+        if (isNaN(newQty) || newQty < 0) { showToast('Số lượng không hợp lệ', 'error'); return; }
+
+        try {
+            showToast('Đang điều chỉnh tồn...', 'info');
+            // TPOS StockChangeProductQty action (most common endpoint)
+            const payload = {
+                model: {
+                    ProductId: variant.Id,
+                    NewQuantity: newQty,
+                    LocationId: 12, // default warehouse location (TPOS std)
+                    Name: $('#stockAdjustReason').value || 'Điều chỉnh qua n2store',
+                }
+            };
+            // Try multiple action paths (TPOS variants differ per tenant)
+            const candidates = [
+                `${PROXY_URL}/api/odata/StockChangeProductQty/ODataService.Change`,
+                `${PROXY_URL}/api/odata/StockChangeProductQty`,
+                `${PROXY_URL}/api/odata/Product/ODataService.ChangeProductQty`,
+            ];
+            let ok = false;
+            let lastErr = null;
+            for (const url of candidates) {
+                try {
+                    const r = await window.tokenManager.authenticatedFetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(url.includes('ODataService') ? payload : payload.model),
+                    });
+                    if (r.ok) { ok = true; break; }
+                    lastErr = `HTTP ${r.status} @ ${url}`;
+                } catch (e) { lastErr = e.message; }
+            }
+            if (!ok) throw new Error(lastErr || 'Không endpoint nào thành công');
+
+            showToast(`Đã điều chỉnh tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
+            closeStockAdjust();
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            setTimeout(() => fetchProducts(true), 5000);
+        } catch (err) {
+            console.error('[Stock] Adjust failed:', err);
+            showToast('Lỗi điều chỉnh: ' + err.message, 'error');
+        }
+    }
+
+    // =====================================================
+    // BULK ACTIONS (P2.3)
+    // =====================================================
+    function toggleBulkMenu(show) {
+        const menu = $('#bulkActionsMenu');
+        if (!menu) return;
+        menu.style.display = show === undefined ? (menu.style.display === 'none' ? 'block' : 'none') : (show ? 'block' : 'none');
+    }
+
+    async function handleBulkAction(action) {
+        toggleBulkMenu(false);
+        const ids = Array.from(selectedIds);
+        if (!ids.length) { showToast('Vui lòng chọn SP trước', 'error'); return; }
+
+        if (action === 'print') {
+            const selected = pageProducts.filter(p => selectedIds.has(p.id));
+            openBarcodePrint(selected);
+            return;
+        }
+
+        if (action === 'archive' || action === 'activate') {
+            const verb = action === 'archive' ? 'ngưng hiệu lực' : 'kích hoạt lại';
+            if (!confirm(`${verb.toUpperCase()} ${ids.length} SP?\n\nCó thể mất vài phút.`)) return;
+            showToast(`Đang ${verb}...`, 'info');
+            let ok = 0, failed = 0;
+            const queue = ids.slice();
+            const workers = Array.from({ length: 3 }, async () => {
+                while (queue.length) {
+                    const id = queue.shift();
+                    try {
+                        const detail = await fetchProductDetail(id);
+                        const payload = { ...detail };
+                        delete payload['@odata.context'];
+                        payload.Active = action !== 'archive';
+                        const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+                        const r = await window.tokenManager.authenticatedFetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+                        if (r.ok) ok++; else failed++;
+                    } catch { failed++; }
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            });
+            await Promise.all(workers);
+            showToast(`Hoàn tất: ${ok} OK, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            setTimeout(() => fetchProducts(true), 3000);
+            return;
+        }
+
+        if (action === 'tag') {
+            await openBulkTagModal(ids);
+            return;
+        }
+    }
+
+    async function openBulkTagModal(ids) {
+        const tags = await ensureTagList();
+        $('#bulkTagCount').innerHTML = `<strong>${ids.length}</strong> sản phẩm đã chọn`;
+        const list = $('#bulkTagList');
+        list.innerHTML = tags.length
+            ? tags.map(t => `<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:10px;border:1px solid ${t.Color || '#6366f1'};cursor:pointer;font-size:11px;"><input type="checkbox" value="${t.Id}"> ${escapeHtml(t.Name || '')}</label>`).join('')
+            : '<div style="color:#9ca3af;font-size:12px;">Không load được danh sách nhãn.</div>';
+        $('#bulkTagModal').dataset.ids = JSON.stringify(ids);
+        $('#bulkTagModal').classList.add('show');
+        WS.initIcons();
+    }
+
+    function closeBulkTagModal() {
+        $('#bulkTagModal')?.classList.remove('show');
+    }
+
+    async function confirmBulkTag() {
+        const ids = JSON.parse($('#bulkTagModal').dataset.ids || '[]');
+        const mode = $('#bulkTagMode').value;
+        const selectedTagIds = Array.from($('#bulkTagList').querySelectorAll('input:checked')).map(i => parseInt(i.value));
+        if (!selectedTagIds.length) { showToast('Chọn ít nhất 1 nhãn', 'error'); return; }
+        const selectedTags = selectedTagIds.map(id => (cachedTags || []).find(t => t.Id === id) || { Id: id });
+
+        showToast(`Đang áp dụng cho ${ids.length} SP...`, 'info');
+        let ok = 0, failed = 0;
+        const queue = ids.slice();
+        const workers = Array.from({ length: 3 }, async () => {
+            while (queue.length) {
+                const id = queue.shift();
+                try {
+                    const detail = await fetchProductDetail(id);
+                    const payload = { ...detail };
+                    delete payload['@odata.context'];
+                    const currentTags = payload.Tags || [];
+                    let newTags;
+                    if (mode === 'replace') newTags = selectedTags;
+                    else if (mode === 'add') {
+                        const existingIds = new Set(currentTags.map(t => t.Id));
+                        newTags = [...currentTags, ...selectedTags.filter(t => !existingIds.has(t.Id))];
+                    } else { // remove
+                        const removeIds = new Set(selectedTagIds);
+                        newTags = currentTags.filter(t => !removeIds.has(t.Id));
+                    }
+                    payload.Tags = newTags;
+                    const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+                    const r = await window.tokenManager.authenticatedFetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (r.ok) ok++; else failed++;
+                } catch { failed++; }
+                await new Promise(r => setTimeout(r, 200));
+            }
+        });
+        await Promise.all(workers);
+        showToast(`Hoàn tất: ${ok} OK, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
+        closeBulkTagModal();
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        setTimeout(() => fetchProducts(true), 3000);
     }
 
     // =====================================================
