@@ -2710,12 +2710,19 @@ async function preGenerateBillImages() {
     window.isPreGeneratingBills = true;
     // Run in background - don't disable print button
 
+    // Tunable concurrency (override via window.PRE_GEN_CONCURRENCY)
+    // 3 = balance between html2canvas CPU load and Pancake upload parallelism
+    const PRE_GEN_CONCURRENCY = Math.max(1, Number(window.PRE_GEN_CONCURRENCY) || 3);
     console.log(
-        `[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background...`
+        `[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background (concurrency: ${PRE_GEN_CONCURRENCY})...`
     );
     window.preGeneratedBillData.clear();
 
-    for (let i = 0; i < successOrders.length; i++) {
+    // Emit per-item "ready" events so auto-send consumer can start immediately
+    if (!window.preGenEvents) window.preGenEvents = new EventTarget();
+
+    let preGenDoneCount = 0;
+    const processOne = async (i) => {
         const order = successOrders[i];
 
         try {
@@ -2871,21 +2878,54 @@ async function preGenerateBillImages() {
 
             // Cache the data
             const cacheKey = order.Id || order.Number;
-            window.preGeneratedBillData.set(cacheKey, {
+            const entry = {
                 imageBlob,
                 contentUrl,
                 contentId,
                 enrichedOrder,
                 sendTask,
-            });
+            };
+            window.preGeneratedBillData.set(cacheKey, entry);
 
+            // Notify consumers (auto-send) that this bill is ready
+            window.preGenEvents.dispatchEvent(
+                new CustomEvent('bill-ready', {
+                    detail: {
+                        cacheKey,
+                        order,
+                        entry,
+                    },
+                })
+            );
+
+            preGenDoneCount++;
             console.log(
-                `[FAST-SALE] ✅ Pre-generated bill ${i + 1}/${successOrders.length}: ${order.Number}`
+                `[FAST-SALE] ✅ Pre-generated bill ${preGenDoneCount}/${successOrders.length}: ${order.Number}`
             );
         } catch (error) {
+            preGenDoneCount++;
             console.error(`[FAST-SALE] ❌ Error pre-generating bill for ${order.Number}:`, error);
         }
-    }
+    };
+
+    // Shared index queue — each worker pulls next available i
+    let nextIndex = 0;
+    const worker = async () => {
+        while (true) {
+            const i = nextIndex++;
+            if (i >= successOrders.length) return;
+            await processOne(i);
+        }
+    };
+
+    const workers = Array.from(
+        { length: Math.min(PRE_GEN_CONCURRENCY, successOrders.length) },
+        () => worker()
+    );
+    await Promise.all(workers);
+
+    // Signal completion so auto-send consumer can stop waiting for more items
+    window.preGenEvents.dispatchEvent(new CustomEvent('bill-pregen-complete'));
 
     console.log(
         `[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`
