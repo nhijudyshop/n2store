@@ -155,11 +155,26 @@ const PhoneHistoryBadges = (() => {
         if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
     }
 
+    function _badgeContent(counts) {
+        return `📞 ${counts.total}${counts.missed ? ` <span style="color:#b91c1c">✕${counts.missed}</span>` : ''}`;
+    }
+    function _updateBadge(badge, phone, counts) {
+        const wantMissed = counts.missed > 0;
+        const hasMissed = badge.classList.contains('has-missed');
+        if (wantMissed !== hasMissed) badge.classList.toggle('has-missed', wantMissed);
+        const sig = `${counts.total}|${counts.missed}`;
+        if (badge.dataset.sig !== sig) {
+            badge.dataset.sig = sig;
+            badge.innerHTML = _badgeContent(counts);
+        }
+        badge.dataset.phone = phone;
+    }
     function _makeBadge(phone, counts) {
         const badge = document.createElement('span');
         badge.className = 'phone-hist-badge' + (counts.missed > 0 ? ' has-missed' : '');
         badge.dataset.phone = phone;
-        badge.innerHTML = `📞 ${counts.total}${counts.missed ? ` <span style="color:#b91c1c">✕${counts.missed}</span>` : ''}`;
+        badge.dataset.sig = `${counts.total}|${counts.missed}`;
+        badge.innerHTML = _badgeContent(counts);
         badge.addEventListener('mouseenter', () => _showTooltip(badge, phone));
         badge.addEventListener('mouseleave', _hideTooltip);
         badge.addEventListener('click', (e) => {
@@ -174,25 +189,35 @@ const PhoneHistoryBadges = (() => {
         const cells = document.querySelectorAll('td[data-column="phone"]');
         cells.forEach(cell => {
             const container = cell.querySelector('div') || cell;
-            // Remove existing badge (in case counts changed)
             const existing = container.querySelector('.phone-hist-badge');
-            if (existing) existing.remove();
             // Extract phone from cell (last span)
             const span = cell.querySelector('span:last-of-type');
             const phoneText = span?.textContent || cell.textContent || '';
             const phone = stripPhone(phoneText);
-            if (!phone) return;
+            if (!phone) { if (existing) existing.remove(); return; }
             const { counts } = getCountsFor(phone);
-            if (counts.total === 0) return;
+            if (counts.total === 0) { if (existing) existing.remove(); return; }
+            // Idempotent: keep existing badge — only update content if counts changed
+            // (avoids remove→recreate flicker that kills the tooltip mid-hover)
+            if (existing && existing.dataset.phone === phone) {
+                _updateBadge(existing, phone, counts);
+                return;
+            }
+            if (existing) existing.remove();
             container.appendChild(_makeBadge(phone, counts));
         });
     }
 
-    // Debounced re-render on table mutations
+    // Debounced re-render on table mutations.
+    // Skip while tooltip is open — re-rendering under the cursor causes flicker.
     let renderDebounceTimer = null;
     function scheduleRender() {
         if (renderDebounceTimer) clearTimeout(renderDebounceTimer);
-        renderDebounceTimer = setTimeout(() => { renderDebounceTimer = null; renderBadges(); }, 400);
+        renderDebounceTimer = setTimeout(() => {
+            renderDebounceTimer = null;
+            if (tooltipEl) { scheduleRender(); return; } // retry after mouse leaves
+            renderBadges();
+        }, 400);
     }
 
     function _observeTable() {
