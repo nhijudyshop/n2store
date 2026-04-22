@@ -101,6 +101,10 @@ async function ensureTable(db) {
             CREATE INDEX IF NOT EXISTS idx_web_warehouse_product_code ON web_warehouse(product_code);
             CREATE INDEX IF NOT EXISTS idx_web_warehouse_parent_code ON web_warehouse(parent_product_code);
             CREATE INDEX IF NOT EXISTS idx_web_warehouse_stt ON web_warehouse(stt);
+            -- Tag filter (ANY array) + variant sibling lookup both query tpos_template_id
+            CREATE INDEX IF NOT EXISTS idx_web_warehouse_template_id ON web_warehouse(tpos_template_id);
+            -- Full-sync deactivation UPDATE filters active=true AND last_synced_at<X
+            CREATE INDEX IF NOT EXISTS idx_web_warehouse_last_synced ON web_warehouse(last_synced_at) WHERE active = true;
         `);
 
         // Migration: add columns incrementally (safe to run multiple times)
@@ -499,9 +503,17 @@ router.get('/search', async (req, res) => {
         const searchTerm = `%${q.trim()}%`;
         const maxLimit = Math.min(parseInt(limit) || 15, 50);
 
-        // SELECT * to return full TPOS-parity fields for consumers that need them.
+        // Light columns only — autocomplete endpoint fires on every keystroke.
+        // Exclude tpos_raw (5-20KB per row) and heavy JSONB to keep response fast.
+        // Consumers needing full data should hit GET /product/:tposProductId.
         const result = await db.query(`
-            SELECT *
+            SELECT id, stt, product_code, parent_product_code, product_name, name_get,
+                   variant, category, image_url, barcode, uom_name,
+                   selling_price, purchase_price, standard_price, price_variant,
+                   tpos_qty_available, quantity,
+                   tpos_product_id, tpos_template_id,
+                   sale_ok, purchase_ok, available_in_pos, active,
+                   tags
             FROM web_warehouse
             WHERE active = true
               AND (
@@ -539,9 +551,15 @@ router.post('/batch-lookup', async (req, res) => {
 
     try {
         const placeholders = safeCodes.map((_, i) => `$${i + 1}`).join(',');
-        // SELECT * for full TPOS-parity
+        // Light columns — batch-lookup is for barcode label printing, not full product detail.
+        // Exclude tpos_raw + heavy JSONB. Consumers needing more should call GET /product/:id.
         const result = await db.query(`
-            SELECT *
+            SELECT id, stt, product_code, parent_product_code, product_name, name_get,
+                   variant, category, image_url, barcode, uom_name,
+                   selling_price, purchase_price, standard_price, price_variant,
+                   tpos_qty_available, quantity,
+                   tpos_product_id, tpos_template_id,
+                   sale_ok, purchase_ok, available_in_pos, active
             FROM web_warehouse
             WHERE active = true AND product_code IN (${placeholders})
         `, safeCodes);

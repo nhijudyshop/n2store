@@ -12,5 +12,8 @@ module.exports = {
     CREATED_BY_NAME: process.env.TPOS_CREATED_BY_NAME || "nvkt",
     EXPAND_PARAMS:
         process.env.TPOS_EXPAND_PARAMS ||
-        "UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines,UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos",
+        // Must match the string used by render.com/services/sync-tpos-products.js and
+        // tpos-socket-listener.js. AttributeLines needs ($expand=Attribute,Values) and
+        // ProductSupplierInfos needs ($expand=Partner) for full TPOS parity.
+        "UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)",
 };

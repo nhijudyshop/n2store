@@ -77,6 +77,20 @@ class TPOSProductSync {
         return crypto.createHash('sha256').update(str).digest('hex').substring(0, 16);
     }
 
+    /**
+     * Serialize an array of objects to a stable JSON string — sorts by the first numeric Id-like key.
+     * Prevents false-positive hash mismatches when TPOS returns identical data in different order.
+     */
+    _stableJson(arr) {
+        if (!Array.isArray(arr)) return JSON.stringify(arr ?? []);
+        const sorted = arr.slice().sort((a, b) => {
+            const aKey = a?.Id ?? a?.AttributeId ?? a?.PartnerId ?? a?.ProductId ?? a?.UOMId ?? 0;
+            const bKey = b?.Id ?? b?.AttributeId ?? b?.PartnerId ?? b?.ProductId ?? b?.UOMId ?? 0;
+            return aKey - bKey;
+        });
+        return JSON.stringify(sorted);
+    }
+
     // =====================================================
     // SYNC LOG
     // =====================================================
@@ -242,11 +256,12 @@ class TPOSProductSync {
             uom_id: detail.UOMId || null,
             uom_po_id: detail.UOMPOId || null,
             is_combo: !!detail.IsCombo,
-            tags: JSON.stringify(detail.Tags || []),
-            attribute_lines: JSON.stringify(detail.AttributeLines || []),
-            uom_lines: JSON.stringify(detail.UOMLines || []),
-            combo_products: JSON.stringify(detail.ComboProducts || []),
-            supplier_infos: JSON.stringify(detail.ProductSupplierInfos || []),
+            // Stable order: sort by Id-like keys so TPOS reordering doesn't flip hash.
+            tags: this._stableJson(detail.Tags || []),
+            attribute_lines: this._stableJson(detail.AttributeLines || []),
+            uom_lines: this._stableJson(detail.UOMLines || []),
+            combo_products: this._stableJson(detail.ComboProducts || []),
+            supplier_infos: this._stableJson(detail.ProductSupplierInfos || []),
         };
 
         if (variants.length === 0) {
@@ -307,7 +322,7 @@ class TPOSProductSync {
                 tpos_product_id: variant.Id,
                 tpos_template_id: templateData.Id,
                 price_variant: variant.PriceVariant ?? null,
-                variant_attribute_values: JSON.stringify(variant.AttributeValues || []),
+                variant_attribute_values: this._stableJson(variant.AttributeValues || []),
                 tpos_raw: JSON.stringify(variant),
                 ...templateShared,
             }, syncStartedAt, stats);
@@ -321,8 +336,9 @@ class TPOSProductSync {
      * - If new: insert with quantity=0
      */
     async _upsertProduct(product, syncStartedAt, stats) {
-        // Hash includes ALL TPOS-sourced fields — any change triggers a real DB write.
-        // Using tpos_raw ensures even fields we don't yet extract are monitored for change.
+        // Hash covers all 36 extracted TPOS-sourced fields. tpos_raw is NOT included —
+        // it's a passthrough snapshot that would add false positives (JSON key/order noise).
+        // JSONB arrays (tags, attribute_lines, ...) are already stable-sorted via _stableJson.
         const hash = this._computeHash({
             name: product.product_name,
             nameGet: product.name_get,

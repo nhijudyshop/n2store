@@ -1268,6 +1268,7 @@
     // =====================================================
 
     let editingProduct = null; // full TPOS product detail for update
+    let _modalOpening = false; // guard against concurrent open (rapid row clicks)
     let cachedCategories = null;
     let cachedPOSCategories = null;
     let cachedUOMs = null;
@@ -1331,6 +1332,8 @@
      * Open edit modal for a product
      */
     async function openEditProduct(templateId) {
+        if (_modalOpening) return; // prevent concurrent open from rapid row clicks
+        _modalOpening = true;
         try {
             showToast('Đang tải chi tiết...', 'info');
 
@@ -1402,6 +1405,8 @@
         } catch (err) {
             console.error('[Edit] Failed to load product detail:', err);
             showToast('Lỗi tải chi tiết: ' + err.message, 'error');
+        } finally {
+            _modalOpening = false;
         }
     }
 
@@ -1625,6 +1630,8 @@
     // CREATE PRODUCT — reuse edit modal in 'create' mode
     // =====================================================
     async function openCreateProduct() {
+        if (_modalOpening) return;
+        _modalOpening = true;
         try {
             showToast('Đang chuẩn bị form...', 'info');
             await ensureDropdownData();
@@ -1680,6 +1687,8 @@
         } catch (err) {
             console.error('[Create] Prepare form failed:', err);
             showToast('Lỗi mở form: ' + err.message, 'error');
+        } finally {
+            _modalOpening = false;
         }
     }
 
