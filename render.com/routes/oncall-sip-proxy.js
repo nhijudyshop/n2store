@@ -849,6 +849,38 @@ function createRouter() {
         };
     }
 
+    // GET /api/oncall/portal/debug — test connectivity + login timing
+    router.get('/portal/debug', portalErrorMiddleware(async (req, res) => {
+        const steps = [];
+        const start = Date.now();
+        try {
+            const fetch = require('node-fetch');
+            const AbortController = global.AbortController || require('abort-controller');
+            // Step 1: raw connectivity test
+            let t = Date.now();
+            const ac = new AbortController();
+            setTimeout(() => ac.abort(), 8000);
+            const r1 = await fetch('https://pbx-ucaas.oncallcx.vn/portal/login.xhtml', { signal: ac.signal });
+            await r1.text();
+            steps.push({ step: 'raw_get_login', ms: Date.now() - t, status: r1.status });
+
+            // Step 2: OnCallPortalClient login
+            t = Date.now();
+            const client = getPortalClient();
+            await client.login(true);  // force re-login
+            steps.push({ step: 'client_login', ms: Date.now() - t, cookies: Object.keys(client.cookies) });
+
+            // Step 3: fetch calls page
+            t = Date.now();
+            const data = await client.listCalls({ page: 1 });
+            steps.push({ step: 'list_calls', ms: Date.now() - t, callCount: data.calls.length });
+
+            res.json({ success: true, totalMs: Date.now() - start, steps });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message, stack: err.stack?.slice(0, 500), totalMs: Date.now() - start, steps });
+        }
+    }));
+
     // GET /api/oncall/portal/calls — list calls (page 1, 25 rows)
     router.get('/portal/calls', portalErrorMiddleware(async (req, res) => {
         const cacheKey = `calls_${req.query.page || 1}`;

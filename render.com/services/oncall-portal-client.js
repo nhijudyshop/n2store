@@ -136,6 +136,14 @@ class OnCallPortalClient {
 
     _log(...a) { if (this.debug) console.log('[oncall]', ...a); }
 
+    _fetch(url, options = {}) {
+        const ac = new AbortController();
+        const timeout = options.timeout || 12000;
+        const timer = setTimeout(() => ac.abort(), timeout);
+        return fetch(url, { ...options, signal: ac.signal })
+            .finally(() => clearTimeout(timer));
+    }
+
     /** Ensure we have a fresh ANAUTH. Re-login if not or expired. */
     async login(force = false) {
         const fresh = Date.now() - this.lastLoginAt < this.sessionMaxAgeMs;
@@ -143,7 +151,7 @@ class OnCallPortalClient {
 
         this._log('Logging in…');
         // Step 1: GET login.xhtml → ViewState, nonce, JSESSIONID
-        const r1 = await fetch(LOGIN_URL, { headers: { 'User-Agent': UA }, redirect: 'manual' });
+        const r1 = await this._fetch(LOGIN_URL, { headers: { 'User-Agent': UA }, redirect: 'manual', timeout: 10000 });
         const sc1 = r1.headers.raw ? r1.headers.raw()['set-cookie'] : r1.headers.get('set-cookie');
         parseCookies(sc1, this.cookies);
         const html1 = await r1.text();
@@ -167,7 +175,7 @@ class OnCallPortalClient {
         });
         const jsid = this.cookies.JSESSIONID;
         const postUrl = `${LOGIN_URL}${jsid ? ';jsessionid=' + jsid : ''}`;
-        const r2 = await fetch(postUrl, {
+        const r2 = await this._fetch(postUrl, {
             method: 'POST',
             headers: {
                 'User-Agent': UA,
@@ -181,12 +189,14 @@ class OnCallPortalClient {
             },
             body,
             redirect: 'manual',
+            timeout: 10000,
         });
         const sc2 = r2.headers.raw ? r2.headers.raw()['set-cookie'] : r2.headers.get('set-cookie');
         parseCookies(sc2, this.cookies);
+        // Always consume body to close connection
+        await r2.text().catch(() => {});
         if (!this.cookies.ANAUTH) {
-            const txt = await r2.text();
-            throw new Error('Login failed: no ANAUTH cookie. Response: ' + txt.slice(0, 200));
+            throw new Error('Login failed: no ANAUTH cookie. Status: ' + r2.status);
         }
         this.lastLoginAt = Date.now();
         this._log('Login OK. Cookies:', Object.keys(this.cookies).join(', '));
@@ -195,7 +205,7 @@ class OnCallPortalClient {
     /** GET a portal page, return { html, viewState, nonce } */
     async getPage(url) {
         await this.login();
-        const r = await fetch(url, {
+        const r = await this._fetch(url, { timeout: 12000,
             headers: {
                 'User-Agent': UA,
                 'Cookie': jarToHeader(this.cookies),
@@ -211,9 +221,10 @@ class OnCallPortalClient {
             // session expired, re-login & retry once
             this._log('Session expired, retrying…');
             await this.login(true);
-            const r2 = await fetch(url, {
+            const r2 = await this._fetch(url, {
                 headers: { 'User-Agent': UA, 'Cookie': jarToHeader(this.cookies), 'Accept': 'text/html', 'Referer': PORTAL_BASE + '/portal/' },
                 redirect: 'manual',
+                timeout: 12000,
             });
             const html = await r2.text();
             return { html, viewState: extractViewState(html), nonce: extractNonce(html) };
@@ -225,8 +236,9 @@ class OnCallPortalClient {
     /** POST a PrimeFaces AJAX action, return response text (XML) */
     async postAjax(pageUrl, fields) {
         const body = new URLSearchParams(fields);
-        const r = await fetch(pageUrl, {
+        const r = await this._fetch(pageUrl, {
             method: 'POST',
+            timeout: 12000,
             headers: {
                 'User-Agent': UA,
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
