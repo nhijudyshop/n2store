@@ -753,119 +753,44 @@ const PM = (() => {
         }
     }
 
-    // === OnCallCX PORTAL — LIVE DATA ===
-    // Fetch trực tiếp từ portal pbx-ucaas.oncallcx.vn qua render.com proxy
-    // Endpoints: /portal/calls, /portal/extensions, /portal/live-calls, /portal/recording/:rowKey
+    // === OnCallCX Portal → Render DB sync preview ===
+    // Portal pbx-ucaas.oncallcx.vn chỉ chấp nhận IP VN consumer ISP (chặn datacenter).
+    // Local sync daemon trên máy admin push data lên Render DB với username=oncallcx-portal-sync.
+    // Tab này preview các file đó — play/download qua existing /call-recordings/:id/audio endpoint.
     async function loadOncallCdrs() {
         const body = $('#recOncallCdrBody'); if (!body) return;
-        body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:24px"><i data-lucide="loader-2" style="animation:spin 1s linear infinite"></i> Đang tải từ OnCallCX portal...</td></tr>';
-        _iconsRefresh();
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>';
         try {
-            const r = await apiGet('/portal/calls?page=1');
-            if (!r.success) throw new Error(r.error || 'Portal fetch failed');
-            const calls = Array.isArray(r.calls) ? r.calls : [];
-            if (!calls.length) {
-                body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:24px">Chưa có cuộc gọi trên portal</td></tr>';
+            const r = await fetch(`${CLOUD_REC_API}?username=oncallcx-portal-sync&limit=200`).then(r => r.json()).catch(() => ({}));
+            const rows = Array.isArray(r.rows) ? r.rows : [];
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">
+                    Chưa có ghi âm nào từ OnCallCX portal trên Render DB.<br>
+                    <small>Chạy <code>bash scripts/install-oncallcx-sync.sh</code> trên máy admin để kích hoạt local sync.</small>
+                </td></tr>`;
                 return;
             }
-            body.innerHTML = calls.map(c => {
-                const badge = c.hasRecording
-                    ? '<span class="pm-badge green">✓ Có</span>'
-                    : '<span class="pm-badge gray">—</span>';
-                const actions = c.hasRecording
-                    ? `<button class="btn btn-sm btn-outline" onclick="PM.playPortalRecording('${_esc(c.rowKey)}')" title="Nghe"><i data-lucide="play"></i></button>
-                       <button class="btn btn-sm btn-outline" onclick="PM.downloadPortalRecording('${_esc(c.rowKey)}')" title="Tải .wav"><i data-lucide="download"></i></button>`
-                    : '';
+            body.innerHTML = rows.map(rec => {
+                const sizeKB = Math.round((rec.size_bytes || 0) / 1024);
                 return `
-                <tr data-rk="${_esc(c.rowKey)}">
-                    <td>${_esc(c.start)}</td>
-                    <td class="mono">${_esc(c.from)}</td>
-                    <td class="mono">${_esc(c.outboundPublicNumber || c.to)}</td>
-                    <td><span class="pm-badge ${c.connected ? 'green' : 'gray'}">${c.connected ? 'Yes' : 'No'}</span></td>
-                    <td class="mono">${_esc(c.duration || '00:00:00')}</td>
-                    <td style="font-size:11px">${_esc((c.sipStatus || '').split('-')[0].trim())}</td>
-                    <td>${badge}</td>
-                    <td>${actions}</td>
+                <tr data-rec-id="${rec.id}">
+                    <td>${_fmtDateTime(parseInt(rec.timestamp, 10))}</td>
+                    <td class="mono">${rec.ext || '—'}</td>
+                    <td class="mono">${_fmtPhone(rec.phone)}</td>
+                    <td><span class="pm-badge ${rec.direction === 'in' ? 'blue' : 'gray'}">${rec.direction === 'in' ? 'Vào' : 'Ra'}</span></td>
+                    <td class="mono">${_fmtDuration(rec.duration)}</td>
+                    <td style="font-size:11px;color:#64748b">${sizeKB} KB</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="PM.playRecording(${rec.id})" title="Nghe"><i data-lucide="play"></i></button>
+                        <a href="${CLOUD_REC_API}/${rec.id}/audio" download="call-${rec.id}.wav" class="btn btn-sm btn-outline" title="Tải"><i data-lucide="download"></i></a>
+                    </td>
                 </tr>
                 `;
             }).join('');
             _iconsRefresh();
-
-            // Footer với nút refresh + thống kê
-            const withRec = calls.filter(c => c.hasRecording).length;
-            const existing = document.getElementById('oncallPortalFooter');
-            if (existing) existing.remove();
-            const footer = document.createElement('div');
-            footer.id = 'oncallPortalFooter';
-            footer.style.cssText = 'text-align:center;padding:10px;font-size:11px;color:#64748b;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center';
-            footer.innerHTML = `
-                <span>${calls.length} cuộc gọi · ${withRec} có ghi âm · ${r.cached ? '⚡ cached' : '🆕 fresh'}</span>
-                <button class="btn btn-sm btn-outline" onclick="PM.loadOncallCdrs()" style="padding:4px 10px"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Làm mới</button>
-            `;
-            body.closest('.pm-panel')?.appendChild(footer);
-            _iconsRefresh();
         } catch (err) {
-            body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:20px">
-                Lỗi: ${_esc(err.message)}
-                <br><small style="color:#64748b">Kiểm tra ONCALL_USERNAME/ONCALL_PASSWORD env trên Render.</small>
-            </td></tr>`;
+            body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(err.message)}</td></tr>`;
         }
-    }
-
-    function _portalRecordingUrl(rowKey, forDownload = false) {
-        const base = `${API_BASE}/portal/recording/${encodeURIComponent(rowKey)}`;
-        return forDownload ? `${base}?download=1` : base;
-    }
-
-    async function playPortalRecording(rowKey) {
-        const row = document.querySelector(`tr[data-rk="${rowKey}"]`);
-        const cells = row ? row.querySelectorAll('td') : [];
-        _openPortalPlayerModal({
-            rowKey,
-            when: cells[0]?.textContent || '',
-            from: cells[1]?.textContent || '',
-            to: cells[2]?.textContent || '',
-            duration: cells[4]?.textContent || '',
-        });
-    }
-
-    async function downloadPortalRecording(rowKey) {
-        const url = _portalRecordingUrl(rowKey, true);
-        // Trigger download via anchor (browser handles Content-Disposition)
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = ''; // server sets filename via Content-Disposition
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-    }
-
-    function _openPortalPlayerModal({ rowKey, when, from, to, duration }) {
-        const existing = document.getElementById('portalRecPlayerModal'); if (existing) existing.remove();
-        const url = _portalRecordingUrl(rowKey);
-        const dlUrl = _portalRecordingUrl(rowKey, true);
-        const wrap = document.createElement('div');
-        wrap.id = 'portalRecPlayerModal';
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-        wrap.innerHTML = `
-            <div style="background:#fff;border-radius:12px;padding:20px;width:min(520px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.4)">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                    <h3 style="margin:0;font-size:14px;color:#0f172a">📞 ${_esc(from)} → ${_esc(to)}</h3>
-                    <button onclick="this.closest('#portalRecPlayerModal').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#94a3b8;line-height:1">×</button>
-                </div>
-                <div style="font-size:11px;color:#64748b;margin-bottom:10px">
-                    ${_esc(when)} · Thời lượng ${_esc(duration)} · Nguồn: OnCallCX Portal
-                </div>
-                <audio controls autoplay style="width:100%" src="${url}" preload="auto"></audio>
-                <div style="margin-top:12px;display:flex;gap:6px;justify-content:space-between;align-items:center">
-                    <small style="color:#94a3b8;font-size:10px">rowKey: <code style="font-family:'SF Mono',monospace">${_esc(rowKey)}</code></small>
-                    <a href="${dlUrl}" class="btn btn-sm" style="text-decoration:none;background:var(--pm-primary);color:#fff"><i data-lucide="download"></i> Tải .wav</a>
-                </div>
-            </div>
-        `;
-        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
-        document.body.appendChild(wrap);
-        _iconsRefresh();
     }
 
     function _cloudAudioUrl(id) { return `${CLOUD_REC_API}/${id}/audio`; }
@@ -1033,8 +958,8 @@ const PM = (() => {
         saveLocalConfig, saveExt, toggleExtPwd,
         switchRecSubtab, loadRecordings,
         playRecording, downloadRecording, deleteRecording,
-        // OnCallCX portal proxy (via render.com → pbx-ucaas.oncallcx.vn)
-        loadOncallCdrs, playPortalRecording, downloadPortalRecording
+        // OnCallCX portal — preview Render DB rows synced from local daemon
+        loadOncallCdrs
     };
 })();
 

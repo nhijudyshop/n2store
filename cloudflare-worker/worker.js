@@ -44,7 +44,6 @@ import {
     handleRenderMiscProxy
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
-import { handleOncallPortal } from './modules/handlers/oncall-portal-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
 import { handleAutofbBalance, handleAutofbServices, handleAutofbApiBalance, handleAutofbOrder, handleAutofbOrderStatus, handleAutofbCancel, handleAutofbPayment } from './modules/handlers/autofb-handler.js';
 
@@ -74,13 +73,6 @@ async function routeRequest(request, env, ctx) {
             // Parse request URL
             const url = new URL(request.url);
             const pathname = url.pathname;
-
-            // OnCallCX Portal — intercept before generic /api/oncall/* Render proxy.
-            // Render SG không connect được pbx-ucaas.oncallcx.vn (GeoIP block) → CF Worker
-            // (có VN POP) phải làm client trực tiếp, không qua Render.
-            if (pathname.startsWith('/api/oncall/portal/')) {
-                return handleOncallPortal(request, url, pathname, env);
-            }
 
             // WebSocket upgrade - proxy before route matching
             if (request.headers.get('Upgrade') === 'websocket') {

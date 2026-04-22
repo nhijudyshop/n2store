@@ -293,48 +293,54 @@
                     </div>
                 </div>
 
-                <!-- Sub-tab: OnCallCX portal recordings (LIVE data via render.com proxy) -->
+                <!-- Sub-tab: OnCallCX portal — local sync daemon pushes to Render DB -->
                 <div class="rec-subview" data-subview="oncall" style="display:none">
-                    <div class="pm-panel" style="padding:18px;background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #86efac">
+                    <div class="pm-panel" style="padding:18px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #93c5fd">
                         <div style="display:flex;gap:14px;align-items:flex-start">
-                            <i data-lucide="check-circle-2" style="color:#059669;flex-shrink:0;margin-top:2px"></i>
+                            <i data-lucide="radio-tower" style="color:#2563eb;flex-shrink:0;margin-top:2px"></i>
                             <div style="flex:1">
-                                <h4 style="margin:0 0 6px;color:#065f46">Ghi âm OnCallCX — Nghe / Tải trực tiếp</h4>
-                                <p style="margin:0;color:#047857;font-size:13px;line-height:1.55">
-                                    Đã tích hợp <b>OnCallCX Portal API</b> qua render.com proxy. Cuộc gọi và ghi âm được lấy trực tiếp từ <code>pbx-ucaas.oncallcx.vn</code>
-                                    — không cần mở portal thủ công. Bấm nút <b>▶</b> để nghe ngay, <b>↓</b> để tải .wav.
+                                <h4 style="margin:0 0 6px;color:#1e3a8a">Ghi âm từ OnCallCX Portal</h4>
+                                <p style="margin:0 0 8px;color:#1e40af;font-size:13px;line-height:1.55">
+                                    Portal <code>pbx-ucaas.oncallcx.vn</code> chỉ chấp nhận kết nối từ IP Vietnam consumer ISP (chặn Render/CF datacenter).
+                                    Vì vậy có <b>local sync daemon</b> chạy trên máy admin (launchd, mỗi 5 phút) để fetch CDR + recordings rồi push lên Render DB.
                                 </p>
-                                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-                                    <a href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="text-decoration:none;font-size:11px">
+                                <p style="margin:0 0 10px;color:#1e40af;font-size:12px">
+                                    Kết quả hiển thị trong sub-tab <b>Render DB</b> — lọc <code>Nhân viên = oncallcx-portal-sync</code> để xem riêng các file từ portal.
+                                </p>
+                                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                    <a href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener" class="btn btn-sm" style="background:var(--pm-primary);color:#fff;text-decoration:none">
                                         <i data-lucide="external-link"></i> Mở Portal gốc
                                     </a>
-                                    <button class="btn btn-sm btn-outline" onclick="PM.loadOncallCdrs()" style="font-size:11px">
-                                        <i data-lucide="refresh-cw"></i> Làm mới
+                                    <button class="btn btn-sm btn-outline" onclick="PM.switchRecSubtab('cloud')">
+                                        <i data-lucide="cloud"></i> Xem Render DB (nơi sync tới)
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    <div class="pm-panel" style="margin-top:14px;padding:16px">
+                        <h4 style="margin:0 0 10px;font-size:13px">Setup local sync (chỉ làm 1 lần trên máy admin)</h4>
+                        <ol style="margin:0 0 10px 18px;padding:0;color:var(--pm-muted);font-size:12px;line-height:1.8">
+                            <li>Clone repo n2store về máy (nếu chưa có)</li>
+                            <li>Tạo file <code>serect_dont_push.txt</code> với credential OnCallCX ở dòng: <code>"https://pbx-ucaas.oncallcx.vn" &lt;user&gt; &lt;pass&gt;</code></li>
+                            <li>Chạy: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">bash scripts/install-oncallcx-sync.sh</code></li>
+                            <li>Check status: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">bash scripts/install-oncallcx-sync.sh status</code></li>
+                        </ol>
+                        <p style="margin:6px 0 0;font-size:11px;color:#94a3b8">
+                            State lưu tại <code>~/.n2store-oncallcx-sync/</code>. Daemon tự skip rows đã sync để tránh duplicate upload.
+                        </p>
+                    </div>
                     <div class="pm-panel" style="margin-top:14px">
                         <div class="pm-panel-head" style="display:flex;justify-content:space-between;align-items:center">
-                            <h3>Cuộc gọi từ OnCallCX Portal</h3>
-                            <small style="color:var(--pm-muted);font-weight:400">Nguồn: <code>pbxCalls.xhtml</code> — 25 cuộc gần nhất</small>
+                            <h3>Preview CDR từ Render DB (filter oncallcx-portal-sync)</h3>
+                            <button class="btn btn-sm btn-outline" onclick="PM.loadOncallCdrs()" style="padding:4px 10px"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Làm mới</button>
                         </div>
                         <table class="pm-table">
                             <thead>
-                                <tr>
-                                    <th>Thời gian</th>
-                                    <th>Từ</th>
-                                    <th>Đến</th>
-                                    <th>Connected</th>
-                                    <th>Thời lượng</th>
-                                    <th>SIP</th>
-                                    <th>Ghi âm</th>
-                                    <th>Hành động</th>
-                                </tr>
+                                <tr><th>Thời gian</th><th>Ext</th><th>Số KH</th><th>Hướng</th><th>Thời lượng</th><th>File</th><th>Hành động</th></tr>
                             </thead>
                             <tbody id="recOncallCdrBody">
-                                <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>
+                                <tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>
                             </tbody>
                         </table>
                     </div>
