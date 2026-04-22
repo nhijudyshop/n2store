@@ -93,6 +93,13 @@
     const formatQty = WS.formatQty;
     const getQtyClass = WS.getQtyClass;
     const escapeHtml = WS.escapeHtml;
+
+    /**
+     * Escape a user-provided string for safe embedding in OData $filter string literals.
+     * OData escapes `'` by doubling: O'Brien → 'O''Brien'. Then URI-encode.
+     * Prevents OData injection (e.g. `'; Id eq 1 or 1 eq 1--'`).
+     */
+    const _odataStr = (s) => encodeURIComponent(String(s ?? '').replace(/'/g, "''"));
     const highlightMatch = WS.highlightMatch;
     const removeVietnameseTones = WS.removeVietnameseTones;
 
@@ -208,24 +215,22 @@
      * Uses IntersectionObserver for viewport-based loading.
      */
     function lazyLoadImages() {
-        const rows = $$('#productTableBody tr');
-        rows.forEach((row, idx) => {
-            const product = pageProducts[idx];
+        // Only iterate main product rows (exclude expanded variant sub-rows) to avoid off-by-one
+        // when mapping `rows[idx]` → `pageProducts[idx]`.
+        const rows = $$('#productTableBody tr[data-template-id]');
+        rows.forEach(row => {
+            const templateId = parseInt(row.dataset.templateId, 10);
+            if (!templateId) return;
+            const product = pageProducts.find(p => p.id === templateId);
             if (!product || product.image) return; // already has image
-
-            // Get templateId from the product's TPOS data (stored in product.id → actually product template ID)
-            // The GetViewV2 returns product templates, so product.id IS the template ID
-            const templateId = product.id;
             if (imageCache[templateId] === null) return; // already checked, no image
 
             if (imageCache[templateId]) {
-                // Use cached image
                 const imgCell = row.querySelector('.product-image-cell');
                 if (imgCell) {
                     imgCell.innerHTML = `<img src="${escapeHtml(imageCache[templateId])}" alt="" class="product-thumb" loading="lazy" onclick="window.warehouseApp.showImage(this.src)">`;
                 }
             } else {
-                // Load from API
                 loadVariantImages(templateId, row);
             }
         });
@@ -459,6 +464,9 @@
             const ids = await resolveTagTemplateIds(tagVal);
             if (ids && ids.length) {
                 // Cap at 500 IDs to avoid URL length limit
+                if (ids.length > 500) {
+                    showToast(`Nhãn khớp ${ids.length} SP — chỉ hiển thị 500 đầu (dùng search để thu hẹp)`, 'info');
+                }
                 params.set('template_ids', ids.slice(0, 500).join(','));
             } else if (ids !== null) {
                 // Tag resolved to 0 products — force empty set
@@ -1076,7 +1084,7 @@
         });
 
         $('#pageSize')?.addEventListener('change', (e) => {
-            pageSize = parseInt(e.target.value, 10);
+            pageSize = parseInt(e.target.value, 10) || 50;
             currentPage = 1;
             fetchProducts();
         });
@@ -1434,6 +1442,9 @@
             return saveCreateProduct();
         }
         if (!editingProduct) return;
+        const saveBtn = $('#saveEditProduct');
+        if (saveBtn?.disabled) return; // re-entrancy guard (double-click)
+        if (saveBtn) saveBtn.disabled = true;
 
         const payload = { ...editingProduct };
         delete payload['@odata.context'];
@@ -1521,6 +1532,9 @@
         } catch (err) {
             console.error('[Edit] Save failed:', err);
             showToast('Lỗi lưu: ' + err.message, 'error');
+        } finally {
+            const saveBtn = $('#saveEditProduct');
+            if (saveBtn) saveBtn.disabled = false;
         }
     }
 
@@ -1789,6 +1803,8 @@
             e.status = response.status;
             throw e;
         }
+        // Safety net: all retries exhausted on 429 without returning (should be unreachable).
+        throw new Error('Max retries exceeded (rate limited)');
     }
 
     async function saveCreateProduct() {
@@ -1824,6 +1840,10 @@
             imageBase64: editImageBase64,
         };
 
+        const saveBtn = $('#saveEditProduct');
+        if (saveBtn?.disabled) return; // re-entrancy guard
+        if (saveBtn) saveBtn.disabled = true;
+
         try {
             showToast('Đang tạo SP...', 'info');
             const payload = _buildInsertPayload(spec);
@@ -1840,6 +1860,8 @@
             console.error('[Create] InsertV2 failed:', err);
             const hint = err.status === 400 ? ' (mã SP có thể đã tồn tại)' : '';
             showToast('Lỗi tạo SP: ' + err.message + hint, 'error');
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
         }
     }
 
@@ -1863,7 +1885,7 @@
             return cachedTags;
         } catch (err) {
             console.warn('[Tag] Load failed:', err.message);
-            cachedTags = [];
+            // Don't cache [] — allow retry on next call.
             return [];
         }
     }
@@ -1917,23 +1939,10 @@
             showToast('Đang chuẩn bị xuất Excel...', 'info');
             const XLSX = await ensureSheetJS();
 
-            // Fetch all rows matching current filters (cap at 5000)
-            const params = new URLSearchParams({
-                page: '1',
-                limit: String(Math.min(totalCount || pageSize, 5000)),
-                sort_by: sortField,
-                sort_order: sortDirection.toUpperCase(),
-            });
-            const searchVal = $('#searchInput')?.value?.trim();
-            if (searchVal) params.set('search', searchVal);
-            const stockVal = $('#filterStock')?.value;
-            if (stockVal === 'in-stock') params.set('has_inventory', 'true');
-            else if (stockVal === 'out-of-stock') params.set('has_inventory', 'false');
-            const groupVal = $('#filterGroup')?.value;
-            if (groupVal && groupVal !== 'all') params.set('category', groupVal);
-            const statusVal = $('#filterStatus')?.value;
-            if (statusVal === 'active') params.set('active', 'true');
-            else if (statusVal === 'inactive') params.set('active', 'false');
+            // Reuse buildRenderParams so the export respects ALL filters (including Tag → template_ids).
+            const params = await buildRenderParams();
+            params.set('page', '1');
+            params.set('limit', String(Math.min(totalCount || pageSize, 5000)));
 
             const resp = await fetch(`${RENDER_API}?${params.toString()}`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -2013,10 +2022,22 @@
         if (row['Mã'] && existingCodes.has(String(row['Mã']).trim().toUpperCase())) {
             errors.push(`Mã "${row['Mã']}" đã tồn tại`);
         }
-        // Validate prices
+        // Validate prices — supports EN (1,000.50) and VI (1.000,50) formats.
+        // Strategy: detect decimal separator by position (last separator in number with ≤2 trailing digits).
         for (const p of ['Giá bán', 'Giá mua', 'Giá vốn']) {
-            if (row[p]) {
-                const n = parseFloat(String(row[p]).replace(/[,.]/g, m => m === ',' ? '' : '.'));
+            if (row[p] !== '' && row[p] !== null && row[p] !== undefined) {
+                const raw = String(row[p]).trim();
+                // If already a number from sheetjs, parseFloat handles it.
+                let s = raw;
+                if (/[.,]/.test(s)) {
+                    const lastComma = s.lastIndexOf(',');
+                    const lastDot = s.lastIndexOf('.');
+                    const decSep = lastComma > lastDot ? ',' : '.';
+                    const thouSep = decSep === ',' ? '.' : ',';
+                    s = s.split(thouSep).join('');        // strip thousands
+                    if (decSep === ',') s = s.replace(',', '.');
+                }
+                const n = parseFloat(s);
                 if (isNaN(n) || n < 0) errors.push(`${p} không hợp lệ`);
                 else row[`_${p}`] = n;
             } else {
@@ -2075,6 +2096,10 @@
             }
 
             // Build category + uom lookup (by CompleteName or Name, lowercased)
+            if (!cachedCategories || !cachedUOMs) {
+                showToast('Danh mục chưa load — thử lại sau khi đóng modal', 'error');
+                return;
+            }
             const categMap = new Map();
             cachedCategories.forEach(c => {
                 categMap.set((c.CompleteName || '').toLowerCase(), c);
@@ -2091,7 +2116,7 @@
                     const j = await r.json();
                     (j.data || []).forEach(p => existingCodes.add(String(p.product_code || '').trim().toUpperCase()));
                 }
-            } catch {}
+            } catch (err) { console.warn('[Import] Existing codes fetch failed:', err.message); }
 
             importRows = raw.map((r, i) => _validateImportRow(r, i, categMap, uomMap, existingCodes));
             renderImportPreview();
@@ -2426,7 +2451,7 @@
             return cachedAttributes;
         } catch (err) {
             console.warn('[Attr] Load failed:', err.message);
-            cachedAttributes = [];
+            // Don't cache [] — allow retry.
             return [];
         }
     }
@@ -2647,7 +2672,7 @@
     async function searchComboProduct(query) {
         if (!query || query.length < 2) return [];
         try {
-            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=10&$filter=contains(NameGet,'${encodeURIComponent(query)}') or contains(DefaultCode,'${encodeURIComponent(query)}')`;
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=10&$filter=contains(NameGet,'${_odataStr(query)}') or contains(DefaultCode,'${_odataStr(query)}')`;
             const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
             if (!r.ok) return [];
             const data = await r.json();
@@ -2685,7 +2710,8 @@
             const el = e.target.closest('[data-combo-add]');
             if (!el) return;
             const pid = parseInt(el.dataset.comboAdd);
-            const list = JSON.parse(results.dataset.products || '[]');
+            let list = [];
+            try { list = JSON.parse(results.dataset.products || '[]'); } catch { list = []; }
             const product = list.find(p => p.Id === pid);
             if (product && !editComboProducts.find(c => c.ProductId === pid)) {
                 editComboProducts.push({
@@ -2794,7 +2820,7 @@
                 const q = input.value.trim();
                 if (q.length < 2) { results.style.display = 'none'; return; }
                 try {
-                    const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Supplier&Active=true&$top=10&$filter=contains(Name,'${encodeURIComponent(q)}')`;
+                    const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Supplier&Active=true&$top=10&$filter=contains(Name,'${_odataStr(q)}')`;
                     const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
                     if (!r.ok) throw new Error(`HTTP ${r.status}`);
                     const data = await r.json();
@@ -2815,7 +2841,8 @@
             const el = e.target.closest('[data-sup-add]');
             if (!el) return;
             const pid = parseInt(el.dataset.supAdd);
-            const list = JSON.parse(results.dataset.partners || '[]');
+            let list = [];
+            try { list = JSON.parse(results.dataset.partners || '[]'); } catch { list = []; }
             const p = list.find(x => x.Id === pid);
             if (p && !editSupplierInfos.find(s => s.PartnerId === pid)) {
                 editSupplierInfos.push({
@@ -2880,7 +2907,7 @@
                     const data = await r.json();
                     rows = data.value || data.Items || data.data || (Array.isArray(data) ? data : null);
                     if (rows) break;
-                } catch {}
+                } catch (err) { console.warn('[Audit] endpoint failed:', url, err.message); }
             }
             if (!rows) {
                 content.innerHTML = '<div style="color:#f59e0b;">Endpoint audit log của TPOS chưa xác định — không load được.</div>';
@@ -2930,7 +2957,8 @@
         bindVariantsTableEvents();
 
         // Combo
-        $('#editIsCombo').checked = !!detail.IsCombo;
+        const isComboEl = $('#editIsCombo');
+        if (isComboEl) isComboEl.checked = !!detail.IsCombo;
         editComboProducts = (detail.ComboProducts || []).map(c => ({
             ProductId: c.ProductId, ProductNameGet: c.ProductNameGet || c.Product?.NameGet,
             Quantity: c.Quantity || 1, ProductPrice: c.ProductPrice || 0,
@@ -2959,7 +2987,8 @@
         bindTagsPickerEvents();
 
         // Audit log — just reset (user must click Load)
-        $('#auditLogContent').innerHTML = '';
+        const auditEl = $('#auditLogContent');
+        if (auditEl) auditEl.innerHTML = '';
     }
 
     function resetAdvancedSections() {
@@ -2976,6 +3005,14 @@
         renderSuppliers();
         const tagWrap = $('#tagsPickerList');
         if (tagWrap) tagWrap.innerHTML = '';
+
+        // CRITICAL: clear _bound flags on containers so listeners re-attach after modal reopen.
+        // Without this, Phase 2/3 sections become non-interactive on 2nd modal open.
+        ['#variantsTbody', '#uomLinesTbody', '#supplierTbody', '#tagsPickerList',
+         '#comboSearchInput', '#supplierSearchInput'].forEach(sel => {
+            const el = $(sel);
+            if (el) delete el._bound;
+        });
     }
 
     /** Merge advanced sections back into payload before UpdateV2 / InsertV2. */
@@ -2993,7 +3030,7 @@
             Id: v.Id || 0,
             EAN13: v.EAN13 || null,
             DefaultCode: v.DefaultCode || '',
-            NameTemplate: v.NameTemplate || payload.DefaultCode || '',
+            NameTemplate: v.NameTemplate || payload.Name || payload.DefaultCode || '',
             NameNoSign: null,
             ProductTmplId: payload.Id || 0,
             UOMId: v.UOMId || payload.UOMId || 1,
@@ -3198,7 +3235,7 @@
                             body: JSON.stringify(payload),
                         });
                         if (r.ok) ok++; else failed++;
-                    } catch { failed++; }
+                    } catch (err) { failed++; console.warn('[BulkAction]', id, err.message); }
                     await new Promise(r => setTimeout(r, 200));
                 }
             });
@@ -3232,7 +3269,9 @@
     }
 
     async function confirmBulkTag() {
-        const ids = JSON.parse($('#bulkTagModal').dataset.ids || '[]');
+        let ids = [];
+        try { ids = JSON.parse($('#bulkTagModal').dataset.ids || '[]'); } catch { ids = []; }
+        if (!Array.isArray(ids) || !ids.length) { showToast('Không có SP được chọn', 'error'); return; }
         const mode = $('#bulkTagMode').value;
         const selectedTagIds = Array.from($('#bulkTagList').querySelectorAll('input:checked')).map(i => parseInt(i.value));
         if (!selectedTagIds.length) { showToast('Chọn ít nhất 1 nhãn', 'error'); return; }
@@ -3266,7 +3305,7 @@
                         body: JSON.stringify(payload),
                     });
                     if (r.ok) ok++; else failed++;
-                } catch { failed++; }
+                } catch (err) { failed++; console.warn('[BulkTag]', id, err.message); }
                 await new Promise(r => setTimeout(r, 200));
             }
         });
