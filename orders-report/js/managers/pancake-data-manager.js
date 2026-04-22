@@ -713,7 +713,7 @@ class PancakeDataManager {
     }
 
     // --- Search Conversations ---
-    async searchConversations(query) {
+    async searchConversations(query, opts = {}) {
         try {
             if (!query) return { conversations: [] };
             const token = await this.tm?.getToken();
@@ -728,7 +728,8 @@ class PancakeDataManager {
             const formData = new FormData();
             formData.append('page_ids', ids.join(','));
 
-            const res = await fetch(url, { method: 'POST', body: formData });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { method: 'POST', body: formData, signal: opts.signal }, 10000);
             if (!res.ok) return { conversations: [] };
             let data = await res.json();
 
@@ -741,7 +742,7 @@ class PancakeDataManager {
                     for (const bid of badIds) this._expiredPageIds.add(bid);
                     const retryForm = new FormData();
                     retryForm.append('page_ids', goodIds.join(','));
-                    const retryRes = await fetch(url, { method: 'POST', body: retryForm });
+                    const retryRes = await _fetch(url, { method: 'POST', body: retryForm, signal: opts.signal }, 10000);
                     if (retryRes.ok) {
                         data = await retryRes.json();
                     }
@@ -750,6 +751,7 @@ class PancakeDataManager {
             if (data.error_code && !data.conversations?.length) return { conversations: [] };
             return { conversations: data.conversations || [] };
         } catch (e) {
+            if (e?.name === 'AbortError') throw e;
             console.error('[PDM] search error:', e);
             return { conversations: [] };
         }

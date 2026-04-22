@@ -629,7 +629,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             const _nameMatch = (a, b) => a && b && (a === b || _strip(a) === _strip(b));
 
             if (pdm.searchConversations) {
-                const searchResult = await pdm.searchConversations(customerName);
+                const searchResult = await pdm.searchConversations(customerName, { signal: opts?.signal });
                 foundConvs = (searchResult.conversations || []).filter(c =>
                     String(c.page_id) === String(pageId) && _nameMatch(c.from?.name, customerName)
                 );
@@ -747,8 +747,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
     // inboxMapByPSID cache and messages API often don't have thread_id,
     // but conversation list API does. Fire background fetch to get it.
+    // Pass opts.signal so modal close/switch aborts this zombie fetch.
     if (!conv.thread_id && type !== 'COMMENT') {
-        pdm.fetchConversationsByCustomerFbId(convPageId, psid).then(result => {
+        pdm.fetchConversationsByCustomerFbId(convPageId, psid, { signal: opts?.signal }).then(result => {
             const apiConv = (result.conversations || []).find(c => c.id === conv.id);
             if (apiConv?.thread_id && window.currentConversationData?.id === conv.id) {
                 window.currentConversationData.thread_id = apiConv.thread_id;
