@@ -931,6 +931,13 @@
 
     /**
      * Auto send bill for successful orders (if enabled)
+     *
+     * Concurrency model: worker pool pattern (like bulkSendSelectedBills)
+     * - GLOBAL cap limits total parallel sends
+     * - PER_PAGE cap limits concurrent requests per Pancake page (PAT rotation + rate limit)
+     * - Leverages pre-generated bill cache (contentId) for fast path
+     * - Retries transient errors once with backoff
+     *
      * @param {array} successOrders - Array of success order data
      */
     async function autoSendBillsIfEnabled(successOrders) {
@@ -950,30 +957,131 @@
             return;
         }
 
-        window.notificationManager?.info(`Đang tự động gửi bill cho ${ordersToSend.length} đơn...`);
-
-        // Use existing sendBillManually function for each order
-        let sentCount = 0;
-        for (let i = 0; i < ordersToSend.length; i++) {
-            const order = ordersToSend[i];
-            const originalIndex = successOrders.indexOf(order);
-
-            try {
-                if (typeof window.sendBillManually === 'function') {
-                    // Pass skipPreview=true for auto-send to bypass preview modal
-                    await window.sendBillManually(originalIndex, true);
-                    sentCount++;
-                }
-            } catch (e) {
-                console.error(`[WORKFLOW] Error auto-sending bill for order ${order.Number}:`, e);
-            }
-
-            // Small delay between sends
-            await new Promise((resolve) => setTimeout(resolve, 500));
+        if (typeof window.sendBillManually !== 'function') {
+            console.warn('[AUTO-SEND] sendBillManually unavailable — aborting');
+            return;
         }
 
-        if (sentCount > 0) {
-            window.notificationManager?.success(`Đã gửi ${sentCount} bill thành công`);
+        // Tunable concurrency — override via window.AUTO_SEND_BILL_CONCURRENCY/_PER_PAGE
+        const GLOBAL_CONCURRENCY = Math.max(1, Number(window.AUTO_SEND_BILL_CONCURRENCY) || 4);
+        const PER_PAGE_CONCURRENCY = Math.max(1, Number(window.AUTO_SEND_BILL_PER_PAGE_CONCURRENCY) || 2);
+
+        // Build work items with page (channelId) for per-page cap
+        const displayedData = window.displayedData || [];
+        const orderStore = window.OrderStore;
+        const items = ordersToSend.map((order) => {
+            const originalIndex = successOrders.indexOf(order);
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            const saleOnlineOrder = saleOnlineId
+                ? orderStore?.get(saleOnlineId) ||
+                  displayedData.find((o) => String(o.Id) === String(saleOnlineId))
+                : null;
+            const postId = saleOnlineOrder?.Facebook_PostId;
+            const channelId = postId ? postId.split('_')[0] : null;
+            return { order, originalIndex, channelId };
+        });
+
+        const total = items.length;
+        window.notificationManager?.info(
+            `🚀 Tự động gửi bill song song cho ${total} đơn (concurrency: ${GLOBAL_CONCURRENCY} global / ${PER_PAGE_CONCURRENCY} per page)...`
+        );
+
+        // Shared progress state — shown via floating toast if available
+        const progress = { total, sent: 0, failed: 0, done: 0 };
+        window.autoSendInProgress = true;
+        if (typeof window.showAutoSendToast === 'function') {
+            window.showAutoSendToast(progress);
+        }
+
+        // Transient error detection for retry decision
+        const isTransient = (err) => {
+            const msg = String(err?.message || '').toLowerCase();
+            if (msg.includes('24') && msg.includes('giờ')) return false;
+            if (msg.includes('24-hour') || msg.includes('policy')) return false;
+            if (msg.includes('không có thông tin messenger')) return false;
+            if (msg.includes('không tìm thấy')) return false;
+            return true; // default: retry (network / token / upload)
+        };
+
+        const pageInFlight = new Map(); // channelId → count
+        const queue = items.slice();
+        const errors = [];
+
+        const worker = async () => {
+            while (queue.length > 0) {
+                // Pick next item whose page is under the per-page cap
+                let idx = -1;
+                for (let i = 0; i < queue.length; i++) {
+                    const pid = queue[i].channelId;
+                    if (!pid || (pageInFlight.get(pid) || 0) < PER_PAGE_CONCURRENCY) {
+                        idx = i;
+                        break;
+                    }
+                }
+                if (idx === -1) {
+                    // All remaining items on pages at cap — yield briefly
+                    await new Promise((r) => setTimeout(r, 100));
+                    continue;
+                }
+
+                const item = queue.splice(idx, 1)[0];
+                const { order, originalIndex, channelId } = item;
+                if (channelId) {
+                    pageInFlight.set(channelId, (pageInFlight.get(channelId) || 0) + 1);
+                }
+
+                let lastError = null;
+                for (let attempt = 1; attempt <= 2; attempt++) {
+                    try {
+                        await window.sendBillManually(originalIndex, true);
+                        progress.sent++;
+                        lastError = null;
+                        break;
+                    } catch (e) {
+                        lastError = e;
+                        console.error(
+                            `[AUTO-SEND] Error (attempt ${attempt}/2) for ${order.Number}:`,
+                            e
+                        );
+                        if (attempt === 1 && isTransient(e)) {
+                            await new Promise((r) => setTimeout(r, 2000));
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                if (lastError) {
+                    progress.failed++;
+                    errors.push(`${order.Number || order.Reference}: ${lastError.message}`);
+                }
+
+                if (channelId) {
+                    pageInFlight.set(channelId, (pageInFlight.get(channelId) || 1) - 1);
+                }
+                progress.done++;
+                if (typeof window.updateAutoSendToast === 'function') {
+                    window.updateAutoSendToast(progress);
+                }
+            }
+        };
+
+        const workers = Array.from(
+            { length: Math.min(GLOBAL_CONCURRENCY, total) },
+            () => worker()
+        );
+        await Promise.all(workers);
+
+        window.autoSendInProgress = false;
+        if (typeof window.finishAutoSendToast === 'function') {
+            window.finishAutoSendToast(progress, errors);
+        }
+
+        const resultMsg = `Auto-send bill: ${progress.sent} thành công${progress.failed > 0 ? `, ${progress.failed} lỗi` : ''}`;
+        if (progress.failed > 0) {
+            console.warn('[AUTO-SEND] Errors:', errors);
+            window.notificationManager?.warning(resultMsg + ' (xem console để biết chi tiết)', 6000);
+        } else if (progress.sent > 0) {
+            window.notificationManager?.success(resultMsg, 4000);
         }
     }
 

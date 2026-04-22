@@ -3477,13 +3477,16 @@ function renderSuccessOrdersTable() {
 
     container.innerHTML = html;
 
-    // Trigger auto send bills if enabled
+    // Trigger auto send bills if enabled — delayed so preGenerateBillImages
+    // (scheduled at +100ms from showFastSaleResultsModal) has time to start
+    // populating the cache. This lets auto-send hit contentId fast-path for
+    // the first few orders instead of regenerating.
     console.log('[FAST-SALE] Checking auto send bills:', {
         functionExists: !!window.autoSendBillsIfEnabled,
         successCount: fastSaleResultsData.success.length,
     });
     if (window.autoSendBillsIfEnabled && fastSaleResultsData.success.length > 0) {
-        window.autoSendBillsIfEnabled(fastSaleResultsData.success);
+        setTimeout(() => window.autoSendBillsIfEnabled(fastSaleResultsData.success), 800);
     }
 
     // Auto-remove "OK + NV" tags from success orders (Đã thanh toán/Đã xác nhận)
