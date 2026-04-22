@@ -849,36 +849,59 @@ function createRouter() {
         };
     }
 
-    // GET /api/oncall/portal/debug — test connectivity + login timing
+    // GET /api/oncall/portal/debug — test connectivity from Render to pbx-ucaas
     router.get('/portal/debug', portalErrorMiddleware(async (req, res) => {
-        const steps = [];
-        const start = Date.now();
+        const fetch = require('node-fetch');
+        const dns = require('dns').promises;
+        const net = require('net');
+        const tls = require('tls');
+        const results = {};
+
+        // DNS lookup
         try {
-            const fetch = require('node-fetch');
-            const AbortController = global.AbortController || require('abort-controller');
-            // Step 1: raw connectivity test
-            let t = Date.now();
+            const t = Date.now();
+            const addrs = await dns.lookup('pbx-ucaas.oncallcx.vn', { all: true });
+            results.dns = { ms: Date.now() - t, addrs };
+        } catch (e) { results.dns = { error: e.message }; }
+
+        // Raw TCP connect test (port 443)
+        results.tcp443 = await new Promise(resolve => {
+            const t = Date.now();
+            const s = net.connect({ host: 'pbx-ucaas.oncallcx.vn', port: 443, timeout: 8000 }, () => {
+                resolve({ ms: Date.now() - t, ok: true });
+                s.end();
+            });
+            s.on('error', e => resolve({ ms: Date.now() - t, error: e.code || e.message }));
+            s.on('timeout', () => { s.destroy(); resolve({ ms: Date.now() - t, error: 'TIMEOUT' }); });
+        });
+
+        // TLS handshake test
+        results.tls = await new Promise(resolve => {
+            const t = Date.now();
+            const s = tls.connect({ host: 'pbx-ucaas.oncallcx.vn', port: 443, servername: 'pbx-ucaas.oncallcx.vn', timeout: 8000 }, () => {
+                resolve({ ms: Date.now() - t, ok: true, protocol: s.getProtocol(), cipher: s.getCipher()?.name });
+                s.end();
+            });
+            s.on('error', e => resolve({ ms: Date.now() - t, error: e.code || e.message }));
+            s.on('timeout', () => { s.destroy(); resolve({ ms: Date.now() - t, error: 'TIMEOUT' }); });
+        });
+
+        // HTTPS fetch with 20s timeout
+        try {
+            const t = Date.now();
             const ac = new AbortController();
-            setTimeout(() => ac.abort(), 8000);
-            const r1 = await fetch('https://pbx-ucaas.oncallcx.vn/portal/login.xhtml', { signal: ac.signal });
-            await r1.text();
-            steps.push({ step: 'raw_get_login', ms: Date.now() - t, status: r1.status });
-
-            // Step 2: OnCallPortalClient login
-            t = Date.now();
-            const client = getPortalClient();
-            await client.login(true);  // force re-login
-            steps.push({ step: 'client_login', ms: Date.now() - t, cookies: Object.keys(client.cookies) });
-
-            // Step 3: fetch calls page
-            t = Date.now();
-            const data = await client.listCalls({ page: 1 });
-            steps.push({ step: 'list_calls', ms: Date.now() - t, callCount: data.calls.length });
-
-            res.json({ success: true, totalMs: Date.now() - start, steps });
-        } catch (err) {
-            res.status(500).json({ success: false, error: err.message, stack: err.stack?.slice(0, 500), totalMs: Date.now() - start, steps });
+            setTimeout(() => ac.abort(), 20000);
+            const r = await fetch('https://pbx-ucaas.oncallcx.vn/portal/login.xhtml', {
+                signal: ac.signal,
+                headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+            });
+            const txt = await r.text();
+            results.https = { ms: Date.now() - t, status: r.status, bytes: txt.length };
+        } catch (e) {
+            results.https = { error: e.message, code: e.code };
         }
+
+        res.json({ success: true, results });
     }));
 
     // GET /api/oncall/portal/calls — list calls (page 1, 25 rows)
