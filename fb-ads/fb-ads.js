@@ -14,7 +14,7 @@ window.fbAsyncInit = function() {
 const FBAds = (() => {
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3000/api/fb-ads'
-        : 'https://n2store-fallback.onrender.com/api/fb-ads';
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-ads';
 
     // State
     let currentTab = 'campaigns';

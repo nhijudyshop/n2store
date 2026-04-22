@@ -73,6 +73,17 @@ export const ROUTES = {
     CAMPAIGNS: { pattern: '/api/campaigns/*' },
     FACEBOOK_RENDER: { pattern: '/facebook/*' },
     RENDER_V2_FALLBACK: { pattern: '/api/v2/*' },  // catch-all for /api/v2/* not matched above
+    // Render-owned /api/* routes that must not fall into the TPOS_GENERIC catch-all.
+    // Each is served by a specific Render Express router (see render.com/server.js).
+    ATTENDANCE: { pattern: '/api/attendance/*' },
+    GEMINI: { pattern: '/api/gemini/*' },
+    DEEPSEEK_RENDER: { pattern: '/api/deepseek/*' },  // /api/deepseek (exact) stays on CF direct-to-DeepSeek
+    TELEGRAM: { pattern: '/api/telegram/*' },
+    QUICK_REPLIES: { pattern: '/api/quick-replies/*' },
+    FB_ADS: { pattern: '/api/fb-ads/*' },
+    FB_GLOBAL_ID: { pattern: '/api/fb-global-id/*' },
+    PANCAKE_ACCOUNT_PAGES: { pattern: '/api/pancake-account-pages/*' },
+    TPOS_CREDENTIALS: { pattern: '/api/tpos-credentials/*' },
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -166,6 +177,20 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/users/') || pathname === '/api/users') return 'USERS';
     if (pathname.startsWith('/api/campaigns/') || pathname === '/api/campaigns') return 'CAMPAIGNS';
     if (pathname.startsWith('/facebook/')) return 'FACEBOOK_RENDER';
+
+    // Explicit Render-owned /api/* routes (match before TPOS_GENERIC / DEEPSEEK exact).
+    // Order: prefix matches for paths that share a root with CF-direct routes need extra care —
+    // `/api/deepseek` exact (CF→api.deepseek.com) is handled above this block via exact match,
+    // so `/api/deepseek/` (with slash) here is safe to route to Render.
+    if (pathname.startsWith('/api/attendance/') || pathname === '/api/attendance') return 'ATTENDANCE';
+    if (pathname.startsWith('/api/gemini/') || pathname === '/api/gemini') return 'GEMINI';
+    if (pathname.startsWith('/api/deepseek/')) return 'DEEPSEEK_RENDER';
+    if (pathname.startsWith('/api/telegram/') || pathname === '/api/telegram') return 'TELEGRAM';
+    if (pathname.startsWith('/api/quick-replies/') || pathname === '/api/quick-replies') return 'QUICK_REPLIES';
+    if (pathname.startsWith('/api/fb-ads/') || pathname === '/api/fb-ads') return 'FB_ADS';
+    if (pathname.startsWith('/api/fb-global-id/') || pathname === '/api/fb-global-id') return 'FB_GLOBAL_ID';
+    if (pathname.startsWith('/api/pancake-account-pages/') || pathname === '/api/pancake-account-pages') return 'PANCAKE_ACCOUNT_PAGES';
+    if (pathname.startsWith('/api/tpos-credentials/') || pathname === '/api/tpos-credentials') return 'TPOS_CREDENTIALS';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';

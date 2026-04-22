@@ -256,6 +256,24 @@ export async function handleRenderV2FallbackProxy(request, url, pathname) {
 }
 
 /**
+ * Generic Render Express-router endpoints wrapper. Each of these paths maps 1:1 to an
+ * `app.use('/api/<name>', <nameRoutes>)` line in render.com/server.js:
+ *   attendance, gemini, deepseek (sub-paths), telegram, quick-replies, fb-ads,
+ *   fb-global-id, pancake-account-pages, tpos-credentials.
+ * Without these explicit CF routes, the TPOS_GENERIC catch-all would forward them to
+ * tomato.tpos.vn/<path> (404) — breaking AI chat, attendance sync, FB ads, etc.
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleRenderMiscProxy(request, url, pathname) {
+    // Tag extracted from pathname so logs remain useful (e.g. ATTENDANCE-PROXY, GEMINI-PROXY)
+    const segment = (pathname.match(/^\/api\/([a-z0-9-]+)/i) || [,'RENDER-MISC'])[1];
+    return handleRenderFallbackProxy(request, url, pathname, `${segment.toUpperCase()}-PROXY`);
+}
+
+/**
  * Generic forwarder to n2store-fallback.onrender.com preserving full pathname and query.
  * - SSE (text/event-stream) uses plain fetch to preserve long-lived streaming.
  * - Everything else uses fetchWithRetry so transient 5xx during Render redeploys are absorbed.

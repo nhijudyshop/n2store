@@ -10,7 +10,7 @@
     // ================================================================
     // API CLIENT (replaces Firestore)
     // ================================================================
-    const ATTENDANCE_API = 'https://n2store-fallback.onrender.com/api/attendance';
+    const ATTENDANCE_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/attendance';
 
     async function apiGet(path) {
         const res = await fetch(ATTENDANCE_API + path);

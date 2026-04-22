@@ -40,7 +40,8 @@ import {
     handleUsersProxy,
     handleCampaignsProxy,
     handleFacebookRenderProxy,
-    handleRenderV2FallbackProxy
+    handleRenderV2FallbackProxy,
+    handleRenderMiscProxy
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
@@ -187,6 +188,16 @@ export default {
                     return handleFacebookRenderProxy(request, url, pathname);
                 case 'RENDER_V2_FALLBACK':
                     return handleRenderV2FallbackProxy(request, url, pathname);
+                case 'ATTENDANCE':
+                case 'GEMINI':
+                case 'DEEPSEEK_RENDER':
+                case 'TELEGRAM':
+                case 'QUICK_REPLIES':
+                case 'FB_ADS':
+                case 'FB_GLOBAL_ID':
+                case 'PANCAKE_ACCOUNT_PAGES':
+                case 'TPOS_CREDENTIALS':
+                    return handleRenderMiscProxy(request, url, pathname);
 
                 // Customer 360 v2 (unified API)
                 case 'CUSTOMERS_V2':
