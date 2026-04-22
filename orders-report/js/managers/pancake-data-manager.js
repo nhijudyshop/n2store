@@ -440,7 +440,8 @@ class PancakeDataManager {
                 `pages/${pageId}/conversations`, pat
             ) + `&last_conversation_id=${cursor}&unread_first=true`;
 
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: { 'Accept': 'application/json' } }, 10000);
             if (!res.ok) return [];
             const data = await res.json();
             if (data.conversations?.length > 0) {
