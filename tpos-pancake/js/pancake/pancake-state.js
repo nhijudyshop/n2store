@@ -48,7 +48,7 @@ const PancakeState = {
     serverMode: localStorage.getItem('tpos_pancake_server_mode') || 'pancake',
 
     // URLs
-    proxyBaseUrl: 'https://n2store-fallback.onrender.com',
+    proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
     tposPancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
     n2storeUrl: 'https://n2store-facebook.onrender.com',
 

@@ -57,7 +57,7 @@ class TposChatManager {
         this.startCacheCleanup();
 
         // API config
-        this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+        this.proxyBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
         // Route TPOS calls via CF Worker — browser CORS is blocked against tomato.tpos.vn.
         // CF maps /api/rest/* → tomato.tpos.vn/rest/* and /api/odata/* → tomato.tpos.vn/odata/*.

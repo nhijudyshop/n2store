@@ -18,7 +18,7 @@ const CONFIG = {
     },
 
     // Hoặc sử dụng Render.com trực tiếp
-    // API_BASE_URL: 'https://n2store-fallback.onrender.com',
+    // API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
     // Pagination
     ITEMS_PER_PAGE: 50,

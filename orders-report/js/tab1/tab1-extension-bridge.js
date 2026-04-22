@@ -17,7 +17,7 @@ window.pancakeExtension = { connected: false, lastEvents: [] };
 window._globalIdCache = {};
 
 // ===== Server cache endpoint (cross-client globalUserId share) =====
-const FB_GLOBAL_ID_CACHE_URL = 'https://n2store-fallback.onrender.com/api/fb-global-id';
+const FB_GLOBAL_ID_CACHE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id';
 
 /**
  * Lookup cached globalUserId from server (shared across all machines).

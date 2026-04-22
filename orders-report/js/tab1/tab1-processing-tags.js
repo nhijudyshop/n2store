@@ -486,6 +486,13 @@
                 console.log(`${PTAG_LOG} Re-triggering wallet auto-tag (${window.walletDebtData.size} phones)`);
                 window._applyWalletAutoTags();
             }
+
+            // Reconcile tag XL với invoice store: nếu đơn có PBH active mà tag vẫn
+            // là CHO_DI_DON (do creation không đi qua storeFromApiResult hoặc
+            // session khác), auto-flip sang HOAN_TAT. Fire-and-forget.
+            reconcileTagsWithInvoices().catch(e => {
+                console.warn(`${PTAG_LOG} reconcileTagsWithInvoices failed:`, e);
+            });
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
         }
@@ -1288,6 +1295,57 @@
         // Forward sync XL → TPOS: restore tag theo state đã khôi phục
         if (typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'bill-cancelled');
+        }
+    }
+
+    /**
+     * Reconcile: quét ProcessingTagState, với các đơn đang ở CHO_DI_DON nhưng
+     * đã có PBH active trong InvoiceStatusStore → tự động flip sang HOAN_TAT.
+     *
+     * Why: từ commit 0c167717 (refactor bỏ polling), auto-tag ĐÃ RA ĐƠN chỉ
+     * chạy tại thời điểm storeFromApiResult(). Nếu creation đi qua path khác
+     * (user khác tạo, realtime push, F5 trước khi hook chạy xong), tag kẹt ở
+     * OKIE CHỜ ĐI ĐƠN dù PBH đã tồn tại. Reconciliation này chạy 1 lần sau
+     * khi cả 2 store đã load xong → fix state mismatch.
+     *
+     * Safe vs loop-override bug đã fix ở commit 0c167717:
+     *   - Chỉ reconcile khi category === CHO_DI_DON. User manual set 2/3/4 →
+     *     skip (không bị override ngược về HOAN_TAT).
+     *   - onPtagBillCreated idempotent (skip nếu đã HOAN_TAT ở line 1160) →
+     *     không re-trigger.
+     */
+    async function reconcileTagsWithInvoices() {
+        if (!ProcessingTagState._isLoaded) return;
+        const invStore = window.InvoiceStatusStore;
+        if (!invStore || typeof invStore.getAll !== 'function') return;
+
+        const orderMap = ProcessingTagState._orderData;
+        if (!orderMap || orderMap.size === 0) return;
+
+        const candidates = [];
+        orderMap.forEach((data, orderCode) => {
+            if (!data) return;
+            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+            const orderId = _ptagResolveId(orderCode);
+            if (!orderId) return;
+            const invs = invStore.getAll(orderId) || [];
+            const hasActive = invs.some(inv => {
+                const st = String(inv.State || '').toLowerCase();
+                const sc = String(inv.StateCode || 'None');
+                return !inv.IsMergeCancel && st !== 'cancel' && sc !== 'cancel' && sc !== 'IsMergeCancel';
+            });
+            if (hasActive) candidates.push(orderId);
+        });
+
+        if (candidates.length === 0) return;
+        console.log(`${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`);
+
+        for (const orderId of candidates) {
+            try {
+                await onPtagBillCreated(orderId);
+            } catch (e) {
+                console.warn(`${PTAG_LOG} reconcile failed for ${orderId}:`, e);
+            }
         }
     }
 
@@ -5408,6 +5466,7 @@
     window.onPtagBillCreated = onPtagBillCreated;
     window.onPtagBillCancelled = onPtagBillCancelled;
     window.onPtagPackingSlipPrinted = onPtagPackingSlipPrinted;
+    window.reconcileTagsWithInvoices = reconcileTagsWithInvoices;
 
     // Filter (called from tab1-search.js)
     window.getActiveProcessingTagFilter = getActiveProcessingTagFilter;

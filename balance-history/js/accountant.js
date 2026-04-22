@@ -2855,7 +2855,7 @@
     // FAILED WALLET WITHDRAWALS (Trừ ví thất bại)
     // =====================================================
 
-    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+    const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     /**
      * Load failed withdrawal stats and update UI

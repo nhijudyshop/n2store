@@ -18,7 +18,7 @@
     // =====================================================
     // ENDPOINTS (single source of truth)
     // =====================================================
-    const RENDER_BASE = 'https://n2store-fallback.onrender.com';
+    const RENDER_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API_BASE = RENDER_BASE + '/api';
     const WAREHOUSE_API = API_BASE + '/v2/web-warehouse';
     const SSE_ENDPOINT = API_BASE + '/realtime/sse';

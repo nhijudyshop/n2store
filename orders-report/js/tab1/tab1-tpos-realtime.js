@@ -13,7 +13,7 @@
     window.__tab1TposRealtimeLoaded = true;
 
     const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com';
-    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+    const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const ODATA_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
 
     let ws = null;

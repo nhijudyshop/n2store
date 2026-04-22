@@ -5,15 +5,15 @@
 
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/admin/data'
-    : 'https://n2store-fallback.onrender.com/api/admin/data';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/data';
 
 const FB_API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/admin/firebase'
-    : 'https://n2store-fallback.onrender.com/api/admin/firebase';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/firebase';
 
 const RS_API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/admin/render'
-    : 'https://n2store-fallback.onrender.com/api/admin/render';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render';
 
 // =====================================================
 // STATE
@@ -1851,7 +1851,7 @@ function apiInit() {
 
     document.getElementById('apiStats').innerHTML =
         `<strong>${totalCategories}</strong> categories &middot; <strong>${totalEndpoints}</strong> endpoints<br>` +
-        `<span style="font-size:0.75rem;">Base URL: <code style="background:var(--gray-100);padding:2px 6px;border-radius:3px;">https://n2store-fallback.onrender.com</code></span>`;
+        `<span style="font-size:0.75rem;">Base URL: <code style="background:var(--gray-100);padding:2px 6px;border-radius:3px;">https://chatomni-proxy.nhijudyshop.workers.dev</code></span>`;
 
     apiRenderCategoryList();
     lucide.createIcons();
@@ -1935,7 +1935,7 @@ function apiSelectCategory(name, searchFilter = '') {
 function apiCopyPath(path) {
     const base = window.location.hostname === 'localhost'
         ? 'http://localhost:3000'
-        : 'https://n2store-fallback.onrender.com';
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev';
     navigator.clipboard.writeText(base + path).then(() => {
         showToast('Đã copy URL', 'success');
     });

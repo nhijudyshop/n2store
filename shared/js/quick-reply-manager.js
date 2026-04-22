@@ -83,7 +83,7 @@ class QuickReplyManager {
         this.replies = [];
         this.targetInputId = null;
         this.STORAGE_KEY = 'quickReplies';
-        this.API_BASE = 'https://n2store-fallback.onrender.com/api/quick-replies';
+        this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/quick-replies';
         this.autocompleteActive = false;
         this.selectedSuggestionIndex = -1;
         this.currentSuggestions = [];

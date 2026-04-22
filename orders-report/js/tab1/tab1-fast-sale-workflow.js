@@ -1507,7 +1507,7 @@
      * @param {string} reason - Cancellation reason
      */
     async function logCancelOrderActivity(phone, orderNumber, order, reason, originalNote) {
-        const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+        const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const performedBy = window.authManager?.getAuthState()?.username || 'system';
 
         try {

@@ -230,6 +230,32 @@ export async function handleCampaignsProxy(request, url, pathname) {
 }
 
 /**
+ * Handle /facebook/*
+ * Render server's Facebook endpoints (crm-teams, live-campaigns, comments, comments/stream SSE,
+ * comment-orders). Used by tpos-pancake chat + anything embedding the Facebook live-comment stream.
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleFacebookRenderProxy(request, url, pathname) {
+    return handleRenderFallbackProxy(request, url, pathname, 'FACEBOOK-RENDER-PROXY');
+}
+
+/**
+ * Handle /api/v2/* (catch-all Render fallback).
+ * Every /api/v2/* path in this codebase is served by Render; this route prevents the TPOS_GENERIC
+ * catch-all from incorrectly forwarding to tomato.tpos.vn (which doesn't own /api/v2/*).
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleRenderV2FallbackProxy(request, url, pathname) {
+    return handleRenderFallbackProxy(request, url, pathname, 'RENDER-V2-FALLBACK');
+}
+
+/**
  * Generic forwarder to n2store-fallback.onrender.com preserving full pathname and query.
  * - SSE (text/event-stream) uses plain fetch to preserve long-lived streaming.
  * - Everything else uses fetchWithRetry so transient 5xx during Render redeploys are absorbed.

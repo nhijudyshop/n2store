@@ -22,7 +22,7 @@ class TokenManager {
         this.storageKey = 'bearer_token_data_' + this.companyId;
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = this.PROXY_URL + '/api/token';
-        this.RENDER_URL = 'https://n2store-fallback.onrender.com';
+        this.RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
         this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
         this.credentials = TokenManager.getCredentials(this.companyId);

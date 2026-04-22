@@ -7,7 +7,7 @@
 (function() {
     'use strict';
 
-    const WALLET_API_URL = 'https://n2store-fallback.onrender.com/api';
+    const WALLET_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
     const WALLET_TYPE_CONFIG = {
         'DEPOSIT':              { label: 'Cộng Tiền',          iconChar: '+', isCredit: true },

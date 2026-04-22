@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 8081;
-const RENDER_URL = 'https://n2store-fallback.onrender.com';
+const RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const LOG_DIR = path.join(__dirname, 'logs');
 
 // Recent logs buffer for /debug endpoint

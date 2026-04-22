@@ -14,7 +14,7 @@
     if (window.__globalIdHarvesterLoaded) return;
     window.__globalIdHarvesterLoaded = true;
 
-    const ENDPOINT = 'https://n2store-fallback.onrender.com/api/fb-global-id';
+    const ENDPOINT = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id';
     const LOG = '[GLOBAL-ID-HARVEST]';
 
     // Dedupe in-memory để tránh push duplicate trong cùng session

@@ -50,7 +50,7 @@ const TposState = {
     // API base URLs
     // /facebook/* routes (crm-teams, live-campaigns, comments, SSE) → Render server
     // /api/odata/*, /api/rest/*, /api/v2/* → CF Worker or Render server
-    proxyBaseUrl: 'https://n2store-fallback.onrender.com',
+    proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
     workerUrl: (window.API_CONFIG ? window.API_CONFIG.WORKER_URL : 'https://chatomni-proxy.nhijudyshop.workers.dev'),
     tposPancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
     // CF Worker proxy — strips /api/ prefix then forwards to tomato.tpos.vn

@@ -296,7 +296,7 @@ window.refreshAccountsList = async function() {
 // =====================================================
 // Pages cache (Render DB source of truth + localStorage fallback)
 // =====================================================
-const PAGES_CACHE_API = 'https://n2store-fallback.onrender.com/api/pancake-account-pages';
+const PAGES_CACHE_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-account-pages';
 const PAGES_CACHE_LS_KEY = 'pancake_account_pages_cache_v1';
 
 async function loadAccountPagesCache() {

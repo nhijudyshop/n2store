@@ -16,7 +16,7 @@
 // 4. Cookie (fallback)
 // =====================================================
 
-const _RENDER_URL = 'https://n2store-fallback.onrender.com';
+const _RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
 
 class PancakeTokenManager {
@@ -1321,7 +1321,7 @@ class PancakeTokenManager {
         // Current account failed — try other accounts from Render DB
         console.warn('[PANCAKE-TOKEN] Current account failed for page', pageId, '— trying other accounts...');
         try {
-            const r = await _fetch('https://n2store-fallback.onrender.com/api/pancake-accounts?active=true', {}, 8000);
+            const r = await _fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-accounts?active=true', {}, 8000);
             if (r.ok) {
                 const data = await r.json();
                 const accounts = data.accounts || [];

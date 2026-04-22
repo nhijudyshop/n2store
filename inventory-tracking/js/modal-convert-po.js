@@ -7,11 +7,11 @@
 //   - Danh sách sản phẩm bảng: STT | Tên SP | Biến thể | Mã SP | SL | Giá mua | Giá bán | Thành tiền | Thao tác
 //   - Nested modal "Tạo biến thể từ thuộc tính" (4 cột: Màu / Size Số / Size Chữ / Danh sách Biến Thể)
 //   - Footer: Tổng SL | Tổng tiền | Giảm giá | Tiền ship | THÀNH TIỀN | Hủy | Tạo đơn hàng
-// POST → https://n2store-fallback.onrender.com/api/v2/purchase-orders với X-Auth-Data header
+// POST → https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purchase-orders với X-Auth-Data header
 // =====================================================
 
-const PO_API_URL = 'https://n2store-fallback.onrender.com/api/v2/purchase-orders';
-const UPLOAD_API_URL = 'https://n2store-fallback.onrender.com/api/upload/image';
+const PO_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purchase-orders';
+const UPLOAD_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/upload/image';
 
 // -------- State --------
 let _convertCurrentInvoice = null;      // dotHang entry (flat)

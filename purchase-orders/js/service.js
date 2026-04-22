@@ -11,7 +11,7 @@
 // ========================================
 class PurchaseOrderService {
     constructor() {
-        this.API_BASE = 'https://n2store-fallback.onrender.com/api/v2/purchase-orders';
+        this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purchase-orders';
         this.currentUser = null;
         this.initialized = false;
         this.storage = null; // Firebase Storage still used for images

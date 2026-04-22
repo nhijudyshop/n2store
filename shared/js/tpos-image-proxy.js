@@ -33,7 +33,7 @@
 
     const TPOS_CDN_PATTERN = /vn\.img1\.tpos\.vn/;
     const PROXIED_PATTERN = /\/api\/image-proxy\?/;
-    const RENDER_URL = 'https://n2store-fallback.onrender.com';
+    const RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const FAILED_MARK_ATTR = 'data-tpos-fallback';
 
     function getWorkerUrl() {

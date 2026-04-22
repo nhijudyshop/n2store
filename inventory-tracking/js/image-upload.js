@@ -30,7 +30,7 @@ async function uploadImage(file, path) {
     const base64 = await fileToBase64(file);
 
     // Upload via server endpoint (same server as API_BASE)
-    const serverUrl = (typeof API_BASE !== 'undefined' ? API_BASE.replace('/api/v2/inventory-tracking', '') : 'https://n2store-fallback.onrender.com') + '/api/upload/image';
+    const serverUrl = (typeof API_BASE !== 'undefined' ? API_BASE.replace('/api/v2/inventory-tracking', '') : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
 
     const response = await fetch(serverUrl, {
         method: 'POST',
@@ -98,7 +98,7 @@ async function deleteImage(url) {
     try {
         const serverUrl = (typeof API_BASE !== 'undefined'
             ? API_BASE.replace('/api/v2/inventory-tracking', '')
-            : 'https://n2store-fallback.onrender.com') + '/api/upload/image';
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
 
         const response = await fetch(serverUrl, {
             method: 'DELETE',

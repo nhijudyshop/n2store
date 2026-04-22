@@ -295,7 +295,7 @@ async function batchFetchDebts(phones) {
 window.walletDebtData = new Map();
 
 // Use direct Render API URL (same as WalletIntegration) - proxy may not handle POST correctly
-const WALLET_BATCH_API_URL = 'https://n2store-fallback.onrender.com/api';
+const WALLET_BATCH_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
 const WALLET_DEBT_BADGE_CONFIG = {
     BANK_TRANSFER:        { label: 'CK',        bg: '#10b981' },
@@ -555,7 +555,7 @@ function triggerWalletDebtFetch() {
 let walletEventSource = null;
 let walletReconnectTimeout = null;
 let isWalletManualClose = false;
-const RENDER_SSE_URL = 'https://n2store-fallback.onrender.com';
+const RENDER_SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 /**
  * Check if current user is in employee mode (not admin)

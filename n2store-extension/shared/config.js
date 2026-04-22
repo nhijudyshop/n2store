@@ -30,9 +30,11 @@ export const CONFIG = {
   // Extension
   EXTENSION_NAME: 'N2Store Messenger',
 
-  // Server endpoints
-  RENDER_SSE_URL: 'https://n2store-fallback.onrender.com',
-  RENDER_API_URL: 'https://n2store-fallback.onrender.com',
+  // Server endpoints — route through Cloudflare Worker so CORS stays valid
+  // even when Render returns 502 during redeploy/crash. CF Worker transparently
+  // forwards /api/* to n2store-fallback.onrender.com.
+  RENDER_SSE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
+  RENDER_API_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
   CF_WORKER_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
   // N2Store web app

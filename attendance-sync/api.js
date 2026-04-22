@@ -5,7 +5,7 @@
  *   init, uploadRecords, uploadUsers, setStatus, onCommands, updateCommand
  */
 
-const API_BASE = process.env.ATTENDANCE_API_URL || 'https://n2store-fallback.onrender.com/api/attendance';
+const API_BASE = process.env.ATTENDANCE_API_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/attendance';
 
 async function apiRequest(method, path, body) {
     const url = API_BASE + path;

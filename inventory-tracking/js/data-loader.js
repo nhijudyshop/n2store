@@ -145,7 +145,7 @@ function setupProductImagesRealtimeSync() {
     }
 
     try {
-        const client = new RealtimeClient('https://n2store-fallback.onrender.com');
+        const client = new RealtimeClient('https://chatomni-proxy.nhijudyshop.workers.dev');
         client.connect(['product_images']);
 
         client.on('product_images', (data) => {

@@ -11,7 +11,7 @@ class BillTokenManager {
     constructor() {
         // Multi-company: use per-company storage keys
         this.companyId = BillTokenManager.getCompanyId();
-        this.RENDER_API = 'https://n2store-fallback.onrender.com/api/tpos-credentials';
+        this.RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/tpos-credentials';
         this.TOKEN_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
 
         this.credentials = null; // { username, password } or { bearerToken }

@@ -810,7 +810,7 @@ async function confirmAndPrintSale() {
             const normalizedPhoneVerify = normalizePhoneForQR(customerPhone);
             if (normalizedPhoneVerify) {
                 try {
-                    const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
+                    const QR_API = window.QR_API_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
                     const verifyRes = await fetch(
                         `${QR_API}/api/v2/wallets/${encodeURIComponent(normalizedPhoneVerify)}/available-balance`
                     );
@@ -1168,7 +1168,7 @@ async function confirmAndPrintSale() {
 
                 // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed
-                const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+                const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
                 fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

@@ -13,7 +13,7 @@ class PancakeChatManager {
         this.filterType = 'all'; // 'all', 'tpos-saved', 'inbox', 'comment'
 
         // API config
-        this.proxyBaseUrl = 'https://n2store-fallback.onrender.com';
+        this.proxyBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
 
         // Server mode: 'pancake' (default) or 'n2store' (Facebook Graph API)

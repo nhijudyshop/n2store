@@ -353,7 +353,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
         // Fetch DB notes (customer_notes table) from Render DB
         if (phone) {
-            const renderUrl = window.API_CONFIG?.RENDER_URL || 'https://n2store-fallback.onrender.com';
+            const renderUrl = window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const _fetch = window.fetchWithTimeout || fetch;
             _fetch(`${renderUrl}/api/v2/customers/${phone}/notes`, {}, 6000).then(r => r.json()).then(data => {
                 if (data.success && data.data?.length) {
@@ -579,7 +579,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         // Warm: 500ms → best-of(A,B) ≈ 500ms, saves one round-trip.
         if (customerPhone || psid) {
             try {
-                const renderUrl = 'https://n2store-fallback.onrender.com';
+                const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
                 const _fetch = window.fetchOrNull || (async (u, o) => { try { const r = await fetch(u, o); return r.ok ? r : null; } catch { return null; } });
                 const srcPageId = window.currentChatChannelId || pageId;
 
@@ -1294,7 +1294,7 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
             reports_by_phone: messagesResult.reports_by_phone || null,
         };
 
-        const renderUrl = 'https://n2store-fallback.onrender.com';
+        const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const _fetch = window.fetchWithTimeout || fetch;
         _fetch(`${renderUrl}/api/v2/customers/sync-pancake`, {
             method: 'POST',

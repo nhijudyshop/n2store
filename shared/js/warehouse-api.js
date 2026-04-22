@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    const BASE_URL = 'https://n2store-fallback.onrender.com/api/v2/web-warehouse';
+    const BASE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse';
 
     /**
      * Build proxied image URL for a product.

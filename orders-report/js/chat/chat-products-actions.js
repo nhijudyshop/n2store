@@ -319,7 +319,7 @@
             }
             if (!userId) return;
 
-            const RENDER_API = 'https://n2store-fallback.onrender.com';
+            const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev';
             await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}/quantity`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -550,7 +550,7 @@
         }
     }
 
-    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
 
     /**

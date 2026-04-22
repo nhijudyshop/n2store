@@ -12,7 +12,7 @@
 // 3. Render DB accounts (network, shared across machines)
 // =====================================================
 
-const _RENDER_URL = 'https://n2store-fallback.onrender.com';
+const _RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
 
 class PancakeTokenManager {

@@ -7,7 +7,7 @@
     // =====================================================
 
     const CF_WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const RENDER_SERVER = 'https://n2store-fallback.onrender.com';
+    const RENDER_SERVER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const HISTORY_KEY = 'autofb_order_history';
     const USD_TO_VND = 25000;
 

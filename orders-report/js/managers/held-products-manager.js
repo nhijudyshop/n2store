@@ -15,7 +15,7 @@
 (function () {
     'use strict';
 
-    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // Debounce timer for render functions
     let renderDebounceTimer = null;

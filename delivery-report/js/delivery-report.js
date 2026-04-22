@@ -8,7 +8,7 @@
     'use strict';
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const RENDER_URL = 'https://n2store-fallback.onrender.com';
+    const RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // =====================================================
     // STATE

@@ -215,7 +215,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     // =====================================================
     async function _fetchOfflinePendingCustomers() {
         try {
-            const API_BASE = 'https://n2store-fallback.onrender.com';
+            const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const resp = await fetch(`${API_BASE}/api/realtime/pending-customers?limit=500`);
             if (!resp.ok) return;
             const data = await resp.json();

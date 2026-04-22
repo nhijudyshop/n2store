@@ -2297,7 +2297,7 @@ async function reVerifyWalletForBatch(models) {
     console.log(`[FAST-SALE] Wallet re-verify: checking ${phoneOrdersMap.size} phones...`);
     showFastSaleStatus(`Đang kiểm tra ví ${phoneOrdersMap.size} khách hàng...`, 'loading');
 
-    const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
+    const QR_API = window.QR_API_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     // Collect indexes to remove (must remove from end to preserve earlier indexes)
     const indexesToRemove = new Set();
 
@@ -2964,7 +2964,7 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             // Use pending-withdrawals API on Render server directly (not via CF Worker)
             // This ensures 100% no lost transactions even on network failures
-            const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+            const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -3040,7 +3040,7 @@ async function logOrderCreationActivities() {
     const successOrders = fastSaleResultsData.success;
     if (!successOrders || successOrders.length === 0) return;
 
-    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+    const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const performedBy = window.authManager?.getAuthState()?.username || 'system';
 
     console.log(`[FAST-SALE] Logging activities for ${successOrders.length} successful orders...`);

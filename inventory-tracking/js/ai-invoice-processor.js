@@ -11,7 +11,7 @@ console.log('[AI] Invoice processor initialized');
 // =====================================================
 
 const AI_CONFIG = {
-    GEMINI_PROXY_URL: 'https://n2store-fallback.onrender.com/api/gemini/chat',
+    GEMINI_PROXY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/gemini/chat',
     MODEL: 'gemini-3-flash-preview', // Same as telegram bot
     GENERATION_CONFIG: {
         temperature: 0,      // Deterministic output - no randomness

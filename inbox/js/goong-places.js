@@ -5,7 +5,7 @@
 // Bấm nút "Tìm" hoặc Enter để gọi API (không auto)
 // =====================================================
 
-const GOONG_RENDER_URL = 'https://n2store-fallback.onrender.com';
+const GOONG_RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 /**
  * Tìm địa chỉ autocomplete từ Goong.io

@@ -183,6 +183,10 @@ export default {
                     return handleUsersProxy(request, url, pathname);
                 case 'CAMPAIGNS':
                     return handleCampaignsProxy(request, url, pathname);
+                case 'FACEBOOK_RENDER':
+                    return handleFacebookRenderProxy(request, url, pathname);
+                case 'RENDER_V2_FALLBACK':
+                    return handleRenderV2FallbackProxy(request, url, pathname);
 
                 // Customer 360 v2 (unified API)
                 case 'CUSTOMERS_V2':

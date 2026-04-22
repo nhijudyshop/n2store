@@ -15,7 +15,7 @@
    ===================================================== */
 
 // Render Proxy URL - API keys are stored securely on server
-const RENDER_PROXY_URL = 'https://n2store-fallback.onrender.com';
+const RENDER_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const DEEPSEEK_API_BASE = `${RENDER_PROXY_URL}/api/deepseek/chat`;
 const GOOGLE_VISION_API_URL = `${RENDER_PROXY_URL}/api/google-vision/ocr`;
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat';

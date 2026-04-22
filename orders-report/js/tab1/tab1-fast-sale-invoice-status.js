@@ -163,6 +163,14 @@
 
                 // Refresh StateCode from TPOS (async, don't block init)
                 setTimeout(() => this.refreshStateCode(), 3000);
+
+                // Reconcile PTAG với PBH: flip CHO_DI_DON → HOAN_TAT cho đơn đã có PBH active.
+                // ProcessingTagState có thể chưa _isLoaded tại thời điểm này (load song song)
+                // → reconcileTagsWithInvoices tự guard và return sớm nếu chưa ready.
+                // Bên loadProcessingTags() cũng sẽ gọi lại khi xong → đảm bảo chạy 1 trong 2 lần.
+                if (typeof window.reconcileTagsWithInvoices === 'function') {
+                    window.reconcileTagsWithInvoices().catch(() => {});
+                }
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
                 this._initialized = true;
@@ -1045,6 +1053,12 @@
             });
             this._refreshInvoiceStatusUI(allKeys);
             this._syncToFulfillmentData();
+
+            // Reconcile PTAG sau khi PBH store đã refresh — catch các đơn mới có PBH
+            // nhưng tag XL vẫn CHO_DI_DON.
+            if (typeof window.reconcileTagsWithInvoices === 'function') {
+                window.reconcileTagsWithInvoices().catch(() => {});
+            }
         },
 
         /**
@@ -1304,7 +1318,7 @@
     // Source of truth: Render DB via /api/v2/delivery-assignments/lookup-batch
     const _deliveryGroups = { data: {}, loaded: false, _pendingNumbers: new Set(), _loadTimer: null };
 
-    const DELIVERY_API_BASE = (window.API_CONFIG?.RENDER_URL || 'https://n2store-fallback.onrender.com') + '/api/v2/delivery-assignments';
+    const DELIVERY_API_BASE = (window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/v2/delivery-assignments';
 
     /**
      * Queue invoice numbers for batch lookup from PostgreSQL.

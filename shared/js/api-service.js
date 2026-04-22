@@ -20,7 +20,7 @@ const ApiService = {
     RENDER_API_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
 
     // Direct Render.com URL for SSE (bypasses Cloudflare Worker to avoid timeout)
-    RENDER_SSE_URL: 'https://n2store-fallback.onrender.com',
+    RENDER_SSE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
     // =====================================================
     // TPOS ORDER METHODS

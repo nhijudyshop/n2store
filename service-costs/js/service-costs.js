@@ -39,7 +39,7 @@
             freeTier: 'Standard: 2GB RAM, 1 CPU, always-on',
             details: [
                 { label: 'Service ID', value: 'srv-d4e5pd3gk3sc73bgv600' },
-                { label: 'URL', value: 'https://n2store-fallback.onrender.com' },
+                { label: 'URL', value: 'https://chatomni-proxy.nhijudyshop.workers.dev' },
                 { label: 'Root Dir', value: 'render.com' },
                 { label: 'Plan', value: 'Standard ($25/mo) - 2GB RAM, 1 CPU' },
                 { label: 'Auto Deploy', value: 'Yes (main branch)' },
@@ -361,7 +361,7 @@
                 { label: 'Bot ID', value: '8546129159' },
                 { label: 'Bot Username', value: '@N2Store_bot' },
                 { label: 'Bot Name', value: 'N2Shop' },
-                { label: 'Webhook URL', value: 'https://n2store-fallback.onrender.com/api/telegram/webhook' },
+                { label: 'Webhook URL', value: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/telegram/webhook' },
                 { label: 'Webhook IP', value: '216.24.57.251' },
                 { label: 'Pending Updates', value: '0' },
                 { label: 'Max Connections', value: '40' },
@@ -715,7 +715,7 @@
 
     async function checkRenderPlans() {
         try {
-            const res = await fetch('https://n2store-fallback.onrender.com/api/admin/render/services');
+            const res = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render/services');
             if (!res.ok) return;
             const { success, services } = await res.json();
             if (!success || !services) return;
@@ -1044,7 +1044,7 @@
 
     async function fetchAutofbLiveData() {
         // Try Render server directly first (has sharp + Gemini Vision for captcha solving)
-        const RENDER_URL = 'https://n2store-fallback.onrender.com/api/autofb/balance';
+        const RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/autofb/balance';
         const payload = { username: 'n2shop', password: 'nhijudyMS23' };
 
         try {

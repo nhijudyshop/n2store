@@ -59,7 +59,7 @@
     document.head.appendChild(style);
 
     // Render API base URLs
-    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const WAREHOUSE_API = `${RENDER_API}/api/v2/web-warehouse`;
 
     // Local state - Web Warehouse (PostgreSQL) is the single source of truth

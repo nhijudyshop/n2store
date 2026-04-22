@@ -41,7 +41,7 @@ async function _fetchNameBatch(prefix, existingNames) {
     const allUsed = [...existingNames, ..._namePool.used];
     const usedList = allUsed.length > 0 ? allUsed.join(', ') : 'chưa có';
 
-    const response = await fetch('https://n2store-fallback.onrender.com/api/gemini/chat', {
+    const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

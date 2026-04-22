@@ -1024,7 +1024,7 @@
                     if (!cachedGlobalId) {
                         try {
                             const params = new URLSearchParams({ pageId: channelId, psid });
-                            const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
+                            const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
                             if (r.ok) {
                                 const data = await r.json();
                                 if (data.found && data.globalUserId) {
@@ -1148,7 +1148,7 @@
                             if (!cachedGlobalId) {
                                 try {
                                     const params = new URLSearchParams({ pageId: order.channelId, psid: order.psid });
-                                    const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
+                                    const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
                                     if (r.ok) {
                                         const data = await r.json();
                                         if (data.found && data.globalUserId) {
@@ -1342,7 +1342,7 @@
                 if (!cachedGlobalId) {
                     try {
                         const params = new URLSearchParams({ pageId: channelId, psid });
-                        const r = await fetch(`https://n2store-fallback.onrender.com/api/fb-global-id?${params}`);
+                        const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
                         if (r.ok) {
                             const data = await r.json();
                             if (data.found && data.globalUserId) {

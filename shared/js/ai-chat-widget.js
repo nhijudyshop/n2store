@@ -12,8 +12,8 @@
     // =========================================================
 
     const CONFIG = {
-        GEMINI_PROXY_URL: 'https://n2store-fallback.onrender.com/api/gemini/chat',
-        DEEPSEEK_PROXY_URL: 'https://n2store-fallback.onrender.com/api/deepseek/chat',
+        GEMINI_PROXY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/gemini/chat',
+        DEEPSEEK_PROXY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/deepseek/chat',
         DEFAULT_MODEL: 'gemini-3-flash-preview',
         STORAGE_KEY: 'ai_widget_selected_model'
     };
