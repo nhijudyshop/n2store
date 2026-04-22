@@ -1524,49 +1524,65 @@ async function fetchOrders() {
             window.OrderStore.setAll(allData);
         }
 
+        // Start Processing Tags load IN PARALLEL với IndexedDB save.
+        // Mục tiêu: render bảng 1 lần với TAG XL đã có sẵn (tránh 2 bước paint).
+        // `loadProcessingTags()` đọc orderCodes qua window.getAllOrders() — đã sẵn sàng
+        // sau khi OrderStore.setAll() ở trên. Cap bằng timeout để không treo UI
+        // nếu Render API chậm; hết timeout → render bảng trước, cell sẽ tự refresh
+        // qua _ptagRefreshAllRows() khi promise resolve sau đó.
+        const PTAG_LOAD_TIMEOUT_MS = 3000;
+        const ptagLoadPromise = window.loadProcessingTags
+            ? Promise.race([
+                window.loadProcessingTags(),
+                new Promise(resolve => setTimeout(resolve, PTAG_LOAD_TIMEOUT_MS))
+            ])
+            : Promise.resolve();
+
         // Save to IndexedDB for cross-tab access (Tab3, Overview, etc.)
         // Transform to Tab3-compatible format (stt, customerName, etc.)
-        if (window.indexedDBStorage) {
-            const ordersForTabs = allData.map((order, index) => ({
-                stt: order.SessionIndex || (index + 1).toString(),
-                orderId: order.Id,
-                orderCode: order.Code,
-                customerName: order.PartnerName || order.Name,
-                phone: order.PartnerPhone || order.Telephone,
-                address: order.PartnerAddress || order.Address,
-                totalAmount: order.TotalAmount || order.AmountTotal || 0,
-                quantity: order.TotalQuantity || 0,
-                note: order.Note,
-                state: order.Status || order.State,
-                dateOrder: order.DateCreated || order.DateOrder,
-                Tags: order.Tags,
-                liveCampaignName: order.LiveCampaignName
-            }));
-            await Promise.all([
-                window.indexedDBStorage.setItem('allOrders', {
-                    orders: ordersForTabs,
-                    timestamp: Date.now(),
-                    activeCampaignNames: selectedCampaign?.campaignNames || []
-                }),
-                // Also save raw data for Overview tab (uses raw API field names)
-                window.indexedDBStorage.setItem('allOrdersRaw', {
-                    orders: allData,
-                    timestamp: Date.now()
-                })
-            ]).catch(err => console.error('[TAB1] IndexedDB save error:', err));
-        }
+        const idbSavePromise = window.indexedDBStorage
+            ? (() => {
+                const ordersForTabs = allData.map((order, index) => ({
+                    stt: order.SessionIndex || (index + 1).toString(),
+                    orderId: order.Id,
+                    orderCode: order.Code,
+                    customerName: order.PartnerName || order.Name,
+                    phone: order.PartnerPhone || order.Telephone,
+                    address: order.PartnerAddress || order.Address,
+                    totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                    quantity: order.TotalQuantity || 0,
+                    note: order.Note,
+                    state: order.Status || order.State,
+                    dateOrder: order.DateCreated || order.DateOrder,
+                    Tags: order.Tags,
+                    liveCampaignName: order.LiveCampaignName
+                }));
+                return Promise.all([
+                    window.indexedDBStorage.setItem('allOrders', {
+                        orders: ordersForTabs,
+                        timestamp: Date.now(),
+                        activeCampaignNames: selectedCampaign?.campaignNames || []
+                    }),
+                    window.indexedDBStorage.setItem('allOrdersRaw', {
+                        orders: allData,
+                        timestamp: Date.now()
+                    })
+                ]).catch(err => console.error('[TAB1] IndexedDB save error:', err));
+            })()
+            : Promise.resolve();
 
-        // Render table with all data
+        // Đợi CẢ HAI xong (tag load + idb save) rồi mới render lần duy nhất.
+        // allSettled → một nhánh lỗi không kéo nhánh kia, render vẫn chạy.
+        await Promise.allSettled([ptagLoadPromise, idbSavePromise]);
+
+        // Render table ONCE với TAG XL data đã có (hoặc đã timeout).
         performTableSearch();
         updateSearchResultCount();
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
 
-        // Init Processing Tags (Tag Xử Lý)
-        if (window.loadProcessingTags) {
-            window.loadProcessingTags();
-            if (window.setupProcessingTagSSE) window.setupProcessingTagSSE();
-            if (window.initProcessingTagPanel) window.initProcessingTagPanel();
-        }
+        // SSE + panel init không cần block render
+        if (window.setupProcessingTagSSE) window.setupProcessingTagSSE();
+        if (window.initProcessingTagPanel) window.initProcessingTagPanel();
 
         // GIỎ TRỐNG sync: chạy trên displayedData (đơn hiện trên màn hình) sau khi render.
         // Chỉ sync đơn đang hiển thị → nhẹ hơn batch toàn bộ allData.

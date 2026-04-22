@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders] TAG XL render song song với bảng — loại flash 2 bước paint
+| | |
+|---|---|
+| **Files** | [orders-report/js/tab1/tab1-search.js:1522-1588](orders-report/js/tab1/tab1-search.js#L1522-L1588) |
+| **Chi tiết** | Trước đây `performTableSearch()` chạy ngay sau IndexedDB save → bảng render với TAG XL trống, rồi `loadProcessingTags()` async (~1-2s) mới gọi `_ptagRefreshAllRows()` ghi đè innerHTML các `<td data-column="processing-tag">` → user thấy flash. Sửa: sau `OrderStore.setAll(allData)` khởi chạy `loadProcessingTags()` song song với IndexedDB save, `await Promise.allSettled([ptagLoadPromise, idbSavePromise])` rồi mới `performTableSearch()` → render 1 lần duy nhất với tag có sẵn. Cap bằng `PTAG_LOAD_TIMEOUT_MS=3000` (`Promise.race` với timeout) để không treo UI nếu Render API chậm — hết timeout thì render bảng trước, `loadProcessingTags` tiếp tục background và `_ptagRefreshAllRows` sẽ refresh khi xong (fallback về hành vi cũ). Lợi ích phụ: `hasActiveProcessingTagFilters` / `hasExcludedPtagXlFilters` trong `performTableSearch` có data TAG XL thật ngay lần đầu → filter persistence đúng, không còn bị mismatch khi reload trang có filter tag active. SSE + panel init giữ nguyên sau render (không block). |
+| **Status** | ✅ Done |
+
 ### [inventory] TPOS parity Phase 2 + Phase 3 — Variants/AttrLines/Bulk actions/Combo/UOMLines/StockAdjust/Supplier/AuditLog/Tags picker
 | | |
 |---|---|
