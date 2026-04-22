@@ -1271,7 +1271,11 @@
      * Fetch full product detail from TPOS (needed for UpdateV2)
      */
     async function fetchProductDetail(templateId) {
-        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants($expand=AttributeValues)`;
+        // Full expand: variants/attrs/combo/UOM-lines/suppliers for Phase 2+3 edit sections.
+        const expand = encodeURIComponent(
+            'UOM,UOMCateg,Categ,UOMPO,POSCateg,ProductVariants($expand=AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)'
+        );
+        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
         const response = await window.tokenManager.authenticatedFetch(url, {
             headers: { 'Accept': 'application/json' }
         });
@@ -2701,17 +2705,18 @@
     function renderUOMLines() {
         const tbody = $('#uomLinesTbody');
         if (!tbody) return;
-        const uomOpts = (cachedUOMs || []).map(u => `<option value="${u.Id}">${escapeHtml(u.Name)}</option>`).join('');
         if (!editUOMLines.length) {
             tbody.innerHTML = '<tr><td colspan="3" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có ĐVT quy đổi</td></tr>';
             return;
         }
-        tbody.innerHTML = editUOMLines.map((line, idx) => `
+        tbody.innerHTML = editUOMLines.map((line, idx) => {
+            const uomOpts = (cachedUOMs || []).map(u =>
+                `<option value="${u.Id}"${u.Id == line.UOMId ? ' selected' : ''}>${escapeHtml(u.Name)}</option>`
+            ).join('');
+            return `
             <tr data-uomline-idx="${idx}">
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;">
-                    <select class="uomline-input" data-field="UOMId" style="width:100%;padding:2px 4px;font-size:11px;">
-                        ${uomOpts.replace(`value="${line.UOMId}"`, `value="${line.UOMId}" selected`)}
-                    </select>
+                    <select class="uomline-input" data-field="UOMId" style="width:100%;padding:2px 4px;font-size:11px;">${uomOpts}</select>
                 </td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;">
                     <input type="number" class="uomline-input" data-field="FactorInv" value="${line.FactorInv || 1}" min="0.001" step="0.001" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;">
@@ -2719,7 +2724,8 @@
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;">
                     <button type="button" data-del-uomline="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
                 </td>
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
     }
 
     function bindUOMLinesEvents() {
