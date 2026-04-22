@@ -196,7 +196,13 @@ export default {
                 case 'FB_ADS':
                 case 'FB_GLOBAL_ID':
                 case 'PANCAKE_ACCOUNT_PAGES':
+                case 'PANCAKE_PAGE_TOKENS':
                 case 'TPOS_CREDENTIALS':
+                case 'GOONG_PLACES':
+                case 'RETURN_ORDERS':
+                case 'TPOS_SAVED':
+                case 'QUY_TRINH':
+                case 'AUTOFB_RENDER':
                     return handleRenderMiscProxy(request, url, pathname);
 
                 // Customer 360 v2 (unified API)

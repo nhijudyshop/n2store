@@ -83,7 +83,14 @@ export const ROUTES = {
     FB_ADS: { pattern: '/api/fb-ads/*' },
     FB_GLOBAL_ID: { pattern: '/api/fb-global-id/*' },
     PANCAKE_ACCOUNT_PAGES: { pattern: '/api/pancake-account-pages/*' },
+    PANCAKE_PAGE_TOKENS: { pattern: '/api/pancake-page-tokens/*' },
     TPOS_CREDENTIALS: { pattern: '/api/tpos-credentials/*' },
+    // Additional Render Express routers (future-proof: frontend admin tools reference these)
+    GOONG_PLACES: { pattern: '/api/goong-places/*' },
+    RETURN_ORDERS: { pattern: '/api/return-orders/*' },
+    TPOS_SAVED: { pattern: '/api/tpos-saved/*' },
+    QUY_TRINH: { pattern: '/api/quy-trinh/*' },
+    AUTOFB_RENDER: { pattern: '/api/autofb/*' },  // /api/autofb-<name> exact routes stay CF-direct (autofb-handler.js)
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -190,7 +197,14 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/fb-ads/') || pathname === '/api/fb-ads') return 'FB_ADS';
     if (pathname.startsWith('/api/fb-global-id/') || pathname === '/api/fb-global-id') return 'FB_GLOBAL_ID';
     if (pathname.startsWith('/api/pancake-account-pages/') || pathname === '/api/pancake-account-pages') return 'PANCAKE_ACCOUNT_PAGES';
+    if (pathname.startsWith('/api/pancake-page-tokens/') || pathname === '/api/pancake-page-tokens') return 'PANCAKE_PAGE_TOKENS';
     if (pathname.startsWith('/api/tpos-credentials/') || pathname === '/api/tpos-credentials') return 'TPOS_CREDENTIALS';
+    if (pathname.startsWith('/api/goong-places/') || pathname === '/api/goong-places') return 'GOONG_PLACES';
+    if (pathname.startsWith('/api/return-orders/') || pathname === '/api/return-orders') return 'RETURN_ORDERS';
+    if (pathname.startsWith('/api/tpos-saved/') || pathname === '/api/tpos-saved') return 'TPOS_SAVED';
+    if (pathname.startsWith('/api/quy-trinh/') || pathname === '/api/quy-trinh') return 'QUY_TRINH';
+    // /api/autofb/* (prefix) → Render; specific /api/autofb-xxx routes (no slash) handled by exact matches above
+    if (pathname.startsWith('/api/autofb/')) return 'AUTOFB_RENDER';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';
