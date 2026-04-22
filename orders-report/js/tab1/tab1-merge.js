@@ -2089,7 +2089,8 @@ async function assignTagsAfterMerge(cluster) {
         // Step 5: Assign tags to source orders.
         // BUG-7 FIX: assignTagsToOrder REPLACE toàn bộ tags trên TPOS. Trước đây chỉ gửi [mergedTag]
         // → mọi tag custom của source ("CHUYỂN KHOẢN", "TRỪ CÔNG NỢ", "KHÁCH BOOM"...) bị xóa sạch.
-        // Fix: giữ tags custom hiện có (filter các merge-related tags), rồi thêm "ĐÃ GỘP KO CHỐT".
+        // Fix: giữ tags custom hiện có (filter các merge-related tags) + thêm "ĐÃ GỘP KO CHỐT"
+        // + thêm "Gộp X Y Z" (để source cũng biết đã gộp vào group nào, đối soát với target).
         for (const sourceOrder of cluster.sourceOrders) {
             const existingSourceTags = getOrderTagsArray(sourceOrder);
             const preservedTags = new Map();
@@ -2098,12 +2099,13 @@ async function assignTagsAfterMerge(cluster) {
                     preservedTags.set(t.Id, t);
                 }
             });
-            // Add/override merged tag (ensure có trong list, không duplicate nếu Id đã tồn tại)
+            // Add merged tag ("ĐÃ GỘP KO CHỐT") + merge group tag ("Gộp X Y Z")
             preservedTags.set(mergedTag.Id, mergedTag);
+            preservedTags.set(mergeGroupTag.Id, mergeGroupTag);
             const finalSourceTags = Array.from(preservedTags.values());
 
             await assignTagsToOrder(sourceOrder.Id, finalSourceTags);
-            console.log(`[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 1} custom + "${MERGED_ORDER_TAG_NAME}")`);
+            console.log(`[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 2} custom + "${MERGED_ORDER_TAG_NAME}" + "${mergeGroupTag.Name}")`);
         }
 
         // Step 6: Assign Tag XL (Processing Tags) — mirror TPOS tag logic
