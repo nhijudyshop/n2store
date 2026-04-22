@@ -1006,8 +1006,11 @@ function renderClusterCard(cluster) {
         const className = isTarget ? 'target-col' : '';
         const targetLabel = isTarget ? ' (Đích)' : '';
 
-        // Render tags pills cho header (hiển thị dưới STT - Tên)
-        const tagsHtml = renderMergeTagPills(order.Tags);
+        // Target header: current tags. Source header: preview tags SAU merge
+        // (để khớp với cột "Sau Khi Gộp" — user thấy ngay STT 17 sẽ có "Gộp X Y")
+        const tagsHtml = isTarget
+            ? renderMergeTagPills(order.Tags)
+            : renderMergeTagPills(calculateSourceTagsPreview(order, cluster));
 
         headers.push(`<th class="${className}">
             STT ${esc(order.SessionIndex)} - ${esc(order.PartnerName || 'N/A')}${targetLabel}
@@ -1985,6 +1988,51 @@ function calculateMergedTagsPreview(cluster) {
     }
 
     return Array.from(allTags.values());
+}
+
+/**
+ * Tính preview tags của 1 SOURCE order SAU merge.
+ * Mirror step 5 trong assignTagsAfterMerge: preserved custom + "ĐÃ GỘP KO CHỐT" + "Gộp X Y Z".
+ */
+function calculateSourceTagsPreview(sourceOrder, cluster) {
+    const shouldExcludeTag = (tagName) => {
+        if (!tagName) return false;
+        if (tagName === MERGED_ORDER_TAG_NAME) return true;
+        if (tagName.startsWith('Gộp ')) return true;
+        return false;
+    };
+
+    const result = new Map();
+
+    // 1) Preserved custom tags (filter merge-related)
+    const existing = getOrderTagsArray(sourceOrder);
+    existing.forEach(t => {
+        if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
+            result.set(t.Id, t);
+        }
+    });
+
+    // 2) "ĐÃ GỘP KO CHỐT"
+    result.set('__preview_merged__', {
+        Id: '__preview_merged__',
+        Name: MERGED_ORDER_TAG_NAME,
+        Color: MERGE_TAG_COLOR
+    });
+
+    // 3) "Gộp X Y Z"
+    const allSTTs = (cluster.orders || [])
+        .map(o => o.SessionIndex)
+        .filter(s => s != null)
+        .sort((a, b) => a - b);
+    if (allSTTs.length > 0) {
+        result.set('__preview_merge_group__', {
+            Id: '__preview_merge_group__',
+            Name: `Gộp ${allSTTs.join(' ')}`,
+            Color: MERGE_TAG_COLOR
+        });
+    }
+
+    return Array.from(result.values());
 }
 
 /**
