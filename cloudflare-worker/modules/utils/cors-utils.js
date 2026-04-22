@@ -7,6 +7,7 @@
 
 import {
     CORS_HEADERS,
+    buildCorsHeaders,
     corsResponse,
     corsPreflightResponse,
     corsErrorResponse,
@@ -18,6 +19,7 @@ import {
 // Re-export all
 export {
     CORS_HEADERS,
+    buildCorsHeaders,
     corsResponse,
     corsPreflightResponse,
     corsErrorResponse,

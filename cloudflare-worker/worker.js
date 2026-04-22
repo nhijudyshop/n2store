@@ -8,7 +8,7 @@
  */
 
 // CORS utilities
-import { corsPreflightResponse, errorResponse } from './modules/utils/cors-utils.js';
+import { corsPreflightResponse, errorResponse, addCorsHeaders } from './modules/utils/cors-utils.js';
 
 // Route matching
 import { matchRoute } from './modules/config/routes.js';
@@ -52,12 +52,24 @@ import { handleAutofbBalance, handleAutofbServices, handleAutofbApiBalance, hand
  */
 export default {
     async fetch(request, env, ctx) {
-        // Handle CORS preflight
-        if (request.method === 'OPTIONS') {
-            return corsPreflightResponse();
-        }
+        const response = await routeRequest(request, env, ctx);
+        // WebSocket upgrade responses không thể clone/modify headers → trả nguyên
+        if (response.webSocket) return response;
+        // Wrap mọi response khác với origin-aware CORS headers.
+        // Nếu Origin ∈ allowlist (nhijudyshop.github.io, localhost) → echo specific origin + Allow-Credentials: true
+        // Ngược lại → giữ Allow-Origin: * (public API)
+        // Điều này fix lỗi CORS với requests dùng credentials: 'include' hoặc navigator.sendBeacon.
+        return addCorsHeaders(response, request);
+    },
+};
 
-        try {
+async function routeRequest(request, env, ctx) {
+    // Handle CORS preflight — pass request để echo origin cho credentialed calls
+    if (request.method === 'OPTIONS') {
+        return corsPreflightResponse(request);
+    }
+
+    try {
             // Parse request URL
             const url = new URL(request.url);
             const pathname = url.pathname;
@@ -240,10 +252,9 @@ export default {
                     });
             }
 
-        } catch (error) {
-            console.error('[WORKER] Unhandled error:', error);
-            return errorResponse(error.message, 500, { stack: error.stack });
-        }
-    },
-};
+    } catch (error) {
+        console.error('[WORKER] Unhandled error:', error);
+        return errorResponse(error.message, 500, { stack: error.stack });
+    }
+}
 // Trigger deploy 20260115153551
