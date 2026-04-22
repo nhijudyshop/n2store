@@ -996,11 +996,11 @@ function renderByEmployee() {
                                 <th data-column="stt">STT</th>
                                 <th data-column="employee" style="width: 90px;">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
+                                <th data-column="cs-notes">GHI CHÚ</th>
 
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="phone">SĐT</th>
-                                <th data-column="cs-notes">GHI CHÚ</th>
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
@@ -1173,6 +1173,7 @@ function createRowHTML(order) {
             <td data-column="processing-tag">
                 ${typeof window.renderProcessingTagCell === 'function' ? window.renderProcessingTagCell(String(order.Code)) : '<span style="color:#9ca3af;">-</span>'}
             </td>
+            ${csNotesHTML}
 
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
@@ -1185,7 +1186,6 @@ function createRowHTML(order) {
                     <span>${highlight(order.Telephone)}</span>
                 </div>
             </td>
-            ${csNotesHTML}
             ${messagesHTML}
             ${commentsHTML}
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>

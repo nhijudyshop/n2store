@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders] UI: chuyển cột GHI CHÚ qua giữa TAG XL và KHÁCH HÀNG
+| | |
+|---|---|
+| **Files** | [orders-report/tab1-orders.html](orders-report/tab1-orders.html#L501), [orders-report/js/tab1/tab1-table.js](orders-report/js/tab1/tab1-table.js) |
+| **Chi tiết** | Di chuyển cột `cs-notes` (GHI CHÚ CSKH) từ vị trí sau `phone` lên ngay sau `processing-tag` (Tag XL), trước `order-code`/`customer`. Sửa 3 chỗ: (1) thead chính [tab1-orders.html:501-507](orders-report/tab1-orders.html#L501-L507); (2) thead grouped-by-employee [tab1-table.js:998-1004](orders-report/js/tab1/tab1-table.js#L998-L1004); (3) vị trí `${csNotesHTML}` trong `createRowHTML` chuyển từ sau phone lên sau processing-tag td. Không đổi logic render, chỉ đổi thứ tự cột. |
+| **Status** | ✅ Done |
+
 ### [inventory][render] TPOS parity Phase 1 — Create SP + Import/Export Excel + Bulk Price + Tag filter
 | | |
 |---|---|
