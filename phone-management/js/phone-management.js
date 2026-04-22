@@ -805,9 +805,9 @@ const PM = (() => {
                 <tr data-ext-idx="${idx}">
                     <td class="mono"><b>${e.ext}</b></td>
                     <td><input class="pm-input" style="min-width:120px;font-size:12px" value="${_esc(e.label || '')}" data-field="label"></td>
-                    <td><input class="pm-input" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.authId || '')}" data-field="authId" placeholder="authId từ OnCallCX"></td>
+                    <td><input class="pm-input" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.authId || '')}" data-field="authId" placeholder="authId từ OnCallCX" autocomplete="off"></td>
                     <td style="display:flex;gap:4px;align-items:center">
-                        <input class="pm-input" type="password" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.password || '')}" data-field="password" placeholder="••••••••">
+                        <input class="pm-input" type="password" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.password || '')}" data-field="password" placeholder="••••••••" autocomplete="new-password">
                         <button class="btn btn-sm btn-outline" onclick="PM.toggleExtPwd(this)" title="Hiện/ẩn"><i data-lucide="eye"></i></button>
                         <button class="btn btn-sm" style="background:#22c55e" onclick="PM.saveExt(${idx})" title="Lưu"><i data-lucide="check"></i></button>
                     </td>
