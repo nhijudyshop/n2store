@@ -337,7 +337,7 @@ const PhoneWidget = (() => {
                     <div id="pwCustomFields" style="display:none">
                         <div class="pw-f"><label>Ext</label><input id="pwExtInput" type="text" value="${config.extension}" autocomplete="off"></div>
                         <div class="pw-f"><label>Auth ID</label><input id="pwAuthInput" type="text" value="${config.authId}" autocomplete="off"></div>
-                        <div class="pw-f"><label>Mật khẩu</label><input id="pwPassInput" type="password" value="${config.password}" autocomplete="new-password"></div>
+                        <div class="pw-f"><label>Mật khẩu</label><input id="pwPassInput" type="text" value="${config.password}" autocomplete="off" data-lpignore="true" data-form-type="other" style="-webkit-text-security:disc;-moz-text-security:disc;text-security:disc"></div>
                     </div>
                     <button class="pw-save" onclick="PhoneWidget.applySettings()">Kết nối lại</button>
                     <button class="pw-save pw-admin-btn" id="pwAdminBtn" onclick="PhoneWidget.openExtAssignment()" style="display:none;margin-top:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👥 Phân chia Ext nhân viên</button>

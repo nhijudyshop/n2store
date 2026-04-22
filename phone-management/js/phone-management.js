@@ -807,7 +807,7 @@ const PM = (() => {
                     <td><input class="pm-input" style="min-width:120px;font-size:12px" value="${_esc(e.label || '')}" data-field="label"></td>
                     <td><input class="pm-input" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.authId || '')}" data-field="authId" placeholder="authId từ OnCallCX" autocomplete="off"></td>
                     <td style="display:flex;gap:4px;align-items:center">
-                        <input class="pm-input" type="password" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace" value="${_esc(e.password || '')}" data-field="password" placeholder="••••••••" autocomplete="new-password">
+                        <input class="pm-input" type="text" style="min-width:200px;font-size:11px;font-family:'SF Mono',monospace;-webkit-text-security:disc;-moz-text-security:disc;text-security:disc" value="${_esc(e.password || '')}" data-field="password" placeholder="••••••••" autocomplete="off" data-lpignore="true" data-form-type="other">
                         <button class="btn btn-sm btn-outline" onclick="PM.toggleExtPwd(this)" title="Hiện/ẩn"><i data-lucide="eye"></i></button>
                         <button class="btn btn-sm" style="background:#22c55e" onclick="PM.saveExt(${idx})" title="Lưu"><i data-lucide="check"></i></button>
                     </td>
@@ -836,7 +836,13 @@ const PM = (() => {
     function toggleExtPwd(btn) {
         const input = btn.closest('td').querySelector('input[data-field="password"]');
         if (!input) return;
-        input.type = input.type === 'password' ? 'text' : 'password';
+        // Toggle CSS text-security instead of input type — keeps type=text so browser
+        // password manager doesn't offer to save (not a real login form).
+        const masked = input.style.webkitTextSecurity !== 'none';
+        const val = masked ? 'none' : 'disc';
+        input.style.webkitTextSecurity = val;
+        input.style.mozTextSecurity = val;
+        input.style.textSecurity = val;
     }
 
     async function saveExt(idx) {

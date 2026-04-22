@@ -1453,6 +1453,7 @@
 
     <!-- Extracted JS files (formerly inline) -->
     <script src="js/tab1/tab1-checkbox.js"></script>
+    <script src="js/tab1/tab1-scroll-restore.js"></script>
 
     <!-- Save Indicator -->
     <div class="save-indicator" id="saveIndicator">
@@ -3208,9 +3209,9 @@
                         <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
                             <i class="fas fa-lock"></i> Password
                         </label>
-                        <input type="password" id="tposPassword" class="form-control" placeholder="Nhập password TPOS"
-                            autocomplete="new-password"
-                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="text" id="tposPassword" class="form-control" placeholder="Nhập password TPOS"
+                            autocomplete="off" data-lpignore="true" data-form-type="other"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; -webkit-text-security:disc;-moz-text-security:disc;text-security:disc;">
                     </div>
                 </div>
 
