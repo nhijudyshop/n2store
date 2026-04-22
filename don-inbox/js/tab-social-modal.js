@@ -257,7 +257,26 @@ function _collectSocialProducts() {
 }
 
 // ===== SAVE ORDER =====
+// Guard để tránh double-click: saveOrder có await (PancakeValidator.quickLookup)
+// Click nhanh 2 lần trong lúc đợi → tạo đơn trùng hoặc update 2 lần.
+let _isSavingOrder = false;
 async function saveOrder() {
+    if (_isSavingOrder) {
+        console.warn('[Tab Social] saveOrder đang chạy, bỏ qua click trùng');
+        return null;
+    }
+    _isSavingOrder = true;
+    const saveBtns = document.querySelectorAll('#orderModal .btn-save');
+    saveBtns.forEach(b => b.disabled = true);
+    try {
+        return await _saveOrderImpl();
+    } finally {
+        _isSavingOrder = false;
+        saveBtns.forEach(b => b.disabled = false);
+    }
+}
+
+async function _saveOrderImpl() {
     const customerName = document.getElementById('customerName').value.trim();
     const phone = document.getElementById('customerPhone').value.trim();
     const address = document.getElementById('customerAddress').value.trim();
@@ -410,13 +429,23 @@ async function saveOrder() {
 }
 
 // Lưu đơn xong tự động mở modal phiếu bán hàng lẻ
+let _isSavingAndOpeningSale = false;
 async function saveOrderAndOpenRetailSale() {
-    // saveOrder là async (có await PancakeValidator.quickLookup) — phải await,
-    // nếu không id trả về là Promise → openRetailSaleFromSocial(Promise) lookup fail → "Không tìm thấy đơn hàng".
-    const id = await saveOrder();
-    if (!id) return; // validation failed
-    // saveOrder đã đóng modal — mở sale modal ngay sau đó
-    openRetailSaleFromSocial(id);
+    if (_isSavingAndOpeningSale) {
+        console.warn('[Tab Social] saveOrderAndOpenRetailSale đang chạy, bỏ qua click trùng');
+        return;
+    }
+    _isSavingAndOpeningSale = true;
+    try {
+        // saveOrder là async (có await PancakeValidator.quickLookup) — phải await,
+        // nếu không id trả về là Promise → openRetailSaleFromSocial(Promise) lookup fail → "Không tìm thấy đơn hàng".
+        const id = await saveOrder();
+        if (!id) return; // validation failed
+        // saveOrder đã đóng modal — mở sale modal ngay sau đó
+        openRetailSaleFromSocial(id);
+    } finally {
+        _isSavingAndOpeningSale = false;
+    }
 }
 
 // ===== CLOSE MODAL ON OUTSIDE CLICK =====

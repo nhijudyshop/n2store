@@ -688,61 +688,83 @@ function confirmPermanentDeleteOrder(orderId) {
 }
 
 // ---- SINGLE: RESTORE (no modal, instant action) ----
+// Guard double-click: tránh fire API 2 lần khi click nhanh
+const _restoreInFlight = new Set();
 async function restoreOrder(orderId) {
-    const order = SocialOrderState.orders.find((o) => o.id === orderId);
-    if (!order) return;
+    if (_restoreInFlight.has(orderId)) return;
+    _restoreInFlight.add(orderId);
+    try {
+        const order = SocialOrderState.orders.find((o) => o.id === orderId);
+        if (!order) return;
 
-    order.status = 'draft';
-    order.updatedAt = Date.now();
-    saveSocialOrdersToStorage();
+        order.status = 'draft';
+        order.updatedAt = Date.now();
+        saveSocialOrdersToStorage();
 
-    if (typeof updateSocialOrder === 'function') {
-        updateSocialOrder(orderId, { status: 'draft' }); // fire-and-forget
+        if (typeof updateSocialOrder === 'function') {
+            updateSocialOrder(orderId, { status: 'draft' }); // fire-and-forget
+        }
+        if (window.InboxHistory && typeof InboxHistory.logRestore === 'function') {
+            InboxHistory.logRestore(order);
+        }
+        showNotification('Đã khôi phục đơn hàng', 'success');
+        performTableSearch();
+    } finally {
+        _restoreInFlight.delete(orderId);
     }
-    if (window.InboxHistory && typeof InboxHistory.logRestore === 'function') {
-        InboxHistory.logRestore(order);
-    }
-    showNotification('Đã khôi phục đơn hàng', 'success');
-    performTableSearch();
 }
 
 // ---- DISPATCHER: confirm pending action from modal ----
+// Guard double-click: tránh fire action (hủy/xóa) 2 lần khi click nhanh
+let _isConfirmingAction = false;
 function confirmPendingAction() {
     console.log('[CANCEL-DEBUG] 5️⃣ confirmPendingAction called', { pendingAction });
+    if (_isConfirmingAction) {
+        console.warn('[CANCEL-DEBUG] ⚠️ confirmPendingAction đang chạy, bỏ qua click trùng');
+        return;
+    }
     if (!pendingAction) {
         console.warn('[CANCEL-DEBUG] ❌ No pendingAction, closing modal');
         closeConfirmDeleteModal();
         return;
     }
 
-    // Read cancel reason from textarea (only used for cancel / bulk_cancel)
-    let reason = '';
-    if (pendingAction.type === 'cancel' || pendingAction.type === 'bulk_cancel') {
-        const reasonEl = document.getElementById('confirmCancelReason');
-        const rawValue = reasonEl ? reasonEl.value : '(textarea not found)';
-        reason = (reasonEl && reasonEl.value ? reasonEl.value.trim() : '') || 'HẾT HÀNG';
-        console.log('[CANCEL-DEBUG] 6️⃣ Reason read from textarea:', {
-            rawValue,
-            cleaned: reason,
-            textareaFound: !!reasonEl
-        });
-    }
+    _isConfirmingAction = true;
+    const confirmBtn = document.getElementById('confirmDeleteButton');
+    if (confirmBtn) confirmBtn.disabled = true;
+    try {
+        // Read cancel reason from textarea (only used for cancel / bulk_cancel)
+        let reason = '';
+        if (pendingAction.type === 'cancel' || pendingAction.type === 'bulk_cancel') {
+            const reasonEl = document.getElementById('confirmCancelReason');
+            const rawValue = reasonEl ? reasonEl.value : '(textarea not found)';
+            reason = (reasonEl && reasonEl.value ? reasonEl.value.trim() : '') || 'HẾT HÀNG';
+            console.log('[CANCEL-DEBUG] 6️⃣ Reason read from textarea:', {
+                rawValue,
+                cleaned: reason,
+                textareaFound: !!reasonEl
+            });
+        }
 
-    console.log('[CANCEL-DEBUG] 7️⃣ Dispatching action type:', pendingAction.type);
-    switch (pendingAction.type) {
-        case 'cancel':
-        case 'bulk_cancel':
-            _doCancel(pendingAction.ids, reason);
-            break;
-        case 'permanent_delete':
-        case 'bulk_permanent_delete':
-            _doPermanentDelete(pendingAction.ids);
-            break;
-        default:
-            console.warn('[CANCEL-DEBUG] ❌ Unknown action type:', pendingAction.type);
+        console.log('[CANCEL-DEBUG] 7️⃣ Dispatching action type:', pendingAction.type);
+        switch (pendingAction.type) {
+            case 'cancel':
+            case 'bulk_cancel':
+                _doCancel(pendingAction.ids, reason);
+                break;
+            case 'permanent_delete':
+            case 'bulk_permanent_delete':
+                _doPermanentDelete(pendingAction.ids);
+                break;
+            default:
+                console.warn('[CANCEL-DEBUG] ❌ Unknown action type:', pendingAction.type);
+        }
+        closeConfirmDeleteModal();
+        console.log('[CANCEL-DEBUG] ✅ confirmPendingAction done, modal closed');
+    } finally {
+        _isConfirmingAction = false;
+        if (confirmBtn) confirmBtn.disabled = false;
     }
-    closeConfirmDeleteModal();
-    console.log('[CANCEL-DEBUG] ✅ confirmPendingAction done, modal closed');
 }
 
 /**
