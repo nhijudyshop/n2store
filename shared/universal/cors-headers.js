@@ -38,7 +38,7 @@ export function buildCorsHeaders(request) {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         // Include Cache-Control / Pragma / If-* so clients sending cache-busting or conditional
         // headers don't trip the preflight (doi-soat search sends `cache-control: no-cache`).
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
         'Access-Control-Expose-Headers': 'X-Retry-Count',
         'Access-Control-Max-Age': '86400',
     };
@@ -51,7 +51,7 @@ export function buildCorsHeaders(request) {
 export const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
     'Access-Control-Expose-Headers': 'X-Retry-Count',
     'Access-Control-Max-Age': '86400',
 };
