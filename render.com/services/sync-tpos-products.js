@@ -215,12 +215,39 @@ class TPOSProductSync {
      * @param {Object|null} preloadedDetail - Optional pre-fetched detail (with ProductVariants) to skip extra TPOS call
      */
     async _syncTemplate(templateData, syncStartedAt, stats, preloadedDetail = null) {
-        // Use pre-fetched detail if provided (saves a round-trip to TPOS)
+        // Full $expand mirrors render.com/config/tpos.config.js — all nested relations user expects from TPOS.
+        const expand = 'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)';
         const detail = preloadedDetail || await this._tposFetch(
-            `/api/odata/ProductTemplate(${templateData.Id})?$expand=ProductVariants($expand=AttributeValues)`
+            `/api/odata/ProductTemplate(${templateData.Id})?$expand=${encodeURIComponent(expand)}`
         );
 
         const variants = detail.ProductVariants || [];
+
+        // Fields shared between template-level + variant rows (TPOS parity — all extra columns)
+        const templateShared = {
+            description_sale: detail.DescriptionSale || null,
+            description_purchase: detail.DescriptionPurchase || null,
+            description: detail.Description || null,
+            discount_sale: detail.DiscountSale || 0,
+            discount_purchase: detail.DiscountPurchase || 0,
+            weight: detail.Weight || 0,
+            tracking: detail.Tracking || 'none',
+            sale_ok: detail.SaleOK !== false,
+            purchase_ok: detail.PurchaseOK !== false,
+            available_in_pos: detail.AvailableInPOS !== false,
+            invoice_policy: detail.InvoicePolicy || null,
+            purchase_method: detail.PurchaseMethod || null,
+            categ_id: detail.CategId || null,
+            pos_categ_id: detail.POSCategId || null,
+            uom_id: detail.UOMId || null,
+            uom_po_id: detail.UOMPOId || null,
+            is_combo: !!detail.IsCombo,
+            tags: JSON.stringify(detail.Tags || []),
+            attribute_lines: JSON.stringify(detail.AttributeLines || []),
+            uom_lines: JSON.stringify(detail.UOMLines || []),
+            combo_products: JSON.stringify(detail.ComboProducts || []),
+            supplier_infos: JSON.stringify(detail.ProductSupplierInfos || []),
+        };
 
         if (variants.length === 0) {
             // Template without variants — sync as single product
@@ -240,6 +267,10 @@ class TPOSProductSync {
                 tpos_qty_available: templateData.QtyAvailable || 0,
                 tpos_product_id: templateData.Id,
                 tpos_template_id: templateData.Id,
+                price_variant: null,
+                variant_attribute_values: JSON.stringify([]),
+                tpos_raw: JSON.stringify(detail),
+                ...templateShared,
             }, syncStartedAt, stats);
             stats.variants++;
             return;
@@ -251,7 +282,6 @@ class TPOSProductSync {
         for (const variant of variants) {
             if (!variant.Active) continue;
 
-            // Build variant display name
             const attrParts = (variant.AttributeValues || [])
                 .map(a => a.Name)
                 .filter(Boolean);
@@ -276,6 +306,10 @@ class TPOSProductSync {
                 tpos_qty_available: variant.QtyAvailable || 0,
                 tpos_product_id: variant.Id,
                 tpos_template_id: templateData.Id,
+                price_variant: variant.PriceVariant ?? null,
+                variant_attribute_values: JSON.stringify(variant.AttributeValues || []),
+                tpos_raw: JSON.stringify(variant),
+                ...templateShared,
             }, syncStartedAt, stats);
             stats.variants++;
         }
@@ -287,27 +321,75 @@ class TPOSProductSync {
      * - If new: insert with quantity=0
      */
     async _upsertProduct(product, syncStartedAt, stats) {
+        // Hash includes ALL TPOS-sourced fields — any change triggers a real DB write.
+        // Using tpos_raw ensures even fields we don't yet extract are monitored for change.
         const hash = this._computeHash({
             name: product.product_name,
             nameGet: product.name_get,
             variant: product.variant,
             sellingPrice: product.selling_price,
             purchasePrice: product.purchase_price,
+            standardPrice: product.standard_price,
             imageUrl: product.image_url,
             qtyAvailable: product.tpos_qty_available,
             category: product.category,
+            descSale: product.description_sale,
+            descPurchase: product.description_purchase,
+            desc: product.description,
+            discSale: product.discount_sale,
+            discPurchase: product.discount_purchase,
+            weight: product.weight,
+            tracking: product.tracking,
+            saleOk: product.sale_ok,
+            purchaseOk: product.purchase_ok,
+            posOk: product.available_in_pos,
+            invoicePolicy: product.invoice_policy,
+            purchaseMethod: product.purchase_method,
+            categId: product.categ_id,
+            posCategId: product.pos_categ_id,
+            uomId: product.uom_id,
+            uomPOId: product.uom_po_id,
+            isCombo: product.is_combo,
+            tags: product.tags,
+            attrLines: product.attribute_lines,
+            uomLines: product.uom_lines,
+            combos: product.combo_products,
+            suppliers: product.supplier_infos,
+            variantAttrs: product.variant_attribute_values,
+            priceVariant: product.price_variant,
         });
 
-        // Check existing
         const existing = await this.db.query(
             'SELECT id, data_hash FROM web_warehouse WHERE product_code = $1',
             [product.product_code]
         );
 
+        // Full column set for INSERT / UPDATE (TPOS parity)
+        const cols = [
+            'parent_product_code', 'product_name', 'name_get', 'variant', 'category',
+            'image_url', 'barcode', 'uom_name',
+            'selling_price', 'purchase_price', 'standard_price',
+            'tpos_qty_available', 'tpos_product_id', 'tpos_template_id',
+            'description_sale', 'description_purchase', 'description',
+            'discount_sale', 'discount_purchase',
+            'weight', 'tracking',
+            'sale_ok', 'purchase_ok', 'available_in_pos',
+            'invoice_policy', 'purchase_method',
+            'categ_id', 'pos_categ_id', 'uom_id', 'uom_po_id',
+            'is_combo', 'price_variant',
+            'tags', 'attribute_lines', 'uom_lines', 'combo_products', 'supplier_infos',
+            'variant_attribute_values', 'tpos_raw',
+        ];
+        const values = cols.map(c => product[c] ?? null);
+        // numeric/decimal fallbacks
+        const numericCols = ['selling_price', 'purchase_price', 'standard_price', 'tpos_qty_available', 'discount_sale', 'discount_purchase', 'weight'];
+        numericCols.forEach(c => {
+            const idx = cols.indexOf(c);
+            if (values[idx] == null) values[idx] = 0;
+        });
+
         if (existing.rows.length > 0) {
-            // Existing product — check if changed
             if (existing.rows[0].data_hash === hash) {
-                // Only update sync timestamp
                 await this.db.query(
                     'UPDATE web_warehouse SET last_synced_at = $2, active = true WHERE id = $1',
                     [existing.rows[0].id, syncStartedAt]
@@ -316,82 +398,35 @@ class TPOSProductSync {
                 return;
             }
 
-            // Changed — update product info (preserve quantity + source_po_ids)
+            // Build UPDATE — $1 = existing.id, $2+ = columns, $N = hash, $N+1 = syncStartedAt
+            const setClauses = cols.map((c, i) => {
+                if (c === 'parent_product_code' || c === 'image_url' || c === 'tpos_product_id') {
+                    return `${c} = COALESCE($${i+2}, ${c})`;
+                }
+                return `${c} = $${i+2}`;
+            });
+            setClauses.push(`data_hash = $${cols.length+2}`);
+            setClauses.push(`last_synced_at = $${cols.length+3}`);
+            setClauses.push(`active = true`);
+            setClauses.push(`updated_at = NOW()`);
+
             await this.db.query(
-                `UPDATE web_warehouse SET
-                    parent_product_code = COALESCE($2, parent_product_code),
-                    product_name = $3,
-                    name_get = $4,
-                    variant = $5,
-                    category = $6,
-                    image_url = COALESCE($7, image_url),
-                    barcode = $8,
-                    uom_name = $9,
-                    selling_price = $10::numeric,
-                    purchase_price = $11::numeric,
-                    standard_price = $12,
-                    tpos_qty_available = $13,
-                    tpos_product_id = COALESCE($14, tpos_product_id),
-                    tpos_template_id = $15,
-                    data_hash = $16,
-                    last_synced_at = $17,
-                    active = true,
-                    updated_at = NOW()
-                WHERE id = $1`,
-                [
-                    existing.rows[0].id,
-                    product.parent_product_code,
-                    product.product_name,
-                    product.name_get,
-                    product.variant,
-                    product.category,
-                    product.image_url,
-                    product.barcode,
-                    product.uom_name,
-                    product.selling_price || 0,
-                    product.purchase_price || 0,
-                    product.standard_price || 0,
-                    product.tpos_qty_available || 0,
-                    product.tpos_product_id,
-                    product.tpos_template_id,
-                    hash,
-                    syncStartedAt,
-                ]
+                `UPDATE web_warehouse SET ${setClauses.join(', ')} WHERE id = $1`,
+                [existing.rows[0].id, ...values, hash, syncStartedAt]
             );
             stats.updated++;
         } else {
-            // New product — insert with quantity=0
             const maxSttResult = await this.db.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
             const nextStt = maxSttResult.rows[0].max_stt + 1;
 
+            // Build INSERT — prepend stt + product_code to cols, append quantity/source_po_ids/hash/sync/active
+            const allCols = ['stt', 'product_code', ...cols, 'quantity', 'source_po_ids', 'data_hash', 'last_synced_at', 'active'];
+            const allValues = [nextStt, product.product_code, ...values, 0, '{}', hash, syncStartedAt, true];
+            const placeholders = allCols.map((_, i) => `$${i+1}`).join(', ');
+
             await this.db.query(
-                `INSERT INTO web_warehouse (
-                    stt, product_code, parent_product_code, product_name, name_get,
-                    variant, category, image_url, barcode, uom_name,
-                    selling_price, purchase_price, standard_price,
-                    tpos_qty_available, tpos_product_id, tpos_template_id,
-                    quantity, data_hash, last_synced_at, active, source_po_ids
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,0,$17,$18,true,'{}')`,
-                [
-                    nextStt,
-                    product.product_code,
-                    product.parent_product_code,
-                    product.product_name,
-                    product.name_get,
-                    product.variant,
-                    product.category,
-                    product.image_url,
-                    product.barcode,
-                    product.uom_name,
-                    product.selling_price || 0,
-                    product.purchase_price || 0,
-                    product.standard_price || 0,
-                    product.tpos_qty_available || 0,
-                    product.tpos_product_id,
-                    product.tpos_template_id,
-                    hash,
-                    syncStartedAt,
-                ]
+                `INSERT INTO web_warehouse (${allCols.join(', ')}) VALUES (${placeholders})`,
+                allValues
             );
             stats.inserted++;
         }

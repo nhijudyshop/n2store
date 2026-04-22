@@ -147,6 +147,91 @@ async function ensureTable(db) {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='last_synced_at') THEN
                     ALTER TABLE web_warehouse ADD COLUMN last_synced_at TIMESTAMPTZ;
                 END IF;
+                -- v4 columns: full TPOS parity (2026-04-22)
+                -- Descriptions
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='description_sale') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN description_sale TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='description_purchase') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN description_purchase TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='description') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN description TEXT;
+                END IF;
+                -- Discounts
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='discount_sale') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN discount_sale NUMERIC(10,2) DEFAULT 0;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='discount_purchase') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN discount_purchase NUMERIC(10,2) DEFAULT 0;
+                END IF;
+                -- Classification
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='weight') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN weight NUMERIC(10,3) DEFAULT 0;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tracking') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tracking VARCHAR(30);
+                END IF;
+                -- Status flags
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='sale_ok') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN sale_ok BOOLEAN DEFAULT true;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='purchase_ok') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN purchase_ok BOOLEAN DEFAULT true;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='available_in_pos') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN available_in_pos BOOLEAN DEFAULT true;
+                END IF;
+                -- Accounting policies
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='invoice_policy') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN invoice_policy VARCHAR(30);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='purchase_method') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN purchase_method VARCHAR(30);
+                END IF;
+                -- Entity FKs (numeric IDs for typed filters/dropdown pre-population)
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='categ_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN categ_id INTEGER;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='pos_categ_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN pos_categ_id INTEGER;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='uom_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN uom_id INTEGER;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='uom_po_id') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN uom_po_id INTEGER;
+                END IF;
+                -- Nested structures (JSONB — verbatim passthrough from TPOS)
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tags') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tags JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='attribute_lines') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN attribute_lines JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='uom_lines') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN uom_lines JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='combo_products') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN combo_products JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='supplier_infos') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN supplier_infos JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='variant_attribute_values') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN variant_attribute_values JSONB DEFAULT '[]'::jsonb;
+                END IF;
+                -- Attributes specific to variants (parent template vs variant row)
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='is_combo') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN is_combo BOOLEAN DEFAULT false;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='price_variant') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN price_variant NUMERIC(15,2);
+                END IF;
+                -- Full TPOS snapshot (JSONB passthrough — ultimate fallback, preserves every field)
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='web_warehouse' AND column_name='tpos_raw') THEN
+                    ALTER TABLE web_warehouse ADD COLUMN tpos_raw JSONB;
+                END IF;
             END $$;
         `);
 
@@ -414,11 +499,9 @@ router.get('/search', async (req, res) => {
         const searchTerm = `%${q.trim()}%`;
         const maxLimit = Math.min(parseInt(limit) || 15, 50);
 
+        // SELECT * to return full TPOS-parity fields for consumers that need them.
         const result = await db.query(`
-            SELECT tpos_product_id, tpos_template_id, product_code,
-                   product_name, name_get, image_url, selling_price,
-                   tpos_qty_available, parent_product_code, barcode,
-                   purchase_price, standard_price, uom_name, category, variant
+            SELECT *
             FROM web_warehouse
             WHERE active = true
               AND (
@@ -456,11 +539,9 @@ router.post('/batch-lookup', async (req, res) => {
 
     try {
         const placeholders = safeCodes.map((_, i) => `$${i + 1}`).join(',');
+        // SELECT * for full TPOS-parity
         const result = await db.query(`
-            SELECT tpos_product_id, tpos_template_id, product_code,
-                   product_name, name_get, image_url, selling_price,
-                   tpos_qty_available, parent_product_code, barcode,
-                   purchase_price, standard_price, uom_name, category, variant
+            SELECT *
             FROM web_warehouse
             WHERE active = true AND product_code IN (${placeholders})
         `, safeCodes);

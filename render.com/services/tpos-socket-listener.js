@@ -319,11 +319,14 @@ class TPOSSocketListener {
         const syncStartedAt = new Date();
         const stats = { templates: 0, variants: 0, inserted: 0, updated: 0, unchanged: 0, errors: 0 };
 
+        // Full $expand — mirrors sync-tpos-products.js so realtime socket events capture same fields.
+        const expand = 'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)';
+
         for (const templateId of templateIds) {
             try {
                 // Fetch template from TPOS
                 const data = await this.syncService._tposFetch(
-                    `/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants($expand=AttributeValues)`
+                    `/api/odata/ProductTemplate(${templateId})?$expand=${encodeURIComponent(expand)}`
                 );
 
                 if (data && data.Id) {
