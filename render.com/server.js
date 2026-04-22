@@ -61,6 +61,17 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARE
 // =====================================================
 
+// Baseline security headers — inexpensive hardening against clickjacking,
+// MIME sniffing, and over-sharing of referrer info. No CSP (could break
+// cross-origin clients loading static assets from /public).
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+});
+
 // CORS - Allow requests from GitHub Pages
 // CORS - Allow specific origins
 app.use(cors({
