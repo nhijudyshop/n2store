@@ -169,6 +169,9 @@ const PhoneHistoryBadges = (() => {
         }
         badge.dataset.phone = phone;
     }
+    function _isAdmin() {
+        try { return !!window.authManager?.isAdminTemplate?.(); } catch { return false; }
+    }
     function _makeBadge(phone, counts) {
         const badge = document.createElement('span');
         badge.className = 'phone-hist-badge' + (counts.missed > 0 ? ' has-missed' : '');
@@ -179,7 +182,12 @@ const PhoneHistoryBadges = (() => {
         badge.addEventListener('mouseleave', _hideTooltip);
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
-            try { window.PhoneWidget?.makeCall?.(phone); } catch {}
+            _hideTooltip();
+            if (_isAdmin()) {
+                _openHistoryModal(phone);
+            } else {
+                try { window.PhoneWidget?.makeCall?.(phone); } catch {}
+            }
         });
         return badge;
     }
