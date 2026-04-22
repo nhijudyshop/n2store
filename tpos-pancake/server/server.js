@@ -47,7 +47,9 @@ if (process.env.DATABASE_URL) {
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         max: 5,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000
+        connectionTimeoutMillis: 10000,
+        statement_timeout: 30000,
+        idle_in_transaction_session_timeout: 60000
     });
 
     // Without this listener, pg.Pool 'error' on idle clients crashes Node.
@@ -597,6 +599,37 @@ app.get('/ping', (req, res) => {
         uptime: process.uptime(),
         eventsReceived: totalEvents,
         eventStoreSize: eventStore.length,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Detailed health — pool stats, memory, per-client state
+app.get('/health/detailed', (req, res) => {
+    const mem = process.memoryUsage();
+    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    const perClient = [...clients.values()].map(c => ({
+        name: c.name, userId: c.userId,
+        connected: c.isConnected,
+        reconnectAttempts: c.reconnectAttempts,
+        events: c.eventsReceived,
+        pageCount: c.pageIds?.length || 0
+    }));
+    res.json({
+        service: 'n2store-tpos-pancake',
+        status: connectedCount === clients.size && clients.size > 0 ? 'ok' : 'degraded',
+        uptime_sec: Math.round(process.uptime()),
+        memory_mb: {
+            rss: Math.round(mem.rss / 1024 / 1024),
+            heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+        },
+        db: db ? { pool: { total: db.totalCount, idle: db.idleCount, waiting: db.waitingCount } } : null,
+        accounts: { total: clients.size, connected: connectedCount },
+        clients: perClient,
+        events_received: [...clients.values()].reduce((s, c) => s + c.eventsReceived, 0),
+        event_store_size: eventStore.length,
+        node_version: process.version,
+        pid: process.pid,
         timestamp: new Date().toISOString()
     });
 });

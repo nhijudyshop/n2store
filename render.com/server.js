@@ -189,7 +189,7 @@ async function autoConnectRealtimeClients(db) {
 // ROUTES
 // =====================================================
 
-// Health check
+// Health check — basic liveness
 app.get('/health', async (req, res) => {
     try {
         await chatDbPool.query('SELECT 1'); // Test DB connection
@@ -211,6 +211,37 @@ app.get('/health', async (req, res) => {
             uptime: process.uptime()
         });
     }
+});
+
+// Detailed health: pool stats + memory + deps (for dashboards/ops)
+app.get('/health/detailed', async (req, res) => {
+    const mem = process.memoryUsage();
+    const poolStats = chatDbPool ? {
+        total: chatDbPool.totalCount,
+        idle: chatDbPool.idleCount,
+        waiting: chatDbPool.waitingCount
+    } : null;
+    let dbOk = false, dbLatencyMs = null;
+    try {
+        const t0 = Date.now();
+        await chatDbPool.query('SELECT 1');
+        dbLatencyMs = Date.now() - t0;
+        dbOk = true;
+    } catch (_) {}
+    res.json({
+        service: 'n2store-fallback',
+        status: dbOk ? 'ok' : 'degraded',
+        uptime_sec: Math.round(process.uptime()),
+        memory_mb: {
+            rss: Math.round(mem.rss / 1024 / 1024),
+            heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+        },
+        db: { ok: dbOk, latency_ms: dbLatencyMs, pool: poolStats },
+        node_version: process.version,
+        pid: process.pid,
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Server time diagnostic endpoint for debugging Facebook 24-hour policy

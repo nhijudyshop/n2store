@@ -23,7 +23,12 @@ function getPool() {
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             max: 20,
             idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
+            connectionTimeoutMillis: 10000,
+            // Kill server-side any query >30s. Prevents runaway queries from
+            // holding a pool client forever and starving the rest of the app.
+            statement_timeout: 30000,
+            // Kill session idle in transaction >60s (defensive vs orphaned clients).
+            idle_in_transaction_session_timeout: 60000
         });
 
         pool.on('error', (err) => {

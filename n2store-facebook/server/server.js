@@ -216,6 +216,26 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Detailed health — memory + uptime + node info
+app.get('/health/detailed', (req, res) => {
+    const mem = process.memoryUsage();
+    res.json({
+        service: 'n2store-facebook',
+        status: 'ok',
+        uptime_sec: Math.round(process.uptime()),
+        memory_mb: {
+            rss: Math.round(mem.rss / 1024 / 1024),
+            heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+        },
+        cached_pages: Object.keys(tokenCache).length,
+        last_refresh: lastFetchTime ? new Date(lastFetchTime).toISOString() : null,
+        node_version: process.version,
+        pid: process.pid,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // =====================================================
 // REFRESH TOKENS (manual trigger)
 // =====================================================

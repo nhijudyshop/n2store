@@ -56,7 +56,9 @@ async function initDatabase() {
             ssl: { rejectUnauthorized: false },
             max: 5,
             idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
+            connectionTimeoutMillis: 10000,
+            statement_timeout: 30000,
+            idle_in_transaction_session_timeout: 60000
         });
 
         // Without this listener, pg.Pool 'error' on idle clients crashes Node.
@@ -936,6 +938,28 @@ app.get('/health', (req, res) => {
         clients: {
             pancake: realtimeClient.getStatus()
         }
+    });
+});
+
+// Detailed health — pool stats, memory, Pancake WS state
+app.get('/health/detailed', (req, res) => {
+    const mem = process.memoryUsage();
+    res.json({
+        service: 'n2store-realtime',
+        status: 'ok',
+        uptime_sec: Math.round(process.uptime()),
+        memory_mb: {
+            rss: Math.round(mem.rss / 1024 / 1024),
+            heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+        },
+        db: dbPool ? {
+            pool: { total: dbPool.totalCount, idle: dbPool.idleCount, waiting: dbPool.waitingCount }
+        } : null,
+        pancake_ws: realtimeClient.getStatus(),
+        node_version: process.version,
+        pid: process.pid,
+        timestamp: new Date().toISOString()
     });
 });
 
