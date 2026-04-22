@@ -372,11 +372,6 @@ function _applyFiltersExceptProcessingTag() {
         tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
     }
 
-    // Apply Excluded Tag XL filter (hide orders whose Tag XL matches any excluded key)
-    if (typeof window.hasExcludedPtagXlFilters === 'function' && window.hasExcludedPtagXlFilters()) {
-        tempData = tempData.filter(order => !window.orderHasExcludedPtagXl(String(order.Code || order.Id)));
-    }
-
     return tempData;
 }
 window.getOrdersBeforeProcessingTagFilter = _applyFiltersExceptProcessingTag;
@@ -389,6 +384,13 @@ function performTableSearch() {
     // fallback to order.Id for backward compatibility with old data
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(String(order.Code || order.Id)));
+    }
+
+    // Apply Excluded Tag XL filter (hide orders whose Tag XL matches any excluded key).
+    // Đặt SAU _applyFiltersExceptProcessingTag để _ptagComputeCounts không thấy exclude
+    // → dropdown "Ẩn Tag XL" hiển thị tổng count (gồm cả đơn đang bị ẩn).
+    if (typeof window.hasExcludedPtagXlFilters === 'function' && window.hasExcludedPtagXlFilters()) {
+        tempData = tempData.filter(order => !window.orderHasExcludedPtagXl(String(order.Code || order.Id)));
     }
 
     // Re-render Chốt Đơn panel counts để phản ánh các filter hiện tại (search/TAG/status/...)
