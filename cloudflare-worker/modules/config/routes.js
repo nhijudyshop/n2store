@@ -91,6 +91,8 @@ export const ROUTES = {
     TPOS_SAVED: { pattern: '/api/tpos-saved/*' },
     QUY_TRINH: { pattern: '/api/quy-trinh/*' },
     AUTOFB_RENDER: { pattern: '/api/autofb/*' },  // /api/autofb-<name> exact routes stay CF-direct (autofb-handler.js)
+    TPOS_ORDER_BUFFER: { pattern: '/api/tpos/order-buffer/*' },  // tab1-tpos-realtime.js polling
+    ADMIN_DATA: { pattern: '/api/admin/data/*' },                // render-data-manager admin tool
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -169,6 +171,7 @@ export function matchRoute(pathname) {
 
     if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/admin/render/')) return 'ADMIN_RENDER';
+    if (pathname.startsWith('/api/admin/data/') || pathname === '/api/admin/data') return 'ADMIN_DATA';
     if (pathname.startsWith('/api/invoice-mapping/')) return 'INVOICE_MAPPING';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
@@ -226,9 +229,12 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/transactions/')) return 'TRANSACTIONS';
     if (pathname.startsWith('/api/balance-history/')) return 'BALANCE_HISTORY';
 
-    // TPOS Order patterns
+    // TPOS Order patterns (CF-direct: call tomato.tpos.vn order-lines scraper)
     if (/^\/tpos\/order\/\d+\/lines$/.test(pathname)) return 'TPOS_ORDER_LINES';
     if (/^\/tpos\/order-ref\/.+\/lines$/.test(pathname)) return 'TPOS_ORDER_REF_LINES';
+
+    // /api/tpos/order-buffer → Render (different from /api/odata/*, which stays TPOS_GENERIC → tomato.tpos.vn)
+    if (pathname.startsWith('/api/tpos/order-buffer')) return 'TPOS_ORDER_BUFFER';
 
     // /api/v2/* catch-all → Render fallback (MUST come before TPOS_GENERIC, since TPOS does not
     // own any /api/v2/* paths — every v2 route we've shipped lives on the Render server).

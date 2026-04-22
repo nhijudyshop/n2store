@@ -1,14 +1,15 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-// Phone Recording — local MediaRecorder + IndexedDB
-// Mixes local mic + remote audio via AudioContext → MediaRecorder → Blob → IndexedDB
-// Retention: 30 ngày, auto-cleanup on load
-// Phone-management page đọc cùng IndexedDB (same-origin)
+// Phone Recording — local MediaRecorder + IndexedDB + auto-upload to Render DB
+// Mixes local mic + remote audio via AudioContext → MediaRecorder → Blob → IndexedDB → Cloud
+// Always-on: tất cả cuộc gọi đều được thu âm tự động
+// Retention: local 30 ngày (IndexedDB cache), cloud vô thời hạn (Render Postgres)
 
 const PhoneRecording = (() => {
     const DB_NAME = 'phoneRecordings';
     const STORE = 'recordings';
     const RETENTION_DAYS = 30;
     const PREFS_KEY = 'phoneMgmt_prefs';
+    const CLOUD_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/call-recordings';
 
     let db = null;
     let recorder = null;
@@ -37,12 +38,8 @@ const PhoneRecording = (() => {
         });
     }
 
-    function isEnabled() {
-        try {
-            const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
-            return !!p.recordLocal;
-        } catch { return false; }
-    }
+    // Always-on: recording luôn bật. Giữ tên isEnabled() để không phá API hiện tại.
+    function isEnabled() { return true; }
 
     function _getRemoteTrack() {
         const audioEl = document.getElementById('pwRemoteAudio');
@@ -128,26 +125,70 @@ const PhoneRecording = (() => {
 
     async function _saveRecording(blob) {
         const d = await _openDb();
-        return new Promise((resolve, reject) => {
+        const duration = currentMeta?.duration || Math.round((Date.now() - startedAt) / 1000);
+        const meta = {
+            timestamp: currentMeta?.timestamp || Date.now(),
+            duration,
+            username: currentMeta?.username || '',
+            ext: currentMeta?.ext || '',
+            phone: currentMeta?.phone || '',
+            name: currentMeta?.name || '',
+            direction: currentMeta?.direction || 'out',
+            orderCode: currentMeta?.orderCode || '',
+            mimeType: blob.type,
+            size: blob.size
+        };
+        const localId = await new Promise((resolve, reject) => {
             const tx = d.transaction(STORE, 'readwrite');
             const store = tx.objectStore(STORE);
-            const duration = currentMeta?.duration || Math.round((Date.now() - startedAt) / 1000);
-            const rec = {
-                timestamp: currentMeta?.timestamp || Date.now(),
-                duration,
-                username: currentMeta?.username || '',
-                ext: currentMeta?.ext || '',
-                phone: currentMeta?.phone || '',
-                name: currentMeta?.name || '',
-                direction: currentMeta?.direction || 'out',
-                orderCode: currentMeta?.orderCode || '',
-                mimeType: blob.type,
-                size: blob.size,
-                blob
-            };
-            const req = store.add(rec);
-            req.onsuccess = () => { console.log('[PhoneRecording] saved', req.result, blob.size, 'bytes'); resolve(req.result); };
+            const req = store.add({ ...meta, blob });
+            req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
+        });
+        console.log('[PhoneRecording] saved local', localId, blob.size, 'bytes');
+        // Fire-and-forget cloud upload (không block UI nếu mạng chậm/lỗi)
+        _uploadToCloud(blob, meta).catch(err => console.warn('[PhoneRecording] cloud upload failed:', err.message));
+        return localId;
+    }
+
+    async function _uploadToCloud(blob, meta) {
+        if (!meta?.phone) return; // không phone → không có gì để match, bỏ qua
+        const audio_b64 = await _blobToBase64(blob);
+        const body = {
+            username: meta.username || '',
+            ext: meta.ext || null,
+            phone: meta.phone,
+            name: meta.name || null,
+            direction: meta.direction || 'out',
+            order_code: meta.orderCode || null,
+            duration: meta.duration || 0,
+            mime_type: meta.mimeType || 'audio/webm',
+            timestamp: meta.timestamp || Date.now(),
+            audio_b64
+        };
+        const r = await fetch(CLOUD_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!r.ok) {
+            const t = await r.text().catch(() => '');
+            throw new Error(`HTTP ${r.status} ${t.substring(0, 120)}`);
+        }
+        const out = await r.json().catch(() => ({}));
+        console.log('[PhoneRecording] cloud upload ok id=' + out.id + ' size=' + (out.size || 0));
+    }
+
+    function _blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const s = String(reader.result || '');
+                const i = s.indexOf(',');
+                resolve(i >= 0 ? s.slice(i + 1) : s);
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
         });
     }
 

@@ -589,6 +589,103 @@ function createRouter() {
         }
     });
 
+    // --- CALL RECORDINGS (auto-uploaded from browser MediaRecorder) ---
+    // Tất cả cuộc gọi đều được tự động thu âm và upload lên đây
+    router.post('/call-recordings', async (req, res) => {
+        try {
+            const b = req.body || {};
+            if (!b.phone || !b.audio_b64) {
+                return res.status(400).json({ success: false, error: 'phone and audio_b64 required' });
+            }
+            const audioBuf = Buffer.from(String(b.audio_b64), 'base64');
+            if (!audioBuf.length) return res.status(400).json({ success: false, error: 'empty audio' });
+            const db = req.app.locals.chatDb;
+            const r = await db.query(
+                `INSERT INTO phone_call_recordings
+                 (call_history_id, username, ext, phone, name, direction, order_code, duration, mime_type, size_bytes, audio, timestamp)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                 RETURNING id`,
+                [
+                    b.call_history_id ? parseInt(b.call_history_id, 10) : null,
+                    b.username || '',
+                    b.ext || null,
+                    String(b.phone || ''),
+                    b.name || null,
+                    b.direction || 'out',
+                    b.orderCode || b.order_code || null,
+                    parseInt(b.duration || 0, 10) || 0,
+                    b.mime_type || b.mimeType || 'audio/webm',
+                    audioBuf.length,
+                    audioBuf,
+                    b.timestamp || Date.now()
+                ]
+            );
+            res.json({ success: true, id: r.rows[0].id, size: audioBuf.length });
+        } catch (err) {
+            console.error(`${MODULE} call-recordings POST error:`, err.message);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    router.get('/call-recordings', async (req, res) => {
+        try {
+            const { from, to, username, phone, ext, limit } = req.query;
+            const conds = []; const params = []; let idx = 1;
+            if (from) { conds.push(`timestamp >= $${idx++}`); params.push(parseInt(from, 10)); }
+            if (to) { conds.push(`timestamp < $${idx++}`); params.push(parseInt(to, 10)); }
+            if (username) { conds.push(`username = $${idx++}`); params.push(username); }
+            if (ext) { conds.push(`ext = $${idx++}`); params.push(ext); }
+            if (phone) { conds.push(`phone ILIKE $${idx++}`); params.push('%' + phone + '%'); }
+            const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+            const max = Math.min(parseInt(limit || '500', 10) || 500, 5000);
+            const r = await req.app.locals.chatDb.query(
+                `SELECT id, call_history_id, username, ext, phone, name, direction, order_code,
+                        duration, mime_type, size_bytes, timestamp, created_at
+                 FROM phone_call_recordings ${where}
+                 ORDER BY timestamp DESC LIMIT ${max}`,
+                params
+            );
+            res.json({ success: true, rows: r.rows });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // Stream audio bytes for playback / download
+    router.get('/call-recordings/:id/audio', async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            if (!id) return res.status(400).send('bad id');
+            const r = await req.app.locals.chatDb.query(
+                `SELECT audio, mime_type, phone, size_bytes FROM phone_call_recordings WHERE id = $1`,
+                [id]
+            );
+            const row = r.rows[0];
+            if (!row || !row.audio) return res.status(404).send('not found');
+            res.setHeader('Content-Type', row.mime_type || 'audio/webm');
+            res.setHeader('Content-Length', String(row.size_bytes || row.audio.length));
+            res.setHeader('Content-Disposition',
+                `inline; filename="call-${id}-${(row.phone || 'unknown').replace(/[^0-9+]/g, '')}.webm"`);
+            res.setHeader('Cache-Control', 'private, max-age=300');
+            res.end(row.audio);
+        } catch (err) {
+            console.error(`${MODULE} call-recordings audio error:`, err.message);
+            res.status(500).send(err.message);
+        }
+    });
+
+    router.delete('/call-recordings/:id', async (req, res) => {
+        try {
+            await req.app.locals.chatDb.query(
+                'DELETE FROM phone_call_recordings WHERE id = $1',
+                [parseInt(req.params.id, 10)]
+            );
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     // --- AUTO-REGISTER LOCK (singleton: chỉ 1 máy giữ lock cùng lúc) ---
     const LOCK_EXPIRY_MS = 90000; // 90s không heartbeat → hết hạn
 
@@ -779,6 +876,29 @@ async function ensurePhoneManagementTables(pool) {
         );
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_phone ON phone_contacts(phone);
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_name ON phone_contacts(name);
+
+        -- Call recordings: lưu audio blob + metadata, auto-uploaded mỗi khi kết thúc cuộc gọi
+        CREATE TABLE IF NOT EXISTS phone_call_recordings (
+            id SERIAL PRIMARY KEY,
+            call_history_id INTEGER,
+            username VARCHAR(255),
+            ext VARCHAR(20),
+            phone VARCHAR(30) NOT NULL,
+            name VARCHAR(255),
+            direction VARCHAR(10),
+            order_code VARCHAR(50),
+            duration INTEGER DEFAULT 0,
+            mime_type VARCHAR(80),
+            size_bytes INTEGER,
+            audio BYTEA,
+            timestamp BIGINT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_username_ts ON phone_call_recordings(username, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_phone_ts ON phone_call_recordings(phone, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_timestamp ON phone_call_recordings(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_ext ON phone_call_recordings(ext);
+        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_history_id ON phone_call_recordings(call_history_id);
 
         -- Lock singleton: chỉ 1 máy giữ lock auto-register 10 line tại 1 thời điểm
         CREATE TABLE IF NOT EXISTS phone_auto_register_lock (

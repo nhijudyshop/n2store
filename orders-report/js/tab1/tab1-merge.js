@@ -60,14 +60,17 @@ async function getOrderDetails(orderId, retries = 2) {
 }
 
 /**
- * Update order with full payload via API
+ * Update order with full payload via API, with retry on transient failures.
  * @param {Object} orderData - Full order data (fetched from API)
  * @param {Array} newDetails - New Details array to set
  * @param {number} totalAmount - Total amount
  * @param {number} totalQuantity - Total quantity
+ * @param {number} retries - Số lần retry khi gặp 502/503/504/timeout
  * @returns {Promise<Object>} Updated order data
  */
-async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, totalQuantity) {
+async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, totalQuantity, retries = 2) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
     try {
         const headers = await window.tokenManager.getAuthHeader();
         const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderData.Id})`;
@@ -141,6 +144,13 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
 
         if (!response.ok) {
             const errorText = await response.text();
+            // Transient server errors → retry (502/503/504). Errors khác (400 validation, 409 conflict) fail fast.
+            if ([502, 503, 504].includes(response.status) && attempt < retries) {
+                console.warn(`[MERGE-API] PUT ${orderData.Id} HTTP ${response.status}, retry ${attempt + 1}/${retries}...`);
+                lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+                await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                continue;
+            }
             console.error(`[MERGE-API] PUT failed:`, errorText);
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
@@ -159,9 +169,19 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
         console.log(`[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`);
         return data || { success: true, orderId: orderData.Id };
     } catch (error) {
-        console.error(`[MERGE-API] Error updating order ${orderData.Id}:`, error);
+        // Network/fetch failure → retry. Sau khi hết retries thì throw.
+        lastError = error;
+        if (attempt < retries) {
+            console.warn(`[MERGE-API] PUT ${orderData.Id} network error, retry ${attempt + 1}/${retries}...`, error.message);
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+            continue;
+        }
+        console.error(`[MERGE-API] Error updating order ${orderData.Id} after ${retries + 1} attempts:`, error);
         throw error;
     }
+    }
+    // Không nên tới đây, nhưng safety
+    throw lastError || new Error(`[MERGE-API] Update failed for order ${orderData.Id}`);
 }
 
 // Export API functions for external modules
@@ -226,13 +246,15 @@ async function executeMergeOrderProducts(mergedOrder) {
         });
 
         // Add source order products — skip null sourceOrders from failed fetches
+        const priceDiffs = []; // Cảnh báo khi source/target có giá khác nhau cho cùng ProductId
         sourceOrdersData.forEach((sourceOrder, index) => {
             if (!sourceOrder) {
                 console.error(`[MERGE-API] Source order at index ${index} is null, skipping`);
                 return;
             }
             const sourceProducts = sourceOrder.Details || [];
-            console.log(`[MERGE-API] Source STT ${mergedOrder.SourceSTTs[index]}: ${sourceProducts.length} products`);
+            const sourceSTT = mergedOrder.SourceSTTs[index];
+            console.log(`[MERGE-API] Source STT ${sourceSTT}: ${sourceProducts.length} products`);
 
             sourceProducts.forEach(detail => {
                 const key = detail.ProductId;
@@ -241,16 +263,34 @@ async function executeMergeOrderProducts(mergedOrder) {
                     return;
                 }
                 if (productMap.has(key)) {
-                    // Same product exists, merge quantity (with bounds check)
+                    // Same product exists → cộng quantity (bounds check) + concat note + warn giá khác
                     const existing = productMap.get(key);
                     const newQty = (existing.Quantity || 0) + (detail.Quantity || 0);
                     existing.Quantity = Math.min(newQty, 999999);
+                    // Concat note từ source vào existing nếu chưa có
+                    if (detail.Note && !(existing.Note || '').includes(detail.Note)) {
+                        existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
+                    }
+                    // Cảnh báo nếu giá source khác target (target price giữ nguyên — điều chỉnh manual nếu cần)
+                    if (detail.Price != null && existing.Price != null && Number(detail.Price) !== Number(existing.Price)) {
+                        priceDiffs.push({
+                            sourceSTT,
+                            productId: key,
+                            productName: detail.ProductName || detail.ProductNameGet || '?',
+                            targetPrice: Number(existing.Price),
+                            sourcePrice: Number(detail.Price)
+                        });
+                    }
                     console.log(`[MERGE-API] Merged duplicate ProductId ${key}: new qty = ${existing.Quantity}`);
                 } else {
                     productMap.set(key, { ...detail });
                 }
             });
         });
+
+        if (priceDiffs.length > 0) {
+            console.warn(`[MERGE-API] ⚠️ ${priceDiffs.length} product(s) có giá khác giữa source/target — target price giữ nguyên:`, priceDiffs);
+        }
 
         // Convert map to array
         const allProducts = Array.from(productMap.values());
@@ -267,20 +307,55 @@ async function executeMergeOrderProducts(mergedOrder) {
         console.log(`[MERGE-API] Total amount: ${totalAmount}, Total quantity: ${totalQuantity}`);
 
         // Step 3: Update target order with all products (using full payload)
+        // Nếu target PUT fail → không có side-effect, các source vẫn nguyên vẹn → safe abort.
         await updateOrderWithFullPayload(targetOrderData, allProducts, totalAmount, totalQuantity);
         console.log(`[MERGE-API] ✅ Updated target order STT ${mergedOrder.TargetSTT} with ${allProducts.length} products`);
 
-        // Step 4: Clear products from source orders (using full payload)
+        // Step 4: Clear products from source orders (using full payload).
+        // CRITICAL: target đã nhận tất cả products → MỖI source clear fail = duplicate products!
+        // Vì vậy: track per-source, KHÔNG throw, trả kết quả chi tiết cho caller quyết định.
+        const sourceClearResults = [];
+        const failedSourceSTTs = [];
         for (let i = 0; i < mergedOrder.SourceOrderIds.length; i++) {
             const sourceOrder = sourceOrdersData[i];
+            const sourceId = mergedOrder.SourceOrderIds[i];
             const sourceSTT = mergedOrder.SourceSTTs[i];
 
             if (!sourceOrder) {
                 console.warn(`[MERGE-API] Source order index ${i} is null, skipping clear`);
+                sourceClearResults.push({ sourceId, sourceSTT, cleared: false, reason: 'fetch-null' });
+                failedSourceSTTs.push(sourceSTT);
                 continue;
             }
-            await updateOrderWithFullPayload(sourceOrder, [], 0, 0);
-            console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
+            try {
+                await updateOrderWithFullPayload(sourceOrder, [], 0, 0);
+                console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
+                sourceClearResults.push({ sourceId, sourceSTT, cleared: true });
+            } catch (clearErr) {
+                console.error(`[MERGE-API] ❌ Failed to clear source STT ${sourceSTT} (${sourceId}):`, clearErr);
+                sourceClearResults.push({ sourceId, sourceSTT, cleared: false, reason: clearErr.message || 'clear-fail' });
+                failedSourceSTTs.push(sourceSTT);
+            }
+        }
+
+        const clearedCount = sourceClearResults.filter(r => r.cleared).length;
+        const failedClearCount = sourceClearResults.length - clearedCount;
+
+        if (failedClearCount > 0) {
+            // ⚠️ Target đã có đủ products nhưng source chưa được clear → DUPLICATE RISK.
+            // Return partial success để caller hiển thị rõ tình trạng và người dùng có thể retry thủ công.
+            console.error(`[MERGE-API] ⚠️ PARTIAL MERGE: Target đã cập nhật nhưng ${failedClearCount}/${sourceClearResults.length} source KHÔNG clear được. DUPLICATE PRODUCTS RISK!`);
+            return {
+                success: false,
+                partial: true,
+                message: `Target STT ${mergedOrder.TargetSTT} đã gộp xong, NHƯNG ${failedClearCount}/${sourceClearResults.length} đơn nguồn (STT ${failedSourceSTTs.join(', ')}) KHÔNG clear được → CẢNH BÁO: sản phẩm có thể bị trùng trên cả 2 đơn. Hãy kiểm tra và xóa thủ công các STT nguồn này.`,
+                targetSTT: mergedOrder.TargetSTT,
+                sourceSTTs: mergedOrder.SourceSTTs,
+                sourceClearResults,
+                failedSourceSTTs,
+                totalProducts: allProducts.length,
+                priceDiffs
+            };
         }
 
         console.log(`[MERGE-API] ✅ Merge completed successfully!`);
@@ -292,6 +367,8 @@ async function executeMergeOrderProducts(mergedOrder) {
             message: `Đã gộp ${sourceOrdersData.length} đơn vào STT ${mergedOrder.TargetSTT}`,
             targetSTT: mergedOrder.TargetSTT,
             sourceSTTs: mergedOrder.SourceSTTs,
+            sourceClearResults,
+            priceDiffs,
             totalProducts: allProducts.length
         };
 
@@ -620,18 +697,26 @@ async function showMergeDuplicateOrdersModal() {
 }
 
 /**
- * Calculate merged products preview for a cluster
+ * Calculate merged products preview for a cluster.
+ * Phải khớp 1:1 với logic trong executeMergeOrderProducts để preview
+ * hiển thị đúng kết quả sẽ được gửi lên TPOS.
  */
 function calculateMergedProductsPreview(orders) {
-    const productMap = new Map(); // key: ProductId, value: merged product
+    const productMap = new Map(); // key: ProductId (hoặc _noid_N cho item thiếu ProductId)
 
     orders.forEach(order => {
         (order.Details || []).forEach(detail => {
             const key = detail.ProductId;
+            // Product thiếu ProductId → dùng unique synthetic key để không collision
+            if (!key) {
+                productMap.set(`_noid_${productMap.size}`, { ...detail });
+                return;
+            }
             if (productMap.has(key)) {
                 const existing = productMap.get(key);
-                existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
-                // Keep the note from all orders
+                const newQty = (existing.Quantity || 0) + (detail.Quantity || 0);
+                existing.Quantity = Math.min(newQty, 999999); // Bounds check khớp với executeMergeOrderProducts
+                // Keep the note from all orders (concat với ", ")
                 if (detail.Note && !existing.Note?.includes(detail.Note)) {
                     existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
                 }
