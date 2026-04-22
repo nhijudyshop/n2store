@@ -354,6 +354,11 @@ function renderTable() {
     if (typeof triggerWalletDebtFetch === 'function') {
         triggerWalletDebtFetch();
     }
+
+    // P6: Cache warming — preload inbox maps for top visible orders so chat opens instantly
+    if (typeof window.warmChatCacheForVisibleOrders === 'function') {
+        window.warmChatCacheForVisibleOrders();
+    }
 }
 
 function renderAllOrders() {

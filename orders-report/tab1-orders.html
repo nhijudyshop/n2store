@@ -30,6 +30,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
+    <script src="js/utils/fetch-with-timeout.js"></script>
     <script src="js/core/api-handler.js"></script>
 <link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
 <link rel="stylesheet" href="css/design-system.css" />
@@ -1310,6 +1311,9 @@
 
     <!-- 8. Table: Rendering, sorting, row creation (lines 6815-8392) -->
     <script src="js/tab1/tab1-table.js"></script>
+
+    <!-- 8a. Chat Cache Warmer — P6 preload inbox map top 20 visible orders -->
+    <script src="js/tab1/tab1-chat-cache-warmer.js"></script>
 
     <!-- 8b. Cleanup GIỎ TRỐNG tag (auto-remove nếu lỡ gắn — không auto-add) -->
     <script src="js/tab1/tab1-empty-cart-auto-sync.js"></script>

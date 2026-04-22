@@ -390,3 +390,108 @@ cron.schedule('0 5 * * *', async () => {
         console.error('[CRON] ❌ Error in KPI audit log cleanup:', error.message);
     }
 });
+
+// =====================================================
+// Pancake PAT Proactive Refresh — chạy mỗi 6 giờ
+// Refresh PATs có savedAt > 45 ngày (Pancake PAT ~60 ngày TTL).
+// Không máy client nào phải chờ cold regen khi mở chat.
+// =====================================================
+cron.schedule('15 */6 * * *', async () => {
+    console.log('[CRON] Running Pancake PAT proactive refresh...');
+    try {
+        // PATs saved > 45 ngày (≈ còn 15 ngày) → refresh bây giờ
+        const FORTY_FIVE_DAYS_MS = 45 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - FORTY_FIVE_DAYS_MS;
+
+        const { rows } = await db.query(`
+            SELECT page_id, saved_at, generated_by
+            FROM pancake_page_access_tokens
+            WHERE saved_at IS NOT NULL AND saved_at < $1
+            ORDER BY saved_at ASC
+            LIMIT 100
+        `, [cutoff]);
+
+        if (rows.length === 0) {
+            console.log('[CRON] No PATs need refresh');
+            return;
+        }
+
+        console.log(`[CRON] Found ${rows.length} PATs to refresh`);
+
+        // Load active Pancake accounts
+        const acctRes = await db.query('SELECT account_id, token, pages FROM pancake_accounts WHERE is_active = true');
+        const accounts = acctRes.rows || [];
+        if (accounts.length === 0) {
+            console.warn('[CRON] No active Pancake accounts — skip refresh');
+            return;
+        }
+
+        const WORKER_URL = process.env.CF_WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let refreshed = 0;
+        let failed = 0;
+
+        for (const { page_id: pageId } of rows) {
+            // Find an account that has this page
+            const acc = accounts.find(a => {
+                const pages = Array.isArray(a.pages) ? a.pages : (typeof a.pages === 'string' ? JSON.parse(a.pages) : []);
+                return pages.some(p => String(p.id || p.pageId) === String(pageId));
+            });
+            if (!acc) { failed++; continue; }
+
+            try {
+                const url = `${WORKER_URL}/api/pancake/pages/${pageId}/generate_page_access_token?access_token=${acc.token}`;
+                const r = await fetch(url, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } });
+                if (!r.ok) { failed++; continue; }
+                const data = await r.json();
+                if (!data.success || !data.page_access_token) { failed++; continue; }
+
+                // Extract timestamp from JWT payload
+                let newTs = null;
+                try {
+                    const parts = data.page_access_token.split('.');
+                    if (parts.length === 3) {
+                        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+                        newTs = payload.timestamp || null;
+                    }
+                } catch (_) {}
+
+                await db.query(`
+                    UPDATE pancake_page_access_tokens
+                    SET token = $2, timestamp = $3, saved_at = $4, generated_by = $5, updated_at = NOW()
+                    WHERE page_id = $1
+                `, [pageId, data.page_access_token, newTs, Date.now(), 'cron-refresh']);
+                refreshed++;
+            } catch (e) {
+                console.warn(`[CRON] PAT refresh failed for ${pageId}:`, e.message);
+                failed++;
+            }
+
+            // Rate limit: 500ms between calls
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        console.log(`[CRON] ✅ PAT refresh done — refreshed: ${refreshed}, failed: ${failed}, total: ${rows.length}`);
+    } catch (error) {
+        console.error('[CRON] ❌ Error in PAT refresh:', error.message);
+    }
+});
+
+// =====================================================
+// Cleanup expired regen locks — chạy mỗi 5 phút
+// Locks có TTL 5-30s nhưng nếu client crash giữa chừng → lock stuck
+// =====================================================
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const result = await db.query(`
+            UPDATE pancake_page_access_tokens
+            SET regen_lock_until = NULL
+            WHERE regen_lock_until IS NOT NULL AND regen_lock_until < NOW() - INTERVAL '1 minute'
+            RETURNING page_id
+        `);
+        if (result.rowCount > 0) {
+            console.log(`[CRON] Cleaned ${result.rowCount} stale regen locks`);
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ Error cleaning regen locks:', error.message);
+    }
+});

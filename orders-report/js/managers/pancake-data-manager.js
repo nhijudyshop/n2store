@@ -337,7 +337,7 @@ class PancakeDataManager {
     // --- Fetch Conversations by customer fb_id (page-scoped) ---
     // Uses Pancake API v1: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
     // NOTE: fbId here is page-scoped (= PSID for INBOX). Different on each page.
-    async fetchConversationsByCustomerFbId(pageId, fbId) {
+    async fetchConversationsByCustomerFbId(pageId, fbId, opts = {}) {
         try {
             if (!fbId) return { conversations: [] };
             const token = await this.tm?.getToken();
@@ -347,7 +347,8 @@ class PancakeDataManager {
                 `pages/${pageId}/customers/${fbId}/conversations`,
                 `access_token=${token}`
             );
-            const res = await fetch(url, { headers: this._v1Headers });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: this._v1Headers, signal: opts.signal }, 8000);
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
             const convs = data.conversations || [];
@@ -366,6 +367,7 @@ class PancakeDataManager {
 
             return { conversations: convs, pagesWithCount: data.pages_with_current_count || {} };
         } catch (e) {
+            if (e?.name === 'AbortError') throw e; // propagate cancellation upstream
             console.error('[PDM] fetchConversationsByCustomerFbId error:', e);
             return { conversations: [] };
         }
@@ -373,7 +375,7 @@ class PancakeDataManager {
 
     // --- Fetch Conversations by customer ID across ALL pages ---
     // Uses Pancake API: GET /api/v1/conversations/customer/{fbId}?pages[id1]=0&pages[id2]=0
-    async fetchConversationsByCustomerIdMultiPage(fbId) {
+    async fetchConversationsByCustomerIdMultiPage(fbId, opts = {}) {
         try {
             if (!fbId) return { conversations: [] };
             const token = await this.tm?.getToken();
@@ -389,7 +391,8 @@ class PancakeDataManager {
                 `conversations/customer/${fbId}`,
                 `${pagesParams}&access_token=${token}`
             );
-            const res = await fetch(url, { headers: this._v1Headers });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: this._v1Headers, signal: opts.signal }, 10000);
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
 
@@ -414,6 +417,7 @@ class PancakeDataManager {
 
             return { conversations: convs, pagesWithCount: data.pages_with_current_count || {} };
         } catch (e) {
+            if (e?.name === 'AbortError') throw e;
             console.error('[PDM] fetchConversationsByCustomerIdMultiPage error:', e);
             return { conversations: [] };
         }
@@ -447,7 +451,8 @@ class PancakeDataManager {
     }
 
     // --- Fetch Messages (Public API v1) ---
-    async fetchMessages(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false) {
+    // opts: { signal, throwOnError } — throwOnError defaults to false (legacy) but chat-core passes true
+    async fetchMessages(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false, opts = {}) {
         const cacheKey = `${pageId}_${conversationId}`;
         if (!forceRefresh && currentCount === null) {
             const cached = this._messagesCache.get(cacheKey);
@@ -457,15 +462,25 @@ class PancakeDataManager {
         }
         try {
             let pat = await this.getPageAccessToken(pageId);
-            if (!pat) throw new Error('No page_access_token');
+            if (!pat) {
+                const err = new Error('No page_access_token');
+                err.code = 'PAT_FAILED';
+                throw err;
+            }
 
+            const _fetch = window.fetchWithTimeout || fetch;
             const doFetch = async (token) => {
                 const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
                 let url = PancakeApiConfig.buildUrl.pancakeOfficial(endpoint, token);
                 // Note: Public API v1 does NOT need customer_id (only v1 internal does)
                 if (currentCount !== null) url += `&current_count=${currentCount}`;
-                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const res = await _fetch(url, { headers: { 'Accept': 'application/json' }, signal: opts.signal }, 10000);
+                if (!res.ok) {
+                    const httpErr = new Error(`HTTP ${res.status}`);
+                    httpErr.code = 'HTTP_' + res.status;
+                    httpErr.status = res.status;
+                    throw httpErr;
+                }
                 return await res.json();
             };
 
@@ -473,9 +488,14 @@ class PancakeDataManager {
             try {
                 data = await doFetch(pat);
             } catch (e) {
+                if (e?.name === 'AbortError') throw e; // propagate cancellation
                 // Retry with fresh PAT
                 pat = await this.tm.generatePageAccessToken(pageId);
-                if (!pat) throw new Error('No PAT after regen');
+                if (!pat) {
+                    const err = new Error('No PAT after regen');
+                    err.code = 'PAT_REGEN_FAILED';
+                    throw err;
+                }
                 data = await doFetch(pat);
             }
 
@@ -509,7 +529,16 @@ class PancakeDataManager {
             try { window.GlobalIdHarvester?.fromCustomers(pageId, result.customers, { conversationId, threadId: result.conversation?.thread_id }); } catch (_) {}
             return { ...result, fromCache: false };
         } catch (e) {
-            console.error('[PDM] fetchMessages error:', e);
+            // Propagate AbortError — caller needs to know request was cancelled, not failed
+            if (e?.name === 'AbortError') throw e;
+            console.error('[PDM] fetchMessages error:', e?.code || e?.message || e);
+            // NEW: throwOnError mode (chat-core uses this to show error state instead of silent empty)
+            if (opts.throwOnError) {
+                const wrapped = new Error(e?.message || 'fetchMessages failed');
+                wrapped.code = e?.code || 'MESSAGES_FETCH_FAILED';
+                wrapped.cause = e;
+                throw wrapped;
+            }
             return {
                 messages: [], conversation: null, customers: [], customerId: null,
                 post: null, activities: [], reports_by_phone: {}, comment_count: 0,

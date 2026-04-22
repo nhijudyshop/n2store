@@ -86,4 +86,74 @@ router.delete('/:pageId', async (req, res) => {
     }
 });
 
+// =====================================================
+// POST /api/pancake-page-tokens/:pageId/lock
+// Distributed regen lock — atomic acquire via SQL UPDATE WHERE lock expired.
+// Only one machine can hold the lock at a time. TTL 5s.
+// Body: { ttlMs? } — optional, default 5000ms
+// Response: { acquired: true, lockUntil } or { acquired: false, lockUntil }
+// =====================================================
+router.post('/:pageId/lock', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+    const { pageId } = req.params;
+    const ttlMs = Math.max(1000, Math.min(30000, parseInt(req.body?.ttlMs, 10) || 5000));
+
+    try {
+        // Atomic: acquire only if no active lock.
+        // UPSERT pattern: insert row with lock if missing, else update only if expired.
+        // NOTE: page_id is PK so ON CONFLICT resolves to the existing row.
+        const result = await dbPool.query(`
+            INSERT INTO pancake_page_access_tokens (page_id, token, regen_lock_until, updated_at)
+            VALUES ($1, '__LOCK_PLACEHOLDER__', NOW() + ($2 || ' milliseconds')::interval, NOW())
+            ON CONFLICT (page_id) DO UPDATE
+                SET regen_lock_until = NOW() + ($2 || ' milliseconds')::interval,
+                    updated_at = NOW()
+                WHERE pancake_page_access_tokens.regen_lock_until IS NULL
+                   OR pancake_page_access_tokens.regen_lock_until < NOW()
+            RETURNING regen_lock_until, token
+        `, [pageId, String(ttlMs)]);
+
+        if (result.rowCount > 0) {
+            // Cleanup placeholder token if we just inserted one
+            if (result.rows[0].token === '__LOCK_PLACEHOLDER__') {
+                await dbPool.query(
+                    `UPDATE pancake_page_access_tokens SET token = '' WHERE page_id = $1 AND token = '__LOCK_PLACEHOLDER__'`,
+                    [pageId]
+                );
+            }
+            return res.json({ acquired: true, lockUntil: result.rows[0].regen_lock_until });
+        }
+
+        // Lock held by another machine — return current lock expiry
+        const existing = await dbPool.query(
+            'SELECT regen_lock_until FROM pancake_page_access_tokens WHERE page_id = $1',
+            [pageId]
+        );
+        res.json({
+            acquired: false,
+            lockUntil: existing.rows[0]?.regen_lock_until || null
+        });
+    } catch (e) {
+        console.error('[PANCAKE-PAGE-TOKENS] LOCK error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// DELETE /api/pancake-page-tokens/:pageId/lock
+// Release regen lock (called after regen finishes)
+// =====================================================
+router.delete('/:pageId/lock', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+    try {
+        await dbPool.query(
+            'UPDATE pancake_page_access_tokens SET regen_lock_until = NULL WHERE page_id = $1',
+            [req.params.pageId]
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;

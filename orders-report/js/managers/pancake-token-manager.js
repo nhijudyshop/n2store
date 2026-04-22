@@ -1139,7 +1139,8 @@ class PancakeTokenManager {
     async loadPageAccessTokens() {
         try {
             // Load from Render DB (source of truth)
-            const r = await fetch(`${_RENDER_URL}/api/pancake-page-tokens`);
+            const _fetch = window.fetchWithTimeout || fetch;
+            const r = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens`, {}, 8000);
             if (!r.ok) return;
 
             const data = await r.json();
@@ -1205,14 +1206,15 @@ class PancakeTokenManager {
 
             // Save to Render DB (async, shared across machines)
             try {
-                fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}`, {
+                const _fetch = window.fetchWithTimeout || fetch;
+                _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         token, pageName, timestamp,
                         generatedBy: this.accounts[this.activeAccountId]?.name || 'unknown'
                     })
-                }).catch(() => {});
+                }, 6000).catch(() => {});
             } catch (e) { /* fire-and-forget */ }
 
             return true;
@@ -1250,14 +1252,61 @@ class PancakeTokenManager {
      * @returns {Promise<string|null>} - New token or null
      */
     async generatePageAccessToken(pageId) {
+        // P2-revised: Acquire distributed lock. If another machine is already regenerating,
+        // poll Render for the new PAT instead of duplicating the work.
+        const _fetch = window.fetchWithTimeout || fetch;
+        let lockAcquired = false;
+        try {
+            const lockRes = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ttlMs: 8000 })
+            }, 4000);
+            if (lockRes.ok) {
+                const data = await lockRes.json();
+                lockAcquired = data.acquired === true;
+                if (!lockAcquired) {
+                    // Another machine holds lock → poll for fresh PAT up to 5s
+                    console.log('[PANCAKE-TOKEN] Regen lock held by another machine, polling...');
+                    for (let i = 0; i < 10; i++) {
+                        await new Promise(r => setTimeout(r, 500));
+                        try {
+                            const r = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens`, {}, 3000);
+                            if (r.ok) {
+                                const d = await r.json();
+                                const fresh = d.tokens?.[pageId];
+                                if (fresh?.token) {
+                                    const existing = this.pageAccessTokens[pageId];
+                                    if (!existing || (fresh.savedAt || 0) > (existing.savedAt || 0)) {
+                                        this.pageAccessTokens[pageId] = fresh;
+                                        this.savePageAccessTokensToLocalStorage();
+                                        console.log('[PANCAKE-TOKEN] ✅ Got PAT from Render (another machine regenerated)');
+                                        return fresh.token;
+                                    }
+                                }
+                            }
+                        } catch (_) { /* keep polling */ }
+                    }
+                    // Polling timed out — fall through to regen ourselves
+                    console.warn('[PANCAKE-TOKEN] Polling timeout, regenerating anyway');
+                }
+            }
+        } catch (e) {
+            // Lock endpoint unavailable (e.g. old Render version) → proceed without lock
+            console.warn('[PANCAKE-TOKEN] Lock acquire failed, no coordination:', e.message);
+        }
+
         // Try current account token first
         const token = await this._tryGenerateWithToken(pageId, this.currentToken);
-        if (token) return token;
+        if (token) {
+            if (lockAcquired) this._releaseLock(pageId).catch(() => {});
+            return token;
+        }
 
         // Current account failed — try other accounts from Render DB
         console.warn('[PANCAKE-TOKEN] Current account failed for page', pageId, '— trying other accounts...');
         try {
-            const r = await fetch('https://n2store-fallback.onrender.com/api/pancake-accounts?active=true');
+            const r = await _fetch('https://n2store-fallback.onrender.com/api/pancake-accounts?active=true', {}, 8000);
             if (r.ok) {
                 const data = await r.json();
                 const accounts = data.accounts || [];
@@ -1271,6 +1320,7 @@ class PancakeTokenManager {
                     const result = await this._tryGenerateWithToken(pageId, acc.token);
                     if (result) {
                         console.log(`[PANCAKE-TOKEN] ✅ Account "${acc.name}" succeeded for page ${pageId} — cached`);
+                        if (lockAcquired) this._releaseLock(pageId).catch(() => {});
                         return result;
                     }
                 }
@@ -1279,8 +1329,16 @@ class PancakeTokenManager {
             console.warn('[PANCAKE-TOKEN] Fallback accounts fetch failed:', e.message);
         }
 
+        if (lockAcquired) this._releaseLock(pageId).catch(() => {});
         console.error('[PANCAKE-TOKEN] ❌ All accounts failed for page', pageId);
         return null;
+    }
+
+    async _releaseLock(pageId) {
+        try {
+            const _fetch = window.fetchWithTimeout || fetch;
+            await _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`, { method: 'DELETE' }, 3000);
+        } catch (_) { /* best-effort */ }
     }
 
     /**
@@ -1296,13 +1354,14 @@ class PancakeTokenManager {
                 `access_token=${accountToken}`
             );
 
-            const response = await fetch(url, {
+            const _fetch = window.fetchWithTimeout || fetch;
+            const response = await _fetch(url, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 }
-            });
+            }, 10000);
 
             const result = await response.json();
 

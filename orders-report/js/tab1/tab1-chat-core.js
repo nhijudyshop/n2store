@@ -198,6 +198,25 @@ function _markRepliedOnServer(psid, pageId) {
 // =====================================================
 
 // =====================================================
+// ERROR MESSAGE MAPPING (P5)
+// =====================================================
+function _friendlyChatError(code, err) {
+    const map = {
+        PAT_FAILED:        { title: 'Hết phiên Pancake', body: 'Token truy cập đã hết hạn. Vui lòng thử lại hoặc reload trang.' },
+        PAT_REGEN_FAILED:  { title: 'Không làm mới được token', body: 'Tất cả account Pancake đều fail. Kiểm tra lại đăng nhập Pancake.' },
+        MESSAGES_FETCH_FAILED: { title: 'Không tải được tin nhắn', body: 'Pancake API trả lỗi. Mạng có thể chậm hoặc page không quyền.' },
+        TIMEOUT:           { title: 'Quá thời gian chờ', body: 'Server chậm hoặc mạng không ổn định. Thử lại sau vài giây.' },
+        HTTP_401:          { title: 'Không đủ quyền', body: 'Token không hợp lệ. Thử đăng nhập lại Pancake.' },
+        HTTP_403:          { title: 'Bị chặn truy cập', body: 'Pancake từ chối request này. Liên hệ admin.' },
+        HTTP_500:          { title: 'Lỗi server Pancake', body: 'Thử lại sau vài phút.' },
+        HTTP_502:          { title: 'Pancake gateway lỗi', body: 'Thử lại sau vài phút.' },
+        HTTP_503:          { title: 'Pancake bảo trì', body: 'Thử lại sau.' },
+        UNKNOWN:           { title: 'Không tải được tin nhắn', body: err?.message || 'Lỗi không xác định. Thử lại.' },
+    };
+    return map[code] || map.UNKNOWN;
+}
+
+// =====================================================
 // MODAL LIFECYCLE
 // =====================================================
 
@@ -381,18 +400,38 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     _updateRepickBtnVisibility();
 
     // Find conversation and load messages
+    // P1: AbortController — cancel in-flight requests when user opens another chat
     const myToken = ++window._chatLoadSeq;
+    if (window._chatLoadCtrl) { try { window._chatLoadCtrl.abort(); } catch (_) {} }
+    window._chatLoadCtrl = new AbortController();
+    const mySignal = window._chatLoadCtrl.signal;
     try {
-        await _findAndLoadConversation(pageId, psid, conversationType, myToken);
+        await _findAndLoadConversation(pageId, psid, conversationType, myToken, { signal: mySignal });
         // Auto-focus chat input so user can type immediately
         setTimeout(() => {
             const chatInputEl = document.getElementById('chatInput');
             if (chatInputEl) chatInputEl.focus();
         }, 100);
     } catch (e) {
+        if (e?.name === 'AbortError' && myToken !== window._chatLoadSeq) {
+            // Stale cancellation — user clicked another chat. Silent.
+            return;
+        }
         console.error('[Chat-Core] Error loading conversation:', e);
         if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tải được tin nhắn. Vui lòng thử lại.</p></div>';
+            const code = e?.code || (e?.name === 'AbortError' ? 'TIMEOUT' : 'UNKNOWN');
+            const msg = _friendlyChatError(code, e);
+            // Safe retry — stash args on window to avoid inline-onclick string escaping issues
+            window._chatRetryArgs = [orderId, pageId, psid, conversationType];
+            messagesEl.innerHTML = `
+                <div class="chat-empty-state" style="text-align:center;padding:32px 16px">
+                    <div style="font-size:40px;margin-bottom:8px">⚠️</div>
+                    <p style="margin:0 0 6px;font-weight:600;color:#dc2626">${msg.title}</p>
+                    <p style="margin:0 0 16px;color:#6b7280;font-size:13px">${msg.body}</p>
+                    <button onclick="window.openChatModal(...window._chatRetryArgs)" style="padding:8px 20px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">🔄 Thử lại</button>
+                    <div style="margin-top:10px;font-size:11px;color:#9ca3af">Mã lỗi: ${code}</div>
+                </div>
+            `;
         }
     }
 
@@ -532,31 +571,46 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // Strategy 0: DB lookup — phone → global_id → fb_id on target page
         // Chain: customers table (phone→global_id) + fb_global_id_cache (global_id→psid per page)
+        //
+        // P3 optimization: Step A (psid→globalId) + Step B (phone→globalId) run in PARALLEL,
+        // since they're independent. Step C depends on globalId → still sequential.
+        // Warm: 500ms → best-of(A,B) ≈ 500ms, saves one round-trip.
         if (customerPhone || psid) {
             try {
                 const renderUrl = 'https://n2store-fallback.onrender.com';
-                // Step A: get global_id from fb_global_id_cache (source page psid)
-                const cacheRes = await fetch(`${renderUrl}/api/fb-global-id?pageId=${window.currentChatChannelId || pageId}&psid=${psid}`);
-                const cacheData = await cacheRes.json();
-                let globalId = cacheData?.found ? cacheData.globalUserId : null;
+                const _fetch = window.fetchOrNull || (async (u, o) => { try { const r = await fetch(u, o); return r.ok ? r : null; } catch { return null; } });
+                const srcPageId = window.currentChatChannelId || pageId;
 
-                // Step B: if no global_id from cache, try customers table by phone
-                if (!globalId && customerPhone) {
-                    const custRes = await fetch(`${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`);
-                    const custData = await custRes.json();
-                    globalId = custData?.global_id || null;
-                    // Also check page_fb_ids for direct mapping
+                // Parallel Step A + Step B
+                const [cacheRes, custRes] = await Promise.all([
+                    psid ? _fetch(`${renderUrl}/api/fb-global-id?pageId=${srcPageId}&psid=${psid}`, { signal: opts?.signal }, 6000) : null,
+                    customerPhone ? _fetch(`${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`, { signal: opts?.signal }, 6000) : null,
+                ]);
+
+                let globalId = null;
+                if (cacheRes) {
+                    const cacheData = await cacheRes.json().catch(() => null);
+                    if (cacheData?.found) globalId = cacheData.globalUserId;
+                }
+                if (custRes) {
+                    const custData = await custRes.json().catch(() => null);
+                    if (!globalId) globalId = custData?.global_id || null;
                     const pageFbIds = custData?.pancake_data?.page_fb_ids;
                     if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
                 }
 
+                if (_isStale()) return;
+
                 // Step C: use global_id to find fb_id on target page
                 if (!targetFbId && globalId) {
-                    const targetRes = await fetch(`${renderUrl}/api/fb-global-id/by-global?globalUserId=${globalId}&pageId=${pageId}`);
-                    const targetData = await targetRes.json();
-                    if (targetData?.found) targetFbId = targetData.psid;
+                    const targetRes = await _fetch(`${renderUrl}/api/fb-global-id/by-global?globalUserId=${globalId}&pageId=${pageId}`, { signal: opts?.signal }, 6000);
+                    if (targetRes) {
+                        const targetData = await targetRes.json().catch(() => null);
+                        if (targetData?.found) targetFbId = targetData.psid;
+                    }
                 }
             } catch (e) {
+                if (e?.name === 'AbortError') throw e;
                 console.warn('[Chat-Core] DB lookup failed:', e.message);
             }
         }
@@ -709,20 +763,25 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
     // Load messages - customerId from customers array or from.id
     const customerId = conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
-    await _loadMessages(convPageId, conv.id, customerId, loadToken);
+    await _loadMessages(convPageId, conv.id, customerId, loadToken, opts);
 }
 
 /**
  * Load messages for a conversation
+ * @param {object} [opts] - { signal } for AbortController propagation
  */
-async function _loadMessages(pageId, conversationId, customerId, loadToken) {
+async function _loadMessages(pageId, conversationId, customerId, loadToken, opts = {}) {
     const pdm = window.pancakeDataManager;
     if (!pdm) return;
     if (loadToken == null) loadToken = window._chatLoadSeq;
     const _isStale = () => loadToken !== window._chatLoadSeq;
 
     try {
-        const result = await pdm.fetchMessages(pageId, conversationId, null, customerId);
+        // P5: throwOnError — let error bubble to openChatModal catch which shows retry button
+        const result = await pdm.fetchMessages(pageId, conversationId, null, customerId, false, {
+            signal: opts.signal,
+            throwOnError: true
+        });
         if (_isStale()) return;
 
         // Store conversation data (for extension bypass - thread_id, global_id)
@@ -813,11 +872,9 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
         _syncPancakeCustomerToDB(result, pageId);
     } catch (e) {
         if (_isStale()) return;
-        console.error('[Chat-Core] loadMessages error:', e);
-        const messagesEl = document.getElementById('chatMessages');
-        if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Lỗi tải tin nhắn: ' + (e.message || 'Unknown') + '</p></div>';
-        }
+        if (e?.name === 'AbortError') return; // stale cancellation, silent
+        // P5: re-throw to openChatModal which shows retry button with error code
+        throw e;
     }
 }
 
