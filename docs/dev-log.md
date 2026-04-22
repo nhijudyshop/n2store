@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-23
+
+### [orders][merge][tag-xl] Gộp đơn trùng SĐT: bỏ TPOS tag direct, chuyển flag merge sang cột Tag XL
+| | |
+|---|---|
+| **Files** | NEW: [docs/flows/merge-duplicate-orders-flow.md](flows/merge-duplicate-orders-flow.md) (documentation đầy đủ flow: entry → load → merge → tag XL → history, kèm edge cases). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (thêm `ensureMergeCustomFlag(label)` — idempotent theo label case-insensitive, lock `Map<normLabel, Promise<flagDef>>` tránh race 2 cluster tạo trùng; expose `window.ensureMergeCustomFlag`); [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (rewrite `assignTagXLAfterMerge` theo flow 5 bước mới; thay 2 call `assignTagsAfterMerge` ở bulk path (L579) + modal path (L1262) bằng `assignTagXLAfterMerge`; mark `assignTagsAfterMerge` + TPOS helpers là `// DEPRECATED 2026-04-22`, giữ source rollback-friendly). |
+| **Chi tiết** | User yêu cầu chuyển logic gán tag sau khi gộp đơn từ **TPOS** → **cột Tag XL** (local web). Flow cũ: `assignTagsAfterMerge` gọi OData `TagSaleOnlineOrder/AssignTag` trực tiếp, tạo 2 TPOS tags "ĐÃ GỘP KO CHỐT" + "Gộp X Y Z" gắn cho source/target. Flow mới: chỉ tạo **custom flag "Gộp X Y Z"** trong Tag XL system (gắn target + tất cả source theo yêu cầu mới), giữ nguyên cơ chế `category=3, subTag=DA_GOP_KHONG_CHOT` cho source (không tạo custom flag "ĐÃ GỘP KO CHỐT" riêng). **Các bước assignTagXLAfterMerge mới**: (1) `ensureMergeCustomFlag('Gộp {STT1} {STT2} …')` — lookup hoặc tạo custom flag idempotent; (2) thu thập flags+tTags từ source orders, **loại trừ** `category`/`subTag`/`subState`/flag label `ĐÃ GỘP KO CHỐT`/flag prefix `Gộp ` (từ runs trước); (3) add flags+tTags thu thập vào target qua `toggleOrderFlag`/`assignTTagToOrder` (idempotent check trước khi gọi); (4) add flag "Gộp X Y Z" vào target; (5) với mỗi source: remove flags+tTags đã chuyển (`toggleOrderFlag` toggle + `removeTTagFromOrder`) → `assignOrderCategory(3, DA_GOP_KHONG_CHOT)` (preserves existing flags) → add flag "Gộp X Y Z"; (6) `renderPanelContent()`. **Decision (theo user)**: giữ nguyên `syncXLToTPOS` — flag "Gộp X Y Z" sẽ tự push sang TPOS qua pipeline XL→TPOS hiện có (không phải do code merge tạo TPOS tag trực tiếp). `assignOrderCategory` preserves flags (xem code L843–L919 tab1-processing-tags.js) nên thứ tự 5c→5d an toàn. **Helper `ensureMergeCustomFlag`** có lock theo `normLabel = label.trim().toUpperCase()` để 2 cluster cùng label không race, dùng `saveCustomFlagDefinitions` (full-replace) — an toàn vì chạy cùng tab, sequential. Plan file: `C:\Users\Nguyen Tam\.claude\plans\ghi-r-to-n-b-replicated-lecun.md` (đã được user approve). |
+| **Status** | ✅ Code Done. Cần test thủ công theo checklist trong plan section 11.3: tạo 3 đơn cùng SĐT với flags khác nhau, gộp, verify target có flag "Gộp X Y Z" + flags chuyển từ source; source không còn flags đã chuyển, có category=3+subTag=DA_GOP_KHONG_CHOT + flag "Gộp X Y Z"; network tab không còn call `assignTagsAfterMerge`; edge case gộp lần 2 không nhầm lẫn tag "Gộp …" cũ. |
+
+---
+
 ## 2026-04-22
 
 ### [phone][cors][infra] OnCallCX sync daemon + CORS fix (origin-aware) — Render/CF không reach được portal

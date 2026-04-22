@@ -672,6 +672,41 @@
         await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
+    // #Note: tạo custom flag từ flow merge (không phụ thuộc UI dropdown state).
+    // Idempotent theo label (case-insensitive) + lock theo label để 2 cluster cùng lần gộp
+    // không tạo trùng. Khác `_ptagCreateCustomTag` vì không gắn flag cho order — caller
+    // tự gán qua toggleOrderFlag.
+    const _inflightMergeFlag = new Map(); // normalizedLabel → Promise<flagDef>
+    async function ensureMergeCustomFlag(label) {
+        if (typeof label !== 'string' || !label.trim()) {
+            throw new Error('ensureMergeCustomFlag: label is required');
+        }
+        const normLabel = label.trim().toUpperCase();
+        if (_inflightMergeFlag.has(normLabel)) return _inflightMergeFlag.get(normLabel);
+
+        const p = (async () => {
+            const defs = ProcessingTagState.getCustomFlagDefs();
+            const existing = defs.find(d => String(d.label || '').toUpperCase() === normLabel);
+            if (existing) return existing;
+
+            const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+            const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
+            const newDef = { id: key, label: normLabel, color: assignedColor, createdAt: Date.now() };
+
+            const savedColors = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
+            savedColors[key] = assignedColor;
+            localStorage.setItem('ptag_flag_colors', JSON.stringify(savedColors));
+
+            defs.push(newDef);
+            ProcessingTagState.setCustomFlagDefs(defs);
+            await saveCustomFlagDefinitions();
+            return newDef;
+        })();
+
+        _inflightMergeFlag.set(normLabel, p);
+        try { return await p; } finally { _inflightMergeFlag.delete(normLabel); }
+    }
+
     /**
      * Atomic merge for config: add/remove defs without full-replace race condition.
      * Use this instead of saveTTagDefinitions/saveCustomFlagDefinitions when possible.
@@ -5803,6 +5838,7 @@
     window.removeTTagFromOrder = removeTTagFromOrder;
     window.saveTTagDefinitions = saveTTagDefinitions;
     window.saveCustomFlagDefinitions = saveCustomFlagDefinitions;
+    window.ensureMergeCustomFlag = ensureMergeCustomFlag;
     window.mergeConfigDefs = mergeConfigDefs;
 
     // Cleanup empty tags
