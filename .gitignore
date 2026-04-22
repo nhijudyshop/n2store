@@ -60,6 +60,13 @@ serect_dont_push.txt
 # Windows reserved filenames
 nul
 
+# User scratch / debug dumps at repo root (not source code)
+/dung.txt
+/sai.txt
+/text.txt
+/scratch-*.txt
+/debug-*.txt
+
 # Soquy Firestore backups (chứa dữ liệu cá nhân khách hàng)
 render.com/backups/soquy/*.json
 

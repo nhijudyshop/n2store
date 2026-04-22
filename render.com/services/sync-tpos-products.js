@@ -46,22 +46,33 @@ class TPOSProductSync {
     async _tposFetch(path, options = {}) {
         const headers = await this.tokenManager.getAuthHeader();
         const url = `${TPOS_PROXY}${path}`;
+        // Lazy-load health tracker (optional, no-op if import fails)
+        let track;
+        try { ({ track } = require('../utils/external-health')); } catch (_) { track = () => {}; }
 
-        const response = await fetchWithRetry(url, {
-            ...options,
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...(options.headers || {}),
-            },
-        }, 3, 1000, 15000);
+        let response;
+        try {
+            response = await fetchWithRetry(url, {
+                ...options,
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...(options.headers || {}),
+                },
+            }, 3, 1000, 15000);
+        } catch (networkErr) {
+            track('tpos', false, networkErr.message);
+            throw networkErr;
+        }
 
         if (!response.ok) {
+            track('tpos', false, `HTTP ${response.status}`);
             const text = await response.text().catch(() => '');
             throw new Error(`TPOS ${response.status}: ${text.substring(0, 200)}`);
         }
 
+        track('tpos', true);
         return response.json();
     }
 
