@@ -13,12 +13,25 @@ const http = require('http');
 const WebSocket = require('ws');
 const { Pool } = require('pg');
 
+// Startup env validation — warn-only: realtime server can run without DB
+// (falls back to in-memory credentials). Log what's missing for debugging.
+const REQUIRED_ENV = ['DATABASE_URL'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+    console.warn(`[STARTUP] Missing env vars (running in degraded mode): ${missingEnv.join(', ')}`);
+}
+
 // Global safety net — prevent process exit on unhandled rejection / exception.
+const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+    const stack = reason && reason.stack || String(reason);
+    console.error('[PROCESS] Unhandled Rejection:', stack);
+    sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+    const stack = err && err.stack || String(err);
+    console.error('[PROCESS] Uncaught Exception:', stack);
+    sendAlert('uncaughtException', err && err.message || String(err), stack);
 });
 
 const app = express();
@@ -1409,3 +1422,27 @@ async function startServer() {
 }
 
 startServer();
+
+// Graceful shutdown — Render sends SIGTERM then waits 30s before SIGKILL.
+let _shuttingDown = false;
+async function gracefulShutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.log(`[SHUTDOWN] Received ${signal}, closing...`);
+    try {
+        if (typeof server !== 'undefined') {
+            await new Promise((resolve) => server.close(resolve));
+            console.log('[SHUTDOWN] HTTP server closed');
+        }
+    } catch (e) { console.warn('[SHUTDOWN] HTTP close error:', e.message); }
+    try {
+        if (dbPool && typeof dbPool.end === 'function') {
+            await Promise.race([dbPool.end(), new Promise((r) => setTimeout(r, 5000))]);
+            console.log('[SHUTDOWN] DB pool closed');
+        }
+    } catch (e) { console.warn('[SHUTDOWN] DB close error:', e.message); }
+    console.log('[SHUTDOWN] Done, exit 0');
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

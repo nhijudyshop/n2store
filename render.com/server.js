@@ -10,13 +10,32 @@ const cors = require('cors');
 const path = require('path');
 const { types } = require('pg');
 
+// Startup env validation — fail fast in dev/mis-configured envs. In production
+// we only warn (Render sometimes injects env via platform after require-time).
+const REQUIRED_ENV = ['DATABASE_URL', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+    const msg = `[STARTUP] Missing required env vars: ${missingEnv.join(', ')}`;
+    if (process.env.NODE_ENV === 'production') {
+        console.error(msg + ' — continuing anyway (production fallback)');
+    } else {
+        console.error(msg);
+        process.exit(1);
+    }
+}
+
 // Global safety net — Node 15+ exits process on unhandled rejection by default.
 // We have seen crashes from pg-pool timeouts during DB upgrades. Log + keep alive.
+const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+    const stack = reason && reason.stack || String(reason);
+    console.error('[PROCESS] Unhandled Rejection:', stack);
+    sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+    const stack = err && err.stack || String(err);
+    console.error('[PROCESS] Uncaught Exception:', stack);
+    sendAlert('uncaughtException', err && err.message || String(err), stack);
 });
 
 // Fix timezone: transaction_date is stored as TIMESTAMP WITHOUT TIMEZONE
@@ -1424,3 +1443,45 @@ server.listen(PORT, () => {
 
 // Start cron jobs
 require('./cron/scheduler');
+
+// Graceful shutdown — close HTTP + WS + DB pool before process exits.
+// Render sends SIGTERM then waits 30s before SIGKILL; we want all in-flight
+// requests to finish and DB clients to release cleanly.
+let _shuttingDown = false;
+async function gracefulShutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.log(`[SHUTDOWN] Received ${signal}, starting graceful shutdown...`);
+    const deadline = Date.now() + 25_000;
+    try {
+        // Stop accepting new HTTP requests
+        await new Promise((resolve) => server.close(resolve));
+        console.log('[SHUTDOWN] HTTP server closed');
+    } catch (e) {
+        console.warn('[SHUTDOWN] HTTP close error:', e.message);
+    }
+    // Close websocket clients
+    try {
+        if (typeof wss !== 'undefined' && wss.clients) {
+            for (const client of wss.clients) {
+                try { client.close(1001, 'server shutdown'); } catch (_) {}
+            }
+        }
+    } catch (_) {}
+    // Close DB pool
+    try {
+        if (chatDbPool && typeof chatDbPool.end === 'function') {
+            await Promise.race([
+                chatDbPool.end(),
+                new Promise((r) => setTimeout(r, Math.max(1000, deadline - Date.now())))
+            ]);
+            console.log('[SHUTDOWN] DB pool closed');
+        }
+    } catch (e) {
+        console.warn('[SHUTDOWN] DB close error:', e.message);
+    }
+    console.log('[SHUTDOWN] Done, exiting 0');
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -11,12 +11,24 @@ const express = require('express');
 const WebSocket = require('ws');
 const { Pool } = require('pg');
 
+// Startup env validation — DB optional (falls back to Firebase). Warn for clarity.
+const REQUIRED_ENV = ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+    console.warn(`[STARTUP] Missing env vars (Firebase disabled): ${missingEnv.join(', ')}`);
+}
+
 // Global safety net — prevent process exit on unhandled rejection / exception.
+const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+    const stack = reason && reason.stack || String(reason);
+    console.error('[PROCESS] Unhandled Rejection:', stack);
+    sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+    const stack = err && err.stack || String(err);
+    console.error('[PROCESS] Uncaught Exception:', stack);
+    sendAlert('uncaughtException', err && err.message || String(err), stack);
 });
 
 const app = express();
@@ -701,7 +713,7 @@ app.post('/api/reload', async (req, res) => {
 // START SERVER
 // =====================================================
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
     console.log('');
     console.log('=====================================================');
     console.log(' N2STORE PANCAKE WEBSOCKET CLIENT v3.0');
@@ -717,3 +729,31 @@ app.listen(PORT, () => {
 
     setTimeout(() => autoConnect(), 2000);
 });
+
+// Graceful shutdown — close HTTP + WS clients + DB pool cleanly.
+let _shuttingDown = false;
+async function gracefulShutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.log(`[SHUTDOWN] Received ${signal}, closing...`);
+    try {
+        for (const client of clients.values()) {
+            try { client.stop(); } catch (_) {}
+        }
+        clients.clear();
+    } catch (_) {}
+    try {
+        await new Promise((resolve) => httpServer.close(resolve));
+        console.log('[SHUTDOWN] HTTP server closed');
+    } catch (e) { console.warn('[SHUTDOWN] HTTP close error:', e.message); }
+    try {
+        if (db && typeof db.end === 'function') {
+            await Promise.race([db.end(), new Promise((r) => setTimeout(r, 5000))]);
+            console.log('[SHUTDOWN] DB pool closed');
+        }
+    } catch (e) { console.warn('[SHUTDOWN] DB close error:', e.message); }
+    console.log('[SHUTDOWN] Done, exit 0');
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

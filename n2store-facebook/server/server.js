@@ -15,12 +15,24 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 
+// Startup env validation — warn if critical env missing.
+const REQUIRED_ENV = ['FB_APP_ID', 'FB_APP_SECRET'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+    console.warn(`[STARTUP] Missing env vars: ${missingEnv.join(', ')}`);
+}
+
 // Global safety net — prevent process exit on unhandled rejection / exception.
+const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[PROCESS] Unhandled Rejection at:', promise, 'reason:', reason && reason.stack || reason);
+    const stack = reason && reason.stack || String(reason);
+    console.error('[PROCESS] Unhandled Rejection:', stack);
+    sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    console.error('[PROCESS] Uncaught Exception:', err && err.stack || err);
+    const stack = err && err.stack || String(err);
+    console.error('[PROCESS] Uncaught Exception:', stack);
+    sendAlert('uncaughtException', err && err.message || String(err), stack);
 });
 
 // Use node-fetch for compatibility
@@ -802,7 +814,7 @@ app.post('/api/pages/:pageId/conversations/:convId/read', async (req, res) => {
 // START SERVER
 // =====================================================
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
     console.log(`N2Store Facebook Server running on port ${PORT}`);
     console.log(`Using 100% Facebook Graph API v21.0`);
     console.log(`Token source: TPOS CRM API`);
@@ -811,3 +823,18 @@ app.listen(PORT, () => {
     console.log('  POST /api/refresh-tokens');
     console.log('  Header: Authorization: Bearer <TPOS_TOKEN>');
 });
+
+// Graceful shutdown — Render sends SIGTERM then waits 30s before SIGKILL.
+let _shuttingDown = false;
+async function gracefulShutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.log(`[SHUTDOWN] Received ${signal}, closing HTTP server...`);
+    try {
+        await new Promise((resolve) => httpServer.close(resolve));
+        console.log('[SHUTDOWN] HTTP server closed, exit 0');
+    } catch (e) { console.warn('[SHUTDOWN] close error:', e.message); }
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
