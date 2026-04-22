@@ -536,7 +536,8 @@ class PancakeTokenManager {
             // If not in memory, fetch from Render DB
             if (!data) {
                 try {
-                    const r = await fetch(`${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`);
+                    const _fetch = window.fetchWithTimeout || fetch;
+                    const r = await _fetch(`${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`, {}, 6000);
                     if (r.ok) {
                         const resp = await r.json();
                         if (resp.account?.token) {
