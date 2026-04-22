@@ -203,7 +203,7 @@ const PM = (() => {
             case 'stats': return loadStats();
             case 'live': return startLive();
             case 'contacts': return loadContacts();
-            case 'recordings': return loadRecordings();
+            case 'recordings': return switchRecSubtab(_recSubtab || 'cloud');
             case 'config': return renderConfig();
             case 'audit': return loadAudit();
         }
@@ -676,44 +676,58 @@ const PM = (() => {
     }
     function copyToClipboard(s) { navigator.clipboard.writeText(s).catch(() => {}); }
 
-    // === RECORDINGS (local IndexedDB) ===
+    // === RECORDINGS (cloud Render DB + OnCallCX portal link) ===
+    let _recSubtab = 'cloud';
+    const CLOUD_REC_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/call-recordings';
+
+    function switchRecSubtab(key) {
+        _recSubtab = key;
+        document.querySelectorAll('.rec-subtab').forEach(b => b.classList.toggle('active', b.dataset.subtab === key));
+        document.querySelectorAll('.rec-subview').forEach(v => {
+            v.style.display = v.dataset.subview === key ? '' : 'none';
+        });
+        if (key === 'cloud') loadRecordings();
+        else loadOncallCdrs();
+    }
+
     async function loadRecordings() {
         const body = $('#recTableBody'); if (!body) return;
-        if (!window.PhoneRecording) {
-            body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Module ghi âm chưa load</td></tr>';
-            return;
-        }
         body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>';
         try {
-            const recs = await window.PhoneRecording.listRecordings();
-            const search = ($('#recSearch')?.value || '').toLowerCase().trim();
+            const search = ($('#recSearch')?.value || '').trim();
             const userFilter = $('#recUser')?.value || '';
-            const filtered = recs.filter(r => {
-                if (userFilter && r.username !== userFilter) return false;
-                if (search) {
-                    const hay = `${r.phone || ''} ${r.name || ''} ${r.username || ''}`.toLowerCase();
-                    if (!hay.includes(search)) return false;
-                }
-                return true;
-            });
+            const params = new URLSearchParams();
+            if (search) params.set('phone', search);
+            if (userFilter) params.set('username', userFilter);
+            params.set('limit', '500');
+            const r = await fetch(`${CLOUD_REC_API}?${params.toString()}`).then(r => r.json()).catch(() => ({}));
+            const recs = Array.isArray(r.rows) ? r.rows : [];
+            const filtered = search
+                ? recs.filter(x => {
+                    const hay = `${x.phone || ''} ${x.name || ''} ${x.username || ''}`.toLowerCase();
+                    return hay.includes(search.toLowerCase());
+                })
+                : recs;
+            const countBadge = $('#recCloudCount'); if (countBadge) countBadge.textContent = filtered.length ? String(filtered.length) : '';
+
             if (!filtered.length) {
                 body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">
-                    Chưa có ghi âm local nào.<br>
-                    <small>Bật "Ghi âm local" trong tab <b>Cấu hình</b> trên máy đang dùng widget để bắt đầu lưu.</small>
+                    Chưa có ghi âm nào trên Render DB.<br>
+                    <small>Mọi cuộc gọi sẽ tự động upload khi kết thúc — thử gọi rồi quay lại.</small>
                 </td></tr>`;
                 return;
             }
             body.innerHTML = filtered.map(r => {
-                const sizeKB = Math.round((r.size || 0) / 1024);
+                const sizeKB = Math.round((r.size_bytes || 0) / 1024);
                 return `
                 <tr data-rec-id="${r.id}">
-                    <td>${_fmtDateTime(r.timestamp)}</td>
+                    <td>${_fmtDateTime(parseInt(r.timestamp, 10))}</td>
                     <td>${_esc(r.username || '—')}</td>
                     <td class="mono">${r.ext || '—'}</td>
                     <td class="mono">${_fmtPhone(r.phone)}</td>
                     <td>${_esc(r.name || '—')}</td>
                     <td class="mono">${_fmtDuration(r.duration)}</td>
-                    <td style="font-size:11px;color:#64748b">${sizeKB} KB<br><span style="font-family:'SF Mono',monospace;font-size:10px">${_esc(r.mimeType || '')}</span></td>
+                    <td style="font-size:11px;color:#64748b">${sizeKB} KB<br><span style="font-family:'SF Mono',monospace;font-size:10px">${_esc(r.mime_type || '')}</span></td>
                     <td>
                         <button class="btn btn-sm btn-outline" onclick="PM.playRecording(${r.id})" title="Phát"><i data-lucide="play"></i></button>
                         <button class="btn btn-sm btn-outline" onclick="PM.downloadRecording(${r.id})" title="Tải về"><i data-lucide="download"></i></button>
@@ -725,49 +739,78 @@ const PM = (() => {
             _iconsRefresh();
 
             // Storage stats footer
-            const stats = await window.PhoneRecording.getStorageStats();
-            const mb = (stats.bytes / 1024 / 1024).toFixed(2);
+            const totalBytes = filtered.reduce((s, r) => s + (r.size_bytes || 0), 0);
+            const mb = (totalBytes / 1024 / 1024).toFixed(2);
             const existing = document.getElementById('recStorageFooter');
             if (existing) existing.remove();
-            if (stats.count) {
-                const footer = document.createElement('div');
-                footer.id = 'recStorageFooter';
-                footer.style.cssText = 'text-align:center;padding:10px;font-size:11px;color:#64748b;background:#f8fafc;border-top:1px solid #e2e8f0';
-                footer.textContent = `Tổng ${stats.count} ghi âm • ${mb} MB (IndexedDB) • Auto-xoá sau 30 ngày`;
-                body.closest('.pm-panel')?.appendChild(footer);
-            }
+            const footer = document.createElement('div');
+            footer.id = 'recStorageFooter';
+            footer.style.cssText = 'text-align:center;padding:10px;font-size:11px;color:#64748b;background:#f8fafc;border-top:1px solid #e2e8f0';
+            footer.textContent = `Tổng ${filtered.length} ghi âm • ${mb} MB (Render DB) • Lưu vô thời hạn`;
+            body.closest('.pm-panel')?.appendChild(footer);
         } catch (err) {
             body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(err.message)}</td></tr>`;
         }
     }
 
-    let _currentAudioUrl = null;
-    async function playRecording(id) {
+    async function loadOncallCdrs() {
+        const body = $('#recOncallCdrBody'); if (!body) return;
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>';
         try {
-            const r = await window.PhoneRecording.getRecordingUrl(id);
-            if (!r) { alert('Không tìm thấy ghi âm'); return; }
-            _openPlayerModal(r);
-        } catch (err) { alert('Lỗi: ' + err.message); }
+            const r = await apiGet('/call-history?limit=200');
+            const rows = r.rows || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Chưa có CDR</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(c => `
+                <tr>
+                    <td>${_fmtDateTime(parseInt(c.timestamp, 10))}</td>
+                    <td>${_esc(c.username || '—')}</td>
+                    <td class="mono">${c.ext || '—'}</td>
+                    <td class="mono">${_fmtPhone(c.phone)}</td>
+                    <td>${_esc(c.name || '—')}</td>
+                    <td><span class="pm-badge ${c.direction === 'in' ? 'blue' : 'gray'}">${c.direction === 'in' ? 'Vào' : 'Ra'}</span></td>
+                    <td class="mono">${_fmtDuration(c.duration)}</td>
+                </tr>
+            `).join('');
+            _iconsRefresh();
+        } catch (err) {
+            body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:20px">Lỗi: ${_esc(err.message)}</td></tr>`;
+        }
+    }
+
+    function _cloudAudioUrl(id) { return `${CLOUD_REC_API}/${id}/audio`; }
+
+    function playRecording(id) {
+        _openPlayerModal({ id, url: _cloudAudioUrl(id) });
     }
     function _openPlayerModal(r) {
         const existing = document.getElementById('recPlayerModal'); if (existing) existing.remove();
-        if (_currentAudioUrl) { try { URL.revokeObjectURL(_currentAudioUrl); } catch {} }
-        _currentAudioUrl = r.url;
+        // Lookup row metadata from the currently rendered table for nicer display
+        const row = document.querySelector(`tr[data-rec-id="${r.id}"]`);
+        const cells = row ? row.querySelectorAll('td') : [];
+        const when = cells[0]?.textContent || '';
+        const user = cells[1]?.textContent || '';
+        const ext = cells[2]?.textContent || '';
+        const phone = cells[3]?.textContent || '';
+        const name = cells[4]?.textContent || '';
+        const dur = cells[5]?.textContent || '';
         const wrap = document.createElement('div');
         wrap.id = 'recPlayerModal';
         wrap.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
         wrap.innerHTML = `
             <div style="background:#fff;border-radius:12px;padding:20px;width:min(480px,90vw);box-shadow:0 24px 60px rgba(0,0,0,.4)">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                    <h3 style="margin:0;font-size:14px;color:#0f172a">🎙 ${_esc(r.name || _fmtPhone(r.phone))}</h3>
+                    <h3 style="margin:0;font-size:14px;color:#0f172a">🎙 ${_esc(name || phone)}</h3>
                     <button onclick="this.closest('#recPlayerModal').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#94a3b8;line-height:1">×</button>
                 </div>
                 <div style="font-size:11px;color:#64748b;margin-bottom:10px">
-                    ${_fmtDateTime(r.timestamp)} · ${_esc(r.username)} · Ext ${r.ext} · ${_fmtDuration(r.duration)}
+                    ${_esc(when)} · ${_esc(user)} · Ext ${_esc(ext)} · ${_esc(dur)}
                 </div>
                 <audio controls autoplay style="width:100%" src="${r.url}"></audio>
                 <div style="margin-top:10px;text-align:right">
-                    <a href="${r.url}" download="${_esc(r.filename)}" class="btn btn-sm btn-outline" style="text-decoration:none;margin-right:6px"><i data-lucide="download"></i> Tải về</a>
+                    <a href="${r.url}" download="call-${r.id}.webm" class="btn btn-sm btn-outline" style="text-decoration:none;margin-right:6px"><i data-lucide="download"></i> Tải về</a>
                     <button class="btn btn-sm btn-danger" onclick="PM.deleteRecording(${r.id}); this.closest('#recPlayerModal').remove();"><i data-lucide="trash-2"></i> Xoá</button>
                 </div>
             </div>
@@ -777,20 +820,16 @@ const PM = (() => {
         _iconsRefresh();
     }
 
-    async function downloadRecording(id) {
-        try {
-            const r = await window.PhoneRecording.getRecordingUrl(id);
-            if (!r) { alert('Không tìm thấy ghi âm'); return; }
-            const a = document.createElement('a'); a.href = r.url; a.download = r.filename;
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => { try { URL.revokeObjectURL(r.url); } catch {} }, 3000);
-        } catch (err) { alert('Lỗi: ' + err.message); }
+    function downloadRecording(id) {
+        const a = document.createElement('a'); a.href = _cloudAudioUrl(id); a.download = `call-${id}.webm`;
+        document.body.appendChild(a); a.click(); a.remove();
     }
 
     async function deleteRecording(id) {
-        if (!confirm('Xoá ghi âm này? Hành động không thể hoàn tác.')) return;
+        if (!confirm('Xoá ghi âm này trên Render DB? Hành động không thể hoàn tác.')) return;
         try {
-            await window.PhoneRecording.deleteRecording(id);
+            const r = await fetch(`${CLOUD_REC_API}/${id}`, { method: 'DELETE' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
             loadRecordings();
         } catch (err) { alert('Lỗi: ' + err.message); }
     }
@@ -826,7 +865,7 @@ const PM = (() => {
     function saveLocalConfig() {
         const prefs = {
             autoAnswer: $('#cfgAutoAnswer').checked,
-            recordLocal: $('#cfgRecordLocal').checked,
+            recordLocal: true, // always-on; giữ key cho backward compat với phone-recording.js cũ
             popupOnRing: $('#cfgPopupOnRing').checked,
             desktopNotify: $('#cfgDesktopNotify').checked
         };
@@ -904,6 +943,7 @@ const PM = (() => {
         openAddExtension, openAddContact, deleteContact, copyToClipboard,
         applyHistoryFilters, exportHistoryCSV, gotoHistoryPage,
         saveLocalConfig, saveExt, toggleExtPwd,
+        switchRecSubtab, loadRecordings,
         playRecording, downloadRecording, deleteRecording
     };
 })();

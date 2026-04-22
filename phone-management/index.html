@@ -270,19 +270,64 @@
                     <i data-lucide="info" class="pm-info-icon"></i>
                     <div>
                         <h3>Ghi âm cuộc gọi</h3>
-                        <p>Ghi âm được lưu trên portal OnCallCX (mục <b>PBX → Calls → Show detailed calls</b>). File này chỉ hiển thị ghi âm <b>local</b> (trình duyệt dùng MediaRecorder ghi lại audio track RTP).</p>
-                        <p><b>Cấu hình:</b> bật/tắt ghi âm local trong tab <i>Cấu hình</i>. File lưu trong IndexedDB, auto-xoá sau 30 ngày.</p>
+                        <p>Mọi cuộc gọi đều <b>tự động thu âm</b> và upload lên Render DB (MediaRecorder mix local mic + remote RTP). Ghi âm của portal OnCallCX hiển thị ở tab riêng bên cạnh.</p>
                     </div>
                 </div>
-                <div class="pm-toolbar">
-                    <input type="text" id="recSearch" class="pm-input" placeholder="🔍 Tìm số / tên KH...">
-                    <select id="recUser" class="pm-input" style="max-width:180px"><option value="">Tất cả nhân viên</option></select>
+                <div class="rec-subtabs" style="display:flex;gap:2px;padding:0 0 12px;border-bottom:1px solid var(--pm-border);margin-bottom:14px">
+                    <button class="pm-tab rec-subtab active" data-subtab="cloud" onclick="PM.switchRecSubtab('cloud')"><i data-lucide="cloud"></i><span>Render DB</span><span class="pm-badge" id="recCloudCount" style="margin-left:6px"></span></button>
+                    <button class="pm-tab rec-subtab" data-subtab="oncall" onclick="PM.switchRecSubtab('oncall')"><i data-lucide="phone-call"></i><span>OnCallCX Portal</span></button>
                 </div>
-                <div class="pm-panel">
-                    <table class="pm-table" id="recTable">
-                        <thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Ext</th><th>Số</th><th>Khách</th><th>Thời lượng</th><th>File</th><th></th></tr></thead>
-                        <tbody id="recTableBody"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Chưa có ghi âm local nào.</td></tr></tbody>
-                    </table>
+
+                <!-- Sub-tab: Render DB (cloud) -->
+                <div class="rec-subview" data-subview="cloud">
+                    <div class="pm-toolbar">
+                        <input type="text" id="recSearch" class="pm-input" placeholder="🔍 Tìm số / tên KH...">
+                        <select id="recUser" class="pm-input" style="max-width:180px"><option value="">Tất cả nhân viên</option></select>
+                        <button class="btn btn-sm btn-outline" onclick="PM.loadRecordings()" title="Làm mới"><i data-lucide="refresh-cw"></i> Làm mới</button>
+                    </div>
+                    <div class="pm-panel">
+                        <table class="pm-table" id="recTable">
+                            <thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Ext</th><th>Số</th><th>Khách</th><th>Thời lượng</th><th>File</th><th></th></tr></thead>
+                            <tbody id="recTableBody"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Sub-tab: OnCallCX portal recordings -->
+                <div class="rec-subview" data-subview="oncall" style="display:none">
+                    <div class="pm-panel" style="padding:18px">
+                        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
+                            <i data-lucide="info" style="color:var(--pm-info);flex-shrink:0;margin-top:2px"></i>
+                            <div>
+                                <h4 style="margin:0 0 6px">Ghi âm lưu trên portal OnCallCX</h4>
+                                <p style="margin:0;color:var(--pm-muted);font-size:13px;line-height:1.55">
+                                    Bản ghi âm do FPT/OnCallCX lưu server-side (CDR — Call Detail Record). Truy cập trực tiếp qua portal:
+                                    <b>PBX → Calls (Lịch sử cuộc gọi) → Show detailed calls → chọn cuộc gọi → Play Audio / Download Audio</b>.
+                                </p>
+                                <p style="margin:8px 0 0;color:var(--pm-muted);font-size:12px">
+                                    OnCallCX <u>chưa mở REST API public</u> để lấy file audio. Bấm nút bên dưới để mở portal.
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <a href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener" class="btn btn-sm" style="background:var(--pm-primary);color:#fff;text-decoration:none">
+                                <i data-lucide="external-link"></i> Mở Portal — Calls
+                            </a>
+                            <a href="https://pbx-ucaas.oncallcx.vn/portal/" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="text-decoration:none">
+                                <i data-lucide="external-link"></i> Dashboard
+                            </a>
+                        </div>
+                    </div>
+                    <div class="pm-panel" style="margin-top:14px">
+                        <div class="pm-panel-head" style="display:flex;justify-content:space-between;align-items:center">
+                            <h3>CDR gần đây (tham chiếu tìm file trên portal)</h3>
+                            <small style="color:var(--pm-muted);font-weight:400">So khớp theo thời gian + số để tra file audio trên OnCallCX</small>
+                        </div>
+                        <table class="pm-table">
+                            <thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Ext</th><th>Số</th><th>Khách</th><th>Hướng</th><th>Thời lượng</th></tr></thead>
+                            <tbody id="recOncallCdrBody"><tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -301,7 +346,7 @@
                         <div class="pm-panel-head"><h3>Tuỳ chọn Widget</h3></div>
                         <div class="pm-kv">
                             <label class="pm-checkbox"><input type="checkbox" id="cfgAutoAnswer" onchange="PM.saveLocalConfig()"> Tự động trả lời</label>
-                            <label class="pm-checkbox"><input type="checkbox" id="cfgRecordLocal" onchange="PM.saveLocalConfig()"> Ghi âm local (MediaRecorder)</label>
+                            <label class="pm-checkbox" title="Luôn bật — mọi cuộc gọi đều tự động thu âm và upload lên Render DB"><input type="checkbox" id="cfgRecordLocal" checked disabled> Ghi âm cuộc gọi (luôn bật) <span style="color:var(--pm-muted);font-size:11px">— upload Render DB</span></label>
                             <label class="pm-checkbox"><input type="checkbox" id="cfgPopupOnRing" checked onchange="PM.saveLocalConfig()"> Bật popup thông tin KH khi có cuộc gọi</label>
                             <label class="pm-checkbox"><input type="checkbox" id="cfgDesktopNotify" onchange="PM.saveLocalConfig()"> Thông báo Desktop (Notifications API)</label>
                         </div>

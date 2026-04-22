@@ -527,23 +527,30 @@
             c.sourceOrders.forEach(s => { if (s?.Id) ids.add(s.Id); });
         });
         const idArr = Array.from(ids);
-        const detailsMap = new Map();
+        // Cache full order object (không chỉ Details) → tránh double-fetch khi execute merge
+        const fullOrderMap = new Map();
         const batchSize = 5;
         const body = document.getElementById('mlwModalBody');
         for (let i = 0; i < idArr.length; i += batchSize) {
             const batch = idArr.slice(i, i + batchSize);
             const results = await Promise.all(batch.map(id => window.getOrderDetails(id).catch(() => null)));
             results.forEach((r, idx) => {
-                if (r) detailsMap.set(batch[idx], Array.isArray(r.Details) ? r.Details : []);
+                if (r) fullOrderMap.set(batch[idx], r);
             });
             const loaded = Math.min(i + batchSize, idArr.length);
             if (body) body.innerHTML = `<div class="mlw-loading"><i class="fas fa-spinner fa-spin"></i><p>Đang tải chi tiết ${loaded}/${idArr.length} đơn...</p></div>`;
             if (i + batchSize < idArr.length) await new Promise(r => setTimeout(r, 250));
         }
-        // Attach __fullDetails
+        // Attach __fullOrder (full object) + __fullDetails (cho render hiện tại)
         clusters.forEach(c => {
-            c.targetOrder.__fullDetails = detailsMap.get(c.targetOrder.Id) || [];
-            c.sourceOrders.forEach(s => { s.__fullDetails = detailsMap.get(s.Id) || []; });
+            const tgtFull = fullOrderMap.get(c.targetOrder.Id);
+            c.targetOrder.__fullOrder = tgtFull || null;
+            c.targetOrder.__fullDetails = Array.isArray(tgtFull?.Details) ? tgtFull.Details : [];
+            c.sourceOrders.forEach(s => {
+                const srcFull = fullOrderMap.get(s.Id);
+                s.__fullOrder = srcFull || null;
+                s.__fullDetails = Array.isArray(srcFull?.Details) ? srcFull.Details : [];
+            });
         });
     }
 
@@ -589,14 +596,54 @@
         const logs = [];
         const log = (m) => { logs.push(m); console.log(`${LOG} ${m}`); };
 
-        // 1. Fetch full target (cần full object cho PUT payload, không chỉ Details đã cache)
-        const targetFull = await window.getOrderDetails(cluster.targetOrder.Id);
-        if (!targetFull) throw new Error(`Không fetch được giỏ đích ${cluster.targetOrder.Id}`);
+        // 1. Full target object — tận dụng __fullOrder cache từ scan để tránh double-fetch
+        let targetFull = cluster.targetOrder.__fullOrder;
+        if (!targetFull) {
+            targetFull = await window.getOrderDetails(cluster.targetOrder.Id);
+            if (!targetFull) throw new Error(`Không fetch được giỏ đích ${cluster.targetOrder.Id}`);
+        }
 
-        const newDetails = Array.isArray(targetFull.Details) ? [...targetFull.Details] : [];
+        // 2. Gộp products qua productMap (dedup by ProductId) → tránh tạo row trùng trên TPOS.
+        //    Cùng pattern với executeMergeOrderProducts (tab1-merge.js) để behavior đồng nhất.
+        const productMap = new Map();
+        const addDetail = (d, { fromSource = false } = {}) => {
+            const key = d.ProductId;
+            if (!key) {
+                // Không có ProductId → synthetic key để giữ row riêng
+                productMap.set(`_noid_${productMap.size}`, {
+                    ...d,
+                    Id: fromSource ? undefined : d.Id,
+                    OrderId: targetFull.Id,
+                    LiveCampaign_DetailId: fromSource ? null : d.LiveCampaign_DetailId,
+                    Note: fromSource ? appendNote(d.Note, NOTE_MARKER) : d.Note
+                });
+                return;
+            }
+            if (productMap.has(key)) {
+                const existing = productMap.get(key);
+                const newQty = (Number(existing.Quantity) || 0) + (Number(d.Quantity) || 0);
+                existing.Quantity = Math.min(newQty, 999999);
+                // Concat note nếu source có note mới
+                const incomingNote = fromSource ? appendNote(d.Note, NOTE_MARKER) : (d.Note || '');
+                if (incomingNote && !(existing.Note || '').includes(incomingNote)) {
+                    existing.Note = existing.Note ? `${existing.Note} | ${incomingNote}` : incomingNote;
+                }
+            } else {
+                productMap.set(key, {
+                    ...d,
+                    Id: fromSource ? undefined : d.Id,
+                    OrderId: targetFull.Id,
+                    LiveCampaign_DetailId: fromSource ? null : d.LiveCampaign_DetailId,
+                    Note: fromSource ? appendNote(d.Note, NOTE_MARKER) : (d.Note || null)
+                });
+            }
+        };
+
+        // Target products trước (giữ priority field: Id, LiveCampaign_DetailId, giá target)
+        (Array.isArray(targetFull.Details) ? targetFull.Details : []).forEach(d => addDetail(d, { fromSource: false }));
+
+        // Source products sau — dedup theo ProductId, cộng quantity, concat note
         let transferredCount = 0;
-
-        // 2. For each source: tận dụng __fullDetails đã fetch ở scan; fetch lại nếu thiếu
         for (const src of cluster.sourceOrders) {
             let srcDetails = Array.isArray(src.__fullDetails) ? src.__fullDetails : null;
             if (!srcDetails) {
@@ -604,19 +651,15 @@
                 if (!srcFull) { log(`SKIP source ${src.Id} (fetch fail)`); continue; }
                 srcDetails = Array.isArray(srcFull.Details) ? srcFull.Details : [];
                 src.__fullDetails = srcDetails;
+                src.__fullOrder = srcFull;
             }
             for (const d of srcDetails) {
-                const copy = {
-                    ...d,
-                    Id: undefined,
-                    OrderId: targetFull.Id,
-                    LiveCampaign_DetailId: null,
-                    Note: appendNote(d.Note, NOTE_MARKER)
-                };
-                newDetails.push(copy);
+                addDetail(d, { fromSource: true });
                 transferredCount++;
             }
         }
+
+        const newDetails = Array.from(productMap.values());
 
         // 3. Recompute totals
         const totalQuantity = newDetails.reduce((s, d) => s + (Number(d.Quantity) || 0), 0);
@@ -624,7 +667,7 @@
 
         // 4. PUT target
         await window.updateOrderWithFullPayload(targetFull, newDetails, totalAmount, totalQuantity);
-        log(`Đã cập nhật giỏ đích ${targetFull.Id} (+${transferredCount} SP)`);
+        log(`Đã cập nhật giỏ đích ${targetFull.Id} (+${transferredCount} SP, dedup → ${newDetails.length} rows)`);
 
         // 5. Transfer T-tags (đặc điểm) sang target
         if (typeof window.assignTTagToOrder === 'function') {
@@ -638,17 +681,32 @@
         }
 
         // 6. Clear source orders + gán category 3 / DA_GOP_KHONG_CHOT
+        //    Tận dụng __fullOrder cache → tránh double-fetch. Track cleared IDs
+        //    để đánh dấu InvoiceStatus merge-cancelled local-only.
+        const clearedSourceIds = [];
+        const failedSourceIds = [];
         for (const src of cluster.sourceOrders) {
-            try {
-                const srcFull2 = await window.getOrderDetails(src.Id);
-                if (srcFull2) {
+            let srcFull2 = src.__fullOrder;
+            if (!srcFull2) {
+                try { srcFull2 = await window.getOrderDetails(src.Id); } catch {}
+            }
+            let cleared = false;
+            if (srcFull2) {
+                try {
                     await window.updateOrderWithFullPayload(srcFull2, [], 0, 0);
                     log(`Đã clear giỏ nguồn ${src.Id}`);
+                    cleared = true;
+                    clearedSourceIds.push(src.Id);
+                } catch (e) {
+                    console.warn(`${LOG} Clear source ${src.Id} fail:`, e);
+                    failedSourceIds.push(src.Id);
                 }
-            } catch (e) {
-                console.warn(`${LOG} Clear source ${src.Id} fail:`, e);
+            } else {
+                console.warn(`${LOG} Không có __fullOrder cho source ${src.Id}, skip clear`);
+                failedSourceIds.push(src.Id);
             }
-            if (typeof window.assignOrderCategory === 'function') {
+            // Chỉ gán category 3 cho source đã clear — tránh mark nhầm source chưa cleared
+            if (cleared && typeof window.assignOrderCategory === 'function') {
                 try {
                     await window.assignOrderCategory(String(src.Code), 3, {
                         subTag: 'DA_GOP_KHONG_CHOT',
@@ -660,7 +718,20 @@
             }
         }
 
-        // 7. Save history (reuse saveMergeHistory — cần shape cluster tương thích)
+        // Mark PBH (InvoiceStatus) của các source đã clear là merge-cancelled (local)
+        if (clearedSourceIds.length > 0 && typeof window.markSourceOrdersMergeCancelled === 'function') {
+            try { window.markSourceOrdersMergeCancelled(clearedSourceIds); } catch (e) {
+                console.warn(`${LOG} markSourceOrdersMergeCancelled fail:`, e);
+            }
+        }
+
+        // 7. Save history (reuse saveMergeHistory — cần shape cluster tương thích).
+        //    Partial success: target đã gộp nhưng có source chưa clear → message reflect.
+        const partial = failedSourceIds.length > 0;
+        const historyMsg = partial
+            ? `Chuyển ${transferredCount} SP; ${clearedSourceIds.length}/${cluster.sourceOrders.length} giỏ clear OK, ${failedSourceIds.length} giỏ CHƯA clear — có thể trùng SP`
+            : `Chuyển ${transferredCount} SP từ ${cluster.sourceOrders.length} giỏ`;
+
         if (typeof window.saveMergeHistory === 'function') {
             try {
                 const historyCluster = {
@@ -676,13 +747,23 @@
                     mergedProducts: newDetails,
                     type: 'live_waiting'
                 };
-                await window.saveMergeHistory(historyCluster, { success: true, message: `Chuyển ${transferredCount} SP từ ${cluster.sourceOrders.length} giỏ` });
+                await window.saveMergeHistory(historyCluster, {
+                    success: !partial,
+                    partial,
+                    message: historyMsg
+                });
             } catch (e) {
                 console.warn(`${LOG} saveMergeHistory fail:`, e);
             }
         }
 
-        return { transferredCount, sourceCount: cluster.sourceOrders.length };
+        return {
+            transferredCount,
+            sourceCount: cluster.sourceOrders.length,
+            clearedSourceIds,
+            failedSourceIds,
+            partial
+        };
     }
 
     async function runConfirm() {
@@ -696,15 +777,21 @@
         const progressHtml = (text) => `<div class="mlw-loading"><i class="fas fa-spinner fa-spin"></i><p>${_escape(text)}</p></div>`;
 
         const selectedClusters = mlwState.clusters.filter(c => mlwState.selected.has(c.id));
-        let done = 0, ok = 0, fail = 0;
+        let done = 0, ok = 0, fail = 0, partialCount = 0;
         let totalTransferred = 0;
+        const partialPhones = [];
 
         for (const cluster of selectedClusters) {
             done++;
             if (body) body.innerHTML = progressHtml(`Đang gộp ${done}/${selectedClusters.length} — SĐT ${cluster.phone}...`);
             try {
                 const res = await mergeOneCluster(cluster);
-                ok++;
+                if (res.partial) {
+                    partialCount++;
+                    partialPhones.push(cluster.phone);
+                } else {
+                    ok++;
+                }
                 totalTransferred += res.transferredCount;
             } catch (err) {
                 fail++;
@@ -713,8 +800,11 @@
         }
 
         mlwState.running = false;
-        const summary = `Gộp xong: ${ok} cụm thành công, ${fail} cụm lỗi. Chuyển ${totalTransferred} SP.`;
-        _notify(summary, fail === 0 ? 'success' : 'warning');
+        const summary = partialCount > 0
+            ? `⚠️ ${ok} cụm OK, ${partialCount} cụm GỘP DANG DỞ (kiểm tra ngay: ${partialPhones.join(', ')}), ${fail} lỗi. Chuyển ${totalTransferred} SP.`
+            : `Gộp xong: ${ok} cụm thành công, ${fail} cụm lỗi. Chuyển ${totalTransferred} SP.`;
+        const level = partialCount > 0 ? 'error' : (fail === 0 ? 'success' : 'warning');
+        _notify(summary, level);
         if (body) {
             body.innerHTML = `
                 <div class="mlw-empty">

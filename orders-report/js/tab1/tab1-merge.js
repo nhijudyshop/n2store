@@ -5,7 +5,8 @@
 /**
  * Normalize phone number for grouping duplicate orders.
  * Removes spaces/dots/dashes/parens và convert +84xxx → 0xxx.
- * Trả về '' nếu input rỗng → caller skip không group.
+ * Trả về '' nếu input rỗng hoặc không đạt min-length → caller skip không group
+ * (tránh placeholder như "0", "000" gộp nhầm khách hàng khác nhau).
  */
 function normalizeMergePhone(phone) {
     if (!phone) return '';
@@ -13,6 +14,9 @@ function normalizeMergePhone(phone) {
     if (!s) return '';
     if (s.startsWith('+84')) s = '0' + s.slice(3);
     else if (s.startsWith('84') && s.length === 11) s = '0' + s.slice(2);
+    // VN phone tối thiểu 9 chữ số (mobile 10, landline tối thiểu 9 khi chưa có mã vùng).
+    // Nếu toàn ký tự không phải digit hoặc ngắn quá → không tin cậy để group.
+    if (!/^\d{9,12}$/.test(s)) return '';
     return s;
 }
 
@@ -415,7 +419,8 @@ async function executeBulkMergeOrderProducts() {
             }
         });
 
-        // Find phone numbers with multiple orders (need merging)
+        // Find phone numbers with multiple orders (need merging).
+        // Giữ reference tới full order objects để có Tags (cho assignTagsAfterMerge)
         const mergeableGroups = [];
         phoneGroups.forEach((orders, phone) => {
             if (orders.length > 1) {
@@ -425,12 +430,16 @@ async function executeBulkMergeOrderProducts() {
                 const sourceOrders = orders.slice(1);
 
                 mergeableGroups.push({
-                    Telephone: targetOrder.Telephone || phone,  // Display original target phone
+                    Telephone: targetOrder.Telephone || phone,
                     TargetOrderId: targetOrder.Id,
                     TargetSTT: targetOrder.SessionIndex,
                     SourceOrderIds: sourceOrders.map(o => o.Id),
                     SourceSTTs: sourceOrders.map(o => o.SessionIndex),
-                    IsMerged: true // For compatibility with executeMergeOrderProducts
+                    IsMerged: true,
+                    // Lưu full order objects để tag assignment sau merge
+                    _targetOrder: targetOrder,
+                    _sourceOrders: sourceOrders,
+                    _allOrders: orders // sorted DESC, target ở đầu
                 });
             }
         });
@@ -446,7 +455,8 @@ async function executeBulkMergeOrderProducts() {
         const confirmMsg = `Tìm thấy ${mergeableGroups.length} SĐT trùng (${totalSourceOrders + mergeableGroups.length} đơn).\n\n` +
             `Hành động này sẽ:\n` +
             `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
-            `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn`;
+            `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn\n` +
+            `- Gán tag "ĐÃ GỘP KO CHỐT" cho đơn nguồn, tag "Gộp X Y Z" cho đơn đích`;
 
         const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp sản phẩm");
         if (!confirmed) {
@@ -458,6 +468,9 @@ async function executeBulkMergeOrderProducts() {
             window.notificationManager.show(`Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT...`, 'info');
         }
 
+        // Load available tags trước để tag assignment có Id đúng
+        try { await loadAvailableTags(); } catch (e) { console.warn('[MERGE-BULK] loadAvailableTags fail:', e); }
+
         // Execute merge for each phone group
         const results = [];
         for (let i = 0; i < mergeableGroups.length; i++) {
@@ -467,29 +480,73 @@ async function executeBulkMergeOrderProducts() {
             const result = await executeMergeOrderProducts(group);
             results.push({ order: group, result });
 
+            // Gán tag sau khi merge (BUG-2: bulk path trước đây skip tag — gây mất audit trail)
+            if (result.success || result.partial) {
+                // Build cluster shape cho assignTagsAfterMerge; nếu partial, chỉ lấy source đã clear
+                const baseCluster = {
+                    phone: group.Telephone,
+                    targetOrder: group._targetOrder,
+                    sourceOrders: group._sourceOrders,
+                    orders: group._allOrders
+                };
+                const clusterForTagging = result.partial
+                    ? buildPartialTagCluster(baseCluster, result.sourceClearResults)
+                    : baseCluster;
+
+                try {
+                    const tagResult = await assignTagsAfterMerge(clusterForTagging);
+                    if (!tagResult.success) {
+                        console.warn(`[MERGE-BULK] Tag assignment fail for ${group.Telephone}:`, tagResult.error);
+                    }
+                } catch (tagErr) {
+                    console.warn(`[MERGE-BULK] Tag assignment error for ${group.Telephone}:`, tagErr);
+                }
+
+                // Save history
+                if (typeof saveMergeHistory === 'function') {
+                    try { await saveMergeHistory(baseCluster, result, result.errorResponse || null); } catch {}
+                }
+
+                // Mark PBH merge-cancelled cho source đã clear
+                const clearedIds = (result.sourceClearResults || []).filter(r => r.cleared).map(r => r.sourceId);
+                if (clearedIds.length > 0 && typeof markSourceOrdersMergeCancelled === 'function') {
+                    try { markSourceOrdersMergeCancelled(clearedIds); } catch {}
+                }
+            }
+
             // Small delay to avoid rate limiting
             if (i < mergeableGroups.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
 
-        // Count successes and failures
+        // Count successes, partials, and failures
         const successCount = results.filter(r => r.result.success).length;
-        const failureCount = results.length - successCount;
+        const partialCount = results.filter(r => !r.result.success && r.result.partial).length;
+        const failureCount = results.length - successCount - partialCount;
 
-        // Show summary using custom notification
+        // Show summary
         if (window.notificationManager) {
-            if (failureCount > 0) {
-                // Show detailed failure info
+            if (partialCount > 0) {
+                const partialDetails = results
+                    .filter(r => !r.result.success && r.result.partial)
+                    .map(r => `${r.order.Telephone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                    .join('; ');
+                window.notificationManager.show(
+                    `⚠️ ${partialCount}/${results.length} SĐT GỘP DANG DỞ — kiểm tra ngay: ${partialDetails}`,
+                    'error',
+                    12000
+                );
+            } else if (failureCount > 0) {
                 const failedPhones = results.filter(r => !r.result.success).map(r => r.order.Telephone).join(', ');
                 window.notificationManager.show(
-                    `⚠️ Gộp ${successCount}/${results.length} đơn. Thất bại: ${failedPhones}`,
+                    `Gộp ${successCount}/${results.length} đơn. Thất bại: ${failedPhones}`,
                     'warning',
                     8000
                 );
             } else {
                 window.notificationManager.show(
-                    `✅ Đã gộp sản phẩm thành công cho ${successCount} đơn hàng!`,
+                    `Đã gộp sản phẩm thành công cho ${successCount} đơn hàng!`,
                     'success',
                     5000
                 );
@@ -1868,12 +1925,24 @@ async function assignTagsAfterMerge(cluster) {
         await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
         console.log(`[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`);
 
-        // Step 5: Assign only "ĐÃ GỘP KO CHỐT" tag to source orders (clear all existing)
-        const sourceOnlyTags = [mergedTag];
-
+        // Step 5: Assign tags to source orders.
+        // BUG-7 FIX: assignTagsToOrder REPLACE toàn bộ tags trên TPOS. Trước đây chỉ gửi [mergedTag]
+        // → mọi tag custom của source ("CHUYỂN KHOẢN", "TRỪ CÔNG NỢ", "KHÁCH BOOM"...) bị xóa sạch.
+        // Fix: giữ tags custom hiện có (filter các merge-related tags), rồi thêm "ĐÃ GỘP KO CHỐT".
         for (const sourceOrder of cluster.sourceOrders) {
-            await assignTagsToOrder(sourceOrder.Id, sourceOnlyTags);
-            console.log(`[MERGE-TAG] ✅ Assigned "${MERGED_ORDER_TAG_NAME}" to source order STT ${sourceOrder.SessionIndex}`);
+            const existingSourceTags = getOrderTagsArray(sourceOrder);
+            const preservedTags = new Map();
+            existingSourceTags.forEach(t => {
+                if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
+                    preservedTags.set(t.Id, t);
+                }
+            });
+            // Add/override merged tag (ensure có trong list, không duplicate nếu Id đã tồn tại)
+            preservedTags.set(mergedTag.Id, mergedTag);
+            const finalSourceTags = Array.from(preservedTags.values());
+
+            await assignTagsToOrder(sourceOrder.Id, finalSourceTags);
+            console.log(`[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 1} custom + "${MERGED_ORDER_TAG_NAME}")`);
         }
 
         // Step 6: Assign Tag XL (Processing Tags) — mirror TPOS tag logic
@@ -2050,4 +2119,82 @@ window.closeMergeHistoryModal = closeMergeHistoryModal;
 window.toggleHistoryEntry = toggleHistoryEntry;
 window.saveMergeHistory = saveMergeHistory;
 
+// =====================================================
+// MERGE RECOVERY & SIDE-EFFECT HELPERS
+// =====================================================
+
+/**
+ * Xây cluster giảm phạm vi tag assignment khi merge partial-success.
+ * Chỉ gồm các source đã clear thành công — source chưa clear được giữ nguyên
+ * tag cũ để user có thể retry thủ công mà không mất tag gốc.
+ */
+function buildPartialTagCluster(cluster, sourceClearResults) {
+    if (!Array.isArray(sourceClearResults) || sourceClearResults.length === 0) return cluster;
+    const clearedIds = new Set(sourceClearResults.filter(r => r.cleared).map(r => String(r.sourceId)));
+    const filteredSources = (cluster.sourceOrders || []).filter(o => clearedIds.has(String(o.Id)));
+    return {
+        ...cluster,
+        sourceOrders: filteredSources,
+        // orders array dùng cho tag "Gộp X Y Z" — chỉ gồm source đã cleared + target
+        orders: [...filteredSources, cluster.targetOrder]
+    };
+}
+
+/**
+ * Mark local InvoiceStatusStore entries của các source đã clear là "Hủy do gộp đơn".
+ * - Đây là đồng bộ LOCAL ONLY (UI sẽ hiển thị "Hủy do gộp đơn" cho cột PBH).
+ * - Không cancel invoice bên TPOS (quá destructive, cần user confirm riêng).
+ * - Trigger refresh PBH từ TPOS ngầm để đồng bộ state thật (nếu TPOS đã đổi).
+ */
+function markSourceOrdersMergeCancelled(sourceOrderIds) {
+    if (!Array.isArray(sourceOrderIds) || sourceOrderIds.length === 0) return;
+    if (!window.InvoiceStatusStore) {
+        console.warn('[MERGE-PBH] InvoiceStatusStore not available, skipping merge-cancel flag');
+        return;
+    }
+    const store = window.InvoiceStatusStore;
+    let markedCount = 0;
+
+    sourceOrderIds.forEach(soId => {
+        if (!soId) return;
+        const soIdStr = String(soId);
+        // InvoiceStatusStore có thể chứa nhiều entries per saleOnlineId (bill replay) → update hết
+        if (typeof store.getAll === 'function') {
+            const entries = store.getAll(soIdStr) || [];
+            entries.forEach(entry => {
+                if (entry && entry.IsMergeCancel !== true) {
+                    entry.IsMergeCancel = true;
+                    markedCount++;
+                }
+            });
+        } else if (typeof store.get === 'function') {
+            const entry = store.get(soIdStr);
+            if (entry && entry.IsMergeCancel !== true) {
+                entry.IsMergeCancel = true;
+                markedCount++;
+            }
+        }
+    });
+
+    if (markedCount > 0) {
+        console.log(`[MERGE-PBH] ✅ Marked ${markedCount} invoice entry(ies) as merge-cancelled (local only)`);
+        // Re-render UI nếu store có helper
+        if (typeof store._refreshInvoiceStatusUI === 'function') {
+            try { store._refreshInvoiceStatusUI(sourceOrderIds.map(String)); } catch {}
+        }
+    }
+
+    // Trigger refresh PBH từ TPOS trong background để sync state thật (nếu TPOS auto-set IsMergeCancel)
+    if (typeof store.refreshAllFromTPOS === 'function' && Array.isArray(window.allData)) {
+        const sourceOrders = window.allData.filter(o => sourceOrderIds.map(String).includes(String(o.Id)));
+        if (sourceOrders.length > 0) {
+            store.refreshAllFromTPOS({ orders: sourceOrders }).catch(e =>
+                console.warn('[MERGE-PBH] Background TPOS refresh failed:', e?.message || e)
+            );
+        }
+    }
+}
+
+window.buildPartialTagCluster = buildPartialTagCluster;
+window.markSourceOrdersMergeCancelled = markSourceOrdersMergeCancelled;
 
