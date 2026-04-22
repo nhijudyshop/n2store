@@ -3,7 +3,7 @@
 // Hover → tooltip chi tiết (direction + time + duration + nhân viên)
 
 const PhoneHistoryBadges = (() => {
-    const API = 'https://n2store-fallback.onrender.com/api/oncall';
+    const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall';
     const CACHE_TTL_MS = 2 * 60 * 1000; // 2 phút refresh
     const MAX_HISTORY_DAYS = 90;
     const MAX_ROWS = 5000;

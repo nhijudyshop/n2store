@@ -7,7 +7,7 @@
 (function() {
     'use strict';
 
-    const API_BASE = 'https://n2store-fallback.onrender.com/api/campaigns';
+    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
 
     async function _fetch(path, options = {}) {
         const url = `${API_BASE}${path}`;

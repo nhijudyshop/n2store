@@ -11,7 +11,7 @@ const CelebrationManager = (() => {
     };
 
     const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js';
-    const API_URL = 'https://n2store-fallback.onrender.com/api/realtime';
+    const API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
 
     let overlay = null;
     let cleanups = [];

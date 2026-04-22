@@ -21,7 +21,7 @@
 (function () {
     'use strict';
 
-    const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
+    const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
     const KPI_AMOUNT_PER_DIFFERENCE = 5000;
     // KPI mode: 'fixed' = 5000đ/SP, 'value' = theo giá SP thực tế
     let KPI_MODE = 'fixed';
@@ -633,7 +633,7 @@
     // ========================================
     // Employee Range Lookup (Render PostgreSQL)
     // ========================================
-    const CAMPAIGNS_API = 'https://n2store-fallback.onrender.com/api/campaigns';
+    const CAMPAIGNS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
     let _employeeRangesCache = null;
     let _employeeRangesCacheTime = 0;
     const RANGES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes

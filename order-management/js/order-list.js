@@ -1655,7 +1655,7 @@ function _tposToast(message, level = 'info') {
 }
 
 function setupImageSSE() {
-    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
+    const SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web_warehouse';
     try {
         _sseSource = new EventSource(SSE_URL);
 

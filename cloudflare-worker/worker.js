@@ -35,7 +35,10 @@ import {
     handleRealtimeProxy,
     handleChatProxy,
     handleCustomersProxy,
-    handleCustomer360Proxy
+    handleCustomer360Proxy,
+    handleOncallProxy,
+    handleUsersProxy,
+    handleCampaignsProxy
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
@@ -172,6 +175,12 @@ export default {
                     return handleCustomersProxy(request, url, pathname);
                 case 'PANCAKE_ACCOUNTS':
                     return handleCustomer360Proxy(request, url, pathname);
+                case 'ONCALL':
+                    return handleOncallProxy(request, url, pathname);
+                case 'USERS':
+                    return handleUsersProxy(request, url, pathname);
+                case 'CAMPAIGNS':
+                    return handleCampaignsProxy(request, url, pathname);
 
                 // Customer 360 v2 (unified API)
                 case 'CUSTOMERS_V2':

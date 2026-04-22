@@ -5,7 +5,7 @@
 // Heartbeat 20s giữ lock; không heartbeat >90s → lock coi như expired, máy khác có thể take
 
 const PhoneAutoRegister = (() => {
-    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall';
     const PREF_KEY = 'phoneAutoRegister_enabled_v2'; // local preference
     const SESSION_KEY = 'phoneAutoRegister_session'; // unique session id per tab
     const HEARTBEAT_MS = 20000;

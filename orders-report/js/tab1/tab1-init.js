@@ -197,7 +197,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Push fresh Pancake token to server so it can maintain its own WS connection
     async function _pushTokenToServer(token, userId, pageIds) {
         try {
-            const resp = await fetch('https://n2store-fallback.onrender.com/api/realtime/start', {
+            const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token, userId, pageIds })

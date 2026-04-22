@@ -16,7 +16,7 @@
         (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
         '/api/order-notes';
     const SSE_KEY = 'order_notes_global';
-    const SSE_URL = 'https://n2store-fallback.onrender.com/api/realtime/sse?keys=' + encodeURIComponent(SSE_KEY);
+    const SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=' + encodeURIComponent(SSE_KEY);
     const POLL_INTERVAL_MS = 30000; // fallback polling when SSE disconnected
 
     // =====================================================

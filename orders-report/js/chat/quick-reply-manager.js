@@ -918,7 +918,7 @@ class QuickReplyManager {
                 window.newMessagesNotifier?.clearPendingForCustomer(psid);
                 const body = JSON.stringify({ psid, pageId: channelId || null });
                 const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
-                fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+                fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied', opts).catch(() => {});
                 fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
             }
 

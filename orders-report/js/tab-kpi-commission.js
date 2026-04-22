@@ -241,7 +241,7 @@ const KPICommission = {
      */
     async detectStaleStatistics(statsData) {
         if (!statsData || statsData.length === 0) return statsData;
-        const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
+        const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
 
         // Collect all unique orderCodes from statistics
         const allOrderCodes = new Set();
@@ -354,7 +354,7 @@ const KPICommission = {
     // LOAD DATA FROM RENDER PostgreSQL
     // ========================================
     async loadAllStatistics() {
-        const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
+        const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
 
         try {
             const res = await fetch(`${KPI_API}/kpi-statistics`);

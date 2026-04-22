@@ -4,7 +4,7 @@
 // Pattern: localStorage cache + polling fallback (Postgres không có realtime)
 
 const PhoneExtAssignment = (() => {
-    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall';
     const STORAGE_KEY = 'phoneExtAssignments_v2';
     const POLL_INTERVAL = 15000; // 15s
 

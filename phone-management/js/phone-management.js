@@ -3,7 +3,7 @@
 // Tabs: dashboard / extensions / staff / history / stats / live / contacts / recordings / config / audit
 
 const PM = (() => {
-    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall';
     const LIVE_POLL_MS = 5000; // poll Live tab every 5s
 
     // State

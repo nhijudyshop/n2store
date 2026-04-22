@@ -6,7 +6,7 @@
 //   POST /api/oncall/audit-log
 
 const PhoneCloudSync = (() => {
-    const API_BASE = 'https://n2store-fallback.onrender.com/api/oncall';
+    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall';
     let _presenceTimer = null;
     let _lastPresence = null;
 

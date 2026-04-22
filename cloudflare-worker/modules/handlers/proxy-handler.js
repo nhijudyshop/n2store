@@ -181,32 +181,109 @@ export async function handleUploadProxy(request, url, pathname) {
 
 /**
  * Handle /api/realtime/*
- * Realtime server proxy
+ * Realtime server proxy → n2store-fallback (pending-customers, SSE streams, processing-tags,
+ * mark-replied, etc. all live on the fallback server).
+ * Preserves SSE streaming by skipping retry/timeout when the client asks for text/event-stream.
  * @param {Request} request
  * @param {URL} url
  * @param {string} pathname
  * @returns {Promise<Response>}
  */
 export async function handleRealtimeProxy(request, url, pathname) {
-    const realtimePath = pathname.replace(/^\/api\/realtime\//, '');
-    const targetUrl = `https://n2store-tpos-pancake.onrender.com/api/${realtimePath}${url.search}`;
+    return handleRenderFallbackProxy(request, url, pathname, 'REALTIME-PROXY');
+}
 
-    console.log('[REALTIME-PROXY] Forwarding to:', targetUrl);
+/**
+ * Handle /api/oncall/*
+ * On-call / phone widget endpoints → n2store-fallback
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleOncallProxy(request, url, pathname) {
+    return handleRenderFallbackProxy(request, url, pathname, 'ONCALL-PROXY');
+}
+
+/**
+ * Handle /api/users/*
+ * User settings endpoints (menu_layout, preferences) → n2store-fallback
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleUsersProxy(request, url, pathname) {
+    return handleRenderFallbackProxy(request, url, pathname, 'USERS-PROXY');
+}
+
+/**
+ * Handle /api/campaigns/*
+ * Campaign / employee-range endpoints → n2store-fallback
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleCampaignsProxy(request, url, pathname) {
+    return handleRenderFallbackProxy(request, url, pathname, 'CAMPAIGNS-PROXY');
+}
+
+/**
+ * Generic forwarder to n2store-fallback.onrender.com preserving full pathname and query.
+ * - SSE (text/event-stream) uses plain fetch to preserve long-lived streaming.
+ * - Everything else uses fetchWithRetry so transient 5xx during Render redeploys are absorbed.
+ * - CORS headers are always injected on the response so the browser never trips on 502/5xx.
+ *
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @param {string} tag - Log tag
+ * @returns {Promise<Response>}
+ */
+async function handleRenderFallbackProxy(request, url, pathname, tag) {
+    const targetUrl = `https://n2store-fallback.onrender.com${pathname}${url.search}`;
+
+    const acceptHeader = request.headers.get('Accept') || '';
+    const isSSE = acceptHeader.includes('text/event-stream') || pathname.endsWith('/sse');
+
+    console.log(`[${tag}] Forwarding to:`, targetUrl, isSSE ? '(SSE stream)' : '');
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: new Headers(request.headers),
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const forwardHeaders = new Headers(request.headers);
+        // Strip hop-by-hop / host headers that would confuse the upstream
+        forwardHeaders.delete('host');
+        forwardHeaders.delete('cf-connecting-ip');
+        forwardHeaders.delete('cf-ray');
+
+        const body = request.method !== 'GET' && request.method !== 'HEAD'
+            ? await request.arrayBuffer()
+            : null;
+
+        let response;
+        if (isSSE) {
+            // SSE: plain fetch, no timeout/retry — we need the stream to stay open
+            response = await fetch(targetUrl, {
+                method: request.method,
+                headers: forwardHeaders,
+                body,
+            });
+        } else {
+            response = await fetchWithRetry(targetUrl, {
+                method: request.method,
+                headers: forwardHeaders,
+                body,
+            }, 3, 1000, 15000);
+        }
 
         return proxyResponseWithCors(response);
 
     } catch (error) {
-        console.error('[REALTIME-PROXY] Error:', error.message);
-        return errorResponse('Realtime proxy failed: ' + error.message, 502);
+        console.error(`[${tag}] Error:`, error.message);
+        // CRITICAL: return JSON with CORS headers so browser-side code sees a consistent
+        // error shape even when Render is fully down. This is the whole point of routing
+        // through Cloudflare — 502s with no CORS headers are what broke the app earlier.
+        return errorResponse(`${tag} failed: ${error.message}`, 502, { target: targetUrl });
     }
 }
 

@@ -190,7 +190,7 @@ function _markRepliedOnServer(psid, pageId) {
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
     // Fire and forget to BOTH servers — with timeout to avoid zombie fetches
     const _fetch = window.fetchWithTimeout || fetch;
-    _fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts, 6000).catch(() => {});
+    _fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied', opts, 6000).catch(() => {});
     _fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts, 6000).catch(() => {});
 }
 

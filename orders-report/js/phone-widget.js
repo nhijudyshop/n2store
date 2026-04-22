@@ -7,7 +7,7 @@ const PhoneWidget = (() => {
     const STORAGE_KEY = 'phoneWidget_config';
     const HISTORY_KEY = 'phoneWidget_history';
     const MISSED_KEY = 'phoneWidget_missed';
-    const RENDER_API = 'https://n2store-fallback.onrender.com/api/oncall/phone-config';
+    const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/phone-config';
     const DEFAULTS = {
         pbx_domain: 'pbx-ucaas.oncallcx.vn',
         ws_url: 'wss://45-76-155-207.sslip.io/ws',

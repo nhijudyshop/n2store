@@ -13,7 +13,7 @@
     }
     window.__tab1ProcessingTagsV2Loaded = true;
 
-    const PTAG_API_BASE = 'https://n2store-fallback.onrender.com/api/realtime/processing-tags';
+    const PTAG_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/processing-tags';
     const PTAG_LOG = '[PTAG v2]';
 
     // Auto T toggle — bật/tắt clear T-tag khi onPtagBillCreated chạy (đơn ra đơn).
@@ -708,7 +708,7 @@
         }
 
         const sseKey = 'processing_tags_global';
-        const sseUrl = `https://n2store-fallback.onrender.com/api/realtime/sse?keys=${encodeURIComponent(sseKey)}`;
+        const sseUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=${encodeURIComponent(sseKey)}`;
 
         try {
             const source = new EventSource(sseUrl);

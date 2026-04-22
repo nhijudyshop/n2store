@@ -157,7 +157,7 @@ const WebWarehouseCache = (function () {
     // Auto-refresh cache when TPOS sync lands in Render DB
     // =====================================================
     const SSE_URL =
-        'https://n2store-fallback.onrender.com/api/realtime/sse?keys=web_warehouse';
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web_warehouse';
     let _sseSource = null;
     let _refreshDebounce = null;
 

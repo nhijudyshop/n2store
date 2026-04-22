@@ -11,7 +11,7 @@ let users = [];
 const UserAPI = {
     BASE_URL: window.location.hostname === 'localhost'
         ? 'http://localhost:3000/api/users'
-        : 'https://n2store-fallback.onrender.com/api/users',
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users',
 
     getToken() {
         const auth = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');

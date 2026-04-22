@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
+    const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
     const PENDING_QUEUE_KEY = 'kpi_audit_pending';
     const MAX_RETRIES = 3;
 

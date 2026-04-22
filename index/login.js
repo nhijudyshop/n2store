@@ -5,7 +5,7 @@
 
 const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/users'
-    : 'https://n2store-fallback.onrender.com/api/users';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
 const LOGIN_API_URL = `${API_BASE_URL}/login`;
 
 document.addEventListener("DOMContentLoaded", function () {

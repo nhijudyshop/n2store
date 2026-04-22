@@ -67,6 +67,11 @@ export const ROUTES = {
     CUSTOMERS: { pattern: '/api/customers/*' },
     PANCAKE_ACCOUNTS: { pattern: '/api/pancake-accounts/*' },
 
+    // Render fallback — CORS-resilient proxies (added 2026-04-22 to absorb Render 502s)
+    ONCALL: { pattern: '/api/oncall/*' },
+    USERS: { pattern: '/api/users/*' },
+    CAMPAIGNS: { pattern: '/api/campaigns/*' },
+
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
 
@@ -153,6 +158,11 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/chat/')) return 'CHAT';
     if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') return 'CUSTOMERS';
     if (pathname.startsWith('/api/pancake-accounts/') || pathname === '/api/pancake-accounts') return 'PANCAKE_ACCOUNTS';
+
+    // Render fallback proxies (absorb 502 + inject CORS)
+    if (pathname.startsWith('/api/oncall/') || pathname === '/api/oncall') return 'ONCALL';
+    if (pathname.startsWith('/api/users/') || pathname === '/api/users') return 'USERS';
+    if (pathname.startsWith('/api/campaigns/') || pathname === '/api/campaigns') return 'CAMPAIGNS';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';

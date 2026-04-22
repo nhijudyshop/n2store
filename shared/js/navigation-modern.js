@@ -337,7 +337,7 @@ const CUSTOM_MENU_NAMES_TIMESTAMP_KEY = 'n2shop_custom_menu_names_timestamp';
 // API URL for settings
 const SETTINGS_API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:10000/api/users/settings'
-    : 'https://n2store-fallback.onrender.com/api/users/settings';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users/settings';
 
 // Cache expiry time: 24 hours in milliseconds
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -4001,7 +4001,7 @@ class UnifiedNavigationManager {
             // Save to PostgreSQL via API (source of truth for login)
             const apiBase = window.location.hostname === 'localhost'
                 ? 'http://localhost:3000/api/users'
-                : 'https://n2store-fallback.onrender.com/api/users';
+                : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
 
             const response = await fetch(`${apiBase}/me/display-name`, {
                 method: 'PUT',
