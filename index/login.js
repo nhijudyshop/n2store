@@ -125,6 +125,12 @@ document.addEventListener("DOMContentLoaded", function () {
             const durationText = rememberMe ? "30 ngay" : "phien lam viec hien tai";
             showSuccess(`Dang nhap thanh cong! Chao mung ${user.displayName}. Se giu dang nhap trong ${durationText}.`);
 
+            // Clear credential fields before navigation to suppress browser "save password?" prompt
+            if (passwordInput) passwordInput.value = "";
+            if (usernameInput) usernameInput.value = "";
+            const loginForm = document.getElementById("loginForm");
+            if (loginForm) loginForm.reset();
+
             setTimeout(() => {
                 redirectToMainApp();
             }, 1500);

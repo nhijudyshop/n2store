@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders][user-mgmt] Bỏ prompt "Lưu mật khẩu" của browser trên các page có password input
+| | |
+|---|---|
+| **Files** | `index.html`, `index/login.js`, `orders-report/tab1-orders.html`, `user-management/index.html` |
+| **Chi tiết** | User báo: nhiều page HTML hiện prompt browser "Bạn có muốn lưu mật khẩu?" (login, TPOS account modal, user-management tạo/sửa user). **Root cause**: Chrome heuristic tự detect `<input type="password">` + username-like field → offer lưu credential, càng rõ khi có `autocomplete="current-password"` trên login. **Fix**: (1) [index.html:38-62](index.html#L38-L62) — đổi `autocomplete="username"` + `"current-password"` → `autocomplete="off"` + `"new-password"`, thêm `autocomplete="off"` trên `<form id="loginForm">`. (2) [index/login.js](index/login.js) — sau khi login thành công, clear `passwordInput.value` + `usernameInput.value` + `loginForm.reset()` trước `redirectToMainApp()` 1.5s để Chrome không nắm được cặp credential. (3) [orders-report/tab1-orders.html:3132-3140](orders-report/tab1-orders.html#L3132-L3140) — modal TPOS Account: thêm `autocomplete="off"` cho `#tposUsername`, `autocomplete="new-password"` cho `#tposPassword`. (4) [user-management/index.html](user-management/index.html) — thêm `autocomplete="new-password"` cho `#editNewPassword` + `#newPassword`, `autocomplete="off"` cho `#newUsername`. **Không đụng**: `n2store-extension/pages/settings.html` (đã có `autocomplete="off"` từ trước), `soquy/huong_dan_so_quy.html` (tutorial snapshot bên thứ 3). **Lưu ý**: Chrome login detection vẫn có thể prompt trong một số phiên bản — đây là best-effort; Firefox/Safari sẽ tôn trọng `autocomplete="off"` hơn. |
+| **Status** | ✅ Done |
+
 ### [render] Bug fixes endpoint refresh-from-tpos: URL + filter syntax + chunk limit
 | | |
 |---|---|
