@@ -992,7 +992,7 @@
                 const row = printBtn.closest('tr[data-template-id]');
                 if (row) {
                     const templateId = parseInt(row.dataset.templateId, 10);
-                    const product = allProducts.find(p => p.id === templateId);
+                    const product = pageProducts.find(p => p.id === templateId);
                     if (product) openBarcodePrint([product]);
                 }
                 return;
@@ -1101,7 +1101,9 @@
     let cachedCategories = null;
     let cachedPOSCategories = null;
     let cachedUOMs = null;
+    let cachedTags = null; // TPOS Tag list (for filter dropdown)
     let editImageBase64 = null; // new image selected by user
+    let modalMode = 'edit'; // 'edit' | 'create'
 
     /**
      * Fetch full product detail from TPOS (needed for UpdateV2)
@@ -1163,6 +1165,13 @@
             ]);
             editingProduct = detail;
             editImageBase64 = null;
+            modalMode = 'edit';
+
+            // Restore heading + save button for edit mode
+            const heading = $('#editProductModal h3');
+            if (heading) heading.innerHTML = '<i data-lucide="pencil"></i> Chỉnh sửa sản phẩm';
+            const saveBtn = $('#saveEditProduct');
+            if (saveBtn) saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu lên TPOS';
 
             // Basic info
             $('#editProductId').value = templateId;
@@ -1222,6 +1231,7 @@
         $('#editProductModal')?.classList.remove('show');
         editingProduct = null;
         editImageBase64 = null;
+        modalMode = 'edit';
     }
 
     /**
@@ -1250,6 +1260,9 @@
      * Save edited product to TPOS via UpdateV2
      */
     async function saveEditProduct() {
+        if (modalMode === 'create') {
+            return saveCreateProduct();
+        }
         if (!editingProduct) return;
 
         const payload = { ...editingProduct };
@@ -1372,7 +1385,7 @@
     // Expose for toolbar bulk print
     window.warehouseApp = window.warehouseApp || {};
     window.warehouseApp.printBarcode = function() {
-        const selected = allProducts.filter(p => selectedIds.has(p.id));
+        const selected = pageProducts.filter(p => selectedIds.has(p.id));
         if (!selected.length) {
             alert('Vui lòng chọn sản phẩm trước');
             return;

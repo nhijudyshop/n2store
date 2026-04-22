@@ -173,6 +173,12 @@
                         <option value="inactive">Hết hiệu lực</option>
                     </select>
                 </div>
+                <div class="toolbar-filter-group">
+                    <label class="filter-label">Nhãn:</label>
+                    <select id="filterTag" class="filter-select filter-select-warning">
+                        <option value="all">Tất cả</option>
+                    </select>
+                </div>
                 <span class="result-count" id="productCount">
                     <i data-lucide="package"></i>
                     <strong>0</strong> sản phẩm
@@ -183,6 +189,22 @@
                     <i data-lucide="lightbulb"></i>
                     Gõ để tìm kiếm nhanh
                 </span>
+                <button class="btn-toolbar btn-create-product" id="btnCreateProduct" title="Thêm sản phẩm mới">
+                    <i data-lucide="plus"></i>
+                    Thêm SP
+                </button>
+                <button class="btn-toolbar btn-import-excel" id="btnImportExcel" title="Nhập sản phẩm từ file Excel">
+                    <i data-lucide="upload"></i>
+                    Nhập Excel
+                </button>
+                <button class="btn-toolbar btn-export-excel" id="btnExportExcel" title="Xuất danh sách hiện tại ra Excel">
+                    <i data-lucide="download"></i>
+                    Xuất Excel
+                </button>
+                <button class="btn-toolbar btn-bulk-price" id="btnBulkPrice" title="Cập nhật giá hàng loạt từ file">
+                    <i data-lucide="banknote"></i>
+                    Cập nhật giá
+                </button>
                 <button class="btn-toolbar btn-reload" id="refreshButton" title="Tải lại dữ liệu">
                     <i data-lucide="refresh-cw"></i>
                     Tải lại
@@ -527,10 +549,105 @@
         </div>
     </div>
 
+    <!-- Import Excel Preview Modal -->
+    <div class="column-settings-modal" id="importExcelModal">
+        <div class="column-settings-modal-content" style="max-width:1100px;">
+            <div class="column-settings-modal-header">
+                <h3><i data-lucide="upload"></i> Nhập sản phẩm từ Excel</h3>
+                <button class="column-settings-modal-close" id="closeImportExcel">&times;</button>
+            </div>
+            <div class="column-settings-modal-body" style="padding:16px;max-height:75vh;overflow:auto;">
+                <div id="importStepPick" style="display:block;">
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.5;">
+                        <strong>Hướng dẫn:</strong> tải <a href="#" id="downloadImportTemplate">mẫu Excel</a> → điền dữ liệu → chọn file upload.
+                        <br>Các cột: <code>Mã*</code>, <code>Tên*</code>, <code>Giá bán*</code>, <code>Giá mua</code>, <code>Giá vốn</code>, <code>Nhóm SP*</code>, <code>Đơn vị*</code>, <code>Barcode</code>.
+                    </div>
+                    <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:block;margin:16px 0;">
+                </div>
+                <div id="importStepPreview" style="display:none;">
+                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;font-size:13px;">
+                        <span>Tổng dòng: <strong id="importTotalRows">0</strong></span>
+                        <span style="color:#059669;">Hợp lệ: <strong id="importValidRows">0</strong></span>
+                        <span style="color:#dc2626;">Lỗi: <strong id="importErrorRows">0</strong></span>
+                    </div>
+                    <div style="max-height:50vh;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">
+                        <table id="importPreviewTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead style="background:#f9fafb;position:sticky;top:0;"></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="importStepProgress" style="display:none;">
+                    <div style="font-size:13px;margin-bottom:8px;">Đang tạo sản phẩm...</div>
+                    <div style="background:#e5e7eb;border-radius:8px;height:16px;overflow:hidden;">
+                        <div id="importProgressBar" style="background:linear-gradient(90deg,#3b82f6,#8b5cf6);height:100%;width:0%;transition:width .2s;"></div>
+                    </div>
+                    <div id="importProgressText" style="font-size:12px;color:#6b7280;margin-top:6px;">0 / 0</div>
+                    <div id="importProgressErrors" style="margin-top:10px;max-height:30vh;overflow:auto;font-size:12px;"></div>
+                </div>
+            </div>
+            <div class="column-settings-modal-footer">
+                <button class="column-settings-btn column-settings-btn-cancel" id="cancelImportExcel">Hủy</button>
+                <button class="column-settings-btn column-settings-btn-save" id="confirmImportExcel" style="display:none;">
+                    <i data-lucide="check"></i> Nhập <span id="importValidRowsBtn">0</span> sản phẩm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Price Update Modal -->
+    <div class="column-settings-modal" id="bulkPriceModal">
+        <div class="column-settings-modal-content" style="max-width:900px;">
+            <div class="column-settings-modal-header">
+                <h3><i data-lucide="banknote"></i> Cập nhật giá hàng loạt từ file</h3>
+                <button class="column-settings-modal-close" id="closeBulkPrice">&times;</button>
+            </div>
+            <div class="column-settings-modal-body" style="padding:16px;max-height:75vh;overflow:auto;">
+                <div id="bulkPriceStepPick" style="display:block;">
+                    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.5;">
+                        <strong>Lưu ý:</strong> file Excel cần có cột <code>Mã*</code> và ít nhất 1 trong 3 cột giá: <code>Giá bán</code>, <code>Giá mua</code>, <code>Giá vốn</code>.
+                        <br>Hệ thống sẽ tìm SP theo mã và cập nhật giá mới qua UpdateV2.
+                    </div>
+                    <input type="file" id="bulkPriceFile" accept=".xlsx,.xls" style="display:block;margin:16px 0;">
+                </div>
+                <div id="bulkPriceStepPreview" style="display:none;">
+                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;font-size:13px;">
+                        <span>Tổng: <strong id="bulkPriceTotal">0</strong></span>
+                        <span style="color:#059669;">Thay đổi: <strong id="bulkPriceChanged">0</strong></span>
+                        <span style="color:#6b7280;">Không đổi: <strong id="bulkPriceUnchanged">0</strong></span>
+                        <span style="color:#dc2626;">Không tìm thấy: <strong id="bulkPriceMissing">0</strong></span>
+                    </div>
+                    <div style="max-height:50vh;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">
+                        <table id="bulkPricePreviewTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead style="background:#f9fafb;position:sticky;top:0;"></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="bulkPriceStepProgress" style="display:none;">
+                    <div style="font-size:13px;margin-bottom:8px;">Đang cập nhật giá...</div>
+                    <div style="background:#e5e7eb;border-radius:8px;height:16px;overflow:hidden;">
+                        <div id="bulkPriceProgressBar" style="background:linear-gradient(90deg,#f59e0b,#ef4444);height:100%;width:0%;transition:width .2s;"></div>
+                    </div>
+                    <div id="bulkPriceProgressText" style="font-size:12px;color:#6b7280;margin-top:6px;">0 / 0</div>
+                    <div id="bulkPriceProgressErrors" style="margin-top:10px;max-height:30vh;overflow:auto;font-size:12px;"></div>
+                </div>
+            </div>
+            <div class="column-settings-modal-footer">
+                <button class="column-settings-btn column-settings-btn-cancel" id="cancelBulkPrice">Hủy</button>
+                <button class="column-settings-btn column-settings-btn-save" id="confirmBulkPrice" style="display:none;">
+                    <i data-lucide="check"></i> Cập nhật <span id="bulkPriceChangedBtn">0</span> sản phẩm
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Scripts -->
+    <!-- SheetJS (lazy-loaded for Import/Export Excel) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
     <!-- Shared Warehouse Utilities -->
     <script src="../shared/js/warehouse-shared.js"></script>
     <script src="../purchase-orders/js/lib/barcode-label-dialog.js"></script>
