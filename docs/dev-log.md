@@ -8,6 +8,13 @@
 
 ## 2026-04-22
 
+### [orders][chat][docs][plan] Plan lớn: tối ưu load tin nhắn Chat Modal — 6 phases, shared PAT cache trên Render
+| | |
+|---|---|
+| **Files** | `docs/plans/chat-loading-optimization.md` (NEW) |
+| **Chi tiết** | User báo "Đang tải tin nhắn..." chậm / không load được với nhiều khách, liên tục. Audit exhaustive: mapped full call graph `openChatModal → _findAndLoadConversation → _loadMessages → pdm.fetchMessages`, phát hiện **6 bottlenecks**: (1) **Zero timeout/AbortController** trên 10 fetch calls → spinner treo vô hạn khi Pancake/Render hang; (2) **Render cold start 10-30s** trên PATH B (3 sequential Render lookups); (3) **PAT regen fallback qua Render + loop sequential multi-account** 800-3000ms/lần; (4) **3 sequential Render calls** có thể parallel 2/3; (5) **inboxMapByPSID stale** → luôn trigger API fallback với đơn mới; (6) **Background enrichment thread_id** thêm round-trip. **Silent swallow nguy hiểm nhất**: `pdm.fetchMessages` catch trả `{messages:[]}` khi PAT fail → caller render empty → spinner KHÔNG replace → treo. **Plan 6 phases** (6-8 ngày): **P1** Timeout/Abort + feature flag; **P2** ⭐ **Shared PAT Cache trên Render DB** (user-proposed — AES-256-GCM encrypted, distributed lock qua atomic SQL UPDATE, TTL 60 ngày theo Pancake); **P3** Parallel PATH B lookups; **P4** Cron proactive PAT refresh trước expire 7 ngày; **P5** Error surface fix (error taxonomy + nút Thử lại, không silent); **P6** Cache warming top 20 đơn visible qua `requestIdleCallback`. Kèm schema `pat_cache` table, endpoints `GET/PUT/POST lock/DELETE /api/pat-cache/:pageId`, instrumentation `ChatMetrics.startLoad/endLoad`, risks/rollback/metrics targets per phase. **Open questions**: WS broadcast PAT update, metrics backend choice, feature flag strategy — chờ user confirm. |
+| **Status** | 📋 Plan ready — chờ user confirm từng phase để implement |
+
 ### [orders][user-mgmt] Bỏ prompt "Lưu mật khẩu" của browser trên các page có password input
 | | |
 |---|---|
