@@ -516,8 +516,47 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>
-                                <input type="checkbox" id="selectAll" />
+                            <th style="white-space: nowrap;">
+                                <div class="select-all-wrapper">
+                                    <input type="checkbox" id="selectAll" title="Chọn/bỏ chọn tất cả" />
+                                    <button type="button" id="selectAllMenuBtn" class="select-all-menu-btn" title="Tuỳ chọn chọn đơn" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-caret-down"></i>
+                                    </button>
+                                    <div id="selectAllMenu" class="select-all-menu" role="menu" hidden>
+                                        <div class="select-all-menu-section">
+                                            <div class="select-all-menu-label">Chọn nhanh</div>
+                                            <button type="button" class="select-all-menu-item" data-select-count="10" role="menuitem">Chọn 10 đầu</button>
+                                            <button type="button" class="select-all-menu-item" data-select-count="20" role="menuitem">Chọn 20 đầu</button>
+                                            <button type="button" class="select-all-menu-item" data-select-count="30" role="menuitem">Chọn 30 đầu</button>
+                                            <button type="button" class="select-all-menu-item" data-select-count="50" role="menuitem">Chọn 50 đầu</button>
+                                            <button type="button" class="select-all-menu-item" data-select-count="100" role="menuitem">Chọn 100 đầu</button>
+                                            <button type="button" class="select-all-menu-item" data-select-count="all" role="menuitem">Chọn tất cả (<span id="selectAllMenuTotal">0</span>)</button>
+                                        </div>
+                                        <div class="select-all-menu-divider"></div>
+                                        <div class="select-all-menu-section">
+                                            <div class="select-all-menu-label">Chọn theo khoảng STT</div>
+                                            <div class="select-all-menu-range">
+                                                <input type="number" id="selectAllRangeFrom" class="select-all-range-input" placeholder="Từ" min="1" />
+                                                <span>→</span>
+                                                <input type="number" id="selectAllRangeTo" class="select-all-range-input" placeholder="Đến" min="1" />
+                                                <button type="button" id="selectAllRangeApply" class="select-all-range-apply">Chọn</button>
+                                            </div>
+                                            <div class="select-all-menu-label" style="margin-top:6px;">Chọn theo số thứ tự hiển thị</div>
+                                            <div class="select-all-menu-range">
+                                                <input type="number" id="selectAllPosFrom" class="select-all-range-input" placeholder="Vị trí từ" min="1" />
+                                                <span>→</span>
+                                                <input type="number" id="selectAllPosTo" class="select-all-range-input" placeholder="Đến" min="1" />
+                                                <button type="button" id="selectAllPosApply" class="select-all-range-apply">Chọn</button>
+                                            </div>
+                                        </div>
+                                        <div class="select-all-menu-divider"></div>
+                                        <div class="select-all-menu-section">
+                                            <button type="button" class="select-all-menu-item select-all-menu-item-danger" data-select-count="none" role="menuitem">
+                                                <i class="fas fa-times-circle"></i> Bỏ chọn tất cả
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </th>
                             <th data-column="actions">Thao tác</th>
                             <th data-column="stt">STT</th>
