@@ -165,7 +165,8 @@ class PancakeDataManager {
             if (!token) throw new Error('No token');
 
             const url = PancakeApiConfig.buildUrl.pancake('pages', `access_token=${token}`);
-            const res = await fetch(url, { headers: this._v1Headers });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: this._v1Headers }, 10000);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             let data = await res.json();
@@ -175,7 +176,7 @@ class PancakeDataManager {
                 const newToken = await this.tm?.getToken?.(true);
                 if (newToken) {
                     const url2 = PancakeApiConfig.buildUrl.pancake('pages', `access_token=${newToken}`);
-                    const res2 = await fetch(url2, { headers: this._v1Headers });
+                    const res2 = await _fetch(url2, { headers: this._v1Headers }, 10000);
                     if (res2.ok) data = await res2.json();
                 }
             }
@@ -219,11 +220,12 @@ class PancakeDataManager {
                 if (!pat) { errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
 
                 let retried = false;
+                const _fetch = window.fetchWithTimeout || fetch;
                 const fetchPage = async (token) => {
                     const url = PancakeApiConfig.buildUrl.pancakeOfficialV2(
                         `pages/${pageId}/conversations`, token
                     );
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await _fetch(url, { headers: { 'Accept': 'application/json' } }, 10000);
                     if (!res.ok) throw { code: res.status };
                     const data = await res.json();
                     if (data.error_code) throw { code: data.error_code, message: data.message };
@@ -275,7 +277,7 @@ class PancakeDataManager {
     }
 
     // --- Fetch Conversations for single page ---
-    async fetchConversationsForPage(pageId) {
+    async fetchConversationsForPage(pageId, opts = {}) {
         try {
             let pat = await this.getPageAccessToken(pageId);
             if (!pat) return { conversations: [], error: { code: 'NO_TOKEN' } };
@@ -284,7 +286,8 @@ class PancakeDataManager {
                 `pages/${pageId}/conversations`, pat
             ) + '&unread_first=true';
 
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: { 'Accept': 'application/json' }, signal: opts.signal }, 10000);
             if (!res.ok) return { conversations: [], error: { code: res.status } };
 
             const data = await res.json();
@@ -314,7 +317,7 @@ class PancakeDataManager {
     // --- Search Conversations on a specific page by customer name ---
     // Uses Public API v2: GET /pages/{pageId}/conversations?search={name}
     // Returns matching conversations on this page (up to 60)
-    async searchConversationsOnPage(pageId, query) {
+    async searchConversationsOnPage(pageId, query, opts = {}) {
         try {
             if (!query || !pageId) return { conversations: [] };
             let pat = await this.getPageAccessToken(pageId);
@@ -324,7 +327,8 @@ class PancakeDataManager {
                 `pages/${pageId}/conversations`, pat
             ) + `&search=${encodeURIComponent(query)}`;
 
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: { 'Accept': 'application/json' }, signal: opts.signal }, 10000);
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
             return { conversations: data.conversations || [] };
