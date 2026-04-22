@@ -2178,7 +2178,10 @@ function buildPartialTagCluster(cluster, sourceClearResults) {
  * Mark local InvoiceStatusStore entries của các source đã clear là "Hủy do gộp đơn".
  * - Mutate in-place trong Map + call _saveBatchToAPI để persist xuống Postgres.
  * - Không cancel invoice bên TPOS (quá destructive, cần user confirm riêng).
- * - Trigger refresh PBH từ TPOS ngầm để đồng bộ state thật (nếu TPOS đã đổi).
+ *
+ * CHÚ Ý: KHÔNG call refreshAllFromTPOS ở đây vì hàm đó gọi clearAll() → wipe
+ * toàn bộ store trước khi fetch lại, sẽ mất PBH của mọi đơn khác.
+ * Nếu cần sync TPOS thật cho các source → user bấm refresh thủ công sau.
  */
 function markSourceOrdersMergeCancelled(sourceOrderIds) {
     if (!Array.isArray(sourceOrderIds) || sourceOrderIds.length === 0) return;
@@ -2214,16 +2217,6 @@ function markSourceOrdersMergeCancelled(sourceOrderIds) {
         // Re-render UI
         if (typeof store._refreshInvoiceStatusUI === 'function') {
             try { store._refreshInvoiceStatusUI(sourceOrderIds.map(String)); } catch {}
-        }
-    }
-
-    // Trigger refresh PBH từ TPOS trong background để sync state thật (nếu TPOS auto-set IsMergeCancel)
-    if (typeof store.refreshAllFromTPOS === 'function' && Array.isArray(window.allData)) {
-        const sourceOrders = window.allData.filter(o => sourceOrderIds.map(String).includes(String(o.Id)));
-        if (sourceOrders.length > 0) {
-            store.refreshAllFromTPOS({ orders: sourceOrders }).catch(e =>
-                console.warn('[MERGE-PBH] Background TPOS refresh failed:', e?.message || e)
-            );
         }
     }
 }
