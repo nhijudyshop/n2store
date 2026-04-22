@@ -55,13 +55,14 @@
         document.body.appendChild(toast);
 
         toast.addEventListener('click', (e) => {
-            const target = e.target.closest('[data-action="close"]');
-            if (target) {
+            const closeBtn = e.target.closest('[data-action="close"]');
+            if (closeBtn) {
                 hideToast();
                 return;
             }
-            // Toggle error panel on body click if there are errors
-            if (currentErrors.length > 0) {
+            // Toggle error panel ONLY when clicking header and errors exist
+            const onHeader = !!e.target.closest('.autosend-toast__header');
+            if (onHeader && currentErrors.length > 0) {
                 const panel = toast.querySelector('.autosend-toast__errors');
                 if (panel) {
                     panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
@@ -115,6 +116,15 @@
         }
         currentErrors = [];
         const toast = buildToast();
+        // Reset stale visual state from a previous run (done/errors classes)
+        toast.classList.remove('autosend-toast--done', 'autosend-toast--has-errors');
+        const title = toast.querySelector('.autosend-toast__title');
+        if (title) title.textContent = 'Đang gửi bill...';
+        const errorPanel = toast.querySelector('.autosend-toast__errors');
+        if (errorPanel) {
+            errorPanel.style.display = 'none';
+            errorPanel.innerHTML = '';
+        }
         render(progress);
         // Force reflow → enable transition
         void toast.offsetWidth;

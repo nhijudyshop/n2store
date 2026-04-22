@@ -135,14 +135,24 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
             hasRowVersion: !!payload.RowVersion
         });
 
+        // Build headers — nếu có RowVersion, gửi If-Match để TPOS validate optimistic concurrency.
+        // Nếu đơn đã bị sửa bởi user khác giữa fetch và PUT → TPOS trả 412 Precondition Failed.
+        // Nếu TPOS không support If-Match → header bị ignore, không ảnh hưởng flow hiện tại.
+        const putHeaders = {
+            ...headers,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        };
+        // `!= null` để giữ cả RowVersion=0 (initial record) — tránh silent drop optimistic lock
+        if (payload.RowVersion != null && payload.RowVersion !== '') {
+            // OData chuẩn: If-Match: W/"<rowversion>". Một số TPOS endpoint accept raw value.
+            putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
+        }
+
         // Use direct fetch instead of smartFetch to avoid fallback issues
         const response = await fetch(apiUrl, {
             method: 'PUT',
-            headers: {
-                ...headers,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-            },
+            headers: putHeaders,
             body: JSON.stringify(payload)
         });
 
@@ -154,6 +164,14 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
                 lastError = new Error(`HTTP ${response.status}: ${errorText}`);
                 await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
                 continue;
+            }
+            // Concurrency conflict (412/409 với message về RowVersion/ETag) → không retry, thông báo rõ
+            if (response.status === 412 || (response.status === 409 && /rowversion|etag|concurren|conflict/i.test(errorText))) {
+                console.error(`[MERGE-API] 🔀 Concurrency conflict PUT ${orderData.Id} (HTTP ${response.status}):`, errorText);
+                const concErr = new Error(`Concurrency conflict: Đơn ${orderData.Id} đã bị sửa bởi user khác. Vui lòng load lại và thử lại.`);
+                concErr.__noRetry = true;
+                concErr.__concurrencyConflict = true;
+                throw concErr;
             }
             console.error(`[MERGE-API] PUT failed:`, errorText);
             // Non-retryable HTTP (400/401/403/404/409/422/...) → throw với flag để catch không retry
@@ -206,7 +224,27 @@ window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 // Module-level lock tracking in-progress merges để tránh race condition khi user mở 2 tab
 // cùng chạy merge trên cùng 1 target (second PUT sẽ overwrite first + mất products nguồn).
 // Lock keyed by TargetOrderId; set khi bắt đầu, xóa trong finally.
-const _mergeInProgress = new Set();
+// Shared qua window để live-waiting module cũng dùng được lock chung.
+const _mergeInProgress = window.__merge_inprogress = window.__merge_inprogress || new Set();
+
+/**
+ * Acquire merge lock cho 1 target order. Return false nếu đã bị lock.
+ * Caller PHẢI gọi releaseMergeLock trong finally.
+ */
+function acquireMergeLock(targetOrderId) {
+    const key = String(targetOrderId || '');
+    if (!key) return false;
+    if (_mergeInProgress.has(key)) return false;
+    _mergeInProgress.add(key);
+    return true;
+}
+
+function releaseMergeLock(targetOrderId) {
+    _mergeInProgress.delete(String(targetOrderId || ''));
+}
+
+window.acquireMergeLock = acquireMergeLock;
+window.releaseMergeLock = releaseMergeLock;
 
 /**
  * Execute product merge for a single merged order
@@ -221,7 +259,7 @@ async function executeMergeOrderProducts(mergedOrder) {
 
     // Merge lock: cùng target đang chạy → từ chối để tránh race condition (data loss)
     const lockKey = String(mergedOrder.TargetOrderId);
-    if (_mergeInProgress.has(lockKey)) {
+    if (!acquireMergeLock(lockKey)) {
         console.warn(`[MERGE-API] 🔒 Target ${lockKey} đang gộp — từ chối concurrent merge`);
         return {
             success: false,
@@ -229,7 +267,6 @@ async function executeMergeOrderProducts(mergedOrder) {
             locked: true
         };
     }
-    _mergeInProgress.add(lockKey);
 
     try {
         console.log(`[MERGE-API] Starting merge for phone ${mergedOrder.Telephone}`);
@@ -429,10 +466,11 @@ async function executeMergeOrderProducts(mergedOrder) {
             success: false,
             message: 'Lỗi: ' + error.message,
             error: error,
-            errorResponse: errorResponse
+            errorResponse: errorResponse,
+            concurrencyConflict: !!(error && error.__concurrencyConflict)
         };
     } finally {
-        _mergeInProgress.delete(lockKey);
+        releaseMergeLock(lockKey);
     }
 }
 
@@ -1219,9 +1257,11 @@ async function confirmMergeSelectedClusters() {
         }
     }
 
-    // Count successes, partials, and failures
+    // Count successes, partials, failures — thêm phân loại concurrency & locked
     const successCount = results.filter(r => r.result.success).length;
     const partialCount = results.filter(r => !r.result.success && r.result.partial).length;
+    const concurrencyCount = results.filter(r => !r.result.success && r.result.concurrencyConflict).length;
+    const lockedCount = results.filter(r => !r.result.success && r.result.locked).length;
     const failureCount = results.length - successCount - partialCount;
 
     // Show summary — partial merges cần warning rõ ràng vì có duplicate-product risk
@@ -1235,6 +1275,20 @@ async function confirmMergeSelectedClusters() {
                 `⚠️ ${partialCount}/${results.length} cụm GỘP DANG DỞ — có thể trùng sản phẩm. Kiểm tra: ${partialDetails}`,
                 'error',
                 12000
+            );
+        } else if (concurrencyCount > 0) {
+            const concPhones = results.filter(r => r.result.concurrencyConflict).map(r => r.cluster.phone).join(', ');
+            window.notificationManager.show(
+                `🔀 ${concurrencyCount}/${results.length} cụm BỊ CONFLICT (user khác đã sửa đơn): ${concPhones}. Vui lòng load lại trang và thử lại.`,
+                'error',
+                10000
+            );
+        } else if (lockedCount > 0) {
+            const lockedPhones = results.filter(r => r.result.locked).map(r => r.cluster.phone).join(', ');
+            window.notificationManager.show(
+                `🔒 ${lockedCount}/${results.length} cụm BỊ LOCK (đang gộp ở tab khác): ${lockedPhones}. Chờ hoàn tất rồi thử lại.`,
+                'warning',
+                8000
             );
         } else if (failureCount > 0) {
             const failedPhones = results.filter(r => !r.result.success).map(r => r.cluster.phone).join(', ');

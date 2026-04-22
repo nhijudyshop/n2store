@@ -5,6 +5,7 @@
 
 const dgram = require('dgram');
 const { URL } = require('url');
+const { OnCallPortalClient } = require('../services/oncall-portal-client');
 
 const MODULE = '[ONCALL-SIP]';
 
@@ -14,6 +15,31 @@ const PBX_PORT = parseInt(process.env.ONCALL_PBX_PORT || '9060', 10);
 
 // Track active WebSocket ↔ UDP socket pairs
 const activeSessions = new Map();
+
+// Shared OnCallCX portal client (lazy, single instance with session cache)
+let _portalClient = null;
+function getPortalClient() {
+    if (_portalClient) return _portalClient;
+    const username = process.env.ONCALL_USERNAME || process.env.ONCALL_PORTAL_USER;
+    const password = process.env.ONCALL_PASSWORD || process.env.ONCALL_PORTAL_PASS;
+    if (!username || !password) {
+        throw new Error('ONCALL_USERNAME / ONCALL_PASSWORD env vars required for portal access');
+    }
+    _portalClient = new OnCallPortalClient({ username, password, debug: false });
+    return _portalClient;
+}
+
+// Simple TTL cache cho GET endpoints để tránh hammering portal
+const _cache = new Map(); // key → { value, expires }
+function cacheGet(key) {
+    const e = _cache.get(key);
+    if (!e) return null;
+    if (Date.now() > e.expires) { _cache.delete(key); return null; }
+    return e.value;
+}
+function cacheSet(key, value, ttlSec) {
+    _cache.set(key, { value, expires: Date.now() + ttlSec * 1000 });
+}
 
 // Debug log — recent SIP messages (ring buffer)
 const sipDebugLog = [];
@@ -806,6 +832,88 @@ function createRouter() {
             res.status(500).json({ success: false, error: err.message });
         }
     });
+
+    // =====================================================
+    // ONCALLCX PORTAL PROXY — HTTP-only client
+    // (login + fetch calls + download recording từ pbx-ucaas.oncallcx.vn)
+    // =====================================================
+
+    function portalErrorMiddleware(handler) {
+        return async (req, res) => {
+            try { await handler(req, res); }
+            catch (err) {
+                const msg = err?.message || 'portal error';
+                console.error(`${MODULE} portal error:`, msg);
+                res.status(500).json({ success: false, error: msg });
+            }
+        };
+    }
+
+    // GET /api/oncall/portal/calls — list calls (page 1, 25 rows)
+    router.get('/portal/calls', portalErrorMiddleware(async (req, res) => {
+        const cacheKey = `calls_${req.query.page || 1}`;
+        const cached = cacheGet(cacheKey);
+        if (cached) return res.json({ success: true, cached: true, ...cached });
+        const client = getPortalClient();
+        const data = await client.listCalls({ page: parseInt(req.query.page || '1', 10) });
+        cacheSet(cacheKey, data, 15); // 15s TTL
+        res.json({ success: true, ...data });
+    }));
+
+    // GET /api/oncall/portal/extensions — list PBX extensions
+    router.get('/portal/extensions', portalErrorMiddleware(async (req, res) => {
+        const cached = cacheGet('extensions');
+        if (cached) return res.json({ success: true, cached: true, ...cached });
+        const client = getPortalClient();
+        const data = await client.listExtensions();
+        cacheSet('extensions', data, 60);
+        res.json({ success: true, ...data });
+    }));
+
+    // GET /api/oncall/portal/live-calls — currently active calls
+    router.get('/portal/live-calls', portalErrorMiddleware(async (req, res) => {
+        const client = getPortalClient();
+        const data = await client.listLiveCalls();
+        res.json({ success: true, ...data });
+    }));
+
+    // GET /api/oncall/portal/public-numbers — DID routing
+    router.get('/portal/public-numbers', portalErrorMiddleware(async (req, res) => {
+        const cached = cacheGet('public_numbers');
+        if (cached) return res.json({ success: true, cached: true, ...cached });
+        const client = getPortalClient();
+        const data = await client.listPublicNumbers();
+        cacheSet('public_numbers', data, 120);
+        res.json({ success: true, ...data });
+    }));
+
+    // GET /api/oncall/portal/dashboard — phone status summary
+    router.get('/portal/dashboard', portalErrorMiddleware(async (req, res) => {
+        const cached = cacheGet('dashboard');
+        if (cached) return res.json({ success: true, cached: true, ...cached });
+        const client = getPortalClient();
+        const data = await client.dashboard();
+        cacheSet('dashboard', data, 30);
+        res.json({ success: true, ...data });
+    }));
+
+    // GET /api/oncall/portal/recording/:rowKey — stream recording WAV
+    router.get('/portal/recording/:rowKey', portalErrorMiddleware(async (req, res) => {
+        const rowKey = (req.params.rowKey || '').replace(/[^\w-]/g, '');
+        if (!rowKey) return res.status(400).json({ success: false, error: 'rowKey required' });
+        const client = getPortalClient();
+        const dl = await client.downloadRecording(rowKey);
+        res.setHeader('Content-Type', dl.contentType || 'audio/wav');
+        if (dl.contentLength) res.setHeader('Content-Length', dl.contentLength);
+        const dispo = req.query.download === '1' ? 'attachment' : 'inline';
+        res.setHeader('Content-Disposition', `${dispo}; filename="${dl.filename}"`);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        dl.stream.pipe(res);
+        dl.stream.on('error', (err) => {
+            console.error(`${MODULE} recording stream error:`, err.message);
+            if (!res.headersSent) res.status(500).end();
+        });
+    }));
 
     return router;
 }

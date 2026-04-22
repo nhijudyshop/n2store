@@ -2913,7 +2913,7 @@ async function preGenerateBillImages() {
     console.log(
         `[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`
     );
-    window.notificationManager.success(
+    window.notificationManager?.success(
         `Đã tạo sẵn ${window.preGeneratedBillData.size} bill images`,
         2000
     );

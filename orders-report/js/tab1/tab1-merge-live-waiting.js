@@ -596,6 +596,21 @@
         const logs = [];
         const log = (m) => { logs.push(m); console.log(`${LOG} ${m}`); };
 
+        // Merge lock — share với tab1-merge.js qua window để chặn concurrent merge trên cùng target.
+        // tab1-merge.js load trước live-waiting (xem tab1-orders.html:1399-1402) nên acquireMergeLock
+        // LUÔN tồn tại. Fail loud nếu thiếu → dễ debug hơn soft-fail im lặng.
+        const targetId = cluster.targetOrder?.Id;
+        if (!targetId) {
+            throw new Error('mergeOneCluster: cluster.targetOrder.Id không tồn tại');
+        }
+        if (typeof window.acquireMergeLock !== 'function') {
+            throw new Error('mergeOneCluster: window.acquireMergeLock missing — tab1-merge.js chưa load xong');
+        }
+        if (!window.acquireMergeLock(targetId)) {
+            throw new Error(`Target ${targetId} đang được gộp (tab khác?). Chờ hoàn tất rồi thử lại.`);
+        }
+        try {
+
         // 1. Full target object — tận dụng __fullOrder cache từ scan để tránh double-fetch
         let targetFull = cluster.targetOrder.__fullOrder;
         if (!targetFull) {
@@ -768,6 +783,11 @@
             failedSourceIds,
             partial
         };
+        } finally {
+            if (typeof window.releaseMergeLock === 'function') {
+                window.releaseMergeLock(targetId);
+            }
+        }
     }
 
     async function runConfirm() {
