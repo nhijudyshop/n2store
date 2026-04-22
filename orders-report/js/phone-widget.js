@@ -1261,9 +1261,9 @@ const PhoneWidget = (() => {
             playAnsweredTone();
             startTimer();
             try { window.PhoneCloudSync?.setPresence?.('in-call', { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '', direction: activeCallMeta?.direction || '' }); } catch {}
-            // Start local recording if enabled
+            // Always-on recording: thu âm mọi cuộc gọi (local IndexedDB + auto-upload Render DB)
             try {
-                if (window.PhoneRecording?.isEnabled?.() && activeCallMeta?.phone) {
+                if (window.PhoneRecording && activeCallMeta?.phone) {
                     const user = window.authManager?.getAuthData?.()?.displayName || '';
                     // Delay 400ms to let remote track attach to <audio id=pwRemoteAudio>
                     setTimeout(() => {

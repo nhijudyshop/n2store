@@ -1047,14 +1047,35 @@ async function confirmMergeSelectedClusters() {
         // Save merge history to Firebase (before tag assignment to capture original tags)
         await saveMergeHistory(cluster, result, result.errorResponse || null);
 
-        // If merge successful, assign tags
-        if (result.success) {
-            console.log(`[MERGE-MODAL] Merge successful, assigning tags for cluster ${cluster.phone}`);
-            const tagResult = await assignTagsAfterMerge(cluster);
+        // Assign tags trong 2 trường hợp:
+        // 1) success=true: gán tag đầy đủ cho target + tất cả source
+        // 2) partial=true: target đã có đủ products → vẫn cần tag target, CHỈ gán "ĐÃ GỘP KO CHỐT"
+        //    cho các source đã clear thành công (source chưa clear giữ nguyên tag cũ để user retry)
+        const clusterForTagging = result.success
+            ? cluster
+            : (result.partial ? buildPartialTagCluster(cluster, result.sourceClearResults) : null);
+
+        if (clusterForTagging) {
+            console.log(`[MERGE-MODAL] Assigning tags for cluster ${cluster.phone} (${result.partial ? 'partial' : 'full'})`);
+            const tagResult = await assignTagsAfterMerge(clusterForTagging);
             if (tagResult.success) {
-                console.log(`[MERGE-MODAL] ✅ Tags assigned successfully for cluster ${cluster.phone}`);
+                console.log(`[MERGE-MODAL] ✅ Tags assigned for cluster ${cluster.phone}`);
             } else {
                 console.warn(`[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`, tagResult.error);
+            }
+        }
+
+        // Sync InvoiceStatusStore (PBH) cho source đã clear → đánh dấu merge-cancelled local
+        if (result.success || result.partial) {
+            const clearedIds = (result.sourceClearResults || [])
+                .filter(r => r.cleared)
+                .map(r => r.sourceId);
+            if (clearedIds.length > 0 && typeof window.markSourceOrdersMergeCancelled === 'function') {
+                try {
+                    window.markSourceOrdersMergeCancelled(clearedIds);
+                } catch (e) {
+                    console.warn(`[MERGE-MODAL] markSourceOrdersMergeCancelled failed:`, e);
+                }
             }
         }
 
@@ -1064,13 +1085,24 @@ async function confirmMergeSelectedClusters() {
         }
     }
 
-    // Count successes and failures
+    // Count successes, partials, and failures
     const successCount = results.filter(r => r.result.success).length;
-    const failureCount = results.length - successCount;
+    const partialCount = results.filter(r => !r.result.success && r.result.partial).length;
+    const failureCount = results.length - successCount - partialCount;
 
-    // Show summary
+    // Show summary — partial merges cần warning rõ ràng vì có duplicate-product risk
     if (window.notificationManager) {
-        if (failureCount > 0) {
+        if (partialCount > 0) {
+            const partialDetails = results
+                .filter(r => !r.result.success && r.result.partial)
+                .map(r => `${r.cluster.phone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                .join('; ');
+            window.notificationManager.show(
+                `⚠️ ${partialCount}/${results.length} cụm GỘP DANG DỞ — có thể trùng sản phẩm. Kiểm tra: ${partialDetails}`,
+                'error',
+                12000
+            );
+        } else if (failureCount > 0) {
             const failedPhones = results.filter(r => !r.result.success).map(r => r.cluster.phone).join(', ');
             window.notificationManager.show(
                 `Gộp ${successCount}/${results.length} cụm. Thất bại: ${failedPhones}`,
