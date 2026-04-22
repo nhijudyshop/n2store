@@ -849,7 +849,11 @@ if (document.readyState === 'loading') {
  * Mở modal sale ngay trong Social tab (không jump sang Tab1)
  * Dùng chung hàm confirmAndPrintSale từ tab1-sale.js
  */
+// Guard double-click: openSaleModalInSocialTab là async (có TPOS enrichment fetch),
+// user click nhanh 2 lần sẽ fire 2 batch fetch + mở modal 2 lần
+const _openingSaleForOrder = new Set();
 function openRetailSaleFromSocial(orderId) {
+    if (_openingSaleForOrder.has(orderId)) return;
     const order = SocialOrderState.orders.find(o => o.id === orderId);
     if (!order) {
         showNotification('Không tìm thấy đơn hàng', 'error');
@@ -858,7 +862,12 @@ function openRetailSaleFromSocial(orderId) {
 
     // Open sale modal directly within Social tab
     if (typeof openSaleModalInSocialTab === 'function') {
-        openSaleModalInSocialTab(orderId);
+        _openingSaleForOrder.add(orderId);
+        // Release sau 1s — đủ thời gian cho fetch enrichment start, ngăn double-click
+        // nhưng vẫn cho phép user mở lại sau nếu modal đã đóng
+        Promise.resolve(openSaleModalInSocialTab(orderId)).finally(() => {
+            setTimeout(() => _openingSaleForOrder.delete(orderId), 1000);
+        });
     } else {
         showNotification('Chức năng tạo phiếu bán hàng chưa sẵn sàng', 'error');
     }
