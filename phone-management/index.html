@@ -293,39 +293,49 @@
                     </div>
                 </div>
 
-                <!-- Sub-tab: OnCallCX portal recordings -->
+                <!-- Sub-tab: OnCallCX portal recordings (LIVE data via render.com proxy) -->
                 <div class="rec-subview" data-subview="oncall" style="display:none">
-                    <div class="pm-panel" style="padding:18px">
-                        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
-                            <i data-lucide="info" style="color:var(--pm-info);flex-shrink:0;margin-top:2px"></i>
-                            <div>
-                                <h4 style="margin:0 0 6px">Ghi âm lưu trên portal OnCallCX</h4>
-                                <p style="margin:0;color:var(--pm-muted);font-size:13px;line-height:1.55">
-                                    Bản ghi âm do FPT/OnCallCX lưu server-side (CDR — Call Detail Record). Truy cập trực tiếp qua portal:
-                                    <b>PBX → Calls (Lịch sử cuộc gọi) → Show detailed calls → chọn cuộc gọi → Play Audio / Download Audio</b>.
+                    <div class="pm-panel" style="padding:18px;background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #86efac">
+                        <div style="display:flex;gap:14px;align-items:flex-start">
+                            <i data-lucide="check-circle-2" style="color:#059669;flex-shrink:0;margin-top:2px"></i>
+                            <div style="flex:1">
+                                <h4 style="margin:0 0 6px;color:#065f46">Ghi âm OnCallCX — Nghe / Tải trực tiếp</h4>
+                                <p style="margin:0;color:#047857;font-size:13px;line-height:1.55">
+                                    Đã tích hợp <b>OnCallCX Portal API</b> qua render.com proxy. Cuộc gọi và ghi âm được lấy trực tiếp từ <code>pbx-ucaas.oncallcx.vn</code>
+                                    — không cần mở portal thủ công. Bấm nút <b>▶</b> để nghe ngay, <b>↓</b> để tải .wav.
                                 </p>
-                                <p style="margin:8px 0 0;color:var(--pm-muted);font-size:12px">
-                                    OnCallCX <u>chưa mở REST API public</u> để lấy file audio. Bấm nút bên dưới để mở portal.
-                                </p>
+                                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                                    <a href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="text-decoration:none;font-size:11px">
+                                        <i data-lucide="external-link"></i> Mở Portal gốc
+                                    </a>
+                                    <button class="btn btn-sm btn-outline" onclick="PM.loadOncallCdrs()" style="font-size:11px">
+                                        <i data-lucide="refresh-cw"></i> Làm mới
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap">
-                            <a href="https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml" target="_blank" rel="noopener" class="btn btn-sm" style="background:var(--pm-primary);color:#fff;text-decoration:none">
-                                <i data-lucide="external-link"></i> Mở Portal — Calls
-                            </a>
-                            <a href="https://pbx-ucaas.oncallcx.vn/portal/" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="text-decoration:none">
-                                <i data-lucide="external-link"></i> Dashboard
-                            </a>
                         </div>
                     </div>
                     <div class="pm-panel" style="margin-top:14px">
                         <div class="pm-panel-head" style="display:flex;justify-content:space-between;align-items:center">
-                            <h3>CDR gần đây (tham chiếu tìm file trên portal)</h3>
-                            <small style="color:var(--pm-muted);font-weight:400">So khớp theo thời gian + số để tra file audio trên OnCallCX</small>
+                            <h3>Cuộc gọi từ OnCallCX Portal</h3>
+                            <small style="color:var(--pm-muted);font-weight:400">Nguồn: <code>pbxCalls.xhtml</code> — 25 cuộc gần nhất</small>
                         </div>
                         <table class="pm-table">
-                            <thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Ext</th><th>Số</th><th>Khách</th><th>Hướng</th><th>Thời lượng</th></tr></thead>
-                            <tbody id="recOncallCdrBody"><tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr></tbody>
+                            <thead>
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Từ</th>
+                                    <th>Đến</th>
+                                    <th>Connected</th>
+                                    <th>Thời lượng</th>
+                                    <th>SIP</th>
+                                    <th>Ghi âm</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recOncallCdrBody">
+                                <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px">Đang tải...</td></tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>

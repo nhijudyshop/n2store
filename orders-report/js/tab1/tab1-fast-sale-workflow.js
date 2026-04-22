@@ -1576,6 +1576,20 @@
                     const result = await resp.json();
                     const inv = (result?.value || [])[0];
                     if (!inv || !window.InvoiceStatusStore) return;
+                    // Safeguard: TPOS OData có thể eventually-consistent sau ActionCancel.
+                    // Chỉ overwrite synthetic "Huỷ bỏ" nếu TPOS cũng confirm cancel state.
+                    // Nếu TPOS trả stale "Đã xác nhận" thì KHÔNG overwrite → synthetic giữ nguyên.
+                    const tposShowState = inv.ShowState || '';
+                    const tposState = inv.State || '';
+                    const tposIsCancelled =
+                        tposState === 'cancel' ||
+                        tposShowState === 'Huỷ bỏ' ||
+                        tposShowState === 'Hủy bỏ' ||
+                        inv.IsMergeCancel === true;
+                    if (!tposIsCancelled) {
+                        console.warn('[WORKFLOW] ⚠️ TPOS stale state after cancel, giữ synthetic:', invNumber, '→', tposShowState);
+                        return;
+                    }
                     window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
                     const laterRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                     const laterCell = laterRow?.querySelector('td[data-column="invoice-status"]');
