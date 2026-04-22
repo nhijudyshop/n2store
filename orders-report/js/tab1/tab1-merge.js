@@ -610,35 +610,49 @@ async function executeBulkMergeOrderProducts() {
             }
         }
 
-        // Count successes, partials, and failures
+        // Count successes, partials, failures — phân loại concurrency & locked, tập hợp (không ẩn)
         const successCount = results.filter(r => r.result.success).length;
-        const partialCount = results.filter(r => !r.result.success && r.result.partial).length;
-        const failureCount = results.length - successCount - partialCount;
+        const partialList = results.filter(r => !r.result.success && r.result.partial);
+        const concurrencyList = results.filter(r => !r.result.success && r.result.concurrencyConflict);
+        const lockedList = results.filter(r => !r.result.success && r.result.locked);
+        const genericFails = results.filter(r =>
+            !r.result.success
+            && !r.result.partial
+            && !r.result.concurrencyConflict
+            && !r.result.locked
+        );
+        const failureCount = results.length - successCount;
 
-        // Show summary
+        // Show summary — tập hợp tất cả failure categories
         if (window.notificationManager) {
-            if (partialCount > 0) {
-                const partialDetails = results
-                    .filter(r => !r.result.success && r.result.partial)
-                    .map(r => `${r.order.Telephone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
-                    .join('; ');
-                window.notificationManager.show(
-                    `⚠️ ${partialCount}/${results.length} SĐT GỘP DANG DỞ — kiểm tra ngay: ${partialDetails}`,
-                    'error',
-                    12000
-                );
-            } else if (failureCount > 0) {
-                const failedPhones = results.filter(r => !r.result.success).map(r => r.order.Telephone).join(', ');
-                window.notificationManager.show(
-                    `Gộp ${successCount}/${results.length} đơn. Thất bại: ${failedPhones}`,
-                    'warning',
-                    8000
-                );
-            } else {
+            if (failureCount === 0) {
                 window.notificationManager.show(
                     `Đã gộp sản phẩm thành công cho ${successCount} đơn hàng!`,
                     'success',
                     5000
+                );
+            } else {
+                const parts = [];
+                if (partialList.length > 0) {
+                    const details = partialList
+                        .map(r => `${r.order.Telephone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                        .join('; ');
+                    parts.push(`⚠️ ${partialList.length} GỘP DANG DỞ: ${details}`);
+                }
+                if (concurrencyList.length > 0) {
+                    parts.push(`🔀 ${concurrencyList.length} CONFLICT: ${concurrencyList.map(r => r.order.Telephone).join(', ')} — load lại rồi thử lại`);
+                }
+                if (lockedList.length > 0) {
+                    parts.push(`🔒 ${lockedList.length} BỊ LOCK: ${lockedList.map(r => r.order.Telephone).join(', ')}`);
+                }
+                if (genericFails.length > 0) {
+                    parts.push(`❌ ${genericFails.length} LỖI: ${genericFails.map(r => r.order.Telephone).join(', ')}`);
+                }
+                const level = partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+                window.notificationManager.show(
+                    `Gộp ${successCount}/${results.length} đơn. ${parts.join(' | ')}`,
+                    level,
+                    12000
                 );
             }
         }
@@ -1257,51 +1271,49 @@ async function confirmMergeSelectedClusters() {
         }
     }
 
-    // Count successes, partials, failures — thêm phân loại concurrency & locked
+    // Count successes, partials, failures — phân loại concurrency & locked
     const successCount = results.filter(r => r.result.success).length;
-    const partialCount = results.filter(r => !r.result.success && r.result.partial).length;
-    const concurrencyCount = results.filter(r => !r.result.success && r.result.concurrencyConflict).length;
-    const lockedCount = results.filter(r => !r.result.success && r.result.locked).length;
-    const failureCount = results.length - successCount - partialCount;
+    const partialList = results.filter(r => !r.result.success && r.result.partial);
+    const concurrencyList = results.filter(r => !r.result.success && r.result.concurrencyConflict);
+    const lockedList = results.filter(r => !r.result.success && r.result.locked);
+    const genericFails = results.filter(r =>
+        !r.result.success
+        && !r.result.partial
+        && !r.result.concurrencyConflict
+        && !r.result.locked
+    );
 
-    // Show summary — partial merges cần warning rõ ràng vì có duplicate-product risk
+    // Show summary — TẬP HỢP tất cả failure categories, không ẩn qua else-if chain
     if (window.notificationManager) {
-        if (partialCount > 0) {
-            const partialDetails = results
-                .filter(r => !r.result.success && r.result.partial)
-                .map(r => `${r.cluster.phone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
-                .join('; ');
-            window.notificationManager.show(
-                `⚠️ ${partialCount}/${results.length} cụm GỘP DANG DỞ — có thể trùng sản phẩm. Kiểm tra: ${partialDetails}`,
-                'error',
-                12000
-            );
-        } else if (concurrencyCount > 0) {
-            const concPhones = results.filter(r => r.result.concurrencyConflict).map(r => r.cluster.phone).join(', ');
-            window.notificationManager.show(
-                `🔀 ${concurrencyCount}/${results.length} cụm BỊ CONFLICT (user khác đã sửa đơn): ${concPhones}. Vui lòng load lại trang và thử lại.`,
-                'error',
-                10000
-            );
-        } else if (lockedCount > 0) {
-            const lockedPhones = results.filter(r => r.result.locked).map(r => r.cluster.phone).join(', ');
-            window.notificationManager.show(
-                `🔒 ${lockedCount}/${results.length} cụm BỊ LOCK (đang gộp ở tab khác): ${lockedPhones}. Chờ hoàn tất rồi thử lại.`,
-                'warning',
-                8000
-            );
-        } else if (failureCount > 0) {
-            const failedPhones = results.filter(r => !r.result.success).map(r => r.cluster.phone).join(', ');
-            window.notificationManager.show(
-                `Gộp ${successCount}/${results.length} cụm. Thất bại: ${failedPhones}`,
-                'warning',
-                8000
-            );
-        } else {
+        const totalFail = partialList.length + concurrencyList.length + lockedList.length + genericFails.length;
+        if (totalFail === 0) {
             window.notificationManager.show(
                 `Đã gộp sản phẩm thành công cho ${successCount} cụm đơn hàng!`,
                 'success',
                 5000
+            );
+        } else {
+            const parts = [];
+            if (partialList.length > 0) {
+                const details = partialList
+                    .map(r => `${r.cluster.phone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                    .join('; ');
+                parts.push(`⚠️ ${partialList.length} GỘP DANG DỞ (trùng SP): ${details}`);
+            }
+            if (concurrencyList.length > 0) {
+                parts.push(`🔀 ${concurrencyList.length} CONFLICT (user khác sửa đơn): ${concurrencyList.map(r => r.cluster.phone).join(', ')} — load lại rồi thử lại`);
+            }
+            if (lockedList.length > 0) {
+                parts.push(`🔒 ${lockedList.length} BỊ LOCK (tab khác đang gộp): ${lockedList.map(r => r.cluster.phone).join(', ')}`);
+            }
+            if (genericFails.length > 0) {
+                parts.push(`❌ ${genericFails.length} LỖI khác: ${genericFails.map(r => r.cluster.phone).join(', ')}`);
+            }
+            const level = partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+            window.notificationManager.show(
+                `Gộp ${successCount}/${results.length} cụm. ${parts.join(' | ')}`,
+                level,
+                12000
             );
         }
     }
