@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-23
+
+### [inbox] Fix bug hủy đơn bắn cảnh báo sai "Vui lòng nhập lý do hủy đơn"
+| | |
+|---|---|
+| **Files** | MODIFIED: [don-inbox/js/tab-social-table.js](don-inbox/js/tab-social-table.js) — row click handler `case 'cancel'` gọi `socialConfirmCancelOrder(orderId)` thay vì global `confirmCancelOrder`. |
+| **Chi tiết** | **Root cause**: name collision global `window.confirmCancelOrder`. [tab-social-table.js:1137](don-inbox/js/tab-social-table.js#L1137) set bản inbox (defaults 'HẾT HÀNG', không chặn), sau đó [tab1-fast-sale-workflow.js:1807](orders-report/js/tab1/tab1-fast-sale-workflow.js#L1807) đè lên bản tab1 (đòi `#cancelReasonInput` + bắn warn "Vui lòng nhập lý do hủy đơn"). `don-inbox/index.html` load `tab-social-table.js` (line 2020) trước `tab1-fast-sale-workflow.js` (line 2043) → global trỏ về bản tab1 lúc user click nút hủy. Alias `socialConfirmCancelOrder` đã được define từ trước để né collision (comment [tab-social-table.js:1140](don-inbox/js/tab-social-table.js#L1140)), nhưng [tab-social-table.js:133](don-inbox/js/tab-social-table.js#L133) vẫn gọi global trần → bug. **Fix**: đổi dispatch sang namespaced alias, fallback về `confirmCancelOrder` nếu alias vắng (an toàn khi load riêng). |
+| **Status** | ✅ Done. |
+
+---
+
 ## 2026-04-22
 
 ### [phone][cors][infra] OnCallCX sync daemon + CORS fix (origin-aware) — Render/CF không reach được portal
