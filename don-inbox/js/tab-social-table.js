@@ -130,7 +130,10 @@ function _handleTableClick(e) {
             if (typeof openEditOrderModal === 'function') openEditOrderModal(orderId);
             break;
         case 'cancel':
-            if (typeof confirmCancelOrder === 'function') confirmCancelOrder(orderId);
+            // Gọi alias socialConfirmCancelOrder để tránh collision với tab1-fast-sale-workflow.js
+            // (cả hai file define window.confirmCancelOrder; tab1 load sau nên đè lên bản inbox).
+            if (typeof socialConfirmCancelOrder === 'function') socialConfirmCancelOrder(orderId);
+            else if (typeof confirmCancelOrder === 'function') confirmCancelOrder(orderId);
             break;
         case 'restore':
             restoreOrder(orderId);

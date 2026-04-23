@@ -152,6 +152,17 @@
         ],
         "description": "Load previous context and detect package manager on new session",
         "id": "session:start"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/mac/Desktop/n2store/scripts/trim-dev-log.sh\" >/dev/null 2>&1 || true"
+          }
+        ],
+        "description": "Auto-trim docs/dev-log.md: xóa entry cũ hơn 7 ngày",
+        "id": "session:trim-dev-log"
       }
     ],
     "PostToolUse": [
