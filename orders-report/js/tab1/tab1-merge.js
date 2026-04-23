@@ -1977,150 +1977,6 @@ const MERGE_TAG_COLOR = '#E3A21A';
 const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KO CHỐT';
 
 /**
- * Query single tag by exact name từ TPOS via OData $filter.
- * Trả về tag object hoặc null nếu không tồn tại.
- * Tránh được vấn đề pagination ($top=1000) khi DB có >1000 tags.
- */
-async function queryTPOSTagByName(tagName) {
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        // OData escape: dấu nháy đơn → ''
-        const escapedName = String(tagName).replace(/'/g, "''");
-        const filterExpr = `Name eq '${escapedName}'`;
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$filter=${encodeURIComponent(filterExpr)}&$top=5`;
-
-        const resp = await API_CONFIG.smartFetch(url, {
-            method: 'GET',
-            headers: { ...headers, accept: 'application/json' },
-        });
-        if (!resp.ok) {
-            console.warn(`[MERGE-TAG] queryTPOSTagByName HTTP ${resp.status} for "${tagName}"`);
-            return null;
-        }
-        const data = await resp.json();
-        const list = Array.isArray(data?.value) ? data.value : [];
-        if (list.length === 0) return null;
-        // Ưu tiên exact-case match, fallback case-insensitive first
-        const exact = list.find((t) => t?.Name === tagName);
-        return (
-            exact ||
-            list.find((t) => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()) ||
-            null
-        );
-    } catch (e) {
-        console.warn(`[MERGE-TAG] queryTPOSTagByName error for "${tagName}":`, e);
-        return null;
-    }
-}
-
-/**
- * Sync 1 tag mới vào local cache (availableTags + Firebase).
- */
-function _registerLocalTag(tag) {
-    if (!tag || tag.Id == null) return;
-    if (!Array.isArray(availableTags)) return;
-    if (availableTags.find((t) => t.Id === tag.Id)) return;
-    availableTags.push(tag);
-    window.availableTags = availableTags;
-    try {
-        window.cacheManager.set('tags', availableTags, 'tags');
-    } catch {}
-    if (typeof database !== 'undefined' && database) {
-        database
-            .ref('settings/tags')
-            .set(availableTags)
-            .catch((e) => console.warn('[MERGE-TAG] Firebase tags save failed:', e));
-    }
-}
-
-/**
- * Ensure a tag exists, create if not found.
- *
- * Lookup priority (tránh false-negative do pagination):
- *   1. Local cache (`availableTags`) — fast path
- *   2. OData `$filter=Name eq '...'` query — targeted, không bị giới hạn $top
- *   3. POST tạo mới
- *   4. Nếu POST 400 "Đã tồn tại" → re-query (1 lần) để recover tag từ server
- *
- * @param {string} tagName - Tag name to ensure exists
- * @param {string} color - Hex color for new tag
- * @returns {Promise<Object>} Tag object with Id, Name, Color
- */
-async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
-    try {
-        // STEP 1: Local cache (case-insensitive)
-        if (Array.isArray(availableTags)) {
-            const local = availableTags.find(
-                (t) => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()
-            );
-            if (local) {
-                console.log(`[MERGE-TAG] Tag "${tagName}" found in local cache:`, local);
-                return local;
-            }
-        }
-
-        // STEP 2: Targeted OData filter query (handles >1000 tags)
-        console.log(`[MERGE-TAG] Querying tag "${tagName}" via $filter...`);
-        const remote = await queryTPOSTagByName(tagName);
-        if (remote) {
-            console.log(`[MERGE-TAG] Tag "${tagName}" found via filter:`, remote);
-            _registerLocalTag(remote);
-            return remote;
-        }
-
-        // STEP 3: Create new tag
-        console.log(`[MERGE-TAG] Creating new tag: "${tagName}" with color ${color}`);
-        const headers = await window.tokenManager.getAuthHeader();
-        const response = await API_CONFIG.smartFetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
-            {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    accept: 'application/json, text/plain, */*',
-                    'content-type': 'application/json;charset=UTF-8',
-                },
-                body: JSON.stringify({ Name: tagName, Color: color }),
-            }
-        );
-
-        if (response.ok) {
-            const newTag = await response.json();
-            if (newTag['@odata.context']) delete newTag['@odata.context'];
-            console.log('[MERGE-TAG] Tag created successfully:', newTag);
-            _registerLocalTag(newTag);
-            return newTag;
-        }
-
-        // STEP 4: POST failed → check if it's "already exists" → re-query để recover
-        const errorText = await response.text();
-        const isDuplicate = response.status === 400 && /tồn tại|exist/i.test(errorText);
-        if (isDuplicate) {
-            console.warn(
-                `[MERGE-TAG] POST said "đã tồn tại" — re-querying tag "${tagName}" to recover...`
-            );
-            const recovered = await queryTPOSTagByName(tagName);
-            if (recovered) {
-                console.log(
-                    `[MERGE-TAG] Tag "${tagName}" recovered after duplicate error:`,
-                    recovered
-                );
-                _registerLocalTag(recovered);
-                return recovered;
-            }
-            console.error(
-                `[MERGE-TAG] Tag "${tagName}" exists on server but cannot be retrieved via $filter`
-            );
-        }
-
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-    } catch (error) {
-        console.error('[MERGE-TAG] Error ensuring tag exists:', error);
-        throw error;
-    }
-}
-
-/**
  * Get tags array from order object
  * NOTE: This function was renamed from parseOrderTags to avoid collision
  *       with the parseOrderTags() function at line ~4969 that renders HTML
@@ -2258,171 +2114,6 @@ function calculateSourceTagsPreview(sourceOrder, cluster) {
 }
 
 /**
- * Assign tags to an order via API
- * @param {string} orderId - Order ID
- * @param {Array} tags - Array of tag objects
- */
-async function assignTagsToOrder(orderId, tags) {
-    const headers = await window.tokenManager.getAuthHeader();
-
-    const response = await API_CONFIG.smartFetch(
-        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
-        {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-            body: JSON.stringify({
-                Tags: tags.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                OrderId: orderId,
-            }),
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error(`Lỗi gán tag: ${response.status}`);
-    }
-
-    // Update order in table
-    const updatedData = { Tags: JSON.stringify(tags) };
-    updateOrderInTable(orderId, updatedData);
-
-    // Emit Firebase realtime update
-    await emitTagUpdateToFirebase(orderId, tags);
-
-    return true;
-}
-
-/**
- * Assign tags after successful merge
- * @param {Object} cluster - Cluster data with orders, targetOrder, sourceOrders
- * @returns {Promise<Object>} Result of tag assignment
- */
-async function assignTagsAfterMerge(cluster) {
-    try {
-        console.log('[MERGE-TAG] Starting tag assignment for cluster:', cluster.phone);
-
-        // Step 1: Ensure "ĐÃ GỘP KO CHỐT" tag exists
-        const mergedTag = await ensureMergeTagExists(MERGED_ORDER_TAG_NAME, MERGE_TAG_COLOR);
-
-        // Step 2: Create "Gộp X Y Z" tag
-        const allSTTs = cluster.orders.map((o) => o.SessionIndex).sort((a, b) => a - b);
-        const mergeTagName = `Gộp ${allSTTs.join(' ')}`;
-        const mergeGroupTag = await ensureMergeTagExists(mergeTagName, MERGE_TAG_COLOR);
-
-        // Step 3: Collect all tags from all orders (for target order)
-        const allTags = new Map(); // Use Map to dedupe by tag Id
-
-        // Helper function: Check if a tag should be excluded (merge-related tags)
-        const shouldExcludeTag = (tagName) => {
-            if (!tagName) return false;
-            // Exclude "ĐÃ GỘP KO CHỐT" tag - this is for source orders only
-            if (tagName === MERGED_ORDER_TAG_NAME) return true;
-            // Exclude old "Gộp X Y Z" tags from previous merges
-            if (tagName.startsWith('Gộp ')) return true;
-            return false;
-        };
-
-        // Add tags from target order (exclude merge-related tags)
-        const targetTags = getOrderTagsArray(cluster.targetOrder);
-        targetTags.forEach((t) => {
-            if (t.Id && !shouldExcludeTag(t.Name)) {
-                allTags.set(t.Id, t);
-            }
-        });
-        console.log(
-            `[MERGE-TAG] Target order tags after filter: ${
-                targetTags
-                    .filter((t) => !shouldExcludeTag(t.Name))
-                    .map((t) => t.Name)
-                    .join(', ') || '(none)'
-            }`
-        );
-
-        // Add tags from source orders (exclude merge-related tags)
-        cluster.sourceOrders.forEach((sourceOrder) => {
-            const sourceTags = getOrderTagsArray(sourceOrder);
-            const filteredTags = sourceTags.filter((t) => t.Id && !shouldExcludeTag(t.Name));
-            console.log(
-                `[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map((t) => t.Name).join(', ') || '(none)'}`
-            );
-            filteredTags.forEach((t) => {
-                allTags.set(t.Id, t);
-            });
-        });
-
-        // Add merge group tag
-        allTags.set(mergeGroupTag.Id, mergeGroupTag);
-
-        // Convert to array
-        const targetOrderNewTags = Array.from(allTags.values());
-
-        console.log(
-            `[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags: ${targetOrderNewTags.map((t) => t.Name).join(', ')}`
-        );
-
-        // Step 4: Assign tags to target order
-        await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
-        console.log(
-            `[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`
-        );
-
-        // Step 5: Assign tags to source orders.
-        // BUG-7 FIX: assignTagsToOrder REPLACE toàn bộ tags trên TPOS. Trước đây chỉ gửi [mergedTag]
-        // → mọi tag custom của source ("CHUYỂN KHOẢN", "TRỪ CÔNG NỢ", "KHÁCH BOOM"...) bị xóa sạch.
-        // Fix: giữ tags custom hiện có (filter các merge-related tags) + thêm "ĐÃ GỘP KO CHỐT"
-        // + thêm "Gộp X Y Z" (để source cũng biết đã gộp vào group nào, đối soát với target).
-        for (const sourceOrder of cluster.sourceOrders) {
-            const existingSourceTags = getOrderTagsArray(sourceOrder);
-            const preservedTags = new Map();
-            existingSourceTags.forEach((t) => {
-                if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
-                    preservedTags.set(t.Id, t);
-                }
-            });
-            // Add merged tag ("ĐÃ GỘP KO CHỐT") + merge group tag ("Gộp X Y Z")
-            preservedTags.set(mergedTag.Id, mergedTag);
-            preservedTags.set(mergeGroupTag.Id, mergeGroupTag);
-            const finalSourceTags = Array.from(preservedTags.values());
-
-            await assignTagsToOrder(sourceOrder.Id, finalSourceTags);
-            console.log(
-                `[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 2} custom + "${MERGED_ORDER_TAG_NAME}" + "${mergeGroupTag.Name}")`
-            );
-        }
-
-        // Step 6: Assign Tag XL (Processing Tags) — mirror TPOS tag logic
-        const ptagResult = await assignTagXLAfterMerge(cluster);
-        if (ptagResult.success) {
-            console.log(`[MERGE-TAG] ✅ Tag XL assigned successfully for cluster ${cluster.phone}`);
-        } else {
-            console.warn(
-                `[MERGE-TAG] ⚠️ Tag XL assignment failed for cluster ${cluster.phone}:`,
-                ptagResult.error
-            );
-        }
-
-        // Clear cache
-        window.cacheManager.clear('orders');
-
-        return {
-            success: true,
-            targetTags: targetOrderNewTags,
-            sourceTag: mergedTag,
-            mergeGroupTag: mergeGroupTag,
-        };
-    } catch (error) {
-        console.error('[MERGE-TAG] Error assigning tags:', error);
-        return {
-            success: false,
-            error: error.message,
-        };
-    }
-}
-
-/**
  * Helper: get flag/tTag id from object or string
  */
 function _mergeXLId(item) {
@@ -2430,175 +2121,162 @@ function _mergeXLId(item) {
 }
 
 /**
- * Gán Tag XL (Processing Tags) sau khi gộp đơn — tương tự logic gán TPOS tags
- * Target order: nhận tất cả Tag XL (category, flags, tTags) từ mọi đơn trong cluster (dedup, persisted, synced)
- * Source orders: gán KHÔNG CẦN CHỐT / Đã gộp không chốt (category 3, subTag DA_GOP_KHONG_CHOT)
+ * #Note: Wrapper mỏng để nuôi call-site cũ trong merge flow.
+ * Toàn bộ thao tác gán tag sau khi gộp đơn CHỈ ghi vào Tag XL (web / Postgres).
+ * KHÔNG gọi TPOS tag API (theo yêu cầu: merge không được thay đổi tag bên TPOS —
+ * trước đây ghi TPOS rồi sync ngược về Tag XL gây lỗi hiển thị).
  *
- * Persistence strategy:
- * - assignOrderCategory: persists category + flags + sync v3
- * - assignTTagToOrder: persists each tTag individually + sync v3 (idempotent dedup)
- * - toggleOrderFlag: persists flag toggle + sync v3 (used khi không đổi category)
+ * @param {Object} cluster - Cluster data with orders, targetOrder, sourceOrders
+ * @returns {Promise<Object>}
+ */
+async function assignTagsAfterMerge(cluster) {
+    try {
+        console.log('[MERGE-TAG] Tag XL-only merge tag assignment for cluster:', cluster.phone);
+        const result = await assignTagXLAfterMerge(cluster);
+        // Cache orders giữ nguyên behavior cũ (modal refresh sau merge).
+        try { window.cacheManager?.clear?.("orders"); } catch {}
+        return result;
+    } catch (error) {
+        console.error('[MERGE-TAG] Error in assignTagsAfterMerge:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Gán Tag XL sau khi gộp đơn.
  *
- * SubState preservation:
- * - Nếu target đã đúng category + subTag → KHÔNG gọi assignOrderCategory (giữ nguyên subState
- *   như DA_IN_PHIEU, CHO_HANG, …) → chỉ merge flag/tTag tăng dần.
- * - Nếu khác → assignOrderCategory sẽ auto-detect subState theo tTags hiện tại.
+ * TARGET (đơn đích):
+ *   - KHÔNG đụng category/subTag → giữ nguyên state hiện tại.
+ *   - Merge flags + tTags từ toàn bộ cluster (dedup theo id).
+ *   - Loại bỏ tTag cũ `GOP_DON` và mọi tTag dạng `GOP_<digits>...` từ lần merge trước.
+ *   - Add tTag động `Gộp X Y Z` (id = `GOP_<sttList>`, name = `Gộp <sttList>`).
+ *
+ * SOURCE (đơn nguồn):
+ *   - Reset sạch: flags = [], tTags = [], category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT.
+ *   - Add tTag động `Gộp X Y Z` để đánh dấu đã gộp về group nào.
+ *
+ * Tất cả call đều dùng `{ suppressSync: true }` — không trigger XL→TPOS sync.
  */
 async function assignTagXLAfterMerge(cluster) {
     try {
-        if (
-            !window.ProcessingTagState ||
-            !window.assignOrderCategory ||
-            !window.assignTTagToOrder ||
-            !window.toggleOrderFlag
-        ) {
-            console.warn(
-                '[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment'
-            );
+        if (!window.ProcessingTagState || !window.assignTTagToOrder || !window.toggleOrderFlag || !window.resetOrderTagsForMerge) {
+            console.warn('[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment');
             return { success: false, error: 'Processing Tags module not loaded' };
         }
 
-        console.log('[MERGE-PTAG] Starting Tag XL assignment for cluster:', cluster.phone);
+        console.log('[MERGE-PTAG] Starting Tag XL-only assignment for cluster:', cluster.phone);
 
-        // --- TARGET ORDER: gộp tất cả Tag XL từ mọi đơn ---
+        // ===== Tính merge tag id + name =====
+        const allSTTs = cluster.orders
+            .map(o => o.SessionIndex)
+            .filter(n => Number.isFinite(n))
+            .sort((a, b) => a - b);
+        if (allSTTs.length === 0) {
+            console.warn('[MERGE-PTAG] No valid SessionIndex in cluster — abort');
+            return { success: false, error: 'No valid STT' };
+        }
+        const mergeTagId = 'GOP_' + allSTTs.join('_');
+        const mergeTagName = 'Gộp ' + allSTTs.join(' ');
+
+        // Lọc các tTag merge cũ: GOP_DON, GOP_<digits>... (từ lần merge trước đó)
+        const isOldMergeTTag = (id) => {
+            if (!id) return false;
+            if (id === 'GOP_DON') return true;
+            if (typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id)) return true;
+            return false;
+        };
+
+        // ===== TARGET: merge flags/tTags từ cluster =====
         const targetCode = String(cluster.targetOrder.Code);
-
-        // Collect Tag XL data from ALL orders
-        let bestCategory = null;
-        let bestSubTag = null;
-        const allFlags = new Map(); // key=flagId, value=flag object
-        const allTTags = new Map(); // key=tTagId, value=tTag object
-
-        // Process target order first (priority), then source orders
         const allOrders = [cluster.targetOrder, ...cluster.sourceOrders];
+
+        const allFlags = new Map();
+        const allTTags = new Map();
         for (const order of allOrders) {
             const ptagData = window.ProcessingTagState.getOrderData(String(order.Code));
             if (!ptagData) continue;
-
-            // Category: ưu tiên đơn đầu tiên có category (target first)
-            // Skip "Đã gộp không chốt" categories from previous merges
-            if (ptagData.category !== null && ptagData.category !== undefined) {
-                const isOldMergeTag =
-                    ptagData.category === 3 && ptagData.subTag === 'DA_GOP_KHONG_CHOT';
-                if (!isOldMergeTag && bestCategory === null) {
-                    bestCategory = ptagData.category;
-                    bestSubTag = ptagData.subTag;
-                }
-            }
-
-            // Merge all flags from every order (dedup by ID)
-            (ptagData.flags || []).forEach((f) => {
+            (ptagData.flags || []).forEach(f => {
                 const fId = _mergeXLId(f);
                 if (fId != null && !allFlags.has(fId)) allFlags.set(fId, f);
             });
-
-            // Merge all tTags from every order (dedup by ID)
-            (ptagData.tTags || []).forEach((t) => {
+            (ptagData.tTags || []).forEach(t => {
                 const tId = _mergeXLId(t);
-                if (tId != null && !allTTags.has(tId)) allTTags.set(tId, t);
+                if (tId == null) return;
+                if (isOldMergeTTag(tId)) return; // bỏ GOP_DON + merge tag cũ
+                if (!allTTags.has(tId)) allTTags.set(tId, t);
             });
         }
 
-        const mergedFlags = [...allFlags.values()];
-        const mergedTTags = [...allTTags.values()];
-
-        // Set merged Tag XL data to target order
-        if (bestCategory !== null || mergedFlags.length > 0 || mergedTTags.length > 0) {
-            const existingTarget = window.ProcessingTagState.getOrderData(targetCode) || {};
-            const targetSameCategory =
-                bestCategory !== null &&
-                existingTarget.category === bestCategory &&
-                (existingTarget.subTag || null) === (bestSubTag || null);
-
-            // Step 1: Set/update category
-            if (bestCategory !== null && !targetSameCategory) {
-                // Cần đổi category → assignOrderCategory (sẽ merge flags + reset+autodetect subState)
-                await window.assignOrderCategory(targetCode, bestCategory, {
-                    subTag: bestSubTag,
-                    flags: mergedFlags,
-                    source: 'Hệ thống (gộp đơn)',
-                });
-            } else {
-                // Same category (hoặc không có category mới) → giữ nguyên category+subState,
-                // chỉ merge flags individually qua toggleOrderFlag để tránh reset subState.
-                for (const flag of mergedFlags) {
-                    const flagId = _mergeXLId(flag);
-                    if (flagId == null) continue;
-                    const cur = window.ProcessingTagState.getOrderData(targetCode);
-                    const has = (cur?.flags || []).some((f) => _mergeXLId(f) === flagId);
-                    if (!has) {
-                        await window.toggleOrderFlag(targetCode, flagId, 'Hệ thống (gộp đơn)');
-                    }
+        // Add flags còn thiếu vào target
+        for (const flag of allFlags.values()) {
+            const flagId = _mergeXLId(flag);
+            if (flagId == null) continue;
+            const cur = window.ProcessingTagState.getOrderData(targetCode);
+            const has = (cur?.flags || []).some(f => _mergeXLId(f) === flagId);
+            if (!has) {
+                try {
+                    await window.toggleOrderFlag(targetCode, flagId, 'Hệ thống (gộp đơn)', { suppressSync: true });
+                } catch (e) {
+                    console.warn(`[MERGE-PTAG] toggleOrderFlag target ${targetCode}/${flagId} fail:`, e);
                 }
             }
-
-            // Step 2: Add merged tTags via assignTTagToOrder (each call persists + syncs)
-            // Skip nếu tTag đã có ở target sau step 1.
-            for (const tTag of mergedTTags) {
-                const tId = _mergeXLId(tTag);
-                if (tId == null) continue;
-                const cur = window.ProcessingTagState.getOrderData(targetCode);
-                const has = (cur?.tTags || []).some((t) => _mergeXLId(t) === tId);
-                if (!has) {
-                    await window.assignTTagToOrder(targetCode, tId, 'Hệ thống (gộp đơn)');
-                }
-            }
-
-            console.log(
-                `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${bestCategory}, subTag=${bestSubTag}, flags=${mergedFlags.length}, tTags=${mergedTTags.length}`
-            );
-        } else {
-            console.log(
-                `[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`
-            );
         }
 
-        // Step 3: Đánh tTag "GỘP ĐƠN" (GOP_DON) vào target — marker đồng bộ với TPOS tag "Gộp X Y Z"
+        // Add tTags còn thiếu vào target
+        for (const tTag of allTTags.values()) {
+            const tId = _mergeXLId(tTag);
+            if (tId == null) continue;
+            const cur = window.ProcessingTagState.getOrderData(targetCode);
+            const has = (cur?.tTags || []).some(t => _mergeXLId(t) === tId);
+            if (!has) {
+                try {
+                    await window.assignTTagToOrder(targetCode, tId, 'Hệ thống (gộp đơn)', { suppressSync: true });
+                } catch (e) {
+                    console.warn(`[MERGE-PTAG] assignTTagToOrder target ${targetCode}/${tId} fail:`, e);
+                }
+            }
+        }
+
+        // Add tTag động "Gộp X Y Z" vào target
         try {
             const curTarget = window.ProcessingTagState.getOrderData(targetCode);
-            const hasGopDon = (curTarget?.tTags || []).some((t) => _mergeXLId(t) === 'GOP_DON');
-            if (!hasGopDon) {
-                await window.assignTTagToOrder(targetCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
-                console.log(
-                    `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: gán tTag GỘP ĐƠN`
-                );
+            const hasMergeTag = (curTarget?.tTags || []).some(t => _mergeXLId(t) === mergeTagId);
+            if (!hasMergeTag) {
+                await window.assignTTagToOrder(targetCode, mergeTagId, 'Hệ thống (gộp đơn)', {
+                    tagName: mergeTagName,
+                    suppressSync: true
+                });
             }
+            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +${mergeTagName}`);
         } catch (e) {
-            console.warn(`[MERGE-PTAG] assignTTagToOrder(GOP_DON) target fail:`, e);
+            console.error(`[MERGE-PTAG] Failed to add merge tag to target ${targetCode}:`, e);
         }
 
-        // --- SOURCE ORDERS: gán KHÔNG CẦN CHỐT / Đã gộp không chốt + tTag "GỘP ĐƠN" ---
-        // Logic tag như cũ: assignOrderCategory(3, DA_GOP_KHONG_CHOT) — preserve flags + tTags
+        // ===== SOURCES: reset sạch, chỉ giữ marker gộp =====
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
-            await window.assignOrderCategory(sourceCode, 3, {
-                subTag: 'DA_GOP_KHONG_CHOT',
-                source: 'Hệ thống (gộp đơn)',
-            });
-            // Gán thêm tTag GỘP ĐƠN để source cũng có marker XL giống target
             try {
-                const curSrc = window.ProcessingTagState.getOrderData(sourceCode);
-                const srcHasGopDon = (curSrc?.tTags || []).some((t) => _mergeXLId(t) === 'GOP_DON');
-                if (!srcHasGopDon) {
-                    await window.assignTTagToOrder(sourceCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
-                }
-            } catch (e) {
-                console.warn(
-                    `[MERGE-PTAG] assignTTagToOrder(GOP_DON) source ${sourceCode} fail:`,
-                    e
+                await window.resetOrderTagsForMerge(
+                    sourceCode,
+                    {
+                        category: 3,
+                        subTag: 'DA_GOP_KHONG_CHOT',
+                        flags: [],
+                        tTags: [{ id: mergeTagId, name: mergeTagName }]
+                    },
+                    'Hệ thống (gộp đơn)'
                 );
+                console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${mergeTagName}`);
+            } catch (e) {
+                console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
             }
-            console.log(
-                `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt + GỘP ĐƠN`
-            );
         }
 
-        // Refresh panel if visible
         if (window.renderPanelContent) {
             window.renderPanelContent();
         }
 
-        return { success: true };
+        return { success: true, mergeTagId, mergeTagName };
     } catch (error) {
         console.error('[MERGE-PTAG] Error assigning Tag XL:', error);
         return { success: false, error: error.message };
