@@ -4110,9 +4110,9 @@
                 const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
                 if (!order) { failedSTT.push(stt); continue; }
 
-                // Check for "ĐÃ GỘP KO CHỐT" TPOS tag → redirect to replacement order
-                const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
-                const hasBlockedTag = rawTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
+                // Check XL sub-tag DA_GOP_KHONG_CHOT → redirect to order with highest STT same phone
+                const xlData = window.ProcessingTagState?.getOrderData(String(order.Code));
+                const hasBlockedTag = xlData?.subTag === 'DA_GOP_KHONG_CHOT';
 
                 if (hasBlockedTag) {
                     const originalSTT = order.SessionIndex;
@@ -4135,6 +4135,15 @@
                     }
 
                     const replacementOrder = samePhoneOrders.sort((a, b) => b.SessionIndex - a.SessionIndex)[0];
+
+                    // Edge case: nếu đơn đích cũng đã gộp (chain merge) → fail, không redirect sai
+                    const replacementXL = window.ProcessingTagState?.getOrderData(String(replacementOrder.Code));
+                    if (replacementXL?.subTag === 'DA_GOP_KHONG_CHOT') {
+                        console.warn(`${PTAG_LOG} Replacement STT ${replacementOrder.SessionIndex} also has DA_GOP_KHONG_CHOT — cannot redirect`);
+                        failedSTT.push(stt);
+                        continue;
+                    }
+
                     console.log(`${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`);
 
                     try {

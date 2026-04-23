@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [orders][tag-t] Bulk gán Tag T: đọc `DA_GOP_KHONG_CHOT` từ Tag XL thay vì TPOS + guard chain merge
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `_ttagMgrExecuteAssign()` (line 4113-4145): (1) đổi nguồn đọc blocked-tag từ `order.Tags` (TPOS JSON) sang `ProcessingTagState.getOrderData(code).subTag === 'DA_GOP_KHONG_CHOT'` (XL); (2) thêm check đơn đích cũng có `DA_GOP_KHONG_CHOT` → báo fail, không redirect sai. |
+| **Chi tiết** | **Ngữ cảnh**: Modal "Quản Lý Tag T Chờ Hàng" có logic redirect — khi đơn được chọn là source đã gộp (`DA_GOP_KHONG_CHOT`), tag T sẽ được gán sang đơn STT lớn nhất cùng SĐT. Code cũ đọc tag này từ TPOS (`rawTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT")`), không nhất quán với refactor commit `81944c22` đã đưa XL thành source of truth duy nhất cho flow gộp đơn. Nếu sync XL→TPOS chậm/lỗi, đơn vừa gộp sẽ bỏ qua redirect và gán sai. **Fix**: đọc trực tiếp `ProcessingTagState` (XL). Thêm edge-case: nếu replacement order cũng có `DA_GOP_KHONG_CHOT` (chain gộp), fail STT đó thay vì redirect sai. **Không đụng**: UI, flow sync, `_ttagMgrExecuteRemove`, `resetOrderTagsForMerge`. |
+| **Status** | ✅ Done. Test manual: gộp 2 đơn cùng SĐT (STT 5 và 15), vào modal Quản Lý Tag T → chọn tag T → thêm STT 5 → bấm "Gán Tag Đã Chọn" → tag phải được gán cho STT 15, console log `Redirecting T-tag from STT 5 ... → STT 15`. Edge: chain A→B→C, chọn A → nếu B (STT lớn nhất cùng SĐT) cũng có DA_GOP_KHONG_CHOT thì báo fail STT A. |
+
 ### [orders][merge] Fix merge tag: chỉ gắn `Gộp X Y Z` vào Tag XL, bỏ hoàn toàn thao tác TPOS
 | | |
 |---|---|
