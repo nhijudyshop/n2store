@@ -688,7 +688,8 @@
 
             if (products.length > 0) {
                 products.forEach(product => {
-                    const imgSrc = product.productImage || '';
+                    const rawImg = product.productImage || '';
+                    const imgSrc = rawImg && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(rawImg) : rawImg;
                     const hasImage = imgSrc && imgSrc.length > 0;
                     html += `<div class="stt-product-item"><div class="stt-product-image ${hasImage ? '' : 'no-image'}">${hasImage ? `<img src="${imgSrc}" alt="${product.productName}" />` : '<i class="fas fa-box"></i>'}</div><div class="stt-product-info"><div class="stt-product-code">${product.productCode || product.productId || 'N/A'}</div><div class="stt-product-name">${product.productName || ''}</div></div></div>`;
                 });

@@ -318,7 +318,7 @@
                 <tr>
                     <td>
                         <div class="d-flex align-items-center gap-2">
-                            ${removal.imageUrl ? `<img src="${removal.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                            ${removal.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(removal.imageUrl) : removal.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
                             <div>
                                 <div style="font-weight:600;">${removal.productName}</div>
                                 <div style="font-size:12px;color:#6b7280;">${removal.productCode}</div>
@@ -629,7 +629,7 @@
                                             <tr class="${rowClass}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">` : '📦'}
+                                                        ${p.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.imageUrl) : p.imageUrl}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">` : '📦'}
                                                         <div>
                                                             <div style="font-size:13px;font-weight:600;">${p.productName}</div>
                                                             <div style="font-size:11px;color:#666;">${p.productCode}</div>
@@ -679,7 +679,7 @@
                     <div class="card mb-3">
                         <div class="card-header bg-light">
                             <div class="d-flex align-items-center gap-2">
-                                ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                ${p.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.imageUrl) : p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
                                 <div>
                                     <strong>${p.productName}</strong>
                                     <div class="text-muted" style="font-size:12px;">${p.productCode}</div>

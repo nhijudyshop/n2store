@@ -38,8 +38,9 @@
         }
 
         tableBody.innerHTML = state.assignments.map(assignment => {
+            const imgSrc = assignment.imageUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(assignment.imageUrl) : (assignment.imageUrl || '');
             const imageHtml = assignment.imageUrl
-                ? `<img src="${assignment.imageUrl}" class="product-image" alt="${assignment.productName}">`
+                ? `<img src="${imgSrc}" class="product-image" alt="${assignment.productName}">`
                 : `<div class="product-image no-image">📦</div>`;
 
             // Ensure backward compatibility

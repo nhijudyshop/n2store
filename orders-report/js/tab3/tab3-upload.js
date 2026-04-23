@@ -176,7 +176,7 @@
             const isIndeterminate = someSelected && !allSelected;
 
             const imageHtml = product.imageUrl
-                ? `<img src="${product.imageUrl}" class="upload-product-image">`
+                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="upload-product-image">`
                 : `<div class="upload-product-image no-image">📦</div>`;
 
             return `
@@ -505,7 +505,7 @@
                                             <tr class="${p.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                                        ${p.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.imageUrl) : p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
                                                         <div>
                                                             <div style="font-weight:600;">${p.productName}</div>
                                                             <div style="font-size:12px;color:#6b7280;">${p.productCode || 'N/A'} ${p.isExisting ? '<span class="badge bg-warning text-dark ms-2"><i class="fas fa-plus"></i> Cộng SL</span>' : '<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Mới</span>'}</div>
@@ -550,7 +550,7 @@
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
-                                                                ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                                                ${p.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.imageUrl) : p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
                                                                 <div>
                                                                     <div style="font-weight:600;">${p.nameGet || p.name || 'N/A'}</div>
                                                                     <div style="font-size:12px;color:#6b7280;">${p.code || 'N/A'}${willBeUpdated ? '<span class="badge bg-warning text-dark ms-1"><i class="fas fa-arrow-up"></i></span>' : ''}</div>

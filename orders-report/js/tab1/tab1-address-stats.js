@@ -384,7 +384,7 @@ async function runProductStats() {
 
             // Product image
             const imageHtml = product.imageUrl
-                ? `<img src="${product.imageUrl}" class="stats-product-image" alt="${product.code}" onerror="this.style.display='none'">`
+                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="stats-product-image" alt="${product.code}" onerror="this.style.display='none'">`
                 : `<div class="stats-product-image-placeholder"><i class="fas fa-image"></i></div>`;
 
             return `

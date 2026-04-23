@@ -516,7 +516,7 @@
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
                                                     ${product.imageUrl
-                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
                         : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
                                                     <div>
                                                         <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
@@ -729,7 +729,7 @@
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
                                                         ${product.imageUrl
-                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
                         : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                         <div style="flex: 1;">
                                                             <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
@@ -778,7 +778,7 @@
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
                                                             ${product.imageUrl
-                                    ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
                                     : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                             <div style="flex: 1;">
                                                                 <div style="font-weight: 600; font-size: 14px;">${product.nameGet || product.name || 'N/A'}</div>
