@@ -6,7 +6,6 @@ const fetch = require('node-fetch');
 // NEW: Import services for customer creation and wallet processing
 const { ensureCustomerWithTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
-const { withTransaction } = require('../db/with-transaction');
 
 // Import pending withdrawals processor
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
@@ -81,7 +80,17 @@ cron.schedule('*/5 * * * *', async () => {
 
         for (const tx of unprocessedResult.rows) {
             try {
-                // Ensure customer exists with TPOS data (runs outside the wallet transaction — safe to retry)
+                // DOUBLE-CHECK: Verify not processed by another thread/request
+                const recheck = await db.query(
+                    'SELECT wallet_processed FROM balance_history WHERE id = $1',
+                    [tx.id]
+                );
+                if (recheck.rows.length > 0 && recheck.rows[0].wallet_processed === true) {
+                    console.log(`[CRON] ⚠️ Skipping tx ${tx.id} - already processed by realtime`);
+                    continue;
+                }
+
+                // NEW: Ensure customer exists with TPOS data (create if missing)
                 let customerId = tx.customer_id;
                 if (!customerId) {
                     try {
@@ -89,6 +98,7 @@ cron.schedule('*/5 * * * *', async () => {
                         customerId = customerResult.customerId;
                         console.log(`[CRON] Created missing customer: ${tx.linked_customer_phone} -> ID ${customerId}`);
 
+                        // Update balance_history with customer_id
                         await db.query(
                             'UPDATE balance_history SET customer_id = $1 WHERE id = $2',
                             [customerId, tx.id]
@@ -98,44 +108,29 @@ cron.schedule('*/5 * * * *', async () => {
                     }
                 }
 
-                // Atomic: SELECT FOR UPDATE → processDeposit (INSERT ON CONFLICT + UPDATE balance) → mark wallet_processed
-                const walletResult = await withTransaction(db, async (client) => {
-                    // Re-check inside transaction (row-locked) — protects against concurrent cron instances + realtime
-                    const recheck = await client.query(
-                        'SELECT wallet_processed FROM balance_history WHERE id = $1 FOR UPDATE',
-                        [tx.id]
-                    );
-                    if (recheck.rows.length > 0 && recheck.rows[0].wallet_processed === true) {
-                        return { alreadyProcessed: true };
-                    }
+                // NEW: Use wallet-event-processor instead of manual queries
+                const walletResult = await processDeposit(
+                    db,
+                    tx.linked_customer_phone,
+                    tx.transfer_amount,
+                    tx.id,
+                    `Nạp từ CK ${tx.code || tx.reference_code || 'N/A'} (cron backup)`,
+                    customerId,
+                    null,
+                    tx.sepay_id
+                );
 
-                    const result = await processDeposit(
-                        client,
-                        tx.linked_customer_phone,
-                        tx.transfer_amount,
-                        tx.id,
-                        `Nạp từ CK ${tx.code || tx.reference_code || 'N/A'} (cron backup)`,
-                        customerId,
-                        null,
-                        tx.sepay_id
-                    );
-
-                    await client.query(
-                        `UPDATE balance_history SET wallet_processed = TRUE WHERE id = $1`,
-                        [tx.id]
-                    );
-
-                    return result;
-                });
-
-                if (walletResult.alreadyProcessed) {
-                    console.log(`[CRON] ⚠️ Skipping tx ${tx.id} - already processed by realtime`);
-                    continue;
-                }
+                // Mark as processed
+                await db.query(
+                    `UPDATE balance_history SET wallet_processed = TRUE WHERE id = $1`,
+                    [tx.id]
+                );
 
                 processedCount++;
                 totalAmount += parseFloat(tx.transfer_amount);
-                console.log(`[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId}${walletResult.skipped ? ' — duplicate sepay_id, wallet_processed flag set' : ''})`);
+
+                console.log(`[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId})`);
+
             } catch (txError) {
                 console.error(`[CRON] ❌ Error processing balance_history id=${tx.id}:`, txError.message);
             }
