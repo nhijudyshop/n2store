@@ -307,8 +307,9 @@
         const productName = p.ProductNameGet || p.ProductName || p.Name || 'Sản phẩm';
         const productCode = p.ProductCode || p.Code || '';
         const imgUrl = p.ImageUrl || '';
+        const imgSrc = window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
         const imgHtml = imgUrl
-            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
+            ? `<img src="${imgSrc}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
             : `<div class="chat-product-image" style="background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
 
         return `
@@ -347,11 +348,12 @@
         const productName = p.ProductNameGet || p.ProductName || p.Name || 'Sản phẩm';
         const productCode = p.ProductCode || p.Code || '';
         const imgUrl = p.ImageUrl || '';
+        const imgSrc = window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
         const heldBy = p.HeldBy || '';
         const isDraft = p.isDraft === true;
         const isFromDropped = p.IsFromDropped === true;
         const imgHtml = imgUrl
-            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
+            ? `<img src="${imgSrc}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
             : `<div class="chat-product-image" style="background: linear-gradient(135deg, #f59e0b, #fbbf24); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
 
         return `
@@ -596,11 +598,12 @@
                 const code = p.DefaultCode || p.Code || '';
                 const price = p.PriceVariant || p.ListPrice || 0;
                 const imgUrl = p.ImageUrl || '';
+                const imgSrc = window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
                 const inOrder = existingIds.has(productId);
 
                 return `
                 <div class="chat-search-item" onclick="window.addChatProductFromSearch(${productId})">
-                    ${imgUrl ? `<img src="${imgUrl}" class="chat-search-item-img" onerror="this.style.display='none'">` : '<div class="chat-search-item-img" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#cbd5e1;"></i></div>'}
+                    ${imgUrl ? `<img src="${imgSrc}" class="chat-search-item-img" onerror="this.style.display='none'">` : '<div class="chat-search-item-img" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#cbd5e1;"></i></div>'}
                     <div class="chat-search-item-info">
                         <div class="chat-search-item-name">${name}</div>
                         <div class="chat-search-item-code">${code}</div>

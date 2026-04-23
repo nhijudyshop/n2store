@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [orders][images] Route raw TPOS CDN image URLs qua `TPOSImageProxy` — khử ERR_HTTP2_SERVER_REFUSED_STREAM
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/chat/chat-products-ui.js](../orders-report/js/chat/chat-products-ui.js) (3 chỗ: `renderMainProductRow` line 309-311, `renderHeldProductRow` line 349-355, inline search line 600-605 — thêm `imgSrc` qua `window.TPOSImageProxy.proxyImageUrl(imgUrl)` cho `<img src>` src, giữ `imgUrl` raw cho onclick/oncontextmenu handlers). MODIFIED: [orders-report/js/managers/dropped-products-manager.js](../orders-report/js/managers/dropped-products-manager.js) (line 1963, chat-product-image trong dropped table). MODIFIED: [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (line 1248 `renderProductItem`), [orders-report/js/tab1/tab1-merge-live-waiting.js](../orders-report/js/tab1/tab1-merge-live-waiting.js) (line 445 `renderProductCell`), [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) (line 225, inline product search dropdown). |
+| **Chi tiết** | **Bug phát hiện qua Playwright probe**: Trang chạy ra ~40 `ERR_HTTP2_SERVER_REFUSED_STREAM` errors cho images từ `vn.img1.tpos.vn`. Root cause: Browser giới hạn concurrent HTTP/2 streams per-origin (~100), khi page mở chat panel hoặc dropped-products với nhiều ảnh, vượt quá limit → CDN refuse stream. **Fix**: Route tất cả `<img src>` đi qua CF Worker `/api/image-proxy?url=...` (shared helper đã tồn tại ở [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js)). Worker là origin khác → separate HTTP/2 connection pool → không bị stream limit. Các click handlers (`showImageZoom`, `sendImageToChat`) vẫn dùng URL raw vì modal/chat viewer không bị pressure như grid. **Scope**: chỉ 5 file chat/merge/sale inline search — các phần khác (edit-modal, dropped-cell lines 1192, 1610) đã dùng proxy từ trước. |
+| **Status** | ✅ Code done. `node --check` pass 5 files. Cần verify production: mở chat panel + expand dropped-products, kiểm tra Network tab không còn `vn.img1.tpos.vn` URLs trực tiếp (phải là `chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=...`). |
+
 ### [orders][chotdon-panel] Fix badge OKE: đếm đúng `OKIE_CHO_DI_DON` + thêm chữ "CHỜ HÀNG" + thu nhỏ ô RA ĐƠN
 | | |
 |---|---|

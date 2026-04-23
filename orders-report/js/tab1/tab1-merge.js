@@ -1247,8 +1247,9 @@ function renderProductItem(product) {
     const esc = _escMerge;
     const rawImg = product.ProductImageUrl || product.ImageUrl || '';
     const imgUrl = /^(https?:|\/\/|data:image\/)/i.test(rawImg) ? rawImg : '';
+    const imgSrc = imgUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
     const imgHtml = imgUrl
-        ? `<img src="${esc(imgUrl)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        ? `<img src="${esc(imgSrc)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
         : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
 
     const productCode =

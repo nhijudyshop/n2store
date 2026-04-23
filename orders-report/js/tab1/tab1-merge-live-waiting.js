@@ -443,8 +443,9 @@
     function renderProductCell(p, { markTransfer = false } = {}) {
         if (!p) return '';
         const imgUrl = p.ProductImageUrl || p.ImageUrl || '';
+        const imgSrc = imgUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
         const imgHtml = imgUrl
-            ? `<img src="${_escape(imgUrl)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+            ? `<img src="${_escape(imgSrc)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
             : `<div class="merge-product-img" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;"><i class="fas fa-box"></i></div>`;
         const productCode = p.ProductCode || (p.ProductName || '').match(/\[([^\]]+)\]/)?.[1] || '';
         const productName = p.ProductName || p.ProductNameGet || 'Sản phẩm';

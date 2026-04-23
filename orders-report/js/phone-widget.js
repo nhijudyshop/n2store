@@ -1807,7 +1807,9 @@ const PhoneWidget = (() => {
         cancelReconnect();
         // Tear down stale phone object
         if (phone) {
-            try { phone.stop(); } catch {}
+            try {
+                phone.stop();
+            } catch {}
             phone = null;
         }
         isRegistered = false;

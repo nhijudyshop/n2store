@@ -222,7 +222,9 @@ function displaySaleProductResults(results) {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
-            const safeImg = (product.ImageUrl || '').replace(/"/g, '&quot;');
+            const rawImg = product.ImageUrl || '';
+            const proxiedImg = rawImg && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(rawImg) : rawImg;
+            const safeImg = proxiedImg.replace(/"/g, '&quot;');
             return `
             <tr ${rowClass} data-product-id="${parseInt(product.Id, 10) || 0}" onclick="addProductToSaleFromSearch(parseInt(this.dataset.productId, 10))" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
