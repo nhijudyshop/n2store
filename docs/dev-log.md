@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [orders][ptag-cell] Icon máy in trên badge CHỜ LIVE / QUA LẤY / GIỮ ĐƠN khi `pickingSlipPrinted`
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `renderProcessingTagCell()`, section "2. Flag badges" (line ~1774-1794): thêm `PRINTED_FLAG_IDS = new Set(['CHO_LIVE','QUA_LAY','GIU_DON'])` + `flagPrintIcon` (màu `#fff`, size 10px) khi `data.pickingSlipPrinted=true`. Trong `forEach`, chèn `printIcon` giữa `label` và `removeBtn` nếu flag ID nằm trong Set. |
+| **Chi tiết** | **User report**: Hiện tại icon máy in chỉ hiện trên badge sub-state `CHỜ HÀNG` (line 1759-1763). Nếu đơn có flag `CHỜ LIVE` / `QUA LẤY` / `GIỮ ĐƠN` ở sub-state khác (vd `OKIE_CHO_DI_DON`) thì không có dấu hiệu "đã in phiếu soạn" trên cụm flag → dễ in trùng/bỏ sót. **Fix**: khi `pickingSlipPrinted=true` + đơn có 1 trong 3 flag trên, render thêm icon `fa-print` nhỏ màu trắng (khớp chữ label trên nền flag đậm) giữa label và nút `×`. Áp dụng bất kể sub-state. Không đụng: badge CHO_HANG cũ, virtual flag (TPOS alias section 2b), unmanaged TPOS badge (section 2c), side panel counts. |
+| **Status** | ✅ Done. Verify: (a) đơn có QUA_LAY + pickingSlipPrinted=true → badge QUA LẤY có icon trắng trước dấu ×; (b) toggle nút `fa-print` trong cell → icon đồng bộ xuất hiện/biến mất cả trên badge CHO_HANG (màu xanh) và badge 3 flag (màu trắng); (c) flag khác (CK, GIAM_GIA,...) không có icon; (d) nút × vẫn click xóa flag được bình thường. |
+
 ### [orders][images] Route raw TPOS CDN image URLs qua `TPOSImageProxy` — khử ERR_HTTP2_SERVER_REFUSED_STREAM (round 2 — tab3 + tab1-merge history + address stats + sale modal)
 | | |
 |---|---|

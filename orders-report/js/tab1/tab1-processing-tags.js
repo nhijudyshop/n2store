@@ -1772,6 +1772,10 @@
         }
 
         // 2. Flag badges (đặc điểm) — inline row
+        const PRINTED_FLAG_IDS = new Set(['CHO_LIVE', 'QUA_LAY', 'GIU_DON']);
+        const flagPrintIcon = data.pickingSlipPrinted
+            ? ' <i class="fas fa-print" style="font-size:10px;color:#fff;margin-left:3px;"></i>'
+            : '';
         let flagBadges = '';
         (data.flags || []).forEach((f) => {
             const fId = _ptagFlagId(f);
@@ -1787,7 +1791,8 @@
                   : ProcessingTagState.getCustomFlagLabel(fId);
             const bgColor = _ptagGetFlagColor(fId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
-            flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
+            const printIcon = PRINTED_FLAG_IDS.has(fId) ? flagPrintIcon : '';
+            flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${printIcon}${removeBtn}</span>`;
         });
 
         // Lookup order 1 lần dùng cho cả 2b (virtual flags) và 2c (KHÁC badge)
