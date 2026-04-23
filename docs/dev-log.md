@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [orders][chotdon-panel] Fix badge OKE: đếm đúng `OKIE_CHO_DI_DON` + thêm chữ "CHỜ HÀNG" + thu nhỏ ô RA ĐƠN
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (line ~2414-2419, dòng 2 summary "RA ĐƠN + OKE"): (1) đổi biến hiển thị từ `subStateCounts['OKIE_NO_DELAY']` sang `diDon` (`subStateCounts['OKIE_CHO_DI_DON']`); (2) đổi filter target từ `sub_OKIE_NO_DELAY` → `sub_OKIE_CHO_DI_DON`; (3) thêm chữ " CHỜ HÀNG" sau số CHO_HANG; (4) add class `ptag-stat-ra-don` vào ô RA ĐƠN. MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) (line 549): thêm rule `.ptag-stat-ra-don { flex: 0 0 auto; padding: 6px 8px; }` để ô RA ĐƠN co lại theo nội dung, nhường chỗ cho ô OKE hiển thị "CHỜ HÀNG". |
+| **Chi tiết** | **Bug user report**: Panel Chốt Đơn hiển thị `189 OKE (0 + 181)` — số đầu là 0 vì đếm `OKIE_NO_DELAY` (đã loại Chờ Live / Qua Lấy / Giữ Đơn). Đúng phải là `189 OKE (8 + 181)` — đếm toàn bộ `OKIE_CHO_DI_DON` (8 đơn, không loại trừ). `8 + 181 = 189` khớp với tổng OKE. **Fix**: dùng `diDon` (đã tính sẵn = `subStateCounts['OKIE_CHO_DI_DON']`) thay vì `OKIE_NO_DELAY`. Filter click-through cũng cập nhật sang `sub_OKIE_CHO_DI_DON`. **UI**: thêm label "CHỜ HÀNG" cạnh số 181 để phân biệt rõ 2 sub-state. Ô RA ĐƠN cũ `flex:1` chiếm 50% hàng — thu lại `flex:0 0 auto` để OKE box có đủ chỗ cho text mới. |
+| **Status** | ✅ Done. Cần verify UI: mở panel Chốt Đơn, badge `189 OKE` phải hiển thị `(8 + 181 CHỜ HÀNG)` thay vì `(0 + 181)`. Click số 8 → filter `sub_OKIE_CHO_DI_DON`. Click số 181 → filter `sub_CHO_HANG`. Ô RA ĐƠN co nhỏ lại, OKE box chiếm phần còn lại của hàng. |
+
 ### [render][db][critical] Migrate tất cả `pool.query('BEGIN')` sang `pool.connect()` pattern — 31 transaction sites, 17 files
 | | |
 |---|---|

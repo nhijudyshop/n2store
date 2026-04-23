@@ -546,6 +546,7 @@
 /* Width variants for row 3 (40-20-40) */
 .ptag-stat-w40 { flex: 0 0 calc(40% - 4px); }
 .ptag-stat-w20 { flex: 0 0 calc(20% - 4px); justify-content: center; }
+.ptag-stat-ra-don { flex: 0 0 auto; padding: 6px 8px; }
 
 /* ----- CARD ITEMS ----- */
 .ptag-panel-card {
