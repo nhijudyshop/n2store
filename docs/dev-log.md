@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [orders][merge] Fix merge tag: chỉ gắn `Gộp X Y Z` vào Tag XL, bỏ hoàn toàn thao tác TPOS
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (xóa `queryTPOSTagByName`, `_registerLocalTag`, `ensureMergeTagExists`, `assignTagsToOrder`; viết lại `assignTagsAfterMerge` thành wrapper mỏng; viết lại `assignTagXLAfterMerge` với logic Tag XL-only), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (thêm `suppressSync` option vào `assignOrderCategory` / `toggleOrderFlag` / `assignTTagToOrder` / `removeTTagFromOrder`; `assignTTagToOrder` hỗ trợ `tagName` option cho dynamic tTag; thêm helper `resetOrderTagsForMerge` + expose `window.resetOrderTagsForMerge`). |
+| **Chi tiết** | **User complaint**: Tính năng "Gộp sản phẩm đơn trùng SĐT" đang (1) gắn tag `GỘP ĐƠN` (GOP_DON) vào Tag XL thay vì tag `Gộp X Y Z` (X Y Z = STT đơn gộp), (2) tag `Gộp X Y Z` lúc được gắn lúc không do race condition khi gọi TPOS OData `$filter` + POST `/api/odata/Tag`, (3) tag gốc ở đơn nguồn không được gỡ sau khi chuyển sang đơn đích, (4) TPOS tag được ghi rồi sync ngược về Tag XL gây hiển thị sai. **Fix**: Toàn bộ thao tác tag của flow merge giờ chỉ ghi Tag XL (Postgres qua `/api/realtime/processing-tags/by-code/{code}`). KHÔNG gọi `/api/odata/Tag` hay `/api/odata/TagSaleOnlineOrder/.../AssignTag`. KHÔNG trigger `syncXLToTPOS` (dùng `{ suppressSync: true }` cho mọi call từ merge). **Logic mới**: TARGET giữ nguyên category/subTag, merge flags + tTags từ cluster (dedup, loại GOP_DON + `GOP_\d+` cũ), add tTag động `Gộp X Y Z` (id = `GOP_<sttList>`, name = `Gộp <sttList>`). SOURCE reset sạch bằng helper `resetOrderTagsForMerge` (1 PUT atomic): category=3, subTag=DA_GOP_KHONG_CHOT, flags=[], tTags=[{id: mergeTagId, name: mergeTagName}]. Bug "lúc có lúc không" tự biến mất vì không còn phụ thuộc TPOS API. **Out of scope**: modal preview vẫn hiển thị tag theo format cũ — không ảnh hưởng behavior thực. |
+| **Status** | ✅ Done. Cần test thực tế: mở modal Gộp SP Đơn Trùng SĐT, chọn cluster, xác nhận gộp, kiểm tra (a) Tag XL đơn đích có badge `Gộp X Y Z` và KHÔNG có `GỘP ĐƠN`, (b) Tag XL đơn nguồn chỉ còn `ĐÃ GỘP KHÔNG CHỐT` + `Gộp X Y Z`, (c) Network tab KHÔNG có request tới `/api/odata/Tag` hay `/api/odata/TagSaleOnlineOrder/*`. |
+
 ### [render][wallet][recovery] Khôi phục balance 92 ví bị Migration 063 bơm sai — dùng balance_after của wallet_tx cuối
 | | |
 |---|---|

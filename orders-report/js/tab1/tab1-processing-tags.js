@@ -950,7 +950,8 @@
         await saveProcessingTagToAPI(orderCode, data);
 
         // Forward sync XL → TPOS (nếu module tag-sync đã load)
-        if (typeof window.syncXLToTPOS === 'function') {
+        // Caller có thể truyền { suppressSync: true } để bỏ qua (vd: flow gộp đơn chỉ ghi Tag XL)
+        if (!options.suppressSync && typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'category');
         }
     }
@@ -998,8 +999,8 @@
             await saveProcessingTagToAPI(orderCode, data);
         }
 
-        // Forward sync XL → TPOS
-        if (typeof window.syncXLToTPOS === 'function') {
+        // Forward sync XL → TPOS — caller có thể pass { suppressSync: true } để skip (flow gộp đơn)
+        if (!options?.suppressSync && typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'flag');
         }
     }
@@ -1064,7 +1065,9 @@
     }
 
     // T-tag assignment functions — works for ANY order state
-    async function assignTTagToOrder(orderCode, tagId, source) {
+    // options: { suppressSync?: boolean, tagName?: string } — suppressSync skip XL→TPOS sync;
+    //          tagName dùng cho dynamic tTag (vd "Gộp 589 655") không có trong tTagDefinitions.
+    async function assignTTagToOrder(orderCode, tagId, source, options) {
         let data = ProcessingTagState.getOrderData(orderCode);
         if (!data) {
             if (!ProcessingTagState._isLoaded) {
@@ -1076,7 +1079,8 @@
         }
         const tTags = data.tTags || [];
         if (!tTags.some(t => _ptagTTagId(t) === tagId)) {
-            tTags.push({ id: tagId, name: ProcessingTagState.getTTagName(tagId) || tagId });
+            const resolvedName = options?.tagName || ProcessingTagState.getTTagName(tagId) || tagId;
+            tTags.push({ id: tagId, name: resolvedName });
         }
         data.tTags = tTags;
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
@@ -1091,13 +1095,13 @@
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
 
-        // Forward sync XL → TPOS
-        if (typeof window.syncXLToTPOS === 'function') {
+        // Forward sync XL → TPOS — caller có thể pass { suppressSync: true } để skip (flow gộp đơn)
+        if (!options?.suppressSync && typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'ttag-add');
         }
     }
 
-    async function removeTTagFromOrder(orderCode, tagId, source) {
+    async function removeTTagFromOrder(orderCode, tagId, source, options) {
         const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
         data.tTags = (data.tTags || []).filter(t => _ptagTTagId(t) !== tagId);
@@ -1112,10 +1116,55 @@
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
 
-        // Forward sync XL → TPOS
-        if (typeof window.syncXLToTPOS === 'function') {
+        // Forward sync XL → TPOS — caller có thể pass { suppressSync: true } để skip
+        if (!options?.suppressSync && typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'ttag-remove');
         }
+    }
+
+    /**
+     * #Note: helper dùng riêng cho flow gộp đơn.
+     * Ghi đè toàn bộ Tag XL của 1 order bằng 1 PUT duy nhất (atomic, không chain request).
+     * Dùng để reset đơn NGUỒN sau khi gộp — chỉ giữ marker "Gộp X Y Z" + category KHÔNG CẦN CHỐT / DA_GOP_KHONG_CHOT.
+     *
+     * KHÔNG trigger syncXLToTPOS (theo yêu cầu tính năng merge: chỉ ghi Tag XL web, không đụng TPOS).
+     *
+     * @param {string} orderCode
+     * @param {Object} newState - { category, subTag, flags, tTags, note? }
+     * @param {string} source - actor name dùng cho history
+     */
+    async function resetOrderTagsForMerge(orderCode, newState, source) {
+        if (!ProcessingTagState._isLoaded) {
+            console.warn(`${PTAG_LOG} Skip resetOrderTagsForMerge(${orderCode}) — data not loaded yet`);
+            return;
+        }
+        const prev = ProcessingTagState.getOrderData(orderCode);
+        const data = {
+            category: newState.category ?? null,
+            subTag: newState.subTag || null,
+            subState: null,
+            flags: Array.isArray(newState.flags) ? newState.flags.map(f => _ptagNormalizeFlag(f)) : [],
+            tTags: Array.isArray(newState.tTags) ? newState.tTags.map(t => ({
+                id: t.id,
+                name: t.name || ProcessingTagState.getTTagName(t.id) || t.id
+            })) : [],
+            note: (newState.note !== undefined ? newState.note : (prev?.note || '')),
+            assignedAt: Date.now(),
+            previousPosition: null
+        };
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+
+        // History: log reset
+        if (prev && (prev.category !== data.category || prev.subTag !== data.subTag)) {
+            _ptagAddHistory(orderCode, 'SET_CATEGORY', `${data.category}:${data.subTag || ''}`, source || null);
+        }
+        _ptagAddHistory(orderCode, 'MERGE_RESET', '', source || null);
+
+        _ptagRefreshRow(orderCode);
+        renderPanelContent();
+        await saveProcessingTagToAPI(orderCode, data);
+        // KHÔNG sync sang TPOS — đây là flow merge chỉ ghi Tag XL theo yêu cầu
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order
@@ -5842,6 +5891,8 @@
     window.saveCustomFlagDefinitions = saveCustomFlagDefinitions;
     window.ensureMergeCustomFlag = ensureMergeCustomFlag;
     window.mergeConfigDefs = mergeConfigDefs;
+    // Tag XL reset helper — dùng cho flow gộp đơn (chỉ ghi Tag XL web, không sync TPOS)
+    window.resetOrderTagsForMerge = resetOrderTagsForMerge;
 
     // Cleanup empty tags
     window._ptagCleanupEmptyTags = _ptagCleanupEmptyTags;
