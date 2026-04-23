@@ -37,43 +37,58 @@
             return;
         }
 
-        tableBody.innerHTML = state.assignments.map(assignment => {
-            const imgSrc = assignment.imageUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(assignment.imageUrl) : (assignment.imageUrl || '');
-            const imageHtml = assignment.imageUrl
-                ? `<img src="${imgSrc}" class="product-image" alt="${assignment.productName}">`
-                : `<div class="product-image no-image">📦</div>`;
+        tableBody.innerHTML = state.assignments
+            .map((assignment) => {
+                const imgSrc =
+                    assignment.imageUrl && window.TPOSImageProxy
+                        ? window.TPOSImageProxy.proxyImageUrl(assignment.imageUrl)
+                        : assignment.imageUrl || '';
+                const imageHtml = assignment.imageUrl
+                    ? `<img src="${imgSrc}" class="product-image" alt="${assignment.productName}">`
+                    : `<div class="product-image no-image">📦</div>`;
 
-            // Ensure backward compatibility
-            if (!assignment.sttList) {
-                assignment.sttList = assignment.sttNumber ? [{ stt: assignment.sttNumber, orderInfo: assignment.orderInfo }] : [];
-            }
+                // Ensure backward compatibility
+                if (!assignment.sttList) {
+                    assignment.sttList = assignment.sttNumber
+                        ? [{ stt: assignment.sttNumber, orderInfo: assignment.orderInfo }]
+                        : [];
+                }
 
-            // Render STT chips (with index for duplicate STT)
-            const chipsHtml = assignment.sttList.length > 0
-                ? assignment.sttList.map((item, index) => {
-                    // Decode note safely with fallback
-                    let noteText = item.orderInfo?.note || '';
-                    try {
-                        if (noteText && window.DecodingUtility) {
-                            noteText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
+                // Render STT chips (with index for duplicate STT)
+                const chipsHtml =
+                    assignment.sttList.length > 0
+                        ? assignment.sttList
+                              .map((item, index) => {
+                                  // Decode note safely with fallback
+                                  let noteText = item.orderInfo?.note || '';
+                                  try {
+                                      if (noteText && window.DecodingUtility) {
+                                          noteText = noteText
+                                              .replace(/\["[A-Za-z0-9\-_]+"\]/g, '')
+                                              .trim();
 
-                            const lines = noteText.split('\n');
-                            const plainLines = lines.filter(line => {
-                                const trimmed = line.trim();
-                                if (trimmed.length > 20 && !trimmed.includes(' ')) {
-                                    const decoded = window.DecodingUtility.decodeProductLine(trimmed);
-                                    return !decoded;
-                                }
-                                return true;
-                            });
-                            noteText = plainLines.join(' ').substring(0, 50);
-                        }
-                    } catch (e) {
-                        noteText = (item.orderInfo?.note || '').substring(0, 50);
-                    }
+                                          const lines = noteText.split('\n');
+                                          const plainLines = lines.filter((line) => {
+                                              const trimmed = line.trim();
+                                              if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                                                  const decoded =
+                                                      window.DecodingUtility.decodeProductLine(
+                                                          trimmed
+                                                      );
+                                                  return !decoded;
+                                              }
+                                              return true;
+                                          });
+                                          noteText = plainLines.join(' ').substring(0, 50);
+                                      }
+                                  } catch (e) {
+                                      noteText = (item.orderInfo?.note || '').substring(0, 50);
+                                  }
 
-                    const chipText = [item.orderInfo?.customerName, noteText].filter(Boolean).join(' - ');
-                    return `
+                                  const chipText = [item.orderInfo?.customerName, noteText]
+                                      .filter(Boolean)
+                                      .join(' - ');
+                                  return `
                         <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
                             <span class="stt-chip-number">STT ${item.stt}</span>
                             ${chipText ? `<span class="stt-chip-customer">${chipText}</span>` : ''}
@@ -82,10 +97,11 @@
                             </button>
                         </div>
                     `;
-                }).join('')
-                : '<span class="stt-chips-empty">Chưa có STT nào</span>';
+                              })
+                              .join('')
+                        : '<span class="stt-chips-empty">Chưa có STT nào</span>';
 
-            return `
+                return `
                 <tr class="assignment-row" data-assignment-id="${assignment.id}">
                     <td>
                         <div class="product-cell">
@@ -121,7 +137,8 @@
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         // Reapply filter if search input has value
         const searchInput = document.getElementById('assignmentSearch');
@@ -168,14 +185,16 @@
         const campaignNames = state.activeCampaignNames || [];
         // Prioritize matching campaign
         if (campaignNames.length > 0) {
-            const campaignMatch = state.ordersData.find(o =>
-                o.stt && o.stt.toString() === sttValue &&
-                campaignNames.includes(o.liveCampaignName)
+            const campaignMatch = state.ordersData.find(
+                (o) =>
+                    o.stt &&
+                    o.stt.toString() === sttValue &&
+                    campaignNames.includes(o.liveCampaignName)
             );
             if (campaignMatch) return campaignMatch;
         }
         // Fallback to any match
-        return state.ordersData.find(o => o.stt && o.stt.toString() === sttValue);
+        return state.ordersData.find((o) => o.stt && o.stt.toString() === sttValue);
     }
 
     window.handleSTTKeyPress = async function (event) {
@@ -213,7 +232,9 @@
                         const campaignNames = state.activeCampaignNames || [];
                         let matched = results[0];
                         if (campaignNames.length > 0) {
-                            const campaignMatch = results.find(o => campaignNames.includes(o.LiveCampaignName));
+                            const campaignMatch = results.find((o) =>
+                                campaignNames.includes(o.LiveCampaignName)
+                            );
                             if (campaignMatch) matched = campaignMatch;
                         }
 
@@ -225,9 +246,11 @@
                             customerName: matched.PartnerName || matched.Name || 'N/A',
                             phone: matched.PartnerPhone || matched.Telephone || '',
                             totalAmount: matched.TotalAmount || 0,
-                            liveCampaignName: matched.LiveCampaignName || ''
+                            liveCampaignName: matched.LiveCampaignName || '',
                         };
-                        console.log(`[STT] Found via API: STT ${value} → ${order.orderId} (${order.liveCampaignName})`);
+                        console.log(
+                            `[STT] Found via API: STT ${value} → ${order.orderId} (${order.liveCampaignName})`
+                        );
 
                         input.value = '';
                         hideSTTSuggestions(assignmentId);
@@ -255,76 +278,85 @@
         if (!suggestionsDiv) return;
 
         const campaignNames = state.activeCampaignNames || [];
-        const filteredOrders = state.ordersData.filter(order => {
-            const sttMatch = order.stt && order.stt.toString().includes(searchText);
-            const customerMatch = order.customerName &&
-                utils.removeVietnameseTones(order.customerName).includes(utils.removeVietnameseTones(searchText));
-            return sttMatch || customerMatch;
-        }).sort((a, b) => {
-            // Prioritize current campaign
-            if (campaignNames.length > 0) {
-                const aInCampaign = campaignNames.includes(a.liveCampaignName);
-                const bInCampaign = campaignNames.includes(b.liveCampaignName);
-                if (aInCampaign && !bInCampaign) return -1;
-                if (!aInCampaign && bInCampaign) return 1;
-            }
+        const filteredOrders = state.ordersData
+            .filter((order) => {
+                const sttMatch = order.stt && order.stt.toString().includes(searchText);
+                const customerMatch =
+                    order.customerName &&
+                    utils
+                        .removeVietnameseTones(order.customerName)
+                        .includes(utils.removeVietnameseTones(searchText));
+                return sttMatch || customerMatch;
+            })
+            .sort((a, b) => {
+                // Prioritize current campaign
+                if (campaignNames.length > 0) {
+                    const aInCampaign = campaignNames.includes(a.liveCampaignName);
+                    const bInCampaign = campaignNames.includes(b.liveCampaignName);
+                    if (aInCampaign && !bInCampaign) return -1;
+                    if (!aInCampaign && bInCampaign) return 1;
+                }
 
-            const aSTT = a.stt.toString();
-            const bSTT = b.stt.toString();
+                const aSTT = a.stt.toString();
+                const bSTT = b.stt.toString();
 
-            const aExactMatch = aSTT === searchText;
-            const bExactMatch = bSTT === searchText;
+                const aExactMatch = aSTT === searchText;
+                const bExactMatch = bSTT === searchText;
 
-            if (aExactMatch && !bExactMatch) return -1;
-            if (!aExactMatch && bExactMatch) return 1;
+                if (aExactMatch && !bExactMatch) return -1;
+                if (!aExactMatch && bExactMatch) return 1;
 
-            const aStartsWith = aSTT.startsWith(searchText);
-            const bStartsWith = bSTT.startsWith(searchText);
+                const aStartsWith = aSTT.startsWith(searchText);
+                const bStartsWith = bSTT.startsWith(searchText);
 
-            if (aStartsWith && !bStartsWith) return -1;
-            if (!aStartsWith && bStartsWith) return 1;
+                if (aStartsWith && !bStartsWith) return -1;
+                if (!aStartsWith && bStartsWith) return 1;
 
-            return parseInt(aSTT) - parseInt(bSTT);
-        }).slice(0, 10);
+                return parseInt(aSTT) - parseInt(bSTT);
+            })
+            .slice(0, 10);
 
         if (filteredOrders.length === 0) {
             suggestionsDiv.classList.remove('show');
             return;
         }
 
-        suggestionsDiv.innerHTML = filteredOrders.map(order => {
-            let noteText = order.note || '';
-            try {
-                if (noteText && window.DecodingUtility) {
-                    noteText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
+        suggestionsDiv.innerHTML = filteredOrders
+            .map((order) => {
+                let noteText = order.note || '';
+                try {
+                    if (noteText && window.DecodingUtility) {
+                        noteText = noteText.replace(/\["[A-Za-z0-9\-_]+"\]/g, '').trim();
 
-                    const lines = noteText.split('\n');
-                    const plainLines = lines.filter(line => {
-                        const trimmed = line.trim();
-                        if (trimmed.length > 20 && !trimmed.includes(' ')) {
-                            const decoded = window.DecodingUtility.decodeProductLine(trimmed);
-                            return !decoded;
-                        }
-                        return true;
-                    });
-                    noteText = plainLines.join(' ').substring(0, 50);
+                        const lines = noteText.split('\n');
+                        const plainLines = lines.filter((line) => {
+                            const trimmed = line.trim();
+                            if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                                const decoded = window.DecodingUtility.decodeProductLine(trimmed);
+                                return !decoded;
+                            }
+                            return true;
+                        });
+                        noteText = plainLines.join(' ').substring(0, 50);
+                    }
+                } catch (e) {
+                    noteText = (order.note || '').substring(0, 50);
                 }
-            } catch (e) {
-                noteText = (order.note || '').substring(0, 50);
-            }
 
-            const displayText = [order.customerName, noteText].filter(Boolean).join(' - ') || 'N/A';
-            return `
+                const displayText =
+                    [order.customerName, noteText].filter(Boolean).join(' - ') || 'N/A';
+                return `
                 <div class="stt-suggestion-item" data-assignment-id="${assignmentId}" data-stt="${order.stt}" data-order='${JSON.stringify(order)}'>
                     <span class="stt-number">${order.stt}</span>
                     <span class="customer-name">${displayText}</span>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         suggestionsDiv.classList.add('show');
 
-        suggestionsDiv.querySelectorAll('.stt-suggestion-item').forEach(item => {
+        suggestionsDiv.querySelectorAll('.stt-suggestion-item').forEach((item) => {
             item.addEventListener('click', () => {
                 const stt = item.dataset.stt;
                 const orderData = JSON.parse(item.dataset.order);
@@ -391,14 +423,22 @@
                 <span class="order-tooltip-label">Số lượng:</span>
                 <span class="order-tooltip-value">${orderData.quantity || 0}</span>
             </div>
-            ${orderData.products && orderData.products.length > 0 ? `
+            ${
+                orderData.products && orderData.products.length > 0
+                    ? `
                 <div class="order-tooltip-products">
                     <div class="order-tooltip-products-title">Sản phẩm:</div>
-                    ${orderData.products.map(p => `
+                    ${orderData.products
+                        .map(
+                            (p) => `
                         <div class="order-tooltip-product-item">${p.name} (x${p.quantity})</div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
         `;
 
         const x = event.clientX + 15;
@@ -418,7 +458,7 @@
 
     // Show tooltip for STT chip (by index)
     window.showSTTChipTooltip = function (event, assignmentId, index) {
-        const assignment = state.assignments.find(a => a.id === assignmentId);
+        const assignment = state.assignments.find((a) => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
         const sttItem = assignment.sttList[index];
@@ -436,5 +476,4 @@
     window._tab3.fn.hideOrderTooltip = hideOrderTooltip;
     window._tab3.fn.showSTTSuggestions = showSTTSuggestions;
     window._tab3.fn.hideSTTSuggestions = hideSTTSuggestions;
-
 })();

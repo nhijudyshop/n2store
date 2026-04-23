@@ -416,7 +416,7 @@
 
         try {
             // Use REST API via kpiManager (Render PostgreSQL)
-            const orderCode = (window.OrderStore?.get(orderId))?.Code || '';
+            const orderCode = window.OrderStore?.get(orderId)?.Code || '';
             if (window.kpiManager && orderCode) {
                 const hasBase = await window.kpiManager.checkKPIBaseExists(orderCode);
                 if (hasBase) {
@@ -465,12 +465,18 @@
         if (icon) icon.className = 'fas fa-sync-alt fa-spin';
 
         try {
-            if (!window.productSearchManager || typeof window.productSearchManager.fetchExcelProducts !== 'function') {
+            if (
+                !window.productSearchManager ||
+                typeof window.productSearchManager.fetchExcelProducts !== 'function'
+            ) {
                 throw new Error('productSearchManager không khả dụng');
             }
             await window.productSearchManager.fetchExcelProducts(true);
 
-            if (window.notificationManager && typeof window.notificationManager.success === 'function') {
+            if (
+                window.notificationManager &&
+                typeof window.notificationManager.success === 'function'
+            ) {
                 window.notificationManager.success('Đã tải lại file Excel sản phẩm mới nhất');
             }
 
@@ -481,8 +487,13 @@
             }
         } catch (error) {
             console.error('[ChatProducts-UI] Reload Excel failed:', error);
-            if (window.notificationManager && typeof window.notificationManager.error === 'function') {
-                window.notificationManager.error('Tải lại Excel thất bại: ' + (error.message || error));
+            if (
+                window.notificationManager &&
+                typeof window.notificationManager.error === 'function'
+            ) {
+                window.notificationManager.error(
+                    'Tải lại Excel thất bại: ' + (error.message || error)
+                );
             }
         } finally {
             btn.disabled = false;
@@ -598,7 +609,9 @@
                 const code = p.DefaultCode || p.Code || '';
                 const price = p.PriceVariant || p.ListPrice || 0;
                 const imgUrl = p.ImageUrl || '';
-                const imgSrc = window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
+                const imgSrc = window.TPOSImageProxy
+                    ? window.TPOSImageProxy.proxyImageUrl(imgUrl)
+                    : imgUrl;
                 const inOrder = existingIds.has(productId);
 
                 return `
@@ -780,7 +793,6 @@
                 price: heldProduct?.Price || 0,
                 uomName: heldProduct?.UOMName || 'Cái',
             });
-
         } catch (e) {
             console.error('[ChatProducts-UI] Firebase sync error:', e);
         }
@@ -821,22 +833,26 @@
      */
     window.sendImageToChat = async function (imageUrl, productName, productId, productCode) {
         if (!imageUrl) {
-            if (window.notificationManager) window.notificationManager.error('Sản phẩm không có ảnh');
+            if (window.notificationManager)
+                window.notificationManager.error('Sản phẩm không có ảnh');
             return;
         }
         if (!window.currentConversationId || !window.currentChatChannelId) {
-            if (window.notificationManager) window.notificationManager.error('Chưa mở cuộc hội thoại');
+            if (window.notificationManager)
+                window.notificationManager.error('Chưa mở cuộc hội thoại');
             return;
         }
 
         const pdm = window.pancakeDataManager;
         if (!pdm) {
-            if (window.notificationManager) window.notificationManager.error('PancakeDataManager chưa sẵn sàng');
+            if (window.notificationManager)
+                window.notificationManager.error('PancakeDataManager chưa sẵn sàng');
             return;
         }
 
         try {
-            if (window.notificationManager) window.notificationManager.info('Đang gửi ảnh...', 5000);
+            if (window.notificationManager)
+                window.notificationManager.info('Đang gửi ảnh...', 5000);
 
             const channelId = window.currentSendPageId || window.currentChatChannelId;
             const conversationId = window.currentConversationId;
@@ -852,23 +868,37 @@
             if (!resp.ok) throw new Error('Tải ảnh thất bại');
             const blob = await resp.blob();
             const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-            const file = new File([blob], `product-${productId || 'img'}.${ext}`, { type: blob.type || `image/${ext}` });
+            const file = new File([blob], `product-${productId || 'img'}.${ext}`, {
+                type: blob.type || `image/${ext}`,
+            });
 
             // Upload via upload_contents API
             const uploadResult = await pdm.uploadMedia(channelId, file, pat);
             if (!uploadResult?.id) throw new Error('Upload không trả về content_id');
 
             // Send image with content_ids
-            const sendResult = await pdm.sendMessage(channelId, conversationId, {
-                action: 'reply_inbox', content_ids: [uploadResult.id]
-            }, pat);
+            const sendResult = await pdm.sendMessage(
+                channelId,
+                conversationId,
+                {
+                    action: 'reply_inbox',
+                    content_ids: [uploadResult.id],
+                },
+                pat
+            );
 
             if (sendResult?.success === false) {
                 const errMsg = sendResult.message || '';
-                const is24h = sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
+                const is24h =
+                    sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
                 const is551 = sendResult.e_code === 551 || errMsg.includes('không có mặt');
                 if (is24h || is551) {
-                    if (window.notificationManager) window.notificationManager.show(is551 ? 'Lỗi #551: Khách không có mặt' : 'Không thể gửi (quá 24h)', 'warning', 5000);
+                    if (window.notificationManager)
+                        window.notificationManager.show(
+                            is551 ? 'Lỗi #551: Khách không có mặt' : 'Không thể gửi (quá 24h)',
+                            'warning',
+                            5000
+                        );
                     return;
                 }
                 throw new Error(errMsg || 'Gửi ảnh thất bại');
@@ -881,9 +911,19 @@
             if (psid) {
                 window.newMessagesNotifier?.clearPendingForCustomer(psid);
                 const body = JSON.stringify({ psid, pageId: channelId || null });
-                const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
-                fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied', opts).catch(() => {});
-                fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+                const opts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body,
+                };
+                fetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied',
+                    opts
+                ).catch(() => {});
+                fetch(
+                    'https://n2store-realtime.onrender.com/api/realtime/mark-replied',
+                    opts
+                ).catch(() => {});
             }
 
             // Refresh messages after send
@@ -892,18 +932,27 @@
                     if (window.currentConversationId !== conversationId) return;
                     pdm.clearMessagesCache?.(channelId, conversationId);
                     const result = await pdm.fetchMessages(channelId, conversationId);
-                    if (result.messages?.length > 0 && window.currentConversationId === conversationId) {
-                        const messages = result.messages.map(msg => {
+                    if (
+                        result.messages?.length > 0 &&
+                        window.currentConversationId === conversationId
+                    ) {
+                        const messages = result.messages.map((msg) => {
                             const isFromPage = msg.from?.id === channelId;
                             return {
                                 id: msg.id,
-                                text: msg.original_message || (msg.message || '').replace(/<[^>]+>/g, ''),
-                                time: window._parseTimestamp?.(msg.inserted_at) || new Date(msg.inserted_at),
+                                text:
+                                    msg.original_message ||
+                                    (msg.message || '').replace(/<[^>]+>/g, ''),
+                                time:
+                                    window._parseTimestamp?.(msg.inserted_at) ||
+                                    new Date(msg.inserted_at),
                                 sender: isFromPage ? 'shop' : 'customer',
                                 senderName: msg.from?.name || '',
                                 fromId: msg.from?.id || '',
                                 attachments: msg.attachments || [],
-                                reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                                reactions: (msg.attachments || []).filter(
+                                    (a) => a.type === 'reaction'
+                                ),
                                 reactionSummary: msg.reaction_summary || msg.reactions || null,
                                 isHidden: msg.is_hidden || false,
                                 isRemoved: msg.is_removed || false,
@@ -917,12 +966,14 @@
                         window.allChatMessages = messages;
                         if (window.renderChatMessages) window.renderChatMessages(messages);
                     }
-                } catch (e) { /* ignore refresh error */ }
+                } catch (e) {
+                    /* ignore refresh error */
+                }
             }, 2000);
-
         } catch (error) {
             console.error('[ChatProducts] sendImageToChat error:', error);
-            if (window.notificationManager) window.notificationManager.error('Lỗi gửi ảnh: ' + error.message);
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi gửi ảnh: ' + error.message);
         }
     };
 
@@ -973,5 +1024,4 @@
     } else {
         window.initChatProductSearch();
     }
-
 })();

@@ -950,7 +950,10 @@ function populateSaleOrderLinesFromAPI(orderLines) {
                 : 'font-size: 11px; color: #6b7280;';
 
             const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
-            const proxiedImage = productImage && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(productImage) : productImage;
+            const proxiedImage =
+                productImage && window.TPOSImageProxy
+                    ? window.TPOSImageProxy.proxyImageUrl(productImage)
+                    : productImage;
             const imageHTML = productImage
                 ? `<img src="${proxiedImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
                 : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
