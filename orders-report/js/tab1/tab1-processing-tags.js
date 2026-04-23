@@ -1215,7 +1215,7 @@
             data = { tTags: [] };
         }
         const tTags = data.tTags || [];
-        if (!tTags.some(t => _ptagTTagId(t) === tagId)) {
+        if (!tTags.some((t) => _ptagTTagId(t) === tagId)) {
             const resolvedName = options?.tagName || ProcessingTagState.getTTagName(tagId) || tagId;
             tTags.push({ id: tagId, name: resolvedName });
         }
@@ -1276,7 +1276,9 @@
      */
     async function resetOrderTagsForMerge(orderCode, newState, source) {
         if (!ProcessingTagState._isLoaded) {
-            console.warn(`${PTAG_LOG} Skip resetOrderTagsForMerge(${orderCode}) — data not loaded yet`);
+            console.warn(
+                `${PTAG_LOG} Skip resetOrderTagsForMerge(${orderCode}) — data not loaded yet`
+            );
             return;
         }
         const prev = ProcessingTagState.getOrderData(orderCode);
@@ -1284,21 +1286,30 @@
             category: newState.category ?? null,
             subTag: newState.subTag || null,
             subState: null,
-            flags: Array.isArray(newState.flags) ? newState.flags.map(f => _ptagNormalizeFlag(f)) : [],
-            tTags: Array.isArray(newState.tTags) ? newState.tTags.map(t => ({
-                id: t.id,
-                name: t.name || ProcessingTagState.getTTagName(t.id) || t.id
-            })) : [],
-            note: (newState.note !== undefined ? newState.note : (prev?.note || '')),
+            flags: Array.isArray(newState.flags)
+                ? newState.flags.map((f) => _ptagNormalizeFlag(f))
+                : [],
+            tTags: Array.isArray(newState.tTags)
+                ? newState.tTags.map((t) => ({
+                      id: t.id,
+                      name: t.name || ProcessingTagState.getTTagName(t.id) || t.id,
+                  }))
+                : [],
+            note: newState.note !== undefined ? newState.note : prev?.note || '',
             assignedAt: Date.now(),
-            previousPosition: null
+            previousPosition: null,
         };
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
 
         // History: log reset
         if (prev && (prev.category !== data.category || prev.subTag !== data.subTag)) {
-            _ptagAddHistory(orderCode, 'SET_CATEGORY', `${data.category}:${data.subTag || ''}`, source || null);
+            _ptagAddHistory(
+                orderCode,
+                'SET_CATEGORY',
+                `${data.category}:${data.subTag || ''}`,
+                source || null
+            );
         }
         _ptagAddHistory(orderCode, 'MERGE_RESET', '', source || null);
 
@@ -4665,17 +4676,25 @@
                         continue;
                     }
 
-                    const replacementOrder = samePhoneOrders.sort((a, b) => b.SessionIndex - a.SessionIndex)[0];
+                    const replacementOrder = samePhoneOrders.sort(
+                        (a, b) => b.SessionIndex - a.SessionIndex
+                    )[0];
 
                     // Edge case: nếu đơn đích cũng đã gộp (chain merge) → fail, không redirect sai
-                    const replacementXL = window.ProcessingTagState?.getOrderData(String(replacementOrder.Code));
+                    const replacementXL = window.ProcessingTagState?.getOrderData(
+                        String(replacementOrder.Code)
+                    );
                     if (replacementXL?.subTag === 'DA_GOP_KHONG_CHOT') {
-                        console.warn(`${PTAG_LOG} Replacement STT ${replacementOrder.SessionIndex} also has DA_GOP_KHONG_CHOT — cannot redirect`);
+                        console.warn(
+                            `${PTAG_LOG} Replacement STT ${replacementOrder.SessionIndex} also has DA_GOP_KHONG_CHOT — cannot redirect`
+                        );
                         failedSTT.push(stt);
                         continue;
                     }
 
-                    console.log(`${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`);
+                    console.log(
+                        `${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`
+                    );
 
                     try {
                         await assignTTagToOrder(String(replacementOrder.Code), tagEntry.tagId);

@@ -2134,7 +2134,9 @@ async function assignTagsAfterMerge(cluster) {
         console.log('[MERGE-TAG] Tag XL-only merge tag assignment for cluster:', cluster.phone);
         const result = await assignTagXLAfterMerge(cluster);
         // Cache orders giữ nguyên behavior cũ (modal refresh sau merge).
-        try { window.cacheManager?.clear?.("orders"); } catch {}
+        try {
+            window.cacheManager?.clear?.('orders');
+        } catch {}
         return result;
     } catch (error) {
         console.error('[MERGE-TAG] Error in assignTagsAfterMerge:', error);
@@ -2159,8 +2161,15 @@ async function assignTagsAfterMerge(cluster) {
  */
 async function assignTagXLAfterMerge(cluster) {
     try {
-        if (!window.ProcessingTagState || !window.assignTTagToOrder || !window.toggleOrderFlag || !window.resetOrderTagsForMerge) {
-            console.warn('[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment');
+        if (
+            !window.ProcessingTagState ||
+            !window.assignTTagToOrder ||
+            !window.toggleOrderFlag ||
+            !window.resetOrderTagsForMerge
+        ) {
+            console.warn(
+                '[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment'
+            );
             return { success: false, error: 'Processing Tags module not loaded' };
         }
 
@@ -2168,8 +2177,8 @@ async function assignTagXLAfterMerge(cluster) {
 
         // ===== Tính merge tag id + name =====
         const allSTTs = cluster.orders
-            .map(o => o.SessionIndex)
-            .filter(n => Number.isFinite(n))
+            .map((o) => o.SessionIndex)
+            .filter((n) => Number.isFinite(n))
             .sort((a, b) => a - b);
         if (allSTTs.length === 0) {
             console.warn('[MERGE-PTAG] No valid SessionIndex in cluster — abort');
@@ -2195,11 +2204,11 @@ async function assignTagXLAfterMerge(cluster) {
         for (const order of allOrders) {
             const ptagData = window.ProcessingTagState.getOrderData(String(order.Code));
             if (!ptagData) continue;
-            (ptagData.flags || []).forEach(f => {
+            (ptagData.flags || []).forEach((f) => {
                 const fId = _mergeXLId(f);
                 if (fId != null && !allFlags.has(fId)) allFlags.set(fId, f);
             });
-            (ptagData.tTags || []).forEach(t => {
+            (ptagData.tTags || []).forEach((t) => {
                 const tId = _mergeXLId(t);
                 if (tId == null) return;
                 if (isOldMergeTTag(tId)) return; // bỏ GOP_DON + merge tag cũ
@@ -2212,12 +2221,17 @@ async function assignTagXLAfterMerge(cluster) {
             const flagId = _mergeXLId(flag);
             if (flagId == null) continue;
             const cur = window.ProcessingTagState.getOrderData(targetCode);
-            const has = (cur?.flags || []).some(f => _mergeXLId(f) === flagId);
+            const has = (cur?.flags || []).some((f) => _mergeXLId(f) === flagId);
             if (!has) {
                 try {
-                    await window.toggleOrderFlag(targetCode, flagId, 'Hệ thống (gộp đơn)', { suppressSync: true });
+                    await window.toggleOrderFlag(targetCode, flagId, 'Hệ thống (gộp đơn)', {
+                        suppressSync: true,
+                    });
                 } catch (e) {
-                    console.warn(`[MERGE-PTAG] toggleOrderFlag target ${targetCode}/${flagId} fail:`, e);
+                    console.warn(
+                        `[MERGE-PTAG] toggleOrderFlag target ${targetCode}/${flagId} fail:`,
+                        e
+                    );
                 }
             }
         }
@@ -2227,12 +2241,17 @@ async function assignTagXLAfterMerge(cluster) {
             const tId = _mergeXLId(tTag);
             if (tId == null) continue;
             const cur = window.ProcessingTagState.getOrderData(targetCode);
-            const has = (cur?.tTags || []).some(t => _mergeXLId(t) === tId);
+            const has = (cur?.tTags || []).some((t) => _mergeXLId(t) === tId);
             if (!has) {
                 try {
-                    await window.assignTTagToOrder(targetCode, tId, 'Hệ thống (gộp đơn)', { suppressSync: true });
+                    await window.assignTTagToOrder(targetCode, tId, 'Hệ thống (gộp đơn)', {
+                        suppressSync: true,
+                    });
                 } catch (e) {
-                    console.warn(`[MERGE-PTAG] assignTTagToOrder target ${targetCode}/${tId} fail:`, e);
+                    console.warn(
+                        `[MERGE-PTAG] assignTTagToOrder target ${targetCode}/${tId} fail:`,
+                        e
+                    );
                 }
             }
         }
@@ -2240,14 +2259,16 @@ async function assignTagXLAfterMerge(cluster) {
         // Add tTag động "Gộp X Y Z" vào target
         try {
             const curTarget = window.ProcessingTagState.getOrderData(targetCode);
-            const hasMergeTag = (curTarget?.tTags || []).some(t => _mergeXLId(t) === mergeTagId);
+            const hasMergeTag = (curTarget?.tTags || []).some((t) => _mergeXLId(t) === mergeTagId);
             if (!hasMergeTag) {
                 await window.assignTTagToOrder(targetCode, mergeTagId, 'Hệ thống (gộp đơn)', {
                     tagName: mergeTagName,
-                    suppressSync: true
+                    suppressSync: true,
                 });
             }
-            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +${mergeTagName}`);
+            console.log(
+                `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +${mergeTagName}`
+            );
         } catch (e) {
             console.error(`[MERGE-PTAG] Failed to add merge tag to target ${targetCode}:`, e);
         }
@@ -2262,11 +2283,13 @@ async function assignTagXLAfterMerge(cluster) {
                         category: 3,
                         subTag: 'DA_GOP_KHONG_CHOT',
                         flags: [],
-                        tTags: [{ id: mergeTagId, name: mergeTagName }]
+                        tTags: [{ id: mergeTagId, name: mergeTagName }],
                     },
                     'Hệ thống (gộp đơn)'
                 );
-                console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${mergeTagName}`);
+                console.log(
+                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${mergeTagName}`
+                );
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
             }
