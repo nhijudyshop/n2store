@@ -1015,7 +1015,8 @@ router.post('/cron/process-bank', async (req, res) => {
                 bh.linked_customer_phone as phone,
                 bh.transfer_amount as amount,
                 bh.content as description,
-                bh.transaction_date
+                bh.transaction_date,
+                bh.sepay_id
             FROM balance_history bh
             WHERE bh.linked_customer_phone IS NOT NULL
               AND (bh.wallet_processed = FALSE OR bh.wallet_processed IS NULL)
@@ -1044,7 +1045,8 @@ router.post('/cron/process-bank', async (req, res) => {
                     tx.id,
                     tx.description || 'Chuyển khoản ngân hàng',
                     null,
-                    tx.transaction_date
+                    tx.transaction_date,
+                    tx.sepay_id || null
                 );
 
                 // Mark as processed (processDeposit checks but doesn't set wallet_processed)

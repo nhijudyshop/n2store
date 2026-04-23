@@ -15,6 +15,13 @@
 | **Chi tiết** | **Insight của user**: Trong `customer_activities` UI, mỗi dòng hoạt động ví hiển thị "→ XYK" cuối dòng = balance ngay sau giao dịch đó. Dòng trên cùng = mới nhất. Giá trị này được snapshot tại thời điểm giao dịch (lưu trong cột `wallet_transactions.balance_after`), **không bị Migration 063 Step 2 (công thức WITHDRAW flip sign) đụng vào**. Verify 3 ví mẫu user chỉ: 0896875227 → 0đ, 0906252809 → 0đ, 0949015004 → 365,000đ — tất cả khớp. **Lưu ý**: phải query với TẤT CẢ type (kể cả VIRTUAL_DEBIT/VIRTUAL_CREDIT), không chỉ DEPOSIT/WITHDRAW/ADJUSTMENT — vì giao dịch mới nhất có thể là VIRTUAL_DEBIT. **Apply**: 93 ví có stored sai, 92 ví được UPDATE, 1 ví (0123456788) đã đúng sẵn vì vừa có giao dịch mới. Tổng chênh lệch đã trả: ~295 triệu đồng. Tất cả 92 ví giờ khớp 100% với giá trị UI hiển thị. |
 | **Status** | ✅ Applied. Spot-check 5 ví: 0896875227=0, 0906252809=0, 0949015004=365K, 0933608739=2.47M, 0123456788=2K — tất cả khớp UI. 234 dòng wallet_transactions bị Migration 063 Step 1 xóa oan vẫn MẤT — không khôi phục được nếu không có DB backup. Nhưng balance ví đã đúng. |
 
+### [render][wallet] Fix 2 luồng processDeposit thiếu sepay_id — hoàn thiện lớp UNIQUE index Migration 064
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/sepay-wallet-operations.js](../render.com/routes/sepay-wallet-operations.js) (line 667 — accountant edit phone + auto-approve: thêm `tx.transaction_date` + `tx.sepay_id` vào processDeposit args); [render.com/routes/v2/wallets.js](../render.com/routes/v2/wallets.js) (line 1020 + 1048 — cron `/process-bank`: SELECT thêm `bh.sepay_id`, pass vào processDeposit). |
+| **Chi tiết** | Audit các luồng cộng ví phát hiện 2 chỗ gọi `processDeposit` KHÔNG truyền `sepayId` → `wallet_transactions.sepay_id` = NULL → partial UNIQUE index `idx_wallet_tx_unique_sepay_id` (Migration 064) **không bảo vệ được** 2 luồng này. 7 luồng khác đã truyền đúng (auto-match QR/phone/single, /approve, /bulk-approve, /reprocess-wallet). Nguy cơ: nếu flag `wallet_processed` bị sai (race condition, manual reset, cron trùng), có thể double-credit. Fix: thêm tham số thứ 7+8 (transactionDate, sepayId) vào cả 2 callsite. **Không cần migration mới** — cột sepay_id đã tồn tại từ 064. Sau fix: mọi đường BANK_TRANSFER deposit đều có 2 lớp bảo vệ (app-level `wallet_processed` + DB-level UNIQUE(sepay_id)). |
+| **Status** | ✅ Done. Cần deploy + smoke test các luồng: kế toán sửa SĐT + auto-approve, cron /process-bank. |
+
 ### [render][wallet][revert] Revert Sprint 2 theo yêu cầu user — giữ Sprint 1 (DB layer)
 | | |
 |---|---|
