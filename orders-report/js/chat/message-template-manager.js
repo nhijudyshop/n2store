@@ -4,7 +4,7 @@
    Bulk send templates, track sent/failed orders
    ===================================================== */
 
-(function() {
+(function () {
     'use strict';
 
     // =====================================================
@@ -16,8 +16,8 @@
     const TTL_24H = 24 * 60 * 60 * 1000;
 
     // In-memory sets for fast lookup
-    let _sentOrders = new Map();      // orderId → { viaComment, timestamp }
-    let _failedOrders = new Map();    // orderId → { timestamp, error }
+    let _sentOrders = new Map(); // orderId → { viaComment, timestamp }
+    let _failedOrders = new Map(); // orderId → { timestamp, error }
 
     // =====================================================
     // PERSISTENCE (localStorage)
@@ -29,37 +29,55 @@
             if (sentRaw) {
                 const arr = JSON.parse(sentRaw);
                 const now = Date.now();
-                arr.forEach(item => {
+                arr.forEach((item) => {
                     if (now - item.timestamp < TTL_24H) {
-                        _sentOrders.set(item.orderId, { viaComment: item.viaComment || false, timestamp: item.timestamp });
+                        _sentOrders.set(item.orderId, {
+                            viaComment: item.viaComment || false,
+                            timestamp: item.timestamp,
+                        });
                     }
                 });
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         try {
             const failedRaw = localStorage.getItem(FAILED_KEY);
             if (failedRaw) {
                 const arr = JSON.parse(failedRaw);
-                arr.forEach(item => {
-                    _failedOrders.set(item.orderId, { timestamp: item.timestamp, error: item.error || '' });
+                arr.forEach((item) => {
+                    _failedOrders.set(item.orderId, {
+                        timestamp: item.timestamp,
+                        error: item.error || '',
+                    });
                 });
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     function _saveToStorage() {
         try {
             const sentArr = [];
-            _sentOrders.forEach((v, k) => sentArr.push({ orderId: k, viaComment: v.viaComment, timestamp: v.timestamp }));
+            _sentOrders.forEach((v, k) =>
+                sentArr.push({ orderId: k, viaComment: v.viaComment, timestamp: v.timestamp })
+            );
             localStorage.setItem(SENT_KEY, JSON.stringify(sentArr));
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         try {
             const failedArr = [];
-            _failedOrders.forEach((v, k) => failedArr.push({ orderId: k, timestamp: v.timestamp, error: v.error }));
+            _failedOrders.forEach((v, k) =>
+                failedArr.push({ orderId: k, timestamp: v.timestamp, error: v.error })
+            );
             localStorage.setItem(FAILED_KEY, JSON.stringify(failedArr));
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     // Load on init
@@ -107,14 +125,17 @@
         _saveToStorage();
 
         // Dispatch event for tab1-table.js badge updates (mirrors failedOrdersUpdated)
-        const sentIds = [], commentIds = [];
+        const sentIds = [],
+            commentIds = [];
         for (const [id, data] of _sentOrders) {
             sentIds.push(id);
             if (data.viaComment) commentIds.push(id);
         }
-        window.dispatchEvent(new CustomEvent('sentOrdersUpdated', {
-            detail: { sentOrderIds: sentIds, sentViaCommentIds: commentIds }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('sentOrdersUpdated', {
+                detail: { sentOrderIds: sentIds, sentViaCommentIds: commentIds },
+            })
+        );
     }
 
     function markOrderFailed(orderId, error) {
@@ -122,9 +143,11 @@
         _saveToStorage();
 
         // Dispatch event for tab1-table.js badge updates
-        window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
-            detail: { failedOrderIds: Array.from(_failedOrders.keys()) }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('failedOrdersUpdated', {
+                detail: { failedOrderIds: Array.from(_failedOrders.keys()) },
+            })
+        );
     }
 
     function clearOrderStatus(orderId) {
@@ -144,7 +167,8 @@
         const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
         if (!row) {
             console.warn('[TemplateMgr] Order row not found:', orderId);
-            if (window.notificationManager) window.notificationManager.show('Không tìm thấy đơn hàng', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('Không tìm thấy đơn hàng', 'error');
             return;
         }
 
@@ -153,7 +177,8 @@
 
         if (!pageId || !psid) {
             console.warn('[TemplateMgr] Missing pageId/psid for order:', orderId);
-            if (window.notificationManager) window.notificationManager.show('Thiếu thông tin khách hàng', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('Thiếu thông tin khách hàng', 'error');
             return;
         }
 
@@ -255,12 +280,14 @@
             // Try Pancake API first
             await pdm.sendMessage(pageId, conv.id, {
                 message: text,
-                action: 'reply_inbox'
+                action: 'reply_inbox',
             });
         } catch (apiErr) {
             // Fallback to extension if available
             if (window.sendViaExtension && window.pancakeExtension?.connected) {
-                const convData = window.buildConvData ? window.buildConvData(pageId, psid) : { pageId, psid };
+                const convData = window.buildConvData
+                    ? window.buildConvData(pageId, psid)
+                    : { pageId, psid };
                 await window.sendViaExtension(text, convData);
             } else {
                 throw apiErr;
@@ -280,7 +307,7 @@
 
         await pdm.sendMessage(pageId, conv.id, {
             message: text,
-            action: 'reply_comment'
+            action: 'reply_comment',
         });
     }
 
@@ -310,15 +337,21 @@
 
             // Load from Firestore
             if (window.db) {
-                const snap = await window.db.collection('message_templates').orderBy('order', 'asc').get();
-                _templates = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const snap = await window.db
+                    .collection('message_templates')
+                    .orderBy('order', 'asc')
+                    .get();
+                _templates = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
 
                 // Seed defaults if empty
                 if (_templates.length === 0) {
                     await _seedDefaultTemplates();
-                    const snap2 = await window.db.collection('message_templates').orderBy('order', 'asc').get();
-                    _templates = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const snap2 = await window.db
+                        .collection('message_templates')
+                        .orderBy('order', 'asc')
+                        .get();
+                    _templates = snap2.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
                     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
                 }
             }
@@ -332,12 +365,15 @@
         if (!window.db || !template) return null;
         try {
             if (template.id) {
-                await window.db.collection('message_templates').doc(template.id).set(template, { merge: true });
+                await window.db
+                    .collection('message_templates')
+                    .doc(template.id)
+                    .set(template, { merge: true });
             } else {
                 const ref = await window.db.collection('message_templates').add({
                     ...template,
                     createdAt: Date.now(),
-                    order: _templates.length
+                    order: _templates.length,
                 });
                 template.id = ref.id;
             }
@@ -409,18 +445,30 @@
 
         const kPattern = /^(\d+)k\b\s*(.*)/i;
         const numPattern = /^(\d+)\b\s*(.*)/;
-        let match = null, priceValue = null, remainingNote = '';
+        let match = null,
+            priceValue = null,
+            remainingNote = '';
 
         match = trimmedNote.match(kPattern);
-        if (match) { priceValue = parseInt(match[1], 10); remainingNote = (match[2] || '').trim(); }
+        if (match) {
+            priceValue = parseInt(match[1], 10);
+            remainingNote = (match[2] || '').trim();
+        }
 
         if (!priceValue) {
             match = trimmedNote.match(numPattern);
-            if (match) { priceValue = parseInt(match[1], 10); remainingNote = (match[2] || '').trim(); }
+            if (match) {
+                priceValue = parseInt(match[1], 10);
+                remainingNote = (match[2] || '').trim();
+            }
         }
 
         if (priceValue && priceValue > 0) {
-            return { discountPrice: priceValue * 1000, displayText: priceValue.toString(), remainingNote };
+            return {
+                discountPrice: priceValue * 1000,
+                displayText: priceValue.toString(),
+                remainingNote,
+            };
         }
         return null;
     }
@@ -436,14 +484,19 @@
             return {
                 line: line + '\n' + saleLine,
                 hasDiscount: true,
-                discountData: { originalTotal: product.total, discountPerItem, totalDiscount, finalTotal: product.total - totalDiscount }
+                discountData: {
+                    originalTotal: product.total,
+                    discountPerItem,
+                    totalDiscount,
+                    finalTotal: product.total - totalDiscount,
+                },
             };
         } else {
             const noteText = product.note ? ` (${product.note})` : '';
             return {
                 line: `- ${product.name} x${product.quantity} = ${_formatCurrency(product.total)}${noteText}`,
                 hasDiscount: false,
-                discountData: null
+                discountData: null,
             };
         }
     }
@@ -451,31 +504,45 @@
     function _convertOrderData(fullOrderData) {
         if (!fullOrderData) return null;
         const products = (fullOrderData.Details || [])
-            .filter(d => !d.IsHeld)
-            .map(d => ({
+            .filter((d) => !d.IsHeld)
+            .map((d) => ({
                 name: d.ProductNameGet || d.ProductName || 'Sản phẩm',
                 quantity: d.Quantity || 1,
                 price: d.Price || 0,
                 total: (d.Quantity || 1) * (d.Price || 0),
-                note: d.Note || ''
+                note: d.Note || '',
             }));
         const calculatedTotal = products.reduce((sum, p) => sum + p.total, 0);
         return {
             code: fullOrderData.Code || '',
-            customerName: fullOrderData.Partner?.Name || fullOrderData.PartnerName || fullOrderData.CustomerName || '',
-            phone: fullOrderData.Partner?.Telephone || fullOrderData.ReceiverPhone || fullOrderData.Telephone || '',
-            address: fullOrderData.Partner?.Address || fullOrderData.ReceiverAddress || fullOrderData.Address || '',
+            customerName:
+                fullOrderData.Partner?.Name ||
+                fullOrderData.PartnerName ||
+                fullOrderData.CustomerName ||
+                '',
+            phone:
+                fullOrderData.Partner?.Telephone ||
+                fullOrderData.ReceiverPhone ||
+                fullOrderData.Telephone ||
+                '',
+            address:
+                fullOrderData.Partner?.Address ||
+                fullOrderData.ReceiverAddress ||
+                fullOrderData.Address ||
+                '',
             extraAddress: fullOrderData.ReceiverAddress2 || '',
             totalAmount: calculatedTotal,
-            products: products
+            products: products,
         };
     }
 
     function _needsFullData(content) {
-        return content.includes('{order.details}') ||
-               content.includes('{order.totalAmount}') ||
-               content.includes('{order.total}') ||
-               content.includes('{partner.address}');
+        return (
+            content.includes('{order.details}') ||
+            content.includes('{order.totalAmount}') ||
+            content.includes('{order.total}') ||
+            content.includes('{partner.address}')
+        );
     }
 
     // Cache for pre-fetched order details (cleared after each send session)
@@ -486,7 +553,9 @@
      * falls back to individual API calls if Excel fails.
      */
     async function _prefetchOrderDetails(orders) {
-        const orderIds = orders.map(o => o.orderId).filter(id => id && !_orderDetailsCache.has(String(id)));
+        const orderIds = orders
+            .map((o) => o.orderId)
+            .filter((id) => id && !_orderDetailsCache.has(String(id)));
         if (orderIds.length === 0) {
             console.log('[TemplateMgr] All order details already cached');
             return;
@@ -498,7 +567,9 @@
         // Try Excel export first (1 request for ALL orders)
         const excelSuccess = await _prefetchViaExcel(orders, progressEl);
         if (excelSuccess) {
-            console.log(`[TemplateMgr] Excel pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+            console.log(
+                `[TemplateMgr] Excel pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+            );
             return;
         }
 
@@ -514,17 +585,24 @@
                     try {
                         if (window.getOrderDetails) {
                             const fullOrder = await window.getOrderDetails(orderId);
-                            if (fullOrder) { _orderDetailsCache.set(String(orderId), fullOrder); return; }
+                            if (fullOrder) {
+                                _orderDetailsCache.set(String(orderId), fullOrder);
+                                return;
+                            }
                         }
                     } catch (e) {}
                     const storeOrder = window.OrderStore?.get(orderId);
-                    if (storeOrder?.Details?.length) _orderDetailsCache.set(String(orderId), storeOrder);
+                    if (storeOrder?.Details?.length)
+                        _orderDetailsCache.set(String(orderId), storeOrder);
                 })
             );
             fetched += batch.length;
-            if (progressEl) progressEl.textContent = `Đang tải chi tiết SP: ${fetched}/${orderIds.length}...`;
+            if (progressEl)
+                progressEl.textContent = `Đang tải chi tiết SP: ${fetched}/${orderIds.length}...`;
         }
-        console.log(`[TemplateMgr] API pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+        console.log(
+            `[TemplateMgr] API pre-fetch: ${_orderDetailsCache.size} orders in ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+        );
     }
 
     /**
@@ -549,14 +627,17 @@
                 data: '{}',
                 campaignId: campaignId ? String(campaignId) : '',
                 postId: '',
-                ids: ''
+                ids: '',
             });
 
-            const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile', {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body
-            });
+            const resp = await fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile',
+                {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body,
+                }
+            );
 
             if (!resp.ok) {
                 console.warn('[TemplateMgr] Excel export failed:', resp.status);
@@ -571,22 +652,41 @@
 
             // Find header row (contains "Ma" or "Mã" and "San pham" or "Sản phẩm")
             let headerIdx = -1;
-            let colCode = -1, colName = -1, colPhone = -1, colAddress = -1;
-            let colProducts = -1, colTotalQty = -1, colTotal = -1;
+            let colCode = -1,
+                colName = -1,
+                colPhone = -1,
+                colAddress = -1;
+            let colProducts = -1,
+                colTotalQty = -1,
+                colTotal = -1;
 
             for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                const row = rows[i].map(c => String(c || '').toLowerCase().trim());
-                const maIdx = row.findIndex(c => c === 'ma' || c === 'mã');
-                const spIdx = row.findIndex(c => c.includes('san pham') || c.includes('sản phẩm'));
+                const row = rows[i].map((c) =>
+                    String(c || '')
+                        .toLowerCase()
+                        .trim()
+                );
+                const maIdx = row.findIndex((c) => c === 'ma' || c === 'mã');
+                const spIdx = row.findIndex(
+                    (c) => c.includes('san pham') || c.includes('sản phẩm')
+                );
                 if (maIdx >= 0 && spIdx >= 0) {
                     headerIdx = i;
                     colCode = maIdx;
                     colProducts = spIdx;
-                    colName = row.findIndex(c => c === 'ten' || c === 'tên');
-                    colPhone = row.findIndex(c => c.includes('dien thoai') || c.includes('điện thoại'));
-                    colAddress = row.findIndex(c => c.includes('dia chi') || c.includes('địa chỉ'));
-                    colTotalQty = row.findIndex(c => c.includes('tong so luong') || c.includes('tổng số lượng'));
-                    colTotal = row.findIndex(c => c.includes('tong tien') || c.includes('tổng tiền'));
+                    colName = row.findIndex((c) => c === 'ten' || c === 'tên');
+                    colPhone = row.findIndex(
+                        (c) => c.includes('dien thoai') || c.includes('điện thoại')
+                    );
+                    colAddress = row.findIndex(
+                        (c) => c.includes('dia chi') || c.includes('địa chỉ')
+                    );
+                    colTotalQty = row.findIndex(
+                        (c) => c.includes('tong so luong') || c.includes('tổng số lượng')
+                    );
+                    colTotal = row.findIndex(
+                        (c) => c.includes('tong tien') || c.includes('tổng tiền')
+                    );
                     break;
                 }
             }
@@ -598,7 +698,7 @@
 
             // Build orderId lookup from orders list (Code → orderId)
             const codeToId = new Map();
-            orders.forEach(o => {
+            orders.forEach((o) => {
                 if (o.Code) codeToId.set(String(o.Code).trim(), String(o.orderId));
             });
 
@@ -622,7 +722,10 @@
                     Telephone: colPhone >= 0 ? String(row[colPhone] || '') : '',
                     Address: colAddress >= 0 ? String(row[colAddress] || '') : '',
                     TotalQuantity: colTotalQty >= 0 ? parseInt(row[colTotalQty]) || 0 : 0,
-                    AmountTotal: colTotal >= 0 ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0 : 0,
+                    AmountTotal:
+                        colTotal >= 0
+                            ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0
+                            : 0,
                     Details: details,
                     _fromExcel: true,
                 };
@@ -633,7 +736,6 @@
 
             console.log(`[TemplateMgr] Excel parsed: ${parsed} orders with product details`);
             return parsed > 0;
-
         } catch (error) {
             console.warn('[TemplateMgr] Excel pre-fetch error:', error.message);
             return false;
@@ -647,30 +749,32 @@
     function _parseProductsText(text) {
         if (!text || !text.trim()) return [];
 
-        const lines = text.split(/\n|\r\n/).filter(l => l.trim());
-        return lines.map(line => {
-            // Match: [CODE] Name SL: qty Gia: price
-            const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
-            if (match) {
+        const lines = text.split(/\n|\r\n/).filter((l) => l.trim());
+        return lines
+            .map((line) => {
+                // Match: [CODE] Name SL: qty Gia: price
+                const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
+                if (match) {
+                    return {
+                        ProductCode: match[1].trim(),
+                        ProductName: match[2].trim(),
+                        ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
+                        Quantity: parseInt(match[3]) || 1,
+                        Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                        PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                    };
+                }
+                // Fallback: just product name
                 return {
-                    ProductCode: match[1].trim(),
-                    ProductName: match[2].trim(),
-                    ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
-                    Quantity: parseInt(match[3]) || 1,
-                    Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
-                    PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                    ProductCode: '',
+                    ProductName: line.trim(),
+                    ProductNameGet: line.trim(),
+                    Quantity: 1,
+                    Price: 0,
+                    PriceUnit: 0,
                 };
-            }
-            // Fallback: just product name
-            return {
-                ProductCode: '',
-                ProductName: line.trim(),
-                ProductNameGet: line.trim(),
-                Quantity: 1,
-                Price: 0,
-                PriceUnit: 0,
-            };
-        }).filter(d => d.ProductName);
+            })
+            .filter((d) => d.ProductName);
     }
 
     function _replacePlaceholders(content, orderData) {
@@ -686,7 +790,9 @@
         // {partner.address} - kèm SĐT
         if (orderData.address && orderData.address.trim()) {
             const phone = orderData.phone && orderData.phone.trim() ? orderData.phone : '';
-            const addressWithPhone = phone ? `${orderData.address} - SĐT: ${phone}` : orderData.address;
+            const addressWithPhone = phone
+                ? `${orderData.address} - SĐT: ${phone}`
+                : orderData.address;
             result = result.replace(/{partner\.address}/g, addressWithPhone);
         } else {
             result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
@@ -701,10 +807,14 @@
         }
 
         // {order.details} - danh sách SP + tổng tiền + phí ship + freeship
-        if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+        if (
+            orderData.products &&
+            Array.isArray(orderData.products) &&
+            orderData.products.length > 0
+        ) {
             let totalDiscountAmount = 0;
             let hasAnyDiscount = false;
-            const formattedProducts = orderData.products.map(p => {
+            const formattedProducts = orderData.products.map((p) => {
                 const fp = _formatProductLine(p);
                 if (fp.hasDiscount && fp.discountData) {
                     hasAnyDiscount = true;
@@ -712,7 +822,7 @@
                 }
                 return fp;
             });
-            const productList = formattedProducts.map(fp => fp.line).join('\n');
+            const productList = formattedProducts.map((fp) => fp.line).join('\n');
 
             let totalSection;
             if (hasAnyDiscount) {
@@ -721,7 +831,7 @@
                 totalSection = [
                     `Tổng : ${_formatCurrency(originalTotal)}`,
                     `Giảm giá: ${_formatCurrency(totalDiscountAmount)}`,
-                    `Tổng tiền: ${_formatCurrency(afterDiscount)}`
+                    `Tổng tiền: ${_formatCurrency(afterDiscount)}`,
                 ].join('\n');
             } else {
                 const totalAmount = orderData.totalAmount || 0;
@@ -805,7 +915,7 @@
             // Find account with access to this page
             let preferredIdx = -1;
             if (pageId && window.pancakeTokenManager) {
-                preferredIdx = accounts.findIndex(acc =>
+                preferredIdx = accounts.findIndex((acc) =>
                     window.pancakeTokenManager.accountHasPageAccess(acc.accountId, pageId)
                 );
             }
@@ -831,14 +941,20 @@
         }
 
         // Just verify tokens exist - DO NOT auto-generate (requires subscription)
-        const uniquePageIds = [...new Set(orders.map(o => o.channelId || o.pageId).filter(Boolean))];
+        const uniquePageIds = [
+            ...new Set(orders.map((o) => o.channelId || o.pageId).filter(Boolean)),
+        ];
         const missingPages = [];
         for (const pid of uniquePageIds) {
             const token = window.pancakeTokenManager.getPageAccessToken(pid);
             if (token) {
             } else {
                 missingPages.push(pid);
-                console.warn('[TemplateMgr] ⚠️ No PAT found for page:', pid, '- Admin cần thêm token qua "Quản lý Pancake Accounts"');
+                console.warn(
+                    '[TemplateMgr] ⚠️ No PAT found for page:',
+                    pid,
+                    '- Admin cần thêm token qua "Quản lý Pancake Accounts"'
+                );
             }
         }
 
@@ -853,29 +969,31 @@
     function _is24HourPolicyError(result) {
         const errorCode = result?.error?.code || result?.error_code;
         const subCode = result?.error?.error_subcode || result?.error_subcode;
-        return errorCode === 10 || subCode === 2018278 ||
-            (result?.error?.message || '').includes('24');
+        return (
+            errorCode === 10 || subCode === 2018278 || (result?.error?.message || '').includes('24')
+        );
     }
 
     function _isUserUnavailableError(result) {
         const errorCode = result?.error?.code || result?.error_code;
-        return errorCode === 551 ||
-            (result?.error?.message || '').includes('not available');
+        return errorCode === 551 || (result?.error?.message || '').includes('not available');
     }
 
     async function _sendViaFacebookTag(order, messageContent, channelId, psid) {
         // Get page token from multiple sources
         let pageToken = null;
 
-        if (window.currentCRMTeam?.Facebook_PageToken &&
-            window.currentCRMTeam?.Facebook_PageId === channelId) {
+        if (
+            window.currentCRMTeam?.Facebook_PageToken &&
+            window.currentCRMTeam?.Facebook_PageId === channelId
+        ) {
             pageToken = window.currentCRMTeam.Facebook_PageToken;
         }
         if (!pageToken && window.currentOrder?.CRMTeam?.Facebook_PageToken) {
             pageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
         }
         if (!pageToken && window.cachedChannelsData) {
-            const ch = window.cachedChannelsData.find(c => c.channelId === channelId);
+            const ch = window.cachedChannelsData.find((c) => c.channelId === channelId);
             if (ch) pageToken = ch.pageToken;
         }
         if (!pageToken) throw new Error('Không tìm thấy Facebook Page Token');
@@ -894,8 +1012,8 @@
                 useTag: true,
                 imageUrls: [],
                 postId: order.Facebook_PostId || '',
-                customerName: order.customerName || ''
-            })
+                customerName: order.customerName || '',
+            }),
         });
         return await response.json();
     }
@@ -918,9 +1036,10 @@
                 if (storeOrder?.Details?.length && fullOrder.Details?.length) {
                     // Merge Note from OrderStore into Excel-parsed Details
                     for (const detail of fullOrder.Details) {
-                        const match = storeOrder.Details.find(d =>
-                            (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
-                            (d.ProductNameGet || '').includes(detail.ProductCode)
+                        const match = storeOrder.Details.find(
+                            (d) =>
+                                (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
+                                (d.ProductNameGet || '').includes(detail.ProductCode)
                         );
                         if (match?.Note) detail.Note = match.Note;
                     }
@@ -940,16 +1059,24 @@
                 const storeOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
                 if (storeOrder?.Details?.length) fullOrder = storeOrder;
             }
-            orderData = fullOrder ? _convertOrderData(fullOrder) : {
-                code: order.Code || '', customerName: order.customerName || '',
-                phone: order.Phone || '', address: order.Address || '',
-                totalAmount: order.AmountTotal || 0, products: []
-            };
+            orderData = fullOrder
+                ? _convertOrderData(fullOrder)
+                : {
+                      code: order.Code || '',
+                      customerName: order.customerName || '',
+                      phone: order.Phone || '',
+                      address: order.Address || '',
+                      totalAmount: order.AmountTotal || 0,
+                      products: [],
+                  };
         } else {
             orderData = {
-                code: order.Code || '', customerName: order.customerName || '',
-                phone: order.Phone || '', address: order.Address || '',
-                totalAmount: order.AmountTotal || 0, products: []
+                code: order.Code || '',
+                customerName: order.customerName || '',
+                phone: order.Phone || '',
+                address: order.Address || '',
+                totalAmount: order.AmountTotal || 0,
+                products: [],
             };
         }
 
@@ -960,8 +1087,14 @@
         const channelId = order.channelId || order.pageId;
         const psid = order.psid;
         if (!channelId || !psid) {
-            console.error('[TemplateMgr] ❌ Missing chat info:', { channelId, psid, orderId: order.orderId });
-            throw new Error(`Thiếu thông tin chat (channelId=${channelId || 'N/A'}, psid=${psid || 'N/A'})`);
+            console.error('[TemplateMgr] ❌ Missing chat info:', {
+                channelId,
+                psid,
+                orderId: order.orderId,
+            });
+            throw new Error(
+                `Thiếu thông tin chat (channelId=${channelId || 'N/A'}, psid=${psid || 'N/A'})`
+            );
         }
 
         // 5. Find conversation
@@ -969,7 +1102,11 @@
 
         // If not found in inbox, try fetching conversations for this customer
         if (!conv) {
-            console.warn('[TemplateMgr] ⚠️ Conversation not in inboxMapByPSID for psid:', psid, '- trying fetch...');
+            console.warn(
+                '[TemplateMgr] ⚠️ Conversation not in inboxMapByPSID for psid:',
+                psid,
+                '- trying fetch...'
+            );
             try {
                 if (pdm.fetchConversationsByCustomerFbId) {
                     await pdm.fetchConversationsByCustomerFbId(channelId, psid);
@@ -981,7 +1118,12 @@
         }
 
         if (!conv) {
-            console.error('[TemplateMgr] ❌ No conversation found for psid:', psid, 'in page:', channelId);
+            console.error(
+                '[TemplateMgr] ❌ No conversation found for psid:',
+                psid,
+                'in page:',
+                channelId
+            );
             throw new Error('Không tìm thấy cuộc hội thoại INBOX cho psid: ' + psid);
         }
 
@@ -997,16 +1139,31 @@
         for (const part of parts) {
             // [Primary] Pancake Official API
             try {
-                const result = await pdm.sendMessage(channelId, conv.id, { action: 'reply_inbox', message: part });
+                const result = await pdm.sendMessage(channelId, conv.id, {
+                    action: 'reply_inbox',
+                    message: part,
+                });
                 // sendMessage returns { success, error } instead of throwing
                 if (result && result.success !== false && !result.error) {
                     sendSuccess = true;
                     continue;
                 }
                 // API returned error — Pancake uses flat { message, e_code, e_subcode } format
-                const errMsg = result?.error?.message || result?.message || result?.error || 'Pancake API error';
-                const is24h = result?.e_code === 10 || result?.e_subcode === 2018278 || (errMsg || '').includes('khoảng thời gian cho phép');
-                console.warn('[TemplateMgr] Pancake API error:', errMsg, is24h ? '(24h policy)' : '', result);
+                const errMsg =
+                    result?.error?.message ||
+                    result?.message ||
+                    result?.error ||
+                    'Pancake API error';
+                const is24h =
+                    result?.e_code === 10 ||
+                    result?.e_subcode === 2018278 ||
+                    (errMsg || '').includes('khoảng thời gian cho phép');
+                console.warn(
+                    '[TemplateMgr] Pancake API error:',
+                    errMsg,
+                    is24h ? '(24h policy)' : '',
+                    result
+                );
                 lastError = new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
                 lastError.is24HourError = is24h;
             } catch (apiErr) {
@@ -1020,11 +1177,16 @@
                 // Lazily build ext conv data — check server cache before fetchMessages
                 if (!_extConvData) {
                     const raw = { from_psid: psid };
-                    let cachedGlobalId = window._globalIdCache?.[conv.id] || window._globalIdCache?.[`${channelId}_${psid}`] || null;
+                    let cachedGlobalId =
+                        window._globalIdCache?.[conv.id] ||
+                        window._globalIdCache?.[`${channelId}_${psid}`] ||
+                        null;
                     if (!cachedGlobalId) {
                         try {
                             const params = new URLSearchParams({ pageId: channelId, psid });
-                            const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
+                            const r = await fetch(
+                                `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`
+                            );
                             if (r.ok) {
                                 const data = await r.json();
                                 if (data.found && data.globalUserId) {
@@ -1034,18 +1196,25 @@
                                     window._globalIdCache[`${channelId}_${psid}`] = cachedGlobalId;
                                 }
                             }
-                        } catch (e) { /* server cache unavailable */ }
+                        } catch (e) {
+                            /* server cache unavailable */
+                        }
                     }
 
                     if (cachedGlobalId) {
                         raw.page_customer = { global_id: cachedGlobalId };
                         if (conv.thread_id) raw.thread_id = conv.thread_id;
                         _extConvData = {
-                            pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                            customers: conv.customers || [], _messagesData: { customers: conv.customers || [] },
+                            pageId: channelId,
+                            psid,
+                            conversationId: conv.id,
+                            _raw: raw,
+                            customers: conv.customers || [],
+                            _messagesData: { customers: conv.customers || [] },
                             updated_at: conv.updated_at || null,
                             customerName: order.customerName || conv.from?.name || '',
-                            type: conv.type || 'INBOX', from: conv.from || null,
+                            type: conv.type || 'INBOX',
+                            from: conv.from || null,
                         };
                     } else {
                         try {
@@ -1061,21 +1230,33 @@
                                 raw.page_customer.global_id = conv.page_customer.global_id;
                             }
                             _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                                pageId: channelId,
+                                psid,
+                                conversationId: conv.id,
+                                _raw: raw,
                                 customers: msgData.customers || [],
                                 _messagesData: { customers: msgData.customers || [] },
                                 updated_at: conv.updated_at || null,
                                 customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
+                                type: conv.type || 'INBOX',
+                                from: conv.from || null,
                             };
                         } catch (e) {
-                            console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
+                            console.warn(
+                                '[TemplateMgr] Messages fetch for extension data failed:',
+                                e.message
+                            );
                             _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                                customers: [], _messagesData: { customers: [] },
+                                pageId: channelId,
+                                psid,
+                                conversationId: conv.id,
+                                _raw: raw,
+                                customers: [],
+                                _messagesData: { customers: [] },
                                 updated_at: conv.updated_at || null,
                                 customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
+                                type: conv.type || 'INBOX',
+                                from: conv.from || null,
                             };
                         }
                     }
@@ -1083,7 +1264,9 @@
                 // Queue ALL remaining parts for background extension processing
                 const partIndex = parts.indexOf(part);
                 sendingState.extQueue.push({
-                    order, parts: parts.slice(partIndex), convData: _extConvData
+                    order,
+                    parts: parts.slice(partIndex),
+                    convData: _extConvData,
                 });
                 sendSuccess = true; // tentatively mark success (extension will confirm later)
                 break; // exit parts loop — all remaining parts handled by extension queue
@@ -1116,7 +1299,7 @@
             code: order.Code || '',
             customerName: order.customerName || '',
             account: account?.name || 'default',
-            usedTag: order._usedTag || null
+            usedTag: order._usedTag || null,
         };
     }
 
@@ -1129,14 +1312,24 @@
 
             const task = (async () => {
                 try {
-                    const result = await _processSingleOrder(order, template, account, sendingState);
+                    const result = await _processSingleOrder(
+                        order,
+                        template,
+                        account,
+                        sendingState
+                    );
                     sendingState.successOrders.push(result);
                     markOrderSent(order.orderId, false);
                 } catch (error) {
                     console.error('[TemplateMgr] ❌ Order failed:', order.Code, '-', error.message);
 
                     // Try extension bypass for ANY error (user: "bị lỗi gì cứ đưa vào queue extension")
-                    if (window.sendViaExtension && window.pancakeExtension?.connected && order.psid && order.channelId) {
+                    if (
+                        window.sendViaExtension &&
+                        window.pancakeExtension?.connected &&
+                        order.psid &&
+                        order.channelId
+                    ) {
                         try {
                             const pdm = window.pancakeDataManager;
                             const raw = { from_psid: order.psid };
@@ -1144,91 +1337,141 @@
                             const conv = pdm?.inboxMapByPSID?.get(String(order.psid));
 
                             // Check server cache first — skip fetchMessages if global_id cached
-                            let cachedGlobalId = window._globalIdCache?.[conv?.id] || window._globalIdCache?.[`${order.channelId}_${order.psid}`] || null;
+                            let cachedGlobalId =
+                                window._globalIdCache?.[conv?.id] ||
+                                window._globalIdCache?.[`${order.channelId}_${order.psid}`] ||
+                                null;
                             if (!cachedGlobalId) {
                                 try {
-                                    const params = new URLSearchParams({ pageId: order.channelId, psid: order.psid });
-                                    const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
+                                    const params = new URLSearchParams({
+                                        pageId: order.channelId,
+                                        psid: order.psid,
+                                    });
+                                    const r = await fetch(
+                                        `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`
+                                    );
                                     if (r.ok) {
                                         const data = await r.json();
                                         if (data.found && data.globalUserId) {
                                             cachedGlobalId = data.globalUserId;
                                             if (!window._globalIdCache) window._globalIdCache = {};
-                                            if (conv?.id) window._globalIdCache[conv.id] = cachedGlobalId;
-                                            window._globalIdCache[`${order.channelId}_${order.psid}`] = cachedGlobalId;
+                                            if (conv?.id)
+                                                window._globalIdCache[conv.id] = cachedGlobalId;
+                                            window._globalIdCache[
+                                                `${order.channelId}_${order.psid}`
+                                            ] = cachedGlobalId;
                                         }
                                     }
-                                } catch (e) { /* server cache unavailable */ }
+                                } catch (e) {
+                                    /* server cache unavailable */
+                                }
                             }
 
                             if (cachedGlobalId) {
                                 raw.page_customer = { global_id: cachedGlobalId };
                                 if (conv?.thread_id) raw.thread_id = conv.thread_id;
                                 extConvData = {
-                                    pageId: order.channelId, psid: order.psid, conversationId: conv?.id || '', _raw: raw,
-                                    customers: conv?.customers || [], _messagesData: { customers: conv?.customers || [] },
-                                    updated_at: conv?.updated_at || null, customerName: order.customerName || '',
-                                    type: conv?.type || 'INBOX', from: conv?.from || null,
+                                    pageId: order.channelId,
+                                    psid: order.psid,
+                                    conversationId: conv?.id || '',
+                                    _raw: raw,
+                                    customers: conv?.customers || [],
+                                    _messagesData: { customers: conv?.customers || [] },
+                                    updated_at: conv?.updated_at || null,
+                                    customerName: order.customerName || '',
+                                    type: conv?.type || 'INBOX',
+                                    from: conv?.from || null,
                                 };
                             } else if (conv && pdm?.fetchMessages) {
                                 try {
-                                    const msgData = await pdm.fetchMessages(order.channelId, conv.id);
+                                    const msgData = await pdm.fetchMessages(
+                                        order.channelId,
+                                        conv.id
+                                    );
                                     if (msgData.conversation) {
-                                        if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
-                                        if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                                        if (msgData.conversation.thread_id)
+                                            raw.thread_id = msgData.conversation.thread_id;
+                                        if (msgData.conversation.page_customer)
+                                            raw.page_customer = msgData.conversation.page_customer;
                                     }
                                     extConvData = {
-                                        pageId: order.channelId, psid: order.psid, conversationId: conv.id, _raw: raw,
-                                        customers: msgData.customers || [], _messagesData: { customers: msgData.customers || [] },
-                                        updated_at: conv.updated_at || null, customerName: order.customerName || '',
-                                        type: conv.type || 'INBOX', from: conv.from || null,
+                                        pageId: order.channelId,
+                                        psid: order.psid,
+                                        conversationId: conv.id,
+                                        _raw: raw,
+                                        customers: msgData.customers || [],
+                                        _messagesData: { customers: msgData.customers || [] },
+                                        updated_at: conv.updated_at || null,
+                                        customerName: order.customerName || '',
+                                        type: conv.type || 'INBOX',
+                                        from: conv.from || null,
                                     };
-                                } catch (e) { /* fallback below */ }
+                                } catch (e) {
+                                    /* fallback below */
+                                }
                             }
                             if (!extConvData) {
                                 extConvData = {
-                                    pageId: order.channelId, psid: order.psid, conversationId: conv?.id || '', _raw: raw,
-                                    customers: [], _messagesData: { customers: [] },
-                                    updated_at: null, customerName: order.customerName || '',
-                                    type: 'INBOX', from: null,
+                                    pageId: order.channelId,
+                                    psid: order.psid,
+                                    conversationId: conv?.id || '',
+                                    _raw: raw,
+                                    customers: [],
+                                    _messagesData: { customers: [] },
+                                    updated_at: null,
+                                    customerName: order.customerName || '',
+                                    type: 'INBOX',
+                                    from: null,
                                 };
                             }
 
                             // Build message content for extension queue
-                            const tplContent = template.Content || template.BodyPlain || template.content || '';
+                            const tplContent =
+                                template.Content || template.BodyPlain || template.content || '';
                             let msgContent = _replacePlaceholders(tplContent, {
-                                code: order.Code || '', customerName: order.customerName || '',
-                                phone: order.Phone || '', address: order.Address || '',
-                                totalAmount: order.AmountTotal || 0, products: []
+                                code: order.Code || '',
+                                customerName: order.customerName || '',
+                                phone: order.Phone || '',
+                                address: order.Address || '',
+                                totalAmount: order.AmountTotal || 0,
+                                products: [],
                             });
                             const parts = _splitMessageIntoParts(msgContent);
 
                             sendingState.extQueue.push({ order, parts, convData: extConvData });
                             sendingState.successOrders.push({
-                                Id: order.orderId, code: order.Code || '',
+                                Id: order.orderId,
+                                code: order.Code || '',
                                 customerName: order.customerName || '',
-                                account: account?.name || 'default', usedTag: null
+                                account: account?.name || 'default',
+                                usedTag: null,
                             });
                         } catch (extBuildErr) {
-                            console.warn('[TemplateMgr] Extension queue build failed:', extBuildErr.message);
+                            console.warn(
+                                '[TemplateMgr] Extension queue build failed:',
+                                extBuildErr.message
+                            );
                             sendingState.errorOrders.push({
-                                orderId: order.orderId, code: order.Code || '',
+                                orderId: order.orderId,
+                                code: order.Code || '',
                                 customerName: order.customerName || '',
                                 error: error.message || 'Lỗi không xác định',
                                 is24HourError: false,
                                 Facebook_PostId: order.Facebook_PostId || '',
-                                Facebook_CommentId: order.Facebook_CommentId || ''
+                                Facebook_CommentId: order.Facebook_CommentId || '',
                             });
                             markOrderFailed(order.orderId, error.message);
                         }
                     } else {
                         sendingState.errorOrders.push({
-                            orderId: order.orderId, code: order.Code || '',
+                            orderId: order.orderId,
+                            code: order.Code || '',
                             customerName: order.customerName || '',
                             error: error.message || 'Lỗi không xác định',
-                            is24HourError: error.is24HourError || (error.message || '').includes('24'),
+                            is24HourError:
+                                error.is24HourError || (error.message || '').includes('24'),
                             Facebook_PostId: order.Facebook_PostId || '',
-                            Facebook_CommentId: order.Facebook_CommentId || ''
+                            Facebook_CommentId: order.Facebook_CommentId || '',
                         });
                         markOrderFailed(order.orderId, error.message);
                     }
@@ -1256,7 +1499,7 @@
 
             // Delay between starting new tasks
             if (delay > 0 && sendingState.isSending) {
-                await new Promise(r => setTimeout(r, delay * 1000));
+                await new Promise((r) => setTimeout(r, delay * 1000));
             }
         }
 
@@ -1277,7 +1520,8 @@
 
         for (const order of orders) {
             if (!sendingState.isSending) break;
-            if (progressText) progressText.textContent = `Chuẩn bị: ${sendingState.extQueue.length + sendingState.errorOrders.length}/${orders.length}...`;
+            if (progressText)
+                progressText.textContent = `Chuẩn bị: ${sendingState.extQueue.length + sendingState.errorOrders.length}/${orders.length}...`;
 
             try {
                 // 1. Build order data + replace placeholders
@@ -1290,9 +1534,10 @@
                         const storeOrder = window.OrderStore?.get(order.orderId);
                         if (storeOrder?.Details?.length && fullOrder.Details?.length) {
                             for (const detail of fullOrder.Details) {
-                                const match = storeOrder.Details.find(d =>
-                                    (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
-                                    (d.ProductNameGet || '').includes(detail.ProductCode)
+                                const match = storeOrder.Details.find(
+                                    (d) =>
+                                        (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
+                                        (d.ProductNameGet || '').includes(detail.ProductCode)
                                 );
                                 if (match?.Note) detail.Note = match.Note;
                             }
@@ -1305,16 +1550,24 @@
                         const storeOrder = window.OrderStore?.get(order.orderId);
                         if (storeOrder?.Details?.length) fullOrder = storeOrder;
                     }
-                    orderData = fullOrder ? _convertOrderData(fullOrder) : {
-                        code: order.Code || '', customerName: order.customerName || '',
-                        phone: order.Phone || '', address: order.Address || '',
-                        totalAmount: order.AmountTotal || 0, products: []
-                    };
+                    orderData = fullOrder
+                        ? _convertOrderData(fullOrder)
+                        : {
+                              code: order.Code || '',
+                              customerName: order.customerName || '',
+                              phone: order.Phone || '',
+                              address: order.Address || '',
+                              totalAmount: order.AmountTotal || 0,
+                              products: [],
+                          };
                 } else {
                     orderData = {
-                        code: order.Code || '', customerName: order.customerName || '',
-                        phone: order.Phone || '', address: order.Address || '',
-                        totalAmount: order.AmountTotal || 0, products: []
+                        code: order.Code || '',
+                        customerName: order.customerName || '',
+                        phone: order.Phone || '',
+                        address: order.Address || '',
+                        totalAmount: order.AmountTotal || 0,
+                        products: [],
                     };
                 }
 
@@ -1338,11 +1591,16 @@
                 let msgCustomers = [];
 
                 // Try server cache first — skip fetchMessages if global_id already cached
-                let cachedGlobalId = window._globalIdCache?.[conv.id] || window._globalIdCache?.[`${channelId}_${psid}`] || null;
+                let cachedGlobalId =
+                    window._globalIdCache?.[conv.id] ||
+                    window._globalIdCache?.[`${channelId}_${psid}`] ||
+                    null;
                 if (!cachedGlobalId) {
                     try {
                         const params = new URLSearchParams({ pageId: channelId, psid });
-                        const r = await fetch(`https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`);
+                        const r = await fetch(
+                            `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-global-id?${params}`
+                        );
                         if (r.ok) {
                             const data = await r.json();
                             if (data.found && data.globalUserId) {
@@ -1353,7 +1611,9 @@
                                 window._globalIdCache[`${channelId}_${psid}`] = cachedGlobalId;
                             }
                         }
-                    } catch (e) { /* server cache unavailable */ }
+                    } catch (e) {
+                        /* server cache unavailable */
+                    }
                 }
 
                 if (cachedGlobalId) {
@@ -1365,8 +1625,10 @@
                     try {
                         const msgData = await pdm.fetchMessages(channelId, conv.id);
                         if (msgData.conversation) {
-                            if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
-                            if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                            if (msgData.conversation.thread_id)
+                                raw.thread_id = msgData.conversation.thread_id;
+                            if (msgData.conversation.page_customer)
+                                raw.page_customer = msgData.conversation.page_customer;
                         }
                         if (msgData.customers?.length) msgCustomers = msgData.customers;
                         if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
@@ -1374,11 +1636,13 @@
                             if (!raw.page_customer) raw.page_customer = {};
                             raw.page_customer.global_id = conv.page_customer.global_id;
                         }
-                    } catch (e) { /* ignore fetch error */ }
+                    } catch (e) {
+                        /* ignore fetch error */
+                    }
 
                     // Fallback: lấy global_id từ conv.customers[] (cache)
                     if (!raw.page_customer?.global_id && conv.customers?.length) {
-                        const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
+                        const custGlobal = conv.customers.find((c) => c.global_id)?.global_id;
                         if (custGlobal) {
                             if (!raw.page_customer) raw.page_customer = {};
                             raw.page_customer.global_id = custGlobal;
@@ -1386,30 +1650,39 @@
                     }
                 }
 
-                const customers = msgCustomers.length ? msgCustomers : (conv.customers || []);
+                const customers = msgCustomers.length ? msgCustomers : conv.customers || [];
                 const extConvData = {
-                    pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                    customers, _messagesData: { customers },
+                    pageId: channelId,
+                    psid,
+                    conversationId: conv.id,
+                    _raw: raw,
+                    customers,
+                    _messagesData: { customers },
                     updated_at: conv.updated_at || null,
                     customerName: order.customerName || conv.from?.name || '',
-                    type: conv.type || 'INBOX', from: conv.from || null,
+                    type: conv.type || 'INBOX',
+                    from: conv.from || null,
                 };
 
                 // 4. Queue for extension sending
                 sendingState.extQueue.push({ order, parts, convData: extConvData });
                 sendingState.successOrders.push({
-                    Id: order.orderId, code: order.Code || '',
+                    Id: order.orderId,
+                    code: order.Code || '',
                     customerName: order.customerName || '',
-                    account: 'Extension', usedTag: null
+                    account: 'Extension',
+                    usedTag: null,
                 });
             } catch (err) {
                 console.warn('[TemplateMgr] Extension build failed:', order.Code, err.message);
                 sendingState.errorOrders.push({
-                    orderId: order.orderId, code: order.Code || '',
+                    orderId: order.orderId,
+                    code: order.Code || '',
                     customerName: order.customerName || '',
-                    error: err.message, is24HourError: false,
+                    error: err.message,
+                    is24HourError: false,
                     Facebook_PostId: order.Facebook_PostId || '',
-                    Facebook_CommentId: order.Facebook_CommentId || ''
+                    Facebook_CommentId: order.Facebook_CommentId || '',
                 });
                 markOrderFailed(order.orderId, err.message);
             }
@@ -1444,7 +1717,10 @@
                 if (extErr.message.includes('Global Facebook ID') && window.buildConvData) {
                     try {
                         console.log('[TemplateMgr] 🔄 Retry with buildConvData:', item.order.Code);
-                        const enrichedConv = window.buildConvData(item.convData.pageId, item.convData.psid);
+                        const enrichedConv = window.buildConvData(
+                            item.convData.pageId,
+                            item.convData.psid
+                        );
                         for (const part of item.parts) {
                             await window.sendViaExtension(part, enrichedConv);
                         }
@@ -1460,9 +1736,15 @@
                         extErr = retryErr;
                     }
                 }
-                console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
+                console.error(
+                    '[TemplateMgr] ❌ Extension failed:',
+                    item.order.Code,
+                    extErr.message
+                );
                 // Move from success to error
-                const idx = sendingState.successOrders.findIndex(s => s.Id === item.order.orderId);
+                const idx = sendingState.successOrders.findIndex(
+                    (s) => s.Id === item.order.orderId
+                );
                 if (idx >= 0) sendingState.successOrders.splice(idx, 1);
                 sendingState.errorOrders.push({
                     orderId: item.order.orderId,
@@ -1471,7 +1753,7 @@
                     error: extErr.message || 'Extension gửi thất bại',
                     is24HourError: true,
                     Facebook_PostId: item.order.Facebook_PostId || '',
-                    Facebook_CommentId: item.order.Facebook_CommentId || ''
+                    Facebook_CommentId: item.order.Facebook_CommentId || '',
                 });
                 markOrderFailed(item.order.orderId, extErr.message);
             }
@@ -1486,12 +1768,14 @@
             }
             if (typeof sendingState.onProgress === 'function') {
                 sendingState.onProgress(
-                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
-                    sendingState.successOrders.length, sendingState.errorOrders.length
+                    sendingState.totalProcessed,
+                    sendingState.totalToProcess,
+                    sendingState.totalToProcess,
+                    sendingState.successOrders.length,
+                    sendingState.errorOrders.length
                 );
             }
         }
-
     }
 
     // =====================================================
@@ -1511,11 +1795,11 @@
                     errorCount: errorOrders.length,
                     successOrders: successOrders,
                     errorOrders: errorOrders,
-                    accountsUsed: accounts.map(a => a.name || a.accountId),
+                    accountsUsed: accounts.map((a) => a.name || a.accountId),
                     delay: delay,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     expireAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                    localCreatedAt: new Date().toISOString()
+                    localCreatedAt: new Date().toISOString(),
                 });
             }
         } catch (e) {
@@ -1532,11 +1816,13 @@
                 successCount: successOrders.length,
                 errorCount: errorOrders.length,
                 errorOrders: errorOrders,
-                localCreatedAt: new Date().toISOString()
+                localCreatedAt: new Date().toISOString(),
             });
             if (history.length > 100) history.length = 100;
             localStorage.setItem('messageSendHistory', JSON.stringify(history));
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         // 3. KPI integration
         if (window.kpiManager?.saveAutoBaseSnapshot && successOrders.length > 0) {
@@ -1544,7 +1830,9 @@
                 const campaignName = window.currentCampaignName || '';
                 const userId = window.authManager?.getUserInfo()?.uid || '';
                 await window.kpiManager.saveAutoBaseSnapshot(successOrders, campaignName, userId);
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
     }
 
@@ -1560,26 +1848,40 @@
             const defaults = [
                 {
                     Name: 'Chốt đơn',
-                    Content: 'Dạ chào chị {partner.name},\n\nEm gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:\n\n{order.details}\n\nĐơn hàng của mình sẽ được gửi về địa chỉ \"{partner.address}\"\n\nChị xác nhận giúp em để em gửi hàng nha ạ! 🙏',
-                    order: 1, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    Content:
+                        'Dạ chào chị {partner.name},\n\nEm gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:\n\n{order.details}\n\nĐơn hàng của mình sẽ được gửi về địa chỉ \"{partner.address}\"\n\nChị xác nhận giúp em để em gửi hàng nha ạ! 🙏',
+                    order: 1,
+                    active: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 },
                 {
                     Name: 'Xác nhận địa chỉ',
-                    Content: 'Dạ chị {partner.name} ơi,\n\nEm xác nhận lại địa chỉ nhận hàng của chị là:\n📍 {partner.address}\n\nChị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?',
-                    order: 2, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    Content:
+                        'Dạ chị {partner.name} ơi,\n\nEm xác nhận lại địa chỉ nhận hàng của chị là:\n📍 {partner.address}\n\nChị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?',
+                    order: 2,
+                    active: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 },
                 {
                     Name: 'Thông báo giao hàng',
-                    Content: 'Dạ chị {partner.name} ơi,\n\nĐơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.\n\nChị chú ý điện thoại để nhận hàng nha! 📦',
-                    order: 3, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    Content:
+                        'Dạ chị {partner.name} ơi,\n\nĐơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.\n\nChị chú ý điện thoại để nhận hàng nha! 📦',
+                    order: 3,
+                    active: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 },
                 {
                     Name: 'Cảm ơn khách hàng',
-                    Content: 'Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️\n\nChị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.\n\nChúc chị một ngày vui vẻ! 😊',
-                    order: 4, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }
+                    Content:
+                        'Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️\n\nChị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.\n\nChúc chị một ngày vui vẻ! 😊',
+                    order: 4,
+                    active: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                },
             ];
-            defaults.forEach(t => { batch.set(ref.doc(), t); });
+            defaults.forEach((t) => {
+                batch.set(ref.doc(), t);
+            });
             await batch.commit();
         } catch (e) {
             console.error('[TemplateMgr] Seed error:', e);
@@ -1596,11 +1898,12 @@
         // Load from Firestore
         try {
             if (window.db) {
-                const snap = await window.db.collection('message_campaigns')
+                const snap = await window.db
+                    .collection('message_campaigns')
                     .orderBy('createdAt', 'desc')
                     .limit(50)
                     .get();
-                _historyCampaigns = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                _historyCampaigns = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             } else {
                 _historyCampaigns = JSON.parse(localStorage.getItem('messageSendHistory') || '[]');
             }
@@ -1628,17 +1931,22 @@
             document.body.appendChild(overlay);
 
             // Close events
-            document.getElementById('msgHistoryCloseBtn').onclick = () => overlay.classList.remove('active');
+            document.getElementById('msgHistoryCloseBtn').onclick = () =>
+                overlay.classList.remove('active');
             overlay.onclick = (e) => {
-                if (e.target.classList.contains('message-modal-overlay')) overlay.classList.remove('active');
+                if (e.target.classList.contains('message-modal-overlay'))
+                    overlay.classList.remove('active');
             };
         }
 
         const body = document.getElementById('msgHistoryBody');
         if (campaigns.length === 0) {
-            body.innerHTML = '<div class="message-no-results"><i class="fas fa-inbox"></i><p>Chưa có lịch sử gửi tin.</p></div>';
+            body.innerHTML =
+                '<div class="message-no-results"><i class="fas fa-inbox"></i><p>Chưa có lịch sử gửi tin.</p></div>';
         } else {
-            body.innerHTML = campaigns.map((c, i) => `
+            body.innerHTML = campaigns
+                .map(
+                    (c, i) => `
                 <div class="msg-history-card">
                     <div class="msg-history-header">
                         <strong>${_escHtml(c.templateName || 'Template')}</strong>
@@ -1649,18 +1957,24 @@
                         <span class="msg-history-error">✗ ${c.errorCount || 0} thất bại</span>
                         <span class="msg-history-total">Tổng: ${c.totalOrders || 0}</span>
                     </div>
-                    ${c.errorCount > 0 ? `
+                    ${
+                        c.errorCount > 0
+                            ? `
                         <div class="msg-history-actions">
                             <button class="message-send-btn msg-retry-comment-btn" data-campaign-index="${i}">
                                 <i class="fas fa-redo"></i> Gửi lại ${c.errorCount} đơn thất bại
                             </button>
                         </div>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
-            `).join('');
+            `
+                )
+                .join('');
 
             // Bind retry buttons
-            body.querySelectorAll('.msg-retry-comment-btn').forEach(btn => {
+            body.querySelectorAll('.msg-retry-comment-btn').forEach((btn) => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(btn.dataset.campaignIndex);
                     _sendFailedOrdersViaComment(idx);
@@ -1674,17 +1988,20 @@
     async function _sendFailedOrdersViaComment(campaignIndex) {
         const campaign = _historyCampaigns[campaignIndex];
         if (!campaign || !campaign.errorOrders || campaign.errorOrders.length === 0) {
-            if (window.notificationManager) window.notificationManager.show('Không có đơn thất bại', 'info');
+            if (window.notificationManager)
+                window.notificationManager.show('Không có đơn thất bại', 'info');
             return;
         }
 
         const pdm = window.pancakeDataManager;
         if (!pdm) {
-            if (window.notificationManager) window.notificationManager.show('pancakeDataManager chưa sẵn sàng', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('pancakeDataManager chưa sẵn sàng', 'error');
             return;
         }
 
-        let successCount = 0, failCount = 0;
+        let successCount = 0,
+            failCount = 0;
 
         for (const errOrder of campaign.errorOrders) {
             try {
@@ -1693,7 +2010,9 @@
 
                 // Rebuild message from template
                 let msg = campaign.templateContent || '';
-                const fullOrder = window.OrderStore ? window.OrderStore.get(errOrder.orderId) : null;
+                const fullOrder = window.OrderStore
+                    ? window.OrderStore.get(errOrder.orderId)
+                    : null;
                 if (fullOrder) {
                     const od = _convertOrderData(fullOrder);
                     msg = _replacePlaceholders(msg, od);
@@ -1706,7 +2025,7 @@
             } catch (e) {
                 failCount++;
             }
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise((r) => setTimeout(r, 1000));
         }
 
         if (window.notificationManager) {
@@ -1723,7 +2042,7 @@
 
     let _selectedTemplateId = null;
     let _filteredTemplates = [];
-    let _modalOrders = [];       // Orders to send in current session
+    let _modalOrders = []; // Orders to send in current session
     let _modalCreated = false;
 
     function _escHtml(s) {
@@ -1836,7 +2155,9 @@
         // Search
         document.getElementById('msgSearchInput').oninput = (e) => {
             _handleSearch(e.target.value);
-            document.getElementById('msgClearSearch').classList.toggle('show', e.target.value.length > 0);
+            document
+                .getElementById('msgClearSearch')
+                .classList.toggle('show', e.target.value.length > 0);
         };
 
         document.getElementById('msgClearSearch').onclick = () => {
@@ -1887,11 +2208,11 @@
         countEl.textContent = _filteredTemplates.length;
 
         container.innerHTML = `<div class="message-template-list">
-            ${_filteredTemplates.map(t => _renderSingleCard(t)).join('')}
+            ${_filteredTemplates.map((t) => _renderSingleCard(t)).join('')}
         </div>`;
 
         // Bind click events for cards
-        container.querySelectorAll('.message-template-item').forEach(card => {
+        container.querySelectorAll('.message-template-item').forEach((card) => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
                 _selectTemplate(card.dataset.templateId);
@@ -1899,10 +2220,12 @@
         });
 
         // Bind expand buttons
-        container.querySelectorAll('.message-expand-btn').forEach(btn => {
+        container.querySelectorAll('.message-expand-btn').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const content = btn.closest('.message-template-item').querySelector('.message-template-content');
+                const content = btn
+                    .closest('.message-template-item')
+                    .querySelector('.message-template-content');
                 content.classList.toggle('expanded');
                 btn.innerHTML = content.classList.contains('expanded')
                     ? '<i class="fas fa-chevron-up"></i> Thu gọn'
@@ -1911,23 +2234,25 @@
         });
 
         // Bind edit buttons
-        container.querySelectorAll('.message-template-edit-btn').forEach(btn => {
+        container.querySelectorAll('.message-template-edit-btn').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.templateId;
-                const template = _templates.find(t => t.id === id);
+                const template = _templates.find((t) => t.id === id);
                 if (template) _openNewTemplateForm(template);
             });
         });
     }
 
     function _renderSingleCard(template) {
-        const contentHtml = _escHtml(template.Content || template.BodyPlain || template.content || template.text || '')
+        const contentHtml = _escHtml(
+            template.Content || template.BodyPlain || template.content || template.text || ''
+        )
             .replace(/\n/g, '<br>')
             .substring(0, 500);
 
-        const dateStr = template.DateCreated ||
-            (template.createdAt ? _formatDate(template.createdAt) : '');
+        const dateStr =
+            template.DateCreated || (template.createdAt ? _formatDate(template.createdAt) : '');
 
         const name = template.Name || template.name || template.title || 'Không tên';
         const typeId = template.TypeId || 'MESSENGER';
@@ -1958,7 +2283,7 @@
     function _selectTemplate(templateId) {
         _selectedTemplateId = templateId;
 
-        document.querySelectorAll('.message-template-item').forEach(item => {
+        document.querySelectorAll('.message-template-item').forEach((item) => {
             item.classList.toggle('selected', item.dataset.templateId === templateId);
         });
 
@@ -1972,9 +2297,15 @@
         if (!q) {
             _filteredTemplates = [..._templates];
         } else {
-            _filteredTemplates = _templates.filter(t => {
+            _filteredTemplates = _templates.filter((t) => {
                 const name = (t.Name || t.name || t.title || '').toLowerCase();
-                const content = (t.Content || t.BodyPlain || t.content || t.text || '').toLowerCase();
+                const content = (
+                    t.Content ||
+                    t.BodyPlain ||
+                    t.content ||
+                    t.text ||
+                    ''
+                ).toLowerCase();
                 const type = (t.TypeId || '').toLowerCase();
                 return name.includes(q) || content.includes(q) || type.includes(q);
             });
@@ -1988,8 +2319,18 @@
         const isEdit = !!templateToEdit;
         const container = document.getElementById('msgModalBody');
 
-        const nameValue = isEdit ? _escHtml(templateToEdit.Name || templateToEdit.name || templateToEdit.title || '') : '';
-        const contentValue = isEdit ? _escHtml(templateToEdit.Content || templateToEdit.BodyPlain || templateToEdit.content || templateToEdit.text || '') : '';
+        const nameValue = isEdit
+            ? _escHtml(templateToEdit.Name || templateToEdit.name || templateToEdit.title || '')
+            : '';
+        const contentValue = isEdit
+            ? _escHtml(
+                  templateToEdit.Content ||
+                      templateToEdit.BodyPlain ||
+                      templateToEdit.content ||
+                      templateToEdit.text ||
+                      ''
+              )
+            : '';
 
         container.innerHTML = `
             <div class="message-template-form">
@@ -2007,9 +2348,13 @@
                     </p>
                 </div>
                 <div class="message-form-actions">
-                    ${isEdit ? `<button class="message-form-delete-btn" id="msgTemplateDeleteBtn">
+                    ${
+                        isEdit
+                            ? `<button class="message-form-delete-btn" id="msgTemplateDeleteBtn">
                         <i class="fas fa-trash"></i> Xóa
-                    </button>` : ''}
+                    </button>`
+                            : ''
+                    }
                     <button class="message-btn-cancel" id="msgTemplateCancelBtn">Hủy</button>
                     <button class="message-btn-send" id="msgTemplateSaveBtn">
                         <i class="fas fa-save"></i> Lưu
@@ -2029,7 +2374,11 @@
             const content = document.getElementById('msgTemplateContentInput').value.trim();
 
             if (!name || !content) {
-                if (window.notificationManager) window.notificationManager.show('Vui lòng nhập tên và nội dung template!', 'warning');
+                if (window.notificationManager)
+                    window.notificationManager.show(
+                        'Vui lòng nhập tên và nội dung template!',
+                        'warning'
+                    );
                 return;
             }
 
@@ -2037,7 +2386,7 @@
                 Name: name,
                 Content: content,
                 TypeId: 'MESSENGER',
-                active: true
+                active: true,
             };
 
             if (isEdit && templateToEdit.id) {
@@ -2050,7 +2399,8 @@
             await saveTemplate(data);
             _filteredTemplates = [..._templates];
             _renderTemplateCards();
-            if (window.notificationManager) window.notificationManager.show('Đã lưu template', 'success');
+            if (window.notificationManager)
+                window.notificationManager.show('Đã lưu template', 'success');
         };
 
         if (isEdit) {
@@ -2061,7 +2411,8 @@
                     await deleteTemplate(templateToEdit.id);
                     _filteredTemplates = [..._templates];
                     _renderTemplateCards();
-                    if (window.notificationManager) window.notificationManager.show('Đã xóa template', 'success');
+                    if (window.notificationManager)
+                        window.notificationManager.show('Đã xóa template', 'success');
                 };
             }
         }
@@ -2071,14 +2422,15 @@
     function openMessageTemplateModal() {
         const selectedIds = window.selectedOrderIds;
         if (!selectedIds || selectedIds.size === 0) {
-            if (window.notificationManager) window.notificationManager.show('Chưa chọn đơn hàng nào', 'warning');
+            if (window.notificationManager)
+                window.notificationManager.show('Chưa chọn đơn hàng nào', 'warning');
             return;
         }
 
         // Gather enriched order data from OrderStore + table rows
         const allOrders = [];
         let filteredCount = 0;
-        selectedIds.forEach(orderId => {
+        selectedIds.forEach((orderId) => {
             // Skip orders already sent in 24h
             if (isOrderSent(orderId)) {
                 filteredCount++;
@@ -2102,16 +2454,21 @@
                     const chatInfo = pdm.getChatInfoForOrder(storeOrder);
                     if (chatInfo.channelId) pageId = chatInfo.channelId;
                     if (chatInfo.psid) psid = chatInfo.psid;
-                } catch (e) { /* use row data */ }
+                } catch (e) {
+                    /* use row data */
+                }
             }
 
             // Additional fallbacks from storeOrder
             if (!psid && storeOrder?.Facebook_ASUserId) psid = storeOrder.Facebook_ASUserId;
-            if (!pageId && storeOrder?.Facebook_PostId) pageId = storeOrder.Facebook_PostId.split('_')[0];
+            if (!pageId && storeOrder?.Facebook_PostId)
+                pageId = storeOrder.Facebook_PostId.split('_')[0];
 
             // Skip orders where psid = pageId (page messaging itself — no real customer)
             if (psid && pageId && psid === pageId) {
-                console.warn(`[TemplateMgr] ⚠️ Skipping order ${storeOrder?.Code || orderId}: psid === pageId (${psid}) — không có PSID khách hàng`);
+                console.warn(
+                    `[TemplateMgr] ⚠️ Skipping order ${storeOrder?.Code || orderId}: psid === pageId (${psid}) — không có PSID khách hàng`
+                );
                 filteredCount++;
                 return;
             }
@@ -2121,23 +2478,34 @@
                 pageId,
                 channelId: pageId,
                 psid,
-                customerName: storeOrder?.PartnerName || storeOrder?.CustomerName || row?.querySelector('.customer-name')?.textContent?.trim() || '',
+                customerName:
+                    storeOrder?.PartnerName ||
+                    storeOrder?.CustomerName ||
+                    row?.querySelector('.customer-name')?.textContent?.trim() ||
+                    '',
                 Code: storeOrder?.Code || '',
                 Phone: storeOrder?.ReceiverPhone || storeOrder?.Partner?.Telephone || '',
                 Address: storeOrder?.ReceiverAddress || storeOrder?.Partner?.Address || '',
                 AmountTotal: storeOrder?.AmountTotal || 0,
                 Facebook_PostId: storeOrder?.Facebook_PostId || '',
                 Facebook_CommentId: storeOrder?.Facebook_CommentId || '',
-                raw: storeOrder || null
+                raw: storeOrder || null,
             });
         });
 
         if (filteredCount > 0 && window.notificationManager) {
-            window.notificationManager.show(`Đã bỏ qua ${filteredCount} đơn (đã gửi hoặc thiếu PSID khách hàng)`, 'info');
+            window.notificationManager.show(
+                `Đã bỏ qua ${filteredCount} đơn (đã gửi hoặc thiếu PSID khách hàng)`,
+                'info'
+            );
         }
 
         if (allOrders.length === 0) {
-            if (window.notificationManager) window.notificationManager.show('Không tìm thấy thông tin đơn hàng (hoặc đã gửi hết)', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show(
+                    'Không tìm thấy thông tin đơn hàng (hoặc đã gửi hết)',
+                    'error'
+                );
             return;
         }
 
@@ -2184,22 +2552,26 @@
     // ----- Handle Send -----
     async function _handleSend() {
         if (!_selectedTemplateId) {
-            if (window.notificationManager) window.notificationManager.show('Chọn một template trước', 'warning');
+            if (window.notificationManager)
+                window.notificationManager.show('Chọn một template trước', 'warning');
             return;
         }
 
-        const template = _templates.find(t => t.id === _selectedTemplateId);
+        const template = _templates.find((t) => t.id === _selectedTemplateId);
         if (!template) return;
 
         const orders = _modalOrders;
         if (!orders || orders.length === 0) {
-            if (window.notificationManager) window.notificationManager.show('Không có đơn hàng nào để gửi!', 'warning');
+            if (window.notificationManager)
+                window.notificationManager.show('Không có đơn hàng nào để gửi!', 'warning');
             return;
         }
 
-        const templateText = template.Content || template.BodyPlain || template.content || template.text || '';
+        const templateText =
+            template.Content || template.BodyPlain || template.content || template.text || '';
         if (!templateText) {
-            if (window.notificationManager) window.notificationManager.show('Template không có nội dung', 'warning');
+            if (window.notificationManager)
+                window.notificationManager.show('Template không có nội dung', 'warning');
             return;
         }
 
@@ -2208,7 +2580,9 @@
         if (window.pancakeTokenManager) {
             try {
                 accounts = window.pancakeTokenManager.getValidAccountsForSending();
-            } catch (e) { /* fallback to empty */ }
+            } catch (e) {
+                /* fallback to empty */
+            }
         }
         if (accounts.length === 0) {
             accounts = [{ accountId: 'default', name: 'Default' }];
@@ -2233,12 +2607,12 @@
             isSending: true,
             successOrders: [],
             errorOrders: [],
-            extQueue: [],           // Extension bypass queue (processed after all API sends)
+            extQueue: [], // Extension bypass queue (processed after all API sends)
             totalProcessed: 0,
             totalToProcess: orders.length,
             onProgress: (processed, total, totalToProcess, sent, failed) => {
                 _updateProgress(processed, total, totalToProcess, sent, failed);
-            }
+            },
         };
 
         // Check API mode: N2Store (extension-only) vs Pancake
@@ -2246,16 +2620,20 @@
 
         try {
             // Pre-fetch order details in batch if template uses {order.details}
-            const templateContent = template.Content || template.BodyPlain || template.content || '';
+            const templateContent =
+                template.Content || template.BodyPlain || template.content || '';
             if (_needsFullData(templateContent)) {
-                document.getElementById('msgProgressText').textContent = 'Đang tải chi tiết sản phẩm...';
+                document.getElementById('msgProgressText').textContent =
+                    'Đang tải chi tiết sản phẩm...';
                 await _prefetchOrderDetails(orders);
             }
 
             // Unified flow: Pancake API concurrent → Extension fallback queue
             // N2Store mode validates extension is available for fallback
             if (useExtension && (!window.pancakeExtension?.connected || !window.sendViaExtension)) {
-                throw new Error('Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.');
+                throw new Error(
+                    'Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.'
+                );
             }
 
             // Pre-fetch page access tokens
@@ -2266,7 +2644,13 @@
 
             // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
             const workers = accounts.map((account, idx) =>
-                _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
+                _processAccountQueue(
+                    accountQueues[idx] || [],
+                    account,
+                    template,
+                    delay,
+                    sendingState
+                )
             );
             await Promise.all(workers);
 
@@ -2276,8 +2660,11 @@
                 // Adjust progress: subtract ext-queued orders so bar reflects real completion
                 sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
                 _updateProgress(
-                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
-                    sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                    sendingState.totalProcessed,
+                    sendingState.totalToProcess,
+                    sendingState.totalToProcess,
+                    sendingState.successOrders.length - extCount,
+                    sendingState.errorOrders.length
                 );
                 document.getElementById('msgProgressText').textContent =
                     `Extension: 0/${extCount}...`;
@@ -2291,18 +2678,32 @@
         // Show completion
         const successCount = sendingState.successOrders.length;
         const errorCount = sendingState.errorOrders.length;
-        _updateProgress(successCount + errorCount, orders.length, orders.length, successCount, errorCount);
+        _updateProgress(
+            successCount + errorCount,
+            orders.length,
+            orders.length,
+            successCount,
+            errorCount
+        );
         document.getElementById('msgProgressText').textContent =
             `Hoàn tất: ✓${successCount} ✗${errorCount}`;
 
         // Save campaign results
         sendingState.isSending = false;
-        await _saveCampaignResults(template, accounts, delay, sendingState.successOrders, sendingState.errorOrders);
+        await _saveCampaignResults(
+            template,
+            accounts,
+            delay,
+            sendingState.successOrders,
+            sendingState.errorOrders
+        );
 
         // Notify chat module to refresh immediately (if chat modal is open)
-        window.dispatchEvent(new CustomEvent('bulkSendCompleted', {
-            detail: { successCount, errorCount }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('bulkSendCompleted', {
+                detail: { successCount, errorCount },
+            })
+        );
 
         // Re-enable UI
         sendBtn.disabled = false;
@@ -2312,7 +2713,8 @@
         // Notification
         if (window.notificationManager) {
             window.notificationManager.show(
-                `Đã gửi ${successCount}/${orders.length} tin nhắn` + (errorCount > 0 ? `, ${errorCount} lỗi` : ''),
+                `Đã gửi ${successCount}/${orders.length} tin nhắn` +
+                    (errorCount > 0 ? `, ${errorCount} lỗi` : ''),
                 errorCount > 0 ? 'warning' : 'success'
             );
         }
@@ -2388,5 +2790,4 @@
         // Cleanup
         cleanup,
     };
-
 })();

@@ -95,12 +95,17 @@ window.PurchaseOrderProducts = (function () {
         };
 
         document.getElementById('btnProductSearch').addEventListener('click', applySearch);
-        document.getElementById('btnProductReload').addEventListener('click', () => loadPage(currentPage));
+        document
+            .getElementById('btnProductReload')
+            .addEventListener('click', () => loadPage(currentPage));
         document.getElementById('productSortBy').addEventListener('change', applySearch);
 
         const searchInput = document.getElementById('productSearchInput');
         searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); applySearch(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applySearch();
+            }
         });
         searchInput.addEventListener('input', () => {
             if (searchInput.value === '' && searchTerm !== '') {
@@ -178,19 +183,21 @@ window.PurchaseOrderProducts = (function () {
             return;
         }
 
-        const rows = items.map((item, idx) => {
-            const imgUrl = item.ImageUrl
-                ? item.ImageUrl.replace('/rs::0:0:0/', '/rs::64:64:0/')
-                : '';
-            const hasVariants = (item.ProductVariantCount || 0) > 1;
-            const isExpanded = !!expandedRows[item.Id];
+        const rows = items
+            .map((item, idx) => {
+                const imgUrl = item.ImageUrl
+                    ? item.ImageUrl.replace('/rs::0:0:0/', '/rs::64:64:0/')
+                    : '';
+                const hasVariants = (item.ProductVariantCount || 0) > 1;
+                const isExpanded = !!expandedRows[item.Id];
 
-            return `
+                return `
                 <tr class="order-row ${isExpanded ? 'order-row--expanded' : ''}" data-product-id="${item.Id}" style="cursor: pointer;">
                     <td style="width: 56px; text-align: center;">
-                        ${imgUrl
-                            ? `<img src="${escapeHtml(imgUrl)}" alt="" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--color-border-light);" loading="lazy">`
-                            : '<div style="width: 44px; height: 44px; background: var(--color-muted); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i data-lucide="image-off" style="width: 18px; height: 18px; color: var(--color-text-muted);"></i></div>'
+                        ${
+                            imgUrl
+                                ? `<img src="${escapeHtml(imgUrl)}" alt="" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--color-border-light);" loading="lazy">`
+                                : '<div style="width: 44px; height: 44px; background: var(--color-muted); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i data-lucide="image-off" style="width: 18px; height: 18px; color: var(--color-text-muted);"></i></div>'
                         }
                     </td>
                     <td>
@@ -213,16 +220,21 @@ window.PurchaseOrderProducts = (function () {
                         ${item.CategCompleteName || ''}
                     </td>
                 </tr>
-                ${hasVariants ? `
+                ${
+                    hasVariants
+                        ? `
                 <tr class="expand-row" id="product-expand-${item.Id}" style="display: ${isExpanded ? 'table-row' : 'none'};">
                     <td colspan="7" style="padding: 0; background: #f8fafc;">
                         <div id="product-expand-content-${item.Id}">
                             ${isExpanded ? renderVariants(expandedRows[item.Id]) : ''}
                         </div>
                     </td>
-                </tr>` : ''}
+                </tr>`
+                        : ''
+                }
             `;
-        }).join('');
+            })
+            .join('');
 
         tableContainer.innerHTML = `
             <div class="table-wrapper">
@@ -249,7 +261,7 @@ window.PurchaseOrderProducts = (function () {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Bind row click for variant expansion
-        tableContainer.querySelectorAll('tr.order-row[data-product-id]').forEach(row => {
+        tableContainer.querySelectorAll('tr.order-row[data-product-id]').forEach((row) => {
             row.addEventListener('click', () => {
                 toggleExpandRow(parseInt(row.dataset.productId, 10));
             });
@@ -260,7 +272,9 @@ window.PurchaseOrderProducts = (function () {
         const expandRow = document.getElementById(`product-expand-${productId}`);
         if (!expandRow) return; // No variants for this product
         const contentDiv = document.getElementById(`product-expand-content-${productId}`);
-        const mainRow = tableContainer.querySelector(`tr.order-row[data-product-id="${productId}"]`);
+        const mainRow = tableContainer.querySelector(
+            `tr.order-row[data-product-id="${productId}"]`
+        );
 
         if (expandedRows[productId]) {
             delete expandedRows[productId];
@@ -271,7 +285,8 @@ window.PurchaseOrderProducts = (function () {
 
         expandRow.style.display = 'table-row';
         mainRow?.classList.add('order-row--expanded');
-        contentDiv.innerHTML = '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Đang tải biến thể...</div>';
+        contentDiv.innerHTML =
+            '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Đang tải biến thể...</div>';
 
         try {
             const url = `${PROXY_URL}/api/odata/ProductTemplate(${productId})?$expand=ProductVariants($expand=AttributeValues)`;
@@ -292,9 +307,10 @@ window.PurchaseOrderProducts = (function () {
             return '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Không có biến thể</div>';
         }
 
-        const rows = variants.map((v, idx) => {
-            const attrs = (v.AttributeValues || []).map(a => a.Name).join(', ');
-            return `
+        const rows = variants
+            .map((v, idx) => {
+                const attrs = (v.AttributeValues || []).map((a) => a.Name).join(', ');
+                return `
                 <tr>
                     <td style="text-align: center; width: 40px;">${idx + 1}</td>
                     <td style="font-weight: 600; color: var(--color-primary);">${escapeHtml(v.DefaultCode || '')}</td>
@@ -303,7 +319,8 @@ window.PurchaseOrderProducts = (function () {
                     <td class="text-right">${formatMoney(v.PriceVariant || v.ListPrice)}</td>
                     <td class="text-right" style="${(v.QtyAvailable || 0) <= 0 ? 'color: var(--color-danger);' : ''}">${v.QtyAvailable ?? 0}</td>
                 </tr>`;
-        }).join('');
+            })
+            .join('');
 
         return `
             <div style="padding: 8px 16px 12px;">
@@ -327,7 +344,10 @@ window.PurchaseOrderProducts = (function () {
     function renderPagination() {
         if (!paginationContainer) return;
         const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-        if (totalPages <= 0) { paginationContainer.innerHTML = ''; return; }
+        if (totalPages <= 0) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
 
         const startItem = totalCount > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
         const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
@@ -337,25 +357,32 @@ window.PurchaseOrderProducts = (function () {
             <div class="pagination">
                 <div class="pagination__info">Hiển thị ${startItem} - ${endItem} trong ${totalCount.toLocaleString('vi-VN')} sản phẩm</div>
                 <div class="pagination__controls">
-                    ${totalPages > 1 ? `
+                    ${
+                        totalPages > 1
+                            ? `
                         <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        ${pages.map(p => {
-                            if (p === '...') return '<span class="pagination__ellipsis">...</span>';
-                            const isActive = p === currentPage;
-                            return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}" data-page="${p}" ${isActive ? 'disabled' : ''}>${p}</button>`;
-                        }).join('')}
+                        ${pages
+                            .map((p) => {
+                                if (p === '...')
+                                    return '<span class="pagination__ellipsis">...</span>';
+                                const isActive = p === currentPage;
+                                return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}" data-page="${p}" ${isActive ? 'disabled' : ''}>${p}</button>`;
+                            })
+                            .join('')}
                         <button class="pagination__btn pagination__btn--next ${currentPage >= totalPages ? 'disabled' : ''}" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>
                             <i data-lucide="chevron-right"></i>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach(btn => {
+        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const page = parseInt(btn.dataset.page, 10);
                 if (!isNaN(page) && page >= 1 && page <= totalPages) loadPage(page);
@@ -371,9 +398,17 @@ window.PurchaseOrderProducts = (function () {
         let end = Math.min(total, current + half);
         if (start === 1) end = Math.min(total, maxVisible);
         if (end === total) start = Math.max(1, total - maxVisible + 1);
-        if (start > 1) { pages.push(1); if (start > 2) pages.push('...'); }
-        for (let i = start; i <= end; i++) { if (!pages.includes(i)) pages.push(i); }
-        if (end < total) { if (end < total - 1) pages.push('...'); if (!pages.includes(total)) pages.push(total); }
+        if (start > 1) {
+            pages.push(1);
+            if (start > 2) pages.push('...');
+        }
+        for (let i = start; i <= end; i++) {
+            if (!pages.includes(i)) pages.push(i);
+        }
+        if (end < total) {
+            if (end < total - 1) pages.push('...');
+            if (!pages.includes(total)) pages.push(total);
+        }
         return pages;
     }
 
@@ -407,24 +442,36 @@ window.PurchaseOrderProducts = (function () {
         if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
             return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
         }
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
     }
 
-    function encodeODataString(str) { return str.replace(/'/g, "''"); }
+    function encodeODataString(str) {
+        return str.replace(/'/g, "''");
+    }
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
-    function reload() { loadPage(currentPage); }
+    function reload() {
+        loadPage(currentPage);
+    }
 
     function destroy() {
         currentData = [];
         currentPage = 1;
         totalCount = 0;
         searchTerm = '';
-        Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
+        Object.keys(expandedRows).forEach((k) => delete expandedRows[k]);
     }
 
     return { init, destroy, reload };

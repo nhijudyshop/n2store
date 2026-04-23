@@ -6,11 +6,11 @@
 // =====================================================
 
 // Configuration
-const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
-    window.location.hostname === 'localhost'
+const API_BASE_URL =
+    window.CONFIG?.API_BASE_URL ||
+    (window.location.hostname === 'localhost'
         ? 'http://localhost:3000'
-        : 'https://chatomni-proxy.nhijudyshop.workers.dev'
-);
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev');
 
 // State
 let currentPage = 1;
@@ -25,7 +25,7 @@ let filters = {
     startDate: '',
     endDate: '',
     search: '',
-    amount: ''
+    amount: '',
 };
 
 // DOM Elements
@@ -47,7 +47,11 @@ const modalBody = document.getElementById('modalBody');
 
 // Remove Vietnamese diacritics for accent-insensitive search
 function removeAccents(str) {
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
 }
 
 // Format date for display: yyyy-mm-dd -> dd/mm/yyyy
@@ -87,7 +91,7 @@ function updateDateDisplayInputs(startDate, endDate) {
 function formatCurrency(amount) {
     return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
-        currency: 'VND'
+        currency: 'VND',
     }).format(amount || 0);
 }
 
@@ -100,7 +104,7 @@ function formatDateTime(dateString) {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
+        second: '2-digit',
     });
 }
 
@@ -181,7 +185,7 @@ const BH_CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 function getBHCacheKey() {
     const params = new URLSearchParams({
         page: currentPage,
-        ...filters
+        ...filters,
     });
     // Remove empty params
     for (let [key, value] of params.entries()) {
@@ -211,11 +215,14 @@ function getBHCache() {
 function setBHCache(data, pagination) {
     try {
         const cacheKey = getBHCacheKey();
-        localStorage.setItem(cacheKey, JSON.stringify({
-            data,
-            pagination,
-            timestamp: Date.now()
-        }));
+        localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+                data,
+                pagination,
+                timestamp: Date.now(),
+            })
+        );
     } catch (e) {
         // localStorage full or disabled, ignore
     }
@@ -230,7 +237,7 @@ function clearAllBHCache() {
                 keysToRemove.push(key);
             }
         }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
+        keysToRemove.forEach((key) => localStorage.removeItem(key));
     } catch (e) {
         // Ignore errors
     }
@@ -244,10 +251,12 @@ function hasDataChanged(oldData, newData) {
     for (let i = 0; i < newData.length; i++) {
         const oldItem = oldData[i];
         const newItem = newData[i];
-        if (oldItem.id !== newItem.id ||
+        if (
+            oldItem.id !== newItem.id ||
             oldItem.is_hidden !== newItem.is_hidden ||
             oldItem.customer_name !== newItem.customer_name ||
-            oldItem.customer_phone !== newItem.customer_phone) {
+            oldItem.customer_phone !== newItem.customer_phone
+        ) {
             return true;
         }
     }
@@ -306,7 +315,7 @@ async function fetchFromAPI() {
         page: currentPage,
         limit: 50,
         showHidden: 'true',
-        ...filters
+        ...filters,
     });
 
     // Add verification status filter
@@ -368,16 +377,20 @@ function renderCurrentView() {
 
     switch (mode) {
         case 'hidden':
-            dataToRender = allLoadedData.filter(item => item.is_hidden);
+            dataToRender = allLoadedData.filter((item) => item.is_hidden);
             break;
         case 'visible':
-            dataToRender = allLoadedData.filter(item => !item.is_hidden);
+            dataToRender = allLoadedData.filter((item) => !item.is_hidden);
             break;
         case 'no-phone':
             // Filter transactions without phone info
-            dataToRender = allLoadedData.filter(item => {
+            dataToRender = allLoadedData.filter((item) => {
                 // Check if customer_phone is missing or empty
-                return !item.customer_phone || item.customer_phone === '' || item.customer_phone === 'Chua co';
+                return (
+                    !item.customer_phone ||
+                    item.customer_phone === '' ||
+                    item.customer_phone === 'Chua co'
+                );
             });
             break;
         case 'all':
@@ -394,15 +407,17 @@ function renderCurrentView() {
 
 // Update hidden count and no-phone count badges
 function updateHiddenCount() {
-    const hiddenCount = allLoadedData.filter(item => item.is_hidden).length;
+    const hiddenCount = allLoadedData.filter((item) => item.is_hidden).length;
     const hiddenEl = document.getElementById('hiddenCount');
     if (hiddenEl) {
         hiddenEl.textContent = hiddenCount > 0 ? `(${hiddenCount} GD da an)` : '';
     }
 
     // Update no-phone count
-    const noPhoneCount = allLoadedData.filter(item => {
-        return !item.customer_phone || item.customer_phone === '' || item.customer_phone === 'Chua co';
+    const noPhoneCount = allLoadedData.filter((item) => {
+        return (
+            !item.customer_phone || item.customer_phone === '' || item.customer_phone === 'Chua co'
+        );
     }).length;
     const noPhoneEl = document.getElementById('noPhoneCount');
     if (noPhoneEl) {
@@ -414,7 +429,7 @@ function updateHiddenCount() {
 async function loadStatistics() {
     try {
         const queryParams = new URLSearchParams({
-            ...filters
+            ...filters,
         });
 
         // Remove empty params and search (stats don't use search)
@@ -460,7 +475,7 @@ async function showDetail(id) {
         const result = await response.json();
 
         if (result.success) {
-            const transaction = result.data.find(t => t.id === id);
+            const transaction = result.data.find((t) => t.id === id);
             console.log('[SHOW-DETAIL] Found transaction:', transaction);
 
             if (transaction) {
@@ -611,7 +626,6 @@ function connectRealtimeUpdates() {
                 }, 5000);
             }
         };
-
     } catch (error) {
         console.error('[REALTIME] Failed to connect:', error);
         showRealtimeStatus('error');
@@ -638,7 +652,10 @@ async function handleNewTransaction(transaction) {
     showRealtimeNotification(transaction);
 
     // If incoming transaction ('in'), also update Transfer Stats tab
-    if (transaction.transfer_type === 'in' && typeof window.addNewTransferStatRealtime === 'function') {
+    if (
+        transaction.transfer_type === 'in' &&
+        typeof window.addNewTransferStatRealtime === 'function'
+    ) {
         window.addNewTransferStatRealtime(transaction);
     }
 
@@ -683,14 +700,18 @@ async function handleCustomerInfoUpdated(data) {
         const uniqueCode = `PHONE${data.customer_phone}`;
         window.CustomerInfoManager.saveCustomerInfo(uniqueCode, {
             name: data.customer_name || null,
-            phone: data.customer_phone
+            phone: data.customer_phone,
         });
         console.log('[REALTIME] Updated CustomerInfoManager for:', uniqueCode);
     }
 
     // Update specific row if transaction_id is provided
     if (data.transaction_id) {
-        updateTransactionRowCustomerInfo(data.transaction_id, data.customer_phone, data.customer_name);
+        updateTransactionRowCustomerInfo(
+            data.transaction_id,
+            data.customer_phone,
+            data.customer_name
+        );
     } else {
         // Fallback: debounced reload if no transaction_id
         console.log('[REALTIME] No transaction_id provided, using debounced reload...');
@@ -729,7 +750,12 @@ async function updateTransactionRowCustomerInfo(transactionId, customerPhone, cu
         return;
     }
 
-    console.log('[REALTIME] Updating customer info in row:', transactionId, customerPhone, customerName);
+    console.log(
+        '[REALTIME] Updating customer info in row:',
+        transactionId,
+        customerPhone,
+        customerName
+    );
 
     // Fetch full transaction data to re-render the row
     try {
@@ -737,7 +763,7 @@ async function updateTransactionRowCustomerInfo(transactionId, customerPhone, cu
         const result = await response.json();
 
         if (result.success) {
-            const transaction = result.data.find(t => t.id === transactionId);
+            const transaction = result.data.find((t) => t.id === transactionId);
             if (transaction) {
                 // Re-render the row with updated data
                 const newRowHtml = renderTransactionRow(transaction);
@@ -776,9 +802,11 @@ async function updateTransactionRowPendingMatch(transactionId, matchData) {
         const result = await response.json();
 
         if (result.success) {
-            const transaction = result.data.find(t => t.id === transactionId);
+            const transaction = result.data.find((t) => t.id === transactionId);
             if (transaction) {
-                const targetRow = tableBody.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+                const targetRow = tableBody.querySelector(
+                    `tr[data-transaction-id="${transactionId}"]`
+                );
                 if (targetRow) {
                     // Re-render the row with pending match dropdown
                     const newRowHtml = renderTransactionRow(transaction);
@@ -808,7 +836,10 @@ function transactionMatchesFilters(transaction) {
     }
 
     // Gateway filter
-    if (filters.gateway && !transaction.gateway.toLowerCase().includes(filters.gateway.toLowerCase())) {
+    if (
+        filters.gateway &&
+        !transaction.gateway.toLowerCase().includes(filters.gateway.toLowerCase())
+    ) {
         return false;
     }
 
@@ -836,12 +867,14 @@ function transactionMatchesFilters(transaction) {
         const customerPhone = (transaction.customer_phone || '').toLowerCase();
         const displayName = removeAccents((transaction.display_name || '').toLowerCase());
 
-        if (!content.includes(searchNorm) &&
+        if (
+            !content.includes(searchNorm) &&
             !refCode.includes(searchNorm) &&
             !code.includes(searchNorm) &&
             !customerName.includes(searchNorm) &&
             !customerPhone.includes(searchNorm) &&
-            !displayName.includes(searchNorm)) {
+            !displayName.includes(searchNorm)
+        ) {
             return false;
         }
     }
@@ -924,18 +957,18 @@ function showRealtimeStatus(status) {
         connected: {
             icon: 'wifi',
             text: 'Realtime',
-            class: 'status-connected'
+            class: 'status-connected',
         },
         error: {
             icon: 'wifi-off',
             text: 'Mat ket noi',
-            class: 'status-error'
+            class: 'status-error',
         },
         disconnected: {
             icon: 'wifi-off',
             text: 'Ngat ket noi',
-            class: 'status-disconnected'
-        }
+            class: 'status-disconnected',
+        },
     };
 
     const config = statusConfig[status] || statusConfig.disconnected;

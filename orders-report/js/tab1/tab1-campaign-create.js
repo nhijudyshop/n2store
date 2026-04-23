@@ -5,7 +5,7 @@
 // ============================================
 
 // Open Create Campaign Modal
-window.openCreateCampaignModal = function() {
+window.openCreateCampaignModal = function () {
     const modal = document.getElementById('createCampaignModal');
     modal.style.display = 'flex';
 
@@ -29,12 +29,12 @@ window.openCreateCampaignModal = function() {
 };
 
 // Gemini name pool: fetch 20 names at once, cycle through them
-var _namePool = window._campaignNamePool = {
-    names: [],      // current batch of unused names
-    used: [],       // all names used this session (to exclude from next batch)
+var _namePool = (window._campaignNamePool = {
+    names: [], // current batch of unused names
+    used: [], // all names used this session (to exclude from next batch)
     loading: false,
     prefix: '',
-};
+});
 
 // Fetch 20 unique names from Gemini
 async function _fetchNameBatch(prefix, existingNames) {
@@ -46,9 +46,12 @@ async function _fetchNameBatch(prefix, existingNames) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             model: 'gemini-3-flash-preview',
-            contents: [{
-                role: 'user',
-                parts: [{ text: `Liệt kê chính xác 20 tên chiến dịch livestream, mỗi dòng 1 tên, không đánh số, không giải thích.
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        {
+                            text: `Liệt kê chính xác 20 tên chiến dịch livestream, mỗi dòng 1 tên, không đánh số, không giải thích.
 
 Format mỗi tên: ${prefix} + khoảng trắng + 2-4 từ viết HOA + lặp chữ cái cuối 4-6 lần.
 
@@ -61,13 +64,16 @@ ${prefix} GIÁ RẺ VÔ ĐỊCHHHH
 ${prefix} HÚT ĐƠN KHỦNGGGGG
 ${prefix} DEAL SỐC CHẤTTTTT
 
-Tên KHÔNG được trùng: ${usedList}` }]
-            }],
+Tên KHÔNG được trùng: ${usedList}`,
+                        },
+                    ],
+                },
+            ],
             generationConfig: {
                 maxOutputTokens: 2000,
-                temperature: 1.0
-            }
-        })
+                temperature: 1.0,
+            },
+        }),
     });
 
     if (!response.ok) {
@@ -81,19 +87,26 @@ Tên KHÔNG được trùng: ${usedList}` }]
     if (!text) return [];
 
     // Parse lines into clean names
-    const usedUpper = new Set(allUsed.map(n => n.toUpperCase()));
-    const names = text.split('\n')
-        .map(line => line.replace(/^\d+[\.\)\-\s]+/, '').replace(/^["'\s*]+|["'\s*]+$/g, '').trim().toUpperCase())
-        .filter(name => name.length > 0 && name.startsWith(prefix) && !usedUpper.has(name));
+    const usedUpper = new Set(allUsed.map((n) => n.toUpperCase()));
+    const names = text
+        .split('\n')
+        .map((line) =>
+            line
+                .replace(/^\d+[\.\)\-\s]+/, '')
+                .replace(/^["'\s*]+|["'\s*]+$/g, '')
+                .trim()
+                .toUpperCase()
+        )
+        .filter((name) => name.length > 0 && name.startsWith(prefix) && !usedUpper.has(name));
     console.log('[CAMPAIGN] Parsed', names.length, 'names:', names);
     return names;
 }
 
 // Main function: pick next name from pool, refill from Gemini when empty
-window.autoGenerateCampaignName = async function() {
+window.autoGenerateCampaignName = async function () {
     const nameInput = document.getElementById('newCampaignName');
     const campaigns = window.campaignManager?.allCampaigns || {};
-    const existingNames = Object.values(campaigns).map(c => c.name);
+    const existingNames = Object.values(campaigns).map((c) => c.name);
 
     // Find the highest T number
     let maxT = 0;
@@ -144,15 +157,15 @@ window.autoGenerateCampaignName = async function() {
 };
 
 // Close Create Campaign Modal
-window.closeCreateCampaignModal = function() {
+window.closeCreateCampaignModal = function () {
     document.getElementById('createCampaignModal').style.display = 'none';
 };
 
 // Auto-fill end date when start date changes in create modal
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const newCampaignStartDate = document.getElementById('newCampaignCustomStartDate');
     if (newCampaignStartDate) {
-        newCampaignStartDate.addEventListener('change', function() {
+        newCampaignStartDate.addEventListener('change', function () {
             const endDateInput = document.getElementById('newCampaignCustomEndDate');
             if (this.value && endDateInput) {
                 const startDate = new Date(this.value);
@@ -172,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Save new campaign to Firebase
-window.saveNewCampaign = async function() {
+window.saveNewCampaign = async function () {
     const name = document.getElementById('newCampaignName').value.trim();
     const customStartDate = document.getElementById('newCampaignCustomStartDate').value;
     const customEndDate = document.getElementById('newCampaignCustomEndDate').value;
@@ -248,7 +261,6 @@ window.saveNewCampaign = async function() {
         if (typeof showNotification === 'function') {
             showNotification('Đã lưu chiến dịch: ' + name, 'success');
         }
-
     } catch (error) {
         console.error('[USER-CAMPAIGNS] Error saving campaign:', error);
         if (typeof showNotification === 'function') {
@@ -258,4 +270,3 @@ window.saveNewCampaign = async function() {
         }
     }
 };
-

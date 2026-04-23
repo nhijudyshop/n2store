@@ -5,7 +5,7 @@
  * Reads from shared Firebase collection "ncc-names" (same as soorder module)
  */
 
-window.NCCManager = (function() {
+window.NCCManager = (function () {
     'use strict';
 
     const COLLECTION = 'ncc-names';
@@ -32,7 +32,7 @@ window.NCCManager = (function() {
                     tposCode: data.tposCode || doc.id,
                     tposId: data.tposId || null,
                     docId: doc.id,
-                    name: data.name
+                    name: data.name,
                 });
             });
 
@@ -41,8 +41,10 @@ window.NCCManager = (function() {
                 const aIsAx = /^A\d+$/i.test(a.code);
                 const bIsAx = /^A\d+$/i.test(b.code);
                 if (aIsAx && bIsAx) {
-                    return (parseInt(a.code.replace(/^A/i, '')) || 0)
-                         - (parseInt(b.code.replace(/^A/i, '')) || 0);
+                    return (
+                        (parseInt(a.code.replace(/^A/i, '')) || 0) -
+                        (parseInt(b.code.replace(/^A/i, '')) || 0)
+                    );
                 }
                 if (aIsAx) return -1;
                 if (bIsAx) return 1;
@@ -85,34 +87,34 @@ window.NCCManager = (function() {
         }
 
         // Filter matching NCC names
-        const matches = nccNames.filter(ncc =>
-            ncc.name.toLowerCase().includes(value)
-        );
+        const matches = nccNames.filter((ncc) => ncc.name.toLowerCase().includes(value));
 
         // Find exact Ax code match
-        const exactMatch = nccNames.find(ncc =>
-            ncc.code.toLowerCase() === value
-        );
+        const exactMatch = nccNames.find((ncc) => ncc.code.toLowerCase() === value);
         if (exactMatch) exactMatchNCC = exactMatch;
 
         // If no matches, show "Create new" option
         if (matches.length === 0) {
             const createItem = document.createElement('div');
-            createItem.style.cssText = 'padding: 10px 12px; cursor: pointer; color: #3b82f6; font-size: 13px; display: flex; align-items: center; gap: 6px;';
+            createItem.style.cssText =
+                'padding: 10px 12px; cursor: pointer; color: #3b82f6; font-size: 13px; display: flex; align-items: center; gap: 6px;';
             createItem.innerHTML = `<span style="font-size: 16px;">+</span> Tạo NCC mới: <strong>${escapeHtml(inputEl.value.trim())}</strong>`;
             createItem.addEventListener('click', async () => {
                 dropdownEl.style.display = 'none';
                 await handleCreateSupplier(inputEl.value.trim(), inputEl);
             });
-            createItem.addEventListener('mouseenter', () => createItem.style.background = '#f0f9ff');
-            createItem.addEventListener('mouseleave', () => createItem.style.background = '');
+            createItem.addEventListener(
+                'mouseenter',
+                () => (createItem.style.background = '#f0f9ff')
+            );
+            createItem.addEventListener('mouseleave', () => (createItem.style.background = ''));
             dropdownEl.appendChild(createItem);
             dropdownEl.style.display = 'block';
             return;
         }
 
         // Render suggestion items
-        matches.slice(0, 15).forEach(ncc => {
+        matches.slice(0, 15).forEach((ncc) => {
             const item = document.createElement('div');
             const isExact = exactMatch && ncc.code === exactMatch.code;
             item.style.cssText = `
@@ -155,21 +157,27 @@ window.NCCManager = (function() {
 
         // Add "Create new" at bottom if input doesn't exactly match any NCC
         const inputTrimmed = inputEl.value.trim();
-        const hasExactNameMatch = nccNames.some(ncc => ncc.name.toLowerCase() === inputTrimmed.toLowerCase());
+        const hasExactNameMatch = nccNames.some(
+            (ncc) => ncc.name.toLowerCase() === inputTrimmed.toLowerCase()
+        );
         if (!hasExactNameMatch && inputTrimmed.length > 0) {
             const sep = document.createElement('div');
             sep.style.cssText = 'border-top: 1px solid #e5e7eb; margin: 4px 0;';
             dropdownEl.appendChild(sep);
 
             const createItem = document.createElement('div');
-            createItem.style.cssText = 'padding: 8px 12px; cursor: pointer; color: #3b82f6; font-size: 13px; display: flex; align-items: center; gap: 6px;';
+            createItem.style.cssText =
+                'padding: 8px 12px; cursor: pointer; color: #3b82f6; font-size: 13px; display: flex; align-items: center; gap: 6px;';
             createItem.innerHTML = `<span style="font-size: 16px;">+</span> Tạo NCC mới: <strong>${escapeHtml(inputTrimmed)}</strong>`;
             createItem.addEventListener('click', async () => {
                 dropdownEl.style.display = 'none';
                 await handleCreateSupplier(inputTrimmed, inputEl);
             });
-            createItem.addEventListener('mouseenter', () => createItem.style.background = '#f0f9ff');
-            createItem.addEventListener('mouseleave', () => createItem.style.background = '');
+            createItem.addEventListener(
+                'mouseenter',
+                () => (createItem.style.background = '#f0f9ff')
+            );
+            createItem.addEventListener('mouseleave', () => (createItem.style.background = ''));
             dropdownEl.appendChild(createItem);
         }
 
@@ -197,8 +205,9 @@ window.NCCManager = (function() {
         if (!name || !name.trim()) return;
         const trimmedName = name.trim();
 
-        const showToast = window.notificationManager?.show?.bind(window.notificationManager)
-            || ((msg, type) => console.log(`[NCCManager] ${type}: ${msg}`));
+        const showToast =
+            window.notificationManager?.show?.bind(window.notificationManager) ||
+            ((msg, type) => console.log(`[NCCManager] ${type}: ${msg}`));
 
         try {
             // Save to Firebase
@@ -207,16 +216,22 @@ window.NCCManager = (function() {
             // Ref = text before first space (used as TPOS Partner Ref)
             const spaceIdx = trimmedName.indexOf(' ');
             const ref = spaceIdx > 0 ? trimmedName.substring(0, spaceIdx) : trimmedName;
-            const docId = (axCode || ref).toUpperCase().replace(/[\/\\\.#$\[\]]/g, '_').substring(0, 30);
+            const docId = (axCode || ref)
+                .toUpperCase()
+                .replace(/[\/\\\.#$\[\]]/g, '_')
+                .substring(0, 30);
 
-            await db.collection(COLLECTION).doc(docId).set({
-                name: trimmedName,
-                axCode: axCode || null,
-                tposCode: ref
-            });
+            await db
+                .collection(COLLECTION)
+                .doc(docId)
+                .set({
+                    name: trimmedName,
+                    axCode: axCode || null,
+                    tposCode: ref,
+                });
 
             // Update local cache
-            const existing = nccNames.findIndex(n => n.docId === docId);
+            const existing = nccNames.findIndex((n) => n.docId === docId);
             const newEntry = { code: axCode || ref, tposCode: ref, docId, name: trimmedName };
             if (existing >= 0) {
                 nccNames[existing] = newEntry;
@@ -226,8 +241,10 @@ window.NCCManager = (function() {
                     const aIsAx = /^A\d+$/i.test(a.code);
                     const bIsAx = /^A\d+$/i.test(b.code);
                     if (aIsAx && bIsAx) {
-                        return (parseInt(a.code.replace(/^A/i, '')) || 0)
-                             - (parseInt(b.code.replace(/^A/i, '')) || 0);
+                        return (
+                            (parseInt(a.code.replace(/^A/i, '')) || 0) -
+                            (parseInt(b.code.replace(/^A/i, '')) || 0)
+                        );
                     }
                     if (aIsAx) return -1;
                     if (bIsAx) return 1;
@@ -242,7 +259,7 @@ window.NCCManager = (function() {
                 const tposId = await createTPOSPartner(trimmedName);
                 if (tposId) {
                     // Update local cache with tposId
-                    const cached = nccNames.find(n => n.docId === docId);
+                    const cached = nccNames.find((n) => n.docId === docId);
                     if (cached) cached.tposId = tposId;
                     showToast(`Đã tạo NCC trên TPOS (ID: ${tposId})`, 'success');
                 }
@@ -299,7 +316,7 @@ window.NCCManager = (function() {
             StatusText: 'Bình thường',
             Source: 'Default',
             IsNewAddress: false,
-            DateCreated: new Date().toISOString()
+            DateCreated: new Date().toISOString(),
         };
 
         // Step 1: Search if partner already exists on TPOS
@@ -310,10 +327,14 @@ window.NCCManager = (function() {
             const searchResp = await window.TPOSClient.authenticatedFetch(searchUrl);
             if (searchResp.ok) {
                 const searchData = await searchResp.json();
-                const match = (searchData.value || []).find(p => p.Ref === ref || p.Name === name);
+                const match = (searchData.value || []).find(
+                    (p) => p.Ref === ref || p.Name === name
+                );
                 if (match) {
                     tposId = match.Id;
-                    console.log(`[NCCManager] Found existing TPOS Partner: ${match.Name} (Id=${tposId})`);
+                    console.log(
+                        `[NCCManager] Found existing TPOS Partner: ${match.Name} (Id=${tposId})`
+                    );
                 }
             }
         } catch (e) {
@@ -324,13 +345,15 @@ window.NCCManager = (function() {
         if (!tposId) {
             const response = await window.TPOSClient.authenticatedFetch(url, {
                 method: 'POST',
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (response.ok) {
                 const data = await response.json().catch(() => null);
                 tposId = data?.Id || null;
-                console.log(`[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`);
+                console.log(
+                    `[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`
+                );
             } else {
                 const text = await response.text().catch(() => '');
                 console.warn(`[NCCManager] TPOS Partner creation failed ${response.status}:`, text);
@@ -341,10 +364,12 @@ window.NCCManager = (function() {
         if (tposId) {
             try {
                 const db = firebase.firestore();
-                const docId = ref.replace(/[\/\\\.#$\[\]]/g, '_').trim() || name.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
+                const docId =
+                    ref.replace(/[\/\\\.#$\[\]]/g, '_').trim() ||
+                    name.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
                 await db.collection(COLLECTION).doc(docId).update({
                     tposId,
-                    tposCode: ref
+                    tposCode: ref,
                 });
                 // Reload NCC data so findByName returns updated tposId
                 await loadNCCNames();
@@ -365,18 +390,19 @@ window.NCCManager = (function() {
             throw new Error('TPOSClient not available');
         }
 
-        const showToast = window.notificationManager?.show?.bind(window.notificationManager)
-            || ((msg, type) => console.log(`[NCCManager] ${type}: ${msg}`));
+        const showToast =
+            window.notificationManager?.show?.bind(window.notificationManager) ||
+            ((msg, type) => console.log(`[NCCManager] ${type}: ${msg}`));
 
         try {
             showToast('Đang tải danh sách NCC từ TPOS...', 'info');
 
             // Step 1: Fetch suppliers from TPOS
             const params = new URLSearchParams({
-                '$top': '1000',
-                '$orderby': 'Name',
-                '$filter': '(Supplier eq true and Active eq true)',
-                '$count': 'true'
+                $top: '1000',
+                $orderby: 'Name',
+                $filter: '(Supplier eq true and Active eq true)',
+                $count: 'true',
             });
             const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetView?${params}`;
 
@@ -402,7 +428,7 @@ window.NCCManager = (function() {
                 const docs = existing.docs;
                 for (let i = 0; i < docs.length; i += 400) {
                     const batch = db.batch();
-                    docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+                    docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
                     await batch.commit();
                 }
                 console.log(`[NCCManager] Deleted ${docs.length} old docs`);
@@ -415,12 +441,20 @@ window.NCCManager = (function() {
                 const tposCode = s.Ref || s.ref || s.Code || s.code;
                 if (!name || !tposCode) continue;
 
-                const docId = String(tposCode).replace(/[\/\\\.#$\[\]]/g, '_').trim();
+                const docId = String(tposCode)
+                    .replace(/[\/\\\.#$\[\]]/g, '_')
+                    .trim();
                 if (!docId) continue;
 
                 const axCode = parseAxCode(name);
                 // Save all TPOS response fields + our parsed fields
-                const data = { ...s, name, axCode: axCode || null, tposCode, tposId: s.Id || s.id || null };
+                const data = {
+                    ...s,
+                    name,
+                    axCode: axCode || null,
+                    tposCode,
+                    tposId: s.Id || s.id || null,
+                };
                 // Remove undefined values (Firestore doesn't accept them)
                 for (const key of Object.keys(data)) {
                     if (data[key] === undefined) delete data[key];
@@ -431,7 +465,7 @@ window.NCCManager = (function() {
             let saved = 0;
             for (let i = 0; i < toSave.length; i += 400) {
                 const batch = db.batch();
-                toSave.slice(i, i + 400).forEach(item => {
+                toSave.slice(i, i + 400).forEach((item) => {
                     batch.set(collRef.doc(item.docId), item.data);
                 });
                 await batch.commit();
@@ -460,12 +494,12 @@ window.NCCManager = (function() {
         if (!supplierName) return null;
         const lower = supplierName.trim().toLowerCase();
         // Exact match first
-        let found = nccNames.find(n => n.name.toLowerCase() === lower);
+        let found = nccNames.find((n) => n.name.toLowerCase() === lower);
         if (found) return found;
         // Ax code match (e.g. user typed "A14")
         const axCode = parseAxCode(supplierName);
         if (axCode) {
-            found = nccNames.find(n => n.code === axCode);
+            found = nccNames.find((n) => n.code === axCode);
         }
         return found || null;
     }
@@ -489,7 +523,11 @@ window.NCCManager = (function() {
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // =====================================================
@@ -510,6 +548,6 @@ window.NCCManager = (function() {
         getFullPartnerData,
         createPartnerOnTPOS: createTPOSPartner,
         getNccNames: () => nccNames,
-        isLoaded: () => loaded
+        isLoaded: () => loaded,
     };
 })();

@@ -20,14 +20,14 @@ function parseBulkSTTInput(input) {
     }
 
     // Split by comma or space
-    const parts = input.split(/[,\s]+/).filter(p => p.trim());
+    const parts = input.split(/[,\s]+/).filter((p) => p.trim());
 
-    parts.forEach(part => {
+    parts.forEach((part) => {
         part = part.trim();
 
         // Check if it's a range (e.g., "5-10")
         if (part.includes('-')) {
-            const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+            const [start, end] = part.split('-').map((n) => parseInt(n.trim()));
             if (!isNaN(start) && !isNaN(end) && start <= end) {
                 for (let i = start; i <= end; i++) {
                     sttNumbers.add(i);
@@ -62,17 +62,17 @@ const BULK_TAG_DRAFT_KEY = 'bulkTagModalDraft';
 // Save bulk tag modal data to localStorage
 function saveBulkTagToLocalStorage() {
     try {
-        const dataToSave = bulkTagModalData.map(tag => ({
+        const dataToSave = bulkTagModalData.map((tag) => ({
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
             sttList: tag.sttList || [],
-            errorMessage: tag.errorMessage || null
+            errorMessage: tag.errorMessage || null,
         }));
         localStorage.setItem(BULK_TAG_DRAFT_KEY, JSON.stringify(dataToSave));
-        console.log("[BULK-TAG-MODAL] Saved draft to localStorage:", dataToSave);
+        console.log('[BULK-TAG-MODAL] Saved draft to localStorage:', dataToSave);
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error saving to localStorage:", error);
+        console.error('[BULK-TAG-MODAL] Error saving to localStorage:', error);
     }
 }
 
@@ -85,26 +85,26 @@ function loadBulkTagFromLocalStorage() {
         const parsedData = JSON.parse(savedData);
         if (!Array.isArray(parsedData) || parsedData.length === 0) return false;
 
-        bulkTagModalData = parsedData.map(tag => ({
+        bulkTagModalData = parsedData.map((tag) => ({
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
             sttList: tag.sttList || [],
-            errorMessage: tag.errorMessage || null
+            errorMessage: tag.errorMessage || null,
         }));
 
         // Auto-select tags with STTs
         selectedBulkTagModalRows.clear();
-        bulkTagModalData.forEach(tag => {
+        bulkTagModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
         });
 
-        console.log("[BULK-TAG-MODAL] Loaded draft from localStorage:", bulkTagModalData);
+        console.log('[BULK-TAG-MODAL] Loaded draft from localStorage:', bulkTagModalData);
         return true;
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error loading from localStorage:", error);
+        console.error('[BULK-TAG-MODAL] Error loading from localStorage:', error);
         return false;
     }
 }
@@ -113,15 +113,15 @@ function loadBulkTagFromLocalStorage() {
 function clearBulkTagLocalStorage() {
     try {
         localStorage.removeItem(BULK_TAG_DRAFT_KEY);
-        console.log("[BULK-TAG-MODAL] Cleared localStorage draft");
+        console.log('[BULK-TAG-MODAL] Cleared localStorage draft');
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error clearing localStorage:", error);
+        console.error('[BULK-TAG-MODAL] Error clearing localStorage:', error);
     }
 }
 
 // Show bulk tag modal
 async function showBulkTagModal() {
-    console.log("[BULK-TAG-MODAL] Opening bulk tag modal");
+    console.log('[BULK-TAG-MODAL] Opening bulk tag modal');
 
     // Try to load from localStorage first
     const hasStoredData = loadBulkTagFromLocalStorage();
@@ -166,19 +166,22 @@ async function loadBulkTagModalOptions() {
         }
         populateBulkTagModalDropdown();
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error loading tags:", error);
+        console.error('[BULK-TAG-MODAL] Error loading tags:', error);
     }
 }
 
 // Populate dropdown with tag options
 function populateBulkTagModalDropdown() {
     const dropdown = document.getElementById('bulkTagModalSearchDropdown');
-    const searchValue = document.getElementById('bulkTagModalSearchInput').value.toLowerCase().trim();
+    const searchValue = document
+        .getElementById('bulkTagModalSearchInput')
+        .value.toLowerCase()
+        .trim();
 
     // Use window.availableTags (from HTML) or local availableTags (from JS)
     const tags = window.availableTags || availableTags || [];
 
-    console.log("[BULK-TAG-MODAL] Populating dropdown, tags count:", tags.length);
+    console.log('[BULK-TAG-MODAL] Populating dropdown, tags count:', tags.length);
 
     // Check if tags is loaded
     if (!tags || tags.length === 0) {
@@ -196,8 +199,8 @@ function populateBulkTagModalDropdown() {
     }
 
     // Filter tags by search
-    const filteredTags = tags.filter(tag =>
-        tag.Name && tag.Name.toLowerCase().includes(searchValue)
+    const filteredTags = tags.filter(
+        (tag) => tag.Name && tag.Name.toLowerCase().includes(searchValue)
     );
 
     if (filteredTags.length === 0) {
@@ -211,7 +214,7 @@ function populateBulkTagModalDropdown() {
     }
 
     // Check which tags are already added
-    const addedTagIds = new Set(bulkTagModalData.map(t => t.tagId));
+    const addedTagIds = new Set(bulkTagModalData.map((t) => t.tagId));
 
     // Limit display to first 100 tags for performance
     const displayTags = filteredTags.slice(0, 100);
@@ -219,18 +222,19 @@ function populateBulkTagModalDropdown() {
     // Track first available (not added) tag for highlighting
     let firstAvailableFound = false;
 
-    dropdown.innerHTML = displayTags.map(tag => {
-        const isAdded = addedTagIds.has(tag.Id);
-        const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    dropdown.innerHTML = displayTags
+        .map((tag) => {
+            const isAdded = addedTagIds.has(tag.Id);
+            const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-        // Highlight first tag that is NOT already added
-        let isHighlighted = false;
-        if (!isAdded && !firstAvailableFound) {
-            isHighlighted = true;
-            firstAvailableFound = true;
-        }
+            // Highlight first tag that is NOT already added
+            let isHighlighted = false;
+            if (!isAdded && !firstAvailableFound) {
+                isHighlighted = true;
+                firstAvailableFound = true;
+            }
 
-        return `
+            return `
             <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''} ${isHighlighted ? 'highlighted' : ''}"
                  data-tag-id="${tag.Id}"
                  data-tag-name="${tagName}"
@@ -241,7 +245,8 @@ function populateBulkTagModalDropdown() {
                 ${isAdded ? '<span class="tag-added">Đã thêm</span>' : ''}
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
     // Show count if there are more tags
     if (filteredTags.length > 100) {
@@ -277,7 +282,7 @@ async function refreshBulkTagModalDropdown() {
         await loadAvailableTags();
         populateBulkTagModalDropdown();
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error refreshing tags:", error);
+        console.error('[BULK-TAG-MODAL] Error refreshing tags:', error);
         dropdown.innerHTML = `
             <div style="padding: 16px; text-align: center; color: #ef4444;">
                 <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
@@ -348,13 +353,13 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'accept': 'application/json, text/plain, */*',
+                    accept: 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
                 },
                 body: JSON.stringify({
                     Name: name,
-                    Color: color
-                })
+                    Color: color,
+                }),
             }
         );
 
@@ -375,17 +380,20 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
         // This ensures the tag appears immediately in dropdown even if TPOS hasn't indexed it yet
         if (Array.isArray(availableTags)) {
             // Check if not already exists
-            const existsInAvailable = availableTags.some(t => t.Id === newTag.Id);
+            const existsInAvailable = availableTags.some((t) => t.Id === newTag.Id);
             if (!existsInAvailable) {
                 availableTags.push(newTag);
                 window.availableTags = availableTags;
-                console.log('[BULK-TAG-MODAL] Added new tag directly to availableTags:', newTag.Name);
+                console.log(
+                    '[BULK-TAG-MODAL] Added new tag directly to availableTags:',
+                    newTag.Name
+                );
             }
         }
 
         // Clear tags cache and update with new list
-        window.cacheManager.clear("tags");
-        window.cacheManager.set("tags", availableTags, "tags");
+        window.cacheManager.clear('tags');
+        window.cacheManager.set('tags', availableTags, 'tags');
         console.log('[BULK-TAG-MODAL] Updated tags cache with new tag');
 
         // Update filter dropdowns
@@ -402,7 +410,6 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
         }
 
         console.log('[BULK-TAG-MODAL] Tag created and added to bulk modal');
-
     } catch (error) {
         console.error('[BULK-TAG-MODAL] Error creating tag:', error);
         if (window.notificationManager) {
@@ -413,10 +420,10 @@ async function autoCreateAndAddTagToBulkModal(tagName) {
 
 // Add tag to bulk tag modal
 function addTagToBulkTagModal(tagId, tagName, tagColor) {
-    console.log("[BULK-TAG-MODAL] Adding tag:", tagName);
+    console.log('[BULK-TAG-MODAL] Adding tag:', tagName);
 
     // Check if already exists
-    if (bulkTagModalData.some(t => t.tagId === tagId)) {
+    if (bulkTagModalData.some((t) => t.tagId === tagId)) {
         return;
     }
 
@@ -425,7 +432,7 @@ function addTagToBulkTagModal(tagId, tagName, tagColor) {
         tagId: tagId,
         tagName: tagName,
         tagColor: tagColor,
-        sttList: []
+        sttList: [],
     });
 
     // Update UI
@@ -440,7 +447,7 @@ function addTagToBulkTagModal(tagId, tagName, tagColor) {
 
 // Remove tag row from modal
 function removeTagFromBulkTagModal(tagId) {
-    bulkTagModalData = bulkTagModalData.filter(t => t.tagId !== tagId);
+    bulkTagModalData = bulkTagModalData.filter((t) => t.tagId !== tagId);
     selectedBulkTagModalRows.delete(tagId);
 
     updateBulkTagModalTable();
@@ -475,7 +482,7 @@ function updateBulkTagModalRowCount() {
 // Toggle select all
 function toggleBulkTagSelectAll(checked) {
     if (checked) {
-        bulkTagModalData.forEach(tag => {
+        bulkTagModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
@@ -489,7 +496,7 @@ function toggleBulkTagSelectAll(checked) {
 
 // Toggle individual row selection
 function toggleBulkTagRowSelection(tagId) {
-    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagModalData.find((t) => t.tagId === tagId);
     if (!tagData || tagData.sttList.length === 0) return;
 
     if (selectedBulkTagModalRows.has(tagId)) {
@@ -505,7 +512,7 @@ function toggleBulkTagRowSelection(tagId) {
 // Update select all checkbox state
 function updateBulkTagSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('bulkTagSelectAllCheckbox');
-    const tagsWithSTT = bulkTagModalData.filter(t => t.sttList.length > 0);
+    const tagsWithSTT = bulkTagModalData.filter((t) => t.sttList.length > 0);
 
     if (tagsWithSTT.length === 0) {
         selectAllCheckbox.checked = false;
@@ -535,14 +542,18 @@ function addSTTToBulkTagRow(tagId, inputElement) {
         return;
     }
 
-    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagModalData.find((t) => t.tagId === tagId);
     if (!tagData) return;
 
     // Check if STT exists in current data - O(1) via OrderStore.getBySTT
-    const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
+    const order =
+        window.OrderStore?.getBySTT(stt) || displayedData.find((o) => o.SessionIndex === stt);
     if (!order) {
         if (window.notificationManager) {
-            window.notificationManager.warning(`STT ${stt} không tồn tại trong danh sách hiện tại`, 2000);
+            window.notificationManager.warning(
+                `STT ${stt} không tồn tại trong danh sách hiện tại`,
+                2000
+            );
         }
         return;
     }
@@ -564,7 +575,9 @@ function addSTTToBulkTagRow(tagId, inputElement) {
 
     // Re-focus on the input after table re-render
     setTimeout(() => {
-        const newInput = document.querySelector(`.bulk-tag-row[data-tag-id="${tagId}"] .bulk-tag-stt-input`);
+        const newInput = document.querySelector(
+            `.bulk-tag-row[data-tag-id="${tagId}"] .bulk-tag-stt-input`
+        );
         if (newInput) {
             newInput.focus();
         }
@@ -581,10 +594,10 @@ function handleBulkTagSTTInputKeydown(event, tagId) {
 
 // Remove STT from a tag
 function removeSTTFromBulkTagRow(tagId, stt) {
-    const tagData = bulkTagModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagModalData.find((t) => t.tagId === tagId);
     if (!tagData) return;
 
-    tagData.sttList = tagData.sttList.filter(s => s !== stt);
+    tagData.sttList = tagData.sttList.filter((s) => s !== stt);
 
     // If no more STTs, deselect the row
     if (tagData.sttList.length === 0) {
@@ -609,17 +622,21 @@ function updateBulkTagModalTable() {
         return;
     }
 
-    tableBody.innerHTML = bulkTagModalData.map(tagData => {
-        const isSelected = selectedBulkTagModalRows.has(tagData.tagId);
-        const sttArray = tagData.sttList || []; // Giữ nguyên thứ tự nhập, không sort
-        const sttCount = sttArray.length;
-        const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
+    tableBody.innerHTML = bulkTagModalData
+        .map((tagData) => {
+            const isSelected = selectedBulkTagModalRows.has(tagData.tagId);
+            const sttArray = tagData.sttList || []; // Giữ nguyên thứ tự nhập, không sort
+            const sttCount = sttArray.length;
+            const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
-        // Get customer names for STTs - O(1) via OrderStore.getBySTT
-        const sttPillsHtml = sttArray.map(stt => {
-            const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
-            const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
-            return `
+            // Get customer names for STTs - O(1) via OrderStore.getBySTT
+            const sttPillsHtml = sttArray
+                .map((stt) => {
+                    const order =
+                        window.OrderStore?.getBySTT(stt) ||
+                        displayedData.find((o) => o.SessionIndex === stt);
+                    const customerName = order ? order.Name || order.PartnerName || 'N/A' : 'N/A';
+                    return `
                 <div class="bulk-tag-stt-pill">
                     <span class="stt-number">STT ${stt}</span>
                     <span class="customer-name">${customerName}</span>
@@ -628,16 +645,19 @@ function updateBulkTagModalTable() {
                     </button>
                 </div>
             `;
-        }).join('');
+                })
+                .join('');
 
-        // Error message HTML
-        const errorHtml = hasError ? `
+            // Error message HTML
+            const errorHtml = hasError
+                ? `
             <div class="bulk-tag-row-error">
                 ${tagData.errorMessage}
             </div>
-        ` : '';
+        `
+                : '';
 
-        return `
+            return `
             <div class="bulk-tag-row ${isSelected ? 'selected' : ''} ${hasError ? 'has-error' : ''}" data-tag-id="${tagData.tagId}">
                 <div class="bulk-tag-row-tag">
                     <input type="checkbox"
@@ -670,7 +690,8 @@ function updateBulkTagModalTable() {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 // Execute bulk tag modal assignment
@@ -698,11 +719,11 @@ function normalizePhoneForBulkTag(phone) {
 }
 
 async function executeBulkTagModalAssignment() {
-    console.log("[BULK-TAG-MODAL] Executing bulk tag assignment");
+    console.log('[BULK-TAG-MODAL] Executing bulk tag assignment');
 
     // Get selected tags with STTs (checked rows only)
-    const selectedTags = bulkTagModalData.filter(t =>
-        selectedBulkTagModalRows.has(t.tagId) && t.sttList.length > 0
+    const selectedTags = bulkTagModalData.filter(
+        (t) => selectedBulkTagModalRows.has(t.tagId) && t.sttList.length > 0
     );
 
     // Validate: at least one tag selected with STTs
@@ -720,14 +741,14 @@ async function executeBulkTagModalAssignment() {
 
         // Results tracking
         const successResults = []; // Array of {tagName, tagColor, sttList: []}
-        const failedResults = [];  // Array of {tagName, tagColor, sttList: [], reason}
+        const failedResults = []; // Array of {tagName, tagColor, sttList: [], reason}
 
         // Process each selected tag
         for (const selectedTag of selectedTags) {
             const tagInfo = {
                 Id: parseInt(selectedTag.tagId, 10),
                 Name: selectedTag.tagName,
-                Color: selectedTag.tagColor
+                Color: selectedTag.tagColor,
             };
 
             const sttArray = selectedTag.sttList || [];
@@ -737,32 +758,34 @@ async function executeBulkTagModalAssignment() {
 
             // Find orders matching STT — use Set for O(1) lookup
             const sttSet = new Set(sttArray);
-            const matchingOrders = displayedData.filter(order =>
-                sttSet.has(order.SessionIndex)
-            );
+            const matchingOrders = displayedData.filter((order) => sttSet.has(order.SessionIndex));
 
             if (matchingOrders.length === 0) {
                 console.warn(`[BULK-TAG-MODAL] No orders found for tag "${tagInfo.Name}"`);
                 continue;
             }
 
-            console.log(`[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`);
+            console.log(
+                `[BULK-TAG-MODAL] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`
+            );
 
             // Process each order
             for (const order of matchingOrders) {
                 try {
                     // Parse current tags
                     const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
-                    const currentTags = rawTags.map(t => ({
+                    const currentTags = rawTags.map((t) => ({
                         Id: parseInt(t.Id, 10),
                         Name: t.Name,
-                        Color: t.Color
+                        Color: t.Color,
                     }));
 
                     // Check if order has "ĐÃ GỘP KO CHỐT" tag (exact match)
-                    const hasBlockedTag = currentTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
+                    const hasBlockedTag = currentTags.some((t) => t.Name === 'ĐÃ GỘP KO CHỐT');
                     if (hasBlockedTag) {
-                        console.log(`[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT", finding replacement...`);
+                        console.log(
+                            `[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT", finding replacement...`
+                        );
 
                         // Get normalized phone number
                         const originalSTT = order.SessionIndex;
@@ -776,46 +799,66 @@ async function executeBulkTagModalAssignment() {
                         }
 
                         // Find all orders with same phone number (excluding current order)
-                        const samePhoneOrders = displayedData.filter(o =>
-                            o.Id !== order.Id && normalizePhoneForBulkTag(o.Telephone) === normalizedPhone
+                        const samePhoneOrders = displayedData.filter(
+                            (o) =>
+                                o.Id !== order.Id &&
+                                normalizePhoneForBulkTag(o.Telephone) === normalizedPhone
                         );
 
                         if (samePhoneOrders.length === 0) {
-                            console.log(`[BULK-TAG-MODAL] No replacement order found for phone ${normalizedPhone}`);
+                            console.log(
+                                `[BULK-TAG-MODAL] No replacement order found for phone ${normalizedPhone}`
+                            );
                             failedSTT.push(order.SessionIndex);
                             failReason = 'Không tìm thấy đơn thay thế cùng SĐT';
                             continue;
                         }
 
                         // Select order with highest STT
-                        const replacementOrder = samePhoneOrders.sort((a, b) =>
-                            b.SessionIndex - a.SessionIndex
+                        const replacementOrder = samePhoneOrders.sort(
+                            (a, b) => b.SessionIndex - a.SessionIndex
                         )[0];
 
-                        console.log(`[BULK-TAG-MODAL] Found replacement order ${replacementOrder.Code} (STT ${replacementOrder.SessionIndex}) for blocked order ${order.Code} (STT ${originalSTT})`);
+                        console.log(
+                            `[BULK-TAG-MODAL] Found replacement order ${replacementOrder.Code} (STT ${replacementOrder.SessionIndex}) for blocked order ${order.Code} (STT ${originalSTT})`
+                        );
 
                         // Parse replacement order's tags
-                        const replacementRawTags = replacementOrder.Tags ? JSON.parse(replacementOrder.Tags) : [];
-                        const replacementCurrentTags = replacementRawTags.map(t => ({
+                        const replacementRawTags = replacementOrder.Tags
+                            ? JSON.parse(replacementOrder.Tags)
+                            : [];
+                        const replacementCurrentTags = replacementRawTags.map((t) => ({
                             Id: parseInt(t.Id, 10),
                             Name: t.Name,
-                            Color: t.Color
+                            Color: t.Color,
                         }));
 
                         // Check if tag already exists on replacement order
-                        const tagExistsOnReplacement = replacementCurrentTags.some(t => t.Id === tagInfo.Id);
+                        const tagExistsOnReplacement = replacementCurrentTags.some(
+                            (t) => t.Id === tagInfo.Id
+                        );
                         if (tagExistsOnReplacement) {
-                            console.log(`[BULK-TAG-MODAL] Tag already exists on replacement order ${replacementOrder.Code}`);
+                            console.log(
+                                `[BULK-TAG-MODAL] Tag already exists on replacement order ${replacementOrder.Code}`
+                            );
                             // Transfer processing tags (flags + tTags) from blocked order to replacement
                             try {
                                 if (window.transferProcessingTags) {
-                                    await window.transferProcessingTags(String(order.Code), String(replacementOrder.Code));
+                                    await window.transferProcessingTags(
+                                        String(order.Code),
+                                        String(replacementOrder.Code)
+                                    );
                                 }
-                            } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
+                            } catch (e) {
+                                console.warn(
+                                    '[BULK-TAG-MODAL] Transfer processing tags failed:',
+                                    e
+                                );
+                            }
                             successSTT.push({
                                 original: originalSTT,
                                 redirectTo: replacementOrder.SessionIndex,
-                                redirected: true
+                                redirected: true,
                             });
                             continue;
                         }
@@ -826,25 +869,25 @@ async function executeBulkTagModalAssignment() {
                             {
                                 Id: tagInfo.Id,
                                 Name: tagInfo.Name,
-                                Color: tagInfo.Color
-                            }
+                                Color: tagInfo.Color,
+                            },
                         ];
 
                         // Call API to assign tag to replacement order
                         try {
                             const authHeaders = await window.tokenManager.getAuthHeader();
                             const response = await fetch(
-                                "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
                                 {
-                                    method: "POST",
+                                    method: 'POST',
                                     headers: {
                                         ...authHeaders,
-                                        "Content-Type": "application/json",
-                                        "Accept": "application/json"
+                                        'Content-Type': 'application/json',
+                                        Accept: 'application/json',
                                     },
                                     body: JSON.stringify({
                                         Tags: replacementUpdatedTags,
-                                        OrderId: replacementOrder.Id
+                                        OrderId: replacementOrder.Id,
                                     }),
                                 }
                             );
@@ -858,36 +901,55 @@ async function executeBulkTagModalAssignment() {
                             updateOrderInTable(replacementOrder.Id, updatedData);
 
                             // Emit Firebase update for replacement order
-                            await emitTagUpdateToFirebase(replacementOrder.Id, replacementUpdatedTags);
+                            await emitTagUpdateToFirebase(
+                                replacementOrder.Id,
+                                replacementUpdatedTags
+                            );
 
                             // Transfer processing tags (flags + tTags) from blocked order to replacement
                             try {
                                 if (window.transferProcessingTags) {
-                                    await window.transferProcessingTags(String(order.Code), String(replacementOrder.Code));
+                                    await window.transferProcessingTags(
+                                        String(order.Code),
+                                        String(replacementOrder.Code)
+                                    );
                                 }
-                            } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
+                            } catch (e) {
+                                console.warn(
+                                    '[BULK-TAG-MODAL] Transfer processing tags failed:',
+                                    e
+                                );
+                            }
 
                             // Record success with redirect info
                             successSTT.push({
                                 original: originalSTT,
                                 redirectTo: replacementOrder.SessionIndex,
-                                redirected: true
+                                redirected: true,
                             });
-                            console.log(`[BULK-TAG-MODAL] Successfully tagged replacement order ${replacementOrder.Code} with "${tagInfo.Name}" (redirected from STT ${originalSTT})`);
-
+                            console.log(
+                                `[BULK-TAG-MODAL] Successfully tagged replacement order ${replacementOrder.Code} with "${tagInfo.Name}" (redirected from STT ${originalSTT})`
+                            );
                         } catch (apiError) {
-                            console.error(`[BULK-TAG-MODAL] Error tagging replacement order ${replacementOrder.Code}:`, apiError);
+                            console.error(
+                                `[BULK-TAG-MODAL] Error tagging replacement order ${replacementOrder.Code}:`,
+                                apiError
+                            );
                             failedSTT.push(order.SessionIndex);
-                            failReason = failReason || `Lỗi API khi gán cho đơn thay thế: ${apiError.message}`;
+                            failReason =
+                                failReason ||
+                                `Lỗi API khi gán cho đơn thay thế: ${apiError.message}`;
                         }
 
                         continue;
                     }
 
                     // Check if tag already exists — count as skipped, not success
-                    const tagExists = currentTags.some(t => t.Id === tagInfo.Id);
+                    const tagExists = currentTags.some((t) => t.Id === tagInfo.Id);
                     if (tagExists) {
-                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (skipped)`);
+                        console.log(
+                            `[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (skipped)`
+                        );
                         successSTT.push({ stt: order.SessionIndex, skipped: true });
                         continue;
                     }
@@ -898,24 +960,24 @@ async function executeBulkTagModalAssignment() {
                         {
                             Id: tagInfo.Id,
                             Name: tagInfo.Name,
-                            Color: tagInfo.Color
-                        }
+                            Color: tagInfo.Color,
+                        },
                     ];
 
                     // Call API to assign tag
                     const authHeaders = await window.tokenManager.getAuthHeader();
                     const response = await fetch(
-                        "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
                         {
-                            method: "POST",
+                            method: 'POST',
                             headers: {
                                 ...authHeaders,
-                                "Content-Type": "application/json",
-                                "Accept": "application/json"
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
                             },
                             body: JSON.stringify({
                                 Tags: updatedTags,
-                                OrderId: order.Id
+                                OrderId: order.Id,
                             }),
                         }
                     );
@@ -933,8 +995,9 @@ async function executeBulkTagModalAssignment() {
                     await emitTagUpdateToFirebase(order.Id, updatedTags);
 
                     successSTT.push(order.SessionIndex);
-                    console.log(`[BULK-TAG-MODAL] Successfully tagged order ${order.Code} with "${tagInfo.Name}"`);
-
+                    console.log(
+                        `[BULK-TAG-MODAL] Successfully tagged order ${order.Code} with "${tagInfo.Name}"`
+                    );
                 } catch (error) {
                     console.error(`[BULK-TAG-MODAL] Error tagging order ${order.Code}:`, error);
                     failedSTT.push(order.SessionIndex);
@@ -944,15 +1007,15 @@ async function executeBulkTagModalAssignment() {
 
             // Collect results for this tag
             // Separate normal STTs and redirected STTs
-            const normalSTT = successSTT.filter(s => typeof s === 'number');
-            const redirectedSTT = successSTT.filter(s => typeof s === 'object' && s.redirected);
+            const normalSTT = successSTT.filter((s) => typeof s === 'number');
+            const redirectedSTT = successSTT.filter((s) => typeof s === 'object' && s.redirected);
 
             if (successSTT.length > 0) {
                 successResults.push({
                     tagName: tagInfo.Name,
                     tagColor: tagInfo.Color,
                     sttList: normalSTT.sort((a, b) => a - b),
-                    redirectedList: redirectedSTT.sort((a, b) => a.original - b.original)
+                    redirectedList: redirectedSTT.sort((a, b) => a.original - b.original),
                 });
             }
 
@@ -961,20 +1024,19 @@ async function executeBulkTagModalAssignment() {
                     tagName: tagInfo.Name,
                     tagColor: tagInfo.Color,
                     sttList: failedSTT.sort((a, b) => a - b),
-                    reason: failReason || 'Lỗi không xác định'
+                    reason: failReason || 'Lỗi không xác định',
                 });
             }
 
             // Update modal data: remove successful STTs, keep failed ones
-            const tagDataInModal = bulkTagModalData.find(t => t.tagId === selectedTag.tagId);
+            const tagDataInModal = bulkTagModalData.find((t) => t.tagId === selectedTag.tagId);
             if (tagDataInModal) {
                 // Get all successful original STTs (both normal and redirected)
-                const successOriginalSTTs = [
-                    ...normalSTT,
-                    ...redirectedSTT.map(r => r.original)
-                ];
+                const successOriginalSTTs = [...normalSTT, ...redirectedSTT.map((r) => r.original)];
                 // Remove successful STTs
-                tagDataInModal.sttList = tagDataInModal.sttList.filter(stt => !successOriginalSTTs.includes(stt));
+                tagDataInModal.sttList = tagDataInModal.sttList.filter(
+                    (stt) => !successOriginalSTTs.includes(stt)
+                );
 
                 // Set error message if there are failures
                 if (failedSTT.length > 0) {
@@ -984,18 +1046,20 @@ async function executeBulkTagModalAssignment() {
                 }
             }
 
-            console.log(`[BULK-TAG-MODAL] Tag "${tagInfo.Name}" result: ${successSTT.length} success, ${failedSTT.length} failed`);
+            console.log(
+                `[BULK-TAG-MODAL] Tag "${tagInfo.Name}" result: ${successSTT.length} success, ${failedSTT.length} failed`
+            );
         }
 
         // Clear cache
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         // Remove tags with no remaining STTs
-        bulkTagModalData = bulkTagModalData.filter(tag => tag.sttList.length > 0);
+        bulkTagModalData = bulkTagModalData.filter((tag) => tag.sttList.length > 0);
 
         // Update selected rows
         selectedBulkTagModalRows.clear();
-        bulkTagModalData.forEach(tag => {
+        bulkTagModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagModalRows.add(tag.tagId);
             }
@@ -1009,13 +1073,16 @@ async function executeBulkTagModalAssignment() {
         }
 
         // Save history to Firebase
-        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0), 0);
+        const totalSuccess = successResults.reduce(
+            (sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0),
+            0
+        );
         const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
         if (totalSuccess > 0 || totalFailed > 0) {
             await saveBulkTagHistory({
                 success: successResults,
-                failed: failedResults
+                failed: failedResults,
             });
         }
 
@@ -1030,9 +1097,8 @@ async function executeBulkTagModalAssignment() {
         showBulkTagResultModal(successResults, failedResults);
 
         // DON'T close modal - user must click "Hủy" to close
-
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error in bulk tag assignment:", error);
+        console.error('[BULK-TAG-MODAL] Error in bulk tag assignment:', error);
         showLoading(false);
 
         if (window.notificationManager) {
@@ -1061,7 +1127,7 @@ async function saveBulkTagHistory(results) {
                 username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
             }
         } catch (e) {
-            console.warn("[BULK-TAG-MODAL] Could not get username:", e);
+            console.warn('[BULK-TAG-MODAL] Could not get username:', e);
         }
 
         const historyEntry = {
@@ -1074,23 +1140,26 @@ async function saveBulkTagHistory(results) {
                     (sum, r) => sum + (r.sttList?.length || 0) + (r.redirectedList?.length || 0),
                     0
                 ),
-                totalFailed: results.failed.reduce((sum, r) => sum + (r.sttList?.length || 0), 0)
-            }
+                totalFailed: results.failed.reduce((sum, r) => sum + (r.sttList?.length || 0), 0),
+            },
         };
 
         // Save to Firebase
         const historyRef = database.ref(`bulkTagHistory/${timestamp}`);
         await historyRef.set(historyEntry);
 
-        console.log("[BULK-TAG-MODAL] History saved to Firebase:", historyEntry);
+        console.log('[BULK-TAG-MODAL] History saved to Firebase:', historyEntry);
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error saving history:", error);
+        console.error('[BULK-TAG-MODAL] Error saving history:', error);
     }
 }
 
 // Show bulk tag result modal
 function showBulkTagResultModal(successResults, failedResults) {
-    const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0), 0);
+    const totalSuccess = successResults.reduce(
+        (sum, r) => sum + r.sttList.length + (r.redirectedList?.length || 0),
+        0
+    );
     const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
     // Build success HTML
@@ -1103,33 +1172,37 @@ function showBulkTagResultModal(successResults, failedResults) {
                     <span>Thành công (${totalSuccess} đơn)</span>
                 </div>
                 <div class="bulk-tag-result-section-body">
-                    ${successResults.map(r => {
-            // Build normal STT display
-            const normalSttDisplay = r.sttList.length > 0
-                ? `STT ${r.sttList.join(', ')}`
-                : '';
+                    ${successResults
+                        .map((r) => {
+                            // Build normal STT display
+                            const normalSttDisplay =
+                                r.sttList.length > 0 ? `STT ${r.sttList.join(', ')}` : '';
 
-            // Build redirected STT display
-            const redirectedDisplay = r.redirectedList?.length > 0
-                ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
-                : '';
+                            // Build redirected STT display
+                            const redirectedDisplay =
+                                r.redirectedList?.length > 0
+                                    ? r.redirectedList
+                                          .map((rd) => `${rd.original} → ${rd.redirectTo}`)
+                                          .join(', ')
+                                    : '';
 
-            // Combine displays
-            let sttDisplay = '';
-            if (normalSttDisplay && redirectedDisplay) {
-                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
-            } else if (normalSttDisplay) {
-                sttDisplay = normalSttDisplay;
-            } else if (redirectedDisplay) {
-                sttDisplay = `STT ${redirectedDisplay}`;
-            }
+                            // Combine displays
+                            let sttDisplay = '';
+                            if (normalSttDisplay && redirectedDisplay) {
+                                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+                            } else if (normalSttDisplay) {
+                                sttDisplay = normalSttDisplay;
+                            } else if (redirectedDisplay) {
+                                sttDisplay = `STT ${redirectedDisplay}`;
+                            }
 
-            // Add redirect note if there are redirected items
-            const redirectNote = r.redirectedList?.length > 0
-                ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
-                : '';
+                            // Add redirect note if there are redirected items
+                            const redirectNote =
+                                r.redirectedList?.length > 0
+                                    ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                                    : '';
 
-            return `
+                            return `
                             <div class="bulk-tag-result-item">
                                 <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                                 <span class="tag-name">${r.tagName}:</span>
@@ -1137,7 +1210,8 @@ function showBulkTagResultModal(successResults, failedResults) {
                                 ${redirectNote}
                             </div>
                         `;
-        }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
         `;
@@ -1153,14 +1227,18 @@ function showBulkTagResultModal(successResults, failedResults) {
                     <span>Thất bại (${totalFailed} đơn)</span>
                 </div>
                 <div class="bulk-tag-result-section-body">
-                    ${failedResults.map(r => `
+                    ${failedResults
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-result-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${r.sttList.join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -1216,7 +1294,7 @@ function closeBulkTagResultModal() {
 
 // Show bulk tag history modal
 async function showBulkTagHistoryModal() {
-    console.log("[BULK-TAG-MODAL] Opening history modal");
+    console.log('[BULK-TAG-MODAL] Opening history modal');
 
     const historyBody = document.getElementById('bulkTagHistoryModalBody');
     historyBody.innerHTML = `
@@ -1252,9 +1330,8 @@ async function showBulkTagHistoryModal() {
                 ${historyArray.map((entry, index) => renderBulkTagHistoryItem(entry, index)).join('')}
             </div>
         `;
-
     } catch (error) {
-        console.error("[BULK-TAG-MODAL] Error loading history:", error);
+        console.error('[BULK-TAG-MODAL] Error loading history:', error);
         historyBody.innerHTML = `
             <div class="bulk-tag-history-empty">
                 <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
@@ -1288,28 +1365,32 @@ function renderBulkTagHistoryItem(entry, index) {
                     Thành công (${computedTotalSuccess} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
-                    ${results.success.map(r => {
-            const normalSttDisplay = r.sttList?.length > 0
-                ? `STT ${r.sttList.join(', ')}`
-                : '';
-            const redirectedDisplay = r.redirectedList?.length > 0
-                ? r.redirectedList.map(rd => `${rd.original} → ${rd.redirectTo}`).join(', ')
-                : '';
+                    ${results.success
+                        .map((r) => {
+                            const normalSttDisplay =
+                                r.sttList?.length > 0 ? `STT ${r.sttList.join(', ')}` : '';
+                            const redirectedDisplay =
+                                r.redirectedList?.length > 0
+                                    ? r.redirectedList
+                                          .map((rd) => `${rd.original} → ${rd.redirectTo}`)
+                                          .join(', ')
+                                    : '';
 
-            let sttDisplay = '';
-            if (normalSttDisplay && redirectedDisplay) {
-                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
-            } else if (normalSttDisplay) {
-                sttDisplay = normalSttDisplay;
-            } else if (redirectedDisplay) {
-                sttDisplay = `STT ${redirectedDisplay}`;
-            }
+                            let sttDisplay = '';
+                            if (normalSttDisplay && redirectedDisplay) {
+                                sttDisplay = `${normalSttDisplay}, ${redirectedDisplay}`;
+                            } else if (normalSttDisplay) {
+                                sttDisplay = normalSttDisplay;
+                            } else if (redirectedDisplay) {
+                                sttDisplay = `STT ${redirectedDisplay}`;
+                            }
 
-            const redirectNote = r.redirectedList?.length > 0
-                ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
-                : '';
+                            const redirectNote =
+                                r.redirectedList?.length > 0
+                                    ? `<div class="redirect-note" style="font-size: 11px; color: #6b7280; margin-top: 2px;">↳ Chuyển sang đơn cùng SĐT</div>`
+                                    : '';
 
-            return `
+                            return `
                         <div class="bulk-tag-history-tag-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
@@ -1317,7 +1398,8 @@ function renderBulkTagHistoryItem(entry, index) {
                             ${redirectNote}
                         </div>
                     `;
-        }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
         `;
@@ -1333,14 +1415,18 @@ function renderBulkTagHistoryItem(entry, index) {
                     Thất bại (${computedTotalFailed} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
-                    ${results.failed.map(r => `
+                    ${results.failed
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-history-tag-item failed">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -1396,7 +1482,9 @@ document.addEventListener('click', function (event) {
     }
 
     // Also handle bulk tag delete modal dropdown
-    const deleteSearchWrapper = document.querySelector('#bulkTagDeleteModal .bulk-tag-search-wrapper');
+    const deleteSearchWrapper = document.querySelector(
+        '#bulkTagDeleteModal .bulk-tag-search-wrapper'
+    );
     const deleteDropdown = document.getElementById('bulkTagDeleteModalSearchDropdown');
 
     if (deleteSearchWrapper && deleteDropdown && !deleteSearchWrapper.contains(event.target)) {
@@ -1421,17 +1509,17 @@ const BULK_TAG_DELETE_DRAFT_KEY = 'bulkTagDeleteModalDraft';
 // Save bulk tag delete modal data to localStorage
 function saveBulkTagDeleteToLocalStorage() {
     try {
-        const dataToSave = bulkTagDeleteModalData.map(tag => ({
+        const dataToSave = bulkTagDeleteModalData.map((tag) => ({
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
             sttList: tag.sttList || [],
-            errorMessage: tag.errorMessage || null
+            errorMessage: tag.errorMessage || null,
         }));
         localStorage.setItem(BULK_TAG_DELETE_DRAFT_KEY, JSON.stringify(dataToSave));
-        console.log("[BULK-TAG-DELETE] Saved draft to localStorage:", dataToSave);
+        console.log('[BULK-TAG-DELETE] Saved draft to localStorage:', dataToSave);
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error saving to localStorage:", error);
+        console.error('[BULK-TAG-DELETE] Error saving to localStorage:', error);
     }
 }
 
@@ -1444,26 +1532,26 @@ function loadBulkTagDeleteFromLocalStorage() {
         const parsedData = JSON.parse(savedData);
         if (!Array.isArray(parsedData) || parsedData.length === 0) return false;
 
-        bulkTagDeleteModalData = parsedData.map(tag => ({
+        bulkTagDeleteModalData = parsedData.map((tag) => ({
             tagId: tag.tagId,
             tagName: tag.tagName,
             tagColor: tag.tagColor,
             sttList: tag.sttList || [],
-            errorMessage: tag.errorMessage || null
+            errorMessage: tag.errorMessage || null,
         }));
 
         // Auto-select tags with STTs
         selectedBulkTagDeleteModalRows.clear();
-        bulkTagDeleteModalData.forEach(tag => {
+        bulkTagDeleteModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagDeleteModalRows.add(tag.tagId);
             }
         });
 
-        console.log("[BULK-TAG-DELETE] Loaded draft from localStorage:", bulkTagDeleteModalData);
+        console.log('[BULK-TAG-DELETE] Loaded draft from localStorage:', bulkTagDeleteModalData);
         return true;
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error loading from localStorage:", error);
+        console.error('[BULK-TAG-DELETE] Error loading from localStorage:', error);
         return false;
     }
 }
@@ -1472,15 +1560,15 @@ function loadBulkTagDeleteFromLocalStorage() {
 function clearBulkTagDeleteLocalStorage() {
     try {
         localStorage.removeItem(BULK_TAG_DELETE_DRAFT_KEY);
-        console.log("[BULK-TAG-DELETE] Cleared localStorage draft");
+        console.log('[BULK-TAG-DELETE] Cleared localStorage draft');
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error clearing localStorage:", error);
+        console.error('[BULK-TAG-DELETE] Error clearing localStorage:', error);
     }
 }
 
 // Show bulk tag delete modal
 async function showBulkTagDeleteModal() {
-    console.log("[BULK-TAG-DELETE] Opening bulk tag delete modal");
+    console.log('[BULK-TAG-DELETE] Opening bulk tag delete modal');
 
     // Try to load from localStorage first
     const hasStoredData = loadBulkTagDeleteFromLocalStorage();
@@ -1525,19 +1613,22 @@ async function loadBulkTagDeleteModalOptions() {
         }
         populateBulkTagDeleteModalDropdown();
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error loading tags:", error);
+        console.error('[BULK-TAG-DELETE] Error loading tags:', error);
     }
 }
 
 // Populate dropdown with tag options
 function populateBulkTagDeleteModalDropdown() {
     const dropdown = document.getElementById('bulkTagDeleteModalSearchDropdown');
-    const searchValue = document.getElementById('bulkTagDeleteModalSearchInput').value.toLowerCase().trim();
+    const searchValue = document
+        .getElementById('bulkTagDeleteModalSearchInput')
+        .value.toLowerCase()
+        .trim();
 
     // Use window.availableTags (from HTML) or local availableTags (from JS)
     const tags = window.availableTags || availableTags || [];
 
-    console.log("[BULK-TAG-DELETE] Populating dropdown, tags count:", tags.length);
+    console.log('[BULK-TAG-DELETE] Populating dropdown, tags count:', tags.length);
 
     // Check if tags is loaded
     if (!tags || tags.length === 0) {
@@ -1555,8 +1646,8 @@ function populateBulkTagDeleteModalDropdown() {
     }
 
     // Filter tags by search
-    const filteredTags = tags.filter(tag =>
-        tag.Name && tag.Name.toLowerCase().includes(searchValue)
+    const filteredTags = tags.filter(
+        (tag) => tag.Name && tag.Name.toLowerCase().includes(searchValue)
     );
 
     if (filteredTags.length === 0) {
@@ -1570,7 +1661,7 @@ function populateBulkTagDeleteModalDropdown() {
     }
 
     // Check which tags are already added
-    const addedTagIds = new Set(bulkTagDeleteModalData.map(t => t.tagId));
+    const addedTagIds = new Set(bulkTagDeleteModalData.map((t) => t.tagId));
 
     // Limit display to first 100 tags for performance
     const displayTags = filteredTags.slice(0, 100);
@@ -1578,18 +1669,19 @@ function populateBulkTagDeleteModalDropdown() {
     // Track first available (not added) tag for highlighting
     let firstAvailableFound = false;
 
-    dropdown.innerHTML = displayTags.map(tag => {
-        const isAdded = addedTagIds.has(tag.Id);
-        const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    dropdown.innerHTML = displayTags
+        .map((tag) => {
+            const isAdded = addedTagIds.has(tag.Id);
+            const tagName = tag.Name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-        // Highlight first tag that is NOT already added
-        let isHighlighted = false;
-        if (!isAdded && !firstAvailableFound) {
-            isHighlighted = true;
-            firstAvailableFound = true;
-        }
+            // Highlight first tag that is NOT already added
+            let isHighlighted = false;
+            if (!isAdded && !firstAvailableFound) {
+                isHighlighted = true;
+                firstAvailableFound = true;
+            }
 
-        return `
+            return `
             <div class="bulk-tag-search-option ${isAdded ? 'disabled' : ''} ${isHighlighted ? 'highlighted' : ''}"
                  data-tag-id="${tag.Id}"
                  data-tag-name="${tagName}"
@@ -1600,7 +1692,8 @@ function populateBulkTagDeleteModalDropdown() {
                 ${isAdded ? '<span class="tag-added">Đã thêm</span>' : ''}
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
     // Show count if there are more tags
     if (filteredTags.length > 100) {
@@ -1636,7 +1729,7 @@ async function refreshBulkTagDeleteModalDropdown() {
         await loadAvailableTags();
         populateBulkTagDeleteModalDropdown();
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error refreshing tags:", error);
+        console.error('[BULK-TAG-DELETE] Error refreshing tags:', error);
         dropdown.innerHTML = `
             <div style="padding: 16px; text-align: center; color: #ef4444;">
                 <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
@@ -1663,7 +1756,9 @@ function handleBulkTagDeleteModalSearchKeydown(event) {
         event.preventDefault();
 
         // Find highlighted tag (first available tag)
-        const highlightedTag = document.querySelector('#bulkTagDeleteModal .bulk-tag-search-option.highlighted');
+        const highlightedTag = document.querySelector(
+            '#bulkTagDeleteModal .bulk-tag-search-option.highlighted'
+        );
 
         if (highlightedTag) {
             // Has highlighted tag → select it
@@ -1680,10 +1775,10 @@ function handleBulkTagDeleteModalSearchKeydown(event) {
 
 // Add tag to bulk tag delete modal
 function addTagToBulkTagDeleteModal(tagId, tagName, tagColor) {
-    console.log("[BULK-TAG-DELETE] Adding tag:", tagName);
+    console.log('[BULK-TAG-DELETE] Adding tag:', tagName);
 
     // Check if already exists
-    if (bulkTagDeleteModalData.some(t => t.tagId === tagId)) {
+    if (bulkTagDeleteModalData.some((t) => t.tagId === tagId)) {
         return;
     }
 
@@ -1692,7 +1787,7 @@ function addTagToBulkTagDeleteModal(tagId, tagName, tagColor) {
         tagId: tagId,
         tagName: tagName,
         tagColor: tagColor,
-        sttList: []
+        sttList: [],
     });
 
     // Update UI
@@ -1707,7 +1802,7 @@ function addTagToBulkTagDeleteModal(tagId, tagName, tagColor) {
 
 // Remove tag row from modal
 function removeTagFromBulkTagDeleteModal(tagId) {
-    bulkTagDeleteModalData = bulkTagDeleteModalData.filter(t => t.tagId !== tagId);
+    bulkTagDeleteModalData = bulkTagDeleteModalData.filter((t) => t.tagId !== tagId);
     selectedBulkTagDeleteModalRows.delete(tagId);
 
     updateBulkTagDeleteModalTable();
@@ -1742,7 +1837,7 @@ function updateBulkTagDeleteModalRowCount() {
 // Toggle select all
 function toggleBulkTagDeleteSelectAll(checked) {
     if (checked) {
-        bulkTagDeleteModalData.forEach(tag => {
+        bulkTagDeleteModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagDeleteModalRows.add(tag.tagId);
             }
@@ -1756,7 +1851,7 @@ function toggleBulkTagDeleteSelectAll(checked) {
 
 // Toggle individual row selection
 function toggleBulkTagDeleteRowSelection(tagId) {
-    const tagData = bulkTagDeleteModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagDeleteModalData.find((t) => t.tagId === tagId);
     if (!tagData || tagData.sttList.length === 0) return;
 
     if (selectedBulkTagDeleteModalRows.has(tagId)) {
@@ -1772,7 +1867,7 @@ function toggleBulkTagDeleteRowSelection(tagId) {
 // Update select all checkbox state
 function updateBulkTagDeleteSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('bulkTagDeleteSelectAllCheckbox');
-    const tagsWithSTT = bulkTagDeleteModalData.filter(t => t.sttList.length > 0);
+    const tagsWithSTT = bulkTagDeleteModalData.filter((t) => t.sttList.length > 0);
 
     if (tagsWithSTT.length === 0) {
         selectAllCheckbox.checked = false;
@@ -1802,14 +1897,18 @@ function addSTTToBulkTagDeleteRow(tagId, inputElement) {
         return;
     }
 
-    const tagData = bulkTagDeleteModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagDeleteModalData.find((t) => t.tagId === tagId);
     if (!tagData) return;
 
     // Check if STT exists in current data - O(1) via OrderStore.getBySTT
-    const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
+    const order =
+        window.OrderStore?.getBySTT(stt) || displayedData.find((o) => o.SessionIndex === stt);
     if (!order) {
         if (window.notificationManager) {
-            window.notificationManager.warning(`STT ${stt} không tồn tại trong danh sách hiện tại`, 2000);
+            window.notificationManager.warning(
+                `STT ${stt} không tồn tại trong danh sách hiện tại`,
+                2000
+            );
         }
         return;
     }
@@ -1831,7 +1930,9 @@ function addSTTToBulkTagDeleteRow(tagId, inputElement) {
 
     // Re-focus on the input after table re-render
     setTimeout(() => {
-        const newInput = document.querySelector(`#bulkTagDeleteModal .bulk-tag-row[data-tag-id="${tagId}"] .bulk-tag-stt-input`);
+        const newInput = document.querySelector(
+            `#bulkTagDeleteModal .bulk-tag-row[data-tag-id="${tagId}"] .bulk-tag-stt-input`
+        );
         if (newInput) {
             newInput.focus();
         }
@@ -1848,10 +1949,10 @@ function handleBulkTagDeleteSTTInputKeydown(event, tagId) {
 
 // Remove STT from a tag
 function removeSTTFromBulkTagDeleteRow(tagId, stt) {
-    const tagData = bulkTagDeleteModalData.find(t => t.tagId === tagId);
+    const tagData = bulkTagDeleteModalData.find((t) => t.tagId === tagId);
     if (!tagData) return;
 
-    tagData.sttList = tagData.sttList.filter(s => s !== stt);
+    tagData.sttList = tagData.sttList.filter((s) => s !== stt);
 
     // If no more STTs, deselect the row
     if (tagData.sttList.length === 0) {
@@ -1876,17 +1977,21 @@ function updateBulkTagDeleteModalTable() {
         return;
     }
 
-    tableBody.innerHTML = bulkTagDeleteModalData.map(tagData => {
-        const isSelected = selectedBulkTagDeleteModalRows.has(tagData.tagId);
-        const sttArray = tagData.sttList || []; // Giữ nguyên thứ tự nhập, không sort
-        const sttCount = sttArray.length;
-        const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
+    tableBody.innerHTML = bulkTagDeleteModalData
+        .map((tagData) => {
+            const isSelected = selectedBulkTagDeleteModalRows.has(tagData.tagId);
+            const sttArray = tagData.sttList || []; // Giữ nguyên thứ tự nhập, không sort
+            const sttCount = sttArray.length;
+            const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
-        // Get customer names for STTs - O(1) via OrderStore.getBySTT
-        const sttPillsHtml = sttArray.map(stt => {
-            const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
-            const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
-            return `
+            // Get customer names for STTs - O(1) via OrderStore.getBySTT
+            const sttPillsHtml = sttArray
+                .map((stt) => {
+                    const order =
+                        window.OrderStore?.getBySTT(stt) ||
+                        displayedData.find((o) => o.SessionIndex === stt);
+                    const customerName = order ? order.Name || order.PartnerName || 'N/A' : 'N/A';
+                    return `
                 <div class="bulk-tag-stt-pill">
                     <span class="stt-number">STT ${stt}</span>
                     <span class="customer-name">${customerName}</span>
@@ -1895,16 +2000,19 @@ function updateBulkTagDeleteModalTable() {
                     </button>
                 </div>
             `;
-        }).join('');
+                })
+                .join('');
 
-        // Error message HTML
-        const errorHtml = hasError ? `
+            // Error message HTML
+            const errorHtml = hasError
+                ? `
             <div class="bulk-tag-row-error">
                 ${tagData.errorMessage}
             </div>
-        ` : '';
+        `
+                : '';
 
-        return `
+            return `
             <div class="bulk-tag-row ${isSelected ? 'selected' : ''} ${hasError ? 'has-error' : ''}" data-tag-id="${tagData.tagId}">
                 <div class="bulk-tag-row-tag">
                     <input type="checkbox"
@@ -1937,7 +2045,8 @@ function updateBulkTagDeleteModalTable() {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 // Execute bulk tag delete modal removal
@@ -1953,11 +2062,11 @@ function updateBulkTagDeleteModalTable() {
  * 7. DON'T close modal automatically
  */
 async function executeBulkTagDeleteModalRemoval() {
-    console.log("[BULK-TAG-DELETE] Executing bulk tag removal");
+    console.log('[BULK-TAG-DELETE] Executing bulk tag removal');
 
     // Get selected tags with STTs (checked rows only)
-    const selectedTags = bulkTagDeleteModalData.filter(t =>
-        selectedBulkTagDeleteModalRows.has(t.tagId) && t.sttList.length > 0
+    const selectedTags = bulkTagDeleteModalData.filter(
+        (t) => selectedBulkTagDeleteModalRows.has(t.tagId) && t.sttList.length > 0
     );
 
     // Validate: at least one tag selected with STTs
@@ -1975,14 +2084,14 @@ async function executeBulkTagDeleteModalRemoval() {
 
         // Results tracking
         const successResults = []; // Array of {tagName, tagColor, sttList: []}
-        const failedResults = [];  // Array of {tagName, tagColor, sttList: [], reason}
+        const failedResults = []; // Array of {tagName, tagColor, sttList: [], reason}
 
         // Process each selected tag
         for (const selectedTag of selectedTags) {
             const tagInfo = {
                 Id: parseInt(selectedTag.tagId, 10),
                 Name: selectedTag.tagName,
-                Color: selectedTag.tagColor
+                Color: selectedTag.tagColor,
             };
 
             const sttArray = selectedTag.sttList || [];
@@ -1992,54 +2101,56 @@ async function executeBulkTagDeleteModalRemoval() {
 
             // Find orders matching STT — use Set for O(1) lookup
             const sttSet = new Set(sttArray);
-            const matchingOrders = displayedData.filter(order =>
-                sttSet.has(order.SessionIndex)
-            );
+            const matchingOrders = displayedData.filter((order) => sttSet.has(order.SessionIndex));
 
             if (matchingOrders.length === 0) {
                 console.warn(`[BULK-TAG-DELETE] No orders found for tag "${tagInfo.Name}"`);
                 continue;
             }
 
-            console.log(`[BULK-TAG-DELETE] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`);
+            console.log(
+                `[BULK-TAG-DELETE] Processing tag "${tagInfo.Name}" for ${matchingOrders.length} orders`
+            );
 
             // Process each order
             for (const order of matchingOrders) {
                 try {
                     // Parse current tags
                     const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
-                    const currentTags = rawTags.map(t => ({
+                    const currentTags = rawTags.map((t) => ({
                         Id: parseInt(t.Id, 10),
                         Name: t.Name,
-                        Color: t.Color
+                        Color: t.Color,
                     }));
 
                     // Check if order HAS the tag
-                    const hasTag = currentTags.some(t => t.Id === tagInfo.Id);
+                    const hasTag = currentTags.some((t) => t.Id === tagInfo.Id);
                     if (!hasTag) {
-                        console.log(`[BULK-TAG-DELETE] Order ${order.Code} doesn't have tag "${tagInfo.Name}"`);
+                        console.log(
+                            `[BULK-TAG-DELETE] Order ${order.Code} doesn't have tag "${tagInfo.Name}"`
+                        );
                         failedSTT.push(order.SessionIndex);
                         failReason = failReason || `Đơn không có tag "${tagInfo.Name}"`;
                         continue;
                     }
 
                     // Build updated tags array (REMOVE the tag)
-                    const updatedTags = currentTags.filter(t => t.Id !== tagInfo.Id);
+                    const updatedTags = currentTags.filter((t) => t.Id !== tagInfo.Id);
 
                     // Call API to assign (updated) tags
                     const authHeaders = await window.tokenManager.getAuthHeader();
                     const response = await fetch(
-                        "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
                         {
-                            method: "POST",
+                            method: 'POST',
                             headers: {
                                 ...authHeaders,
-                                "Content-Type": "application/json",
-                                "Accept": "application/json"
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
                             },
                             body: JSON.stringify({
                                 Tags: updatedTags,
-                                OrderId: order.Id
+                                OrderId: order.Id,
                             }),
                         }
                     );
@@ -2057,10 +2168,14 @@ async function executeBulkTagDeleteModalRemoval() {
                     await emitTagUpdateToFirebase(order.Id, updatedTags);
 
                     successSTT.push(order.SessionIndex);
-                    console.log(`[BULK-TAG-DELETE] Successfully removed tag "${tagInfo.Name}" from order ${order.Code}`);
-
+                    console.log(
+                        `[BULK-TAG-DELETE] Successfully removed tag "${tagInfo.Name}" from order ${order.Code}`
+                    );
                 } catch (error) {
-                    console.error(`[BULK-TAG-DELETE] Error removing tag from order ${order.Code}:`, error);
+                    console.error(
+                        `[BULK-TAG-DELETE] Error removing tag from order ${order.Code}:`,
+                        error
+                    );
                     failedSTT.push(order.SessionIndex);
                     failReason = failReason || `Lỗi API: ${error.message}`;
                 }
@@ -2071,7 +2186,7 @@ async function executeBulkTagDeleteModalRemoval() {
                 successResults.push({
                     tagName: tagInfo.Name,
                     tagColor: tagInfo.Color,
-                    sttList: successSTT.sort((a, b) => a - b)
+                    sttList: successSTT.sort((a, b) => a - b),
                 });
             }
 
@@ -2080,15 +2195,19 @@ async function executeBulkTagDeleteModalRemoval() {
                     tagName: tagInfo.Name,
                     tagColor: tagInfo.Color,
                     sttList: failedSTT.sort((a, b) => a - b),
-                    reason: failReason || 'Lỗi không xác định'
+                    reason: failReason || 'Lỗi không xác định',
                 });
             }
 
             // Update modal data: remove successful STTs, keep failed ones
-            const tagDataInModal = bulkTagDeleteModalData.find(t => t.tagId === selectedTag.tagId);
+            const tagDataInModal = bulkTagDeleteModalData.find(
+                (t) => t.tagId === selectedTag.tagId
+            );
             if (tagDataInModal) {
                 // Remove successful STTs
-                tagDataInModal.sttList = tagDataInModal.sttList.filter(stt => !successSTT.includes(stt));
+                tagDataInModal.sttList = tagDataInModal.sttList.filter(
+                    (stt) => !successSTT.includes(stt)
+                );
 
                 // Set error message if there are failures
                 if (failedSTT.length > 0) {
@@ -2098,18 +2217,20 @@ async function executeBulkTagDeleteModalRemoval() {
                 }
             }
 
-            console.log(`[BULK-TAG-DELETE] Tag "${tagInfo.Name}" result: ${successSTT.length} success, ${failedSTT.length} failed`);
+            console.log(
+                `[BULK-TAG-DELETE] Tag "${tagInfo.Name}" result: ${successSTT.length} success, ${failedSTT.length} failed`
+            );
         }
 
         // Clear cache
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         // Remove tags with no remaining STTs
-        bulkTagDeleteModalData = bulkTagDeleteModalData.filter(tag => tag.sttList.length > 0);
+        bulkTagDeleteModalData = bulkTagDeleteModalData.filter((tag) => tag.sttList.length > 0);
 
         // Update selected rows
         selectedBulkTagDeleteModalRows.clear();
-        bulkTagDeleteModalData.forEach(tag => {
+        bulkTagDeleteModalData.forEach((tag) => {
             if (tag.sttList.length > 0) {
                 selectedBulkTagDeleteModalRows.add(tag.tagId);
             }
@@ -2129,7 +2250,7 @@ async function executeBulkTagDeleteModalRemoval() {
         if (totalSuccess > 0 || totalFailed > 0) {
             await saveBulkTagDeleteHistory({
                 success: successResults,
-                failed: failedResults
+                failed: failedResults,
             });
         }
 
@@ -2144,9 +2265,8 @@ async function executeBulkTagDeleteModalRemoval() {
         showBulkTagDeleteResultModal(successResults, failedResults);
 
         // DON'T close modal - user must click "Hủy" to close
-
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error in bulk tag removal:", error);
+        console.error('[BULK-TAG-DELETE] Error in bulk tag removal:', error);
         showLoading(false);
 
         if (window.notificationManager) {
@@ -2175,7 +2295,7 @@ async function saveBulkTagDeleteHistory(results) {
                 username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
             }
         } catch (e) {
-            console.warn("[BULK-TAG-DELETE] Could not get username:", e);
+            console.warn('[BULK-TAG-DELETE] Could not get username:', e);
         }
 
         const historyEntry = {
@@ -2185,17 +2305,17 @@ async function saveBulkTagDeleteHistory(results) {
             results: results, // {success: [...], failed: [...]}
             summary: {
                 totalSuccess: results.success.reduce((sum, r) => sum + r.sttList.length, 0),
-                totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0)
-            }
+                totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0),
+            },
         };
 
         // Save to Firebase (separate path for delete history)
         const historyRef = database.ref(`bulkTagDeleteHistory/${timestamp}`);
         await historyRef.set(historyEntry);
 
-        console.log("[BULK-TAG-DELETE] History saved to Firebase:", historyEntry);
+        console.log('[BULK-TAG-DELETE] History saved to Firebase:', historyEntry);
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error saving history:", error);
+        console.error('[BULK-TAG-DELETE] Error saving history:', error);
     }
 }
 
@@ -2214,13 +2334,17 @@ function showBulkTagDeleteResultModal(successResults, failedResults) {
                     <span>Xóa thành công (${totalSuccess} đơn)</span>
                 </div>
                 <div class="bulk-tag-result-section-body">
-                    ${successResults.map(r => `
+                    ${successResults
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-result-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${r.sttList.join(', ')}</span>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -2236,14 +2360,18 @@ function showBulkTagDeleteResultModal(successResults, failedResults) {
                     <span>Thất bại (${totalFailed} đơn)</span>
                 </div>
                 <div class="bulk-tag-result-section-body">
-                    ${failedResults.map(r => `
+                    ${failedResults
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-result-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${r.sttList.join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -2299,7 +2427,7 @@ function closeBulkTagDeleteResultModal() {
 
 // Show bulk tag delete history modal
 async function showBulkTagDeleteHistoryModal() {
-    console.log("[BULK-TAG-DELETE] Opening history modal");
+    console.log('[BULK-TAG-DELETE] Opening history modal');
 
     const historyBody = document.getElementById('bulkTagDeleteHistoryModalBody');
     historyBody.innerHTML = `
@@ -2335,9 +2463,8 @@ async function showBulkTagDeleteHistoryModal() {
                 ${historyArray.map((entry, index) => renderBulkTagDeleteHistoryItem(entry, index)).join('')}
             </div>
         `;
-
     } catch (error) {
-        console.error("[BULK-TAG-DELETE] Error loading history:", error);
+        console.error('[BULK-TAG-DELETE] Error loading history:', error);
         historyBody.innerHTML = `
             <div class="bulk-tag-history-empty">
                 <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
@@ -2361,13 +2488,17 @@ function renderBulkTagDeleteHistoryItem(entry, index) {
                     Xóa thành công (${summary.totalSuccess} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
-                    ${results.success.map(r => `
+                    ${results.success
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-history-tag-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -2383,14 +2514,18 @@ function renderBulkTagDeleteHistoryItem(entry, index) {
                     Thất bại (${summary.totalFailed} đơn):
                 </div>
                 <div class="bulk-tag-history-tag-list">
-                    ${results.failed.map(r => `
+                    ${results.failed
+                        .map(
+                            (r) => `
                         <div class="bulk-tag-history-tag-item failed">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
                             <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>
         `;
@@ -2456,7 +2591,9 @@ function showBulkRemoveTagForSelectedModal() {
     }
 
     const orderCount = window.selectedOrderIds.size;
-    const isAdmin = (window.authManager?.isAdminTemplate?.() || localStorage.getItem('userType') === 'admin-authenticated');
+    const isAdmin =
+        window.authManager?.isAdminTemplate?.() ||
+        localStorage.getItem('userType') === 'admin-authenticated';
     const scopeNote = isAdmin ? ' (admin: xóa cả TAG TPOS lẫn Tag XL)' : '';
     const confirmMessage = `Bạn muốn xóa tất cả tag của ${orderCount} đơn đang chọn?${scopeNote}`;
     if (!confirm(confirmMessage)) {
@@ -2494,8 +2631,9 @@ async function executeBulkRemoveAllTagsForSelected() {
         for (const orderId of orderIds) {
             try {
                 // Get order data
-                const order = window.OrderStore?.get(orderId) ||
-                              window.displayedData?.find(o => String(o.Id) === String(orderId));
+                const order =
+                    window.OrderStore?.get(orderId) ||
+                    window.displayedData?.find((o) => String(o.Id) === String(orderId));
 
                 if (!order) {
                     console.warn(`[BULK-REMOVE-TAG] Order not found: ${orderId}`);
@@ -2521,7 +2659,11 @@ async function executeBulkRemoveAllTagsForSelected() {
                 }
 
                 // Save old tags for history before removing
-                const removedTags = orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name }));
+                const removedTags = orderTags.map((t) => ({
+                    Id: t.Id,
+                    Color: t.Color,
+                    Name: t.Name,
+                }));
 
                 // Call API to set empty tags (remove all)
                 const response = await API_CONFIG.smartFetch(
@@ -2531,12 +2673,12 @@ async function executeBulkRemoveAllTagsForSelected() {
                         headers: {
                             ...headers,
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json',
+                            Accept: 'application/json',
                         },
                         body: JSON.stringify({
                             Tags: [],
-                            OrderId: orderId
-                        })
+                            OrderId: orderId,
+                        }),
                     }
                 );
 
@@ -2558,14 +2700,19 @@ async function executeBulkRemoveAllTagsForSelected() {
                     }
 
                     // Admin: xóa luôn Tag XL state (force clear toàn bộ category/subTag/flags/tTags)
-                    const _isAdmin = (window.authManager?.isAdminTemplate?.() || localStorage.getItem('userType') === 'admin-authenticated');
+                    const _isAdmin =
+                        window.authManager?.isAdminTemplate?.() ||
+                        localStorage.getItem('userType') === 'admin-authenticated';
                     if (_isAdmin && window.forceClearProcessingTag) {
                         const orderCode = String(order.Code || '');
                         if (orderCode) {
                             try {
                                 await window.forceClearProcessingTag(orderCode);
                             } catch (e) {
-                                console.warn(`[BULK-REMOVE-TAG] forceClearProcessingTag failed for ${orderCode}:`, e);
+                                console.warn(
+                                    `[BULK-REMOVE-TAG] forceClearProcessingTag failed for ${orderCode}:`,
+                                    e
+                                );
                             }
                         }
                     }
@@ -2574,12 +2721,15 @@ async function executeBulkRemoveAllTagsForSelected() {
                     historyEntries.push({
                         orderId: orderId,
                         orderNumber: order.Number || order.STT || orderId,
-                        removedTags: removedTags
+                        removedTags: removedTags,
                     });
 
                     successCount++;
                 } else {
-                    console.error(`[BULK-REMOVE-TAG] Failed for order ${orderId}:`, response.status);
+                    console.error(
+                        `[BULK-REMOVE-TAG] Failed for order ${orderId}:`,
+                        response.status
+                    );
                     failedCount++;
                 }
             } catch (orderError) {
@@ -2596,16 +2746,24 @@ async function executeBulkRemoveAllTagsForSelected() {
         // Show result notification
         if (window.notificationManager) {
             if (failedCount === 0) {
-                window.notificationManager.success(`Đã xóa tất cả tag của ${successCount} đơn hàng`, 4000);
+                window.notificationManager.success(
+                    `Đã xóa tất cả tag của ${successCount} đơn hàng`,
+                    4000
+                );
             } else if (successCount > 0) {
-                window.notificationManager.warning(`Xóa tag: ${successCount} thành công, ${failedCount} thất bại`, 4000);
+                window.notificationManager.warning(
+                    `Xóa tag: ${successCount} thành công, ${failedCount} thất bại`,
+                    4000
+                );
             } else {
-                window.notificationManager.error(`Không thể xóa tag của ${failedCount} đơn hàng`, 4000);
+                window.notificationManager.error(
+                    `Không thể xóa tag của ${failedCount} đơn hàng`,
+                    4000
+                );
             }
         }
 
         console.log(`[BULK-REMOVE-TAG] Completed: ${successCount} success, ${failedCount} failed`);
-
     } catch (error) {
         console.error('[BULK-REMOVE-TAG] Error:', error);
         if (window.notificationManager) {
@@ -2636,7 +2794,7 @@ async function saveBulkRemoveAllTagsHistory(entries, successCount, failedCount) 
                 username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
             }
         } catch (e) {
-            console.warn("[BULK-REMOVE-TAG] Could not get username:", e);
+            console.warn('[BULK-REMOVE-TAG] Could not get username:', e);
         }
 
         const historyEntry = {
@@ -2648,16 +2806,16 @@ async function saveBulkRemoveAllTagsHistory(entries, successCount, failedCount) 
             summary: {
                 totalOrders: entries.length,
                 totalSuccess: successCount,
-                totalFailed: failedCount
-            }
+                totalFailed: failedCount,
+            },
         };
 
         const historyRef = database.ref(`bulkRemoveAllTagsHistory/${timestamp}`);
         await historyRef.set(historyEntry);
 
-        console.log("[BULK-REMOVE-TAG] History saved to Firebase:", historyEntry);
+        console.log('[BULK-REMOVE-TAG] History saved to Firebase:', historyEntry);
     } catch (error) {
-        console.error("[BULK-REMOVE-TAG] Error saving history:", error);
+        console.error('[BULK-REMOVE-TAG] Error saving history:', error);
     }
 }
 
@@ -2671,7 +2829,8 @@ async function showBulkRemoveAllTagsHistoryModal() {
     if (!modal || !historyBody) return;
 
     modal.style.display = 'flex';
-    historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i><p>Đang tải lịch sử...</p></div>';
+    historyBody.innerHTML =
+        '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i><p>Đang tải lịch sử...</p></div>';
 
     try {
         const historyRef = database.ref('bulkRemoveAllTagsHistory');
@@ -2679,24 +2838,31 @@ async function showBulkRemoveAllTagsHistoryModal() {
         const data = snapshot.val();
 
         if (!data) {
-            historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i><p>Chưa có lịch sử xóa tag</p></div>';
+            historyBody.innerHTML =
+                '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i><p>Chưa có lịch sử xóa tag</p></div>';
             return;
         }
 
         const historyArray = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
 
-        historyBody.innerHTML = historyArray.map((entry, index) => {
-            const orderDetails = (entry.orders || []).map(o => {
-                const tagNames = (o.removedTags || []).map(t =>
-                    `<span style="display: inline-block; background: ${t.Color || '#6b7280'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 2px;">${t.Name}</span>`
-                ).join('');
-                return `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px;">
+        historyBody.innerHTML = historyArray
+            .map((entry, index) => {
+                const orderDetails = (entry.orders || [])
+                    .map((o) => {
+                        const tagNames = (o.removedTags || [])
+                            .map(
+                                (t) =>
+                                    `<span style="display: inline-block; background: ${t.Color || '#6b7280'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 2px;">${t.Name}</span>`
+                            )
+                            .join('');
+                        return `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 500; min-width: 60px;">STT ${o.orderNumber}:</span>
                     <span>${tagNames || '<em style="color: #9ca3af;">Không có tag</em>'}</span>
                 </div>`;
-            }).join('');
+                    })
+                    .join('');
 
-            return `
+                return `
                 <div style="border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden;">
                     <div style="background: #fef2f2; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;"
                          onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
@@ -2717,11 +2883,12 @@ async function showBulkRemoveAllTagsHistoryModal() {
                     </div>
                 </div>
             `;
-        }).join('');
-
+            })
+            .join('');
     } catch (error) {
         console.error('[BULK-REMOVE-TAG] Error loading history:', error);
-        historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #ef4444;"><i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i><p>Lỗi khi tải lịch sử</p></div>';
+        historyBody.innerHTML =
+            '<div style="text-align: center; padding: 40px; color: #ef4444;"><i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i><p>Lỗi khi tải lịch sử</p></div>';
     }
 }
 
@@ -2735,4 +2902,3 @@ window.showBulkRemoveTagForSelectedModal = showBulkRemoveTagForSelectedModal;
 window.executeBulkRemoveAllTagsForSelected = executeBulkRemoveAllTagsForSelected;
 window.showBulkRemoveAllTagsHistoryModal = showBulkRemoveAllTagsHistoryModal;
 window.closeBulkRemoveAllTagsHistoryModal = closeBulkRemoveAllTagsHistoryModal;
-

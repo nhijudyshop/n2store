@@ -21,24 +21,24 @@ class PurchaseOrderFormModal {
             supplier: '',
             orderDate: new Date().toISOString().split('T')[0],
             invoiceAmount: '',
-            invoiceImages: [],  // Will store data URLs (local) or Firebase URLs (uploaded)
+            invoiceImages: [], // Will store data URLs (local) or Firebase URLs (uploaded)
             notes: '',
             discountAmount: '',
             shippingFee: '',
-            items: []
+            items: [],
         };
 
         // Pending images - store File objects for upload on submit
         this.pendingImages = {
-            invoice: [],  // Array of {file: File, dataUrl: string}
+            invoice: [], // Array of {file: File, dataUrl: string}
             products: {}, // itemId -> Array of {file: File, dataUrl: string}
-            prices: {}    // itemId -> Array of {file: File, dataUrl: string}
+            prices: {}, // itemId -> Array of {file: File, dataUrl: string}
         };
 
         this.itemCounter = 0;
         this.isUploading = false;
         this.activeImageUpload = null; // Track which area is focused for paste
-        this.hoveredImageArea = null;  // Track which image area mouse is hovering over
+        this.hoveredImageArea = null; // Track which image area mouse is hovering over
         this.showDebugColumn = false;
     }
 
@@ -67,7 +67,7 @@ class PurchaseOrderFormModal {
      * @param {string} itemId - Item ID (for product/price images)
      */
     async handleDroppedFiles(files, type, itemId = null) {
-        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
         if (imageFiles.length === 0) return;
         await this.addLocalImages(imageFiles, type, itemId);
     }
@@ -125,7 +125,7 @@ class PurchaseOrderFormModal {
             let processedFiles = files;
             if (window.ImageUtils && window.ImageUtils.compressImage) {
                 processedFiles = await Promise.all(
-                    files.map(file => window.ImageUtils.compressImage(file, 0.5, 1200, 1200))
+                    files.map((file) => window.ImageUtils.compressImage(file, 0.5, 1200, 1200))
                 );
             }
 
@@ -133,7 +133,7 @@ class PurchaseOrderFormModal {
             const imageData = await Promise.all(
                 processedFiles.map(async (file) => ({
                     file: file,
-                    dataUrl: await this.fileToDataUrl(file)
+                    dataUrl: await this.fileToDataUrl(file),
                 }))
             );
 
@@ -143,11 +143,11 @@ class PurchaseOrderFormModal {
                 // Add data URLs to formData for preview
                 this.formData.invoiceImages = [
                     ...this.formData.invoiceImages,
-                    ...imageData.map(d => d.dataUrl)
+                    ...imageData.map((d) => d.dataUrl),
                 ];
                 this.refreshInvoiceImages();
             } else {
-                const item = this.formData.items.find(i => i.id === itemId);
+                const item = this.formData.items.find((i) => i.id === itemId);
                 if (item) {
                     if (type === 'product') {
                         if (!this.pendingImages.products[itemId]) {
@@ -156,7 +156,7 @@ class PurchaseOrderFormModal {
                         this.pendingImages.products[itemId].push(...imageData);
                         item.productImages = [
                             ...(item.productImages || []),
-                            ...imageData.map(d => d.dataUrl)
+                            ...imageData.map((d) => d.dataUrl),
                         ];
                     } else if (type === 'price') {
                         if (!this.pendingImages.prices[itemId]) {
@@ -165,7 +165,7 @@ class PurchaseOrderFormModal {
                         this.pendingImages.prices[itemId].push(...imageData);
                         item.priceImages = [
                             ...(item.priceImages || []),
-                            ...imageData.map(d => d.dataUrl)
+                            ...imageData.map((d) => d.dataUrl),
                         ];
                     }
                     this.refreshItemImages(itemId);
@@ -174,7 +174,10 @@ class PurchaseOrderFormModal {
 
             // Show success notification
             if (window.notificationManager) {
-                window.notificationManager.show(`Đã thêm ${imageData.length} ảnh (sẽ tải lên khi tạo đơn)`, 'success');
+                window.notificationManager.show(
+                    `Đã thêm ${imageData.length} ảnh (sẽ tải lên khi tạo đơn)`,
+                    'success'
+                );
             }
         } catch (error) {
             console.error('[FormModal] Add image failed:', error);
@@ -196,13 +199,14 @@ class PurchaseOrderFormModal {
 
         // Upload invoice images
         if (this.pendingImages.invoice.length > 0) {
-            const files = this.pendingImages.invoice.map(d => d.file);
+            const files = this.pendingImages.invoice.map((d) => d.file);
             uploadTasks.push(
-                window.purchaseOrderService.uploadImages(files, 'purchase-orders/invoices')
-                    .then(urls => {
+                window.purchaseOrderService
+                    .uploadImages(files, 'purchase-orders/invoices')
+                    .then((urls) => {
                         // Replace data URLs with Firebase URLs
-                        const dataUrls = this.pendingImages.invoice.map(d => d.dataUrl);
-                        this.formData.invoiceImages = this.formData.invoiceImages.map(url => {
+                        const dataUrls = this.pendingImages.invoice.map((d) => d.dataUrl);
+                        this.formData.invoiceImages = this.formData.invoiceImages.map((url) => {
                             const idx = dataUrls.indexOf(url);
                             return idx >= 0 && urls[idx] ? urls[idx] : url;
                         });
@@ -213,14 +217,15 @@ class PurchaseOrderFormModal {
         // Upload product images
         for (const [itemId, imageData] of Object.entries(this.pendingImages.products)) {
             if (imageData.length > 0) {
-                const item = this.formData.items.find(i => i.id === itemId);
+                const item = this.formData.items.find((i) => i.id === itemId);
                 if (item) {
-                    const files = imageData.map(d => d.file);
+                    const files = imageData.map((d) => d.file);
                     uploadTasks.push(
-                        window.purchaseOrderService.uploadImages(files, 'purchase-orders/products')
-                            .then(urls => {
-                                const dataUrls = imageData.map(d => d.dataUrl);
-                                item.productImages = (item.productImages || []).map(url => {
+                        window.purchaseOrderService
+                            .uploadImages(files, 'purchase-orders/products')
+                            .then((urls) => {
+                                const dataUrls = imageData.map((d) => d.dataUrl);
+                                item.productImages = (item.productImages || []).map((url) => {
                                     const idx = dataUrls.indexOf(url);
                                     return idx >= 0 && urls[idx] ? urls[idx] : url;
                                 });
@@ -233,14 +238,15 @@ class PurchaseOrderFormModal {
         // Upload price images
         for (const [itemId, imageData] of Object.entries(this.pendingImages.prices)) {
             if (imageData.length > 0) {
-                const item = this.formData.items.find(i => i.id === itemId);
+                const item = this.formData.items.find((i) => i.id === itemId);
                 if (item) {
-                    const files = imageData.map(d => d.file);
+                    const files = imageData.map((d) => d.file);
                     uploadTasks.push(
-                        window.purchaseOrderService.uploadImages(files, 'purchase-orders/products')
-                            .then(urls => {
-                                const dataUrls = imageData.map(d => d.dataUrl);
-                                item.priceImages = (item.priceImages || []).map(url => {
+                        window.purchaseOrderService
+                            .uploadImages(files, 'purchase-orders/products')
+                            .then((urls) => {
+                                const dataUrls = imageData.map((d) => d.dataUrl);
+                                item.priceImages = (item.priceImages || []).map((url) => {
                                     const idx = dataUrls.indexOf(url);
                                     return idx >= 0 && urls[idx] ? urls[idx] : url;
                                 });
@@ -259,7 +265,7 @@ class PurchaseOrderFormModal {
         this.pendingImages = {
             invoice: [],
             products: {},
-            prices: {}
+            prices: {},
         };
     }
 
@@ -274,7 +280,7 @@ class PurchaseOrderFormModal {
             this.formData.invoiceImages.splice(imageIndex, 1);
             this.refreshInvoiceImages();
         } else {
-            const item = this.formData.items.find(i => i.id === itemId);
+            const item = this.formData.items.find((i) => i.id === itemId);
             if (item) {
                 if (type === 'product') {
                     item.productImages.splice(imageIndex, 1);
@@ -327,7 +333,7 @@ class PurchaseOrderFormModal {
         const row = this.modalElement?.querySelector(`tr[data-item-id="${itemId}"]`);
         if (!row) return;
 
-        const item = this.formData.items.find(i => i.id === itemId);
+        const item = this.formData.items.find((i) => i.id === itemId);
         if (!item) return;
 
         // Update product images cell
@@ -380,7 +386,9 @@ class PurchaseOrderFormModal {
 
         return `
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                ${images.map((url, index) => `
+                ${images
+                    .map(
+                        (url, index) => `
                     <div style="position: relative; width: 60px; height: 60px;">
                         <img src="${url}" alt="Invoice ${index + 1}" style="
                             width: 100%;
@@ -407,7 +415,9 @@ class PurchaseOrderFormModal {
                             line-height: 1;
                         ">&times;</button>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
                 <div id="invoiceImageArea" style="
                     width: 60px;
                     height: 60px;
@@ -435,9 +445,14 @@ class PurchaseOrderFormModal {
      * Render item image cell HTML
      */
     renderItemImageCell(item, type) {
-        const images = type === 'product'
-            ? (item.productImages && item.productImages.length > 0 ? item.productImages : (item.tposImageUrl ? [item.tposImageUrl] : []))
-            : (item.priceImages || []);
+        const images =
+            type === 'product'
+                ? item.productImages && item.productImages.length > 0
+                    ? item.productImages
+                    : item.tposImageUrl
+                      ? [item.tposImageUrl]
+                      : []
+                : item.priceImages || [];
 
         if (images.length === 0) {
             return `
@@ -471,7 +486,9 @@ class PurchaseOrderFormModal {
             <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
                 <div style="position: relative;">
                     <img src="${images[0]}" alt="${type}" class="po-modal-thumb" onclick="window.purchaseOrderFormModal.viewImage('${images[0]}')">
-                    ${images.length > 1 ? `
+                    ${
+                        images.length > 1
+                            ? `
                         <span style="
                             position: absolute;
                             bottom: 2px;
@@ -482,7 +499,9 @@ class PurchaseOrderFormModal {
                             padding: 1px 4px;
                             border-radius: 3px;
                         ">+${images.length - 1}</span>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                     <button type="button" data-remove-image="${type}" style="
                         position: absolute;
                         top: -4px;
@@ -561,7 +580,10 @@ class PurchaseOrderFormModal {
                 this.hoveredImageArea = { type: 'invoice', itemId: null };
                 // Auto-focus so paste events fire directly on this element
                 const active = document.activeElement;
-                const isTyping = active && ((active.tagName === 'INPUT' && active.type === 'text') || active.tagName === 'TEXTAREA');
+                const isTyping =
+                    active &&
+                    ((active.tagName === 'INPUT' && active.type === 'text') ||
+                        active.tagName === 'TEXTAREA');
                 if (!isTyping) {
                     area.focus();
                 }
@@ -611,7 +633,7 @@ class PurchaseOrderFormModal {
         }
 
         // Remove buttons
-        container.querySelectorAll('[data-remove-invoice]').forEach(btn => {
+        container.querySelectorAll('[data-remove-invoice]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const index = parseInt(btn.dataset.removeInvoice);
@@ -634,7 +656,10 @@ class PurchaseOrderFormModal {
             const pasteTarget = cell.querySelector(`[data-type="${type}"]`);
             if (pasteTarget) {
                 const active = document.activeElement;
-                const isTyping = active && ((active.tagName === 'INPUT' && active.type === 'text') || active.tagName === 'TEXTAREA');
+                const isTyping =
+                    active &&
+                    ((active.tagName === 'INPUT' && active.type === 'text') ||
+                        active.tagName === 'TEXTAREA');
                 if (!isTyping) {
                     pasteTarget.focus();
                 }
@@ -750,11 +775,15 @@ class PurchaseOrderFormModal {
             if (window.settingsDialog) {
                 this.validationSettings = await window.settingsDialog.loadFromFirestore();
             } else {
-                this.validationSettings = { ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}) };
+                this.validationSettings = {
+                    ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}),
+                };
             }
         } catch (e) {
             console.warn('[FormModal] Failed to load validation settings:', e);
-            this.validationSettings = { ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}) };
+            this.validationSettings = {
+                ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}),
+            };
         }
     }
 
@@ -765,9 +794,12 @@ class PurchaseOrderFormModal {
         const btn = this.modalElement?.querySelector('#btnSettings');
         if (!btn) return;
         const s = this.validationSettings || {};
-        const isActive = (s.minPurchasePrice > 0 || s.maxPurchasePrice > 0 ||
-                          s.minSellingPrice > 0 || s.maxSellingPrice > 0 ||
-                          s.minMargin > 0);
+        const isActive =
+            s.minPurchasePrice > 0 ||
+            s.maxPurchasePrice > 0 ||
+            s.minSellingPrice > 0 ||
+            s.maxSellingPrice > 0 ||
+            s.minMargin > 0;
         if (isActive) {
             btn.style.background = '#eff6ff';
             btn.style.color = '#2563eb';
@@ -788,13 +820,13 @@ class PurchaseOrderFormModal {
         this.initialFormSnapshot = JSON.stringify({
             supplier: this.formData.supplier,
             notes: this.formData.notes,
-            items: this.formData.items.map(i => ({
+            items: this.formData.items.map((i) => ({
                 productName: i.productName || '',
                 productCode: i.productCode || '',
                 purchasePrice: i.purchasePrice || '',
                 sellingPrice: i.sellingPrice || '',
-                quantity: i.quantity || 1
-            }))
+                quantity: i.quantity || 1,
+            })),
         });
     }
 
@@ -806,13 +838,13 @@ class PurchaseOrderFormModal {
         const current = JSON.stringify({
             supplier: this.formData.supplier,
             notes: this.formData.notes,
-            items: this.formData.items.map(i => ({
+            items: this.formData.items.map((i) => ({
                 productName: i.productName || '',
                 productCode: i.productCode || '',
                 purchasePrice: i.purchasePrice || '',
                 sellingPrice: i.sellingPrice || '',
-                quantity: i.quantity || 1
-            }))
+                quantity: i.quantity || 1,
+            })),
         });
         return current !== this.initialFormSnapshot;
     }
@@ -838,7 +870,9 @@ class PurchaseOrderFormModal {
 
         if (sellingInput) {
             const selVal = parseFloat(String(sellingInput.value).replace(/[,.]/g, '')) || 0;
-            const purVal = purchaseInput ? (parseFloat(String(purchaseInput.value).replace(/[,.]/g, '')) || 0) : 0;
+            const purVal = purchaseInput
+                ? parseFloat(String(purchaseInput.value).replace(/[,.]/g, '')) || 0
+                : 0;
             if (selVal > 0 && selVal > purVal) {
                 sellingInput.style.border = '1px solid #d1d5db';
                 sellingInput.style.background = 'white';
@@ -886,12 +920,12 @@ class PurchaseOrderFormModal {
             notes: '',
             discountAmount: '',
             shippingFee: '',
-            items: []
+            items: [],
         };
         this.pendingImages = {
             invoice: [],
             products: {},
-            prices: {}
+            prices: {},
         };
         this.itemCounter = 0;
     }
@@ -900,7 +934,9 @@ class PurchaseOrderFormModal {
      * Load order data into form
      */
     loadOrderData(order) {
-        const orderDate = order.orderDate?.toDate ? order.orderDate.toDate() : new Date(order.orderDate);
+        const orderDate = order.orderDate?.toDate
+            ? order.orderDate.toDate()
+            : new Date(order.orderDate);
         this.formData = {
             orderType: order.orderType || 'NJD SHOP',
             supplier: order.supplier?.name || '',
@@ -913,8 +949,8 @@ class PurchaseOrderFormModal {
             items: (order.items || []).map((item, index) => ({
                 ...item,
                 id: item.id || `item_${index}`,
-                _isExistingItem: true
-            }))
+                _isExistingItem: true,
+            })),
         };
         this.itemCounter = this.formData.items.length;
     }
@@ -933,7 +969,7 @@ class PurchaseOrderFormModal {
             sellingPrice: '',
             productImages: [],
             priceImages: [],
-            selectedAttributeValueIds: []
+            selectedAttributeValueIds: [],
         };
         this.formData.items.push(newItem);
         return newItem;
@@ -953,9 +989,9 @@ class PurchaseOrderFormModal {
             sellingPrice: '',
             productImages: [],
             priceImages: [],
-            selectedAttributeValueIds: []
+            selectedAttributeValueIds: [],
         };
-        const idx = this.formData.items.findIndex(i => i.id === afterItemId);
+        const idx = this.formData.items.findIndex((i) => i.id === afterItemId);
         if (idx !== -1) {
             this.formData.items.splice(idx + 1, 0, newItem);
         } else {
@@ -968,14 +1004,14 @@ class PurchaseOrderFormModal {
      * Remove item
      */
     removeItem(itemId) {
-        this.formData.items = this.formData.items.filter(item => item.id !== itemId);
+        this.formData.items = this.formData.items.filter((item) => item.id !== itemId);
     }
 
     /**
      * Copy item
      */
     copyItem(itemId) {
-        const sourceItem = this.formData.items.find(item => item.id === itemId);
+        const sourceItem = this.formData.items.find((item) => item.id === itemId);
         if (!sourceItem) return;
 
         const newItem = {
@@ -987,9 +1023,9 @@ class PurchaseOrderFormModal {
             variant: '',
             selectedAttributeValueIds: [],
             productImages: [...(sourceItem.productImages || [])],
-            priceImages: [...(sourceItem.priceImages || [])]
+            priceImages: [...(sourceItem.priceImages || [])],
         };
-        const idx = this.formData.items.findIndex(item => item.id === itemId);
+        const idx = this.formData.items.findIndex((item) => item.id === itemId);
         if (idx !== -1) {
             this.formData.items.splice(idx + 1, 0, newItem);
         } else {
@@ -1007,14 +1043,14 @@ class PurchaseOrderFormModal {
      * @param {string} sourceItemId - Source item ID
      */
     applyAllFieldsToVariants(sourceItemId) {
-        const sourceItem = this.formData.items.find(item => item.id === sourceItemId);
+        const sourceItem = this.formData.items.find((item) => item.id === sourceItemId);
         if (!sourceItem || !sourceItem.productCode) return;
 
         const productCode = sourceItem.productCode.trim();
         if (!productCode) return;
 
         let updatedCount = 0;
-        this.formData.items.forEach(item => {
+        this.formData.items.forEach((item) => {
             if (item.id === sourceItemId) return; // Skip source
             if ((item.productCode || '').trim() !== productCode) return; // Skip different product
 
@@ -1026,7 +1062,9 @@ class PurchaseOrderFormModal {
 
             // Copy pending images so all variants get uploaded
             if (this.pendingImages.products[sourceItemId]?.length > 0) {
-                this.pendingImages.products[item.id] = [...this.pendingImages.products[sourceItemId]];
+                this.pendingImages.products[item.id] = [
+                    ...this.pendingImages.products[sourceItemId],
+                ];
             }
             if (this.pendingImages.prices[sourceItemId]?.length > 0) {
                 this.pendingImages.prices[item.id] = [...this.pendingImages.prices[sourceItemId]];
@@ -1037,11 +1075,16 @@ class PurchaseOrderFormModal {
         if (updatedCount > 0) {
             this.refreshItemsTable();
             if (window.notificationManager) {
-                window.notificationManager.success(`Đã áp dụng tên, giá & hình ảnh cho ${updatedCount} biến thể`);
+                window.notificationManager.success(
+                    `Đã áp dụng tên, giá & hình ảnh cho ${updatedCount} biến thể`
+                );
             }
         } else {
             if (window.notificationManager) {
-                window.notificationManager.show('Không tìm thấy biến thể cùng mã sản phẩm', 'warning');
+                window.notificationManager.show(
+                    'Không tìm thấy biến thể cùng mã sản phẩm',
+                    'warning'
+                );
             }
         }
     }
@@ -1079,11 +1122,14 @@ class PurchaseOrderFormModal {
     }
 
     calculateTotals() {
-        const totalQuantity = this.formData.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+        const totalQuantity = this.formData.items.reduce(
+            (sum, item) => sum + (parseInt(item.quantity) || 0),
+            0
+        );
         const totalAmount = this.formData.items.reduce((sum, item) => {
             const price = this.parsePrice(item.purchasePrice);
             const qty = parseInt(item.quantity) || 0;
-            return sum + (price * qty);
+            return sum + price * qty;
         }, 0);
         const discount = this.parsePrice(this.formData.discountAmount);
         const shipping = this.parsePrice(this.formData.shippingFee);
@@ -1411,9 +1457,10 @@ class PurchaseOrderFormModal {
                                                 color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
                                             " title="Toggle Debug: Attr IDs">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    ${this.showDebugColumn
-                                                        ? '<polyline points="15 18 9 12 15 6"></polyline>'
-                                                        : '<polyline points="9 18 15 12 9 6"></polyline>'
+                                                    ${
+                                                        this.showDebugColumn
+                                                            ? '<polyline points="15 18 9 12 15 6"></polyline>'
+                                                            : '<polyline points="9 18 15 12 9 6"></polyline>'
                                                     }
                                                 </svg>
                                             </button>
@@ -1589,12 +1636,14 @@ class PurchaseOrderFormModal {
             `;
         }
 
-        return this.formData.items.map((item, index) => {
-            const purchaseVal = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
-            const sellingVal = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
-            const subtotal = purchaseVal * (parseInt(item.quantity) || 0);
+        return this.formData.items
+            .map((item, index) => {
+                const purchaseVal =
+                    parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+                const sellingVal = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
+                const subtotal = purchaseVal * (parseInt(item.quantity) || 0);
 
-            return `
+                return `
                 <tr data-item-id="${item.id}">
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
@@ -1625,13 +1674,14 @@ class PurchaseOrderFormModal {
                             font-size: 12px;
                             white-space: nowrap;
                         ">${item.variant || 'Nhấn để tạo biến thể'}</button>
-                        ${(item.selectedAttributeValueIds || []).length > 0
-                            ? `<div style="margin-top: 4px;">
+                        ${
+                            (item.selectedAttributeValueIds || []).length > 0
+                                ? `<div style="margin-top: 4px;">
                                 <span style="display: inline-block; font-size: 10px; padding: 2px 6px; background: #f3f4f6; color: #6b7280; border-radius: 4px;">
                                     ✓ ${item.selectedAttributeValueIds.length} thuộc tính đã chọn
                                 </span>
                             </div>`
-                            : ''
+                                : ''
                         }
                     </td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
@@ -1648,7 +1698,10 @@ class PurchaseOrderFormModal {
                                 color: #374151;
                                 cursor: default;
                             ">
-                            ${(this.isEdit && item._isExistingItem) ? '' : `<button type="button" data-action="refreshCode" title="Cập nhật mã theo tên" style="
+                            ${
+                                this.isEdit && item._isExistingItem
+                                    ? ''
+                                    : `<button type="button" data-action="refreshCode" title="Cập nhật mã theo tên" style="
                                 width: 32px;
                                 height: 36px;
                                 border: 1px solid #d1d5db;
@@ -1660,7 +1713,8 @@ class PurchaseOrderFormModal {
                                 justify-content: center;
                             ">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                            </button>`}
+                            </button>`
+                            }
                         </div>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
@@ -1783,18 +1837,24 @@ class PurchaseOrderFormModal {
                         </div>
                     </td>
                     <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; ${this.showDebugColumn ? '' : 'display: none;'}">
-                        ${(item.selectedAttributeValueIds || []).length > 0
-                            ? item.selectedAttributeValueIds.map(id => `
+                        ${
+                            (item.selectedAttributeValueIds || []).length > 0
+                                ? item.selectedAttributeValueIds
+                                      .map(
+                                          (id) => `
                                 <div style="font-family: monospace; font-size: 10px; background: #fefce8; padding: 2px 6px; margin: 2px 0; border-radius: 4px; border: 1px solid #fde68a; word-break: break-all;">
                                     ${id}
                                 </div>
-                            `).join('')
-                            : '<span style="color: #d1d5db; font-size: 11px;">-</span>'
+                            `
+                                      )
+                                      .join('')
+                                : '<span style="color: #d1d5db; font-size: 11px;">-</span>'
                         }
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     /**
@@ -1837,14 +1897,18 @@ class PurchaseOrderFormModal {
         // Close button (with unsaved changes check)
         this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', async () => {
             if (this.hasUnsavedChanges()) {
-                const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                const ok = await this.showConfirm(
+                    'Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?'
+                );
                 if (!ok) return;
             }
             this.close();
         });
         this.modalElement.querySelector('#btnCancel')?.addEventListener('click', async () => {
             if (this.hasUnsavedChanges()) {
-                const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                const ok = await this.showConfirm(
+                    'Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?'
+                );
                 if (!ok) return;
             }
             this.onCancel?.();
@@ -1860,12 +1924,20 @@ class PurchaseOrderFormModal {
             this.addItem();
             this.refreshItemsTable();
         };
-        this.modalElement.querySelector('#btnAddProductTop')?.addEventListener('click', addProductHandler);
-        this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', addProductHandler);
+        this.modalElement
+            .querySelector('#btnAddProductTop')
+            ?.addEventListener('click', addProductHandler);
+        this.modalElement
+            .querySelector('#btnAddProduct')
+            ?.addEventListener('click', addProductHandler);
 
         // Export / Import buttons
-        this.modalElement.querySelector('#btnExportData')?.addEventListener('click', () => this.exportOrderData());
-        this.modalElement.querySelector('#btnImportData')?.addEventListener('click', () => this.importOrderData());
+        this.modalElement
+            .querySelector('#btnExportData')
+            ?.addEventListener('click', () => this.exportOrderData());
+        this.modalElement
+            .querySelector('#btnImportData')
+            ?.addEventListener('click', () => this.importOrderData());
 
         // Choose from inventory button
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
@@ -1875,24 +1947,37 @@ class PurchaseOrderFormModal {
                 const formModal = this;
 
                 window.inventoryPickerDialog.open({
-                    onSelect: function(products) {
-                        console.log('[FormModal-MAIN] Received products:', products.length, products);
-
-                        // Remove empty items before adding new products
-                        formModal.formData.items = formModal.formData.items.filter(item =>
-                            item.productName?.trim() || item.productCode?.trim()
+                    onSelect: function (products) {
+                        console.log(
+                            '[FormModal-MAIN] Received products:',
+                            products.length,
+                            products
                         );
 
-                        console.log('[FormModal-MAIN] Items after filter:', formModal.formData.items.length);
+                        // Remove empty items before adding new products
+                        formModal.formData.items = formModal.formData.items.filter(
+                            (item) => item.productName?.trim() || item.productCode?.trim()
+                        );
+
+                        console.log(
+                            '[FormModal-MAIN] Items after filter:',
+                            formModal.formData.items.length
+                        );
 
                         for (let i = 0; i < products.length; i++) {
                             const product = products[i];
-                            console.log(`[FormModal-MAIN] Adding product ${i + 1}:`, product.code, product.name);
+                            console.log(
+                                `[FormModal-MAIN] Adding product ${i + 1}:`,
+                                product.code,
+                                product.name
+                            );
                             const item = formModal.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
                             // Format prices with dot separator so parsePrice treats as full price (not ×1000)
-                            item.purchasePrice = (product.purchasePrice || 0).toLocaleString('vi-VN');
+                            item.purchasePrice = (product.purchasePrice || 0).toLocaleString(
+                                'vi-VN'
+                            );
                             item.sellingPrice = (product.sellingPrice || 0).toLocaleString('vi-VN');
                             // Save TPOS IDs (variant ID + parent template ID)
                             // Mark as already synced so TPOS sync skips these items
@@ -1900,16 +1985,20 @@ class PurchaseOrderFormModal {
                                 item.tposProductId = product.tposProductId;
                                 item.tposSynced = true;
                             }
-                            if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
+                            if (product.tposProductTmplId)
+                                item.tposProductTmplId = product.tposProductTmplId;
                             // Handle image - convert single image to array format
                             if (product.image) {
                                 item.productImages = [product.image];
                             }
                         }
 
-                        console.log('[FormModal-MAIN] Total items after adding:', formModal.formData.items.length);
+                        console.log(
+                            '[FormModal-MAIN] Total items after adding:',
+                            formModal.formData.items.length
+                        );
                         formModal.refreshItemsTable();
-                    }
+                    },
                 });
             }
         });
@@ -1925,7 +2014,7 @@ class PurchaseOrderFormModal {
                         if (window.notificationManager) {
                             window.notificationManager.success('Đã lưu cài đặt');
                         }
-                    }
+                    },
                 });
             }
         });
@@ -1943,7 +2032,10 @@ class PurchaseOrderFormModal {
             }
             const label = th?.querySelector('span');
             if (this.showDebugColumn && !label) {
-                btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
+                btn.insertAdjacentHTML(
+                    'afterend',
+                    '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>'
+                );
             } else if (!this.showDebugColumn && label) {
                 label.remove();
             }
@@ -1982,7 +2074,9 @@ class PurchaseOrderFormModal {
         this._globalKeydownHandler = async (e) => {
             if (e.key === 'Escape' && this.modalElement) {
                 if (this.hasUnsavedChanges()) {
-                    const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                    const ok = await this.showConfirm(
+                        'Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?'
+                    );
                     if (!ok) return;
                 }
                 this.close();
@@ -2008,7 +2102,11 @@ class PurchaseOrderFormModal {
                         }
                     }
                     if (hasImage) {
-                        this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
+                        this.handlePaste(
+                            e,
+                            this.hoveredImageArea.type,
+                            this.hoveredImageArea.itemId
+                        );
                         return;
                     }
                 }
@@ -2029,13 +2127,19 @@ class PurchaseOrderFormModal {
                 }
             });
             supplierInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Tab' && window.NCCManager.handleTabSelect(supplierInput, supplierDropdown)) {
+                if (
+                    e.key === 'Tab' &&
+                    window.NCCManager.handleTabSelect(supplierInput, supplierDropdown)
+                ) {
                     e.preventDefault();
                 }
             });
             // Hide suggestions on click outside
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('#inputSupplier') && !e.target.closest('#supplierSuggestions')) {
+                if (
+                    !e.target.closest('#inputSupplier') &&
+                    !e.target.closest('#supplierSuggestions')
+                ) {
                     window.NCCManager.hideSuggestions(supplierDropdown);
                 }
             });
@@ -2087,25 +2191,37 @@ class PurchaseOrderFormModal {
         }
 
         // Use event delegation on modal
-        this.modalElement.addEventListener('mouseenter', (e) => {
-            const thumb = e.target.closest('.po-modal-thumb');
-            if (!thumb) return;
-            this._imagePreview.src = thumb.src;
-            this._imagePreview.style.display = 'block';
-            this._positionPreview(thumb);
-        }, true);
+        this.modalElement.addEventListener(
+            'mouseenter',
+            (e) => {
+                const thumb = e.target.closest('.po-modal-thumb');
+                if (!thumb) return;
+                this._imagePreview.src = thumb.src;
+                this._imagePreview.style.display = 'block';
+                this._positionPreview(thumb);
+            },
+            true
+        );
 
-        this.modalElement.addEventListener('mousemove', (e) => {
-            const thumb = e.target.closest('.po-modal-thumb');
-            if (!thumb || this._imagePreview.style.display === 'none') return;
-            this._positionPreview(thumb);
-        }, true);
+        this.modalElement.addEventListener(
+            'mousemove',
+            (e) => {
+                const thumb = e.target.closest('.po-modal-thumb');
+                if (!thumb || this._imagePreview.style.display === 'none') return;
+                this._positionPreview(thumb);
+            },
+            true
+        );
 
-        this.modalElement.addEventListener('mouseleave', (e) => {
-            const thumb = e.target.closest('.po-modal-thumb');
-            if (!thumb) return;
-            this._imagePreview.style.display = 'none';
-        }, true);
+        this.modalElement.addEventListener(
+            'mouseleave',
+            (e) => {
+                const thumb = e.target.closest('.po-modal-thumb');
+                if (!thumb) return;
+                this._imagePreview.style.display = 'none';
+            },
+            true
+        );
     }
 
     /**
@@ -2192,7 +2308,10 @@ class PurchaseOrderFormModal {
         if (window.SupplierDetector) {
             const result = window.SupplierDetector.detectSupplierWithConfidence(productName);
 
-            if (result.supplierName && (result.confidence === 'high' || result.confidence === 'medium')) {
+            if (
+                result.supplierName &&
+                (result.confidence === 'high' || result.confidence === 'medium')
+            ) {
                 // Use full NCC name if available, otherwise use detected code
                 const ncc = window.NCCManager?.findByName(result.supplierName);
                 const displayName = ncc?.name || result.supplierName;
@@ -2224,7 +2343,7 @@ class PurchaseOrderFormModal {
             if (!field) return;
             const row = target.closest('tr[data-item-id]');
             const itemId = row?.dataset.itemId;
-            const item = this.formData.items.find(i => i.id === itemId);
+            const item = this.formData.items.find((i) => i.id === itemId);
             if (!item) return;
 
             if (target.tagName === 'TEXTAREA') {
@@ -2250,7 +2369,8 @@ class PurchaseOrderFormModal {
                     const price = this.parsePrice(item.purchasePrice);
                     const qty = parseInt(item.quantity) || 0;
                     const subtotalCell = row?.querySelector('.subtotal-cell');
-                    if (subtotalCell) subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
+                    if (subtotalCell)
+                        subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
                 }
                 if (field === 'purchasePrice' || field === 'sellingPrice') {
                     this.updatePriceInputBorders(row);
@@ -2268,7 +2388,7 @@ class PurchaseOrderFormModal {
             if (!field) return;
             const row = target.closest('tr[data-item-id]');
             const itemId = row?.dataset.itemId;
-            const item = this.formData.items.find(i => i.id === itemId);
+            const item = this.formData.items.find((i) => i.id === itemId);
 
             // Textarea productName: auto-generate code on blur
             if (target.tagName === 'TEXTAREA' && field === 'productName') {
@@ -2279,9 +2399,15 @@ class PurchaseOrderFormModal {
             }
 
             // Input price/quantity: format display on blur
-            if (target.tagName === 'INPUT' && target.type === 'text' && ['purchasePrice', 'sellingPrice', 'quantity'].includes(field)) {
-                const isPriceField = (field === 'purchasePrice' || field === 'sellingPrice');
-                const raw = isPriceField ? this.parsePrice(target.value) : (parseFloat(String(target.value).replace(/[,.]/g, '')) || 0);
+            if (
+                target.tagName === 'INPUT' &&
+                target.type === 'text' &&
+                ['purchasePrice', 'sellingPrice', 'quantity'].includes(field)
+            ) {
+                const isPriceField = field === 'purchasePrice' || field === 'sellingPrice';
+                const raw = isPriceField
+                    ? this.parsePrice(target.value)
+                    : parseFloat(String(target.value).replace(/[,.]/g, '')) || 0;
                 if (raw) {
                     target.value = raw.toLocaleString('vi-VN');
                     if (item && field) {
@@ -2290,7 +2416,8 @@ class PurchaseOrderFormModal {
                         if (field === 'purchasePrice') {
                             const qty = parseInt(item.quantity) || 0;
                             const subtotalCell = row?.querySelector('.subtotal-cell');
-                            if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+                            if (subtotalCell)
+                                subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
                         }
                         this.updatePriceInputBorders(row);
                     }
@@ -2306,7 +2433,10 @@ class PurchaseOrderFormModal {
                     target.value = value.toUpperCase() + '...';
                     (async () => {
                         try {
-                            const code = await window.ProductCodeGenerator.generateCodeWithPrefix(value, this.formData.items);
+                            const code = await window.ProductCodeGenerator.generateCodeWithPrefix(
+                                value,
+                                this.formData.items
+                            );
                             if (code) {
                                 item.productCode = code;
                                 item._manualCodeEdit = true;
@@ -2352,7 +2482,7 @@ class PurchaseOrderFormModal {
         const previewMap = {
             '#inputDiscount': '#discountPreview',
             '#inputShipping': '#shippingPreview',
-            '#inputInvoiceAmount': '#invoiceAmountPreview'
+            '#inputInvoiceAmount': '#invoiceAmountPreview',
         };
         Object.entries(previewMap).forEach(([sel, previewSel]) => {
             const el = this.modalElement.querySelector(sel);
@@ -2394,7 +2524,10 @@ class PurchaseOrderFormModal {
                     const nextRow = row.nextElementSibling;
                     if (nextRow) {
                         const nextInput = nextRow.querySelector('[data-field="productName"]');
-                        if (nextInput) { nextInput.focus(); return; }
+                        if (nextInput) {
+                            nextInput.focus();
+                            return;
+                        }
                     }
 
                     // Otherwise add new row
@@ -2416,11 +2549,13 @@ class PurchaseOrderFormModal {
             if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                 // For text inputs, only navigate if cursor is at the edge
                 if (target.tagName === 'INPUT' && target.type === 'text') {
-                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length) return;
+                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length)
+                        return;
                     if (e.key === 'ArrowLeft' && target.selectionStart > 0) return;
                 }
                 if (target.tagName === 'TEXTAREA') {
-                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length) return;
+                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length)
+                        return;
                     if (e.key === 'ArrowLeft' && target.selectionStart > 0) return;
                 }
 
@@ -2446,7 +2581,8 @@ class PurchaseOrderFormModal {
                     if (lines.length > 1) return; // Multi-line, let default behavior
                 }
 
-                const targetRow = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+                const targetRow =
+                    e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
                 if (targetRow) {
                     e.preventDefault();
                     const targetInput = targetRow.querySelector(`[data-field="${field}"]`);
@@ -2466,160 +2602,182 @@ class PurchaseOrderFormModal {
             const itemId = row?.dataset.itemId;
             const action = btn.dataset.action;
 
-                if (action === 'refreshCode' && itemId) {
-                    const item = this.formData.items.find(i => i.id === itemId);
-                    if (item && item.productName?.trim()) {
-                        item._manualCodeEdit = false;
-                        item.productCode = '';  // Clear old code so autoGenerate can run
-                        await this.autoGenerateProductCode(item);
-                        const codeInput = row?.querySelector('input[data-field="productCode"]');
-                        if (codeInput) codeInput.value = item.productCode || '';
+            if (action === 'refreshCode' && itemId) {
+                const item = this.formData.items.find((i) => i.id === itemId);
+                if (item && item.productName?.trim()) {
+                    item._manualCodeEdit = false;
+                    item.productCode = ''; // Clear old code so autoGenerate can run
+                    await this.autoGenerateProductCode(item);
+                    const codeInput = row?.querySelector('input[data-field="productCode"]');
+                    if (codeInput) codeInput.value = item.productCode || '';
+                }
+            } else if (action === 'editCode' && itemId) {
+                const item = this.formData.items.find((i) => i.id === itemId);
+                if (!item) return;
+
+                // Toggle manual edit mode
+                item._manualCodeEdit = !item._manualCodeEdit;
+
+                const codeInput = btn
+                    .closest('td')
+                    ?.querySelector('input[data-field="productCode"]');
+
+                if (item._manualCodeEdit) {
+                    // Switch to edit mode (Check icon)
+                    if (codeInput) {
+                        codeInput.readOnly = false;
+                        codeInput.style.background = 'white';
+                        codeInput.style.cursor = 'text';
+                        codeInput.focus();
                     }
-                } else if (action === 'editCode' && itemId) {
-                    const item = this.formData.items.find(i => i.id === itemId);
-                    if (!item) return;
-
-                    // Toggle manual edit mode
-                    item._manualCodeEdit = !item._manualCodeEdit;
-
-                    const codeInput = btn.closest('td')?.querySelector('input[data-field="productCode"]');
-
-                    if (item._manualCodeEdit) {
-                        // Switch to edit mode (Check icon)
-                        if (codeInput) {
-                            codeInput.readOnly = false;
-                            codeInput.style.background = 'white';
-                            codeInput.style.cursor = 'text';
-                            codeInput.focus();
-                        }
-                        if (btn) {
-                            btn.style.background = '#dcfce7';
-                            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-                        }
-                    } else {
-                        // Switch to read-only mode (Pencil icon)
-                        if (codeInput) {
-                            codeInput.readOnly = true;
-                            codeInput.style.background = '#f9fafb';
-                            codeInput.style.cursor = 'default';
-                        }
-                        if (btn) {
-                            btn.style.background = 'white';
-                            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
-                        }
+                    if (btn) {
+                        btn.style.background = '#dcfce7';
+                        btn.innerHTML =
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                     }
-                } else if (action === 'delete' && itemId) {
-                    this.removeItem(itemId);
-                    this.refreshItemsTable();
-                } else if (action === 'copy' && itemId) {
-                    this.copyItem(itemId);
-                    this.refreshItemsTable();
-                } else if (action === 'variant' && itemId) {
-                    // Open variant generator dialog
-                    const item = this.formData.items.find(i => i.id === itemId);
-                    if (item && window.variantGeneratorDialog) {
-                        window.variantGeneratorDialog.open({
-                            baseProduct: item,
-                            onGenerate: (combinations, baseProduct) => {
-                                if (combinations.length > 0) {
-                                    // First combo updates the current item
-                                    const first = combinations[0];
-                                    item.variant = first.variant || first;
-                                    item.selectedAttributeValueIds = first.selectedAttributeValueIds || [];
-
-                                    // Remaining combos create new items right after the parent
-                                    let lastInsertedId = item.id;
-                                    for (let i = 1; i < combinations.length; i++) {
-                                        const combo = combinations[i];
-                                        const newItem = this.addItemAfter(lastInsertedId);
-                                        lastInsertedId = newItem.id;
-                                        newItem.productName = baseProduct.productName;
-                                        newItem.productCode = baseProduct.productCode;
-                                        newItem.variant = combo.variant || combo;
-                                        newItem.selectedAttributeValueIds = combo.selectedAttributeValueIds || [];
-                                        newItem.purchasePrice = baseProduct.purchasePrice;
-                                        newItem.sellingPrice = baseProduct.sellingPrice;
-                                        newItem.quantity = baseProduct.quantity || 1;
-                                        // Copy parent's product images to variant
-                                        if (baseProduct.productImages?.length > 0) {
-                                            newItem.productImages = [...baseProduct.productImages];
-                                        }
-                                        // Copy parent's price images to variant
-                                        if (baseProduct.priceImages?.length > 0) {
-                                            newItem.priceImages = [...baseProduct.priceImages];
-                                        }
-                                        // Copy pending images so all variants get uploaded
-                                        if (this.pendingImages.products[item.id]?.length > 0) {
-                                            this.pendingImages.products[newItem.id] = [...this.pendingImages.products[item.id]];
-                                        }
-                                        if (this.pendingImages.prices[item.id]?.length > 0) {
-                                            this.pendingImages.prices[newItem.id] = [...this.pendingImages.prices[item.id]];
-                                        }
-                                    }
-
-                                    this.refreshItemsTable();
-
-                                    if (window.notificationManager) {
-                                        window.notificationManager.success(`Đã tạo ${combinations.length} biến thể`);
-                                    }
-                                }
-                            }
-                        });
+                } else {
+                    // Switch to read-only mode (Pencil icon)
+                    if (codeInput) {
+                        codeInput.readOnly = true;
+                        codeInput.style.background = '#f9fafb';
+                        codeInput.style.cursor = 'default';
                     }
-                } else if (action === 'applyVariants' && itemId) {
-                    this.applyAllFieldsToVariants(itemId);
-                } else if (action === 'inventory' && itemId) {
-                    // Open inventory picker for this item
-                    console.log('[FormModal-ROW] inventory action clicked for item:', itemId);
-                    const item = this.formData.items.find(i => i.id === itemId);
-                    if (item && window.inventoryPickerDialog) {
-                        const formModal = this;
-                        window.inventoryPickerDialog.open({
-                            onSelect: function(products) {
-                                console.log('[FormModal-ROW] Received products:', products.length);
-                                if (products.length > 0) {
-                                    // First product fills the current row
-                                    const first = products[0];
-                                    item.productName = first.name || '';
-                                    item.productCode = first.code || '';
-                                    item.purchasePrice = (first.purchasePrice || 0).toLocaleString('vi-VN');
-                                    item.sellingPrice = (first.sellingPrice || 0).toLocaleString('vi-VN');
-                                    if (first.image) {
-                                        item.productImages = [first.image];
-                                    }
-                                    // Save TPOS IDs (same as bulk picker)
-                                    if (first.tposProductId) {
-                                        item.tposProductId = first.tposProductId;
-                                        item.tposSynced = true;
-                                    }
-                                    if (first.tposProductTmplId) item.tposProductTmplId = first.tposProductTmplId;
-
-                                    // Remaining products add new rows
-                                    for (let i = 1; i < products.length; i++) {
-                                        const product = products[i];
-                                        const newItem = formModal.addItem();
-                                        newItem.productName = product.name || '';
-                                        newItem.productCode = product.code || '';
-                                        newItem.purchasePrice = (product.purchasePrice || 0).toLocaleString('vi-VN');
-                                        newItem.sellingPrice = (product.sellingPrice || 0).toLocaleString('vi-VN');
-                                        if (product.image) {
-                                            newItem.productImages = [product.image];
-                                        }
-                                        // Save TPOS IDs (same as bulk picker)
-                                        if (product.tposProductId) {
-                                            newItem.tposProductId = product.tposProductId;
-                                            newItem.tposSynced = true;
-                                        }
-                                        if (product.tposProductTmplId) newItem.tposProductTmplId = product.tposProductTmplId;
-                                    }
-
-                                    formModal.refreshItemsTable();
-                                }
-                            }
-                        });
+                    if (btn) {
+                        btn.style.background = 'white';
+                        btn.innerHTML =
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
                     }
                 }
-            });
+            } else if (action === 'delete' && itemId) {
+                this.removeItem(itemId);
+                this.refreshItemsTable();
+            } else if (action === 'copy' && itemId) {
+                this.copyItem(itemId);
+                this.refreshItemsTable();
+            } else if (action === 'variant' && itemId) {
+                // Open variant generator dialog
+                const item = this.formData.items.find((i) => i.id === itemId);
+                if (item && window.variantGeneratorDialog) {
+                    window.variantGeneratorDialog.open({
+                        baseProduct: item,
+                        onGenerate: (combinations, baseProduct) => {
+                            if (combinations.length > 0) {
+                                // First combo updates the current item
+                                const first = combinations[0];
+                                item.variant = first.variant || first;
+                                item.selectedAttributeValueIds =
+                                    first.selectedAttributeValueIds || [];
+
+                                // Remaining combos create new items right after the parent
+                                let lastInsertedId = item.id;
+                                for (let i = 1; i < combinations.length; i++) {
+                                    const combo = combinations[i];
+                                    const newItem = this.addItemAfter(lastInsertedId);
+                                    lastInsertedId = newItem.id;
+                                    newItem.productName = baseProduct.productName;
+                                    newItem.productCode = baseProduct.productCode;
+                                    newItem.variant = combo.variant || combo;
+                                    newItem.selectedAttributeValueIds =
+                                        combo.selectedAttributeValueIds || [];
+                                    newItem.purchasePrice = baseProduct.purchasePrice;
+                                    newItem.sellingPrice = baseProduct.sellingPrice;
+                                    newItem.quantity = baseProduct.quantity || 1;
+                                    // Copy parent's product images to variant
+                                    if (baseProduct.productImages?.length > 0) {
+                                        newItem.productImages = [...baseProduct.productImages];
+                                    }
+                                    // Copy parent's price images to variant
+                                    if (baseProduct.priceImages?.length > 0) {
+                                        newItem.priceImages = [...baseProduct.priceImages];
+                                    }
+                                    // Copy pending images so all variants get uploaded
+                                    if (this.pendingImages.products[item.id]?.length > 0) {
+                                        this.pendingImages.products[newItem.id] = [
+                                            ...this.pendingImages.products[item.id],
+                                        ];
+                                    }
+                                    if (this.pendingImages.prices[item.id]?.length > 0) {
+                                        this.pendingImages.prices[newItem.id] = [
+                                            ...this.pendingImages.prices[item.id],
+                                        ];
+                                    }
+                                }
+
+                                this.refreshItemsTable();
+
+                                if (window.notificationManager) {
+                                    window.notificationManager.success(
+                                        `Đã tạo ${combinations.length} biến thể`
+                                    );
+                                }
+                            }
+                        },
+                    });
+                }
+            } else if (action === 'applyVariants' && itemId) {
+                this.applyAllFieldsToVariants(itemId);
+            } else if (action === 'inventory' && itemId) {
+                // Open inventory picker for this item
+                console.log('[FormModal-ROW] inventory action clicked for item:', itemId);
+                const item = this.formData.items.find((i) => i.id === itemId);
+                if (item && window.inventoryPickerDialog) {
+                    const formModal = this;
+                    window.inventoryPickerDialog.open({
+                        onSelect: function (products) {
+                            console.log('[FormModal-ROW] Received products:', products.length);
+                            if (products.length > 0) {
+                                // First product fills the current row
+                                const first = products[0];
+                                item.productName = first.name || '';
+                                item.productCode = first.code || '';
+                                item.purchasePrice = (first.purchasePrice || 0).toLocaleString(
+                                    'vi-VN'
+                                );
+                                item.sellingPrice = (first.sellingPrice || 0).toLocaleString(
+                                    'vi-VN'
+                                );
+                                if (first.image) {
+                                    item.productImages = [first.image];
+                                }
+                                // Save TPOS IDs (same as bulk picker)
+                                if (first.tposProductId) {
+                                    item.tposProductId = first.tposProductId;
+                                    item.tposSynced = true;
+                                }
+                                if (first.tposProductTmplId)
+                                    item.tposProductTmplId = first.tposProductTmplId;
+
+                                // Remaining products add new rows
+                                for (let i = 1; i < products.length; i++) {
+                                    const product = products[i];
+                                    const newItem = formModal.addItem();
+                                    newItem.productName = product.name || '';
+                                    newItem.productCode = product.code || '';
+                                    newItem.purchasePrice = (
+                                        product.purchasePrice || 0
+                                    ).toLocaleString('vi-VN');
+                                    newItem.sellingPrice = (
+                                        product.sellingPrice || 0
+                                    ).toLocaleString('vi-VN');
+                                    if (product.image) {
+                                        newItem.productImages = [product.image];
+                                    }
+                                    // Save TPOS IDs (same as bulk picker)
+                                    if (product.tposProductId) {
+                                        newItem.tposProductId = product.tposProductId;
+                                        newItem.tposSynced = true;
+                                    }
+                                    if (product.tposProductTmplId)
+                                        newItem.tposProductTmplId = product.tposProductTmplId;
+                                }
+
+                                formModal.refreshItemsTable();
+                            }
+                        },
+                    });
+                }
+            }
+        });
 
         // Image events (must rebind after each innerHTML replacement)
         this._rebindImageCellEvents(tbody);
@@ -2629,7 +2787,7 @@ class PurchaseOrderFormModal {
      * Rebind image cell events after innerHTML replacement
      */
     _rebindImageCellEvents(tbody) {
-        tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+        tbody.querySelectorAll('tr[data-item-id]').forEach((row) => {
             const itemId = row.dataset.itemId;
             const productCell = row.querySelector('[data-image-type="product"]');
             if (productCell) {
@@ -2649,7 +2807,7 @@ class PurchaseOrderFormModal {
     collectDraftWarnings() {
         const warnings = [];
         const items = this.formData.items || [];
-        const validItems = items.filter(i => i.productName && i.productName.trim());
+        const validItems = items.filter((i) => i.productName && i.productName.trim());
         const emptyItems = items.length - validItems.length;
 
         // Items warnings
@@ -2657,35 +2815,45 @@ class PurchaseOrderFormModal {
             warnings.push('Chưa có sản phẩm nào trong đơn hàng');
         } else {
             if (emptyItems > 0) {
-                warnings.push(`${emptyItems} dòng sản phẩm trống đã bị bỏ qua (chưa có tên sản phẩm)`);
+                warnings.push(
+                    `${emptyItems} dòng sản phẩm trống đã bị bỏ qua (chưa có tên sản phẩm)`
+                );
             }
 
-            const noPrice = validItems.filter(i => {
+            const noPrice = validItems.filter((i) => {
                 const pp = parseFloat(String(i.purchasePrice).replace(/[,.]/g, ''));
                 return !pp || isNaN(pp);
             });
             if (noPrice.length > 0) {
-                warnings.push(`${noPrice.length} sản phẩm chưa có giá mua: ${noPrice.map(i => i.productName).join(', ')}`);
+                warnings.push(
+                    `${noPrice.length} sản phẩm chưa có giá mua: ${noPrice.map((i) => i.productName).join(', ')}`
+                );
             }
 
-            const noSellingPrice = validItems.filter(i => {
+            const noSellingPrice = validItems.filter((i) => {
                 const sp = parseFloat(String(i.sellingPrice).replace(/[,.]/g, ''));
                 return !sp || isNaN(sp);
             });
             if (noSellingPrice.length > 0) {
-                warnings.push(`${noSellingPrice.length} sản phẩm chưa có giá bán: ${noSellingPrice.map(i => i.productName).join(', ')}`);
+                warnings.push(
+                    `${noSellingPrice.length} sản phẩm chưa có giá bán: ${noSellingPrice.map((i) => i.productName).join(', ')}`
+                );
             }
 
-            const sellingLessThanPurchase = validItems.filter(i => {
+            const sellingLessThanPurchase = validItems.filter((i) => {
                 const pp = parseFloat(String(i.purchasePrice).replace(/[,.]/g, '')) || 0;
                 const sp = parseFloat(String(i.sellingPrice).replace(/[,.]/g, '')) || 0;
                 return pp > 0 && sp > 0 && sp <= pp;
             });
             if (sellingLessThanPurchase.length > 0) {
-                warnings.push(`${sellingLessThanPurchase.length} sản phẩm có giá bán ≤ giá mua: ${sellingLessThanPurchase.map(i => i.productName).join(', ')}`);
+                warnings.push(
+                    `${sellingLessThanPurchase.length} sản phẩm có giá bán ≤ giá mua: ${sellingLessThanPurchase.map((i) => i.productName).join(', ')}`
+                );
             }
 
-            const noImages = validItems.filter(i => !i.productImages || i.productImages.length === 0);
+            const noImages = validItems.filter(
+                (i) => !i.productImages || i.productImages.length === 0
+            );
             if (noImages.length > 0) {
                 warnings.push(`${noImages.length} sản phẩm chưa có hình ảnh`);
             }
@@ -2719,7 +2887,7 @@ class PurchaseOrderFormModal {
             return;
         }
 
-        list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+        list.innerHTML = warnings.map((w) => `<li>${w}</li>`).join('');
         banner.style.display = 'block';
 
         // Scroll banner into view
@@ -2733,7 +2901,10 @@ class PurchaseOrderFormModal {
         this.collectFormData();
 
         if (!this.formData.supplier) {
-            this.showAlert('Vui lòng nhập tên nhà cung cấp', { title: 'Thiếu thông tin', type: 'warning' });
+            this.showAlert('Vui lòng nhập tên nhà cung cấp', {
+                title: 'Thiếu thông tin',
+                type: 'warning',
+            });
             return;
         }
 
@@ -2787,8 +2958,18 @@ class PurchaseOrderFormModal {
      */
     hasPendingImages() {
         if (this.pendingImages.invoice.length > 0) return true;
-        if (Object.keys(this.pendingImages.products).some(k => this.pendingImages.products[k].length > 0)) return true;
-        if (Object.keys(this.pendingImages.prices).some(k => this.pendingImages.prices[k].length > 0)) return true;
+        if (
+            Object.keys(this.pendingImages.products).some(
+                (k) => this.pendingImages.products[k].length > 0
+            )
+        )
+            return true;
+        if (
+            Object.keys(this.pendingImages.prices).some(
+                (k) => this.pendingImages.prices[k].length > 0
+            )
+        )
+            return true;
         return false;
     }
 
@@ -2797,7 +2978,7 @@ class PurchaseOrderFormModal {
      * @param {string[]} errors - Array of error messages
      */
     showValidationToast(errors) {
-        const message = 'Không thể tạo đơn hàng:\n' + errors.map(e => '• ' + e).join('\n');
+        const message = 'Không thể tạo đơn hàng:\n' + errors.map((e) => '• ' + e).join('\n');
         if (window.notificationManager) {
             window.notificationManager.show(message, 'error');
         } else {
@@ -2820,9 +3001,14 @@ class PurchaseOrderFormModal {
         }
 
         // Step 2: Settings-aware item validation (7 configurable rules)
-        const nonEmptyItems = this.formData.items.filter(i => i.productName && i.productName.trim());
+        const nonEmptyItems = this.formData.items.filter(
+            (i) => i.productName && i.productName.trim()
+        );
         if (validation?.validateItemsWithSettings) {
-            const { isValid, invalidFields } = validation.validateItemsWithSettings(nonEmptyItems, settings);
+            const { isValid, invalidFields } = validation.validateItemsWithSettings(
+                nonEmptyItems,
+                settings
+            );
             if (!isValid) {
                 this.showValidationToast(invalidFields);
                 return;
@@ -2839,9 +3025,16 @@ class PurchaseOrderFormModal {
         if (validation?.validatePriceSettings) {
             const priceErrors = [];
             nonEmptyItems.forEach((item, index) => {
-                const purchasePrice = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
-                const sellingPrice = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
-                const errors = validation.validatePriceSettings(purchasePrice, sellingPrice, index + 1, settings);
+                const purchasePrice =
+                    parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+                const sellingPrice =
+                    parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
+                const errors = validation.validatePriceSettings(
+                    purchasePrice,
+                    sellingPrice,
+                    index + 1,
+                    settings
+                );
                 priceErrors.push(...errors);
             });
             if (priceErrors.length > 0) {
@@ -2869,14 +3062,16 @@ class PurchaseOrderFormModal {
 
             const orderData = this.getFormData();
             // When editing, preserve original status; when creating, set AWAITING_PURCHASE
-            orderData.status = this.isEdit ? (this.order?.status || 'AWAITING_PURCHASE') : 'AWAITING_PURCHASE';
+            orderData.status = this.isEdit
+                ? this.order?.status || 'AWAITING_PURCHASE'
+                : 'AWAITING_PURCHASE';
 
             console.log('[FormModal] Submit orderData:', {
                 status: orderData.status,
                 notes: orderData.notes,
                 discountAmount: orderData.discountAmount,
                 shippingFee: orderData.shippingFee,
-                finalAmount: orderData.finalAmount
+                finalAmount: orderData.finalAmount,
             });
 
             await this.onSubmit?.(orderData);
@@ -2884,9 +3079,15 @@ class PurchaseOrderFormModal {
         } catch (error) {
             console.error('Submit failed:', error);
             if (window.notificationManager) {
-                window.notificationManager.show('Không thể tạo đơn hàng: ' + error.message, 'error');
+                window.notificationManager.show(
+                    'Không thể tạo đơn hàng: ' + error.message,
+                    'error'
+                );
             } else {
-                this.showAlert('Không thể tạo đơn hàng: ' + error.message, { title: 'Lỗi', type: 'error' });
+                this.showAlert('Không thể tạo đơn hàng: ' + error.message, {
+                    title: 'Lỗi',
+                    type: 'error',
+                });
             }
         } finally {
             if (btn) {
@@ -2915,7 +3116,7 @@ class PurchaseOrderFormModal {
             notes: this.formData.notes,
             discountAmount: this.formData.discountAmount,
             shippingFee: this.formData.shippingFee,
-            items: this.formData.items.map(item => ({
+            items: this.formData.items.map((item) => ({
                 productName: item.productName,
                 variant: item.variant,
                 productCode: item.productCode,
@@ -2928,23 +3129,26 @@ class PurchaseOrderFormModal {
                 tposProductId: item.tposProductId,
                 tposProductTmplId: item.tposProductTmplId,
                 tposSynced: item.tposSynced,
-                tposImageUrl: item.tposImageUrl
-            }))
+                tposImageUrl: item.tposImageUrl,
+            })),
         };
 
         const jsonStr = JSON.stringify(exportData);
         const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
 
-        navigator.clipboard.writeText(encoded).then(() => {
-            const itemCount = exportData.items.filter(i => i.productName?.trim()).length;
-            window.notificationManager?.show(
-                `Đã copy mã đơn hàng (${itemCount} sản phẩm, NCC: ${exportData.supplier || 'N/A'})`,
-                'success'
-            );
-        }).catch(() => {
-            // Fallback: show in a dialog for manual copy
-            this.showAlert(`Không thể tự động copy. Hãy copy đoạn mã bên dưới:\n\n${encoded}`);
-        });
+        navigator.clipboard
+            .writeText(encoded)
+            .then(() => {
+                const itemCount = exportData.items.filter((i) => i.productName?.trim()).length;
+                window.notificationManager?.show(
+                    `Đã copy mã đơn hàng (${itemCount} sản phẩm, NCC: ${exportData.supplier || 'N/A'})`,
+                    'success'
+                );
+            })
+            .catch(() => {
+                // Fallback: show in a dialog for manual copy
+                this.showAlert(`Không thể tự động copy. Hãy copy đoạn mã bên dưới:\n\n${encoded}`);
+            });
     }
 
     /**
@@ -2964,7 +3168,7 @@ class PurchaseOrderFormModal {
             }
 
             // Confirm if there's existing data
-            const hasExistingData = this.formData.items.some(i => i.productName?.trim());
+            const hasExistingData = this.formData.items.some((i) => i.productName?.trim());
             if (hasExistingData) {
                 const ok = await this.showConfirm(
                     'Đơn hàng hiện tại đã có dữ liệu. Import sẽ thay thế toàn bộ. Tiếp tục?',
@@ -2983,7 +3187,7 @@ class PurchaseOrderFormModal {
             this.formData.shippingFee = data.shippingFee || '';
 
             // Apply items
-            this.formData.items = (data.items || []).map(item => ({
+            this.formData.items = (data.items || []).map((item) => ({
                 id: `item_${Date.now()}_${this.itemCounter++}`,
                 productName: item.productName || '',
                 variant: item.variant || '',
@@ -2997,7 +3201,7 @@ class PurchaseOrderFormModal {
                 tposProductId: item.tposProductId || '',
                 tposProductTmplId: item.tposProductTmplId || '',
                 tposSynced: item.tposSynced || false,
-                tposImageUrl: item.tposImageUrl || ''
+                tposImageUrl: item.tposImageUrl || '',
             }));
 
             // If no items, add one empty row
@@ -3009,7 +3213,7 @@ class PurchaseOrderFormModal {
             this.close();
             this.render();
 
-            const itemCount = this.formData.items.filter(i => i.productName?.trim()).length;
+            const itemCount = this.formData.items.filter((i) => i.productName?.trim()).length;
             window.notificationManager?.show(
                 `Import thành công: ${itemCount} sản phẩm, NCC: ${data.supplier || 'N/A'}`,
                 'success'
@@ -3027,7 +3231,8 @@ class PurchaseOrderFormModal {
     _showImportDialog() {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            overlay.style.cssText =
+                'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
             overlay.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:24px;width:500px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
@@ -3056,7 +3261,10 @@ class PurchaseOrderFormModal {
                 </div>
             `;
 
-            const cleanup = (value) => { overlay.remove(); resolve(value); };
+            const cleanup = (value) => {
+                overlay.remove();
+                resolve(value);
+            };
 
             overlay.querySelector('#_importCancel').addEventListener('click', () => cleanup(null));
             overlay.querySelector('#_importConfirm').addEventListener('click', () => {
@@ -3079,20 +3287,22 @@ class PurchaseOrderFormModal {
         this.formData.orderType = window.ShopConfig?.getConfig()?.label || 'NJD SHOP';
         this.formData.supplier = this.modalElement?.querySelector('#inputSupplier')?.value || '';
         this.formData.orderDate = this.modalElement?.querySelector('#inputOrderDate')?.value || '';
-        this.formData.invoiceAmount = this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
+        this.formData.invoiceAmount =
+            this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
         this.formData.notes = this.modalElement?.querySelector('#inputNotes')?.value || '';
-        this.formData.discountAmount = this.modalElement?.querySelector('#inputDiscount')?.value || '';
+        this.formData.discountAmount =
+            this.modalElement?.querySelector('#inputDiscount')?.value || '';
         this.formData.shippingFee = this.modalElement?.querySelector('#inputShipping')?.value || '';
 
         // Item-level fields: sync DOM input values back to formData.items
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
         if (tbody) {
-            tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+            tbody.querySelectorAll('tr[data-item-id]').forEach((row) => {
                 const itemId = row.dataset.itemId;
-                const item = this.formData.items.find(i => i.id === itemId);
+                const item = this.formData.items.find((i) => i.id === itemId);
                 if (!item) return;
 
-                row.querySelectorAll('input[data-field]').forEach(input => {
+                row.querySelectorAll('input[data-field]').forEach((input) => {
                     const field = input.dataset.field;
                     if (field) {
                         item[field] = input.value;
@@ -3101,9 +3311,14 @@ class PurchaseOrderFormModal {
             });
         }
 
-        console.log('[FormModal] collectFormData - items:', this.formData.items.map(i => ({
-            name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
-        })));
+        console.log(
+            '[FormModal] collectFormData - items:',
+            this.formData.items.map((i) => ({
+                name: i.productName,
+                variant: i.variant,
+                attrIds: (i.selectedAttributeValueIds || []).length,
+            }))
+        );
     }
 
     /**
@@ -3116,10 +3331,11 @@ class PurchaseOrderFormModal {
             orderType: this.formData.orderType || 'NJD SHOP',
             supplier: {
                 name: this.formData.supplier,
-                code: this.formData.supplier.substring(0, 3).toUpperCase()
+                code: this.formData.supplier.substring(0, 3).toUpperCase(),
             },
             orderDate: this.formData.orderDate ? new Date(this.formData.orderDate) : new Date(),
-            invoiceAmount: parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
+            invoiceAmount:
+                parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
             invoiceImages: this.formData.invoiceImages,
             notes: this.formData.notes,
             discountAmount: totals.discount,
@@ -3127,19 +3343,26 @@ class PurchaseOrderFormModal {
             totalAmount: totals.totalAmount,
             finalAmount: totals.finalAmount,
             items: this.formData.items
-                .filter(item => item.productName && item.productName.trim())
-                .map(item => ({
+                .filter((item) => item.productName && item.productName.trim())
+                .map((item) => ({
                     ...item,
                     purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
                     sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
                     quantity: parseInt(item.quantity) || 1,
-                    subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
-                }))
+                    subtotal:
+                        (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) *
+                        (parseInt(item.quantity) || 1),
+                })),
         };
 
-        console.log('[FormModal] getFormData - items:', result.items.map(i => ({
-            name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
-        })));
+        console.log(
+            '[FormModal] getFormData - items:',
+            result.items.map((i) => ({
+                name: i.productName,
+                variant: i.variant,
+                attrIds: (i.selectedAttributeValueIds || []).length,
+            }))
+        );
 
         return result;
     }
@@ -3159,25 +3382,27 @@ class PurchaseOrderFormModal {
             title = 'Xác nhận',
             confirmText = 'Đồng ý',
             cancelText = 'Hủy',
-            type = 'warning' // warning, error, info
+            type = 'warning', // warning, error, info
         } = options;
 
         const iconMap = {
-            warning: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            warning:
+                '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
             error: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
         };
 
         const colorMap = {
             warning: { btn: '#f59e0b', hover: '#d97706' },
             error: { btn: '#ef4444', hover: '#dc2626' },
-            info: { btn: '#3b82f6', hover: '#2563eb' }
+            info: { btn: '#3b82f6', hover: '#2563eb' },
         };
         const colors = colorMap[type] || colorMap.warning;
 
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
+            overlay.style.cssText =
+                'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
             overlay.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:scaleIn 0.15s ease">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -3216,22 +3441,21 @@ class PurchaseOrderFormModal {
      * @returns {Promise<void>}
      */
     showAlert(message, options = {}) {
-        const {
-            title = 'Thông báo',
-            buttonText = 'Đã hiểu',
-            type = 'warning'
-        } = options;
+        const { title = 'Thông báo', buttonText = 'Đã hiểu', type = 'warning' } = options;
 
         const iconMap = {
-            warning: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            warning:
+                '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
             error: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-            success: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="16 10 11 15 8 12"/></svg>',
-            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            success:
+                '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="16 10 11 15 8 12"/></svg>',
+            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
         };
 
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
+            overlay.style.cssText =
+                'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
             overlay.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:scaleIn 0.15s ease">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -3245,7 +3469,10 @@ class PurchaseOrderFormModal {
                 </div>
             `;
 
-            const cleanup = () => { overlay.remove(); resolve(); };
+            const cleanup = () => {
+                overlay.remove();
+                resolve();
+            };
             overlay.querySelector('#_dlgOk').addEventListener('click', cleanup);
             overlay.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' || e.key === 'Enter') cleanup();

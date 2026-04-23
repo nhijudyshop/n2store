@@ -16,7 +16,8 @@ function getDisplayedOrders() {
 
 function getSelectedSet() {
     if (window.selectedOrderIds instanceof Set) return window.selectedOrderIds;
-    if (typeof selectedOrderIds !== 'undefined' && selectedOrderIds instanceof Set) return selectedOrderIds;
+    if (typeof selectedOrderIds !== 'undefined' && selectedOrderIds instanceof Set)
+        return selectedOrderIds;
     return null;
 }
 
@@ -25,8 +26,11 @@ function syncCheckboxesFromState() {
     if (!selected) return;
 
     // Main table + employee sections (kept in sync with state)
-    document.querySelectorAll('#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]')
-        .forEach(cb => {
+    document
+        .querySelectorAll(
+            '#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]'
+        )
+        .forEach((cb) => {
             if (!cb.value) return;
             cb.checked = selected.has(String(cb.value));
         });
@@ -90,7 +94,7 @@ function selectAllDisplayed() {
         return;
     }
     selected.clear();
-    data.forEach(order => selected.add(String(order.Id)));
+    data.forEach((order) => selected.add(String(order.Id)));
     syncCheckboxesFromState();
     notify('info', `Đã chọn tất cả ${data.length} đơn`);
 }
@@ -117,7 +121,7 @@ function selectBySTTRange(from, to) {
     const max = Math.max(from, to);
     selected.clear();
     let count = 0;
-    data.forEach(order => {
+    data.forEach((order) => {
         const stt = Number(order.SessionIndex);
         if (Number.isFinite(stt) && stt >= min && stt <= max) {
             selected.add(String(order.Id));
@@ -298,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function () {
             toggleSelectAllMenu(false);
         };
         rangeApply.addEventListener('click', applyRange);
-        [rangeFrom, rangeTo].forEach(el => {
+        [rangeFrom, rangeTo].forEach((el) => {
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -320,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
             toggleSelectAllMenu(false);
         };
         posApply.addEventListener('click', applyPos);
-        [posFrom, posTo].forEach(el => {
+        [posFrom, posTo].forEach((el) => {
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -342,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function () {
 /**
  * Open quick reply modal for inserting into chat input
  */
-window.openChatTemplateModal = function() {
+window.openChatTemplateModal = function () {
     if (!window.quickReplyManager) {
         console.error('❌ QuickReplyManager not initialized');
         if (window.notificationManager) {
@@ -353,5 +357,4 @@ window.openChatTemplateModal = function() {
 
     // Open quick reply modal with target input
     window.quickReplyManager.openModal('chatReplyInput');
-
 };

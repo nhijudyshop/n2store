@@ -9,10 +9,11 @@ class DebtManager {
         this._cache = new SharedCache({
             maxSize: 500,
             ttl: 10 * 60 * 1000,
-            name: 'DebtCache'
+            name: 'DebtCache',
         });
         this._pendingFetches = new Map(); // phone -> Promise (dedup concurrent requests)
-        this._proxyBaseUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        this._proxyBaseUrl =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     }
 
     /**
@@ -68,7 +69,7 @@ class DebtManager {
             const response = await fetch(`${this._proxyBaseUrl}/api/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phones: uniquePhones })
+                body: JSON.stringify({ phones: uniquePhones }),
             });
 
             if (!response.ok) {
@@ -109,7 +110,7 @@ class DebtManager {
             return this._pendingFetches.get(normalized);
         }
 
-        const promise = this.loadBatch([normalized]).then(results => {
+        const promise = this.loadBatch([normalized]).then((results) => {
             this._pendingFetches.delete(normalized);
             return results.get(normalized) ?? null;
         });

@@ -13,12 +13,13 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
-    const WORKER_URL = window.API_CONFIG?.WORKER_URL
-        || window.CONFIG?.API_BASE_URL
-        || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        window.API_CONFIG?.WORKER_URL ||
+        window.CONFIG?.API_BASE_URL ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     /**
      * Get full unified customer profile
@@ -37,7 +38,7 @@
             walletTransactions: [],
             risk: null,
             crossPageIds: {},
-            sources: []
+            sources: [],
         };
 
         // 1. Render DB (primary source)
@@ -78,11 +79,13 @@
      * Usable in any module's modal or panel
      */
     function renderCompactCard(profile) {
-        if (!profile?.customer) return '<div style="color:#94a3b8;padding:16px;text-align:center;">Không tìm thấy dữ liệu</div>';
+        if (!profile?.customer)
+            return '<div style="color:#94a3b8;padding:16px;text-align:center;">Không tìm thấy dữ liệu</div>';
 
         const c = profile.customer;
         const w = profile.wallet;
-        const esc = (s) => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+        const esc = (s) =>
+            s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
 
         const ok = c.order_success_count || c.successful_orders || 0;
         const fail = c.order_fail_count || c.returned_orders || 0;
@@ -90,34 +93,58 @@
         const returnRate = total > 0 ? Math.round((fail / total) * 100) : 0;
         const walletTotal = w ? (w.balance || 0) + (w.virtualBalance || 0) : 0;
 
-        const riskBadge = profile.risk?.level === 'danger'
-            ? '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">⚠ NGUY HIỂM</span>'
-            : profile.risk?.level === 'caution'
-            ? '<span style="background:#fffbeb;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">⚠ CẢNH BÁO</span>'
-            : '';
+        const riskBadge =
+            profile.risk?.level === 'danger'
+                ? '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">⚠ NGUY HIỂM</span>'
+                : profile.risk?.level === 'caution'
+                  ? '<span style="background:#fffbeb;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">⚠ CẢNH BÁO</span>'
+                  : '';
 
         const rows = [];
-        if (c.phone) rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">SĐT</span><span style="font-family:monospace;cursor:pointer;" onclick="navigator.clipboard.writeText('${esc(c.phone)}')" title="Copy">${esc(c.phone)}</span></div>`);
-        if (c.fb_id) rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">FB ID</span><span style="font-family:monospace;font-size:10px;">${esc(c.fb_id)}</span></div>`);
-        if (c.global_id) rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Global</span><span style="font-family:monospace;font-size:10px;">${esc(c.global_id)}</span></div>`);
+        if (c.phone)
+            rows.push(
+                `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">SĐT</span><span style="font-family:monospace;cursor:pointer;" onclick="navigator.clipboard.writeText('${esc(c.phone)}')" title="Copy">${esc(c.phone)}</span></div>`
+            );
+        if (c.fb_id)
+            rows.push(
+                `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">FB ID</span><span style="font-family:monospace;font-size:10px;">${esc(c.fb_id)}</span></div>`
+            );
+        if (c.global_id)
+            rows.push(
+                `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Global</span><span style="font-family:monospace;font-size:10px;">${esc(c.global_id)}</span></div>`
+            );
 
-        rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Đơn</span><span><span style="color:#16a34a;font-weight:600;">${ok}OK</span> <span style="color:#dc2626;font-weight:600;">${fail}hoàn</span>${returnRate > 30 ? ` <span style="color:#d97706;font-weight:600;">${returnRate}%</span>` : ''}</span></div>`);
+        rows.push(
+            `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Đơn</span><span><span style="color:#16a34a;font-weight:600;">${ok}OK</span> <span style="color:#dc2626;font-weight:600;">${fail}hoàn</span>${returnRate > 30 ? ` <span style="color:#d97706;font-weight:600;">${returnRate}%</span>` : ''}</span></div>`
+        );
 
         if (walletTotal > 0) {
-            rows.push(`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Ví</span><span style="color:#16a34a;font-weight:600;">${new Intl.NumberFormat('vi-VN').format(walletTotal)}₫</span></div>`);
+            rows.push(
+                `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span style="color:#64748b;">Ví</span><span style="color:#16a34a;font-weight:600;">${new Intl.NumberFormat('vi-VN').format(walletTotal)}₫</span></div>`
+            );
         }
 
         const allNotes = [
-            ...profile.notes.map(n => ({ text: n.content, by: n.created_by })),
-            ...profile.pancakeNotes.map(n => ({ text: n.message || n.content || '', by: n.created_by?.fb_name || 'Pancake' }))
+            ...profile.notes.map((n) => ({ text: n.content, by: n.created_by })),
+            ...profile.pancakeNotes.map((n) => ({
+                text: n.message || n.content || '',
+                by: n.created_by?.fb_name || 'Pancake',
+            })),
         ];
 
-        const notesHtml = allNotes.length > 0
-            ? `<div style="margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px;">
+        const notesHtml =
+            allNotes.length > 0
+                ? `<div style="margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px;">
                 <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Ghi chú (${allNotes.length})</div>
-                ${allNotes.slice(0, 3).map(n => `<div style="font-size:11px;padding:4px 6px;background:#f8fafc;border-radius:4px;margin-bottom:3px;border-left:2px solid #6366f1;">${esc(typeof n.text === 'string' ? n.text : '')}<span style="color:#94a3b8;margin-left:4px;">${esc(n.by || '')}</span></div>`).join('')}
+                ${allNotes
+                    .slice(0, 3)
+                    .map(
+                        (n) =>
+                            `<div style="font-size:11px;padding:4px 6px;background:#f8fafc;border-radius:4px;margin-bottom:3px;border-left:2px solid #6366f1;">${esc(typeof n.text === 'string' ? n.text : '')}<span style="color:#94a3b8;margin-left:4px;">${esc(n.by || '')}</span></div>`
+                    )
+                    .join('')}
             </div>`
-            : '';
+                : '';
 
         return `
             <div style="padding:12px;font-family:Inter,-apple-system,sans-serif;">
@@ -137,7 +164,7 @@
     async function syncToTPOS(phone) {
         try {
             const resp = await fetch(`${WORKER_URL}/api/v2/customers/${phone}/sync-tpos`, {
-                method: 'POST'
+                method: 'POST',
             });
             return await resp.json();
         } catch (e) {
@@ -149,7 +176,6 @@
     window.UnifiedCustomer360 = {
         getUnifiedProfile,
         renderCompactCard,
-        syncToTPOS
+        syncToTPOS,
     };
-
 })();

@@ -98,7 +98,11 @@ const TposCommentList = {
         // Close dropdown on outside click
         document.addEventListener('click', (e) => {
             const dropdown = document.getElementById('tposCampaignDropdown');
-            if (dropdown && dropdown.style.display !== 'none' && !e.target.closest('.tpos-campaign-multi')) {
+            if (
+                dropdown &&
+                dropdown.style.display !== 'none' &&
+                !e.target.closest('.tpos-campaign-multi')
+            ) {
                 dropdown.style.display = 'none';
             }
         });
@@ -157,10 +161,10 @@ const TposCommentList = {
             options += `<option value="all">📋 Tất cả Pages (${state.allPages.length})</option>`;
         }
 
-        state.crmTeams.forEach(team => {
+        state.crmTeams.forEach((team) => {
             if (team.Childs && team.Childs.length > 0) {
                 options += `<optgroup label="${SharedUtils.escapeHtml(team.Name)}">`;
-                team.Childs.forEach(page => {
+                team.Childs.forEach((page) => {
                     if (page.Facebook_PageId && page.Facebook_TypeId === 'Page') {
                         options += `<option value="${team.Id}:${page.Id}" data-page-id="${page.Facebook_PageId}">
                             ${SharedUtils.escapeHtml(page.Facebook_PageName || page.Name)}
@@ -185,7 +189,8 @@ const TposCommentList = {
         if (!list) return;
 
         if (state.liveCampaigns.length === 0) {
-            list.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:12px;text-align:center;">Không có campaign</div>';
+            list.innerHTML =
+                '<div style="padding:12px;color:#9ca3af;font-size:12px;text-align:center;">Không có campaign</div>';
             if (btn) btn.disabled = true;
             return;
         }
@@ -194,18 +199,22 @@ const TposCommentList = {
         // Initialize selectedCampaignIds if not exists
         if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
 
-        list.innerHTML = state.liveCampaigns.map(c => {
-            const checked = state.selectedCampaignIds.has(c.Id);
-            const pageName = c.Facebook_UserName || '';
-            const isStore = pageName.toLowerCase().includes('store');
-            const badgeColor = isStore ? 'background:#fef3c7;color:#92400e' : 'background:#dbeafe;color:#1e40af';
-            return `<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+        list.innerHTML = state.liveCampaigns
+            .map((c) => {
+                const checked = state.selectedCampaignIds.has(c.Id);
+                const pageName = c.Facebook_UserName || '';
+                const isStore = pageName.toLowerCase().includes('store');
+                const badgeColor = isStore
+                    ? 'background:#fef3c7;color:#92400e'
+                    : 'background:#dbeafe;color:#1e40af';
+                return `<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
                 <input type="checkbox" value="${c.Id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;flex-shrink:0;"
                     onchange="TposCommentList.toggleCampaign('${c.Id}')">
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${SharedUtils.escapeHtml(c.Name)}</span>
-                <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${pageName.replace('NhiJudy ','').replace('Nhi Judy ','')}</span>
+                <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '')}</span>
             </label>`;
-        }).join('');
+            })
+            .join('');
 
         this.updateCampaignBtnText();
     },
@@ -247,7 +256,7 @@ const TposCommentList = {
         if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
 
         const today = new Date().toISOString().slice(0, 10);
-        state.liveCampaigns.forEach(c => {
+        state.liveCampaigns.forEach((c) => {
             const cDate = (c.DateCreated || '').slice(0, 10);
             if (cDate === today) {
                 state.selectedCampaignIds.add(c.Id);
@@ -283,7 +292,7 @@ const TposCommentList = {
             btnText.textContent = 'Chọn Live Campaign...';
         } else if (count === 1) {
             const id = Array.from(state.selectedCampaignIds)[0];
-            const c = state.liveCampaigns.find(x => x.Id === id);
+            const c = state.liveCampaigns.find((x) => x.Id === id);
             btnText.textContent = c ? c.Name : '1 campaign';
         } else {
             btnText.textContent = `${count} campaigns đã chọn`;
@@ -312,7 +321,7 @@ const TposCommentList = {
             return;
         }
 
-        listContainer.innerHTML = state.comments.map(c => this.renderCommentItem(c)).join('');
+        listContainer.innerHTML = state.comments.map((c) => this.renderCommentItem(c)).join('');
         this.updateLoadMoreIndicator();
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
@@ -371,10 +380,16 @@ const TposCommentList = {
         const timeStr = SharedUtils.formatTime(createdTime);
 
         // Page badge (show when multiple pages selected)
-        const pageName = comment._pageName || state.selectedPage?.Name || state.selectedCampaign?.Facebook_UserName || '';
+        const pageName =
+            comment._pageName ||
+            state.selectedPage?.Name ||
+            state.selectedCampaign?.Facebook_UserName ||
+            '';
         const isMultiPage = state.selectedPages && state.selectedPages.length > 1;
         const isStore = pageName.toLowerCase().includes('store');
-        const pageBadgeColor = isStore ? 'background:#fef3c7;color:#92400e' : 'background:#dbeafe;color:#1e40af';
+        const pageBadgeColor = isStore
+            ? 'background:#fef3c7;color:#92400e'
+            : 'background:#dbeafe;color:#1e40af';
         const shortPageName = pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '');
 
         // SessionIndex badge + Order info
@@ -392,7 +407,7 @@ const TposCommentList = {
             'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
             'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
             'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
         ];
         const colorIndex = fromName.charCodeAt(0) % colors.length;
         const gradientColor = colors[colorIndex];
@@ -409,23 +424,26 @@ const TposCommentList = {
         // Debt via shared debt manager
         const debt = window.sharedDebtManager ? window.sharedDebtManager.getDebt(phone) : null;
         const debtDisplay = SharedUtils.formatDebt(debt);
-        const hasDebt = state.showDebt && (
-            (debt && debt > 0) ||
-            (state.showZeroDebt && debt !== null && debt !== undefined)
-        );
+        const hasDebt =
+            state.showDebt &&
+            ((debt && debt > 0) || (state.showZeroDebt && debt !== null && debt !== undefined));
 
         // Check saved-to-Tpos
-        const isSavedToTpos = state.savedToTposIds.has(fromId) ||
-            (window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId));
+        const isSavedToTpos =
+            state.savedToTposIds.has(fromId) ||
+            window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId);
 
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
-        const statusDropdownHtml = statusOptions.map(opt =>
-            `<div class="inline-status-option" style="padding:6px 10px;cursor:pointer;font-size:11px;color:${opt.color};font-weight:600;"
+        const statusDropdownHtml = statusOptions
+            .map(
+                (opt) =>
+                    `<div class="inline-status-option" style="padding:6px 10px;cursor:pointer;font-size:11px;color:${opt.color};font-weight:600;"
                  onclick="event.stopPropagation(); TposCommentList.selectInlineStatus('${fromId}', '${opt.value}', '${opt.text}')">
                 ${opt.text}
             </div>`
-        ).join('');
+            )
+            .join('');
 
         // Status badge style
         const statusBadgeStyle = statusColor
@@ -440,11 +458,12 @@ const TposCommentList = {
                 <!-- Row 1: Avatar + Name + Status + Time -->
                 <div class="tpos-conv-row1">
                     <div class="tpos-conv-avatar">
-                        ${pictureUrl
-                    ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        ${
+                            pictureUrl
+                                ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                <div class="avatar-placeholder" style="display:none;background:${gradientColor};">${initial}</div>`
-                    : `<div class="avatar-placeholder" style="background:${gradientColor};">${initial}</div>`
-                }
+                                : `<div class="avatar-placeholder" style="background:${gradientColor};">${initial}</div>`
+                        }
                         ${sessionIndexBadge}
                         <span class="channel-badge"><i data-lucide="facebook" class="channel-icon fb"></i></span>
                     </div>
@@ -486,11 +505,12 @@ const TposCommentList = {
 
                 <!-- Actions — show on hover -->
                 <div class="tpos-conv-actions">
-                    ${!sessionInfo?.code
-                        ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn" style="color:var(--primary);" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                    ${
+                        !sessionInfo?.code
+                            ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn" style="color:var(--primary);" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
                                <i data-lucide="shopping-cart" style="width:13px;height:13px;"></i>
                            </button>`
-                        : `<span title="Đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
+                            : `<span title="Đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
                                <i data-lucide="package-check" style="width:13px;height:13px;"></i>
                            </span>`
                     }
@@ -519,7 +539,7 @@ const TposCommentList = {
      */
     getStatusColor(statusText) {
         if (!statusText) return '';
-        const opt = this.getStatusOptions().find(o => o.text === statusText);
+        const opt = this.getStatusOptions().find((o) => o.text === statusText);
         return opt ? opt.color : '';
     },
 
@@ -532,7 +552,7 @@ const TposCommentList = {
             { value: '#d9534f_Nguy hiểm', text: 'Nguy hiểm', color: '#d9534f' },
             { value: '#337ab7_Thân thiết', text: 'Thân thiết', color: '#337ab7' },
             { value: '#9c27b0_Vip', text: 'Vip', color: '#9c27b0' },
-            { value: '#ff9800_VIP', text: 'VIP', color: '#ff9800' }
+            { value: '#ff9800_VIP', text: 'VIP', color: '#ff9800' },
         ];
     },
 
@@ -543,13 +563,13 @@ const TposCommentList = {
     selectComment(commentId) {
         const state = window.TposState;
 
-        document.querySelectorAll('.tpos-conversation-item').forEach(item => {
+        document.querySelectorAll('.tpos-conversation-item').forEach((item) => {
             item.classList.remove('selected');
         });
         const selectedItem = document.querySelector(`[data-comment-id="${commentId}"]`);
         if (selectedItem) selectedItem.classList.add('selected');
 
-        const comment = state.comments.find(c => c.id === commentId);
+        const comment = state.comments.find((c) => c.id === commentId);
         if (comment) {
             window.eventBus.emit('tpos:commentSelected', { comment });
             window.dispatchEvent(new CustomEvent('tposCommentSelected', { detail: { comment } }));
@@ -606,9 +626,11 @@ const TposCommentList = {
             // Update cache
             partner.StatusText = text;
             state.partnerCache.set(userId, partner);
-            if (window.notificationManager) window.notificationManager.success('Đã cập nhật trạng thái');
+            if (window.notificationManager)
+                window.notificationManager.success('Đã cập nhật trạng thái');
         } else {
-            if (window.notificationManager) window.notificationManager.error('Lỗi cập nhật trạng thái');
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi cập nhật trạng thái');
         }
     },
 
@@ -624,29 +646,35 @@ const TposCommentList = {
 
         const newPhone = input.value.trim();
         if (!newPhone) {
-            if (window.notificationManager) window.notificationManager.show('Vui lòng nhập số điện thoại', 'warning');
+            if (window.notificationManager)
+                window.notificationManager.show('Vui lòng nhập số điện thoại', 'warning');
             return;
         }
 
         if (saveBtn) {
-            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
             saveBtn.disabled = true;
         }
 
         try {
             await window.TposApi.savePartnerData(userId, { Phone: newPhone });
-            if (window.notificationManager) window.notificationManager.success('Đã lưu số điện thoại');
+            if (window.notificationManager)
+                window.notificationManager.success('Đã lưu số điện thoại');
 
             if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                saveBtn.innerHTML =
+                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
                 setTimeout(() => {
-                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.innerHTML =
+                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                     saveBtn.disabled = false;
                     if (window.lucide) lucide.createIcons();
                 }, 1500);
             }
         } catch (error) {
-            if (window.notificationManager) window.notificationManager.error('Lỗi lưu SĐT: ' + error.message);
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi lưu SĐT: ' + error.message);
             if (saveBtn) {
                 saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                 saveBtn.disabled = false;
@@ -668,7 +696,8 @@ const TposCommentList = {
         const newAddress = input.value.trim();
 
         if (saveBtn) {
-            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
             saveBtn.disabled = true;
         }
 
@@ -677,15 +706,18 @@ const TposCommentList = {
             if (window.notificationManager) window.notificationManager.success('Đã lưu địa chỉ');
 
             if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                saveBtn.innerHTML =
+                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
                 setTimeout(() => {
-                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.innerHTML =
+                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                     saveBtn.disabled = false;
                     if (window.lucide) lucide.createIcons();
                 }, 1500);
             }
         } catch (error) {
-            if (window.notificationManager) window.notificationManager.error('Lỗi lưu địa chỉ: ' + error.message);
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi lưu địa chỉ: ' + error.message);
             if (saveBtn) {
                 saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                 saveBtn.disabled = false;
@@ -702,7 +734,8 @@ const TposCommentList = {
     async handleSaveToTpos(customerId, customerName) {
         const state = window.TposState;
         if (!customerId || !customerName) {
-            if (window.notificationManager) window.notificationManager.show('Thiếu thông tin khách hàng', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('Thiếu thông tin khách hàng', 'error');
             return;
         }
 
@@ -713,8 +746,10 @@ const TposCommentList = {
         const notes = [
             phone ? `SĐT: ${phone}` : '',
             address ? `Địa chỉ: ${address}` : '',
-            state.selectedCampaign?.title ? `Campaign: ${state.selectedCampaign.title}` : ''
-        ].filter(Boolean).join(' | ');
+            state.selectedCampaign?.title ? `Campaign: ${state.selectedCampaign.title}` : '',
+        ]
+            .filter(Boolean)
+            .join(' | ');
 
         try {
             const result = await window.TposApi.saveToTpos(customerId, customerName, notes);
@@ -732,13 +767,15 @@ const TposCommentList = {
 
                 this.updateSaveButtonToCheckmark(customerId);
 
-                if (window.notificationManager) window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
+                if (window.notificationManager)
+                    window.notificationManager.show(`Đã lưu: ${customerName}`, 'success');
             } else {
                 throw new Error(result.message || 'Lỗi không xác định');
             }
         } catch (error) {
             console.error('[TPOS-LIST] Error saving to Tpos:', error);
-            if (window.notificationManager) window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
+            if (window.notificationManager)
+                window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
         }
     },
 
@@ -751,7 +788,9 @@ const TposCommentList = {
         const container = document.getElementById(state.containerId);
         if (!container) return;
 
-        const saveBtn = container.querySelector(`button[onclick*="handleSaveToTpos('${customerId}'"]`);
+        const saveBtn = container.querySelector(
+            `button[onclick*="handleSaveToTpos('${customerId}'"]`
+        );
         if (saveBtn) {
             const checkmark = document.createElement('span');
             checkmark.className = 'tpos-saved-badge';
@@ -805,14 +844,15 @@ const TposCommentList = {
      */
     showReplyInput(commentId, fromId) {
         // Remove any existing reply input
-        document.querySelectorAll('.tpos-reply-input-row').forEach(el => el.remove());
+        document.querySelectorAll('.tpos-reply-input-row').forEach((el) => el.remove());
 
         const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
         if (!commentEl) return;
 
         const replyRow = document.createElement('div');
         replyRow.className = 'tpos-reply-input-row';
-        replyRow.style.cssText = 'display:flex;gap:6px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e5e7eb;align-items:center;';
+        replyRow.style.cssText =
+            'display:flex;gap:6px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e5e7eb;align-items:center;';
         replyRow.innerHTML = `
             <input type="text" id="reply-input-${commentId}" placeholder="Trả lời comment..."
                 style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"
@@ -822,7 +862,7 @@ const TposCommentList = {
             <button style="padding:6px 8px;background:transparent;border:none;cursor:pointer;color:#6b7280;"
                 onclick="this.parentElement.remove()">✕</button>
         `;
-        replyRow.addEventListener('click', e => e.stopPropagation());
+        replyRow.addEventListener('click', (e) => e.stopPropagation());
         commentEl.appendChild(replyRow);
 
         const input = document.getElementById(`reply-input-${commentId}`);
@@ -845,18 +885,26 @@ const TposCommentList = {
         // Disable input while sending
         input.disabled = true;
         const sendBtn = input.nextElementSibling;
-        if (sendBtn) { sendBtn.textContent = '...'; sendBtn.disabled = true; }
+        if (sendBtn) {
+            sendBtn.textContent = '...';
+            sendBtn.disabled = true;
+        }
 
         const result = await window.TposApi.replyToComment(pageId, commentId, message);
         if (result) {
             // Remove reply input
             const replyRow = input.closest('.tpos-reply-input-row');
             if (replyRow) replyRow.remove();
-            if (window.notificationManager) window.notificationManager.show('Đã trả lời comment!', 'success');
+            if (window.notificationManager)
+                window.notificationManager.show('Đã trả lời comment!', 'success');
         } else {
             input.disabled = false;
-            if (sendBtn) { sendBtn.textContent = 'Gửi'; sendBtn.disabled = false; }
-            if (window.notificationManager) window.notificationManager.show('Lỗi gửi trả lời', 'error');
+            if (sendBtn) {
+                sendBtn.textContent = 'Gửi';
+                sendBtn.disabled = false;
+            }
+            if (window.notificationManager)
+                window.notificationManager.show('Lỗi gửi trả lời', 'error');
         }
     },
 
@@ -870,22 +918,24 @@ const TposCommentList = {
         const state = window.TposState;
 
         // Find the comment to get its page info (important for multi-campaign)
-        const comment = state.comments.find(c => c.id === commentId);
+        const comment = state.comments.find((c) => c.id === commentId);
         const pageObj = comment?._pageObj || state.selectedPage;
         const crmTeamId = pageObj?.Id;
         const postId = comment?._campaignId
-            ? state.liveCampaigns.find(c => c.Id === comment._campaignId)?.Facebook_LiveId
+            ? state.liveCampaigns.find((c) => c.Id === comment._campaignId)?.Facebook_LiveId
             : state.selectedCampaign?.Facebook_LiveId;
 
         if (!crmTeamId || !postId) {
-            if (window.notificationManager) window.notificationManager.show('Chưa chọn campaign', 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('Chưa chọn campaign', 'error');
             return;
         }
 
         // Update button to loading
         const btn = document.getElementById(`create-order-${fromId}`);
         if (btn) {
-            btn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px;"></i>';
+            btn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px;"></i>';
             btn.disabled = true;
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
@@ -896,7 +946,7 @@ const TposCommentList = {
                 userName: fromName,
                 userId: fromId,
                 postId,
-                commentId
+                commentId,
             });
 
             if (order && order.Code) {
@@ -904,7 +954,7 @@ const TposCommentList = {
                 state.sessionIndexMap.set(fromId, {
                     index: order.SessionIndex || '?',
                     session: order.Session,
-                    code: order.Code
+                    code: order.Code,
                 });
 
                 // Replace button with order badge
@@ -915,24 +965,33 @@ const TposCommentList = {
                 }
 
                 // Add order badge to name row
-                const header = btn?.closest('.tpos-conversation-item')?.querySelector('.tpos-conv-header');
+                const header = btn
+                    ?.closest('.tpos-conversation-item')
+                    ?.querySelector('.tpos-conv-header');
                 if (header && !header.querySelector('.order-code-badge')) {
-                    header.insertAdjacentHTML('beforeend',
+                    header.insertAdjacentHTML(
+                        'beforeend',
                         `<span class="order-code-badge" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;">${order.Code}</span>`
                     );
                 }
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
-                if (window.notificationManager) window.notificationManager.show(`Đã tạo đơn ${order.Code} (STT: ${order.SessionIndex})`, 'success');
+                if (window.notificationManager)
+                    window.notificationManager.show(
+                        `Đã tạo đơn ${order.Code} (STT: ${order.SessionIndex})`,
+                        'success'
+                    );
             }
         } catch (error) {
             // Restore button
             if (btn) {
-                btn.innerHTML = '<i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>';
+                btn.innerHTML =
+                    '<i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>';
                 btn.disabled = false;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
-            if (window.notificationManager) window.notificationManager.show('Lỗi tạo đơn: ' + error.message, 'error');
+            if (window.notificationManager)
+                window.notificationManager.show('Lỗi tạo đơn: ' + error.message, 'error');
         }
     },
 
@@ -962,7 +1021,8 @@ const TposCommentList = {
         if (!modal || !bodyEl) return;
 
         titleEl.textContent = name;
-        bodyEl.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><span>Đang tải...</span></div>';
+        bodyEl.innerHTML =
+            '<div class="loading-container"><div class="loading-spinner"></div><span>Đang tải...</span></div>';
         modal.style.display = 'flex';
 
         try {
@@ -985,7 +1045,9 @@ const TposCommentList = {
                     if (json.success && json.data) {
                         customerData = json.data;
                     }
-                } catch { /* fallback below */ }
+                } catch {
+                    /* fallback below */
+                }
             }
 
             // Strategy 2: Lookup by fb_id via Render DB
@@ -996,7 +1058,9 @@ const TposCommentList = {
                     if (json.success && json.data) {
                         customerData = json.data;
                     }
-                } catch { /* fallback below */ }
+                } catch {
+                    /* fallback below */
+                }
             }
 
             if (customerData) {
@@ -1042,13 +1106,22 @@ const TposCommentList = {
 
         // Merge notes
         const allNotes = [
-            ...notes.map(n => ({ text: n.content, by: n.created_by, at: n.created_at, src: 'db' })),
-            ...pancakeNotes.map(n => ({
+            ...notes.map((n) => ({
+                text: n.content,
+                by: n.created_by,
+                at: n.created_at,
+                src: 'db',
+            })),
+            ...pancakeNotes.map((n) => ({
                 text: n.message || n.content || '',
                 by: n.created_by?.fb_name || 'Pancake',
-                at: n.created_at ? new Date(typeof n.created_at === 'number' ? n.created_at : n.created_at).toLocaleString('vi-VN') : '',
-                src: 'pancake'
-            }))
+                at: n.created_at
+                    ? new Date(
+                          typeof n.created_at === 'number' ? n.created_at : n.created_at
+                      ).toLocaleString('vi-VN')
+                    : '',
+                src: 'pancake',
+            })),
         ];
 
         bodyEl.innerHTML = `
@@ -1078,16 +1151,25 @@ const TposCommentList = {
                 ${walletTotal > 0 ? `<div class="customer-field"><label>Ví:</label><span style="font-weight:600">${new Intl.NumberFormat('vi-VN').format(walletTotal)}đ</span></div>` : ''}
             </div>
 
-            ${allNotes.length > 0 ? `
+            ${
+                allNotes.length > 0
+                    ? `
             <div class="customer-section">
                 <h4><i data-lucide="sticky-note" style="width:16px;height:16px;"></i> Ghi chú (${allNotes.length})</h4>
-                ${allNotes.slice(0, 5).map(n => `
+                ${allNotes
+                    .slice(0, 5)
+                    .map(
+                        (n) => `
                     <div class="comment-item" style="${n.src === 'pancake' ? 'border-left:3px solid #f59e0b;' : ''}">
                         <div class="comment-text">${SharedUtils.escapeHtml(n.text)}</div>
                         <div class="comment-time">${SharedUtils.escapeHtml(n.by || '')} ${n.at ? '· ' + n.at : ''}</div>
                     </div>
-                `).join('')}
-            </div>` : ''}
+                `
+                    )
+                    .join('')}
+            </div>`
+                    : ''
+            }
 
             <div style="display:flex;gap:12px;margin-top:20px;">
                 <button onclick="document.getElementById('customerInfoModal').style.display='none'"
@@ -1100,7 +1182,7 @@ const TposCommentList = {
         `;
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
-    }
+    },
 };
 
 // Export for script-tag usage

@@ -48,10 +48,14 @@ function log(msg) {
     const ts = new Date().toISOString();
     const line = `[${ts}] ${msg}`;
     console.log(line);
-    try { fs.appendFileSync(LOG_FILE, line + '\n'); } catch {}
+    try {
+        fs.appendFileSync(LOG_FILE, line + '\n');
+    } catch {}
 }
 
-function debug(msg) { if (DEBUG) log('[debug] ' + msg); }
+function debug(msg) {
+    if (DEBUG) log('[debug] ' + msg);
+}
 
 // ============================================================
 // State
@@ -62,7 +66,10 @@ function loadState() {
         if (!fs.existsSync(STATE_FILE)) return { syncedRowKeys: [], lastSyncAt: 0 };
         const raw = fs.readFileSync(STATE_FILE, 'utf8');
         const s = JSON.parse(raw);
-        return { syncedRowKeys: Array.isArray(s.syncedRowKeys) ? s.syncedRowKeys : [], lastSyncAt: s.lastSyncAt || 0 };
+        return {
+            syncedRowKeys: Array.isArray(s.syncedRowKeys) ? s.syncedRowKeys : [],
+            lastSyncAt: s.lastSyncAt || 0,
+        };
     } catch (e) {
         log(`[state] load error: ${e.message} — starting fresh`);
         return { syncedRowKeys: [], lastSyncAt: 0 };
@@ -84,7 +91,9 @@ function saveState(state) {
 
 function readCredentials() {
     const content = fs.readFileSync(SECRETS_FILE, 'utf8');
-    const line = content.split('\n').find(l => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
+    const line = content
+        .split('\n')
+        .find((l) => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
     if (!line) throw new Error('No OnCallCX credentials in secrets file');
     const after = line.replace(/^\s*\d+\/?\s*/, '').replace(/"[^"]*"\s*/, '');
     const parts = after.trim().split(/\s+/);
@@ -97,7 +106,7 @@ function readCredentials() {
 
 function parseDurationSec(hms) {
     if (!hms) return 0;
-    const parts = hms.split(':').map(s => parseInt(s, 10) || 0);
+    const parts = hms.split(':').map((s) => parseInt(s, 10) || 0);
     if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
     if (parts.length === 2) return parts[0] * 60 + parts[1];
     return parts[0] || 0;
@@ -148,7 +157,11 @@ async function uploadToRender(fetch, meta, wavBuffer) {
     });
     const txt = await r.text();
     if (!r.ok) throw new Error(`Render upload failed ${r.status}: ${txt.slice(0, 200)}`);
-    try { return JSON.parse(txt); } catch { return { raw: txt }; }
+    try {
+        return JSON.parse(txt);
+    } catch {
+        return { raw: txt };
+    }
 }
 
 // ============================================================
@@ -161,7 +174,11 @@ async function main() {
 
     const creds = readCredentials();
     const { OnCallPortalClient } = require('../render.com/services/oncall-portal-client');
-    const client = new OnCallPortalClient({ username: creds.username, password: creds.password, debug: DEBUG });
+    const client = new OnCallPortalClient({
+        username: creds.username,
+        password: creds.password,
+        debug: DEBUG,
+    });
     const fetch = require('../render.com/node_modules/node-fetch');
 
     const state = loadState();
@@ -176,7 +193,7 @@ async function main() {
     log(`Fetched ${calls.length} CDR rows`);
 
     // 2. Filter eligible (has recording + not synced)
-    const eligible = calls.filter(c => c.hasRecording && !syncedSet.has(c.rowKey));
+    const eligible = calls.filter((c) => c.hasRecording && !syncedSet.has(c.rowKey));
     log(`Eligible for sync: ${eligible.length} (new with recording)`);
     if (!eligible.length) {
         state.lastSyncAt = Date.now();
@@ -186,7 +203,8 @@ async function main() {
     }
 
     // 3. For each: download + upload
-    let synced = 0, failed = 0;
+    let synced = 0,
+        failed = 0;
     const toProcess = eligible.slice(0, MAX);
     for (const call of toProcess) {
         const tag = `${call.start} ${call.from}->${call.outboundPublicNumber || call.to} rk=${call.rowKey}`;
@@ -196,7 +214,7 @@ async function main() {
             // Buffer stream to memory (WAV files ~500KB-3MB is fine)
             const chunks = [];
             await new Promise((res, rej) => {
-                dl.stream.on('data', c => chunks.push(c));
+                dl.stream.on('data', (c) => chunks.push(c));
                 dl.stream.on('end', res);
                 dl.stream.on('error', rej);
             });
@@ -205,10 +223,12 @@ async function main() {
 
             // Prepare metadata
             const direction = detectDirection(call);
-            const phone = direction === 'out' ? (call.outboundPublicNumber || call.to) : call.from;
+            const phone = direction === 'out' ? call.outboundPublicNumber || call.to : call.from;
             const ext = direction === 'out' ? call.from : call.to;
             const meta = {
-                phone, ext, direction,
+                phone,
+                ext,
+                direction,
                 duration: parseDurationSec(call.duration),
                 timestamp: parseTimestamp(call.start),
             };
@@ -228,10 +248,12 @@ async function main() {
 
     state.lastSyncAt = Date.now();
     saveState(state);
-    log(`=== Done: synced=${synced}, failed=${failed}, skipped=${eligible.length - toProcess.length}, state=${syncedSet.size} tracked ===`);
+    log(
+        `=== Done: synced=${synced}, failed=${failed}, skipped=${eligible.length - toProcess.length}, state=${syncedSet.size} tracked ===`
+    );
 }
 
-main().catch(err => {
+main().catch((err) => {
     log(`[fatal] ${err.message}\n${err.stack}`);
     process.exit(1);
 });

@@ -67,9 +67,15 @@
 
     async function checkOrderStatus(orderIds) {
         if (Array.isArray(orderIds)) {
-            return apiFetch('/api/autofb-order-status', { method: 'POST', body: { order_ids: orderIds } });
+            return apiFetch('/api/autofb-order-status', {
+                method: 'POST',
+                body: { order_ids: orderIds },
+            });
         }
-        return apiFetch('/api/autofb-order-status', { method: 'POST', body: { order_id: orderIds } });
+        return apiFetch('/api/autofb-order-status', {
+            method: 'POST',
+            body: { order_id: orderIds },
+        });
     }
 
     async function cancelOrder(orderId) {
@@ -123,11 +129,14 @@
     function renderServicesList(services) {
         const container = document.getElementById('servicesList');
         if (!services.length) {
-            container.innerHTML = '<div class="loading-state"><span>Kh\u00f4ng t\u00ecm th\u1ea5y d\u1ecbch v\u1ee5</span></div>';
+            container.innerHTML =
+                '<div class="loading-state"><span>Kh\u00f4ng t\u00ecm th\u1ea5y d\u1ecbch v\u1ee5</span></div>';
             return;
         }
 
-        container.innerHTML = services.map(s => `
+        container.innerHTML = services
+            .map(
+                (s) => `
             <div class="service-item" data-id="${s.service}">
                 <div class="service-item-category">${(s.category || 'Other').trim()}</div>
                 <div class="service-item-name">#${s.service} ${s.name}</div>
@@ -139,7 +148,9 @@
                     ${s.cancel ? '<span>Cancel</span>' : ''}
                 </div>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     function filterServices() {
@@ -147,12 +158,14 @@
         const search = document.getElementById('serviceSearch').value.toLowerCase().trim();
 
         let filtered = allServices;
-        if (category) filtered = filtered.filter(s => s.category === category);
-        if (search) filtered = filtered.filter(s =>
-            s.name.toLowerCase().includes(search) ||
-            String(s.service).includes(search) ||
-            (s.category || '').toLowerCase().includes(search)
-        );
+        if (category) filtered = filtered.filter((s) => s.category === category);
+        if (search)
+            filtered = filtered.filter(
+                (s) =>
+                    s.name.toLowerCase().includes(search) ||
+                    String(s.service).includes(search) ||
+                    (s.category || '').toLowerCase().includes(search)
+            );
 
         renderServicesList(filtered);
         renderServiceSelect(filtered);
@@ -163,13 +176,13 @@
     // =====================================================
 
     function selectService(serviceId) {
-        selectedService = allServices.find(s => String(s.service) === String(serviceId)) || null;
+        selectedService = allServices.find((s) => String(s.service) === String(serviceId)) || null;
 
         // Update service select dropdown
         document.getElementById('serviceSelect').value = serviceId || '';
 
         // Highlight in list
-        document.querySelectorAll('.service-item').forEach(el => {
+        document.querySelectorAll('.service-item').forEach((el) => {
             el.classList.toggle('selected', el.dataset.id === String(serviceId));
         });
 
@@ -184,11 +197,14 @@
         const rateVND = Math.round(parseFloat(selectedService.rate) * USD_TO_VND);
         document.getElementById('serviceRate').textContent = `${rateVND.toLocaleString()}đ / 1000`;
         document.getElementById('serviceMin').textContent = selectedService.min;
-        document.getElementById('serviceMax').textContent = Number(selectedService.max).toLocaleString();
+        document.getElementById('serviceMax').textContent = Number(
+            selectedService.max
+        ).toLocaleString();
 
         // Show comments field for comment services
-        const isComment = (selectedService.category || '').toLowerCase().includes('comment')
-            || (selectedService.name || '').toLowerCase().includes('comment');
+        const isComment =
+            (selectedService.category || '').toLowerCase().includes('comment') ||
+            (selectedService.name || '').toLowerCase().includes('comment');
         document.getElementById('commentsGroup').style.display = isComment ? 'block' : 'none';
 
         // Set quantity min/max
@@ -220,7 +236,11 @@
         const qty = parseInt(document.getElementById('quantityInput').value) || 0;
         const link = document.getElementById('linkInput').value.trim();
 
-        const valid = selectedService && link && qty >= (selectedService.min || 1) && qty <= (selectedService.max || Infinity);
+        const valid =
+            selectedService &&
+            link &&
+            qty >= (selectedService.min || 1) &&
+            qty <= (selectedService.max || Infinity);
         btn.disabled = !valid;
     }
 
@@ -231,7 +251,8 @@
     async function submitOrder() {
         const btn = document.getElementById('btnSubmitOrder');
         btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang \u0111\u1eb7t...';
+        btn.innerHTML =
+            '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang \u0111\u1eb7t...';
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         const link = document.getElementById('linkInput').value.trim();
@@ -268,9 +289,13 @@
                 // Refresh balance
                 loadBalance();
 
-                alert(`\u0110\u1eb7t \u0111\u01a1n th\u00e0nh c\u00f4ng! Order ID: ${result.data.order_id}`);
+                alert(
+                    `\u0110\u1eb7t \u0111\u01a1n th\u00e0nh c\u00f4ng! Order ID: ${result.data.order_id}`
+                );
             } else {
-                alert(`L\u1ed7i: ${result.error || 'Kh\u00f4ng th\u1ec3 \u0111\u1eb7t \u0111\u01a1n'}`);
+                alert(
+                    `L\u1ed7i: ${result.error || 'Kh\u00f4ng th\u1ec3 \u0111\u1eb7t \u0111\u01a1n'}`
+                );
             }
         } catch (e) {
             alert(`L\u1ed7i: ${e.message}`);
@@ -289,7 +314,9 @@
     function loadHistory() {
         try {
             orderHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        } catch { orderHistory = []; }
+        } catch {
+            orderHistory = [];
+        }
     }
 
     function saveHistory() {
@@ -299,16 +326,18 @@
     function renderHistory() {
         const tbody = document.getElementById('historyTable');
         if (!orderHistory.length) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o</td></tr>';
+            tbody.innerHTML =
+                '<tr class="empty-row"><td colspan="8">Ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o</td></tr>';
             return;
         }
 
-        tbody.innerHTML = orderHistory.map(o => {
-            const statusClass = getStatusClass(o.status);
-            const date = new Date(o.created_at);
-            const dateStr = `${date.getDate()}/${date.getMonth() + 1} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+        tbody.innerHTML = orderHistory
+            .map((o) => {
+                const statusClass = getStatusClass(o.status);
+                const date = new Date(o.created_at);
+                const dateStr = `${date.getDate()}/${date.getMonth() + 1} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
 
-            return `<tr>
+                return `<tr>
                 <td><strong>${o.order_id}</strong></td>
                 <td title="${o.service_name}">#${o.service_id}</td>
                 <td class="link-cell"><a href="${o.link}" target="_blank">${truncate(o.link, 30)}</a></td>
@@ -320,13 +349,18 @@
                     <button class="btn btn-sm btn-outline" onclick="window._fbSvc.checkStatus(${o.order_id})" title="Check status">
                         <i data-lucide="refresh-cw"></i>
                     </button>
-                    ${o.status === 'Pending' || o.status === 'Processing' ? `
+                    ${
+                        o.status === 'Pending' || o.status === 'Processing'
+                            ? `
                     <button class="btn btn-sm btn-outline btn-danger" onclick="window._fbSvc.cancelOrd(${o.order_id})" title="Cancel">
                         <i data-lucide="x"></i>
-                    </button>` : ''}
+                    </button>`
+                            : ''
+                    }
                 </td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -347,7 +381,12 @@
     }
 
     async function refreshAllStatuses() {
-        const ids = orderHistory.filter(o => o.status !== 'Completed' && o.status !== 'Canceled' && o.status !== 'Cancelled').map(o => o.order_id);
+        const ids = orderHistory
+            .filter(
+                (o) =>
+                    o.status !== 'Completed' && o.status !== 'Canceled' && o.status !== 'Cancelled'
+            )
+            .map((o) => o.order_id);
         if (!ids.length) return;
 
         try {
@@ -358,7 +397,7 @@
                 if (typeof statuses === 'object' && !Array.isArray(statuses)) {
                     // Multi-order: { orderId: { status, ... } }
                     for (const [id, info] of Object.entries(statuses)) {
-                        const order = orderHistory.find(o => String(o.order_id) === String(id));
+                        const order = orderHistory.find((o) => String(o.order_id) === String(id));
                         if (order && info.status) {
                             order.status = capitalizeFirst(info.status);
                             if (info.remains !== undefined) order.remains = info.remains;
@@ -366,7 +405,7 @@
                     }
                 } else if (statuses.status) {
                     // Single order response
-                    const order = orderHistory.find(o => String(o.order_id) === String(ids[0]));
+                    const order = orderHistory.find((o) => String(o.order_id) === String(ids[0]));
                     if (order) order.status = capitalizeFirst(statuses.status);
                 }
                 saveHistory();
@@ -389,30 +428,39 @@
     async function fetchFacebookPages() {
         try {
             const res = await fetch(`${RENDER_SERVER}/facebook/crm-teams`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
+                headers: { Authorization: `Bearer ${getToken()}` },
             });
             if (!res.ok) return [];
             const data = await res.json();
             return data.data || data || [];
-        } catch { return []; }
+        } catch {
+            return [];
+        }
     }
 
     async function fetchPagePosts(pageId) {
         try {
-            const res = await fetch(`${RENDER_SERVER}/facebook/livevideo?pageid=${pageId}&limit=10`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
-            });
+            const res = await fetch(
+                `${RENDER_SERVER}/facebook/livevideo?pageid=${pageId}&limit=10`,
+                {
+                    headers: { Authorization: `Bearer ${getToken()}` },
+                }
+            );
             if (!res.ok) return [];
             const data = await res.json();
             return data.data || [];
-        } catch { return []; }
+        } catch {
+            return [];
+        }
     }
 
     function getToken() {
         try {
             const auth = JSON.parse(localStorage.getItem('bearer_token_data') || '{}');
             return auth.access_token || '';
-        } catch { return ''; }
+        } catch {
+            return '';
+        }
     }
 
     // =====================================================
@@ -448,8 +496,10 @@
     function updateSpendingStats() {
         const total = orderHistory.length;
         const spent = orderHistory.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
-        const completed = orderHistory.filter(o => o.status === 'Completed').length;
-        const pending = orderHistory.filter(o => o.status === 'Pending' || o.status === 'Processing' || o.status === 'In progress').length;
+        const completed = orderHistory.filter((o) => o.status === 'Completed').length;
+        const pending = orderHistory.filter(
+            (o) => o.status === 'Pending' || o.status === 'Processing' || o.status === 'In progress'
+        ).length;
 
         document.getElementById('statTotalOrders').textContent = total;
         const spentVND = Math.round(spent * USD_TO_VND);
@@ -465,9 +515,11 @@
 
     function setupWalletEvents() {
         // Quick amount buttons
-        document.querySelectorAll('.quick-amount-btn').forEach(btn => {
+        document.querySelectorAll('.quick-amount-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('active'));
+                document
+                    .querySelectorAll('.quick-amount-btn')
+                    .forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById('depositAmount').value = btn.dataset.amount;
                 updateDepositUSD();
@@ -477,7 +529,9 @@
 
         // Deposit amount input
         document.getElementById('depositAmount').addEventListener('input', () => {
-            document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('active'));
+            document
+                .querySelectorAll('.quick-amount-btn')
+                .forEach((b) => b.classList.remove('active'));
             updateDepositUSD();
             updateCreateQRButton();
         });
@@ -489,7 +543,8 @@
 
             const btn = document.getElementById('btnCreateQR');
             btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea1o m\u00e3...';
+            btn.innerHTML =
+                '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea1o m\u00e3...';
             if (typeof lucide !== 'undefined') lucide.createIcons();
 
             try {
@@ -510,7 +565,7 @@
         });
 
         // Copy buttons
-        document.querySelectorAll('.btn-copy').forEach(btn => {
+        document.querySelectorAll('.btn-copy').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const targetId = btn.dataset.copy;
                 const text = document.getElementById(targetId).textContent;
@@ -529,8 +584,10 @@
         const headerBtn = document.getElementById('btnHeaderDeposit');
         if (headerBtn) {
             headerBtn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+                document
+                    .querySelectorAll('.tab-content')
+                    .forEach((c) => c.classList.remove('active'));
                 document.querySelector('.tab-btn[data-tab="wallet"]').classList.add('active');
                 document.getElementById('tabWallet').classList.add('active');
             });
@@ -540,7 +597,8 @@
         document.getElementById('btnRefreshBalance').addEventListener('click', async () => {
             const btn = document.getElementById('btnRefreshBalance');
             btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea3i...';
+            btn.innerHTML =
+                '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea3i...';
             if (typeof lucide !== 'undefined') lucide.createIcons();
             await loadBalance();
             btn.disabled = false;
@@ -580,10 +638,12 @@
     // =====================================================
 
     function setupTabs() {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
+        document.querySelectorAll('.tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+                document
+                    .querySelectorAll('.tab-content')
+                    .forEach((c) => c.classList.remove('active'));
                 btn.classList.add('active');
                 const tabId = 'tab' + capitalizeFirst(btn.dataset.tab);
                 document.getElementById(tabId).classList.add('active');
@@ -651,15 +711,15 @@
     // =====================================================
 
     const PANCAKE_PAGE_ID = '270136663390370'; // NhiJudy Store (default)
-    let cachedPancakePosts = [];      // pancake posts (current page)
-    let cachedLiveVideos = [];        // tpos live videos (current page)
-    const postsByPage = {};           // pageId → pancake posts (in-memory cache)
-    const liveByPage = {};            // pageId → live videos (in-memory cache)
+    let cachedPancakePosts = []; // pancake posts (current page)
+    let cachedLiveVideos = []; // tpos live videos (current page)
+    const postsByPage = {}; // pageId → pancake posts (in-memory cache)
+    const liveByPage = {}; // pageId → live videos (in-memory cache)
     let filteredPancakePosts = [];
     let currentPostTab = 'live'; // 'live' | 'video' | 'post'
     let currentPageId = PANCAKE_PAGE_ID;
-    let pancakePagesList = [];        // [{id, name}] from realtime_credentials + crm-teams
-    let pancakeAccountCache = null;   // cached creds from /api/realtime/credentials/pancake
+    let pancakePagesList = []; // [{id, name}] from realtime_credentials + crm-teams
+    let pancakeAccountCache = null; // cached creds from /api/realtime/credentials/pancake
     const PAGES_LS_KEY = 'fbsvc_pages_list_v1';
     const PAGES_LS_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -672,7 +732,7 @@
 
     function setPostTab(tab) {
         currentPostTab = tab;
-        document.querySelectorAll('#postTabs .fb-post-tab').forEach(btn => {
+        document.querySelectorAll('#postTabs .fb-post-tab').forEach((btn) => {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
         if (typeof loadPostsForCurrentTab === 'function') {
@@ -694,10 +754,14 @@
             if (!obj || !obj.list || !obj.ts) return null;
             if (Date.now() - obj.ts > PAGES_LS_TTL) return null;
             return obj.list;
-        } catch (_) { return null; }
+        } catch (_) {
+            return null;
+        }
     }
     function savePagesToLS(list) {
-        try { localStorage.setItem(PAGES_LS_KEY, JSON.stringify({ ts: Date.now(), list })); } catch (_) {}
+        try {
+            localStorage.setItem(PAGES_LS_KEY, JSON.stringify({ ts: Date.now(), list }));
+        } catch (_) {}
     }
 
     async function loadPancakePagesList() {
@@ -707,21 +771,23 @@
         if (ls && ls.length) {
             pancakePagesList = ls;
             // refresh in background, ignore errors
-            _fetchPancakePagesList().then(fresh => {
-                if (fresh && fresh.length && JSON.stringify(fresh) !== JSON.stringify(ls)) {
-                    pancakePagesList = fresh;
-                    renderPageSelect();
-                }
-            }).catch(() => {});
+            _fetchPancakePagesList()
+                .then((fresh) => {
+                    if (fresh && fresh.length && JSON.stringify(fresh) !== JSON.stringify(ls)) {
+                        pancakePagesList = fresh;
+                        renderPageSelect();
+                    }
+                })
+                .catch(() => {});
             return pancakePagesList;
         }
         return _fetchPancakePagesList();
     }
 
     async function _fetchPancakePagesList() {
-        const acc = pancakeAccountCache || await loadPancakeAccountFromRender();
+        const acc = pancakeAccountCache || (await loadPancakeAccountFromRender());
         pancakeAccountCache = acc;
-        const ids = (acc && Array.isArray(acc.pageIds)) ? acc.pageIds : [PANCAKE_PAGE_ID];
+        const ids = acc && Array.isArray(acc.pageIds) ? acc.pageIds : [PANCAKE_PAGE_ID];
 
         // Try enrich with names from TPOS crm-teams
         const nameMap = {};
@@ -747,7 +813,10 @@
             console.warn('[FB-SVC] crm-teams enrich failed:', e.message);
         }
 
-        pancakePagesList = ids.map(id => ({ id: String(id), name: nameMap[String(id)] || `Page ${String(id).slice(-6)}` }));
+        pancakePagesList = ids.map((id) => ({
+            id: String(id),
+            name: nameMap[String(id)] || `Page ${String(id).slice(-6)}`,
+        }));
         savePagesToLS(pancakePagesList);
         return pancakePagesList;
     }
@@ -755,9 +824,12 @@
     function renderPageSelect() {
         const sel = document.getElementById('postPageSelect');
         if (!sel) return;
-        sel.innerHTML = pancakePagesList.map(p =>
-            `<option value="${p.id}"${p.id === currentPageId ? ' selected' : ''}>${p.name}</option>`
-        ).join('');
+        sel.innerHTML = pancakePagesList
+            .map(
+                (p) =>
+                    `<option value="${p.id}"${p.id === currentPageId ? ' selected' : ''}>${p.name}</option>`
+            )
+            .join('');
     }
 
     // =====================================================
@@ -769,7 +841,10 @@
             const headers = {};
             const token = getToken();
             if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(`${RENDER_SERVER}/facebook/livevideo?pageid=${currentPageId}&limit=30`, { headers });
+            const res = await fetch(
+                `${RENDER_SERVER}/facebook/livevideo?pageid=${currentPageId}&limit=30`,
+                { headers }
+            );
             const result = await res.json();
             // Shape: { success, data: { '@odata.context':..., value:[...] } } or { data:[...] }
             const raw = result?.data?.value || result?.data?.data || result?.data || [];
@@ -791,7 +866,8 @@
         const id = v.objectId || v.id || '';
         const title = v.title || v.name || v.description || 'Live video';
         const thumb = v.thumbnail?.url || v.picture || v.thumbnail_url || null;
-        const created = v.channelCreatedTime || v.channelUpdatedTime || v.createdTime || v.creation_time;
+        const created =
+            v.channelCreatedTime || v.channelUpdatedTime || v.createdTime || v.creation_time;
         // permalink: pageId_videoId → /{pageId}/videos/{videoId}
         let permalink = `https://www.facebook.com/${id}`;
         if (id.includes('_')) {
@@ -828,7 +904,9 @@
                 renderPageSelect();
             }
             // Kick off fresh fetch in background (also handles first-ever load)
-            loadPancakePagesList().then(() => renderPageSelect()).catch(() => {});
+            loadPancakePagesList()
+                .then(() => renderPageSelect())
+                .catch(() => {});
         } else {
             renderPageSelect();
         }
@@ -873,7 +951,10 @@
             const res = await fetch(`${RENDER_SERVER}/api/realtime/credentials/pancake`);
             const data = await res.json();
             if (data && data.found && data.token) {
-                console.log('[FB-SVC] Loaded Pancake account from Render DB, pages:', (data.pageIds || []).length);
+                console.log(
+                    '[FB-SVC] Loaded Pancake account from Render DB, pages:',
+                    (data.pageIds || []).length
+                );
                 return data;
             }
         } catch (e) {
@@ -889,14 +970,18 @@
             if (renderAcc && renderAcc.token) {
                 const url = `${CF_WORKER}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${currentPageId}&jwt=${encodeURIComponent(renderAcc.token)}&page_ids=${currentPageId}&access_token=${encodeURIComponent(renderAcc.token)}`;
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
                     const result = await res.json();
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
                         postsByPage[currentPageId] = cachedPancakePosts;
                         filteredPancakePosts = cachedPancakePosts;
                         filterPancakePosts();
-                        console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via Render DB account');
+                        console.log(
+                            '[FB-SVC] Loaded',
+                            cachedPancakePosts.length,
+                            'posts via Render DB account'
+                        );
                         return;
                     }
                     console.warn('[FB-SVC] Render DB account failed:', result.message);
@@ -923,14 +1008,19 @@
                 console.log('[FB-SVC] Trying account:', account.name);
                 const url = `${CF_WORKER}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${currentPageId}&jwt=${encodeURIComponent(account.token)}&page_ids=${currentPageId}&access_token=${encodeURIComponent(account.token)}`;
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
                     const result = await res.json();
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
                         postsByPage[currentPageId] = cachedPancakePosts;
                         filteredPancakePosts = cachedPancakePosts;
                         filterPancakePosts();
-                        console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via', account.name);
+                        console.log(
+                            '[FB-SVC] Loaded',
+                            cachedPancakePosts.length,
+                            'posts via',
+                            account.name
+                        );
                         return;
                     }
                     console.warn('[FB-SVC] Account', account.name, 'failed:', result.message);
@@ -947,21 +1037,27 @@
             }
             if (pat) {
                 const now = Math.floor(Date.now() / 1000);
-                const since = now - (90 * 24 * 60 * 60);
+                const since = now - 90 * 24 * 60 * 60;
                 const url = `${CF_WORKER}/api/pancake-official/pages/${currentPageId}/posts?page_access_token=${encodeURIComponent(pat)}&since=${since}&until=${now}&page_number=1&page_size=30`;
-                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const res = await fetch(url, { headers: { Accept: 'application/json' } });
                 const result = await res.json();
                 if (result.success && result.posts) {
                     cachedPancakePosts = result.posts;
                     postsByPage[currentPageId] = cachedPancakePosts;
                     filteredPancakePosts = cachedPancakePosts;
                     filterPancakePosts();
-                    console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via official API');
+                    console.log(
+                        '[FB-SVC] Loaded',
+                        cachedPancakePosts.length,
+                        'posts via official API'
+                    );
                     return;
                 }
             }
 
-            throw new Error('Phi\u00ean \u0111\u0103ng nh\u1eadp Pancake \u0111\u00e3 h\u1ebft h\u1ea1n');
+            throw new Error(
+                'Phi\u00ean \u0111\u0103ng nh\u1eadp Pancake \u0111\u00e3 h\u1ebft h\u1ea1n'
+            );
         } catch (error) {
             console.error('[FB-SVC] fetchPancakePosts error:', error);
             document.getElementById('postLoading').style.display = 'none';
@@ -1003,21 +1099,30 @@
             if (title.length > 80) title = title.substring(0, 80) + '...';
 
             const date = new Date(post.inserted_at);
-            const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = date.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+            const timeStr = date.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+            });
 
             const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
 
             let typeLabel = '';
             if (post.type === 'livestream') {
-                if (post._isLiveNow) typeLabel = '<span class="type-icon type-live-now">\u{1F534} LIVE</span>';
+                if (post._isLiveNow)
+                    typeLabel = '<span class="type-icon type-live-now">\u{1F534} LIVE</span>';
                 else typeLabel = '<span class="type-icon">REPLAY</span>';
             } else if (post.type === 'video') typeLabel = '<span class="type-icon">VIDEO</span>';
 
             let meta = '';
             if (post.comment_count > 0) meta += `<span>\u{1F4AC} ${post.comment_count}</span>`;
             if (post.share_count > 0) meta += `<span>\u{1F504} ${post.share_count}</span>`;
-            if (post.phone_number_count > 0) meta += `<span>\u{1F4DE} ${post.phone_number_count}</span>`;
+            if (post.phone_number_count > 0)
+                meta += `<span>\u{1F4DE} ${post.phone_number_count}</span>`;
 
             const thumbUrl = thumb ? imgProxy + encodeURIComponent(thumb) : '';
 
@@ -1065,10 +1170,10 @@
         if (currentPostTab === 'live') {
             source = cachedLiveVideos;
         } else {
-            source = cachedPancakePosts.filter(p => postMatchesTab(p, currentPostTab));
+            source = cachedPancakePosts.filter((p) => postMatchesTab(p, currentPostTab));
         }
         let list = source;
-        if (term) list = list.filter(p => (p.message || '').toLowerCase().includes(term));
+        if (term) list = list.filter((p) => (p.message || '').toLowerCase().includes(term));
         filteredPancakePosts = list;
         renderPancakePosts(filteredPancakePosts);
     }
@@ -1128,7 +1233,7 @@
                 const result = await checkOrderStatus(orderId);
                 if (result.success && result.data) {
                     const status = result.data.status || 'Unknown';
-                    const order = orderHistory.find(o => String(o.order_id) === String(orderId));
+                    const order = orderHistory.find((o) => String(o.order_id) === String(orderId));
                     if (order) {
                         order.status = capitalizeFirst(status);
                         if (result.data.remains !== undefined) order.remains = result.data.remains;
@@ -1145,7 +1250,7 @@
             try {
                 const result = await cancelOrder(orderId);
                 if (result.success) {
-                    const order = orderHistory.find(o => String(o.order_id) === String(orderId));
+                    const order = orderHistory.find((o) => String(o.order_id) === String(orderId));
                     if (order) order.status = 'Canceled';
                     saveHistory();
                     renderHistory();
@@ -1155,7 +1260,7 @@
             } catch (e) {
                 alert('L\u1ed7i: ' + e.message);
             }
-        }
+        },
     };
 
     // =====================================================
@@ -1170,7 +1275,9 @@
 
         // Initialize PancakeTokenManager for post selection
         if (window.pancakeTokenManager && window.pancakeTokenManager.init) {
-            window.pancakeTokenManager.init().catch(e => console.warn('[FB-SVC] PancakeToken init:', e.message));
+            window.pancakeTokenManager
+                .init()
+                .catch((e) => console.warn('[FB-SVC] PancakeToken init:', e.message));
         }
 
         setupTabs();
@@ -1204,7 +1311,8 @@
             renderServiceSelect(allServices);
             renderServicesList(allServices);
         } else {
-            document.getElementById('servicesList').innerHTML = '<div class="loading-state"><span>Kh\u00f4ng th\u1ec3 t\u1ea3i d\u1ecbch v\u1ee5. Ki\u1ec3m tra API key.</span></div>';
+            document.getElementById('servicesList').innerHTML =
+                '<div class="loading-state"><span>Kh\u00f4ng th\u1ec3 t\u1ea3i d\u1ecbch v\u1ee5. Ki\u1ec3m tra API key.</span></div>';
         }
 
         if (typeof lucide !== 'undefined') lucide.createIcons();

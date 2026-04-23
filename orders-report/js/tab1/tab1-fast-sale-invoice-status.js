@@ -20,7 +20,9 @@
     // =====================================================
 
     const STORAGE_KEY = 'invoiceStatusStore_v2';
-    const API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
+    const API_BASE =
+        (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+        '/api/invoice-status';
 
     /**
      * Extract SaleOnlineId from a compound key or legacy flat key.
@@ -204,7 +206,7 @@
                 this._myKeys = new Set();
 
                 // Populate Map from DB rows
-                (result.entries || []).forEach(row => {
+                (result.entries || []).forEach((row) => {
                     const key = row.compound_key;
                     const value = {
                         SaleOnlineId: row.sale_online_id,
@@ -247,7 +249,7 @@
                 });
 
                 // Populate sentBills
-                (result.sentBills || []).forEach(id => this._sentBills.add(id));
+                (result.sentBills || []).forEach((id) => this._sentBills.add(id));
 
                 return true;
             } catch (e) {
@@ -290,14 +292,18 @@
         async _saveBatchToAPI(compoundKeys) {
             if (!compoundKeys || compoundKeys.length === 0) return;
 
-            const entries = compoundKeys.map(key => {
-                const data = this._data.get(key);
-                return data ? {
-                    compoundKey: key,
-                    saleOnlineId: data.SaleOnlineId || extractSaleOnlineId(key),
-                    data,
-                } : null;
-            }).filter(Boolean);
+            const entries = compoundKeys
+                .map((key) => {
+                    const data = this._data.get(key);
+                    return data
+                        ? {
+                              compoundKey: key,
+                              saleOnlineId: data.SaleOnlineId || extractSaleOnlineId(key),
+                              data,
+                          }
+                        : null;
+                })
+                .filter(Boolean);
 
             if (entries.length === 0) return;
 
@@ -458,11 +464,15 @@
                 invoiceData.StateCode === 'cancel';
             const isFullyPaid = !isCancelled && cashOnDelivery === 0 && paymentAmount > 0;
             const showState = isCancelled
-                ? (rawShowState || 'Huỷ bỏ')
-                : (isFullyPaid ? 'Đã thanh toán' : (rawShowState || 'Nháp'));
+                ? rawShowState || 'Huỷ bỏ'
+                : isFullyPaid
+                  ? 'Đã thanh toán'
+                  : rawShowState || 'Nháp';
             const state = isCancelled
-                ? (rawState || 'cancel')
-                : (isFullyPaid ? 'paid' : (rawState || 'draft'));
+                ? rawState || 'cancel'
+                : isFullyPaid
+                  ? 'paid'
+                  : rawState || 'draft';
 
             const soId = String(saleOnlineId);
             const tposId = invoiceData.Id; // FastSaleOrder ID from TPOS
@@ -566,9 +576,12 @@
 
             // Delete from API FIRST, then remove locally (atomic: don't lose data if API fails)
             try {
-                const response = await fetch(`${API_BASE}/entries/${encodeURIComponent(targetKey)}`, {
-                    method: 'DELETE',
-                });
+                const response = await fetch(
+                    `${API_BASE}/entries/${encodeURIComponent(targetKey)}`,
+                    {
+                        method: 'DELETE',
+                    }
+                );
                 if (!response.ok) {
                     console.error('[INVOICE-STATUS] API delete failed:', response.status);
                     return false; // Don't remove locally if API delete failed
@@ -934,7 +947,9 @@
                 earliestDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
             }
 
-            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const tposOData =
+                window.API_CONFIG?.TPOS_ODATA ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const updatedKeys = [];
             const keysToSaveAPI = [];
 
@@ -955,11 +970,13 @@
                 try {
                     const response = await window.tokenManager.authenticatedFetch(url, {
                         method: 'GET',
-                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
                     });
 
                     if (!response.ok) {
-                        console.warn(`[INVOICE-STATUS] TPOS refresh query failed: ${response.status}`);
+                        console.warn(
+                            `[INVOICE-STATUS] TPOS refresh query failed: ${response.status}`
+                        );
                         break;
                     }
 
@@ -967,7 +984,7 @@
                     const tposOrders = data.value || [];
 
                     // Match with our stored entries and update StateCode
-                    tposOrders.forEach(tposOrder => {
+                    tposOrders.forEach((tposOrder) => {
                         const match = toRefreshMap.get(tposOrder.Id);
                         if (match) {
                             const storeEntry = this._data.get(match.compoundKey);
@@ -976,7 +993,8 @@
                                 if (newStateCode !== 'None') {
                                     storeEntry.StateCode = newStateCode;
                                     storeEntry.State = tposOrder.State || storeEntry.State;
-                                    storeEntry.ShowState = tposOrder.ShowState || storeEntry.ShowState;
+                                    storeEntry.ShowState =
+                                        tposOrder.ShowState || storeEntry.ShowState;
                                     storeEntry.IsMergeCancel = tposOrder.IsMergeCancel || false;
                                     this._data.set(match.compoundKey, storeEntry);
                                     updatedKeys.push(match.saleOnlineId);
@@ -1087,10 +1105,7 @@
          * @returns {Promise<{ok, total, found, errors}>}
          */
         async refreshAllFromTPOS(options = {}) {
-            const orders = options.orders
-                || window.displayedData
-                || window.allData
-                || [];
+            const orders = options.orders || window.displayedData || window.allData || [];
             if (!orders.length) {
                 window.notificationManager?.warning('Không có đơn nào để refresh PBH');
                 return { ok: false, reason: 'no-orders' };
@@ -1100,8 +1115,9 @@
                 return { ok: false, reason: 'no-token' };
             }
 
-            const tposOData = window.API_CONFIG?.TPOS_ODATA
-                || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const tposOData =
+                window.API_CONFIG?.TPOS_ODATA ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const headers = await window.tokenManager.getAuthHeader();
 
             // Clear cache trước khi fetch fresh
@@ -1121,7 +1137,9 @@
             const savedKeys = [];
 
             this._batchMode = true; // set() sẽ skip individual API save
-            console.log(`[PBH-REFRESH] Bắt đầu refresh ${total} đơn trong ${chunks.length} batch...`);
+            console.log(
+                `[PBH-REFRESH] Bắt đầu refresh ${total} đơn trong ${chunks.length} batch...`
+            );
             window.notificationManager?.info(`🔄 Đang refresh PBH: 0/${total}...`);
 
             for (const chunk of chunks) {
@@ -1129,9 +1147,10 @@
                     .map((o) => `Reference eq '${String(o.Code || '').replace(/'/g, "''")}'`)
                     .join(' or ');
                 const filter = `(Type eq 'invoice' and (${orFilter}))`;
-                const url = `${tposOData}/FastSaleOrder/ODataService.GetView`
-                    + `?$top=500&$orderby=DateInvoice desc`
-                    + `&$filter=${encodeURIComponent(filter)}`;
+                const url =
+                    `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                    `?$top=500&$orderby=DateInvoice desc` +
+                    `&$filter=${encodeURIComponent(filter)}`;
 
                 try {
                     const resp = await fetch(url, {
@@ -1172,7 +1191,9 @@
                 }
 
                 done += chunk.length;
-                console.log(`[PBH-REFRESH] Progress ${done}/${total} (found ${found}, errors ${errors})`);
+                console.log(
+                    `[PBH-REFRESH] Progress ${done}/${total} (found ${found}, errors ${errors})`
+                );
             }
 
             this._batchMode = false;
@@ -1330,14 +1351,21 @@
     // Lưu cả raw response vào _rawById để modal "Đã ra đơn" hiển thị.
     // =====================================================
     const _rawInvoicesById = new Map(); // saleOnlineId(String) -> Array<invoice> (all PBH cùng Reference)
-    const _orderCodeById = new Map();   // saleOnlineId(String) -> orderCode (cache để refetch khi click)
+    const _orderCodeById = new Map(); // saleOnlineId(String) -> orderCode (cache để refetch khi click)
 
     // ===== Delivery Report Mapping (PostgreSQL: delivery_assignments table) =====
     // Map invoice.Number → group_name ('tomato' | 'nap' | 'city' | 'shop' | 'return')
     // Source of truth: Render DB via /api/v2/delivery-assignments/lookup-batch
-    const _deliveryGroups = { data: {}, loaded: false, _pendingNumbers: new Set(), _loadTimer: null };
+    const _deliveryGroups = {
+        data: {},
+        loaded: false,
+        _pendingNumbers: new Set(),
+        _loadTimer: null,
+    };
 
-    const DELIVERY_API_BASE = (window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/v2/delivery-assignments';
+    const DELIVERY_API_BASE =
+        (window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+        '/api/v2/delivery-assignments';
 
     /**
      * Queue invoice numbers for batch lookup from PostgreSQL.
@@ -1367,7 +1395,7 @@
             const resp = await fetch(`${DELIVERY_API_BASE}/lookup-batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderNumbers: numbers })
+                body: JSON.stringify({ orderNumbers: numbers }),
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
@@ -1381,9 +1409,15 @@
                 }
                 _deliveryGroups.loaded = true;
                 if (newCount > 0) {
-                    console.log('[DELIVERY-MAP] Loaded', newCount, 'new group entries from DB (total:', Object.keys(_deliveryGroups.data).length, ')');
+                    console.log(
+                        '[DELIVERY-MAP] Loaded',
+                        newCount,
+                        'new group entries from DB (total:',
+                        Object.keys(_deliveryGroups.data).length,
+                        ')'
+                    );
                     // Re-render PBH cells with new delivery group data
-                    document.querySelectorAll('tr[data-order-id]').forEach(row => {
+                    document.querySelectorAll('tr[data-order-id]').forEach((row) => {
                         const soId = row.getAttribute('data-order-id');
                         if (soId) refreshInvoiceStatusCellForOrder(soId);
                     });
@@ -1400,7 +1434,7 @@
      */
     function _loadDeliveryGroupsForCurrentInvoices() {
         const numbers = [];
-        InvoiceStatusStore._data.forEach(value => {
+        InvoiceStatusStore._data.forEach((value) => {
             if (value.Number) numbers.push(value.Number);
         });
         if (numbers.length > 0) {
@@ -1434,14 +1468,19 @@
 
         // Fallback: CarrierName detection (khi invoice chưa có trong DB)
         const carrier = String(invoice.CarrierName || '').trim();
-        if (carrier.toUpperCase().startsWith('THÀNH PHỐ') || carrier.toUpperCase().startsWith('THANH PHO')) {
+        if (
+            carrier.toUpperCase().startsWith('THÀNH PHỐ') ||
+            carrier.toUpperCase().startsWith('THANH PHO')
+        ) {
             return { label: 'THÀNH PHỐ', color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' };
         }
         return null;
     }
 
     // NJD Mapping API base
-    const NJD_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-mapping';
+    const NJD_API_BASE =
+        (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+        '/api/invoice-mapping';
 
     /**
      * Lookup NJD numbers from Render DB for a SaleOnlineOrder
@@ -1478,9 +1517,9 @@
                 state: inv.State || null,
                 stateCode: inv.StateCode || 'None',
                 dateInvoice: inv.DateInvoice || null,
-                userName: inv.UserName || null
-            })
-        }).catch(e => console.warn('[INVOICE-NJD] save failed:', e.message));
+                userName: inv.UserName || null,
+            }),
+        }).catch((e) => console.warn('[INVOICE-NJD] save failed:', e.message));
     }
 
     /**
@@ -1488,19 +1527,23 @@
      */
     function _deleteNjdFromDb(saleOnlineId) {
         if (!saleOnlineId) return;
-        fetch(`${NJD_API_BASE}/${encodeURIComponent(saleOnlineId)}`, { method: 'DELETE' })
-            .catch(e => console.warn('[INVOICE-NJD] delete failed:', e.message));
+        fetch(`${NJD_API_BASE}/${encodeURIComponent(saleOnlineId)}`, { method: 'DELETE' }).catch(
+            (e) => console.warn('[INVOICE-NJD] delete failed:', e.message)
+        );
     }
 
     /**
      * Fetch invoices from TPOS by NJD numbers (reliable mapping)
      */
     async function _fetchByNjdNumbers(njdNumbers, headers) {
-        const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+        const tposOData =
+            window.API_CONFIG?.TPOS_ODATA ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
         // Build OR filter: Number eq 'NJD/2026/60507' or Number eq 'NJD/2026/60508'
-        const conditions = njdNumbers.map(n => `Number eq '${n}'`).join(' or ');
+        const conditions = njdNumbers.map((n) => `Number eq '${n}'`).join(' or ');
         const filter = `(Type eq 'invoice' and (${conditions}))`;
-        const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+        const url =
+            `${tposOData}/FastSaleOrder/ODataService.GetView` +
             `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
         if (!resp.ok) return [];
@@ -1512,9 +1555,12 @@
      * Fetch invoices from TPOS by Reference (fallback) + validate SaleOnlineIds
      */
     async function _fetchByReferenceFallback(orderCode, saleOnlineId, headers) {
-        const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+        const tposOData =
+            window.API_CONFIG?.TPOS_ODATA ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
         const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
-        const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+        const url =
+            `${tposOData}/FastSaleOrder/ODataService.GetView` +
             `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
         if (!resp.ok) return [];
@@ -1524,13 +1570,15 @@
         // Validate: only keep invoices whose SaleOnlineIds contains our saleOnlineId
         if (!saleOnlineId) return list;
         const sid = String(saleOnlineId);
-        const validated = list.filter(inv => {
+        const validated = list.filter((inv) => {
             const soIds = inv.SaleOnlineIds || [];
-            return soIds.some(id => String(id) === sid);
+            return soIds.some((id) => String(id) === sid);
         });
 
         if (validated.length < list.length) {
-            console.warn(`[INVOICE-NJD] Reference fallback filtered ${list.length - validated.length} mismatched invoices for ${orderCode}`);
+            console.warn(
+                `[INVOICE-NJD] Reference fallback filtered ${list.length - validated.length} mismatched invoices for ${orderCode}`
+            );
         }
         return validated;
     }
@@ -1546,7 +1594,7 @@
             if (saleOnlineId) {
                 const dbMappings = await _lookupNjdFromDb(saleOnlineId);
                 if (dbMappings && dbMappings.length > 0) {
-                    const njdNumbers = dbMappings.map(m => m.njd_number);
+                    const njdNumbers = dbMappings.map((m) => m.njd_number);
                     list = await _fetchByNjdNumbers(njdNumbers, headers);
                     if (list.length > 0) {
                         console.log('[INVOICE-NJD] Found via NJD lookup:', njdNumbers.join(', '));
@@ -1562,7 +1610,10 @@
                     for (const inv of list) {
                         _saveNjdToDb(saleOnlineId, orderCode, inv);
                     }
-                    console.log('[INVOICE-NJD] Fallback Reference → saved NJD mappings for', orderCode);
+                    console.log(
+                        '[INVOICE-NJD] Fallback Reference → saved NJD mappings for',
+                        orderCode
+                    );
                 }
             }
 
@@ -1581,7 +1632,7 @@
                     Code: orderCode,
                     Name: inv.PartnerDisplayName || '',
                     Telephone: inv.Phone || '',
-                    Address: inv.Address || ''
+                    Address: inv.Address || '',
                 };
                 InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
                 // Queue delivery group lookup cho invoice number mới
@@ -1589,7 +1640,13 @@
                 // Re-render PBH cell cho row này
                 refreshInvoiceStatusCellForOrder(saleOnlineId);
             }
-            console.log('[INVOICE-WS] Updated invoice for', orderCode, '→', inv.ShowState, inv.StateCode);
+            console.log(
+                '[INVOICE-WS] Updated invoice for',
+                orderCode,
+                '→',
+                inv.ShowState,
+                inv.StateCode
+            );
             return inv;
         } catch (e) {
             console.warn('[INVOICE-WS] fetchAndUpdateInvoiceForCode error:', e.message);
@@ -1604,7 +1661,9 @@
     function markRowMultiConfirmed(saleOnlineId, invoices) {
         const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
         if (!row) return;
-        const confirmedCount = (invoices || []).filter(i => i && i.ShowState === 'Đã xác nhận').length;
+        const confirmedCount = (invoices || []).filter(
+            (i) => i && i.ShowState === 'Đã xác nhận'
+        ).length;
         if (confirmedCount >= 2) {
             row.classList.add('row-multi-confirmed');
             row.title = `⚠️ ${confirmedCount} phiếu "Đã xác nhận" cùng đơn — kiểm tra trùng`;
@@ -1620,8 +1679,9 @@
         const cell = row.querySelector('td[data-column="invoice-status"]');
         if (!cell) return;
         const order = (window.OrderStore?.get && window.OrderStore.get(saleOnlineId)) ||
-            (window.allData || []).find(o => String(o.Id) === String(saleOnlineId)) ||
-            { Id: saleOnlineId };
+            (window.allData || []).find((o) => String(o.Id) === String(saleOnlineId)) || {
+                Id: saleOnlineId,
+            };
         cell.innerHTML = renderInvoiceStatusCell(order);
     }
 
@@ -1634,8 +1694,9 @@
         // Resolve orderCode: từ cache, hoặc từ allData/OrderStore
         let orderCode = _orderCodeById.get(sid);
         if (!orderCode) {
-            const order = (window.OrderStore?.get && window.OrderStore.get(saleOnlineId)) ||
-                (window.allData || []).find(o => String(o.Id) === sid);
+            const order =
+                (window.OrderStore?.get && window.OrderStore.get(saleOnlineId)) ||
+                (window.allData || []).find((o) => String(o.Id) === sid);
             orderCode = order?.Code;
         }
         if (!orderCode) {
@@ -1658,7 +1719,7 @@
             // Strategy 1: NJD DB lookup
             const dbMappings = await _lookupNjdFromDb(sid);
             if (dbMappings && dbMappings.length > 0) {
-                const njdNumbers = dbMappings.map(m => m.njd_number);
+                const njdNumbers = dbMappings.map((m) => m.njd_number);
                 list = await _fetchByNjdNumbers(njdNumbers, headers);
             }
 
@@ -1685,9 +1746,13 @@
      * State: { loading } | { error, orderCode } | { invoices, orderCode }
      */
     function _openInvoiceListModal(state) {
-        const esc = (s) => String(s == null ? '' : s)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const esc = (s) =>
+            String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
 
         // Remove existing
         const existing = document.getElementById('invoiceRawModal');
@@ -1695,15 +1760,20 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'invoiceRawModal';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.style.cssText =
+            'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        overlay.onclick = (e) => {
+            if (e.target === overlay) overlay.remove();
+        };
 
         const box = document.createElement('div');
-        box.style.cssText = 'background:#fff;border-radius:12px;max-width:980px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 70px rgba(0,0,0,0.35);';
+        box.style.cssText =
+            'background:#fff;border-radius:12px;max-width:980px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 70px rgba(0,0,0,0.35);';
 
         // ===== HEADER =====
         const header = document.createElement('div');
-        header.style.cssText = 'padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);';
+        header.style.cssText =
+            'padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);';
         const count = state.invoices ? state.invoices.length : '';
         header.innerHTML = `
             <div style="flex:1;min-width:0;">
@@ -1726,7 +1796,8 @@
         } else {
             // Tabs (1 tab/invoice) + content area
             const tabsBar = document.createElement('div');
-            tabsBar.style.cssText = 'display:flex;gap:0;border-bottom:1px solid #e5e7eb;background:#fff;overflow-x:auto;flex-shrink:0;position:sticky;top:0;z-index:1;';
+            tabsBar.style.cssText =
+                'display:flex;gap:0;border-bottom:1px solid #e5e7eb;background:#fff;overflow-x:auto;flex-shrink:0;position:sticky;top:0;z-index:1;';
             const content = document.createElement('div');
             content.style.cssText = 'padding:20px 24px;';
 
@@ -1735,17 +1806,19 @@
                 const tab = document.createElement('button');
                 tab.type = 'button';
                 tab.dataset.idx = String(idx);
-                const dateShort = inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN') : '—';
+                const dateShort = inv.DateInvoice
+                    ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN')
+                    : '—';
                 tab.style.cssText = `padding:10px 16px;border:none;background:transparent;border-bottom:2px solid transparent;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;white-space:nowrap;display:flex;align-items:center;gap:6px;`;
                 // "Đã xác nhận" → chấm xanh lá; các state khác giữ màu cấu hình
-                const dotColor = (inv.ShowState === 'Đã xác nhận') ? '#10b981' : ssCfg.color;
+                const dotColor = inv.ShowState === 'Đã xác nhận' ? '#10b981' : ssCfg.color;
                 tab.innerHTML = `
                     <span>${esc(inv.Number || `#${idx + 1}`)}</span>
                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};"></span>
                     <span style="font-weight:400;color:#94a3b8;">${dateShort}</span>
                 `;
                 tab.onclick = () => {
-                    tabsBar.querySelectorAll('button').forEach(b => {
+                    tabsBar.querySelectorAll('button').forEach((b) => {
                         b.style.borderBottomColor = 'transparent';
                         b.style.color = '#64748b';
                         b.style.background = 'transparent';
@@ -1773,7 +1846,12 @@
         document.getElementById('invoiceRawCloseBtn').onclick = () => overlay.remove();
 
         // ESC to close
-        const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', onKey);
+            }
+        };
         document.addEventListener('keydown', onKey);
     }
 
@@ -1781,14 +1859,21 @@
      * Render block chi tiết 1 invoice (tái sử dụng layout cũ).
      */
     function _renderInvoiceDetailBlock(invoice) {
-        const esc = (s) => String(s == null ? '' : s)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const esc = (s) =>
+            String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
         const fmtDate = (d) => {
             if (!d) return '—';
-            try { return new Date(d).toLocaleString('vi-VN', { hour12: false }); }
-            catch (e) { return String(d); }
+            try {
+                return new Date(d).toLocaleString('vi-VN', { hour12: false });
+            } catch (e) {
+                return String(d);
+            }
         };
         const ssCfg = getShowStateConfig(invoice.ShowState || '');
         const scCfg = getStateCodeConfig(invoice.StateCode || 'None', invoice.IsMergeCancel);
@@ -1817,14 +1902,20 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
                 ${_invStatCard('Tổng tiền', fmtMoney(invoice.AmountTotal), '#0ea5e9')}
                 ${_invStatCard('Đã thanh toán', fmtMoney(invoice.PaymentAmount), '#10b981')}
-                ${_invStatCard('Còn nợ', fmtMoney(invoice.Residual), (invoice.Residual > 0 ? '#dc2626' : '#64748b'))}
+                ${_invStatCard('Còn nợ', fmtMoney(invoice.Residual), invoice.Residual > 0 ? '#dc2626' : '#64748b')}
                 ${_invStatCard('Phí ship', fmtMoney(invoice.DeliveryPrice), '#f59e0b')}
             </div>
         `;
 
-        const receiverName = invoice.ReceiverName || invoice.Ship_Receiver_Name || invoice.PartnerDisplayName || '';
+        const receiverName =
+            invoice.ReceiverName || invoice.Ship_Receiver_Name || invoice.PartnerDisplayName || '';
         const receiverPhone = invoice.ReceiverPhone || invoice.Ship_Receiver_Phone || '';
-        const receiverAddr = invoice.ReceiverAddress || invoice.Ship_Receiver_Street || invoice.Address || invoice.FullAddress || '';
+        const receiverAddr =
+            invoice.ReceiverAddress ||
+            invoice.Ship_Receiver_Street ||
+            invoice.Address ||
+            invoice.FullAddress ||
+            '';
         html += `
             <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                 <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📦 Người nhận hàng</div>
@@ -1837,13 +1928,14 @@
         `;
 
         if (lines.length > 0) {
-            const linesHtml = lines.map((l, i) => {
-                const name = l.ProductName || l.ProductNameGet || l.Name || '—';
-                const qty = l.ProductUOMQty || l.Quantity || l.ProductUOMQtyAvailable || 0;
-                const unit = l.PriceUnit || l.Price || 0;
-                const total = l.PriceTotal || l.PriceSubTotal || (qty * unit);
-                const note = l.Note || '';
-                return `
+            const linesHtml = lines
+                .map((l, i) => {
+                    const name = l.ProductName || l.ProductNameGet || l.Name || '—';
+                    const qty = l.ProductUOMQty || l.Quantity || l.ProductUOMQtyAvailable || 0;
+                    const unit = l.PriceUnit || l.Price || 0;
+                    const total = l.PriceTotal || l.PriceSubTotal || qty * unit;
+                    const note = l.Note || '';
+                    return `
                     <tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:10px 8px;color:#64748b;font-size:12px;text-align:center;width:32px;">${i + 1}</td>
                         <td style="padding:10px 8px;">
@@ -1854,7 +1946,8 @@
                         <td style="padding:10px 8px;text-align:right;font-size:13px;color:#475569;width:120px;">${fmtMoney(unit)}</td>
                         <td style="padding:10px 8px;text-align:right;font-size:13px;color:#0f172a;font-weight:600;width:120px;">${fmtMoney(total)}</td>
                     </tr>`;
-            }).join('');
+                })
+                .join('');
             html += `
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:14px;">
                     <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">🛒 Sản phẩm (${lines.length})</div>
@@ -2227,7 +2320,9 @@
             const contentId =
                 typeof uploadResult === 'object'
                     ? uploadResult.id || uploadResult.content_id
-                    : (typeof uploadResult === 'string' ? uploadResult : null);
+                    : typeof uploadResult === 'string'
+                      ? uploadResult
+                      : null;
 
             if (contentId) {
                 // Cache for later use
@@ -2393,10 +2488,11 @@
             const inv = InvoiceStatusStore.get(saleOnlineId);
             const order =
                 window.OrderStore?.get(saleOnlineId) ||
-                (window.displayedData || []).find(
-                    (o) => String(o.Id) === String(saleOnlineId)
-                );
-            if (!inv || !order) { skipped++; continue; }
+                (window.displayedData || []).find((o) => String(o.Id) === String(saleOnlineId));
+            if (!inv || !order) {
+                skipped++;
+                continue;
+            }
             if (inv.Id) {
                 tposOrders.push({ orderId: inv.Id, orderData: order });
             } else {
@@ -2427,10 +2523,7 @@
                 window.openCombinedPrintPopup(fallbackOrders);
             }
             if (skipped > 0) {
-                window.notificationManager?.warning(
-                    `Bỏ qua ${skipped} đơn chưa có PBH`,
-                    4000
-                );
+                window.notificationManager?.warning(`Bỏ qua ${skipped} đơn chưa có PBH`, 4000);
             }
 
             // Mark "đã in phiếu soạn" cho mọi đơn vừa in (cả TPOS và fallback)
@@ -2658,9 +2751,15 @@
      */
     function _buildEnrichedFromInvoice(invoiceData, orderId) {
         let carrierName = invoiceData.CarrierName;
-        if (!carrierName && invoiceData.ReceiverAddress
-            && typeof window.extractDistrictFromAddress === 'function') {
-            const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+        if (
+            !carrierName &&
+            invoiceData.ReceiverAddress &&
+            typeof window.extractDistrictFromAddress === 'function'
+        ) {
+            const districtInfo = window.extractDistrictFromAddress(
+                invoiceData.ReceiverAddress,
+                null
+            );
             if (districtInfo) carrierName = getCarrierNameFromDistrict(districtInfo);
         }
         return {
@@ -2722,25 +2821,38 @@
         const displayedData = window.displayedData || [];
         const orderStore = window.OrderStore;
 
-        const eligible = [];     // { orderId, order, invoiceData, psid, channelId }
+        const eligible = []; // { orderId, order, invoiceData, psid, channelId }
         const skipNoInvoice = [];
         const skipNoMessenger = [];
         const skipAlreadySent = [];
 
         for (const orderId of ids) {
             const invoiceData = InvoiceStatusStore.get(orderId);
-            if (!invoiceData) { skipNoInvoice.push(orderId); continue; }
+            if (!invoiceData) {
+                skipNoInvoice.push(orderId);
+                continue;
+            }
 
-            const order = orderStore?.get(orderId)
-                || displayedData.find(o => String(o.Id) === String(orderId));
-            if (!order) { skipNoInvoice.push(orderId); continue; }
+            const order =
+                orderStore?.get(orderId) ||
+                displayedData.find((o) => String(o.Id) === String(orderId));
+            if (!order) {
+                skipNoInvoice.push(orderId);
+                continue;
+            }
 
             const psid = order.Facebook_ASUserId;
             const postId = order.Facebook_PostId;
             const channelId = postId ? postId.split('_')[0] : null;
-            if (!psid || !channelId) { skipNoMessenger.push(orderId); continue; }
+            if (!psid || !channelId) {
+                skipNoMessenger.push(orderId);
+                continue;
+            }
 
-            if (InvoiceStatusStore.isBillSent(orderId)) { skipAlreadySent.push(orderId); continue; }
+            if (InvoiceStatusStore.isBillSent(orderId)) {
+                skipAlreadySent.push(orderId);
+                continue;
+            }
 
             eligible.push({ orderId, order, invoiceData, psid, channelId });
         }
@@ -2748,7 +2860,8 @@
         if (eligible.length === 0) {
             const parts = [];
             if (skipNoInvoice.length) parts.push(`${skipNoInvoice.length} chưa có PBH`);
-            if (skipNoMessenger.length) parts.push(`${skipNoMessenger.length} thiếu Messenger info`);
+            if (skipNoMessenger.length)
+                parts.push(`${skipNoMessenger.length} thiếu Messenger info`);
             if (skipAlreadySent.length) parts.push(`${skipAlreadySent.length} đã gửi`);
             window.notificationManager?.warning(
                 `Không có đơn nào hợp lệ để gửi (${parts.join(', ') || 'tất cả bị bỏ qua'})`,
@@ -2759,28 +2872,36 @@
 
         // Tunable concurrency (override via window.BULK_BILL_CONCURRENCY / _PER_PAGE)
         const GLOBAL_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_CONCURRENCY) || 4);
-        const PER_PAGE_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_PER_PAGE_CONCURRENCY) || 2);
+        const PER_PAGE_CONCURRENCY = Math.max(
+            1,
+            Number(window.BULK_BILL_PER_PAGE_CONCURRENCY) || 2
+        );
 
         // Confirm with summary
         const skipLines = [];
         if (skipNoInvoice.length) skipLines.push(`• ${skipNoInvoice.length} đơn chưa có PBH`);
-        if (skipNoMessenger.length) skipLines.push(`• ${skipNoMessenger.length} đơn thiếu thông tin Messenger`);
-        if (skipAlreadySent.length) skipLines.push(`• ${skipAlreadySent.length} đơn đã gửi bill trước đó`);
+        if (skipNoMessenger.length)
+            skipLines.push(`• ${skipNoMessenger.length} đơn thiếu thông tin Messenger`);
+        if (skipAlreadySent.length)
+            skipLines.push(`• ${skipAlreadySent.length} đơn đã gửi bill trước đó`);
         const skipSummary = skipLines.length ? `\n\nBỏ qua:\n${skipLines.join('\n')}` : '';
-        const msg = `Gửi song song hình bill qua Messenger cho ${eligible.length} đơn?\n`
-            + `(concurrency: ${GLOBAL_CONCURRENCY} global / ${PER_PAGE_CONCURRENCY} per page)${skipSummary}`;
+        const msg =
+            `Gửi song song hình bill qua Messenger cho ${eligible.length} đơn?\n` +
+            `(concurrency: ${GLOBAL_CONCURRENCY} global / ${PER_PAGE_CONCURRENCY} per page)${skipSummary}`;
         if (!confirm(msg)) return;
 
         const btn = document.getElementById('bulkSendBillBtn');
         const originalHtml = btn?.innerHTML;
-        if (btn) { btn.disabled = true; }
+        if (btn) {
+            btn.disabled = true;
+        }
 
         const total = eligible.length;
         let sent = 0;
         let failed = 0;
         let done = 0;
         const errors = [];
-        const pageInFlight = new Map();  // pageId → count
+        const pageInFlight = new Map(); // pageId → count
 
         const updateBtn = () => {
             if (btn) {
@@ -2806,7 +2927,7 @@
                 }
                 if (idx === -1) {
                     // All remaining items are on pages at cap — yield briefly
-                    await new Promise(r => setTimeout(r, 100));
+                    await new Promise((r) => setTimeout(r, 100));
                     continue;
                 }
 
@@ -2838,21 +2959,22 @@
             }
         };
 
-        const workers = Array.from(
-            { length: Math.min(GLOBAL_CONCURRENCY, total) },
-            () => worker()
-        );
+        const workers = Array.from({ length: Math.min(GLOBAL_CONCURRENCY, total) }, () => worker());
         await Promise.all(workers);
 
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = originalHtml || '<i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt';
+            btn.innerHTML =
+                originalHtml || '<i class="fab fa-facebook-messenger"></i> Gửi Bill hàng loạt';
         }
 
         const resultMsg = `Gửi bill: ${sent} thành công${failed > 0 ? `, ${failed} lỗi` : ''}`;
         if (failed > 0) {
             console.warn('[BULK-SEND-BILL] Errors:', errors);
-            window.notificationManager?.warning(resultMsg + ' (xem console để biết chi tiết)', 6000);
+            window.notificationManager?.warning(
+                resultMsg + ' (xem console để biết chi tiết)',
+                6000
+            );
         } else {
             window.notificationManager?.success(resultMsg, 4000);
         }
@@ -3195,7 +3317,10 @@
         if (!confirm(confirmMsg)) return;
 
         const btn = document.getElementById('sendBillBatchBtn');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
 
         let sent = 0;
         let failed = 0;
@@ -3203,10 +3328,14 @@
 
         for (const index of selectedIndexes) {
             const order = resultsData.success[index];
-            if (!order) { skipped++; continue; }
+            if (!order) {
+                skipped++;
+                continue;
+            }
 
             // Update button progress
-            if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${sent + failed + skipped + 1}/${selectedIndexes.length}`;
+            if (btn)
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${sent + failed + skipped + 1}/${selectedIndexes.length}`;
 
             try {
                 await sendBillManually(index, true); // skipPreview = true for batch
@@ -3218,7 +3347,7 @@
 
             // Small delay between sends to avoid rate limiting
             if (index !== selectedIndexes[selectedIndexes.length - 1]) {
-                await new Promise(r => setTimeout(r, 1500));
+                await new Promise((r) => setTimeout(r, 1500));
             }
         }
 
@@ -3386,7 +3515,11 @@
             }
 
             // 1. Update status to "Đơn hàng" if currently "Nháp"
-            if (order.Status === 'Nháp' || order.Status === 'Draft' || order.StatusText === 'Nháp') {
+            if (
+                order.Status === 'Nháp' ||
+                order.Status === 'Draft' ||
+                order.StatusText === 'Nháp'
+            ) {
                 const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Đơn hàng')}`;
 
                 const statusResponse = await fetch(statusUrl, {
@@ -3586,7 +3719,6 @@
         if (typeof window.updateActionButtons === 'function') {
             window.updateActionButtons();
         }
-
     }
 
     // =====================================================
@@ -3670,12 +3802,14 @@
          * Force create PBH for an order — bypass all duplicate guards
          * Sets a global flag that tab1-sale.js and tab1-fast-sale.js check
          */
-        window._forceCreatePBH = function(orderId) {
+        window._forceCreatePBH = function (orderId) {
             // Set bypass flag — checked by confirmAndPrintSale() and showFastSaleModal()
             window._forceCreatePBHBypass = true;
 
             // Select this order in the table
-            const checkbox = document.querySelector(`tr[data-order-id="${orderId}"] input[type="checkbox"]`);
+            const checkbox = document.querySelector(
+                `tr[data-order-id="${orderId}"] input[type="checkbox"]`
+            );
             if (checkbox && !checkbox.checked) {
                 checkbox.checked = true;
                 checkbox.dispatchEvent(new Event('change', { bubbles: true }));
@@ -3710,9 +3844,9 @@
                 const result = await resp.json();
                 console.log('[PBH-SERVER-REFRESH]', result);
                 window.notificationManager?.success(
-                    `✅ Server refresh xong: ${result.updated}/${result.total} entries updated`
-                    + ` (fetched ${result.fetched}, missing ${result.missing}, errors ${result.errors})`
-                    + ` — elapsed ${result.elapsedMs}ms`
+                    `✅ Server refresh xong: ${result.updated}/${result.total} entries updated` +
+                        ` (fetched ${result.fetched}, missing ${result.missing}, errors ${result.errors})` +
+                        ` — elapsed ${result.elapsedMs}ms`
                 );
                 // Reload InvoiceStatusStore từ PostgreSQL để sync với data vừa update
                 await InvoiceStatusStore.reload();
@@ -3775,7 +3909,6 @@
         }
 
         // No flush needed - API calls are immediate (no debounce)
-
     }
 
     // =====================================================

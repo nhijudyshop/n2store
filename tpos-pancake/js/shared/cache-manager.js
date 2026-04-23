@@ -89,8 +89,9 @@ class SharedCache {
      * @param {number} count
      */
     _evictOldest(count) {
-        const entries = Array.from(this._data.entries())
-            .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+        const entries = Array.from(this._data.entries()).sort(
+            (a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0)
+        );
         entries.slice(0, count).forEach(([key]) => this._data.delete(key));
     }
 

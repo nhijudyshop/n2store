@@ -7,7 +7,7 @@
  * Handle new message from realtime (WebSocket or polling)
  * Called from tab1-chat-core.js _startRealtimeForChat()
  */
-window.handleNewMessage = function(payload) {
+window.handleNewMessage = function (payload) {
     if (!payload || !window.currentConversationId) return;
 
     const msg = payload.message || payload;
@@ -22,19 +22,24 @@ window.handleNewMessage = function(payload) {
     if (pageId && String(pageId) !== String(window.currentChatChannelId)) return;
 
     // Skip if already in messages list
-    if (window.allChatMessages.some(m => String(m.id) === String(msg.id))) return;
+    if (window.allChatMessages.some((m) => String(m.id) === String(msg.id))) return;
 
     // Reconcile optimistic private-reply placeholders via shared helper.
     // Build a single-incoming wrapper so the helper can match by text.
     const incomingFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
     if (incomingFromPage && window._reconcileOptimisticReplies) {
         const incomingText = (msg.original_message || msg.message || '').trim();
-        const incomingWrap = [{
-            id: msg.id,
-            sender: 'shop',
-            text: incomingText,
-        }];
-        window.allChatMessages = window._reconcileOptimisticReplies(window.allChatMessages, incomingWrap);
+        const incomingWrap = [
+            {
+                id: msg.id,
+                sender: 'shop',
+                text: incomingText,
+            },
+        ];
+        window.allChatMessages = window._reconcileOptimisticReplies(
+            window.allChatMessages,
+            incomingWrap
+        );
     }
 
     const isFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
@@ -68,7 +73,6 @@ window.handleNewMessage = function(payload) {
     if (messagesEl) {
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
-
 };
 
 /**
@@ -76,7 +80,7 @@ window.handleNewMessage = function(payload) {
  * Pancake sends update_conversation (NOT new_message) for incoming customer messages.
  * When the current chat matches, fetch and display new messages immediately.
  */
-window.handleConversationUpdate = function(payload) {
+window.handleConversationUpdate = function (payload) {
     if (!payload) return;
 
     const conv = payload.conversation || payload;
@@ -87,11 +91,15 @@ window.handleConversationUpdate = function(payload) {
     // insufficient because the same PSID could appear in events from different
     // conversations on the same page, e.g. INBOX vs COMMENT).
     const eventPageId = String(conv?.page_id || payload.page_id || '');
-    const isCurrentConv = (
-        (window.currentConversationId && convId && String(convId) === String(window.currentConversationId)) ||
-        (window.currentChatPSID && fromPsid && String(fromPsid) === String(window.currentChatPSID)
-            && eventPageId && eventPageId === String(window.currentChatChannelId))
-    );
+    const isCurrentConv =
+        (window.currentConversationId &&
+            convId &&
+            String(convId) === String(window.currentConversationId)) ||
+        (window.currentChatPSID &&
+            fromPsid &&
+            String(fromPsid) === String(window.currentChatPSID) &&
+            eventPageId &&
+            eventPageId === String(window.currentChatChannelId));
 
     if (!isCurrentConv) return;
 
@@ -116,14 +124,15 @@ window.handleConversationUpdate = function(payload) {
             if (!result.messages?.length || window.currentConversationId !== currentConvId) return;
 
             // Only append NEW messages (not already displayed)
-            const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
-            const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
+            const existingIds = new Set(window.allChatMessages.map((m) => String(m.id)));
+            const newMsgs = result.messages.filter((m) => !existingIds.has(String(m.id)));
 
             for (const msg of newMsgs) {
                 window.handleNewMessage?.({ message: msg, page_id: pageId });
             }
-        } catch (e) { /* silent */ }
+        } catch (e) {
+            /* silent */
+        }
     }, 300);
     window._chatUpdateDebounceMap.set(debounceKey, timerId);
 };
-

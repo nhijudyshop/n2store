@@ -13,16 +13,27 @@ const PhoneHistoryBadges = (() => {
     let loading = false;
     let tooltipEl = null;
 
-    function stripPhone(s) { return String(s || '').replace(/[^\d+]/g, ''); }
-    function _fmtDur(sec) { const n = parseInt(sec, 10) || 0; if (!n) return ''; const m = Math.floor(n/60); return m ? `${m}:${String(n%60).padStart(2,'0')}` : `${n}s`; }
+    function stripPhone(s) {
+        return String(s || '').replace(/[^\d+]/g, '');
+    }
+    function _fmtDur(sec) {
+        const n = parseInt(sec, 10) || 0;
+        if (!n) return '';
+        const m = Math.floor(n / 60);
+        return m ? `${m}:${String(n % 60).padStart(2, '0')}` : `${n}s`;
+    }
     function _fmtTs(ts) {
-        const ms = typeof ts === 'string' ? parseInt(ts, 10) : (ts || 0);
+        const ms = typeof ts === 'string' ? parseInt(ts, 10) : ts || 0;
         if (!ms) return '';
         const d = new Date(ms);
-        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
-    function _dirIcon(dir) { return dir === 'in' ? '↙' : dir === 'missed' ? '✕' : '↗'; }
-    function _dirColor(dir) { return dir === 'in' ? '#60a5fa' : dir === 'missed' ? '#f87171' : '#4ade80'; }
+    function _dirIcon(dir) {
+        return dir === 'in' ? '↙' : dir === 'missed' ? '✕' : '↗';
+    }
+    function _dirColor(dir) {
+        return dir === 'in' ? '#60a5fa' : dir === 'missed' ? '#f87171' : '#4ade80';
+    }
 
     async function loadHistory(force = false) {
         if (loading) return;
@@ -30,31 +41,40 @@ const PhoneHistoryBadges = (() => {
         loading = true;
         try {
             const since = Date.now() - MAX_HISTORY_DAYS * 86400000;
-            const r = await fetch(`${API}/call-history?from=${since}&limit=${MAX_ROWS}`, { cache: 'no-store' });
+            const r = await fetch(`${API}/call-history?from=${since}&limit=${MAX_ROWS}`, {
+                cache: 'no-store',
+            });
             const d = await r.json();
             if (d?.success) {
                 const next = new Map();
-                (d.rows || []).forEach(c => {
+                (d.rows || []).forEach((c) => {
                     const p = stripPhone(c.phone);
                     if (!p) return;
                     if (!next.has(p)) next.set(p, []);
                     next.get(p).push(c);
                 });
                 // Ensure newest first per phone
-                next.forEach(arr => arr.sort((a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10)));
+                next.forEach((arr) =>
+                    arr.sort((a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10))
+                );
                 callsByPhone = next;
                 lastLoadAt = Date.now();
                 renderBadges();
             }
-        } catch (err) { console.warn('[PhoneHistoryBadges]', err.message); }
-        finally { loading = false; }
+        } catch (err) {
+            console.warn('[PhoneHistoryBadges]', err.message);
+        } finally {
+            loading = false;
+        }
     }
 
     function getCountsFor(phone) {
         const p = stripPhone(phone);
         const calls = callsByPhone.get(p) || [];
         const counts = { total: calls.length, out: 0, in: 0, missed: 0 };
-        calls.forEach(c => { counts[c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out']++; });
+        calls.forEach((c) => {
+            counts[c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out']++;
+        });
         return { counts, calls };
     }
 
@@ -128,14 +148,18 @@ const PhoneHistoryBadges = (() => {
                 <div class="phb-stats">${statsParts.join('')}</div>
             </div>
             <div class="phb-list">
-                ${recent.map(c => `
+                ${recent
+                    .map(
+                        (c) => `
                     <div class="phb-row">
                         <span class="phb-dir" style="color:${_dirColor(c.direction)}">${_dirIcon(c.direction)}</span>
-                        <span class="phb-meta">${_fmtTs(c.timestamp)}${c.name ? ` · <b>${(c.name || '').slice(0,20)}</b>` : ''}</span>
+                        <span class="phb-meta">${_fmtTs(c.timestamp)}${c.name ? ` · <b>${(c.name || '').slice(0, 20)}</b>` : ''}</span>
                         <span class="phb-dur">${_fmtDur(c.duration)}</span>
                         <span class="phb-user">${(c.username || '').slice(0, 8)}</span>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
             ${calls.length > recent.length ? `<div class="phb-more">+ ${calls.length - recent.length} cuộc gọi khác</div>` : ''}
         `;
@@ -146,13 +170,17 @@ const PhoneHistoryBadges = (() => {
         let top = rect.bottom + 6;
         let left = rect.left;
         if (top + ttRect.height > window.innerHeight - 8) top = rect.top - ttRect.height - 6;
-        if (left + ttRect.width > window.innerWidth - 8) left = window.innerWidth - ttRect.width - 8;
+        if (left + ttRect.width > window.innerWidth - 8)
+            left = window.innerWidth - ttRect.width - 8;
         if (left < 8) left = 8;
         tooltipEl.style.top = top + 'px';
         tooltipEl.style.left = left + 'px';
     }
     function _hideTooltip() {
-        if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
+        if (tooltipEl) {
+            tooltipEl.remove();
+            tooltipEl = null;
+        }
     }
 
     function _badgeContent(counts) {
@@ -170,13 +198,25 @@ const PhoneHistoryBadges = (() => {
         badge.dataset.phone = phone;
     }
     function _isAdmin() {
-        try { return !!window.authManager?.isAdminTemplate?.(); } catch { return false; }
+        try {
+            return !!window.authManager?.isAdminTemplate?.();
+        } catch {
+            return false;
+        }
     }
 
     function _esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        }[c]));
+        return String(s == null ? '' : s).replace(
+            /[&<>"']/g,
+            (c) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                })[c]
+        );
     }
 
     function _ensureModalStyles() {
@@ -330,24 +370,35 @@ const PhoneHistoryBadges = (() => {
         document.body.appendChild(overlay);
 
         const close = () => overlay.remove();
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
         overlay.querySelector('.phm-close').addEventListener('click', close);
         overlay.querySelector('[data-phm-call]').addEventListener('click', () => {
-            try { window.PhoneWidget?.makeCall?.(phone); } catch {}
+            try {
+                window.PhoneWidget?.makeCall?.(phone);
+            } catch {}
             close();
         });
         // Tab switching
-        overlay.querySelectorAll('.phm-tab').forEach(btn => {
+        overlay.querySelectorAll('.phm-tab').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const k = btn.dataset.phmTab;
-                overlay.querySelectorAll('.phm-tab').forEach(b => b.classList.toggle('active', b === btn));
-                overlay.querySelectorAll('[data-phm-pane]').forEach(p => {
+                overlay
+                    .querySelectorAll('.phm-tab')
+                    .forEach((b) => b.classList.toggle('active', b === btn));
+                overlay.querySelectorAll('[data-phm-pane]').forEach((p) => {
                     p.style.display = p.dataset.phmPane === k ? '' : 'none';
                 });
             });
         });
         // Esc to close
-        const onKey = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', onKey);
+            }
+        };
         document.addEventListener('keydown', onKey);
 
         // Fetch recordings async (default tab is OnCallCX so loads in background)
@@ -358,10 +409,14 @@ const PhoneHistoryBadges = (() => {
         if (!calls.length) {
             return `<div class="phm-empty">Chưa có cuộc gọi nào với số này.</div>`;
         }
-        return calls.slice(0, 50).map(c => {
-            const dir = c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out';
-            const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
-            return `
+        return (
+            calls
+                .slice(0, 50)
+                .map((c) => {
+                    const dir =
+                        c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out';
+                    const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
+                    return `
                 <div class="phm-row">
                     <span class="phm-dir" style="color:${_dirColor(dir)}">${_dirIcon(dir)}</span>
                     <div class="phm-meta">
@@ -379,9 +434,12 @@ const PhoneHistoryBadges = (() => {
                     </div>
                 </div>
             `;
-        }).join('') + (calls.length > 50
-            ? `<div style="text-align:center;color:#94a3b8;font-size:11px;padding:8px">+ ${calls.length - 50} cuộc gọi cũ hơn</div>`
-            : '');
+                })
+                .join('') +
+            (calls.length > 50
+                ? `<div style="text-align:center;color:#94a3b8;font-size:11px;padding:8px">+ ${calls.length - 50} cuộc gọi cũ hơn</div>`
+                : '')
+        );
     }
 
     async function _loadRenderRecordings(phone, overlay) {
@@ -389,7 +447,10 @@ const PhoneHistoryBadges = (() => {
         const countBadge = overlay.querySelector('[data-phm-render-count]');
         if (!pane) return;
         try {
-            const r = await fetch(`${API}/call-recordings?phone=${encodeURIComponent(phone)}&limit=200`, { cache: 'no-store' });
+            const r = await fetch(
+                `${API}/call-recordings?phone=${encodeURIComponent(phone)}&limit=200`,
+                { cache: 'no-store' }
+            );
             const d = await r.json().catch(() => ({}));
             const rows = Array.isArray(d.rows) ? d.rows : [];
             if (countBadge) countBadge.textContent = String(rows.length);
@@ -400,12 +461,18 @@ const PhoneHistoryBadges = (() => {
                 </div>`;
                 return;
             }
-            pane.innerHTML = rows.map(rec => {
-                const dir = rec.direction === 'missed' ? 'missed' : rec.direction === 'in' ? 'in' : 'out';
-                const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
-                const audioUrl = `${API}/call-recordings/${rec.id}/audio`;
-                const sizeKB = Math.round((rec.size_bytes || 0) / 1024);
-                return `
+            pane.innerHTML = rows
+                .map((rec) => {
+                    const dir =
+                        rec.direction === 'missed'
+                            ? 'missed'
+                            : rec.direction === 'in'
+                              ? 'in'
+                              : 'out';
+                    const dirLabel = dir === 'in' ? 'Gọi vào' : dir === 'missed' ? 'Nhỡ' : 'Gọi ra';
+                    const audioUrl = `${API}/call-recordings/${rec.id}/audio`;
+                    const sizeKB = Math.round((rec.size_bytes || 0) / 1024);
+                    return `
                     <div class="phm-row" data-rec-id="${rec.id}">
                         <span class="phm-dir" style="color:${_dirColor(dir)}">${_dirIcon(dir)}</span>
                         <div class="phm-meta">
@@ -423,14 +490,17 @@ const PhoneHistoryBadges = (() => {
                         </div>
                     </div>
                 `;
-            }).join('');
+                })
+                .join('');
             // Wire delete buttons
-            pane.querySelectorAll('[data-phm-del]').forEach(btn => {
+            pane.querySelectorAll('[data-phm-del]').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.phmDel;
                     if (!confirm('Xoá ghi âm này trên Render DB?')) return;
                     try {
-                        const resp = await fetch(`${API}/call-recordings/${id}`, { method: 'DELETE' });
+                        const resp = await fetch(`${API}/call-recordings/${id}`, {
+                            method: 'DELETE',
+                        });
                         if (!resp.ok) throw new Error('HTTP ' + resp.status);
                         btn.closest('[data-rec-id]')?.remove();
                         const remaining = pane.querySelectorAll('[data-rec-id]').length;
@@ -438,7 +508,9 @@ const PhoneHistoryBadges = (() => {
                         if (!remaining) {
                             pane.innerHTML = `<div class="phm-empty">Đã xoá hết ghi âm cho số này.</div>`;
                         }
-                    } catch (err) { alert('Lỗi: ' + err.message); }
+                    } catch (err) {
+                        alert('Lỗi: ' + err.message);
+                    }
                 });
             });
         } catch (err) {
@@ -459,7 +531,9 @@ const PhoneHistoryBadges = (() => {
             if (_isAdmin()) {
                 _openHistoryModal(phone);
             } else {
-                try { window.PhoneWidget?.makeCall?.(phone); } catch {}
+                try {
+                    window.PhoneWidget?.makeCall?.(phone);
+                } catch {}
             }
         });
         return badge;
@@ -475,16 +549,22 @@ const PhoneHistoryBadges = (() => {
         _rendering = true;
         try {
             const cells = document.querySelectorAll('td[data-column="phone"]');
-            cells.forEach(cell => {
+            cells.forEach((cell) => {
                 const container = cell.querySelector('div') || cell;
                 const existing = container.querySelector('.phone-hist-badge');
                 // Extract phone from cell (last span)
                 const span = cell.querySelector('span:last-of-type');
                 const phoneText = span?.textContent || cell.textContent || '';
                 const phone = stripPhone(phoneText);
-                if (!phone) { if (existing) existing.remove(); return; }
+                if (!phone) {
+                    if (existing) existing.remove();
+                    return;
+                }
                 const { counts } = getCountsFor(phone);
-                if (counts.total === 0) { if (existing) existing.remove(); return; }
+                if (counts.total === 0) {
+                    if (existing) existing.remove();
+                    return;
+                }
                 // Idempotent: keep existing badge — only update content if counts changed
                 // (avoids remove→recreate flicker that kills the tooltip mid-hover)
                 if (existing && existing.dataset.phone === phone) {
@@ -508,7 +588,10 @@ const PhoneHistoryBadges = (() => {
         if (renderDebounceTimer) clearTimeout(renderDebounceTimer);
         renderDebounceTimer = setTimeout(() => {
             renderDebounceTimer = null;
-            if (tooltipEl) { scheduleRender(); return; } // retry after mouse leaves
+            if (tooltipEl) {
+                scheduleRender();
+                return;
+            } // retry after mouse leaves
             renderBadges();
         }, 400);
     }
@@ -518,14 +601,17 @@ const PhoneHistoryBadges = (() => {
     // hoặc xảy ra khi _rendering=true → skip để tránh loop.
     function _isSelfMutation(mutations) {
         if (_rendering) return true;
-        return mutations.every(m => {
+        return mutations.every((m) => {
             const target = m.target;
             if (target?.classList?.contains?.('phone-hist-badge')) return true;
             if (target?.closest?.('.phone-hist-badge')) return true;
             // childList mutations: check addedNodes for badge only
             if (m.type === 'childList') {
                 const nodes = [...m.addedNodes, ...m.removedNodes];
-                if (nodes.length > 0 && nodes.every(n => n.classList?.contains?.('phone-hist-badge'))) {
+                if (
+                    nodes.length > 0 &&
+                    nodes.every((n) => n.classList?.contains?.('phone-hist-badge'))
+                ) {
                     return true;
                 }
             }
@@ -536,11 +622,15 @@ const PhoneHistoryBadges = (() => {
     function _observeTable() {
         // Narrow scope: chỉ observe tbody (nơi row thay đổi khi filter/render),
         // không subtree toàn table. Filter mutation ở cell-level qua _isSelfMutation.
-        const tbody = document.getElementById('tableBody')
-            || document.querySelector('#ordersTable tbody')
-            || document.querySelector('.orders-table tbody')
-            || document.querySelector('table tbody');
-        if (!tbody) { setTimeout(_observeTable, 1000); return; }
+        const tbody =
+            document.getElementById('tableBody') ||
+            document.querySelector('#ordersTable tbody') ||
+            document.querySelector('.orders-table tbody') ||
+            document.querySelector('table tbody');
+        if (!tbody) {
+            setTimeout(_observeTable, 1000);
+            return;
+        }
         const observer = new MutationObserver((mutations) => {
             if (_isSelfMutation(mutations)) return;
             scheduleRender();
@@ -551,12 +641,18 @@ const PhoneHistoryBadges = (() => {
     }
 
     // Public API
-    function refresh() { return loadHistory(true); }
-    function getStats(phone) { return getCountsFor(phone); }
+    function refresh() {
+        return loadHistory(true);
+    }
+    function getStats(phone) {
+        return getCountsFor(phone);
+    }
 
     // Boot: load history after table likely rendered
     if (typeof window !== 'undefined') {
-        setTimeout(() => { loadHistory().then(_observeTable); }, 3000);
+        setTimeout(() => {
+            loadHistory().then(_observeTable);
+        }, 3000);
         // Auto-refresh every 2 min (in case new calls logged)
         setInterval(() => loadHistory(), CACHE_TTL_MS);
     }

@@ -46,15 +46,22 @@ function sanitizeForFirebase(obj) {
     if (obj === null) return null;
 
     if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeForFirebase(item));
+        return obj.map((item) => sanitizeForFirebase(item));
     }
 
     if (typeof obj === 'object') {
         const cleaned = {};
         for (const key in obj) {
             // Skip keys starting with @ or containing invalid characters
-            if (key.startsWith('@') || key.includes('.') || key.includes('#') ||
-                key.includes('$') || key.includes('/') || key.includes('[') || key.includes(']')) {
+            if (
+                key.startsWith('@') ||
+                key.includes('.') ||
+                key.includes('#') ||
+                key.includes('$') ||
+                key.includes('/') ||
+                key.includes('[') ||
+                key.includes(']')
+            ) {
                 continue;
             }
             // Skip undefined values (Firebase doesn't accept undefined)
@@ -129,7 +136,7 @@ async function checkFirebaseStatus() {
 
     try {
         const reports = await window.CampaignAPI.listReports();
-        const match = reports.find(r => r.tableName === currentTableName);
+        const match = reports.find((r) => r.tableName === currentTableName);
 
         if (match) {
             firebaseTableName = currentTableName;

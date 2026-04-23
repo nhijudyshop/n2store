@@ -33,39 +33,41 @@ class PurchaseOrderUIComponents {
                 label: 'Tổng đơn hàng',
                 value: stats.totalOrders || 0,
                 format: 'number',
-                color: 'blue'
+                color: 'blue',
             },
             {
                 icon: 'wallet',
                 label: 'Tổng giá trị',
                 value: stats.totalValue || 0,
                 format: 'currency',
-                color: 'green'
+                color: 'green',
             },
             {
                 icon: 'calendar',
                 label: 'Đơn hôm nay',
                 value: stats.todayOrders || 0,
                 format: 'number',
-                color: 'purple'
+                color: 'purple',
             },
             {
                 icon: 'trending-up',
                 label: 'Giá trị hôm nay',
                 value: stats.todayValue || 0,
                 format: 'currency',
-                color: 'orange'
+                color: 'orange',
             },
             {
                 icon: 'refresh-cw',
                 label: 'Đồng bộ TPOS',
                 value: stats.tposSyncRate || 0,
                 format: 'percent',
-                color: 'cyan'
-            }
+                color: 'cyan',
+            },
         ];
 
-        container.innerHTML = cards.map(card => `
+        container.innerHTML = cards
+            .map(
+                (card) => `
             <div class="summary-card summary-card--${card.color}">
                 <div class="summary-card__icon">
                     <i data-lucide="${card.icon}"></i>
@@ -75,7 +77,9 @@ class PurchaseOrderUIComponents {
                     <div class="summary-card__value">${this.formatCardValue(card.value, card.format)}</div>
                 </div>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
 
         // Re-initialize Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -90,7 +94,10 @@ class PurchaseOrderUIComponents {
     renderSummaryCardsSkeleton(container) {
         if (!container) return;
 
-        const skeletons = Array(5).fill(0).map(() => `
+        const skeletons = Array(5)
+            .fill(0)
+            .map(
+                () => `
             <div class="summary-card summary-card--skeleton">
                 <div class="summary-card__icon skeleton"></div>
                 <div class="summary-card__content">
@@ -98,7 +105,9 @@ class PurchaseOrderUIComponents {
                     <div class="summary-card__value skeleton" style="width: 100px; height: 24px;"></div>
                 </div>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
 
         container.innerHTML = skeletons;
     }
@@ -138,12 +147,15 @@ class PurchaseOrderUIComponents {
 
         const config = window.PurchaseOrderConfig;
 
-        container.innerHTML = config.TAB_CONFIG.map(tab => {
+        container.innerHTML = config.TAB_CONFIG.map((tab) => {
             const count = counts[tab.status] || 0;
             const isActive = activeTab === tab.status;
             const badgeHtml = tab.isSpecial ? '' : `<span class="tab-badge">${count}</span>`;
             // Trash tab: show count only if > 0
-            const trashBadge = tab.isTrash && count > 0 ? `<span class="tab-badge tab-badge--trash">${count}</span>` : '';
+            const trashBadge =
+                tab.isTrash && count > 0
+                    ? `<span class="tab-badge tab-badge--trash">${count}</span>`
+                    : '';
 
             return `
                 <button class="tab-btn ${isActive ? 'active' : ''} ${tab.isTrash ? 'tab-btn--trash' : ''}"
@@ -162,7 +174,7 @@ class PurchaseOrderUIComponents {
         }
 
         // Bind click handlers
-        container.querySelectorAll('.tab-btn').forEach(btn => {
+        container.querySelectorAll('.tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const status = btn.dataset.status;
                 if (onTabClick) onTabClick(status);
@@ -178,7 +190,7 @@ class PurchaseOrderUIComponents {
     updateActiveTab(status, container) {
         if (!container) return;
 
-        container.querySelectorAll('.tab-btn').forEach(btn => {
+        container.querySelectorAll('.tab-btn').forEach((btn) => {
             btn.classList.toggle('active', btn.dataset.status === status);
         });
     }
@@ -198,7 +210,7 @@ class PurchaseOrderUIComponents {
 
         const config = window.PurchaseOrderConfig;
 
-        const quickFilterOptions = config.QUICK_FILTERS.map(filter => {
+        const quickFilterOptions = config.QUICK_FILTERS.map((filter) => {
             const selected = filters.quickFilter === filter.id ? 'selected' : '';
             return `<option value="${filter.id}" ${selected}>${filter.label}</option>`;
         }).join('');
@@ -283,18 +295,38 @@ class PurchaseOrderUIComponents {
 
         const options = [
             { value: '', label: 'Tất cả trạng thái' },
-            { value: config.OrderStatus.DRAFT, label: config.STATUS_LABELS[config.OrderStatus.DRAFT] },
-            { value: config.OrderStatus.AWAITING_PURCHASE, label: config.STATUS_LABELS[config.OrderStatus.AWAITING_PURCHASE] },
-            { value: config.OrderStatus.AWAITING_DELIVERY, label: config.STATUS_LABELS[config.OrderStatus.AWAITING_DELIVERY] },
-            { value: config.OrderStatus.RECEIVED, label: config.STATUS_LABELS[config.OrderStatus.RECEIVED] },
-            { value: config.OrderStatus.COMPLETED, label: config.STATUS_LABELS[config.OrderStatus.COMPLETED] },
-            { value: config.OrderStatus.CANCELLED, label: config.STATUS_LABELS[config.OrderStatus.CANCELLED] }
+            {
+                value: config.OrderStatus.DRAFT,
+                label: config.STATUS_LABELS[config.OrderStatus.DRAFT],
+            },
+            {
+                value: config.OrderStatus.AWAITING_PURCHASE,
+                label: config.STATUS_LABELS[config.OrderStatus.AWAITING_PURCHASE],
+            },
+            {
+                value: config.OrderStatus.AWAITING_DELIVERY,
+                label: config.STATUS_LABELS[config.OrderStatus.AWAITING_DELIVERY],
+            },
+            {
+                value: config.OrderStatus.RECEIVED,
+                label: config.STATUS_LABELS[config.OrderStatus.RECEIVED],
+            },
+            {
+                value: config.OrderStatus.COMPLETED,
+                label: config.STATUS_LABELS[config.OrderStatus.COMPLETED],
+            },
+            {
+                value: config.OrderStatus.CANCELLED,
+                label: config.STATUS_LABELS[config.OrderStatus.CANCELLED],
+            },
         ];
 
-        return options.map(opt => {
-            const selected = currentFilter === opt.value ? 'selected' : '';
-            return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
-        }).join('');
+        return options
+            .map((opt) => {
+                const selected = currentFilter === opt.value ? 'selected' : '';
+                return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+            })
+            .join('');
     }
 
     /**
@@ -381,12 +413,7 @@ class PurchaseOrderUIComponents {
     renderPagination(options, container, handlers = {}) {
         if (!container) return;
 
-        const {
-            currentPage = 1,
-            totalItems = 0,
-            pageSize = 20,
-            hasMore = false
-        } = options;
+        const { currentPage = 1, totalItems = 0, pageSize = 20, hasMore = false } = options;
 
         // Calculate pagination info
         const totalPages = Math.ceil(totalItems / pageSize);
@@ -402,40 +429,50 @@ class PurchaseOrderUIComponents {
                     Hiển thị ${startItem} - ${endItem} trong ${totalItems} đơn hàng
                 </div>
                 <div class="pagination__controls">
-                    ${totalPages > 1 ? `
+                    ${
+                        totalPages > 1
+                            ? `
                         <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}"
                                 data-page="${currentPage - 1}"
                                 ${currentPage <= 1 ? 'disabled' : ''}>
                             <i data-lucide="chevron-left"></i>
                         </button>
 
-                        ${pageNumbers.map(page => {
-                            if (page === '...') {
-                                return '<span class="pagination__ellipsis">...</span>';
-                            }
-                            const isActive = page === currentPage;
-                            return `
+                        ${pageNumbers
+                            .map((page) => {
+                                if (page === '...') {
+                                    return '<span class="pagination__ellipsis">...</span>';
+                                }
+                                const isActive = page === currentPage;
+                                return `
                                 <button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}"
                                         data-page="${page}"
                                         ${isActive ? 'disabled' : ''}>
                                     ${page}
                                 </button>
                             `;
-                        }).join('')}
+                            })
+                            .join('')}
 
                         <button class="pagination__btn pagination__btn--next ${currentPage >= totalPages ? 'disabled' : ''}"
                                 data-page="${currentPage + 1}"
                                 ${currentPage >= totalPages ? 'disabled' : ''}>
                             <i data-lucide="chevron-right"></i>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
-                    ${hasMore && currentPage >= totalPages ? `
+                    ${
+                        hasMore && currentPage >= totalPages
+                            ? `
                         <button id="btnLoadMore" class="btn btn-outline btn-sm" style="margin-left: 16px;">
                             <i data-lucide="chevrons-down"></i>
                             <span>Tải thêm</span>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
@@ -514,7 +551,7 @@ class PurchaseOrderUIComponents {
      */
     bindPaginationEvents(container, handlers, pageSize, totalItems) {
         // Page buttons
-        container.querySelectorAll('.pagination__btn[data-page]').forEach(btn => {
+        container.querySelectorAll('.pagination__btn[data-page]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const page = parseInt(btn.dataset.page, 10);
                 if (!isNaN(page) && handlers.onPageChange) {
@@ -584,22 +621,22 @@ class PurchaseOrderUIComponents {
                 // Invoice stats this month (count + sum)
                 window.TPOSClient.authenticatedFetch(
                     `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
-                    `?$top=0&$count=true` +
-                    `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
-                ).then(r => r.json()),
+                        `?$top=0&$count=true` +
+                        `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
+                ).then((r) => r.json()),
 
                 // Refund count this month
                 window.TPOSClient.authenticatedFetch(
                     `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
-                    `?$top=0&$count=true` +
-                    `&$filter=(Type eq 'refund' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
-                ).then(r => r.json()),
+                        `?$top=0&$count=true` +
+                        `&$filter=(Type eq 'refund' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})`
+                ).then((r) => r.json()),
 
                 // Outstanding debt (all open invoices)
                 window.TPOSClient.authenticatedFetch(
                     `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
-                    `?$top=999&$filter=(Type eq 'invoice' and State eq 'open')`
-                ).then(r => r.json())
+                        `?$top=999&$filter=(Type eq 'invoice' and State eq 'open')`
+                ).then((r) => r.json()),
             ]);
 
             // Calculate totals
@@ -610,18 +647,22 @@ class PurchaseOrderUIComponents {
             if (invoiceCount > 0) {
                 const amountResp = await window.TPOSClient.authenticatedFetch(
                     `${PROXY_URL}/api/odata/FastPurchaseOrder/OdataService.GetView` +
-                    `?$top=999` +
-                    `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})` +
-                    `&$select=AmountTotal`
-                ).then(r => r.json());
+                        `?$top=999` +
+                        `&$filter=(Type eq 'invoice' and DateInvoice ge ${firstDayStr} and DateInvoice le ${lastDayStr})` +
+                        `&$select=AmountTotal`
+                ).then((r) => r.json());
 
-                totalAmount = (amountResp.value || []).reduce((sum, inv) => sum + (inv.AmountTotal || 0), 0);
+                totalAmount = (amountResp.value || []).reduce(
+                    (sum, inv) => sum + (inv.AmountTotal || 0),
+                    0
+                );
             }
 
             const refundCount = refundData['@odata.count'] || 0;
 
             const outstandingDebt = (debtData.value || []).reduce(
-                (sum, inv) => sum + (inv.Residual || 0), 0
+                (sum, inv) => sum + (inv.Residual || 0),
+                0
             );
 
             // Get current month label
@@ -633,9 +674,8 @@ class PurchaseOrderUIComponents {
                 totalAmount,
                 refundCount,
                 outstandingDebt,
-                monthLabel
+                monthLabel,
             });
-
         } catch (error) {
             console.error('[TPOS Stats] Failed to load:', error);
             this._renderTPOSStatsError(container, error.message);
@@ -655,29 +695,29 @@ class PurchaseOrderUIComponents {
                 label: `Mua hàng TPOS (${stats.monthLabel})`,
                 value: stats.invoiceCount,
                 format: 'number',
-                color: 'blue'
+                color: 'blue',
             },
             {
                 icon: 'banknote',
                 label: 'Tổng tiền mua',
                 value: stats.totalAmount,
                 format: 'currency',
-                color: 'green'
+                color: 'green',
             },
             {
                 icon: 'undo-2',
                 label: 'Trả hàng',
                 value: stats.refundCount,
                 format: 'number',
-                color: 'orange'
+                color: 'orange',
             },
             {
                 icon: 'alert-circle',
                 label: 'Công nợ NCC',
                 value: stats.outstandingDebt,
                 format: 'currency',
-                color: 'red'
-            }
+                color: 'red',
+            },
         ];
 
         container.innerHTML = `
@@ -687,7 +727,9 @@ class PurchaseOrderUIComponents {
                 <span class="tpos-stats__badge">Live</span>
             </div>
             <div class="tpos-stats__grid">
-                ${cards.map(card => `
+                ${cards
+                    .map(
+                        (card) => `
                     <div class="tpos-stat-card tpos-stat-card--${card.color}">
                         <div class="tpos-stat-card__icon">
                             <i data-lucide="${card.icon}"></i>
@@ -695,7 +737,9 @@ class PurchaseOrderUIComponents {
                         <div class="tpos-stat-card__label">${card.label}</div>
                         <div class="tpos-stat-card__value">${this.formatCardValue(card.value, card.format)}</div>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
 
@@ -710,13 +754,18 @@ class PurchaseOrderUIComponents {
      * @private
      */
     _renderTPOSStatsSkeleton(container) {
-        const skeletons = Array(4).fill(0).map(() => `
+        const skeletons = Array(4)
+            .fill(0)
+            .map(
+                () => `
             <div class="tpos-stat-card tpos-stat-card--skeleton">
                 <div class="tpos-stat-card__icon skeleton" style="width: 32px; height: 32px;"></div>
                 <div class="tpos-stat-card__label skeleton" style="width: 90px; height: 12px;"></div>
                 <div class="tpos-stat-card__value skeleton" style="width: 110px; height: 22px;"></div>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
 
         container.innerHTML = `
             <div class="tpos-stats__header">
@@ -898,7 +947,7 @@ class PurchaseOrderUIComponents {
             success: 'check-circle',
             error: 'x-circle',
             warning: 'alert-triangle',
-            info: 'info'
+            info: 'info',
         };
 
         const toast = document.createElement('div');
@@ -966,7 +1015,7 @@ class PurchaseOrderUIComponents {
                 message = 'Bạn có chắc chắn muốn thực hiện hành động này?',
                 confirmText = 'Xác nhận',
                 cancelText = 'Hủy',
-                type = 'warning'
+                type = 'warning',
             } = options;
 
             const overlay = document.createElement('div');
@@ -1002,9 +1051,20 @@ class PurchaseOrderUIComponents {
                 setTimeout(() => overlay.remove(), 200);
             };
 
-            confirmBtn.addEventListener('click', () => { cleanup(); resolve(true); });
-            cancelBtn.addEventListener('click', () => { cleanup(); resolve(false); });
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(false); } });
+            confirmBtn.addEventListener('click', () => {
+                cleanup();
+                resolve(true);
+            });
+            cancelBtn.addEventListener('click', () => {
+                cleanup();
+                resolve(false);
+            });
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve(false);
+                }
+            });
 
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {

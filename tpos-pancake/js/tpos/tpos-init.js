@@ -88,7 +88,9 @@ const TposColumnManager = {
         if (savedPage) {
             const crmSelect = document.getElementById('tposCrmTeamSelect');
             if (crmSelect) {
-                const optionExists = Array.from(crmSelect.options).some(opt => opt.value === savedPage);
+                const optionExists = Array.from(crmSelect.options).some(
+                    (opt) => opt.value === savedPage
+                );
                 if (optionExists) {
                     crmSelect.value = savedPage;
                     this.onCrmTeamChange(savedPage);
@@ -132,7 +134,7 @@ const TposColumnManager = {
 
             for (const team of state.crmTeams) {
                 if (team.Id === state.selectedTeamId) {
-                    state.selectedPage = team.Childs?.find(p => p.Id === parseInt(pageId));
+                    state.selectedPage = team.Childs?.find((p) => p.Id === parseInt(pageId));
                     break;
                 }
             }
@@ -176,12 +178,14 @@ const TposColumnManager = {
         }
 
         state.clearAllCaches();
-        state.selectedCampaign = state.liveCampaigns.find(c => c.Id === campaignId);
+        state.selectedCampaign = state.liveCampaigns.find((c) => c.Id === campaignId);
 
         if (state.selectedCampaign) {
             if (state.selectedPages.length > 1) {
                 const campaignPageId = state.selectedCampaign.Facebook_UserId;
-                state.selectedPage = state.allPages.find(p => p.Facebook_PageId === campaignPageId) || state.selectedPage;
+                state.selectedPage =
+                    state.allPages.find((p) => p.Facebook_PageId === campaignPageId) ||
+                    state.selectedPage;
             }
             await this.loadComments();
         }
@@ -196,10 +200,10 @@ const TposColumnManager = {
 
         if (saved && saved.length > 0) {
             // Filter to only campaigns that still exist
-            const validIds = saved.filter(id => state.liveCampaigns.some(c => c.Id === id));
+            const validIds = saved.filter((id) => state.liveCampaigns.some((c) => c.Id === id));
             if (validIds.length > 0) {
                 if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
-                validIds.forEach(id => state.selectedCampaignIds.add(id));
+                validIds.forEach((id) => state.selectedCampaignIds.add(id));
                 window.TposCommentList.renderLiveCampaignOptions();
                 await this.onMultiCampaignChange(validIds);
                 return;
@@ -242,34 +246,41 @@ const TposColumnManager = {
 
         try {
             const campaigns = campaignIds
-                .map(id => state.liveCampaigns.find(c => c.Id === id))
+                .map((id) => state.liveCampaigns.find((c) => c.Id === id))
                 .filter(Boolean);
 
             // Load comments from all selected campaigns in parallel
-            const results = await Promise.all(campaigns.map(async (campaign) => {
-                const pageId = campaign.Facebook_UserId;
-                const postId = campaign.Facebook_LiveId;
-                const pageName = campaign.Facebook_UserName || '';
+            const results = await Promise.all(
+                campaigns.map(async (campaign) => {
+                    const pageId = campaign.Facebook_UserId;
+                    const postId = campaign.Facebook_LiveId;
+                    const pageName = campaign.Facebook_UserName || '';
 
-                // Find the matching page object
-                const page = state.allPages.find(p => p.Facebook_PageId === pageId) || state.selectedPage;
+                    // Find the matching page object
+                    const page =
+                        state.allPages.find((p) => p.Facebook_PageId === pageId) ||
+                        state.selectedPage;
 
-                try {
-                    const result = await window.TposApi.loadComments(pageId, postId);
-                    // Tag each comment with page name and campaign info
-                    (result.comments || []).forEach(c => {
-                        c._pageName = pageName;
-                        c._campaignId = campaign.Id;
-                        c._campaignName = campaign.Name;
-                        c._pageId = pageId;
-                        c._pageObj = page;
-                    });
-                    return result.comments || [];
-                } catch (error) {
-                    console.warn(`[TPOS-INIT] Error loading comments for ${campaign.Name}:`, error);
-                    return [];
-                }
-            }));
+                    try {
+                        const result = await window.TposApi.loadComments(pageId, postId);
+                        // Tag each comment with page name and campaign info
+                        (result.comments || []).forEach((c) => {
+                            c._pageName = pageName;
+                            c._campaignId = campaign.Id;
+                            c._campaignName = campaign.Name;
+                            c._pageId = pageId;
+                            c._pageObj = page;
+                        });
+                        return result.comments || [];
+                    } catch (error) {
+                        console.warn(
+                            `[TPOS-INIT] Error loading comments for ${campaign.Name}:`,
+                            error
+                        );
+                        return [];
+                    }
+                })
+            );
 
             // Merge all comments, sort by time (newest first)
             const allComments = results.flat();
@@ -286,15 +297,23 @@ const TposColumnManager = {
             // Update selectedPage to first campaign's page
             if (campaigns[0]) {
                 const firstPageId = campaigns[0].Facebook_UserId;
-                state.selectedPage = state.allPages.find(p => p.Facebook_PageId === firstPageId) || state.selectedPage;
+                state.selectedPage =
+                    state.allPages.find((p) => p.Facebook_PageId === firstPageId) ||
+                    state.selectedPage;
             }
 
-            console.log(`[TPOS-INIT] Loaded ${allComments.length} comments from ${campaigns.length} campaigns`);
+            console.log(
+                `[TPOS-INIT] Loaded ${allComments.length} comments from ${campaigns.length} campaigns`
+            );
             window.TposCommentList.renderComments();
 
             // Start SSE for each campaign
-            campaigns.forEach(c => {
-                window.TposRealtime.startSSE(c.Facebook_UserId, c.Facebook_LiveId, c.Facebook_UserName);
+            campaigns.forEach((c) => {
+                window.TposRealtime.startSSE(
+                    c.Facebook_UserId,
+                    c.Facebook_LiveId,
+                    c.Facebook_UserName
+                );
             });
 
             // Load session index for all campaigns
@@ -304,7 +323,6 @@ const TposColumnManager = {
 
             // Load partner info
             this.loadPartnerInfoForComments();
-
         } catch (error) {
             console.error('[TPOS-INIT] Error loading multi-campaign comments:', error);
             window.TposCommentList.showError(error.message);
@@ -345,8 +363,11 @@ const TposColumnManager = {
             const result = await window.TposApi.loadComments(pageId, postId, afterCursor);
 
             // Tag each comment with page name (for multi-page display)
-            const campaignPageName = state.selectedCampaign?.Facebook_UserName || state.selectedPage?.Name || '';
-            result.comments.forEach(c => { c._pageName = campaignPageName; });
+            const campaignPageName =
+                state.selectedCampaign?.Facebook_UserName || state.selectedPage?.Name || '';
+            result.comments.forEach((c) => {
+                c._pageName = campaignPageName;
+            });
 
             if (append) {
                 state.comments = [...state.comments, ...result.comments];
@@ -357,7 +378,12 @@ const TposColumnManager = {
             state.nextPageUrl = result.nextPageUrl;
             state.hasMore = !!state.nextPageUrl;
 
-            console.log('[TPOS-INIT] Loaded comments:', result.comments.length, 'Total:', state.comments.length);
+            console.log(
+                '[TPOS-INIT] Loaded comments:',
+                result.comments.length,
+                'Total:',
+                state.comments.length
+            );
             window.TposCommentList.renderComments();
 
             // After initial load: start SSE + load SessionIndex
@@ -368,7 +394,6 @@ const TposColumnManager = {
 
             // Load partner info async
             this.loadPartnerInfoForComments();
-
         } catch (error) {
             console.error('[TPOS-INIT] Error loading comments:', error);
             if (!append) {
@@ -440,26 +465,29 @@ const TposColumnManager = {
         const batchSize = 5;
         for (let i = 0; i < entries.length; i += batchSize) {
             const batch = entries.slice(i, i + batchSize);
-            await Promise.all(batch.map(async ([userId, crmTeamId]) => {
-                if (!crmTeamId || state.partnerCache.has(userId)) return;
-                if (state.partnerFetchPromises.has(userId)) return state.partnerFetchPromises.get(userId);
+            await Promise.all(
+                batch.map(async ([userId, crmTeamId]) => {
+                    if (!crmTeamId || state.partnerCache.has(userId)) return;
+                    if (state.partnerFetchPromises.has(userId))
+                        return state.partnerFetchPromises.get(userId);
 
-                const promise = (async () => {
-                    try {
-                        const data = await window.TposApi.getPartnerInfo(crmTeamId, userId);
-                        if (data?.Partner) {
-                            state.partnerCache.set(userId, data.Partner);
+                    const promise = (async () => {
+                        try {
+                            const data = await window.TposApi.getPartnerInfo(crmTeamId, userId);
+                            if (data?.Partner) {
+                                state.partnerCache.set(userId, data.Partner);
+                            }
+                        } catch {
+                            // silently skip 400 errors (user not in this CRM team)
+                        } finally {
+                            state.partnerFetchPromises.delete(userId);
                         }
-                    } catch {
-                        // silently skip 400 errors (user not in this CRM team)
-                    } finally {
-                        state.partnerFetchPromises.delete(userId);
-                    }
-                })();
+                    })();
 
-                state.partnerFetchPromises.set(userId, promise);
-                return promise;
-            }));
+                    state.partnerFetchPromises.set(userId, promise);
+                    return promise;
+                })
+            );
         }
 
         // Re-render with partner info
@@ -516,7 +544,7 @@ const TposColumnManager = {
      */
     async toggleHideComment(commentId, hide) {
         const state = window.TposState;
-        const comment = state.comments.find(c => c.id === commentId);
+        const comment = state.comments.find((c) => c.id === commentId);
         if (!comment) return;
 
         // Optimistic UI update
@@ -529,14 +557,20 @@ const TposColumnManager = {
             const success = await window.TposApi.hideComment(pageId, commentId, hide);
             if (success) {
                 if (window.notificationManager) {
-                    window.notificationManager.show(hide ? 'Đã ẩn comment trên Facebook' : 'Đã hiện comment trên Facebook', 'success');
+                    window.notificationManager.show(
+                        hide ? 'Đã ẩn comment trên Facebook' : 'Đã hiện comment trên Facebook',
+                        'success'
+                    );
                 }
             } else {
                 // Revert on failure
                 comment.is_hidden = !hide;
                 window.TposCommentList.renderComments();
                 if (window.notificationManager) {
-                    window.notificationManager.show('Lỗi: Không thể ' + (hide ? 'ẩn' : 'hiện') + ' comment', 'error');
+                    window.notificationManager.show(
+                        'Lỗi: Không thể ' + (hide ? 'ẩn' : 'hiện') + ' comment',
+                        'error'
+                    );
                 }
             }
         }
@@ -558,7 +592,7 @@ const TposColumnManager = {
         window.TposRealtime.stopSSE();
         window.TposRealtime.disconnectWebSocket();
         window.TposState.stopCacheCleanup();
-    }
+    },
 };
 
 // Export for script-tag usage & backward compatibility
@@ -584,11 +618,21 @@ if (typeof window !== 'undefined') {
         setDebtDisplaySettings: (a, b) => TposColumnManager.setDebtDisplaySettings(a, b),
         updateSaveButtonToCheckmark: (id) => window.TposCommentList.updateSaveButtonToCheckmark(id),
         // Expose state for external access
-        get comments() { return window.TposState.comments; },
-        get selectedPage() { return window.TposState.selectedPage; },
-        get selectedCampaign() { return window.TposState.selectedCampaign; },
-        get savedToTposIds() { return window.TposState.savedToTposIds; },
-        get sessionIndexMap() { return window.TposState.sessionIndexMap; },
-        getCacheStats: () => window.TposState.getCacheStats()
+        get comments() {
+            return window.TposState.comments;
+        },
+        get selectedPage() {
+            return window.TposState.selectedPage;
+        },
+        get selectedCampaign() {
+            return window.TposState.selectedCampaign;
+        },
+        get savedToTposIds() {
+            return window.TposState.savedToTposIds;
+        },
+        get sessionIndexMap() {
+            return window.TposState.sessionIndexMap;
+        },
+        getCacheStats: () => window.TposState.getCacheStats(),
     };
 }

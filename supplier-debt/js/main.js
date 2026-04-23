@@ -16,7 +16,7 @@ const CONFIG = {
     DEFAULT_PAGE_SIZE: 1000,
     DETAIL_PAGE_SIZE: 50,
     COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility',
-    FIREBASE_COLLECTION: 'supplier_debt_notes'
+    FIREBASE_COLLECTION: 'supplier_debt_notes',
 };
 
 // =====================================================
@@ -28,9 +28,9 @@ async function tposFetch(url, options = {}) {
         ...options,
         headers: {
             'Content-Type': 'application/json',
-            'tposappversion': '6.2.6.1',
-            ...options.headers
-        }
+            tposappversion: '6.2.6.1',
+            ...options.headers,
+        },
     });
 }
 
@@ -50,7 +50,9 @@ function canEditNoteForMoveName(moveName) {
         return hasSupplierDebtPermission('editNotePayment');
     }
     // Other move types: allow if user has either permission
-    return hasSupplierDebtPermission('editNoteBill') || hasSupplierDebtPermission('editNotePayment');
+    return (
+        hasSupplierDebtPermission('editNoteBill') || hasSupplierDebtPermission('editNotePayment')
+    );
 }
 
 // =====================================================
@@ -141,10 +143,13 @@ const WebNotesStore = {
         if (!docRef) return;
 
         try {
-            await docRef.set({
-                notes: Object.fromEntries(this._data),
-                lastUpdated: Date.now()
-            }, { merge: true });
+            await docRef.set(
+                {
+                    notes: Object.fromEntries(this._data),
+                    lastUpdated: Date.now(),
+                },
+                { merge: true }
+            );
         } catch (e) {
             console.error('[WebNotesStore] Error saving to Firestore:', e);
         }
@@ -154,19 +159,22 @@ const WebNotesStore = {
         const docRef = this._getDocRef();
         if (!docRef) return;
 
-        this._unsubscribe = docRef.onSnapshot((doc) => {
-            if (doc.exists) {
-                const data = doc.data();
-                if (data && data.notes) {
-                    this._isListening = true;
-                    this._data = new Map(Object.entries(data.notes));
-                    this._saveToLocalStorage();
-                    this._isListening = false;
+        this._unsubscribe = docRef.onSnapshot(
+            (doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data && data.notes) {
+                        this._isListening = true;
+                        this._data = new Map(Object.entries(data.notes));
+                        this._saveToLocalStorage();
+                        this._isListening = false;
+                    }
                 }
+            },
+            (error) => {
+                console.error('[WebNotesStore] Realtime listener error:', error);
             }
-        }, (error) => {
-            console.error('[WebNotesStore] Realtime listener error:', error);
-        });
+        );
     },
 
     // Get note text for a supplier code and moveName (Bút toán)
@@ -192,8 +200,8 @@ const WebNotesStore = {
     async set(supplierCode, moveName, note) {
         const key = this._makeKey(supplierCode, moveName);
         const existingData = this._data.get(key);
-        const oldNote = typeof existingData === 'string' ? existingData : (existingData?.note || '');
-        const oldHistory = typeof existingData === 'string' ? [] : (existingData?.history || []);
+        const oldNote = typeof existingData === 'string' ? existingData : existingData?.note || '';
+        const oldHistory = typeof existingData === 'string' ? [] : existingData?.history || [];
 
         const newHistory = [...oldHistory];
 
@@ -202,7 +210,7 @@ const WebNotesStore = {
             if (oldNote && oldNote !== note.trim()) {
                 newHistory.unshift({
                     text: oldNote,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                 });
             }
 
@@ -213,14 +221,14 @@ const WebNotesStore = {
 
             this._data.set(key, {
                 note: note.trim(),
-                history: newHistory
+                history: newHistory,
             });
         } else if (oldNote) {
             // Note is being deleted - add "Xóa ghi chú" to history
             newHistory.unshift({
                 text: `Xóa ghi chú "${oldNote}"`,
                 timestamp: Date.now(),
-                isDeleted: true
+                isDeleted: true,
             });
 
             // Keep only last 10 history items
@@ -230,7 +238,7 @@ const WebNotesStore = {
 
             this._data.set(key, {
                 note: '',
-                history: newHistory
+                history: newHistory,
             });
         } else {
             // No old note and no new note - nothing to do
@@ -255,13 +263,13 @@ const WebNotesStore = {
             try {
                 await docRef.update({
                     [`notes.${key}`]: firebase.firestore.FieldValue.delete(),
-                    lastUpdated: Date.now()
+                    lastUpdated: Date.now(),
                 });
             } catch (e) {
                 console.error('[WebNotesStore] Error deleting from Firestore:', e);
             }
         }
-    }
+    },
 };
 
 // =====================================================
@@ -285,7 +293,9 @@ const SupplierNotesStore = {
         try {
             const saved = localStorage.getItem('supplierDebt_supplierNotes');
             if (saved) this._data = new Map(Object.entries(JSON.parse(saved)));
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         // Load from Firestore
         const docRef = this._getDocRef();
@@ -296,23 +306,35 @@ const SupplierNotesStore = {
                     this._data = new Map(Object.entries(doc.data().notes));
                     this._saveLocal();
                 }
-            } catch (e) { console.error('[SupplierNotesStore] Firestore load error:', e); }
+            } catch (e) {
+                console.error('[SupplierNotesStore] Firestore load error:', e);
+            }
 
             // Real-time listener
-            this._unsubscribe = docRef.onSnapshot((doc) => {
-                if (doc.exists && doc.data()?.notes) {
-                    this._isListening = true;
-                    this._data = new Map(Object.entries(doc.data().notes));
-                    this._saveLocal();
-                    this._isListening = false;
-                }
-            }, (err) => console.error('[SupplierNotesStore] Listener error:', err));
+            this._unsubscribe = docRef.onSnapshot(
+                (doc) => {
+                    if (doc.exists && doc.data()?.notes) {
+                        this._isListening = true;
+                        this._data = new Map(Object.entries(doc.data().notes));
+                        this._saveLocal();
+                        this._isListening = false;
+                    }
+                },
+                (err) => console.error('[SupplierNotesStore] Listener error:', err)
+            );
         }
         console.log('[SupplierNotesStore] Initialized with', this._data.size, 'notes');
     },
 
     _saveLocal() {
-        try { localStorage.setItem('supplierDebt_supplierNotes', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem(
+                'supplierDebt_supplierNotes',
+                JSON.stringify(Object.fromEntries(this._data))
+            );
+        } catch (e) {
+            /* ignore */
+        }
     },
 
     get(supplierCode) {
@@ -331,13 +353,21 @@ const SupplierNotesStore = {
         if (docRef && !this._isListening) {
             try {
                 if (note && note.trim()) {
-                    await docRef.set({ notes: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
+                    await docRef.set(
+                        { notes: Object.fromEntries(this._data), lastUpdated: Date.now() },
+                        { merge: true }
+                    );
                 } else {
-                    await docRef.update({ [`notes.${supplierCode}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
+                    await docRef.update({
+                        [`notes.${supplierCode}`]: firebase.firestore.FieldValue.delete(),
+                        lastUpdated: Date.now(),
+                    });
                 }
-            } catch (e) { console.error('[SupplierNotesStore] Save error:', e); }
+            } catch (e) {
+                console.error('[SupplierNotesStore] Save error:', e);
+            }
         }
-    }
+    },
 };
 
 // =====================================================
@@ -365,7 +395,9 @@ const RefundDateStore = {
                     this._data.set(k, typeof v === 'string' ? { date: v, number: '' } : v);
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         const docRef = this._getDocRef();
         if (docRef) {
@@ -375,22 +407,34 @@ const RefundDateStore = {
                     this._data = new Map(Object.entries(doc.data().data));
                     this._saveLocal();
                 }
-            } catch (e) { console.error('[RefundDateStore] Firestore load error:', e); }
+            } catch (e) {
+                console.error('[RefundDateStore] Firestore load error:', e);
+            }
 
-            this._unsubscribe = docRef.onSnapshot((doc) => {
-                if (doc.exists && doc.data()?.data) {
-                    this._isListening = true;
-                    this._data = new Map(Object.entries(doc.data().data));
-                    this._saveLocal();
-                    this._isListening = false;
-                }
-            }, (err) => console.error('[RefundDateStore] Listener error:', err));
+            this._unsubscribe = docRef.onSnapshot(
+                (doc) => {
+                    if (doc.exists && doc.data()?.data) {
+                        this._isListening = true;
+                        this._data = new Map(Object.entries(doc.data().data));
+                        this._saveLocal();
+                        this._isListening = false;
+                    }
+                },
+                (err) => console.error('[RefundDateStore] Listener error:', err)
+            );
         }
         console.log('[RefundDateStore] Initialized with', this._data.size, 'entries');
     },
 
     _saveLocal() {
-        try { localStorage.setItem('supplierDebt_refundDates', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem(
+                'supplierDebt_refundDates',
+                JSON.stringify(Object.fromEntries(this._data))
+            );
+        } catch (e) {
+            /* ignore */
+        }
     },
 
     get(orderId) {
@@ -413,8 +457,13 @@ const RefundDateStore = {
         const docRef = this._getDocRef();
         if (docRef && !this._isListening) {
             try {
-                await docRef.set({ data: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
-            } catch (e) { console.error('[RefundDateStore] Save error:', e); }
+                await docRef.set(
+                    { data: Object.fromEntries(this._data), lastUpdated: Date.now() },
+                    { merge: true }
+                );
+            } catch (e) {
+                console.error('[RefundDateStore] Save error:', e);
+            }
         }
     },
 
@@ -426,10 +475,15 @@ const RefundDateStore = {
         const docRef = this._getDocRef();
         if (docRef && !this._isListening) {
             try {
-                await docRef.update({ [`data.${key}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
-            } catch (e) { console.error('[RefundDateStore] Delete error:', e); }
+                await docRef.update({
+                    [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                    lastUpdated: Date.now(),
+                });
+            } catch (e) {
+                console.error('[RefundDateStore] Delete error:', e);
+            }
         }
-    }
+    },
 };
 
 // =====================================================
@@ -456,7 +510,9 @@ const RowOrderStore = {
                     this._data.set(k, v);
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         const docRef = this._getDocRef();
         if (docRef) {
@@ -466,22 +522,34 @@ const RowOrderStore = {
                     this._data = new Map(Object.entries(doc.data().data));
                     this._saveLocal();
                 }
-            } catch (e) { console.error('[RowOrderStore] Firestore load error:', e); }
+            } catch (e) {
+                console.error('[RowOrderStore] Firestore load error:', e);
+            }
 
-            this._unsubscribe = docRef.onSnapshot((doc) => {
-                if (doc.exists && doc.data()?.data) {
-                    this._isListening = true;
-                    this._data = new Map(Object.entries(doc.data().data));
-                    this._saveLocal();
-                    this._isListening = false;
-                }
-            }, (err) => console.error('[RowOrderStore] Listener error:', err));
+            this._unsubscribe = docRef.onSnapshot(
+                (doc) => {
+                    if (doc.exists && doc.data()?.data) {
+                        this._isListening = true;
+                        this._data = new Map(Object.entries(doc.data().data));
+                        this._saveLocal();
+                        this._isListening = false;
+                    }
+                },
+                (err) => console.error('[RowOrderStore] Listener error:', err)
+            );
         }
         console.log('[RowOrderStore] Initialized with', this._data.size, 'entries');
     },
 
     _saveLocal() {
-        try { localStorage.setItem('supplierDebt_rowOrder', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem(
+                'supplierDebt_rowOrder',
+                JSON.stringify(Object.fromEntries(this._data))
+            );
+        } catch (e) {
+            /* ignore */
+        }
     },
 
     _makeKey(supplierCode, dateStr) {
@@ -500,8 +568,13 @@ const RowOrderStore = {
         const docRef = this._getDocRef();
         if (docRef && !this._isListening) {
             try {
-                await docRef.set({ data: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
-            } catch (e) { console.error('[RowOrderStore] Save error:', e); }
+                await docRef.set(
+                    { data: Object.fromEntries(this._data), lastUpdated: Date.now() },
+                    { merge: true }
+                );
+            } catch (e) {
+                console.error('[RowOrderStore] Save error:', e);
+            }
         }
     },
 
@@ -513,10 +586,15 @@ const RowOrderStore = {
         const docRef = this._getDocRef();
         if (docRef && !this._isListening) {
             try {
-                await docRef.update({ [`data.${key}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
-            } catch (e) { console.error('[RowOrderStore] Delete error:', e); }
+                await docRef.update({
+                    [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                    lastUpdated: Date.now(),
+                });
+            } catch (e) {
+                console.error('[RowOrderStore] Delete error:', e);
+            }
         }
-    }
+    },
 };
 
 // Column definitions for visibility toggle
@@ -525,7 +603,7 @@ const COLUMNS = [
     { id: 'name', index: 2, label: 'Tên NCC' },
     { id: 'debit', index: 3, label: 'Phát sinh' },
     { id: 'credit', index: 4, label: 'Thanh toán' },
-    { id: 'end', index: 5, label: 'Nợ cuối kỳ' }
+    { id: 'end', index: 5, label: 'Nợ cuối kỳ' },
 ];
 
 // =====================================================
@@ -545,8 +623,8 @@ const State = {
     display: 'all',
     selectedSupplier: '',
     // Sort state for columns
-    sortField: null,   // 'Debit', 'Credit', 'End' or null
-    sortOrder: null,    // 'asc', 'desc' or null
+    sortField: null, // 'Debit', 'Credit', 'End' or null
+    sortOrder: null, // 'asc', 'desc' or null
     // Expanded row state
     expandedRows: new Map(), // partnerId -> { congNo, info, invoices, debtDetails, activeTab, ... }
     // Column visibility state
@@ -555,8 +633,8 @@ const State = {
         name: true,
         debit: true,
         credit: true,
-        end: true
-    }
+        end: true,
+    },
 };
 
 // =====================================================
@@ -564,33 +642,87 @@ const State = {
 // =====================================================
 
 const DOM = {
-    get dateFromDisplay() { return document.getElementById('dateFromDisplay'); },
-    get dateFrom() { return document.getElementById('dateFrom'); },
-    get dateToDisplay() { return document.getElementById('dateToDisplay'); },
-    get dateTo() { return document.getElementById('dateTo'); },
-    get displayRadios() { return document.querySelectorAll('input[name="display"]'); },
-    get supplierFilter() { return document.getElementById('supplierFilter'); },
-    get clearSupplier() { return document.getElementById('clearSupplier'); },
-    get btnSearch() { return document.getElementById('btnSearch'); },
-    get btnExport() { return document.getElementById('btnExport'); },
-    get btnRefresh() { return document.getElementById('btnRefresh'); },
-    get loadingIndicator() { return document.getElementById('loadingIndicator'); },
-    get tableBody() { return document.getElementById('tableBody'); },
-    get totalDebit() { return document.getElementById('totalDebit'); },
-    get totalCredit() { return document.getElementById('totalCredit'); },
-    get totalEnd() { return document.getElementById('totalEnd'); },
-    get pageNumbers() { return document.getElementById('pageNumbers'); },
-    get pageSize() { return document.getElementById('pageSize'); },
-    get pageInfo() { return document.getElementById('pageInfo'); },
-    get btnFirst() { return document.getElementById('btnFirst'); },
-    get btnPrev() { return document.getElementById('btnPrev'); },
-    get btnNext() { return document.getElementById('btnNext'); },
-    get btnLast() { return document.getElementById('btnLast'); },
-    get btnFilterToggle() { return document.getElementById('btnFilterToggle'); },
-    get filterSection() { return document.getElementById('filterSection'); },
-    get btnColumnToggle() { return document.getElementById('btnColumnToggle'); },
-    get columnToggleDropdown() { return document.getElementById('columnToggleDropdown'); },
-    get dataTable() { return document.getElementById('dataTable'); }
+    get dateFromDisplay() {
+        return document.getElementById('dateFromDisplay');
+    },
+    get dateFrom() {
+        return document.getElementById('dateFrom');
+    },
+    get dateToDisplay() {
+        return document.getElementById('dateToDisplay');
+    },
+    get dateTo() {
+        return document.getElementById('dateTo');
+    },
+    get displayRadios() {
+        return document.querySelectorAll('input[name="display"]');
+    },
+    get supplierFilter() {
+        return document.getElementById('supplierFilter');
+    },
+    get clearSupplier() {
+        return document.getElementById('clearSupplier');
+    },
+    get btnSearch() {
+        return document.getElementById('btnSearch');
+    },
+    get btnExport() {
+        return document.getElementById('btnExport');
+    },
+    get btnRefresh() {
+        return document.getElementById('btnRefresh');
+    },
+    get loadingIndicator() {
+        return document.getElementById('loadingIndicator');
+    },
+    get tableBody() {
+        return document.getElementById('tableBody');
+    },
+    get totalDebit() {
+        return document.getElementById('totalDebit');
+    },
+    get totalCredit() {
+        return document.getElementById('totalCredit');
+    },
+    get totalEnd() {
+        return document.getElementById('totalEnd');
+    },
+    get pageNumbers() {
+        return document.getElementById('pageNumbers');
+    },
+    get pageSize() {
+        return document.getElementById('pageSize');
+    },
+    get pageInfo() {
+        return document.getElementById('pageInfo');
+    },
+    get btnFirst() {
+        return document.getElementById('btnFirst');
+    },
+    get btnPrev() {
+        return document.getElementById('btnPrev');
+    },
+    get btnNext() {
+        return document.getElementById('btnNext');
+    },
+    get btnLast() {
+        return document.getElementById('btnLast');
+    },
+    get btnFilterToggle() {
+        return document.getElementById('btnFilterToggle');
+    },
+    get filterSection() {
+        return document.getElementById('filterSection');
+    },
+    get btnColumnToggle() {
+        return document.getElementById('btnColumnToggle');
+    },
+    get columnToggleDropdown() {
+        return document.getElementById('columnToggleDropdown');
+    },
+    get dataTable() {
+        return document.getElementById('dataTable');
+    },
 };
 
 // =====================================================
@@ -621,12 +753,12 @@ function applyColumnVisibility() {
     const table = DOM.dataTable;
     if (!table) return;
 
-    COLUMNS.forEach(col => {
+    COLUMNS.forEach((col) => {
         const isVisible = State.columnVisibility[col.id];
 
         // Update all cells with this data-col attribute (header, body, footer)
         const cells = table.querySelectorAll(`[data-col="${col.id}"]`);
-        cells.forEach(cell => {
+        cells.forEach((cell) => {
             cell.classList.toggle('col-hidden', !isVisible);
         });
 
@@ -662,7 +794,7 @@ function initColumnToggle() {
     });
 
     // Handle checkbox changes
-    COLUMNS.forEach(col => {
+    COLUMNS.forEach((col) => {
         const checkbox = document.getElementById(`col-${col.id}`);
         if (checkbox) {
             checkbox.checked = State.columnVisibility[col.id];
@@ -687,7 +819,9 @@ function formatNumber(num) {
 
 function formatNumberWithDots(num) {
     if (num === null || num === undefined || num === 0) return '0';
-    return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return Math.round(num)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
 function formatPaymentAmountInput(input) {
@@ -700,7 +834,9 @@ function formatPaymentAmountInput(input) {
 
     // Format with dots as thousand separators
     if (value) {
-        value = parseInt(value, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        value = parseInt(value, 10)
+            .toString()
+            .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
     input.value = value;
@@ -768,14 +904,14 @@ function initDateInputs() {
     DOM.dateToDisplay.value = formatDate(lastDay);
 
     // Sync display input with state (no auto-fetch, user clicks Search)
-    DOM.dateFromDisplay.addEventListener('change', function() {
+    DOM.dateFromDisplay.addEventListener('change', function () {
         const parsed = parseVietnameseDate(this.value);
         if (parsed) {
             State.dateFrom = parsed;
         }
     });
 
-    DOM.dateToDisplay.addEventListener('change', function() {
+    DOM.dateToDisplay.addEventListener('change', function () {
         const parsed = parseVietnameseDate(this.value);
         if (parsed) {
             State.dateTo = parsed;
@@ -784,7 +920,7 @@ function initDateInputs() {
     });
 
     // Handle hidden input (calendar picker) changes
-    DOM.dateFrom.addEventListener('change', function() {
+    DOM.dateFrom.addEventListener('change', function () {
         if (this.value) {
             const date = new Date(this.value);
             State.dateFrom = date;
@@ -792,7 +928,7 @@ function initDateInputs() {
         }
     });
 
-    DOM.dateTo.addEventListener('change', function() {
+    DOM.dateTo.addEventListener('change', function () {
         if (this.value) {
             const date = new Date(this.value);
             date.setHours(23, 59, 59, 999);
@@ -802,8 +938,8 @@ function initDateInputs() {
     });
 
     // Auto-format date input (only when typing, not deleting)
-    [DOM.dateFromDisplay, DOM.dateToDisplay].forEach(input => {
-        input.addEventListener('input', function(e) {
+    [DOM.dateFromDisplay, DOM.dateToDisplay].forEach((input) => {
+        input.addEventListener('input', function (e) {
             if (e.inputType && e.inputType.startsWith('delete')) return;
             const cursor = this.selectionStart;
             let value = this.value.replace(/\D/g, '');
@@ -815,25 +951,29 @@ function initDateInputs() {
             }
             this.value = value;
             // Adjust cursor if a slash was auto-inserted
-            const newCursor = (cursor === 2 || cursor === 5) ? cursor + 1 : cursor;
+            const newCursor = cursor === 2 || cursor === 5 ? cursor + 1 : cursor;
             this.setSelectionRange(newCursor, newCursor);
         });
     });
 
     // Click calendar icon to open date picker
     // Use event delegation on wrapper because Lucide replaces <i> with <svg>, removing direct listeners
-    document.querySelectorAll('.date-input-wrapper').forEach(wrapper => {
-        wrapper.addEventListener('click', function(e) {
+    document.querySelectorAll('.date-input-wrapper').forEach((wrapper) => {
+        wrapper.addEventListener('click', function (e) {
             const icon = wrapper.querySelector('.date-icon');
             if (!icon || (!icon.contains(e.target) && e.target !== icon)) return;
             const hiddenInput = wrapper.querySelector('.date-input-hidden');
             if (hiddenInput) {
                 hiddenInput.style.pointerEvents = 'auto';
                 hiddenInput.showPicker();
-                hiddenInput.addEventListener('change', function onClose() {
-                    hiddenInput.style.pointerEvents = 'none';
-                    hiddenInput.removeEventListener('change', onClose);
-                }, { once: true });
+                hiddenInput.addEventListener(
+                    'change',
+                    function onClose() {
+                        hiddenInput.style.pointerEvents = 'none';
+                        hiddenInput.removeEventListener('change', onClose);
+                    },
+                    { once: true }
+                );
             }
         });
     });
@@ -891,9 +1031,10 @@ async function fetchData() {
         const dateFromStr = formatDate(State.dateFrom);
         const dateToStr = formatDate(State.dateTo);
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã tải ${State.filteredData.length} NCC (${dateFromStr} - ${dateToStr})`);
+            window.notificationManager.success(
+                `Đã tải ${State.filteredData.length} NCC (${dateFromStr} - ${dateToStr})`
+            );
         }
-
     } catch (error) {
         console.error('[SupplierDebt] Error fetching data:', error);
         if (window.notificationManager) {
@@ -933,9 +1074,7 @@ async function fetchAllSuppliers() {
 
 function applySupplierFilter() {
     if (State.selectedSupplier) {
-        State.filteredData = State.data.filter(item =>
-            item.Code === State.selectedSupplier
-        );
+        State.filteredData = State.data.filter((item) => item.Code === State.selectedSupplier);
     } else {
         State.filteredData = [...State.data];
     }
@@ -995,7 +1134,7 @@ function toggleColumnSort(field) {
 
 function updateSortIcons() {
     // Clear all sort icons
-    ['Debit', 'Credit', 'End'].forEach(f => {
+    ['Debit', 'Credit', 'End'].forEach((f) => {
         const icon = document.getElementById(`sort-icon-${f}`);
         if (icon) {
             icon.textContent = '';
@@ -1008,7 +1147,9 @@ function updateSortIcons() {
         const icon = document.getElementById(`sort-icon-${State.sortField}`);
         if (icon) {
             icon.textContent = State.sortOrder === 'asc' ? ' ▲' : ' ▼';
-            icon.closest('th')?.classList.add(State.sortOrder === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            icon.closest('th')?.classList.add(
+                State.sortOrder === 'asc' ? 'sorted-asc' : 'sorted-desc'
+            );
         }
     }
 }
@@ -1031,7 +1172,7 @@ function renderTable() {
         return;
     }
 
-    State.filteredData.forEach(item => {
+    State.filteredData.forEach((item) => {
         const partnerId = item.PartnerId;
         const isExpanded = State.expandedRows.has(partnerId);
         const rowState = State.expandedRows.get(partnerId);
@@ -1058,7 +1199,12 @@ function renderTable() {
                         <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
                     </button>
                 </div>
-                ${(() => { const note = SupplierNotesStore.get(item.Code || ''); return note ? `<div class="supplier-note-preview">${escapeHtml(note)}</div>` : ''; })()}
+                ${(() => {
+                    const note = SupplierNotesStore.get(item.Code || '');
+                    return note
+                        ? `<div class="supplier-note-preview">${escapeHtml(note)}</div>`
+                        : '';
+                })()}
             </td>
             <td data-col="debit" class="col-number">${formatNumber(item.Debit)}</td>
             <td data-col="credit" class="col-number">${formatNumber(item.Credit)}</td>
@@ -1106,9 +1252,11 @@ function renderEmptyState() {
 }
 
 function calculateTotals() {
-    let totalDebit = 0, totalCredit = 0, totalEnd = 0;
+    let totalDebit = 0,
+        totalCredit = 0,
+        totalEnd = 0;
 
-    State.filteredData.forEach(item => {
+    State.filteredData.forEach((item) => {
         totalDebit += item.Debit || 0;
         totalCredit += item.Credit || 0;
         totalEnd += item.End || 0;
@@ -1159,7 +1307,7 @@ function populateSupplierDropdown() {
     const select = DOM.supplierFilter;
     select.innerHTML = '<option value="">Chọn nhà cung cấp</option>';
 
-    State.allSuppliers.forEach(supplier => {
+    State.allSuppliers.forEach((supplier) => {
         const option = document.createElement('option');
         option.value = supplier.Code;
         option.textContent = `[${supplier.Code}] ${supplier.PartnerName}`;
@@ -1194,7 +1342,7 @@ async function toggleRowExpandTab(partnerId, tabName) {
         }
     } else {
         // Expand with specified tab
-        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        const partnerData = State.filteredData.find((item) => item.PartnerId === partnerId);
         State.expandedRows.set(partnerId, {
             partnerData,
             congNo: null,
@@ -1209,7 +1357,7 @@ async function toggleRowExpandTab(partnerId, tabName) {
             debtPage: 1,
             debtTotal: 0,
             activeTab: tabName,
-            isLoading: {}
+            isLoading: {},
         });
 
         detailRow.classList.add('expanded');
@@ -1224,7 +1372,7 @@ function updateActionButtonsState(partnerId, activeTab) {
     // Update active state of action buttons in the main table row
     const row = document.querySelector(`tr[data-partner-id="${partnerId}"]`);
     if (row) {
-        row.querySelectorAll('.btn-action-tab').forEach(btn => {
+        row.querySelectorAll('.btn-action-tab').forEach((btn) => {
             btn.classList.remove('active');
         });
         if (activeTab) {
@@ -1247,7 +1395,7 @@ async function toggleRowExpand(partnerId, expandBtn) {
         detailPanel.innerHTML = '';
     } else {
         // Expand - only set up state, don't fetch all data
-        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        const partnerData = State.filteredData.find((item) => item.PartnerId === partnerId);
         State.expandedRows.set(partnerId, {
             partnerData,
             // Tab data (null = not loaded yet)
@@ -1263,7 +1411,7 @@ async function toggleRowExpand(partnerId, expandBtn) {
             debtPage: 1,
             debtTotal: 0,
             activeTab: 'congno', // Default to first tab
-            isLoading: {} // Track which tabs are loading
+            isLoading: {}, // Track which tabs are loading
         });
 
         detailRow.classList.add('expanded');
@@ -1308,16 +1456,20 @@ async function switchDetailTab(partnerId, tabName) {
     rowState.activeTab = tabName;
 
     // Update tab buttons
-    document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab`).forEach(tab => {
+    document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab`).forEach((tab) => {
         tab.classList.remove('active');
     });
     const tabIndex = { congno: 1, invoice: 2, debt: 3 }[tabName] || 1;
-    document.querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabIndex})`).classList.add('active');
+    document
+        .querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabIndex})`)
+        .classList.add('active');
 
     // Update tab content
-    document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab-content`).forEach(content => {
-        content.classList.remove('active');
-    });
+    document
+        .querySelectorAll(`#detail-panel-${partnerId} .detail-tab-content`)
+        .forEach((content) => {
+            content.classList.remove('active');
+        });
     document.getElementById(`tab-${tabName}-${partnerId}`).classList.add('active');
 
     // Lazy load data for this tab if not already loaded
@@ -1334,7 +1486,7 @@ async function loadTabData(partnerId, tabName) {
         congno: 'congNo',
         info: 'info',
         invoice: 'invoices',
-        debt: 'debtDetails'
+        debt: 'debtDetails',
     }[tabName];
 
     if (rowState[dataKey] !== null || rowState.isLoading[tabName]) {
@@ -1423,21 +1575,23 @@ function renderCongNoTab(partnerId) {
     }
 
     // Sort by web date (if available) or TPOS date
-    const hasWebDates = congNo.some(item => RefundDateStore.getByMoveName(item.MoveName || ''));
-    let sortedCongNo = hasWebDates ? [...congNo].sort((a, b) => {
-        const aWebDate = RefundDateStore.getByMoveName(a.MoveName || '');
-        const bWebDate = RefundDateStore.getByMoveName(b.MoveName || '');
-        const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
-        const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
-        return aTime - bTime;
-    }) : [...congNo];
+    const hasWebDates = congNo.some((item) => RefundDateStore.getByMoveName(item.MoveName || ''));
+    let sortedCongNo = hasWebDates
+        ? [...congNo].sort((a, b) => {
+              const aWebDate = RefundDateStore.getByMoveName(a.MoveName || '');
+              const bWebDate = RefundDateStore.getByMoveName(b.MoveName || '');
+              const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
+              const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
+              return aTime - bTime;
+          })
+        : [...congNo];
 
     // Apply custom row order within same-date groups
     sortedCongNo = applyCustomRowOrder(sortedCongNo, supplierCode);
 
     // Build date group info (which dates have multiple rows → draggable)
     const dateGroups = new Map();
-    sortedCongNo.forEach(item => {
+    sortedCongNo.forEach((item) => {
         const webDate = RefundDateStore.getByMoveName(item.MoveName || '');
         const dateStr = webDate || formatDateFromISO(item.Date);
         if (!dateGroups.has(dateStr)) dateGroups.set(dateStr, []);
@@ -1445,11 +1599,14 @@ function renderCongNoTab(partnerId) {
     });
 
     // Warn if paginated + web date sort (balance may be inaccurate across pages)
-    const paginationWarning = hasWebDates && total > CONFIG.DETAIL_PAGE_SIZE
-        ? '<div style="color:#dc2626;font-size:12px;padding:4px 8px;background:#fef2f2;border-radius:4px;margin-bottom:6px;">⚠ Dữ liệu có nhiều hơn 1 trang — Nợ đầu kỳ/cuối kỳ có thể không chính xác do sort theo ngày web.</div>'
-        : '';
+    const paginationWarning =
+        hasWebDates && total > CONFIG.DETAIL_PAGE_SIZE
+            ? '<div style="color:#dc2626;font-size:12px;padding:4px 8px;background:#fef2f2;border-radius:4px;margin-bottom:6px;">⚠ Dữ liệu có nhiều hơn 1 trang — Nợ đầu kỳ/cuối kỳ có thể không chính xác do sort theo ngày web.</div>'
+            : '';
 
-    let tableHtml = paginationWarning + `
+    let tableHtml =
+        paginationWarning +
+        `
         <table class="detail-table congno-drag-table" data-supplier="${escapeHtmlAttr(supplierCode)}" data-partner="${partnerId}">
             <thead>
                 <tr>
@@ -1471,9 +1628,12 @@ function renderCongNoTab(partnerId) {
     // For page 1: use first row's Begin from API
     // For page 2+: use stored end balance from previous page
     const prevPageEndBalance = rowState?.congNoEndBalances?.get(page - 1);
-    let runningBalance = (page > 1 && prevPageEndBalance !== undefined)
-        ? prevPageEndBalance
-        : (congNo.length > 0 ? (congNo[0].Begin || 0) : 0);
+    let runningBalance =
+        page > 1 && prevPageEndBalance !== undefined
+            ? prevPageEndBalance
+            : congNo.length > 0
+              ? congNo[0].Begin || 0
+              : 0;
 
     sortedCongNo.forEach((item, index) => {
         const moveName = item.MoveName || '';
@@ -1486,7 +1646,7 @@ function renderCongNoTab(partnerId) {
         // multi-edit (red) if history has entries (2+ total edits including deletions)
         // has-note (green) if has note but no history (first edit)
         // no color if never edited
-        const noteButtonClass = noteHistory.length >= 1 ? 'multi-edit' : (webNote ? 'has-note' : '');
+        const noteButtonClass = noteHistory.length >= 1 ? 'multi-edit' : webNote ? 'has-note' : '';
 
         // Escape for HTML attributes
         const escapedSupplierCode = escapeHtmlAttr(supplierCode);
@@ -1529,7 +1689,9 @@ function renderCongNoTab(partnerId) {
                         ${tposNote ? `<span class="note-tpos" title="Dữ liệu TPOS (không thể sửa)">${escapeHtml(tposNote)}</span>` : ''}
                         ${webNote ? `<span class="note-web" title="Ghi chú web">${escapeHtml(webNote)}</span>` : ''}
                     </div>
-                    ${canEditNoteForMoveName(moveName) ? `<button class="btn-edit-note ${noteButtonClass}"
+                    ${
+                        canEditNoteForMoveName(moveName)
+                            ? `<button class="btn-edit-note ${noteButtonClass}"
                         data-supplier="${escapedSupplierCode}"
                         data-movename="${escapedMoveName}"
                         data-tpos="${escapedTposNote}"
@@ -1537,7 +1699,9 @@ function renderCongNoTab(partnerId) {
                         onclick="handleNoteEditClick(this)"
                         title="${webNote ? 'Đã có ghi chú - Bấm để sửa' : 'Thêm ghi chú web'}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    </button>` : ''}
+                    </button>`
+                            : ''
+                    }
                 </td>
                 <td class="move-name-cell">
                     ${isInvoice ? `<button class="btn-view-invoice" onclick="openInvoiceDetailByMoveName('${escapedMoveName}', ${partnerId})" title="Xem chi tiết hóa đơn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button>` : ''}
@@ -1548,13 +1712,17 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td style="text-align: center;">
-                    ${isPayment && hasSupplierDebtPermission('deletePayment') ? `
+                    ${
+                        isPayment && hasSupplierDebtPermission('deletePayment')
+                            ? `
                         <button class="btn-delete-row"
                             onclick="handleDeletePayment('${escapeHtmlAttr(item.Date || '')}', '${escapedMoveName}', ${partnerId})"
                             title="Xóa thanh toán">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </td>
             </tr>
         `;
@@ -1622,7 +1790,7 @@ function applyCustomRowOrder(rows, supplierCode) {
         if (!customOrder || customOrder.length === 0) continue;
 
         // Get the rows for this date group
-        const groupRows = indices.map(i => result[i]);
+        const groupRows = indices.map((i) => result[i]);
 
         // Sort groupRows by the stored order
         groupRows.sort((a, b) => {
@@ -1657,7 +1825,7 @@ function initCongNoDragAndDrop() {
         _dragState = {
             moveName: row.dataset.movename,
             date: row.dataset.date,
-            row: row
+            row: row,
         };
         row.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -1677,7 +1845,7 @@ function initCongNoDragAndDrop() {
         // Visual indicator: show drop position
         const tbody = row.closest('tbody');
         if (!tbody) return;
-        tbody.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => {
+        tbody.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach((r) => {
             r.classList.remove('drag-over-above', 'drag-over-below');
         });
 
@@ -1718,8 +1886,10 @@ function initCongNoDragAndDrop() {
 
         // Get all rows in this date group (in current DOM order)
         const tbody = targetRow.closest('tbody');
-        const allRows = Array.from(tbody.querySelectorAll('tr[data-date]')).filter(r => r.dataset.date === dateStr);
-        const moveNames = allRows.map(r => r.dataset.movename);
+        const allRows = Array.from(tbody.querySelectorAll('tr[data-date]')).filter(
+            (r) => r.dataset.date === dateStr
+        );
+        const moveNames = allRows.map((r) => r.dataset.movename);
 
         // Determine new position
         const dragIdx = moveNames.indexOf(_dragState.moveName);
@@ -1736,9 +1906,10 @@ function initCongNoDragAndDrop() {
 
         const rect = targetRow.getBoundingClientRect();
         const midY = rect.top + rect.height / 2;
-        const insertIdx = e.clientY < midY
-            ? newOrder.indexOf(targetRow.dataset.movename)
-            : newOrder.indexOf(targetRow.dataset.movename) + 1;
+        const insertIdx =
+            e.clientY < midY
+                ? newOrder.indexOf(targetRow.dataset.movename)
+                : newOrder.indexOf(targetRow.dataset.movename) + 1;
 
         newOrder.splice(insertIdx, 0, _dragState.moveName);
 
@@ -1766,7 +1937,7 @@ function cleanupDragState() {
     if (_dragState?.row) {
         _dragState.row.classList.remove('dragging');
     }
-    document.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach(r => {
+    document.querySelectorAll('tr.drag-over-above, tr.drag-over-below').forEach((r) => {
         r.classList.remove('drag-over-above', 'drag-over-below');
     });
     _dragState = null;
@@ -1900,8 +2071,15 @@ function renderInvoiceTab(partnerId) {
             <tbody>
     `;
 
-    invoices.forEach(inv => {
-        const statusClass = inv.StateFast === 'open' ? 'status-open' : inv.StateFast === 'cancel' ? 'status-cancel' : inv.StateFast === 'paid' ? 'status-paid' : 'status-draft';
+    invoices.forEach((inv) => {
+        const statusClass =
+            inv.StateFast === 'open'
+                ? 'status-open'
+                : inv.StateFast === 'cancel'
+                  ? 'status-cancel'
+                  : inv.StateFast === 'paid'
+                    ? 'status-paid'
+                    : 'status-draft';
         const invoiceId = inv.Id;
         tableHtml += `
             <tr>
@@ -1979,7 +2157,7 @@ function renderDebtTab(partnerId) {
             <tbody>
     `;
 
-    debtDetails.forEach(debt => {
+    debtDetails.forEach((debt) => {
         tableHtml += `
             <tr>
                 <td>${formatDateFromDotNet(debt.Date)}</td>
@@ -2275,7 +2453,7 @@ function populatePaymentMethods() {
     const uniqueMethods = new Map();
     let defaultMethodId = null;
 
-    paymentMethods.forEach(method => {
+    paymentMethods.forEach((method) => {
         let displayName = method.Name;
 
         // Rename "Ngân hàng" to "Chuyển khoản"
@@ -2359,7 +2537,7 @@ async function submitPayment() {
 
     if (isPromotion) {
         // "Khuyến mãi" uses bank journal (Ngân hàng)
-        selectedJournal = paymentMethods.find(m => m.Name === 'Ngân hàng' || m.Type === 'bank');
+        selectedJournal = paymentMethods.find((m) => m.Name === 'Ngân hàng' || m.Type === 'bank');
         if (!selectedJournal) {
             if (window.notificationManager) {
                 window.notificationManager.warning('Không tìm thấy phương thức ngân hàng');
@@ -2368,7 +2546,7 @@ async function submitPayment() {
         }
         journalId = selectedJournal.Id;
     } else {
-        selectedJournal = paymentMethods.find(m => m.Id === parseInt(journalId));
+        selectedJournal = paymentMethods.find((m) => m.Id === parseInt(journalId));
     }
 
     if (!selectedJournal) {
@@ -2388,7 +2566,9 @@ async function submitPayment() {
     try {
         const paymentDate = new Date(paymentDateValue);
         const paymentDateISO = paymentDate.toISOString();
-        const localDatetime = new Date(paymentDate.getTime() - paymentDate.getTimezoneOffset() * 60000).toISOString();
+        const localDatetime = new Date(
+            paymentDate.getTime() - paymentDate.getTimezoneOffset() * 60000
+        ).toISOString();
 
         // Get partner data from expanded rows
         const rowState = State.expandedRows.get(partnerId);
@@ -2444,7 +2624,7 @@ async function submitPayment() {
                 Active: true,
                 Position: 'after',
                 Rate: 0,
-                DecimalPlaces: 0
+                DecimalPlaces: 0,
             },
             Journal: selectedJournal,
             Partner: {
@@ -2466,23 +2646,29 @@ async function submitPayment() {
                 CreditLimit: 0,
                 Discount: 0,
                 AmountDiscount: 0,
-                NameNoSign: (partnerData.PartnerName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+                NameNoSign: (partnerData.PartnerName || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, ''),
                 DateCreated: localDatetime,
                 Status: 'Normal',
                 StatusText: 'Bình thường',
                 Source: 'Default',
                 IsNewAddress: false,
-                Ward_District_City: ''
-            }
+                Ward_District_City: '',
+            },
         };
 
         const url = `${CONFIG.API_BASE}/AccountPayment`;
 
-        const tposPostHeaders = { 'Content-Type': 'application/json;charset=UTF-8', 'feature-version': '2', 'x-tpos-lang': 'vi' };
+        const tposPostHeaders = {
+            'Content-Type': 'application/json;charset=UTF-8',
+            'feature-version': '2',
+            'x-tpos-lang': 'vi',
+        };
         const response = await tposFetch(url, {
             method: 'POST',
             headers: tposPostHeaders,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
 
         if (response.ok) {
@@ -2494,7 +2680,7 @@ async function submitPayment() {
             const actionPostResponse = await tposFetch(actionPostUrl, {
                 method: 'POST',
                 headers: tposPostHeaders,
-                body: JSON.stringify({ id: paymentId })
+                body: JSON.stringify({ id: paymentId }),
             });
 
             if (actionPostResponse.ok) {
@@ -2547,7 +2733,10 @@ function initPaymentModal() {
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && document.getElementById('paymentModal')?.classList.contains('show')) {
+        if (
+            e.key === 'Escape' &&
+            document.getElementById('paymentModal')?.classList.contains('show')
+        ) {
             closePaymentModal();
         }
     });
@@ -2585,7 +2774,7 @@ async function openInvoiceDetailModal(invoiceId) {
     try {
         const url = `${CONFIG.API_BASE}/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
         const response = await tposFetch(url, {
-            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' }
+            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' },
         });
 
         if (!response.ok) {
@@ -2595,7 +2784,6 @@ async function openInvoiceDetailModal(invoiceId) {
         const data = await response.json();
         currentInvoiceDetail = data;
         renderInvoiceDetailModal(data);
-
     } catch (error) {
         console.error('[SupplierDebt] Error fetching invoice detail:', error);
         modalBody.innerHTML = `
@@ -2610,7 +2798,8 @@ function renderInvoiceDetailModal(data) {
     const modalBody = document.getElementById('invoiceDetailBody');
     if (!modalBody) return;
 
-    const partnerDisplay = data.PartnerDisplayName || `[${data.Partner?.Ref || ''}] ${data.Partner?.Name || ''}`;
+    const partnerDisplay =
+        data.PartnerDisplayName || `[${data.Partner?.Ref || ''}] ${data.Partner?.Name || ''}`;
     const dateInvoice = formatDateTimeFromISO(data.DateInvoice);
     const paymentMethod = data.PaymentJournal?.Name || 'Không xác định';
     const paymentAmount = data.PaymentAmount || 0;
@@ -2623,7 +2812,7 @@ function renderInvoiceDetailModal(data) {
     let orderLinesHtml = '';
     if (data.OrderLines && data.OrderLines.length > 0) {
         data.OrderLines.forEach((line, index) => {
-            totalQuantity += (line.ProductQty || 0);
+            totalQuantity += line.ProductQty || 0;
             const productName = line.Name || line.ProductName || '';
             const note = line.Note || '';
             orderLinesHtml += `
@@ -2744,7 +2933,9 @@ async function openInvoiceDetailByMoveName(moveName, partnerId) {
         const invoices = searchData.value || [];
 
         // Find invoice by Number or MoveName
-        const invoice = invoices.find(inv => inv.Number === moveName || inv.MoveName === moveName);
+        const invoice = invoices.find(
+            (inv) => inv.Number === moveName || inv.MoveName === moveName
+        );
 
         if (!invoice) {
             throw new Error(`Không tìm thấy hóa đơn "${moveName}"`);
@@ -2752,7 +2943,6 @@ async function openInvoiceDetailByMoveName(moveName, partnerId) {
 
         // Now fetch the full invoice details
         await openInvoiceDetailModal(invoice.Id);
-
     } catch (error) {
         console.error('[SupplierDebt] Error finding invoice by moveName:', error);
         modalBody.innerHTML = `
@@ -2770,8 +2960,12 @@ function closeInvoiceDetailModal() {
 
 function initInvoiceDetailModal() {
     // Close handlers
-    document.getElementById('btnCloseInvoiceDetail')?.addEventListener('click', closeInvoiceDetailModal);
-    document.getElementById('btnCloseInvoiceDetailFooter')?.addEventListener('click', closeInvoiceDetailModal);
+    document
+        .getElementById('btnCloseInvoiceDetail')
+        ?.addEventListener('click', closeInvoiceDetailModal);
+    document
+        .getElementById('btnCloseInvoiceDetailFooter')
+        ?.addEventListener('click', closeInvoiceDetailModal);
 
     // Close on overlay click
     document.getElementById('invoiceDetailModal')?.addEventListener('click', (e) => {
@@ -2782,7 +2976,10 @@ function initInvoiceDetailModal() {
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && document.getElementById('invoiceDetailModal')?.classList.contains('show')) {
+        if (
+            e.key === 'Escape' &&
+            document.getElementById('invoiceDetailModal')?.classList.contains('show')
+        ) {
             closeInvoiceDetailModal();
         }
     });
@@ -2794,7 +2991,7 @@ function initInvoiceDetailModal() {
 
 let currentNoteEdit = {
     supplierCode: null,
-    moveName: null
+    moveName: null,
 };
 
 function openNoteEditModal(supplierCode, moveName, tposNote, webNote) {
@@ -2813,22 +3010,24 @@ function openNoteEditModal(supplierCode, moveName, tposNote, webNote) {
 
     if (history && history.length > 0) {
         historySection.style.display = 'block';
-        historyList.innerHTML = history.map(item => {
-            const date = new Date(item.timestamp);
-            const timeStr = date.toLocaleString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            return `
+        historyList.innerHTML = history
+            .map((item) => {
+                const date = new Date(item.timestamp);
+                const timeStr = date.toLocaleString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+                return `
                 <div class="note-history-item">
                     <div class="note-history-time">${timeStr}</div>
                     <div class="note-history-text">${escapeHtml(item.text)}</div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     } else {
         historySection.style.display = 'none';
         historyList.innerHTML = '';
@@ -2871,7 +3070,7 @@ async function saveNoteEdit() {
         closeNoteEditModal();
 
         // Refresh the current expanded row's congno tab
-        const partnerData = State.filteredData.find(p => p.Code === supplierCode);
+        const partnerData = State.filteredData.find((p) => p.Code === supplierCode);
         if (partnerData) {
             const partnerId = partnerData.PartnerId;
             const tabContent = document.getElementById(`tab-congno-${partnerId}`);
@@ -2905,7 +3104,10 @@ function initNoteEditModal() {
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && document.getElementById('noteEditModal')?.classList.contains('show')) {
+        if (
+            e.key === 'Escape' &&
+            document.getElementById('noteEditModal')?.classList.contains('show')
+        ) {
             closeNoteEditModal();
         }
     });
@@ -2979,7 +3181,7 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
     // Find the most recent payment for this supplier
     try {
         // Get partner data
-        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        const partnerData = State.filteredData.find((item) => item.PartnerId === partnerId);
         if (!partnerData) {
             if (window.notificationManager) {
                 window.notificationManager.warning('Không tìm thấy thông tin nhà cung cấp');
@@ -3022,7 +3224,6 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
                 await deletePayment(paymentId, partnerId);
             }
         }
-
     } catch (error) {
         console.error('[SupplierDebt] Error in handleDeleteLastPayment:', error);
         if (window.notificationManager) {
@@ -3054,7 +3255,9 @@ async function handleDeletePayment(paymentDate, moveName, partnerId) {
     const paymentId = await lookupPaymentIdByDate(partnerId, paymentDate);
     if (!paymentId) {
         if (window.notificationManager) {
-            window.notificationManager.error('Không tìm thấy ID thanh toán. Có thể thanh toán đã bị xóa hoặc không tồn tại.');
+            window.notificationManager.error(
+                'Không tìm thấy ID thanh toán. Có thể thanh toán đã bị xóa hoặc không tồn tại.'
+            );
         }
         return;
     }
@@ -3081,10 +3284,14 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
         // Call GetAccountPaymentList API with PartnerDisplayName filter
         const url = `${CONFIG.API_BASE}/AccountPayment/OdataService.GetAccountPaymentList?partnerType=supplier&$top=50&$orderby=PaymentDate desc,Name desc&$filter=contains(PartnerDisplayName,'${encodedDisplayName}')&$count=true`;
 
-        console.log('[SupplierDebt] Looking up payment ID by date:', { partnerDisplayName, paymentDate, url });
+        console.log('[SupplierDebt] Looking up payment ID by date:', {
+            partnerDisplayName,
+            paymentDate,
+            url,
+        });
 
         const response = await tposFetch(url, {
-            headers: { 'x-tpos-lang': 'vi' }
+            headers: { 'x-tpos-lang': 'vi' },
         });
 
         if (!response.ok) {
@@ -3104,7 +3311,7 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
         // Compare date strings - normalize both to ISO format for comparison
         const targetDate = new Date(paymentDate).getTime();
 
-        const matchingPayment = data.value.find(payment => {
+        const matchingPayment = data.value.find((payment) => {
             const apiDate = new Date(payment.PaymentDate).getTime();
             // Allow 1 second tolerance for date matching
             return Math.abs(apiDate - targetDate) < 1000;
@@ -3117,7 +3324,7 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
 
         // If exact match not found, try matching by date only (ignore time)
         const targetDateOnly = paymentDate.split('T')[0];
-        const matchByDateOnly = data.value.find(payment => {
+        const matchByDateOnly = data.value.find((payment) => {
             const apiDateOnly = payment.PaymentDate.split('T')[0];
             return apiDateOnly === targetDateOnly;
         });
@@ -3129,7 +3336,6 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
 
         console.warn('[SupplierDebt] No payment found matching date:', paymentDate);
         return null;
-
     } catch (error) {
         console.error('[SupplierDebt] Error looking up payment ID by date:', error);
         return null;
@@ -3138,14 +3344,18 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
 
 async function deletePayment(paymentId, partnerId) {
     try {
-        const tposPostHeaders = { 'Content-Type': 'application/json;charset=UTF-8', 'feature-version': '2', 'x-tpos-lang': 'vi' };
+        const tposPostHeaders = {
+            'Content-Type': 'application/json;charset=UTF-8',
+            'feature-version': '2',
+            'x-tpos-lang': 'vi',
+        };
 
         // Step 1: Call ActionCancel to cancel the payment
         const cancelUrl = `${CONFIG.API_BASE}/AccountPayment/ODataService.ActionCancel`;
         const cancelResponse = await tposFetch(cancelUrl, {
             method: 'POST',
             headers: tposPostHeaders,
-            body: JSON.stringify({ id: paymentId })
+            body: JSON.stringify({ id: paymentId }),
         });
 
         if (!cancelResponse.ok) {
@@ -3157,7 +3367,7 @@ async function deletePayment(paymentId, partnerId) {
         const deleteUrl = `${CONFIG.API_BASE}/AccountPayment(${paymentId})`;
         const deleteResponse = await tposFetch(deleteUrl, {
             method: 'DELETE',
-            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' }
+            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' },
         });
 
         if (!deleteResponse.ok) {
@@ -3174,7 +3384,6 @@ async function deletePayment(paymentId, partnerId) {
 
         // Refresh main data
         await fetchData();
-
     } catch (error) {
         console.error('[SupplierDebt] Delete payment error:', error);
         if (window.notificationManager) {
@@ -3216,17 +3425,19 @@ async function exportToExcel() {
     try {
         // Create CSV content
         const headers = ['Mã NCC', 'Tên NCC', 'Phát sinh', 'Thanh toán', 'Nợ cuối kỳ'];
-        const rows = State.filteredData.map(item => [
+        const rows = State.filteredData.map((item) => [
             item.Code || '',
             item.PartnerName || '',
             item.Debit || 0,
             item.Credit || 0,
-            item.End || 0
+            item.End || 0,
         ]);
 
         // Add totals row
-        let totalDebit = 0, totalCredit = 0, totalEnd = 0;
-        State.filteredData.forEach(item => {
+        let totalDebit = 0,
+            totalCredit = 0,
+            totalEnd = 0;
+        State.filteredData.forEach((item) => {
             totalDebit += item.Debit || 0;
             totalCredit += item.Credit || 0;
             totalEnd += item.End || 0;
@@ -3236,9 +3447,13 @@ async function exportToExcel() {
         // Build CSV
         const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell =>
-                typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell
-            ).join(','))
+            ...rows.map((row) =>
+                row
+                    .map((cell) =>
+                        typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell
+                    )
+                    .join(',')
+            ),
         ].join('\n');
 
         // Add BOM for Excel UTF-8 support
@@ -3299,8 +3514,12 @@ function saveSupplierNote() {
 }
 
 function initSupplierNoteModal() {
-    document.getElementById('btnCloseSupplierNote')?.addEventListener('click', closeSupplierNoteModal);
-    document.getElementById('btnCancelSupplierNote')?.addEventListener('click', closeSupplierNoteModal);
+    document
+        .getElementById('btnCloseSupplierNote')
+        ?.addEventListener('click', closeSupplierNoteModal);
+    document
+        .getElementById('btnCancelSupplierNote')
+        ?.addEventListener('click', closeSupplierNoteModal);
     document.getElementById('btnSaveSupplierNote')?.addEventListener('click', saveSupplierNote);
     document.getElementById('supplierNoteModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'supplierNoteModal') closeSupplierNoteModal();
@@ -3333,32 +3552,96 @@ async function submitCreateSupplier() {
     const note = document.getElementById('newSupplierNote').value.trim();
 
     if (!ref || !name) {
-        if (window.notificationManager) window.notificationManager.warning('Vui lòng nhập Mã NCC và Tên NCC');
+        if (window.notificationManager)
+            window.notificationManager.warning('Vui lòng nhập Mã NCC và Tên NCC');
         return;
     }
 
     try {
         const body = {
-            Id: 0, Name: name, Ref: ref, Supplier: true, Customer: false,
-            Active: true, Employee: false, IsCompany: false, CompanyId: 1,
-            Type: 'contact', CompanyType: 'person', Credit: 0, Debit: 0,
-            Discount: 0, AmountDiscount: 0, CreditLimit: 0, OverCredit: false,
-            CategoryId: 0, Status: 'Normal', StatusText: 'Bình thường',
-            Source: 'Default', IsNewAddress: false, Ward_District_City: '',
+            Id: 0,
+            Name: name,
+            Ref: ref,
+            Supplier: true,
+            Customer: false,
+            Active: true,
+            Employee: false,
+            IsCompany: false,
+            CompanyId: 1,
+            Type: 'contact',
+            CompanyType: 'person',
+            Credit: 0,
+            Debit: 0,
+            Discount: 0,
+            AmountDiscount: 0,
+            CreditLimit: 0,
+            OverCredit: false,
+            CategoryId: 0,
+            Status: 'Normal',
+            StatusText: 'Bình thường',
+            Source: 'Default',
+            IsNewAddress: false,
+            Ward_District_City: '',
             DateCreated: new Date().toISOString(),
-            City: {}, District: {}, Ward: {},
+            City: {},
+            District: {},
+            Ward: {},
             ExtraAddress: { Street: null, City: {}, District: {}, Ward: {} },
-            AccountPayable: { Id: 4, Name: 'Phải trả người bán', Code: '331', UserTypeId: 2, UserTypeName: 'Payable', Active: true, CompanyId: 1, CompanyName: 'NJD Live', InternalType: 'payable', NameGet: '331 Phải trả người bán', Reconcile: true },
-            AccountReceivable: { Id: 1, Name: 'Phải thu của khách hàng', Code: '131', UserTypeId: 1, UserTypeName: 'Receivable', Active: true, CompanyId: 1, CompanyName: 'NJD Live', InternalType: 'receivable', NameGet: '131 Phải thu của khách hàng', Reconcile: true },
-            StockCustomer: { Id: 9, Usage: 'customer', ScrapLocation: false, Name: 'Khách hàng', CompleteName: 'Địa điểm đối tác / Khách hàng', ParentLocationId: 2, Active: true, ParentLeft: 13, NameGet: 'Địa điểm đối tác/Khách hàng' },
-            StockSupplier: { Id: 8, Usage: 'supplier', ScrapLocation: false, Name: 'Nhà cung cấp', CompleteName: 'Địa điểm đối tác / Nhà cung cấp', ParentLocationId: 2, Active: true, ParentLeft: 15, NameGet: 'Địa điểm đối tác/Nhà cung cấp' }
+            AccountPayable: {
+                Id: 4,
+                Name: 'Phải trả người bán',
+                Code: '331',
+                UserTypeId: 2,
+                UserTypeName: 'Payable',
+                Active: true,
+                CompanyId: 1,
+                CompanyName: 'NJD Live',
+                InternalType: 'payable',
+                NameGet: '331 Phải trả người bán',
+                Reconcile: true,
+            },
+            AccountReceivable: {
+                Id: 1,
+                Name: 'Phải thu của khách hàng',
+                Code: '131',
+                UserTypeId: 1,
+                UserTypeName: 'Receivable',
+                Active: true,
+                CompanyId: 1,
+                CompanyName: 'NJD Live',
+                InternalType: 'receivable',
+                NameGet: '131 Phải thu của khách hàng',
+                Reconcile: true,
+            },
+            StockCustomer: {
+                Id: 9,
+                Usage: 'customer',
+                ScrapLocation: false,
+                Name: 'Khách hàng',
+                CompleteName: 'Địa điểm đối tác / Khách hàng',
+                ParentLocationId: 2,
+                Active: true,
+                ParentLeft: 13,
+                NameGet: 'Địa điểm đối tác/Khách hàng',
+            },
+            StockSupplier: {
+                Id: 8,
+                Usage: 'supplier',
+                ScrapLocation: false,
+                Name: 'Nhà cung cấp',
+                CompleteName: 'Địa điểm đối tác / Nhà cung cấp',
+                ParentLocationId: 2,
+                Active: true,
+                ParentLeft: 15,
+                NameGet: 'Địa điểm đối tác/Nhà cung cấp',
+            },
         };
 
         const url = `${CONFIG.API_BASE_PARTNER}/odata/Partner`;
         const response = await tposFetch(url, {
             method: 'POST',
             headers: { 'feature-version': '2' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -3381,7 +3664,6 @@ async function submitCreateSupplier() {
         // Refresh supplier list and data
         State.allSuppliers = [];
         await fetchData();
-
     } catch (error) {
         console.error('[SupplierDebt] Error creating supplier:', error);
         if (window.notificationManager) {
@@ -3391,10 +3673,18 @@ async function submitCreateSupplier() {
 }
 
 function initCreateSupplierModal() {
-    document.getElementById('btnCreateSupplier')?.addEventListener('click', openCreateSupplierModal);
-    document.getElementById('btnCloseCreateSupplier')?.addEventListener('click', closeCreateSupplierModal);
-    document.getElementById('btnCancelCreateSupplier')?.addEventListener('click', closeCreateSupplierModal);
-    document.getElementById('btnSubmitCreateSupplier')?.addEventListener('click', submitCreateSupplier);
+    document
+        .getElementById('btnCreateSupplier')
+        ?.addEventListener('click', openCreateSupplierModal);
+    document
+        .getElementById('btnCloseCreateSupplier')
+        ?.addEventListener('click', closeCreateSupplierModal);
+    document
+        .getElementById('btnCancelCreateSupplier')
+        ?.addEventListener('click', closeCreateSupplierModal);
+    document
+        .getElementById('btnSubmitCreateSupplier')
+        ?.addEventListener('click', submitCreateSupplier);
     document.getElementById('createSupplierModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'createSupplierModal') closeCreateSupplierModal();
     });
@@ -3445,16 +3735,19 @@ const RefundOrders = {
 
         countEl.textContent = `(${this._data.length})`;
 
-        tbody.innerHTML = sorted.map(order => {
-            const id = order.Id;
-            const supplier = order.PartnerDisplayName || order.PartnerName || '—';
-            const webDate = RefundDateStore.get(order.Id);
-            const date = webDate || this._formatDate(order.DateInvoice);
-            const dateVal = webDate ? this._webDateToInput(webDate) : this._toInputDate(order.DateInvoice);
-            const amount = formatNumber(order.AmountTotal || 0);
-            const checked = this._selectedIds.has(id) ? 'checked' : '';
+        tbody.innerHTML = sorted
+            .map((order) => {
+                const id = order.Id;
+                const supplier = order.PartnerDisplayName || order.PartnerName || '—';
+                const webDate = RefundDateStore.get(order.Id);
+                const date = webDate || this._formatDate(order.DateInvoice);
+                const dateVal = webDate
+                    ? this._webDateToInput(webDate)
+                    : this._toInputDate(order.DateInvoice);
+                const amount = formatNumber(order.AmountTotal || 0);
+                const checked = this._selectedIds.has(id) ? 'checked' : '';
 
-            return `<tr data-id="${id}">
+                return `<tr data-id="${id}">
                 <td style="text-align:center;"><input type="checkbox" class="refund-row-check" data-id="${id}" ${checked}></td>
                 <td>${escapeHtml(supplier)}</td>
                 <td>
@@ -3463,7 +3756,8 @@ const RefundOrders = {
                 </td>
                 <td style="text-align:right;">${amount}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         this._updateActions();
         lucide?.createIcons?.({ nodes: [wrap] });
@@ -3502,16 +3796,18 @@ const RefundOrders = {
         const count = ids.length;
 
         // Collect ids that have custom dates — need to update their MoveName after confirm
-        const idsWithDates = ids.filter(id => RefundDateStore.get(id));
+        const idsWithDates = ids.filter((id) => RefundDateStore.get(id));
 
         try {
-            const loadingId = window.notificationManager?.info?.(`Đang xác nhận ${count} đơn trả hàng...`);
+            const loadingId = window.notificationManager?.info?.(
+                `Đang xác nhận ${count} đơn trả hàng...`
+            );
 
             // POST ActionInvoiceOpen with all selected IDs
             const url = `${CONFIG.API_BASE}/FastPurchaseOrder/ODataService.ActionInvoiceOpen`;
             const resp = await tposFetch(url, {
                 method: 'POST',
-                body: JSON.stringify({ ids })
+                body: JSON.stringify({ ids }),
             });
             if (!resp.ok) {
                 const errText = await resp.text().catch(() => '');
@@ -3521,17 +3817,19 @@ const RefundOrders = {
             // After confirm, re-fetch to get assigned Number (BILL/xxxx) and update RefundDateStore
             if (idsWithDates.length > 0) {
                 try {
-                    const filter = idsWithDates.map(id => `Id eq ${id}`).join(' or ');
+                    const filter = idsWithDates.map((id) => `Id eq ${id}`).join(' or ');
                     const fetchUrl = `${CONFIG.API_BASE}/FastPurchaseOrder/OdataService.GetView?$filter=${encodeURIComponent(filter)}&$top=${idsWithDates.length}`;
                     const fetchResp = await tposFetch(fetchUrl);
                     if (fetchResp.ok) {
                         const result = await fetchResp.json();
-                        for (const order of (result.value || [])) {
+                        for (const order of result.value || []) {
                             if (order.Number) {
                                 const existingDate = RefundDateStore.get(order.Id);
                                 if (existingDate) {
                                     await RefundDateStore.set(order.Id, existingDate, order.Number);
-                                    console.log(`[RefundOrders] Updated MoveName for ${order.Id}: ${order.Number}`);
+                                    console.log(
+                                        `[RefundOrders] Updated MoveName for ${order.Id}: ${order.Number}`
+                                    );
                                 }
                             }
                         }
@@ -3545,13 +3843,12 @@ const RefundOrders = {
             window.notificationManager?.success?.(`Đã xác nhận ${count} đơn trả hàng`);
 
             // Remove confirmed orders from local data and re-render
-            this._data = this._data.filter(o => !this._selectedIds.has(o.Id));
+            this._data = this._data.filter((o) => !this._selectedIds.has(o.Id));
             this._selectedIds.clear();
             this.render();
 
             // Refresh main debt table
             fetchData();
-
         } catch (err) {
             console.error('[RefundOrders] Confirm error:', err);
             window.notificationManager?.error?.(`Lỗi xác nhận: ${err.message}`);
@@ -3560,7 +3857,7 @@ const RefundOrders = {
 
     async updateDate(orderId, newDateStr) {
         try {
-            const order = this._data.find(o => o.Id === orderId);
+            const order = this._data.find((o) => o.Id === orderId);
             const number = order?.Number || '';
             // Convert yyyy-mm-dd → dd/mm/yyyy for display
             const [y, m, d] = newDateStr.split('-');
@@ -3602,7 +3899,8 @@ const RefundOrders = {
                 this._updateActions();
                 // Update check-all state
                 if (checkAll) {
-                    checkAll.checked = this._data.length > 0 && this._selectedIds.size === this._data.length;
+                    checkAll.checked =
+                        this._data.length > 0 && this._selectedIds.size === this._data.length;
                 }
             }
 
@@ -3649,7 +3947,7 @@ const RefundOrders = {
         checkAll?.addEventListener('change', (e) => {
             this._selectedIds.clear();
             if (e.target.checked) {
-                this._data.forEach(o => this._selectedIds.add(o.Id));
+                this._data.forEach((o) => this._selectedIds.add(o.Id));
             }
             this.render();
         });
@@ -3670,7 +3968,7 @@ const RefundOrders = {
                 this.confirmSelected();
             }
         });
-    }
+    },
 };
 
 // =====================================================
@@ -3699,17 +3997,21 @@ function initSearchableSupplierDropdown() {
 
     function renderDropdownItems(filter = '') {
         const lowerFilter = filter.toLowerCase();
-        const filtered = State.allSuppliers.filter(s => {
+        const filtered = State.allSuppliers.filter((s) => {
             const text = `[${s.Code}] ${s.PartnerName}`.toLowerCase();
             return !filter || text.includes(lowerFilter);
         });
 
         if (filtered.length === 0) {
-            dropdown.innerHTML = '<div class="searchable-dropdown-item disabled">Không tìm thấy</div>';
+            dropdown.innerHTML =
+                '<div class="searchable-dropdown-item disabled">Không tìm thấy</div>';
         } else {
-            dropdown.innerHTML = filtered.map(s =>
-                `<div class="searchable-dropdown-item" data-value="${escapeHtml(s.Code)}">[${escapeHtml(s.Code)}] ${escapeHtml(s.PartnerName)}</div>`
-            ).join('');
+            dropdown.innerHTML = filtered
+                .map(
+                    (s) =>
+                        `<div class="searchable-dropdown-item" data-value="${escapeHtml(s.Code)}">[${escapeHtml(s.Code)}] ${escapeHtml(s.PartnerName)}</div>`
+                )
+                .join('');
         }
         dropdown.style.display = 'block';
     }
@@ -3782,14 +4084,14 @@ function initEventHandlers() {
     });
 
     // Display radio buttons
-    DOM.displayRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
+    DOM.displayRadios.forEach((radio) => {
+        radio.addEventListener('change', function () {
             State.display = this.value;
         });
     });
 
     // Page size
-    DOM.pageSize.addEventListener('change', function() {
+    DOM.pageSize.addEventListener('change', function () {
         changePageSize(this.value);
     });
 
@@ -3797,11 +4099,13 @@ function initEventHandlers() {
     DOM.btnFirst.addEventListener('click', () => goToPage(1));
     DOM.btnPrev.addEventListener('click', () => goToPage(State.currentPage - 1));
     DOM.btnNext.addEventListener('click', () => goToPage(State.currentPage + 1));
-    DOM.btnLast.addEventListener('click', () => goToPage(Math.ceil(State.totalCount / State.pageSize)));
+    DOM.btnLast.addEventListener('click', () =>
+        goToPage(Math.ceil(State.totalCount / State.pageSize))
+    );
 
     // Enter key on date inputs
-    [DOM.dateFromDisplay, DOM.dateToDisplay].forEach(input => {
-        input.addEventListener('keypress', function(e) {
+    [DOM.dateFromDisplay, DOM.dateToDisplay].forEach((input) => {
+        input.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 DOM.btnSearch.click();
             }
@@ -3859,14 +4163,11 @@ async function init() {
         WebNotesStore.init(),
         SupplierNotesStore.init(),
         RefundDateStore.init(),
-        RowOrderStore.init()
+        RowOrderStore.init(),
     ]);
 
     // Load initial data and refund orders in parallel
-    await Promise.all([
-        fetchData(),
-        RefundOrders.fetch()
-    ]);
+    await Promise.all([fetchData(), RefundOrders.fetch()]);
 
     console.log('[SupplierDebt] Initialization complete');
 }

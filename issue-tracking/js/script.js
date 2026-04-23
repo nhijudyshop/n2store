@@ -17,7 +17,7 @@ let currentSearchTab = 'customer'; // 'customer' (SĐT/Tên) | 'code' (Mã đơn
 // Settings Management
 const SETTINGS_KEY = 'issue_tracking_settings';
 const DEFAULT_SETTINGS = {
-    printBillEnabled: false  // Default: off
+    printBillEnabled: false, // Default: off
 };
 
 let appSettings = { ...DEFAULT_SETTINGS };
@@ -50,7 +50,7 @@ const elements = {
     customerInfoPhone: document.getElementById('customer-info-phone'),
     customerInfoTier: document.getElementById('customer-info-tier'),
     customerInfoWalletBalance: document.getElementById('customer-info-wallet-balance'),
-    customerInfoNewCustomerWarning: document.getElementById('customer-info-new-customer-warning')
+    customerInfoNewCustomerWarning: document.getElementById('customer-info-new-customer-warning'),
 };
 
 /**
@@ -186,13 +186,13 @@ function showLoading(show) {
 }
 
 function initTabs() {
-    elements.tabs.forEach(btn => {
+    elements.tabs.forEach((btn) => {
         btn.addEventListener('click', () => {
-            elements.tabs.forEach(b => b.classList.remove('active'));
+            elements.tabs.forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
             // Reset type sub-filter to "Tất cả loại" when switching tabs
             const typeTabBtns = document.querySelectorAll('#type-tabs .type-tab-btn');
-            typeTabBtns.forEach(b => b.classList.remove('active'));
+            typeTabBtns.forEach((b) => b.classList.remove('active'));
             const allTypeBtn = document.querySelector('#type-tabs .type-tab-btn[data-type="all"]');
             if (allTypeBtn) allTypeBtn.classList.add('active');
             renderDashboard(btn.dataset.tab);
@@ -201,12 +201,15 @@ function initTabs() {
 
     // Type filter tabs (replaces #filter-type select)
     const typeTabBtns = document.querySelectorAll('#type-tabs .type-tab-btn');
-    typeTabBtns.forEach(btn => {
+    typeTabBtns.forEach((btn) => {
         btn.addEventListener('click', () => {
-            typeTabBtns.forEach(b => b.classList.remove('active'));
+            typeTabBtns.forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
-            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
-            const term = (document.getElementById('search-ticket')?.value || '').toLowerCase().trim();
+            const activeTab =
+                document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+            const term = (document.getElementById('search-ticket')?.value || '')
+                .toLowerCase()
+                .trim();
             renderDashboard(activeTab, term);
         });
     });
@@ -222,7 +225,7 @@ function initModalHandlers() {
     });
 
     // Close Modals
-    elements.closeButtons.forEach(btn => {
+    elements.closeButtons.forEach((btn) => {
         btn.addEventListener('click', () => {
             closeModal(btn.closest('.modal'));
         });
@@ -243,13 +246,20 @@ function initModalHandlers() {
                 searchDebounceTimer = setTimeout(async () => {
                     try {
                         const serverResults = await ApiService.searchTicketsServer(term);
-                        if (serverResults.length > 0 && searchInput.value.toLowerCase().trim() === term) {
+                        if (
+                            serverResults.length > 0 &&
+                            searchInput.value.toLowerCase().trim() === term
+                        ) {
                             // Merge server results into TICKETS (avoid duplicates)
-                            const existingIds = new Set(TICKETS.map(t => t.ticketCode));
-                            const newTickets = serverResults.filter(t => !existingIds.has(t.ticketCode));
+                            const existingIds = new Set(TICKETS.map((t) => t.ticketCode));
+                            const newTickets = serverResults.filter(
+                                (t) => !existingIds.has(t.ticketCode)
+                            );
                             if (newTickets.length > 0) {
                                 TICKETS.push(...newTickets);
-                                console.log(`[SEARCH] Added ${newTickets.length} tickets from server`);
+                                console.log(
+                                    `[SEARCH] Added ${newTickets.length} tickets from server`
+                                );
                             }
                             // Re-render with merged data
                             renderDashboard(activeTab, term);
@@ -267,7 +277,9 @@ function initModalHandlers() {
     if (filterDateCreated) {
         filterDateCreated.addEventListener('change', () => {
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-            const term = (document.getElementById('search-ticket')?.value || '').toLowerCase().trim();
+            const term = (document.getElementById('search-ticket')?.value || '')
+                .toLowerCase()
+                .trim();
             renderDashboard(activeTab, term);
         });
     }
@@ -288,7 +300,9 @@ function initModalHandlers() {
         elements.tabSearchCustomer.setAttribute('aria-selected', isCustomer);
         elements.tabSearchCode.classList.toggle('active', !isCustomer);
         elements.tabSearchCode.setAttribute('aria-selected', !isCustomer);
-        elements.inpSearchOrder.placeholder = isCustomer ? 'Nhập SĐT hoặc Tên khách' : 'Nhập Mã đơn';
+        elements.inpSearchOrder.placeholder = isCustomer
+            ? 'Nhập SĐT hoặc Tên khách'
+            : 'Nhập Mã đơn';
         elements.inpSearchOrder.value = '';
         elements.inpSearchOrder.focus();
     };
@@ -303,7 +317,6 @@ function initModalHandlers() {
     if (btnConfirmYes) {
         btnConfirmYes.addEventListener('click', handleConfirmAction);
     }
-
 
     // Partial Return Checkbox Logic
     const fixCodReason = document.getElementById('fix-cod-reason');
@@ -346,13 +359,13 @@ function normalizePhone(phone) {
 
 async function handleSearchOrder() {
     const query = elements.inpSearchOrder.value.trim();
-    if (!query) return alert("Vui lòng nhập từ khóa tìm kiếm");
+    if (!query) return alert('Vui lòng nhập từ khóa tìm kiếm');
 
     // Determine search mode from active tab
     let searchArg;
     if (currentSearchTab === 'code') {
         const cleanCode = query.replace(/\D/g, '');
-        if (cleanCode.length < 1) return alert("Vui lòng nhập Mã đơn hợp lệ");
+        if (cleanCode.length < 1) return alert('Vui lòng nhập Mã đơn hợp lệ');
         searchArg = { mode: 'code', value: cleanCode };
     } else {
         // customer tab: phone if all digits, else name
@@ -361,9 +374,15 @@ async function handleSearchOrder() {
         if (isPhone) {
             searchArg = { mode: 'phone', value: digits };
         } else {
-            if (query.length < 2) return alert("Vui lòng nhập tên ít nhất 2 ký tự");
+            if (query.length < 2) return alert('Vui lòng nhập tên ít nhất 2 ký tự');
             // Strip Vietnamese diacritics — TPOS field PartnerNameNoSign is unaccented
-            const noSign = query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+            const noSign = query
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/Đ/g, 'D')
+                .toLowerCase()
+                .trim();
             searchArg = { mode: 'name', value: noSign };
         }
     }
@@ -384,7 +403,10 @@ async function handleSearchOrder() {
         } else if (result.allCancelled) {
             // All orders found were cancelled/draft
             hideOrderSelectionList();
-            showSearchMessage('⚠️ Toàn bộ đơn hàng của SĐT này đã bị hủy hoặc đang ở trạng thái nháp. Không thể tạo phiếu.', 'warning');
+            showSearchMessage(
+                '⚠️ Toàn bộ đơn hàng của SĐT này đã bị hủy hoặc đang ở trạng thái nháp. Không thể tạo phiếu.',
+                'warning'
+            );
         } else {
             // No orders found, try to search for customer
             hideOrderSelectionList();
@@ -393,7 +415,7 @@ async function handleSearchOrder() {
         }
     } catch (error) {
         console.error(error);
-        alert("Lỗi khi tìm kiếm đơn hàng: " + error.message);
+        alert('Lỗi khi tìm kiếm đơn hàng: ' + error.message);
     } finally {
         showLoading(false);
     }
@@ -418,16 +440,20 @@ async function searchCustomerByPhone(phone) {
             elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
             elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
             elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
-            elements.customerInfoWalletBalance.textContent = formatCurrency(customerData.wallet?.balance || 0);
+            elements.customerInfoWalletBalance.textContent = formatCurrency(
+                customerData.wallet?.balance || 0
+            );
             elements.customerInfoNewCustomerWarning.classList.add('hidden');
 
             // Hide order result and show issue form directly
             document.getElementById('order-result').classList.add('hidden');
             document.getElementById('issue-details-form').classList.remove('hidden');
-
         } else {
             // Customer not found on TPOS - show clear message
-            showSearchMessage('❌ Khách hàng không tồn tại trên TPOS. Vui lòng kiểm tra lại số điện thoại.', 'error');
+            showSearchMessage(
+                '❌ Khách hàng không tồn tại trên TPOS. Vui lòng kiểm tra lại số điện thoại.',
+                'error'
+            );
             currentCustomer = null;
             selectedOrder = null;
         }
@@ -482,7 +508,7 @@ async function selectOrder(order) {
     if (boomReasonEl) boomReasonEl.value = 'BOOM_HANG';
 
     // Hide all dynamic field groups
-    document.querySelectorAll('[data-type]').forEach(group => {
+    document.querySelectorAll('[data-type]').forEach((group) => {
         group.classList.add('hidden');
     });
 
@@ -507,7 +533,9 @@ async function selectOrder(order) {
                 elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
                 elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
                 elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
-                elements.customerInfoWalletBalance.textContent = formatCurrency(customerDetails.wallet?.balance || 0);
+                elements.customerInfoWalletBalance.textContent = formatCurrency(
+                    customerDetails.wallet?.balance || 0
+                );
             } else {
                 // If customer not found for this phone, still show warning as it will be created via ticket
                 elements.customerInfoSection.classList.remove('hidden');
@@ -517,11 +545,12 @@ async function selectOrder(order) {
                 elements.customerInfoWalletBalance.textContent = formatCurrency(0);
                 elements.customerInfoNewCustomerWarning.classList.remove('hidden');
 
-                currentCustomer = { // Minimal object for new customer related to this order
+                currentCustomer = {
+                    // Minimal object for new customer related to this order
                     name: 'Khách hàng mới',
                     phone: normalizePhone(order.phone),
                     tier: 'New',
-                    wallet_balance: 0
+                    wallet_balance: 0,
                 };
             }
         } catch (error) {
@@ -539,7 +568,8 @@ async function selectOrder(order) {
     }
 
     // Show loading state
-    document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Đang tải sản phẩm...</td></tr>';
+    document.getElementById('res-products-table').innerHTML =
+        '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Đang tải sản phẩm...</td></tr>';
     const checklist = document.getElementById('product-checklist');
     checklist.innerHTML = '<p style="color:#64748b;font-size:12px">Đang tải...</p>';
 
@@ -559,9 +589,12 @@ async function selectOrder(order) {
             }
 
             // Display products in table
-            const productsTableHTML = details.products.map(p => {
-                const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
-                return `
+            const productsTableHTML = details.products
+                .map((p) => {
+                    const noteDisplay = p.note
+                        ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>`
+                        : '';
+                    return `
                     <tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:6px 8px;">
                             <div><strong>[${p.code}]</strong> ${p.name}</div>
@@ -571,7 +604,8 @@ async function selectOrder(order) {
                         <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
                     </tr>
                 `;
-            }).join('');
+                })
+                .join('');
             document.getElementById('res-products-table').innerHTML = productsTableHTML;
 
             // Calculate totals
@@ -580,15 +614,25 @@ async function selectOrder(order) {
 
             // Update summary fields
             document.getElementById('res-total-qty').textContent = totalQty;
-            document.getElementById('res-amount-total').textContent = formatCurrency(details.amountTotal);
-            document.getElementById('res-decrease-amount').textContent = formatCurrency(details.decreaseAmount);
-            document.getElementById('res-delivery-price').textContent = formatCurrency(details.deliveryPrice);
+            document.getElementById('res-amount-total').textContent = formatCurrency(
+                details.amountTotal
+            );
+            document.getElementById('res-decrease-amount').textContent = formatCurrency(
+                details.decreaseAmount
+            );
+            document.getElementById('res-delivery-price').textContent = formatCurrency(
+                details.deliveryPrice
+            );
             document.getElementById('res-final-total').textContent = formatCurrency(finalTotal);
-            document.getElementById('res-payment-amount').textContent = formatCurrency(details.paymentAmount);
+            document.getElementById('res-payment-amount').textContent = formatCurrency(
+                details.paymentAmount
+            );
             document.getElementById('res-cod').textContent = formatCurrency(details.cod);
 
             // Generate product checklist for partial return (with quantity input)
-            checklist.innerHTML = details.products.map(p => `
+            checklist.innerHTML = details.products
+                .map(
+                    (p) => `
                 <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
                     <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked
                            data-price="${p.price}" data-qty="${p.quantity}"
@@ -605,19 +649,24 @@ async function selectOrder(order) {
                                style="width:50px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:3px;text-align:center;font-size:12px;">
                     </div>
                 </div>
-            `).join('');
+            `
+                )
+                .join('');
         } else {
             // No products found
-            document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">Không tìm thấy sản phẩm</td></tr>';
+            document.getElementById('res-products-table').innerHTML =
+                '<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">Không tìm thấy sản phẩm</td></tr>';
             checklist.innerHTML = `<p style="color:#64748b;font-size:12px">Mã đơn: ${order.tposCode} | ${order.carrier || 'N/A'}</p>`;
         }
     } catch (err) {
         console.error('[APP] Failed to load order details:', err);
-        const isServerError = err.message && (err.message.includes('502') || err.message.includes('503'));
+        const isServerError =
+            err.message && (err.message.includes('502') || err.message.includes('503'));
         const errorMsg = isServerError
             ? 'Hệ thống TPOS đang quá tải, vui lòng thử lại sau ít phút.'
             : `Lỗi tải sản phẩm: ${err.message || 'Không xác định'}`;
-        document.getElementById('res-products-table').innerHTML = `<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">${errorMsg}</td></tr>`;
+        document.getElementById('res-products-table').innerHTML =
+            `<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">${errorMsg}</td></tr>`;
         checklist.innerHTML = `<p style="color:#ef4444;font-size:12px;">${errorMsg} Mã đơn: ${order.tposCode}</p>`;
     }
 }
@@ -633,10 +682,10 @@ function showOrderSelectionList(orders) {
     // Helper: translate State to Vietnamese
     const translateState = (state) => {
         const map = {
-            'draft': 'Nháp',
-            'open': 'Đã xác nhận',
-            'paid': 'Đã thanh toán',
-            'cancel': 'Hủy bỏ'
+            draft: 'Nháp',
+            open: 'Đã xác nhận',
+            paid: 'Đã thanh toán',
+            cancel: 'Hủy bỏ',
         };
         return map[state] || state;
     };
@@ -644,9 +693,9 @@ function showOrderSelectionList(orders) {
     // Helper: translate StateCode to Vietnamese
     const translateStateCode = (stateCode) => {
         const map = {
-            'CrossCheckComplete': 'Đã ĐS SP',
-            'NotEnoughInventory': 'Không đủ tồn',
-            'None': 'Chưa ĐS SP'
+            CrossCheckComplete: 'Đã ĐS SP',
+            NotEnoughInventory: 'Không đủ tồn',
+            None: 'Chưa ĐS SP',
         };
         return map[stateCode] || stateCode;
     };
@@ -663,7 +712,9 @@ function showOrderSelectionList(orders) {
     listEl.innerHTML = `
         <div style="padding:10px;background:#f1f5f9;border-radius:6px;margin-top:10px;max-height:300px;overflow-y:auto;">
             <p style="font-weight:600;margin-bottom:8px;">Tìm thấy ${orders.length} đơn hàng:</p>
-            ${orders.map((o, i) => `
+            ${orders
+                .map(
+                    (o, i) => `
                 <div class="order-option" onclick="selectOrderByIndex(${i})"
                      style="padding:10px;border:1px solid #e2e8f0;border-radius:4px;margin-bottom:6px;cursor:pointer;background:white;transition:all 0.2s;"
                      onmouseover="this.style.borderColor='#3b82f6';this.style.background='#eff6ff'"
@@ -678,7 +729,9 @@ function showOrderSelectionList(orders) {
                         <span style="color:${o.stateCode === 'CrossCheckComplete' ? '#10b981' : '#f59e0b'};">${translateStateCode(o.stateCode)}</span>
                     </div>
                 </div>
-            `).join('')}
+            `
+                )
+                .join('')}
         </div>
     `;
     listEl.classList.remove('hidden');
@@ -725,7 +778,7 @@ function showSearchMessage(message, type = 'info') {
     const colors = {
         warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
         error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-        info: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' }
+        info: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' },
     };
     const style = colors[type] || colors.info;
 
@@ -777,7 +830,7 @@ function handleIssueTypeChange(e) {
     console.log('[DEBUG] Elements found:', {
         dynamicFields: !!dynamicFields,
         fixCodGroup: !!fixCodGroup,
-        returnGroup: !!returnGroup
+        returnGroup: !!returnGroup,
     });
 
     // Reset all first
@@ -816,23 +869,22 @@ function handleIssueTypeChange(e) {
 
     console.log('[DEBUG] Final state:', {
         fixCodHidden: fixCodGroup?.classList.contains('hidden'),
-        returnHidden: returnGroup?.classList.contains('hidden')
+        returnHidden: returnGroup?.classList.contains('hidden'),
     });
 }
 
-
 // Calculate COD Remaining and Diff for Fix COD
-window.calculateCodRemaining = function() {
+window.calculateCodRemaining = function () {
     if (!selectedOrder) return;
     const codReduce = parseInt(document.getElementById('cod-reduce-amount').value) || 0;
     const codRemaining = selectedOrder.cod - codReduce;
 
     document.getElementById('cod-remaining-display').textContent = formatCurrency(codRemaining);
     document.getElementById('cod-diff-display').textContent = formatCurrency(codReduce);
-}
+};
 
 // Handle FIX_COD reason change
-window.onFixCodReasonChange = function() {
+window.onFixCodReasonChange = function () {
     const reason = document.getElementById('fix-cod-reason').value;
     const codReduceInput = document.getElementById('cod-reduce-amount');
     const editBtn = document.getElementById('btn-edit-cod-reduce');
@@ -854,12 +906,11 @@ window.onFixCodReasonChange = function() {
 
         // Bỏ check tất cả sản phẩm để user tự chọn món trả lại
         const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
-        checkboxes.forEach(cb => cb.checked = false);
+        checkboxes.forEach((cb) => (cb.checked = false));
 
         // Reset COD giảm về 0
         codReduceInput.value = 0;
         calculateCodRemaining();
-
     } else if (reason === 'RETURN_OLD_ORDER') {
         // === Logic mới cho RETURN_OLD_ORDER ===
         codReduceInput.readOnly = true;
@@ -879,7 +930,6 @@ window.onFixCodReasonChange = function() {
 
         // Reset selectedOldOrder
         selectedOldOrder = null;
-
     } else {
         // Cho phép nhập tay
         codReduceInput.readOnly = false;
@@ -889,27 +939,27 @@ window.onFixCodReasonChange = function() {
 
         // Check lại tất cả sản phẩm (cho các loại khác như THU VỀ, BOOM)
         const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
-        checkboxes.forEach(cb => cb.checked = true);
+        checkboxes.forEach((cb) => (cb.checked = true));
     }
-}
+};
 
 // Handle BOOM reason change
-window.onBoomReasonChange = function() {
+window.onBoomReasonChange = function () {
     const reason = document.getElementById('boom-reason')?.value;
     const hintEl = document.getElementById('boom-reason-hint');
     if (!hintEl) return;
 
     const hints = {
-        'BOOM_HANG': '<span style="color:#ef4444;">⚠️ Khách boom - Lưu ý đơn sau</span>',
-        'TRUNG_DON': '<span style="color:#3b82f6;">ℹ️ Xả đơn cũ, nhập kho, đi đơn mới</span>',
-        'DOI_DIA_CHI': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho, đi lại đơn mới</span>',
-        'KHAC': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho</span>'
+        BOOM_HANG: '<span style="color:#ef4444;">⚠️ Khách boom - Lưu ý đơn sau</span>',
+        TRUNG_DON: '<span style="color:#3b82f6;">ℹ️ Xả đơn cũ, nhập kho, đi đơn mới</span>',
+        DOI_DIA_CHI: '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho, đi lại đơn mới</span>',
+        KHAC: '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho</span>',
     };
     hintEl.innerHTML = hints[reason] || '';
 };
 
 // Toggle COD Reduce edit mode (for REJECT_PARTIAL)
-window.toggleCodReduceEdit = function() {
+window.toggleCodReduceEdit = function () {
     const codReduceInput = document.getElementById('cod-reduce-amount');
     const editBtn = document.getElementById('btn-edit-cod-reduce');
 
@@ -928,14 +978,16 @@ window.toggleCodReduceEdit = function() {
         if (editBtn) editBtn.title = 'Chỉnh sửa thủ công';
         updateCodReduceFromProducts();
     }
-}
+};
 
 // Calculate COD reduce from selected products (for REJECT_PARTIAL)
 function updateCodReduceFromProducts() {
-    const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+    const checkedInputs = document.querySelectorAll(
+        '#product-checklist input[type="checkbox"]:checked'
+    );
     let totalReduce = 0;
 
-    checkedInputs.forEach(cb => {
+    checkedInputs.forEach((cb) => {
         const productId = cb.value;
         const qtyInput = document.getElementById(`prod-qty-${productId}`);
         const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
@@ -953,10 +1005,13 @@ window.updateCodReduceFromProducts = updateCodReduceFromProducts;
 // Toggle all product checkboxes (select all / deselect all)
 window.toggleAllProducts = function (selectAll, containerId = 'product-checklist') {
     const checkboxes = document.querySelectorAll(`#${containerId} input[type="checkbox"]`);
-    checkboxes.forEach(cb => { cb.checked = selectAll; });
+    checkboxes.forEach((cb) => {
+        cb.checked = selectAll;
+    });
     // Update COD calculation
     if (containerId === 'old-order-product-checklist') {
-        if (typeof updateCodReduceFromOldOrderProducts === 'function') updateCodReduceFromOldOrderProducts();
+        if (typeof updateCodReduceFromOldOrderProducts === 'function')
+            updateCodReduceFromOldOrderProducts();
     } else {
         updateCodReduceFromProducts();
     }
@@ -978,10 +1033,10 @@ async function markPartnerAsBoom(phone, noteText) {
     if (!phone) throw new Error('Không có số điện thoại khách');
 
     const headers = {
-        'Accept': 'application/json, text/plain, */*',
+        Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json;charset=UTF-8',
         'feature-version': '2',
-        'x-tpos-lang': 'vi'
+        'x-tpos-lang': 'vi',
     };
 
     // Step 1: Search all Partner IDs by phone (dùng Name= như TPOS UI native)
@@ -989,7 +1044,7 @@ async function markPartnerAsBoom(phone, noteText) {
 
     const searchResponse = await window.tokenManager.authenticatedFetch(searchUrl, {
         method: 'GET',
-        headers
+        headers,
     });
 
     if (!searchResponse.ok) {
@@ -1014,10 +1069,12 @@ async function markPartnerAsBoom(phone, noteText) {
         const res = await window.tokenManager.authenticatedFetch(updateUrl, {
             method: 'POST',
             headers,
-            body: statusPayload
+            body: statusPayload,
         });
         if (!res.ok) {
-            throw new Error(`Cập nhật trạng thái khách ${partner.Id} thất bại (HTTP ${res.status})`);
+            throw new Error(
+                `Cập nhật trạng thái khách ${partner.Id} thất bại (HTTP ${res.status})`
+            );
         }
         console.log(`[BOOM] Successfully marked partner ${partner.Id} as "Bom hàng"`);
     }
@@ -1029,10 +1086,12 @@ async function markPartnerAsBoom(phone, noteText) {
                 const partnerUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
                 const getRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
                     method: 'GET',
-                    headers
+                    headers,
                 });
                 if (!getRes.ok) {
-                    console.warn(`[BOOM] GET partner ${partner.Id} for note failed (HTTP ${getRes.status})`);
+                    console.warn(
+                        `[BOOM] GET partner ${partner.Id} for note failed (HTTP ${getRes.status})`
+                    );
                     continue;
                 }
                 const partnerData = await getRes.json();
@@ -1043,10 +1102,12 @@ async function markPartnerAsBoom(phone, noteText) {
                 const putRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
                     method: 'PUT',
                     headers,
-                    body: JSON.stringify(partnerData)
+                    body: JSON.stringify(partnerData),
                 });
                 if (!putRes.ok) {
-                    console.warn(`[BOOM] PUT note for partner ${partner.Id} failed (HTTP ${putRes.status})`);
+                    console.warn(
+                        `[BOOM] PUT note for partner ${partner.Id} failed (HTTP ${putRes.status})`
+                    );
                 }
             } catch (err) {
                 console.warn(`[BOOM] Update note for partner ${partner.Id} error:`, err);
@@ -1061,17 +1122,18 @@ function checkExistingReturnTicket(orderId) {
     if (!orderId) return { exists: false, ticketCode: null };
 
     // Search in local TICKETS array for existing RETURN tickets (exclude CANCELLED)
-    const existingTicket = TICKETS.find(ticket =>
-        ticket.orderId === orderId &&
-        (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER') &&
-        ticket.status !== 'CANCELLED'
+    const existingTicket = TICKETS.find(
+        (ticket) =>
+            ticket.orderId === orderId &&
+            (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER') &&
+            ticket.status !== 'CANCELLED'
     );
 
     if (existingTicket) {
         return {
             exists: true,
             ticketCode: existingTicket.ticketCode,
-            ticketType: existingTicket.type
+            ticketType: existingTicket.type,
         };
     }
 
@@ -1085,10 +1147,10 @@ async function handleSubmitTicket() {
     // If selectedOrder is a minimal object for a new customer
     const isNewCustomerTicket = selectedOrder && !selectedOrder.tposCode;
 
-    if (!selectedOrder && !currentCustomer) return alert("Chưa chọn đơn hàng hoặc SĐT khách hàng!");
+    if (!selectedOrder && !currentCustomer) return alert('Chưa chọn đơn hàng hoặc SĐT khách hàng!');
 
     const type = document.getElementById('issue-type-select').value;
-    if (!type) return alert("Vui lòng chọn loại vấn đề");
+    if (!type) return alert('Vui lòng chọn loại vấn đề');
 
     let status = 'PENDING_GOODS';
     let money = 0;
@@ -1097,9 +1159,10 @@ async function handleSubmitTicket() {
 
     // Determine channel: TP if HCM, J&T otherwise
     const address = selectedOrder?.address || (currentCustomer ? 'N/A' : ''); // Use customer address if no order
-    const channel = address.includes('Hồ Chí Minh') || address.includes('HCM') || address.includes('TP HCM')
-        ? 'TP'
-        : 'J&T';
+    const channel =
+        address.includes('Hồ Chí Minh') || address.includes('HCM') || address.includes('TP HCM')
+            ? 'TP'
+            : 'J&T';
 
     // Logic for Status & Money based on type
     if (type === 'FIX_COD') {
@@ -1111,35 +1174,46 @@ async function handleSubmitTicket() {
             // Validation: Đơn phải có >= 2 món (tính theo tổng số lượng, không phải số mã)
             const totalQty = selectedOrder?.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
             if (selectedOrder && totalQty < 2) {
-                return alert("Đơn hàng chỉ có 1 món. Nếu khách không nhận, vui lòng chọn 'Boom Hàng'.");
+                return alert(
+                    "Đơn hàng chỉ có 1 món. Nếu khách không nhận, vui lòng chọn 'Boom Hàng'."
+                );
             }
 
             // Khách nhận 1 phần - có hàng hoàn về
             status = 'PENDING_GOODS';
             // Get selected products with quantities
-            const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
-            selectedProducts = Array.from(checkedInputs).map(cb => {
+            const checkedInputs = document.querySelectorAll(
+                '#product-checklist input[type="checkbox"]:checked'
+            );
+            selectedProducts = Array.from(checkedInputs).map((cb) => {
                 const productId = cb.value;
                 const qtyInput = document.getElementById(`prod-qty-${productId}`);
                 const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-                const product = selectedOrder?.products?.find(p => String(p.id) === String(productId));
+                const product = selectedOrder?.products?.find(
+                    (p) => String(p.id) === String(productId)
+                );
                 return {
                     ...product,
-                    returnQuantity: returnQty
+                    returnQuantity: returnQty,
                 };
             });
 
             // Validation: Phải chọn ít nhất 1 món trả
             if (selectedProducts.length === 0) {
-                return alert("Vui lòng chọn ít nhất 1 món hàng khách trả lại.");
+                return alert('Vui lòng chọn ít nhất 1 món hàng khách trả lại.');
             }
             // Validation: Không được trả toàn bộ (đó là BOOM)
-            const totalReturnQty = selectedProducts.reduce((sum, p) => sum + (p.returnQuantity || 1), 0);
-            const totalOrderQty = selectedOrder?.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
+            const totalReturnQty = selectedProducts.reduce(
+                (sum, p) => sum + (p.returnQuantity || 1),
+                0
+            );
+            const totalOrderQty =
+                selectedOrder?.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
             if (selectedOrder && totalReturnQty >= totalOrderQty) {
-                return alert("Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'.");
+                return alert(
+                    "Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'."
+                );
             }
-
         } else if (fixCodReason === 'RETURN_OLD_ORDER') {
             // === LOGIC MỚI: Trả hàng đơn cũ ===
 
@@ -1149,7 +1223,9 @@ async function handleSubmitTicket() {
             }
 
             // Validation: phải chọn ít nhất 1 sản phẩm
-            const checkedOldOrderInputs = document.querySelectorAll('#old-order-product-checklist input[type="checkbox"]:checked');
+            const checkedOldOrderInputs = document.querySelectorAll(
+                '#old-order-product-checklist input[type="checkbox"]:checked'
+            );
             if (checkedOldOrderInputs.length === 0) {
                 return alert('Vui lòng chọn ít nhất 1 sản phẩm từ đơn cũ để trả');
             }
@@ -1158,7 +1234,7 @@ async function handleSubmitTicket() {
             status = 'PENDING_GOODS';
 
             // Lấy sản phẩm được chọn từ đơn cũ (include productId và code for matching)
-            selectedProducts = Array.from(checkedOldOrderInputs).map(input => {
+            selectedProducts = Array.from(checkedOldOrderInputs).map((input) => {
                 const productId = input.value;
                 const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
                 const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
@@ -1169,12 +1245,11 @@ async function handleSubmitTicket() {
                     productId: input.dataset.productId || '',
                     code: input.dataset.code || '',
                     name: input.dataset.name,
-                    price: unitPrice * returnQty,  // Tổng giá theo số lượng trả
+                    price: unitPrice * returnQty, // Tổng giá theo số lượng trả
                     quantity: parseInt(input.dataset.quantity) || 1,
-                    returnQuantity: returnQty
+                    returnQuantity: returnQty,
                 };
             });
-
         } else {
             // Các lý do khác - không có hàng trả, chỉ đối soát tiền
             status = 'PENDING_FINANCE';
@@ -1186,29 +1261,34 @@ async function handleSubmitTicket() {
         status = 'PENDING_GOODS';
 
         // Tất cả sản phẩm đều hoàn về (if order selected)
-        selectedProducts = selectedOrder?.products?.map(p => ({
-            ...p,
-            returnQuantity: p.quantity
-        })) || [];
+        selectedProducts =
+            selectedOrder?.products?.map((p) => ({
+                ...p,
+                returnQuantity: p.quantity,
+            })) || [];
     } else if (type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') {
         // Thu về/Khách gửi: Đã thu COD xong, giờ là giá trị hàng hoàn
         status = 'PENDING_GOODS';
 
         // Get selected products with return quantities (if order selected)
-        const checkedInputs = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
-        selectedProducts = Array.from(checkedInputs).map(cb => {
+        const checkedInputs = document.querySelectorAll(
+            '#product-checklist input[type="checkbox"]:checked'
+        );
+        selectedProducts = Array.from(checkedInputs).map((cb) => {
             const productId = cb.value;
             const qtyInput = document.getElementById(`prod-qty-${productId}`);
             const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-            const product = selectedOrder?.products?.find(p => String(p.id) === String(productId));
+            const product = selectedOrder?.products?.find(
+                (p) => String(p.id) === String(productId)
+            );
             return {
                 ...product,
-                returnQuantity: returnQty
+                returnQuantity: returnQty,
             };
         });
 
         // Giá trị hoàn = tổng giá trị sản phẩm trả về
-        money = selectedProducts.reduce((sum, p) => sum + (p.price * p.returnQuantity), 0);
+        money = selectedProducts.reduce((sum, p) => sum + p.price * p.returnQuantity, 0);
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
         money = 0;
@@ -1224,44 +1304,47 @@ async function handleSubmitTicket() {
     const orderStatus = selectedOrder?.status;
     const orderStateCode = selectedOrder?.stateCode;
 
-    if (!customerPhone) return alert("Không tìm thấy thông tin số điện thoại khách hàng!");
+    if (!customerPhone) return alert('Không tìm thấy thông tin số điện thoại khách hàng!');
 
     // VALIDATION: Check for duplicate RETURN tickets (1 đơn = 1 ticket hoàn hàng)
     if ((type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') && tposOrderId) {
         const existingReturn = checkExistingReturnTicket(tposOrderId);
         if (existingReturn.exists) {
-            const typeLabel = existingReturn.ticketType === 'RETURN_CLIENT' ? 'Khách gửi về' : 'Thu về';
-            return alert(`Đơn hàng này đã có ticket hoàn hàng!\n\nMã ticket: ${existingReturn.ticketCode}\nLoại: ${typeLabel}\n\nMỗi đơn hàng chỉ được tạo 1 ticket hoàn hàng.`);
+            const typeLabel =
+                existingReturn.ticketType === 'RETURN_CLIENT' ? 'Khách gửi về' : 'Thu về';
+            return alert(
+                `Đơn hàng này đã có ticket hoàn hàng!\n\nMã ticket: ${existingReturn.ticketCode}\nLoại: ${typeLabel}\n\nMỗi đơn hàng chỉ được tạo 1 ticket hoàn hàng.`
+            );
         }
     }
 
     // VALIDATION: Check for duplicate BOOM tickets (1 đơn = 1 ticket boom)
     if (type === 'BOOM' && tposOrderId) {
-        const existingBoom = TICKETS.find(t =>
-            t.orderId === tposOrderId &&
-            t.type === 'BOOM' &&
-            t.status !== 'CANCELLED'
+        const existingBoom = TICKETS.find(
+            (t) => t.orderId === tposOrderId && t.type === 'BOOM' && t.status !== 'CANCELLED'
         );
         if (existingBoom) {
-            return alert(`Đơn hàng này đã có ticket Boom!\n\nMã ticket: ${existingBoom.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Boom.`);
+            return alert(
+                `Đơn hàng này đã có ticket Boom!\n\nMã ticket: ${existingBoom.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Boom.`
+            );
         }
     }
 
     // VALIDATION: Check for duplicate FIX_COD tickets (1 đơn = 1 ticket fix COD)
     if (type === 'FIX_COD' && tposOrderId) {
-        const existingFixCod = TICKETS.find(t =>
-            t.orderId === tposOrderId &&
-            t.type === 'FIX_COD' &&
-            t.status !== 'CANCELLED'
+        const existingFixCod = TICKETS.find(
+            (t) => t.orderId === tposOrderId && t.type === 'FIX_COD' && t.status !== 'CANCELLED'
         );
         if (existingFixCod) {
-            return alert(`Đơn hàng này đã có ticket Fix COD!\n\nMã ticket: ${existingFixCod.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Fix COD.`);
+            return alert(
+                `Đơn hàng này đã có ticket Fix COD!\n\nMã ticket: ${existingFixCod.ticketCode}\n\nMỗi đơn chỉ được tạo 1 ticket Fix COD.`
+            );
         }
     }
 
-
     // Lấy thông tin đơn cũ cho RETURN_OLD_ORDER
-    const fixCodReason = type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null;
+    const fixCodReason =
+        type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null;
     const boomReason = type === 'BOOM' ? document.getElementById('boom-reason')?.value : null;
     const isReturnOldOrder = type === 'FIX_COD' && fixCodReason === 'RETURN_OLD_ORDER';
 
@@ -1283,7 +1366,7 @@ async function handleSubmitTicket() {
         note: note,
         // RETURN_OLD_ORDER: Reference đến đơn cũ
         returnFromOrderId: isReturnOldOrder ? selectedOldOrder?.tposCode : null,
-        returnFromTposId: isReturnOldOrder ? selectedOldOrder?.id : null
+        returnFromTposId: isReturnOldOrder ? selectedOldOrder?.id : null,
     };
 
     isSubmitting = true;
@@ -1297,14 +1380,28 @@ async function handleSubmitTicket() {
             if (window.AuditLogger) {
                 window.AuditLogger.logAction('ticket_create', {
                     module: 'issue-tracking',
-                    description: 'Tạo phiếu ' + type + ' cho KH ' + customerPhone + (tposOrderId ? ' - Đơn ' + tposOrderId : ''),
+                    description:
+                        'Tạo phiếu ' +
+                        type +
+                        ' cho KH ' +
+                        customerPhone +
+                        (tposOrderId ? ' - Đơn ' + tposOrderId : ''),
                     oldData: null,
-                    newData: { type, status, money, customerId: customerPhone, orderId: tposOrderId, channel },
+                    newData: {
+                        type,
+                        status,
+                        money,
+                        customerId: customerPhone,
+                        orderId: tposOrderId,
+                        channel,
+                    },
                     entityId: tposOrderId || customerPhone,
-                    entityType: 'ticket'
+                    entityType: 'ticket',
                 });
             }
-        } catch (e) { console.warn('[AuditLog] ticket_create log failed:', e); }
+        } catch (e) {
+            console.warn('[AuditLog] ticket_create log failed:', e);
+        }
 
         await ApiService.createTicket(ticketData);
 
@@ -1330,7 +1427,9 @@ async function handleSubmitTicket() {
                 console.log('[APP] Partner boom status updated');
             } catch (err) {
                 console.error('[APP] Failed to update partner boom status:', err);
-                notificationManager.error(`Đánh boom TPOS thất bại: ${err.message}. Vui lòng đánh thủ công trên TPOS.`);
+                notificationManager.error(
+                    `Đánh boom TPOS thất bại: ${err.message}. Vui lòng đánh thủ công trên TPOS.`
+                );
             }
         }
 
@@ -1339,7 +1438,7 @@ async function handleSubmitTicket() {
         notificationManager.success('Tạo phiếu thành công!');
     } catch (error) {
         console.error(error);
-        alert("Lỗi khi tạo sự vụ: " + error.message);
+        alert('Lỗi khi tạo sự vụ: ' + error.message);
     } finally {
         showLoading(false);
         isSubmitting = false;
@@ -1353,30 +1452,33 @@ let pendingActionType = null;
 window.promptAction = function (id, action) {
     pendingActionTicketId = id;
     pendingActionType = action;
-    const ticket = TICKETS.find(t => t.firebaseId === id); // Note: using firebaseId now
+    const ticket = TICKETS.find((t) => t.firebaseId === id); // Note: using firebaseId now
 
     if (!ticket) return;
 
     if (action === 'RECEIVE') {
-        document.getElementById('confirm-title').textContent = "Xác nhận Nhập Kho";
-        document.getElementById('confirm-message').textContent = `Đã nhận đủ hàng từ đơn ${ticket.orderId}?`;
+        document.getElementById('confirm-title').textContent = 'Xác nhận Nhập Kho';
+        document.getElementById('confirm-message').textContent =
+            `Đã nhận đủ hàng từ đơn ${ticket.orderId}?`;
     } else if (action === 'ISSUE_CREDIT') {
-        document.getElementById('confirm-title').textContent = "Cấp Công Nợ Ảo";
+        document.getElementById('confirm-title').textContent = 'Cấp Công Nợ Ảo';
         const money = parseFloat(ticket.money) || 0;
-        document.getElementById('confirm-message').textContent = `Cấp ${money.toLocaleString()}đ công nợ ảo cho ${ticket.phone}? (Hết hạn sau 15 ngày)`;
+        document.getElementById('confirm-message').textContent =
+            `Cấp ${money.toLocaleString()}đ công nợ ảo cho ${ticket.phone}? (Hết hạn sau 15 ngày)`;
     } else {
-        document.getElementById('confirm-title').textContent = "Xác nhận Thanh Toán";
-        document.getElementById('confirm-message').textContent = `Đã chuyển khoản ${formatCurrency(ticket.money)} cho ĐVVC?`;
+        document.getElementById('confirm-title').textContent = 'Xác nhận Thanh Toán';
+        document.getElementById('confirm-message').textContent =
+            `Đã chuyển khoản ${formatCurrency(ticket.money)} cho ĐVVC?`;
     }
 
     openModal(elements.modalConfirm);
-}
+};
 
 async function handleConfirmAction() {
     if (!pendingActionTicketId) return;
     if (isProcessingAction) return;
 
-    const ticket = TICKETS.find(t => t.firebaseId === pendingActionTicketId);
+    const ticket = TICKETS.find((t) => t.firebaseId === pendingActionTicketId);
     if (!ticket) {
         notificationManager.error('Không tìm thấy phiếu');
         return;
@@ -1398,39 +1500,64 @@ async function handleConfirmAction() {
                 if (window.AuditLogger) {
                     window.AuditLogger.logAction('ticket_receive_goods', {
                         module: 'issue-tracking',
-                        description: 'Nhận hàng hoàn đơn ' + (ticket.orderId || '') + ' - ' + (ticket.phone || ''),
+                        description:
+                            'Nhận hàng hoàn đơn ' +
+                            (ticket.orderId || '') +
+                            ' - ' +
+                            (ticket.phone || ''),
                         oldData: { status: ticket.status },
                         newData: { status: 'RECEIVED', ticketId: pendingActionTicketId },
                         entityId: pendingActionTicketId,
-                        entityType: 'ticket'
+                        entityType: 'ticket',
                     });
                 }
-            } catch (e) { console.warn('[AuditLog] ticket_receive_goods log failed:', e); }
+            } catch (e) {
+                console.warn('[AuditLog] ticket_receive_goods log failed:', e);
+            }
 
             // RECEIVE action: Process full TPOS refund flow (5 API calls)
             // RETURN_OLD_ORDER: Phiếu trả hàng tạo cho đơn CŨ (returnFromTposId)
-            const tposIdForRefund = (ticket.fixCodReason === 'RETURN_OLD_ORDER' && ticket.returnFromTposId)
-                ? ticket.returnFromTposId
-                : ticket.tposId;
+            const tposIdForRefund =
+                ticket.fixCodReason === 'RETURN_OLD_ORDER' && ticket.returnFromTposId
+                    ? ticket.returnFromTposId
+                    : ticket.tposId;
 
-            console.log('[APP] Processing RECEIVE action for tposId:', tposIdForRefund, '(original:', ticket.tposId, ')');
+            console.log(
+                '[APP] Processing RECEIVE action for tposId:',
+                tposIdForRefund,
+                '(original:',
+                ticket.tposId,
+                ')'
+            );
 
             if (!tposIdForRefund) {
                 throw new Error('Thiếu TPOS Order ID để xử lý nhận hàng');
             }
 
             // Show loading notification with progress
-            loadingId = notificationManager.loading('Bước 1/5: Tạo phiếu hoàn...', 'Đang xử lý nhận hàng');
+            loadingId = notificationManager.loading(
+                'Bước 1/5: Tạo phiếu hoàn...',
+                'Đang xử lý nhận hàng'
+            );
 
             // Call the refund process with progress callback
             // Pass ticket.products to filter OrderLines for partial refund
-            const result = await ApiService.processRefund(tposIdForRefund, ticket.products, (step, message) => {
-                // Update loading notification with step progress
-                notificationManager.remove(loadingId);
-                loadingId = notificationManager.loading(message, `Bước ${step}/5`);
-            });
+            const result = await ApiService.processRefund(
+                tposIdForRefund,
+                ticket.products,
+                (step, message) => {
+                    // Update loading notification with step progress
+                    notificationManager.remove(loadingId);
+                    loadingId = notificationManager.loading(message, `Bước ${step}/5`);
+                }
+            );
 
-            console.log('[APP] Refund completed, refundOrderId:', result.refundOrderId, 'alreadyRefunded:', !!result.alreadyRefunded);
+            console.log(
+                '[APP] Refund completed, refundOrderId:',
+                result.refundOrderId,
+                'alreadyRefunded:',
+                !!result.alreadyRefunded
+            );
 
             // Nếu TPOS báo đơn đã được trả hết trước đó → vẫn cập nhật ticket nhưng thông báo cho user
             if (result.alreadyRefunded) {
@@ -1449,15 +1576,17 @@ async function handleConfirmAction() {
             // Update ticket in Firebase with refund info
             // BOOM và FIX_COD cần qua PENDING_FINANCE để đối soát ĐVVC
             // RETURN_CLIENT, RETURN_SHIPPER → COMPLETED (không cần trả ĐVVC)
-            const needFinanceSettlement = (ticket.type === 'BOOM' || ticket.type === 'FIX_COD');
+            const needFinanceSettlement = ticket.type === 'BOOM' || ticket.type === 'FIX_COD';
             const nextStatus = needFinanceSettlement ? 'PENDING_FINANCE' : 'COMPLETED';
 
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: nextStatus,
-                ...(nextStatus === 'COMPLETED' ? { completedAt: Date.now() } : { receivedAt: Date.now() }),
+                ...(nextStatus === 'COMPLETED'
+                    ? { completedAt: Date.now() }
+                    : { receivedAt: Date.now() }),
                 refundOrderId: result.refundOrderId || null,
                 refundNumber: result.confirmResult?.value?.[0]?.Number || null,
-                ...(result.alreadyRefunded ? { alreadyRefundedOnTpos: true } : {})
+                ...(result.alreadyRefunded ? { alreadyRefundedOnTpos: true } : {}),
             });
 
             // Thông báo chờ đối soát nếu cần
@@ -1478,7 +1607,12 @@ async function handleConfirmAction() {
             const customerPhone = ticket.phone;
             const refundAmountFromHtml = result.refundAmountFromHtml;
 
-            console.log('[APP] Wallet validation - Expected:', compensationAmount, 'TPOS HTML:', refundAmountFromHtml);
+            console.log(
+                '[APP] Wallet validation - Expected:',
+                compensationAmount,
+                'TPOS HTML:',
+                refundAmountFromHtml
+            );
 
             // CHỈ cộng deposit cho RETURN_CLIENT (tiền thật khi hàng đã về)
             // RETURN_SHIPPER đã được cấp virtual_credit ngay khi tạo ticket
@@ -1487,16 +1621,20 @@ async function handleConfirmAction() {
                 if (refundAmountFromHtml !== null && refundAmountFromHtml === compensationAmount) {
                     try {
                         notificationManager.remove(loadingId);
-                        loadingId = notificationManager.loading('Đang cộng tiền vào ví khách...', 'Hoàn tất');
+                        loadingId = notificationManager.loading(
+                            'Đang cộng tiền vào ví khách...',
+                            'Hoàn tất'
+                        );
 
                         // RETURN_CLIENT: luôn dùng deposit (tiền thật)
                         const compensationType = 'deposit';
 
                         const resolveData = await ApiService.resolveTicket(pendingActionTicketId, {
-                                compensation_amount: compensationAmount,
-                                compensation_type: compensationType,
-                                performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
-                                note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`
+                            compensation_amount: compensationAmount,
+                            compensation_type: compensationType,
+                            performed_by:
+                                window.authManager?.getUserInfo()?.username || 'warehouse_staff',
+                            note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`,
                         });
 
                         if (resolveData.success) {
@@ -1524,7 +1662,9 @@ async function handleConfirmAction() {
                     }
                 } else if (result.alreadyRefunded) {
                     // TPOS đã trả hàng trước đó → không có HTML để validate → không tự động cộng ví, yêu cầu kiểm tra tay
-                    console.warn('[APP] Skipping wallet credit - TPOS already refunded before, cannot validate amount');
+                    console.warn(
+                        '[APP] Skipping wallet credit - TPOS already refunded before, cannot validate amount'
+                    );
                     notificationManager.warning(
                         `TPOS đã trả hết trước đó, không tự động cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}. Vui lòng kiểm tra Customer 360 nếu cần xử lý thủ công.`,
                         8000,
@@ -1532,7 +1672,12 @@ async function handleConfirmAction() {
                     );
                 } else {
                     // Amount mismatch - DO NOT auto-credit, warn user
-                    console.error('[APP] Amount mismatch! Expected:', compensationAmount, 'TPOS:', refundAmountFromHtml);
+                    console.error(
+                        '[APP] Amount mismatch! Expected:',
+                        compensationAmount,
+                        'TPOS:',
+                        refundAmountFromHtml
+                    );
                     notificationManager.warning(
                         `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountFromHtml || 0).toLocaleString()}đ. Không tự động cộng ví.`,
                         8000,
@@ -1549,10 +1694,19 @@ async function handleConfirmAction() {
 
             // Show success notification
             if (result.alreadyRefunded) {
-                notificationManager.success('Đã cập nhật ticket (TPOS đã trả hết trước đó)', 3000, 'Nhận hàng thành công');
+                notificationManager.success(
+                    'Đã cập nhật ticket (TPOS đã trả hết trước đó)',
+                    3000,
+                    'Nhận hàng thành công'
+                );
             } else {
-                const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
-                notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
+                const refundNumber =
+                    result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
+                notificationManager.success(
+                    `Đã tạo phiếu hoàn: ${refundNumber}`,
+                    3000,
+                    'Nhận hàng thành công'
+                );
             }
 
             // Show print dialog with the HTML bill (only if enabled in settings)
@@ -1561,9 +1715,9 @@ async function handleConfirmAction() {
             }
 
             // Refresh UI to reflect status change (backup in case SSE is slow)
-            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+            const activeTab =
+                document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
             renderDashboard(activeTab);
-
         } else if (pendingActionType === 'PAY') {
             // PAY action: Just mark as completed (payment done externally)
             loadingId = notificationManager.loading('Đang cập nhật...', 'Xác nhận thanh toán');
@@ -1573,25 +1727,34 @@ async function handleConfirmAction() {
                 if (window.AuditLogger) {
                     window.AuditLogger.logAction('ticket_payment', {
                         module: 'issue-tracking',
-                        description: 'Thanh toán ticket ' + (ticket.ticketCode || ticket.orderId || '') + ' - ' + formatCurrency(ticket.money),
+                        description:
+                            'Thanh toán ticket ' +
+                            (ticket.ticketCode || ticket.orderId || '') +
+                            ' - ' +
+                            formatCurrency(ticket.money),
                         oldData: { status: ticket.status },
-                        newData: { status: 'COMPLETED', amount: ticket.money, ticketId: pendingActionTicketId },
+                        newData: {
+                            status: 'COMPLETED',
+                            amount: ticket.money,
+                            ticketId: pendingActionTicketId,
+                        },
                         entityId: pendingActionTicketId,
-                        entityType: 'ticket'
+                        entityType: 'ticket',
                     });
                 }
-            } catch (e) { console.warn('[AuditLog] ticket_payment log failed:', e); }
+            } catch (e) {
+                console.warn('[AuditLog] ticket_payment log failed:', e);
+            }
 
             await ApiService.updateTicket(pendingActionTicketId, {
                 status: 'COMPLETED',
-                completedAt: Date.now()
+                completedAt: Date.now(),
             });
 
             notificationManager.remove(loadingId);
             loadingId = null;
 
             notificationManager.success('Đã xác nhận thanh toán', 2000, 'Thành công');
-
         } else if (pendingActionType === 'ISSUE_CREDIT') {
             // =====================================================
             // ISSUE_CREDIT action: Cấp công nợ ảo cho RETURN_SHIPPER
@@ -1611,26 +1774,44 @@ async function handleConfirmAction() {
                 if (window.AuditLogger) {
                     window.AuditLogger.logAction('ticket_add_debt', {
                         module: 'issue-tracking',
-                        description: 'Cấp ' + money.toLocaleString() + 'đ công nợ ảo cho ' + customerPhone + ' từ ticket ' + ticketCode,
+                        description:
+                            'Cấp ' +
+                            money.toLocaleString() +
+                            'đ công nợ ảo cho ' +
+                            customerPhone +
+                            ' từ ticket ' +
+                            ticketCode,
                         oldData: null,
-                        newData: { amount: money, customerId: customerPhone, ticketId: pendingActionTicketId, ticketCode: ticketCode },
+                        newData: {
+                            amount: money,
+                            customerId: customerPhone,
+                            ticketId: pendingActionTicketId,
+                            ticketCode: ticketCode,
+                        },
                         entityId: pendingActionTicketId,
-                        entityType: 'ticket'
+                        entityType: 'ticket',
                     });
                 }
-            } catch (e) { console.warn('[AuditLog] ticket_add_debt log failed:', e); }
+            } catch (e) {
+                console.warn('[AuditLog] ticket_add_debt log failed:', e);
+            }
 
             // ticket.note is mapped from server's internal_note (see api-service.js:454)
-            const internalNoteStr = (ticket.note || ticket.internalNote || ticket.internal_note || '').trim();
+            const internalNoteStr = (
+                ticket.note ||
+                ticket.internalNote ||
+                ticket.internal_note ||
+                ''
+            ).trim();
             const walletNote = internalNoteStr
                 ? `Công Nợ Ảo Từ Thu Về (${ticket.orderId}) - ${internalNoteStr}`
                 : `Công Nợ Ảo Từ Thu Về (${ticket.orderId})`;
             const resolveData = await ApiService.resolveTicketCredit(pendingActionTicketId, {
-                    phone: customerPhone,
-                    amount: money,
-                    ticket_code: ticketCode,
-                    note: walletNote,
-                    expires_in_days: 15
+                phone: customerPhone,
+                amount: money,
+                ticket_code: ticketCode,
+                note: walletNote,
+                expires_in_days: 15,
             });
 
             notificationManager.remove(loadingId);
@@ -1644,7 +1825,7 @@ async function handleConfirmAction() {
                 // Update ticket in Firebase/PostgreSQL to persist virtual_credit_id
                 // This will trigger Firebase subscription and update TICKETS array
                 await ApiService.updateTicket(pendingActionTicketId, {
-                    virtualCreditId: virtualCreditId
+                    virtualCreditId: virtualCreditId,
                 });
                 console.log('[APP] Ticket updated with virtual_credit_id:', virtualCreditId);
 
@@ -1659,10 +1840,13 @@ async function handleConfirmAction() {
                 ticket.virtualCreditId = virtualCreditId;
 
                 // Re-render dashboard with current tab
-                const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+                const activeTab =
+                    document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
                 renderDashboard(activeTab);
             } else {
-                throw new Error(resolveData.error || resolveData.message || 'Không thể cấp công nợ ảo');
+                throw new Error(
+                    resolveData.error || resolveData.message || 'Không thể cấp công nợ ảo'
+                );
             }
         }
     } catch (error) {
@@ -1698,7 +1882,7 @@ function showPrintDialog(html) {
     printWindow.document.close();
 
     // Wait for content to load then trigger print
-    printWindow.onload = function() {
+    printWindow.onload = function () {
         printWindow.focus();
         printWindow.print();
     };
@@ -1736,7 +1920,7 @@ function initReconcileHandlers() {
 
 function handlePreviewReconcile() {
     const text = document.getElementById('excel-input').value.trim();
-    if (!text) return alert("Vui lòng dán dữ liệu từ Excel!");
+    if (!text) return alert('Vui lòng dán dữ liệu từ Excel!');
 
     showLoading(true);
 
@@ -1760,7 +1944,7 @@ function parseExcelData(text) {
     const lines = text.split(/\r?\n/);
     const data = [];
 
-    lines.forEach(line => {
+    lines.forEach((line) => {
         if (!line.trim()) return;
 
         // Strategy:
@@ -1794,7 +1978,7 @@ function parseExcelData(text) {
                 rawId: rawId,
                 phone: phone,
                 money: money,
-                originalLine: line
+                originalLine: line,
             });
         }
     });
@@ -1810,7 +1994,7 @@ function performReconciliation(excelRows) {
     const ticketMapById = {};
     const ticketMapByPhone = {}; // Phone might have duplicates!
 
-    TICKETS.forEach(t => {
+    TICKETS.forEach((t) => {
         if (t.orderId) ticketMapById[t.orderId.toLowerCase()] = t;
         // Phone: store array of tickets
         if (t.phone) {
@@ -1819,7 +2003,7 @@ function performReconciliation(excelRows) {
         }
     });
 
-    excelRows.forEach(row => {
+    excelRows.forEach((row) => {
         let match = null;
         let status = 'Not Found';
         let detail = 'Không tìm thấy trên hệ thống';
@@ -1837,9 +2021,9 @@ function performReconciliation(excelRows) {
             } else if (candidates.length > 1) {
                 // Ambiguous: Multiple tickets with same phone
                 // Prefer PENDING_FINANCE
-                const pending = candidates.find(c => c.status === 'PENDING_FINANCE');
+                const pending = candidates.find((c) => c.status === 'PENDING_FINANCE');
                 match = pending || candidates[0]; // Fallback to first
-                if (!pending) detail += " (Trùng SĐT)";
+                if (!pending) detail += ' (Trùng SĐT)';
             }
         }
 
@@ -1868,7 +2052,7 @@ function performReconciliation(excelRows) {
             ticket: match,
             resultCode: resultCode,
             statusLabel: status,
-            message: detail
+            message: detail,
         });
     });
 
@@ -1879,7 +2063,7 @@ function renderReconcileTable(matches) {
     const tbody = document.getElementById('reconcile-table-body');
     tbody.innerHTML = '';
 
-    matches.forEach(item => {
+    matches.forEach((item) => {
         let rowClass = '';
         if (item.resultCode === 'VALID') rowClass = 'row-success';
         else if (item.resultCode === 'ERROR' || item.resultCode === 'GHOST') rowClass = 'row-error';
@@ -1895,14 +2079,18 @@ function renderReconcileTable(matches) {
                 <div style="font-size:11px">${formatCurrency(item.excel.money)}</div>
             </td>
             <td>
-                ${item.ticket ? `
+                ${
+                    item.ticket
+                        ? `
                     <div style="font-weight:bold">${item.ticket.orderId}</div>
                     <div>${item.ticket.customer}</div>
                     <span class="status-badge status-${item.ticket.status.toLowerCase().replace('_', '-')}">${translateStatus(item.ticket.status)}</span>
-                ` : '<em style="color:#94a3b8">---</em>'}
+                `
+                        : '<em style="color:#94a3b8">---</em>'
+                }
             </td>
             <td>
-                <div class="${item.resultCode === 'VALID' ? 'text-success' : (item.resultCode === 'DUPLICATE' ? 'text-warning' : 'text-error')}">
+                <div class="${item.resultCode === 'VALID' ? 'text-success' : item.resultCode === 'DUPLICATE' ? 'text-warning' : 'text-error'}">
                     ${item.resultCode}
                 </div>
                 <div style="font-size:11px">${item.message}</div>
@@ -1914,12 +2102,12 @@ function renderReconcileTable(matches) {
 
 function updateReconcileSummary() {
     const total = reconcileMatches.length;
-    const valid = reconcileMatches.filter(m => m.resultCode === 'VALID').length;
-    const error = reconcileMatches.filter(m => ['GHOST', 'ERROR'].includes(m.resultCode)).length;
+    const valid = reconcileMatches.filter((m) => m.resultCode === 'VALID').length;
+    const error = reconcileMatches.filter((m) => ['GHOST', 'ERROR'].includes(m.resultCode)).length;
 
     // Sum money valid
     const totalMoney = reconcileMatches
-        .filter(m => m.resultCode === 'VALID')
+        .filter((m) => m.resultCode === 'VALID')
         .reduce((sum, m) => sum + (m.ticket ? m.ticket.money : 0), 0);
 
     document.getElementById('rec-total-count').textContent = total;
@@ -1931,29 +2119,29 @@ function updateReconcileSummary() {
 }
 
 async function handleBatchConfirm() {
-    const validItems = reconcileMatches.filter(m => m.resultCode === 'VALID');
+    const validItems = reconcileMatches.filter((m) => m.resultCode === 'VALID');
     if (validItems.length === 0) return;
 
     if (!confirm(`Xác nhận thanh toán cho ${validItems.length} đơn hàng hợp lệ?`)) return;
 
     showLoading(true);
     try {
-        const promises = validItems.map(item => {
+        const promises = validItems.map((item) => {
             return ApiService.updateTicket(item.ticket.firebaseId, {
                 status: 'COMPLETED',
                 completedAt: Date.now(),
-                reconcileNote: `Batch Settle via Excel: ${item.excel.rawId}`
+                reconcileNote: `Batch Settle via Excel: ${item.excel.rawId}`,
             });
         });
 
         await Promise.all(promises);
 
-        alert("Đã quyết toán xong!");
+        alert('Đã quyết toán xong!');
         closeModal(document.getElementById('modal-reconcile'));
         // Refresh? Triggered by listener usually
     } catch (e) {
         console.error(e);
-        alert("Lỗi khi quyết toán: " + e.message);
+        alert('Lỗi khi quyết toán: ' + e.message);
     } finally {
         showLoading(false);
     }
@@ -1964,7 +2152,7 @@ async function handleBatchConfirm() {
  */
 
 const GUIDES = {
-    'all': `
+    all: `
         <strong>Tất cả sự vụ:</strong> Tra cứu và Theo dõi toàn bộ lịch sử.
         <br/><br/>
         <!-- Trigger for Detailed Flow -->
@@ -2041,9 +2229,9 @@ flowchart TD
             <li>Sau khi ck -> Bấm <em>Đã Thanh Toán</em>.</li>
         </ul>
     `,
-    'completed': `
+    completed: `
         <strong>Lịch sử:</strong> Các sự vụ đã hoàn tất.
-    `
+    `,
 };
 
 function renderDashboard(tabName, searchTerm = '') {
@@ -2088,40 +2276,42 @@ function renderDashboard(tabName, searchTerm = '') {
     if (tabName === 'overdue') {
         // Special filter: Show only overdue RETURN_SHIPPER tickets (20+ days old)
         const OVERDUE_DAYS = 20;
-        const overdueThreshold = Date.now() - (OVERDUE_DAYS * 24 * 60 * 60 * 1000);
-        filtered = filtered.filter(t =>
-            t.type === 'RETURN_SHIPPER' &&
-            t.status !== 'COMPLETED' &&
-            t.status !== 'CANCELLED' &&
-            (t.createdAt || 0) < overdueThreshold
+        const overdueThreshold = Date.now() - OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+        filtered = filtered.filter(
+            (t) =>
+                t.type === 'RETURN_SHIPPER' &&
+                t.status !== 'COMPLETED' &&
+                t.status !== 'CANCELLED' &&
+                (t.createdAt || 0) < overdueThreshold
         );
     } else if (tabName === 'cancelled') {
-        filtered = filtered.filter(t => t.status === 'CANCELLED');
+        filtered = filtered.filter((t) => t.status === 'CANCELLED');
     } else if (tabName !== 'all') {
         let filterStatus = [];
         if (tabName === 'pending-goods') filterStatus = ['PENDING_GOODS'];
         else if (tabName === 'pending-finance') filterStatus = ['PENDING_FINANCE'];
         else if (tabName === 'completed') filterStatus = ['COMPLETED'];
 
-        filtered = filtered.filter(t => filterStatus.includes(t.status));
+        filtered = filtered.filter((t) => filterStatus.includes(t.status));
     } else {
         // "all" tab: exclude CANCELLED (they have their own tab)
-        filtered = filtered.filter(t => t.status !== 'CANCELLED');
+        filtered = filtered.filter((t) => t.status !== 'CANCELLED');
     }
 
     // Filter by Type (from type-tabs)
     const activeTypeBtn = document.querySelector('#type-tabs .type-tab-btn.active');
     const typeFilter = activeTypeBtn?.dataset.type || 'all';
     if (typeFilter !== 'all') {
-        filtered = filtered.filter(t => t.type === typeFilter);
+        filtered = filtered.filter((t) => t.type === typeFilter);
     }
 
     // Filter by Search
     if (searchTerm) {
-        filtered = filtered.filter(t =>
-            (t.phone && t.phone.includes(searchTerm)) ||
-            (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-            (t.customer && t.customer.toLowerCase().includes(searchTerm))
+        filtered = filtered.filter(
+            (t) =>
+                (t.phone && t.phone.includes(searchTerm)) ||
+                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
+                (t.customer && t.customer.toLowerCase().includes(searchTerm))
         );
     }
 
@@ -2129,24 +2319,30 @@ function renderDashboard(tabName, searchTerm = '') {
     const filterDateEl = document.getElementById('filter-date-created');
     if (filterDateEl && filterDateEl.value) {
         const selectedDate = filterDateEl.value; // yyyy-mm-dd
-        filtered = filtered.filter(t => {
+        filtered = filtered.filter((t) => {
             if (!t.createdAt) return false;
             const d = new Date(t.createdAt);
-            const ticketDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const ticketDate =
+                d.getFullYear() +
+                '-' +
+                String(d.getMonth() + 1).padStart(2, '0') +
+                '-' +
+                String(d.getDate()).padStart(2, '0');
             return ticketDate === selectedDate;
         });
     }
 
     // Render
     elements.ticketList.innerHTML = '';
-    filtered.forEach(t => {
+    filtered.forEach((t) => {
         const tr = document.createElement('tr');
 
         // Extract last 5 digits after "/" from orderId (e.g., "NJD/2025/41587" -> "41587")
         // Ensure orderId is converted to string first (some old tickets may have non-string values)
         const orderIdStr = String(t.orderId || '');
         const orderIdParts = orderIdStr.split('/');
-        const last5Digits = orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
+        const last5Digits =
+            orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
 
         // Build customer cell
         const customerName = t.customer || 'N/A';
@@ -2179,9 +2375,9 @@ function renderDashboard(tabName, searchTerm = '') {
         const getStatusBadge = () => {
             if (tabName !== 'all') return '';
             const statusMap = {
-                'PENDING_GOODS': { label: 'Chờ Hàng Về', bg: '#fef3c7', color: '#92400e' },
-                'PENDING_FINANCE': { label: 'Chờ Đối Soát', bg: '#dbeafe', color: '#1e40af' },
-                'COMPLETED': { label: 'Hoàn Tất', bg: '#d1fae5', color: '#065f46' }
+                PENDING_GOODS: { label: 'Chờ Hàng Về', bg: '#fef3c7', color: '#92400e' },
+                PENDING_FINANCE: { label: 'Chờ Đối Soát', bg: '#dbeafe', color: '#1e40af' },
+                COMPLETED: { label: 'Hoàn Tất', bg: '#d1fae5', color: '#065f46' },
             };
             const s = statusMap[t.status];
             if (!s) return '';
@@ -2208,17 +2404,17 @@ function renderDashboard(tabName, searchTerm = '') {
             </td>
             <td>
                 ${renderTypeBadge(t.type, t.fixCodReason, t.boomReason)}
-                ${(t.type === 'BOOM' && t.boomReason) ? '' : `<div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>`}
+                ${t.type === 'BOOM' && t.boomReason ? '' : `<div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>`}
             </td>
             <td>
                 ${renderProductsList(t)}
             </td>
             <td>
-                <div style="font-weight:bold;color:${(t.type === 'BOOM' || t.type === 'FIX_COD') ? '#ef4444' : '#1e293b'};">
+                <div style="font-weight:bold;color:${t.type === 'BOOM' || t.type === 'FIX_COD' ? '#ef4444' : '#1e293b'};">
                     ${formatCurrency(t.money)}
                 </div>
                 <div style="font-size:11px;color:#64748b;">
-                    ${(t.type === 'BOOM' || t.type === 'FIX_COD') ? 'COD Giảm' : 'Giá trị hoàn'}
+                    ${t.type === 'BOOM' || t.type === 'FIX_COD' ? 'COD Giảm' : 'Giá trị hoàn'}
                 </div>
             </td>
             <td>
@@ -2238,12 +2434,19 @@ function renderProductsList(ticket) {
         : '';
 
     // Nếu là RETURN_OLD_ORDER, hiển thị reference đến đơn cũ
-    const oldOrderRef = (ticket.type === 'FIX_COD' && ticket.fixCodReason === 'RETURN_OLD_ORDER' && ticket.returnFromOrderId)
-        ? `<div style="font-size:11px;color:#8b5cf6;margin-bottom:4px;">📦 Từ đơn: ${ticket.returnFromOrderId}</div>`
-        : '';
+    const oldOrderRef =
+        ticket.type === 'FIX_COD' &&
+        ticket.fixCodReason === 'RETURN_OLD_ORDER' &&
+        ticket.returnFromOrderId
+            ? `<div style="font-size:11px;color:#8b5cf6;margin-bottom:4px;">📦 Từ đơn: ${ticket.returnFromOrderId}</div>`
+            : '';
 
     // Nếu là FIX_COD và không phải REJECT_PARTIAL hoặc RETURN_OLD_ORDER thì chỉ hiển thị ghi chú (không có sản phẩm)
-    if (ticket.type === 'FIX_COD' && ticket.fixCodReason !== 'REJECT_PARTIAL' && ticket.fixCodReason !== 'RETURN_OLD_ORDER') {
+    if (
+        ticket.type === 'FIX_COD' &&
+        ticket.fixCodReason !== 'REJECT_PARTIAL' &&
+        ticket.fixCodReason !== 'RETURN_OLD_ORDER'
+    ) {
         return noteDisplay || '<span style="color:#94a3b8;font-size:12px;">—</span>';
     }
 
@@ -2251,10 +2454,12 @@ function renderProductsList(ticket) {
         return noteDisplay || '<span style="color:#94a3b8;font-size:12px;">—</span>';
     }
 
-    const productItems = ticket.products.map(p => {
-        const qty = p.returnQuantity || p.quantity || 1;
-        return `<li style="font-size:12px;">• ${qty}x ${p.code ? `${p.code} ` : ''}${p.name}</li>`;
-    }).join('');
+    const productItems = ticket.products
+        .map((p) => {
+            const qty = p.returnQuantity || p.quantity || 1;
+            return `<li style="font-size:12px;">• ${qty}x ${p.code ? `${p.code} ` : ''}${p.name}</li>`;
+        })
+        .join('');
 
     return `${noteDisplay}${oldOrderRef}<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>`;
 }
@@ -2263,21 +2468,21 @@ function renderTypeBadge(type, fixCodReason, boomReason) {
     // Special handling for BOOM type - show only the specific reason as the main label
     if (type === 'BOOM' && boomReason) {
         const boomReasonMap = {
-            'BOOM_HANG': 'Boom Hàng',
-            'TRUNG_DON': 'Trùng Đơn',
-            'DOI_DIA_CHI': 'Sai Địa Chỉ',
-            'KHAC': 'Không Nhận Hàng'
+            BOOM_HANG: 'Boom Hàng',
+            TRUNG_DON: 'Trùng Đơn',
+            DOI_DIA_CHI: 'Sai Địa Chỉ',
+            KHAC: 'Không Nhận Hàng',
         };
         const reasonLabel = boomReasonMap[boomReason] || boomReason;
         return `<span class="type-label type-boom">● ${reasonLabel}</span>`;
     }
 
     const map = {
-        'BOOM': { text: 'Không Nhận Hàng', class: 'type-boom' },
-        'FIX_COD': { text: 'Sửa COD', class: 'type-fix' },
-        'RETURN_CLIENT': { text: 'Khách Gửi', class: 'type-return' },
-        'RETURN_SHIPPER': { text: 'Thu Về', class: 'type-return' },
-        'OTHER': { text: 'Vấn đề khác', class: 'type-other' },
+        BOOM: { text: 'Không Nhận Hàng', class: 'type-boom' },
+        FIX_COD: { text: 'Sửa COD', class: 'type-fix' },
+        RETURN_CLIENT: { text: 'Khách Gửi', class: 'type-return' },
+        RETURN_SHIPPER: { text: 'Thu Về', class: 'type-return' },
+        OTHER: { text: 'Vấn đề khác', class: 'type-other' },
     };
     const conf = map[type] || { text: type, class: '' };
 
@@ -2285,11 +2490,11 @@ function renderTypeBadge(type, fixCodReason, boomReason) {
     let reasonText = '';
     if (type === 'FIX_COD' && fixCodReason) {
         const reasonMap = {
-            'WRONG_SHIP': 'Sai ship',
-            'CUSTOMER_DEBT': 'Trừ nợ',
-            'DISCOUNT': 'Giảm giá',
-            'REJECT_PARTIAL': 'Nhận 1 phần',
-            'RETURN_OLD_ORDER': 'Trả đơn cũ'
+            WRONG_SHIP: 'Sai ship',
+            CUSTOMER_DEBT: 'Trừ nợ',
+            DISCOUNT: 'Giảm giá',
+            REJECT_PARTIAL: 'Nhận 1 phần',
+            RETURN_OLD_ORDER: 'Trả đơn cũ',
         };
         reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${reasonMap[fixCodReason] || fixCodReason}</div>`;
     }
@@ -2331,9 +2536,12 @@ window.openOrderDetailModal = async function (tposId) {
         document.getElementById('res-address').textContent = details.address || 'Chưa có địa chỉ';
 
         // Products table
-        const productsTableHTML = details.products.map(p => {
-            const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
-            return `
+        const productsTableHTML = details.products
+            .map((p) => {
+                const noteDisplay = p.note
+                    ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>`
+                    : '';
+                return `
                 <tr style="border-bottom:1px solid #f1f5f9;">
                     <td style="padding:6px 8px;">
                         <div><strong>[${p.code}]</strong> ${p.name}</div>
@@ -2343,7 +2551,8 @@ window.openOrderDetailModal = async function (tposId) {
                     <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
         document.getElementById('res-products-table').innerHTML = productsTableHTML;
 
         // Summary
@@ -2351,16 +2560,23 @@ window.openOrderDetailModal = async function (tposId) {
         const finalTotal = details.amountTotal - details.decreaseAmount + details.deliveryPrice;
 
         document.getElementById('res-total-qty').textContent = totalQty;
-        document.getElementById('res-amount-total').textContent = formatCurrency(details.amountTotal);
-        document.getElementById('res-decrease-amount').textContent = formatCurrency(details.decreaseAmount);
-        document.getElementById('res-delivery-price').textContent = formatCurrency(details.deliveryPrice);
+        document.getElementById('res-amount-total').textContent = formatCurrency(
+            details.amountTotal
+        );
+        document.getElementById('res-decrease-amount').textContent = formatCurrency(
+            details.decreaseAmount
+        );
+        document.getElementById('res-delivery-price').textContent = formatCurrency(
+            details.deliveryPrice
+        );
         document.getElementById('res-final-total').textContent = formatCurrency(finalTotal);
-        document.getElementById('res-payment-amount').textContent = formatCurrency(details.paymentAmount);
+        document.getElementById('res-payment-amount').textContent = formatCurrency(
+            details.paymentAmount
+        );
         document.getElementById('res-cod').textContent = formatCurrency(details.cod);
 
         // Open modal using correct function
         openModal(elements.modalCreate);
-
     } catch (err) {
         console.error('Failed to load order details:', err);
         alert('Lỗi khi tải thông tin đơn hàng: ' + err.message);
@@ -2378,7 +2594,10 @@ function renderActionButtons(ticket) {
         if (ticket.type === 'RETURN_SHIPPER') {
             if (!ticket.virtualCreditId && !ticket.virtual_credit_id) {
                 // Chưa cấp công nợ ảo → Hiển thị nút "+ Công Nợ Ảo" (cần quyền)
-                const canIssueCredit = window.authManager?.hasDetailedPermission('issue-tracking', 'issueVirtualCredit');
+                const canIssueCredit = window.authManager?.hasDetailedPermission(
+                    'issue-tracking',
+                    'issueVirtualCredit'
+                );
                 if (canIssueCredit) {
                     mainAction = `<button class="btn btn-sm action-btn action-issue-credit" onclick="promptAction('${id}', 'ISSUE_CREDIT')" style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">+ Công Nợ Ảo</button>`;
                 } else {
@@ -2413,14 +2632,17 @@ function renderActionButtons(ticket) {
     let isUntouched = ticket.status === 'PENDING_GOODS';
     if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
         // Check if virtual credit has been used (partially or fully)
-        const vcUsed = (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
-                       (ticket.vcRemainingAmount != null && ticket.vcOriginalAmount != null &&
-                        parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
+        const vcUsed =
+            (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
+            (ticket.vcRemainingAmount != null &&
+                ticket.vcOriginalAmount != null &&
+                parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
         isUntouched = !vcUsed;
     }
-    const cancelButton = (canCancel && isUntouched)
-        ? `<button onclick="cancelTicket('${id}')" title="Hủy phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🚫</button>`
-        : '';
+    const cancelButton =
+        canCancel && isUntouched
+            ? `<button onclick="cancelTicket('${id}')" title="Hủy phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🚫</button>`
+            : '';
 
     const iconButtons = `
         <div style="display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle;">
@@ -2442,13 +2664,13 @@ window.toggleGuide = function () {
         content.style.display = 'none';
         document.querySelector('.btn-toggle-guide').textContent = '▶';
     }
-}
+};
 
 // Helper: Update Stats
 function updateStats() {
-    const pendingGoods = TICKETS.filter(t => t.status === 'PENDING_GOODS').length;
-    const pendingFinance = TICKETS.filter(t => t.status === 'PENDING_FINANCE').length;
-    const cancelled = TICKETS.filter(t => t.status === 'CANCELLED').length;
+    const pendingGoods = TICKETS.filter((t) => t.status === 'PENDING_GOODS').length;
+    const pendingFinance = TICKETS.filter((t) => t.status === 'PENDING_FINANCE').length;
+    const cancelled = TICKETS.filter((t) => t.status === 'CANCELLED').length;
 
     elements.countPendingGoods.textContent = pendingGoods;
     elements.countPendingFinance.textContent = pendingFinance;
@@ -2473,9 +2695,9 @@ function updateStats() {
 function checkOverdueTickets() {
     const OVERDUE_DAYS = 20;
     const now = new Date();
-    const overdueThreshold = now.getTime() - (OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+    const overdueThreshold = now.getTime() - OVERDUE_DAYS * 24 * 60 * 60 * 1000;
 
-    const overdueTickets = TICKETS.filter(ticket => {
+    const overdueTickets = TICKETS.filter((ticket) => {
         if (ticket.type !== 'RETURN_SHIPPER') return false;
         if (ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED') return false;
 
@@ -2534,7 +2756,7 @@ function checkOverdueTickets() {
  */
 function showOverdueTicketsFilter() {
     // Switch to "All" tab first
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach((btn) => btn.classList.remove('active'));
     const allTab = document.querySelector('.tab-btn[data-tab="all"]');
     if (allTab) allTab.classList.add('active');
 
@@ -2546,8 +2768,12 @@ function formatCurrency(amount) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 }
 
-function openModal(el) { el.classList.add('show'); }
-function closeModal(el) { el.classList.remove('show'); }
+function openModal(el) {
+    el.classList.add('show');
+}
+function closeModal(el) {
+    el.classList.remove('show');
+}
 
 function resetCreateForm() {
     selectedOrder = null;
@@ -2598,10 +2824,10 @@ function resetCreateForm() {
 
 function translateStatus(s) {
     const map = {
-        'PENDING_GOODS': 'Chờ nhận hàng',
-        'PENDING_FINANCE': 'Chờ đối soát',
-        'COMPLETED': 'Hoàn tất',
-        'CANCELLED': 'Đã hủy'
+        PENDING_GOODS: 'Chờ nhận hàng',
+        PENDING_FINANCE: 'Chờ đối soát',
+        COMPLETED: 'Hoàn tất',
+        CANCELLED: 'Đã hủy',
     };
     return map[s] || s;
 }
@@ -2610,7 +2836,7 @@ function translateStatus(s) {
  * Edit ticket
  */
 window.editTicket = function (firebaseId) {
-    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+    const ticket = TICKETS.find((t) => t.firebaseId === firebaseId);
     if (!ticket) {
         alert('Không tìm thấy phiếu');
         return;
@@ -2628,11 +2854,15 @@ window.editTicket = function (firebaseId) {
 window.cancelTicket = async function (firebaseId) {
     // Check permission first
     if (!window.authManager?.hasDetailedPermission('issue-tracking', 'delete')) {
-        notificationManager.error('Bạn không có quyền hủy phiếu. Liên hệ Admin để cấp quyền.', 5000, 'Không có quyền');
+        notificationManager.error(
+            'Bạn không có quyền hủy phiếu. Liên hệ Admin để cấp quyền.',
+            5000,
+            'Không có quyền'
+        );
         return;
     }
 
-    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+    const ticket = TICKETS.find((t) => t.firebaseId === firebaseId);
     if (!ticket) {
         alert('Không tìm thấy phiếu');
         return;
@@ -2648,20 +2878,29 @@ window.cancelTicket = async function (firebaseId) {
     // =====================================================
     const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
     if (ticket.status !== 'PENDING_GOODS') {
-        notificationManager.error('Không thể hủy: Phiếu đã được xử lý. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.', 6000, 'Không thể hủy');
+        notificationManager.error(
+            'Không thể hủy: Phiếu đã được xử lý. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.',
+            6000,
+            'Không thể hủy'
+        );
         return;
     }
 
     // RETURN_SHIPPER with virtual credit: check usage (frontend guard - 1st verification)
     if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
-        const vcUsed = (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
-                       (ticket.vcRemainingAmount != null && ticket.vcOriginalAmount != null &&
-                        parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
+        const vcUsed =
+            (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
+            (ticket.vcRemainingAmount != null &&
+                ticket.vcOriginalAmount != null &&
+                parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
         if (vcUsed) {
-            const usedAmount = parseFloat(ticket.vcOriginalAmount || 0) - parseFloat(ticket.vcRemainingAmount || 0);
+            const usedAmount =
+                parseFloat(ticket.vcOriginalAmount || 0) -
+                parseFloat(ticket.vcRemainingAmount || 0);
             notificationManager.error(
                 `Không thể hủy: Công nợ ảo đã được sử dụng (đã dùng: ${usedAmount.toLocaleString()}đ / ${parseFloat(ticket.vcOriginalAmount || 0).toLocaleString()}đ).`,
-                6000, 'Không thể hủy'
+                6000,
+                'Không thể hủy'
             );
             return;
         }
@@ -2685,10 +2924,14 @@ window.cancelTicket = async function (firebaseId) {
         // Verify virtual credit was actually cancelled (if applicable)
         if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
             if (result?.virtualCreditCancelled) {
-                console.log('[CANCEL] Virtual credit successfully revoked for ticket:', displayCode);
+                console.log(
+                    '[CANCEL] Virtual credit successfully revoked for ticket:',
+                    displayCode
+                );
                 notificationManager.success(
                     `Đã hủy phiếu và thu hồi công nợ ảo ${parseFloat(ticket.vcOriginalAmount || ticket.money || 0).toLocaleString()}đ`,
-                    4000, 'Hủy phiếu + Thu hồi công nợ'
+                    4000,
+                    'Hủy phiếu + Thu hồi công nợ'
                 );
             } else {
                 console.warn('[CANCEL] Virtual credit cancellation not confirmed in response');
@@ -2703,27 +2946,40 @@ window.cancelTicket = async function (firebaseId) {
             if (window.AuditLogger) {
                 const auditData = {
                     module: 'issue-tracking',
-                    description: 'Hủy phiếu ' + displayCode + ' - Đơn ' + (ticket.orderId || '') + ' - KH ' + (ticket.phone || ticket.customerId || ''),
+                    description:
+                        'Hủy phiếu ' +
+                        displayCode +
+                        ' - Đơn ' +
+                        (ticket.orderId || '') +
+                        ' - KH ' +
+                        (ticket.phone || ticket.customerId || ''),
                     oldData: {
                         ticketCode: ticket.ticketCode || '',
                         orderId: ticket.orderId || '',
                         type: ticket.type || '',
                         money: ticket.money || 0,
                         phone: ticket.phone || ticket.customerId || '',
-                        status: ticket.status || ''
+                        status: ticket.status || '',
                     },
                     newData: { status: 'CANCELLED' },
                     entityId: ticket.ticketCode || firebaseId,
-                    entityType: 'ticket'
+                    entityType: 'ticket',
                 };
                 if (result?.virtualCreditCancelled) {
-                    auditData.description += ' + Thu hồi công nợ ảo ' + parseFloat(ticket.vcOriginalAmount || ticket.money || 0).toLocaleString() + 'đ';
+                    auditData.description +=
+                        ' + Thu hồi công nợ ảo ' +
+                        parseFloat(ticket.vcOriginalAmount || ticket.money || 0).toLocaleString() +
+                        'đ';
                     auditData.newData.virtualCreditCancelled = true;
-                    auditData.newData.creditAmountRevoked = parseFloat(ticket.vcOriginalAmount || ticket.money || 0);
+                    auditData.newData.creditAmountRevoked = parseFloat(
+                        ticket.vcOriginalAmount || ticket.money || 0
+                    );
                 }
                 window.AuditLogger.logAction('cancel', auditData);
             }
-        } catch (e) { console.warn('[AuditLog] cancel log failed:', e); }
+        } catch (e) {
+            console.warn('[AuditLog] cancel log failed:', e);
+        }
     } catch (error) {
         console.error('Cancel ticket failed:', error);
         notificationManager.error(error.message || 'Lỗi khi hủy phiếu', 6000, 'Không thể hủy');
@@ -2755,10 +3011,11 @@ async function searchOldOrders() {
         const orders = result.orders || [];
 
         // Lọc bỏ đơn hiện tại và chỉ lấy đơn đã giao thành công
-        const oldOrders = orders.filter(order =>
-            order.tposCode !== currentOrderId &&
-            (order.status === 'paid' || order.status === 'open') &&
-            order.stateCode === 'CrossCheckComplete' // Đã giao thành công
+        const oldOrders = orders.filter(
+            (order) =>
+                order.tposCode !== currentOrderId &&
+                (order.status === 'paid' || order.status === 'open') &&
+                order.stateCode === 'CrossCheckComplete' // Đã giao thành công
         );
 
         if (oldOrders.length === 0) {
@@ -2767,7 +3024,6 @@ async function searchOldOrders() {
         }
 
         renderOldOrdersList(oldOrders);
-
     } catch (error) {
         console.error('[RETURN_OLD_ORDER] Search failed:', error);
         alert('Lỗi khi tìm đơn hàng cũ: ' + error.message);
@@ -2783,7 +3039,9 @@ function renderOldOrdersList(orders) {
     const container = document.getElementById('old-orders-list');
     if (!container) return;
 
-    container.innerHTML = orders.map((order, index) => `
+    container.innerHTML = orders
+        .map(
+            (order, index) => `
         <div class="old-order-item" style="padding:10px;border-bottom:1px solid #e2e8f0;">
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="radio" name="old-order-select" value="${order.tposCode}"
@@ -2797,7 +3055,9 @@ function renderOldOrdersList(orders) {
                 </div>
             </label>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     // Lưu orders để dùng sau
     container.dataset.orders = JSON.stringify(orders);
@@ -2807,7 +3067,7 @@ function renderOldOrdersList(orders) {
 /**
  * Xử lý khi chọn một đơn cũ
  */
-window.onOldOrderSelected = async function(orderIndex) {
+window.onOldOrderSelected = async function (orderIndex) {
     const container = document.getElementById('old-orders-list');
     const orders = JSON.parse(container.dataset.orders || '[]');
 
@@ -2837,7 +3097,7 @@ window.onOldOrderSelected = async function(orderIndex) {
 
     // Render danh sách sản phẩm của đơn cũ
     renderOldOrderProducts(selectedOldOrder);
-}
+};
 
 /**
  * Render sản phẩm của đơn cũ dưới dạng checkboxes
@@ -2849,12 +3109,15 @@ function renderOldOrderProducts(order) {
     if (!container || !section) return;
 
     if (!order.products || order.products.length === 0) {
-        container.innerHTML = '<div style="padding:10px;color:#64748b;text-align:center;">Không có sản phẩm trong đơn hàng này</div>';
+        container.innerHTML =
+            '<div style="padding:10px;color:#64748b;text-align:center;">Không có sản phẩm trong đơn hàng này</div>';
         section.classList.remove('hidden');
         return;
     }
 
-    container.innerHTML = order.products.map((product, idx) => `
+    container.innerHTML = order.products
+        .map(
+            (product, idx) => `
         <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="checkbox" name="old-order-product"
@@ -2883,7 +3146,9 @@ function renderOldOrderProducts(order) {
                 </div>
             </label>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     section.classList.remove('hidden');
 }
@@ -2891,11 +3156,13 @@ function renderOldOrderProducts(order) {
 /**
  * Tính COD giảm từ sản phẩm đơn cũ được chọn (theo số lượng trả)
  */
-window.updateCodReduceFromOldOrderProducts = function() {
-    const checkedInputs = document.querySelectorAll('#old-order-product-checklist input[type="checkbox"]:checked');
+window.updateCodReduceFromOldOrderProducts = function () {
+    const checkedInputs = document.querySelectorAll(
+        '#old-order-product-checklist input[type="checkbox"]:checked'
+    );
     let totalReduce = 0;
 
-    checkedInputs.forEach(input => {
+    checkedInputs.forEach((input) => {
         const unitPrice = parseInt(input.dataset.unitPrice) || 0;
         const productId = input.value;
         const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
@@ -2906,10 +3173,10 @@ window.updateCodReduceFromOldOrderProducts = function() {
     // Cập nhật COD giảm
     document.getElementById('cod-reduce-amount').value = totalReduce;
     calculateCodRemaining();
-}
+};
 
 // Event listener cho nút tìm đơn cũ (khởi tạo sau khi DOM sẵn sàng)
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const btnSearchOldOrder = document.getElementById('btn-search-old-order');
     if (btnSearchOldOrder) {
         btnSearchOldOrder.addEventListener('click', searchOldOrders);
@@ -2986,7 +3253,9 @@ function updateTableHeaders(tabName) {
  */
 function renderHistoryTab() {
     // Read filter values
-    const searchTerm = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
+    const searchTerm = (document.getElementById('history-search')?.value || '')
+        .toLowerCase()
+        .trim();
     const filterType = document.getElementById('history-filter-type')?.value || 'all';
     const filterStatus = document.getElementById('history-filter-status')?.value || 'all';
     const dateFrom = document.getElementById('history-date-from')?.value;
@@ -2997,32 +3266,33 @@ function renderHistoryTab() {
 
     // Filter by search text
     if (searchTerm) {
-        filtered = filtered.filter(t =>
-            (t.phone && t.phone.includes(searchTerm)) ||
-            (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-            (t.customer && t.customer.toLowerCase().includes(searchTerm)) ||
-            (t.firebaseId && t.firebaseId.toLowerCase().includes(searchTerm))
+        filtered = filtered.filter(
+            (t) =>
+                (t.phone && t.phone.includes(searchTerm)) ||
+                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
+                (t.customer && t.customer.toLowerCase().includes(searchTerm)) ||
+                (t.firebaseId && t.firebaseId.toLowerCase().includes(searchTerm))
         );
     }
 
     // Filter by type
     if (filterType !== 'all') {
-        filtered = filtered.filter(t => t.type === filterType);
+        filtered = filtered.filter((t) => t.type === filterType);
     }
 
     // Filter by status
     if (filterStatus !== 'all') {
-        filtered = filtered.filter(t => t.status === filterStatus);
+        filtered = filtered.filter((t) => t.status === filterStatus);
     }
 
     // Filter by date range (based on createdAt)
     if (dateFrom) {
         const fromTs = new Date(dateFrom).getTime();
-        filtered = filtered.filter(t => (t.createdAt || 0) >= fromTs);
+        filtered = filtered.filter((t) => (t.createdAt || 0) >= fromTs);
     }
     if (dateTo) {
         const toTs = new Date(dateTo).getTime() + 86400000; // end of day
-        filtered = filtered.filter(t => (t.createdAt || 0) < toTs);
+        filtered = filtered.filter((t) => (t.createdAt || 0) < toTs);
     }
 
     // Sort by updatedAt (newest first), fallback to createdAt
@@ -3036,14 +3306,15 @@ function renderHistoryTab() {
         return 0;
     }
 
-    filtered.forEach(t => {
+    filtered.forEach((t) => {
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
         tr.addEventListener('click', () => showTicketHistory(t.firebaseId));
 
         const orderIdStr = String(t.orderId || '');
         const orderIdParts = orderIdStr.split('/');
-        const last5Digits = orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
+        const last5Digits =
+            orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
 
         const customerName = t.customer || 'N/A';
         const customerPhone = t.phone || 'N/A';
@@ -3097,10 +3368,10 @@ function renderHistoryTab() {
  */
 function getStatusBadgeHTML(status) {
     const map = {
-        'PENDING_GOODS': { cls: 'pending-goods', text: 'Chờ nhận hàng' },
-        'PENDING_FINANCE': { cls: 'pending-finance', text: 'Chờ đối soát' },
-        'COMPLETED': { cls: 'completed', text: 'Hoàn tất' },
-        'CANCELLED': { cls: 'cancelled', text: 'Đã hủy' }
+        PENDING_GOODS: { cls: 'pending-goods', text: 'Chờ nhận hàng' },
+        PENDING_FINANCE: { cls: 'pending-finance', text: 'Chờ đối soát' },
+        COMPLETED: { cls: 'completed', text: 'Hoàn tất' },
+        CANCELLED: { cls: 'cancelled', text: 'Đã hủy' },
     };
     const info = map[status] || { cls: '', text: status };
     return `<span class="status-badge-sm ${info.cls}">${info.text}</span>`;
@@ -3121,7 +3392,11 @@ function formatDateShort(timestamp) {
 function formatDateTime(timestamp) {
     if (!timestamp) return '---';
     const d = new Date(timestamp);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return (
+        d.toLocaleDateString('vi-VN') +
+        ' ' +
+        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    );
 }
 
 /**
@@ -3129,11 +3404,13 @@ function formatDateTime(timestamp) {
  */
 function buildTimelineSummaryHTML(ticket) {
     const steps = buildTicketTimeline(ticket);
-    return steps.map(s => {
-        const icon = s.done ? '✓' : (s.active ? '◉' : '○');
-        const cls = s.done ? 'step-done' : (s.active ? 'step-current' : '');
-        return `<span class="step ${cls}">${icon} ${s.label}</span>`;
-    }).join('');
+    return steps
+        .map((s) => {
+            const icon = s.done ? '✓' : s.active ? '◉' : '○';
+            const cls = s.done ? 'step-done' : s.active ? 'step-current' : '';
+            return `<span class="step ${cls}">${icon} ${s.label}</span>`;
+        })
+        .join('');
 }
 
 /**
@@ -3151,7 +3428,7 @@ function buildTicketTimeline(ticket) {
         done: true,
         active: false,
         cancelled: false,
-        detail: `Loại: ${translateType(ticket.type)}`
+        detail: `Loại: ${translateType(ticket.type)}`,
     });
 
     // Step 2: Virtual Credit (only for RETURN_SHIPPER)
@@ -3163,13 +3440,17 @@ function buildTicketTimeline(ticket) {
             done: hasCredit,
             active: !hasCredit && status === 'PENDING_GOODS',
             cancelled: status === 'CANCELLED' && !hasCredit,
-            detail: hasCredit ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}` : ''
+            detail: hasCredit ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}` : '',
         });
     }
 
     // Step 3: Receive goods (for types that require it)
-    const needsGoods = ['BOOM', 'RETURN_SHIPPER', 'RETURN_CLIENT', 'FIX_COD'].includes(ticket.type)
-        && !(ticket.type === 'FIX_COD' && !['REJECT_PARTIAL', 'RETURN_OLD_ORDER'].includes(ticket.fixCodReason));
+    const needsGoods =
+        ['BOOM', 'RETURN_SHIPPER', 'RETURN_CLIENT', 'FIX_COD'].includes(ticket.type) &&
+        !(
+            ticket.type === 'FIX_COD' &&
+            !['REJECT_PARTIAL', 'RETURN_OLD_ORDER'].includes(ticket.fixCodReason)
+        );
     if (needsGoods) {
         const receivedAt = ticket.receivedAt || ticket.received_at;
         const received = !!receivedAt || status === 'PENDING_FINANCE' || status === 'COMPLETED';
@@ -3179,7 +3460,7 @@ function buildTicketTimeline(ticket) {
             done: received,
             active: !received && status === 'PENDING_GOODS',
             cancelled: status === 'CANCELLED' && !received,
-            detail: ticket.refundNumber ? `Phiếu trả: ${ticket.refundNumber}` : ''
+            detail: ticket.refundNumber ? `Phiếu trả: ${ticket.refundNumber}` : '',
         });
     }
 
@@ -3193,7 +3474,7 @@ function buildTicketTimeline(ticket) {
             done: settled,
             active: status === 'PENDING_FINANCE',
             cancelled: status === 'CANCELLED',
-            detail: settled ? formatCurrency(ticket.money) : ''
+            detail: settled ? formatCurrency(ticket.money) : '',
         });
     }
 
@@ -3206,7 +3487,7 @@ function buildTicketTimeline(ticket) {
             done: true,
             active: false,
             cancelled: false,
-            detail: ''
+            detail: '',
         });
     } else if (status === 'CANCELLED') {
         steps.push({
@@ -3215,7 +3496,7 @@ function buildTicketTimeline(ticket) {
             done: false,
             active: false,
             cancelled: true,
-            detail: ''
+            detail: '',
         });
     }
 
@@ -3227,11 +3508,11 @@ function buildTicketTimeline(ticket) {
  */
 function translateType(type) {
     const map = {
-        'BOOM': 'Không Nhận Hàng',
-        'RETURN_SHIPPER': 'Thu về (Shipper)',
-        'RETURN_CLIENT': 'Khách gửi',
-        'FIX_COD': 'Sửa COD',
-        'OTHER': 'Khác'
+        BOOM: 'Không Nhận Hàng',
+        RETURN_SHIPPER: 'Thu về (Shipper)',
+        RETURN_CLIENT: 'Khách gửi',
+        FIX_COD: 'Sửa COD',
+        OTHER: 'Khác',
     };
     return map[type] || type;
 }
@@ -3239,8 +3520,8 @@ function translateType(type) {
 /**
  * Show ticket history modal with full timeline
  */
-window.showTicketHistory = async function(firebaseId) {
-    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+window.showTicketHistory = async function (firebaseId) {
+    const ticket = TICKETS.find((t) => t.firebaseId === firebaseId);
     if (!ticket) {
         alert('Không tìm thấy phiếu');
         return;
@@ -3294,7 +3575,7 @@ window.showTicketHistory = async function(firebaseId) {
             </div>
             <div class="info-item">
                 <label>Số tiền</label>
-                <span style="font-weight:700;color:${(ticket.type === 'BOOM' || ticket.type === 'FIX_COD') ? '#ef4444' : '#1e293b'};">
+                <span style="font-weight:700;color:${ticket.type === 'BOOM' || ticket.type === 'FIX_COD' ? '#ef4444' : '#1e293b'};">
                     ${formatCurrency(ticket.money)}
                 </span>
             </div>
@@ -3306,9 +3587,16 @@ window.showTicketHistory = async function(firebaseId) {
 
         <h3 style="margin-bottom:16px;font-size:16px;">Dòng thời gian xử lý</h3>
         <div class="ticket-timeline">
-            ${enrichedSteps.map(step => {
-                const stateClass = step.cancelled ? 'cancelled' : (step.done ? 'done' : (step.active ? 'active' : ''));
-                return `
+            ${enrichedSteps
+                .map((step) => {
+                    const stateClass = step.cancelled
+                        ? 'cancelled'
+                        : step.done
+                          ? 'done'
+                          : step.active
+                            ? 'active'
+                            : '';
+                    return `
                     <div class="timeline-item ${stateClass}">
                         <div class="timeline-dot"></div>
                         <div class="timeline-content">
@@ -3319,13 +3607,18 @@ window.showTicketHistory = async function(firebaseId) {
                         </div>
                     </div>
                 `;
-            }).join('')}
+                })
+                .join('')}
         </div>
 
-        ${ticket.products && ticket.products.length > 0 ? `
+        ${
+            ticket.products && ticket.products.length > 0
+                ? `
             <h3 style="margin:20px 0 12px;font-size:16px;">Sản phẩm</h3>
             <div style="font-size:13px;">${renderProductsList(ticket)}</div>
-        ` : ''}
+        `
+                : ''
+        }
     `;
 
     openModal(modal);
@@ -3347,21 +3640,24 @@ async function fetchAuditLogs(ticketCode) {
 
         if (!db) return [];
 
-        const snapshot = await db.collection('edit_history')
+        const snapshot = await db
+            .collection('edit_history')
             .where('module', '==', 'issue-tracking')
             .where('entityId', '==', ticketCode)
             .orderBy('timestamp', 'asc')
             .get();
 
-        return snapshot.docs.map(doc => {
+        return snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
                 actionType: data.actionType,
-                timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().getTime() : data.timestamp,
+                timestamp: data.timestamp?.toDate?.()
+                    ? data.timestamp.toDate().getTime()
+                    : data.timestamp,
                 performer: data.performerUserName || data.performerUserId || '',
                 description: data.description || '',
                 oldData: data.oldData,
-                newData: data.newData
+                newData: data.newData,
             };
         });
     } catch (e) {
@@ -3375,18 +3671,18 @@ async function fetchAuditLogs(ticketCode) {
  */
 function enrichTimelineWithAuditLogs(steps, auditLogs) {
     const actionMap = {
-        'ticket_create': 'Tạo phiếu',
-        'ticket_add_debt': 'Cấp công nợ ảo',
-        'ticket_receive_goods': 'Nhận hàng',
-        'ticket_payment': 'Thanh toán',
-        'delete': 'Đã hủy'
+        ticket_create: 'Tạo phiếu',
+        ticket_add_debt: 'Cấp công nợ ảo',
+        ticket_receive_goods: 'Nhận hàng',
+        ticket_payment: 'Thanh toán',
+        delete: 'Đã hủy',
     };
 
-    return steps.map(step => {
+    return steps.map((step) => {
         const enriched = { ...step };
 
         // Find matching audit log
-        const matchingLog = auditLogs.find(log => {
+        const matchingLog = auditLogs.find((log) => {
             const mappedLabel = actionMap[log.actionType];
             return mappedLabel === step.label;
         });

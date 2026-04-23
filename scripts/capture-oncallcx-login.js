@@ -28,10 +28,10 @@ const fs = require('fs');
 const path = require('path');
 
 const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
-const OUTPUT_JSON  = path.resolve(__dirname, '..', 'docs', 'oncallcx-login-capture.json');
-const OUTPUT_CURL  = path.resolve(__dirname, '..', 'docs', 'oncallcx-login-curl.sh');
+const OUTPUT_JSON = path.resolve(__dirname, '..', 'docs', 'oncallcx-login-capture.json');
+const OUTPUT_CURL = path.resolve(__dirname, '..', 'docs', 'oncallcx-login-curl.sh');
 
-const LOGIN_URL  = 'https://pbx-ucaas.oncallcx.vn/portal/login.xhtml';
+const LOGIN_URL = 'https://pbx-ucaas.oncallcx.vn/portal/login.xhtml';
 const LOGIN_HOST = 'pbx-ucaas.oncallcx.vn';
 
 // ==================== Credentials ====================
@@ -42,7 +42,9 @@ function readCredentials() {
     }
     const content = fs.readFileSync(SECRETS_FILE, 'utf8');
     // Dòng có dạng:  26/"https://pbx-ucaas.oncallcx.vn" user@mail pass
-    const line = content.split('\n').find(l => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
+    const line = content
+        .split('\n')
+        .find((l) => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
     if (!line) throw new Error('Không tìm thấy dòng credentials cho pbx-ucaas.oncallcx.vn');
 
     // Loại bỏ prefix "26/" và URL trong quotes
@@ -70,14 +72,20 @@ function requirePlaywright() {
 
 async function main() {
     const creds = readCredentials();
-    console.log(`[info] Credentials loaded: username=${creds.username}, password=***${creds.password.slice(-3)}`);
+    console.log(
+        `[info] Credentials loaded: username=${creds.username}, password=***${creds.password.slice(-3)}`
+    );
 
     const { chromium } = requirePlaywright();
     const headless = process.env.HEADLESS === '1';
-    const browser = await chromium.launch({ headless, args: ['--disable-blink-features=AutomationControlled'] });
+    const browser = await chromium.launch({
+        headless,
+        args: ['--disable-blink-features=AutomationControlled'],
+    });
     const context = await browser.newContext({
         viewport: { width: 1280, height: 800 },
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        userAgent:
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
 
@@ -110,11 +118,18 @@ async function main() {
         let bodyPreview = null;
         try {
             const ct = (res.headers()['content-type'] || '').toLowerCase();
-            if (ct.includes('json') || ct.includes('text') || ct.includes('xml') || ct.includes('html')) {
+            if (
+                ct.includes('json') ||
+                ct.includes('text') ||
+                ct.includes('xml') ||
+                ct.includes('html')
+            ) {
                 const buf = await res.body();
                 bodyPreview = buf.slice(0, 4096).toString('utf8');
             }
-        } catch {/* ignore */}
+        } catch {
+            /* ignore */
+        }
         requests.push({
             phase: 'response',
             ts: Date.now(),
@@ -140,14 +155,12 @@ async function main() {
         'input[type="text"]:visible',
         'input[type="email"]',
     ];
-    const passSelectors = [
-        'input[type="password"]',
-    ];
+    const passSelectors = ['input[type="password"]'];
 
     async function findFirst(selectors) {
         for (const sel of selectors) {
             const loc = page.locator(sel).first();
-            if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) return loc;
+            if ((await loc.count()) > 0 && (await loc.isVisible().catch(() => false))) return loc;
         }
         return null;
     }
@@ -156,7 +169,10 @@ async function main() {
     const passField = await findFirst(passSelectors);
     if (!userField || !passField) {
         console.error('[error] Không tìm thấy field username/password. Lưu HTML debug...');
-        fs.writeFileSync(path.resolve(__dirname, '..', 'docs', 'oncallcx-login-debug.html'), await page.content());
+        fs.writeFileSync(
+            path.resolve(__dirname, '..', 'docs', 'oncallcx-login-debug.html'),
+            await page.content()
+        );
         await browser.close();
         process.exit(2);
     }
@@ -166,9 +182,13 @@ async function main() {
     console.log('[info] Đã điền credentials. Submit ...');
 
     // Submit: ưu tiên click button, fallback Enter
-    const submit = page.locator('button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Đăng nhập")').first();
+    const submit = page
+        .locator(
+            'button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Đăng nhập")'
+        )
+        .first();
     const beforeNav = Date.now();
-    if (await submit.count() > 0) {
+    if ((await submit.count()) > 0) {
         await Promise.all([
             page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {}),
             submit.click().catch(() => passField.press('Enter')),
@@ -186,9 +206,21 @@ async function main() {
 
     // --- Xác định login request chính ---
     // Ưu tiên: POST có chứa credentials trong postData
-    const mainLogin = loginCandidates.find(r => r.postData && (r.postData.includes(encodeURIComponent(creds.username)) || r.postData.includes(creds.username)))
-        || loginCandidates[0]
-        || requests.find(r => r.phase === 'request' && r.method === 'POST' && r.postData && r.postData.includes(creds.username));
+    const mainLogin =
+        loginCandidates.find(
+            (r) =>
+                r.postData &&
+                (r.postData.includes(encodeURIComponent(creds.username)) ||
+                    r.postData.includes(creds.username))
+        ) ||
+        loginCandidates[0] ||
+        requests.find(
+            (r) =>
+                r.phase === 'request' &&
+                r.method === 'POST' &&
+                r.postData &&
+                r.postData.includes(creds.username)
+        );
 
     // --- Ghi output ---
     fs.mkdirSync(path.dirname(OUTPUT_JSON), { recursive: true });
@@ -215,16 +247,23 @@ async function main() {
             `curl -i -X ${mainLogin.method} '${mainLogin.url}' \\`,
             headerFlags + ' \\',
             mainLogin.postData ? `  --data-raw '${mainLogin.postData.replace(/'/g, "'\\''")}'` : '',
-        ].filter(Boolean).join('\n');
+        ]
+            .filter(Boolean)
+            .join('\n');
         fs.writeFileSync(OUTPUT_CURL, curl);
         fs.chmodSync(OUTPUT_CURL, 0o755);
         console.log(`[ok]  Xuất cURL:       ${OUTPUT_CURL}`);
         console.log(`\n=== LOGIN REQUEST ===`);
         console.log(`${mainLogin.method} ${mainLogin.url}`);
         console.log(`Body (${mainLogin.postData?.length || 0} bytes):`);
-        console.log((mainLogin.postData || '').slice(0, 500) + ((mainLogin.postData?.length || 0) > 500 ? '...' : ''));
+        console.log(
+            (mainLogin.postData || '').slice(0, 500) +
+                ((mainLogin.postData?.length || 0) > 500 ? '...' : '')
+        );
     } else {
-        console.warn('[warn] Không tìm thấy login POST request rõ ràng. Kiểm tra allRequests trong JSON.');
+        console.warn(
+            '[warn] Không tìm thấy login POST request rõ ràng. Kiểm tra allRequests trong JSON.'
+        );
     }
 
     if (!headless) {

@@ -16,14 +16,20 @@ const PhoneOrdersBridge = (() => {
     let lastCompletedCall = null; // for outcome marker
     let quickNoteSaved = false; // dedupe: only save order note once per call
 
-    function _stripPhone(s) { return String(s || '').replace(/[^\d+]/g, ''); }
-    function _fmtDur(sec) { const m = Math.floor(sec/60), s = sec%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+    function _stripPhone(s) {
+        return String(s || '').replace(/[^\d+]/g, '');
+    }
+    function _fmtDur(sec) {
+        const m = Math.floor(sec / 60),
+            s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
 
     // Resolve internal order.Id from phone via window.allOrders (populated by tab1-fast-sale-invoice-status)
     function _lookupOrderId(phone) {
         const d = _stripPhone(phone);
         if (!d || !Array.isArray(window.allOrders)) return '';
-        const match = window.allOrders.find(o => _stripPhone(o.Telephone) === d);
+        const match = window.allOrders.find((o) => _stripPhone(o.Telephone) === d);
         return match?.Id ? String(match.Id) : '';
     }
 
@@ -31,7 +37,9 @@ const PhoneOrdersBridge = (() => {
     async function _saveQuickNoteToOrder(orderId, text) {
         if (!orderId || !text || quickNoteSaved) return;
         if (!window.OrderNotesStore?.add) {
-            console.warn('[PhoneOrdersBridge] OrderNotesStore chưa sẵn sàng — note không lưu vào cột Ghi chú');
+            console.warn(
+                '[PhoneOrdersBridge] OrderNotesStore chưa sẵn sàng — note không lưu vào cột Ghi chú'
+            );
             return;
         }
         quickNoteSaved = true;
@@ -44,7 +52,11 @@ const PhoneOrdersBridge = (() => {
         } catch (err) {
             console.warn('[PhoneOrdersBridge] save quick note failed:', err.message);
             if (window.notificationManager?.show) {
-                window.notificationManager.show('Không lưu được ghi chú cuộc gọi: ' + err.message, 'error', 4000);
+                window.notificationManager.show(
+                    'Không lưu được ghi chú cuộc gọi: ' + err.message,
+                    'error',
+                    4000
+                );
             }
         }
     }
@@ -147,7 +159,9 @@ const PhoneOrdersBridge = (() => {
         document.body.classList.add('phone-call-active');
         let bar = document.getElementById(FLOATING_BAR_ID);
         const displayName = name || phone || 'Đang gọi';
-        const orderLink = orderCode ? `<a href="#" class="pcb-order-link" data-pcb-action="scroll-order" data-order-code="${_esc(orderCode)}">Đơn ${_esc(orderCode)}</a>` : '';
+        const orderLink = orderCode
+            ? `<a href="#" class="pcb-order-link" data-pcb-action="scroll-order" data-order-code="${_esc(orderCode)}">Đơn ${_esc(orderCode)}</a>`
+            : '';
 
         const html = `
             <span class="pcb-icon">📞</span>
@@ -173,8 +187,10 @@ const PhoneOrdersBridge = (() => {
 
         // Adjust main content padding
         if (!document.getElementById('pcbBodyOffset')) {
-            const s = document.createElement('style'); s.id = 'pcbBodyOffset';
-            s.textContent = 'body.phone-call-active { padding-top: 56px; } body.phone-call-active .sidebar { top: 56px; }';
+            const s = document.createElement('style');
+            s.id = 'pcbBodyOffset';
+            s.textContent =
+                'body.phone-call-active { padding-top: 56px; } body.phone-call-active .sidebar { top: 56px; }';
             document.head.appendChild(s);
         }
         noteTextarea = document.getElementById('pcbNote');
@@ -192,11 +208,17 @@ const PhoneOrdersBridge = (() => {
         callStartTime = Date.now();
         _stopTimer();
         timerInterval = setInterval(() => {
-            const el = document.getElementById('pcbTimer'); if (!el) return;
+            const el = document.getElementById('pcbTimer');
+            if (!el) return;
             el.textContent = _fmtDur(Math.floor((Date.now() - callStartTime) / 1000));
         }, 1000);
     }
-    function _stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
+    function _stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
 
     function _highlightRow(phone) {
         _clearRowHighlight();
@@ -211,23 +233,36 @@ const PhoneOrdersBridge = (() => {
             if (_stripPhone(telData).includes(d) || _stripPhone(txt).includes(d)) {
                 tr.classList.add('phone-active-row');
                 // Scroll into view (smooth, centered)
-                try { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+                try {
+                    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } catch {}
                 break;
             }
         }
     }
     function _clearRowHighlight() {
-        document.querySelectorAll('tr.phone-active-row').forEach(tr => tr.classList.remove('phone-active-row'));
+        document
+            .querySelectorAll('tr.phone-active-row')
+            .forEach((tr) => tr.classList.remove('phone-active-row'));
     }
 
     function scrollToOrder(orderCode) {
-        const el = document.querySelector(`tr[data-order-code="${orderCode}"], [data-code="${orderCode}"]`);
-        if (el) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('phone-active-row'); setTimeout(() => el.classList.remove('phone-active-row'), 2000); } catch {} }
+        const el = document.querySelector(
+            `tr[data-order-code="${orderCode}"], [data-code="${orderCode}"]`
+        );
+        if (el) {
+            try {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('phone-active-row');
+                setTimeout(() => el.classList.remove('phone-active-row'), 2000);
+            } catch {}
+        }
     }
 
     function _showOutcomePrompt(phone, name, duration) {
         if (!phone) return;
-        const existing = document.getElementById('phoneOutcomePrompt'); if (existing) existing.remove();
+        const existing = document.getElementById('phoneOutcomePrompt');
+        if (existing) existing.remove();
         const wrap = document.createElement('div');
         wrap.id = 'phoneOutcomePrompt';
         wrap.innerHTML = `
@@ -245,39 +280,60 @@ const PhoneOrdersBridge = (() => {
         document.body.appendChild(wrap);
         lastCompletedCall = { phone: _stripPhone(phone), name, duration, timestamp: Date.now() };
         // Auto-dismiss sau 30s
-        setTimeout(() => { if (document.getElementById('phoneOutcomePrompt')) dismissOutcome(); }, 30000);
+        setTimeout(() => {
+            if (document.getElementById('phoneOutcomePrompt')) dismissOutcome();
+        }, 30000);
     }
 
     async function setOutcome(outcome) {
         if (!lastCompletedCall) return;
         const note = document.getElementById('popNote')?.value || '';
         try {
-            await window.PhoneCloudSync?.updateLastCallOutcome?.(lastCompletedCall.phone, { outcome, note });
+            await window.PhoneCloudSync?.updateLastCallOutcome?.(lastCompletedCall.phone, {
+                outcome,
+                note,
+            });
         } catch {}
         dismissOutcome();
         // Visual feedback
-        if (window.notificationManager?.show) window.notificationManager.show('Đã lưu kết quả cuộc gọi', 'success', 2500);
+        if (window.notificationManager?.show)
+            window.notificationManager.show('Đã lưu kết quả cuộc gọi', 'success', 2500);
     }
-    function dismissOutcome() { document.getElementById('phoneOutcomePrompt')?.remove(); lastCompletedCall = null; }
+    function dismissOutcome() {
+        document.getElementById('phoneOutcomePrompt')?.remove();
+        lastCompletedCall = null;
+    }
 
     function toggleMute() {
         if (window.PhoneWidget?.toggleMute) window.PhoneWidget.toggleMute();
-        const btn = document.getElementById('pcbMute'); if (btn) btn.classList.toggle('active');
+        const btn = document.getElementById('pcbMute');
+        if (btn) btn.classList.toggle('active');
     }
     function hangup() {
         // Grab note before hangup
         const note = noteTextarea?.value?.trim() || '';
         if (note && currentCallPhone) {
             // save as pre-hangup note on CDR
-            try { window.PhoneCloudSync?.updateLastCallOutcome?.(_stripPhone(currentCallPhone), { note }); } catch {}
+            try {
+                window.PhoneCloudSync?.updateLastCallOutcome?.(_stripPhone(currentCallPhone), {
+                    note,
+                });
+            } catch {}
             // save to order's Ghi chú column (idempotent — observer won't re-save)
             if (currentOrderId) _saveQuickNoteToOrder(currentOrderId, note);
         }
         if (window.PhoneWidget?.hangup) window.PhoneWidget.hangup();
     }
-    function openWidget() { if (window.PhoneWidget?.show) window.PhoneWidget.show(); }
+    function openWidget() {
+        if (window.PhoneWidget?.show) window.PhoneWidget.show();
+    }
 
-    function _esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+    function _esc(s) {
+        return String(s ?? '').replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+    }
 
     // === HOOK PHONEWIDGET EVENTS ===
     // PhoneWidget doesn't expose events — we poll its state via status observer.
@@ -288,7 +344,8 @@ const PhoneOrdersBridge = (() => {
         let lastStatus = '';
         let lastState = '';
         setInterval(() => {
-            const el = statusEl(); if (!el) return;
+            const el = statusEl();
+            if (!el) return;
             const txt = el.textContent || '';
             if (txt === lastStatus) return;
             lastStatus = txt;
@@ -326,13 +383,18 @@ const PhoneOrdersBridge = (() => {
                     const phone = currentCallPhone;
                     const name = currentCallName;
                     const orderId = currentOrderId;
-                    const duration = timerInterval ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+                    const duration = timerInterval
+                        ? Math.floor((Date.now() - callStartTime) / 1000)
+                        : 0;
                     _hideBar();
                     _clearRowHighlight();
                     // Save quick note to order's Ghi chú column (fire-and-forget)
                     if (noteText && orderId) _saveQuickNoteToOrder(orderId, noteText);
                     if (phone && duration > 0) _showOutcomePrompt(phone, name, duration);
-                    currentCallPhone = ''; currentCallName = ''; currentOrderCode = ''; currentOrderId = '';
+                    currentCallPhone = '';
+                    currentCallName = '';
+                    currentOrderCode = '';
+                    currentOrderId = '';
                     lastState = 'ended';
                 }
             }

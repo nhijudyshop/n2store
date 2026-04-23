@@ -14,7 +14,8 @@
 
     const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com';
     const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const ODATA_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
+    const ODATA_BASE =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
 
     let ws = null;
     let reconnectTimer = null;
@@ -94,7 +95,7 @@
         console.log('[TPOS-RT] New order:', code);
 
         // Check if order already exists in table
-        if (typeof allData !== 'undefined' && allData.find(o => o.Code === code)) {
+        if (typeof allData !== 'undefined' && allData.find((o) => o.Code === code)) {
             console.log('[TPOS-RT] Order already in table, skipping:', code);
             return;
         }
@@ -105,10 +106,17 @@
 
         // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất trong bảng
         if (typeof allData !== 'undefined' && allData.length > 0) {
-            const highestSTTOrder = allData.reduce((max, o) =>
-                (o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max, allData[0]);
-            if (highestSTTOrder.LiveCampaignId && order.LiveCampaignId !== highestSTTOrder.LiveCampaignId) {
-                console.log(`[TPOS-RT] Skipping order ${code}: campaign ${order.LiveCampaignId} ≠ table campaign ${highestSTTOrder.LiveCampaignId}`);
+            const highestSTTOrder = allData.reduce(
+                (max, o) => ((o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max),
+                allData[0]
+            );
+            if (
+                highestSTTOrder.LiveCampaignId &&
+                order.LiveCampaignId !== highestSTTOrder.LiveCampaignId
+            ) {
+                console.log(
+                    `[TPOS-RT] Skipping order ${code}: campaign ${order.LiveCampaignId} ≠ table campaign ${highestSTTOrder.LiveCampaignId}`
+                );
                 return;
             }
         }
@@ -153,7 +161,7 @@
         // Find existing order in table
         let existingOrder = null;
         if (typeof allData !== 'undefined') {
-            existingOrder = allData.find(o => o.Code === code || o.Id === orderId);
+            existingOrder = allData.find((o) => o.Code === code || o.Id === orderId);
         }
         if (!existingOrder) return; // Order not in current view
 
@@ -185,7 +193,7 @@
         // broadcasts from multiple WS connections, multiple extension instances,
         // or server replays — see investigation 2026-04-07).
         const tagsHash = (tags || [])
-            .map(t => `${t.Id || ''}:${String(t.Name || '').toUpperCase()}`)
+            .map((t) => `${t.Id || ''}:${String(t.Name || '').toUpperCase()}`)
             .sort()
             .join('|');
         const dedupeKey = `tag_${orderId}_${tagsHash}`;
@@ -198,18 +206,22 @@
         // Find order in table by TPOS UUID
         let existingOrder = null;
         if (typeof allData !== 'undefined') {
-            existingOrder = allData.find(o => o.Id === orderId);
+            existingOrder = allData.find((o) => o.Id === orderId);
         }
         if (!existingOrder) return; // Order not in current view
 
         // Defensive: normalize tag fields to strings (TPOS API sometimes sends Name as object)
-        const normalizedTags = tags.map(t => ({
+        const normalizedTags = tags.map((t) => ({
             Id: String(t.Id || ''),
             Name: String(t.Name || ''),
-            Color: String(t.Color || '#999')
+            Color: String(t.Color || '#999'),
         }));
 
-        console.log('[TPOS-RT] Tag assigned on TPOS:', existingOrder.Code, normalizedTags.map(t => t.Name));
+        console.log(
+            '[TPOS-RT] Tag assigned on TPOS:',
+            existingOrder.Code,
+            normalizedTags.map((t) => t.Name)
+        );
 
         // Enrich availableTags with any new tags from TPOS event
         enrichAvailableTags(normalizedTags);
@@ -257,10 +269,13 @@
         // rồi lấy Reference → tìm order trong table → cập nhật cột PBH
         try {
             if (!window.tokenManager?.getAuthHeader) return;
-            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const tposOData =
+                window.API_CONFIG?.TPOS_ODATA ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const headers = await window.tokenManager.getAuthHeader();
             const filter = `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`;
-            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+            const url =
+                `${tposOData}/FastSaleOrder/ODataService.GetView` +
                 `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
             const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
             if (!resp.ok) return;
@@ -273,7 +288,8 @@
             if (!orderCode) return;
 
             // Find the SaleOnline_Order in table by Reference (= order code)
-            const order = (typeof allData !== 'undefined') && allData.find(o => o.Code === orderCode);
+            const order =
+                typeof allData !== 'undefined' && allData.find((o) => o.Code === orderCode);
             if (order) {
                 // Store full invoice data directly into InvoiceStatusStore
                 if (window.InvoiceStatusStore) {
@@ -282,7 +298,7 @@
                         Code: orderCode,
                         Name: inv.PartnerDisplayName || '',
                         Telephone: inv.Phone || '',
-                        Address: inv.Address || ''
+                        Address: inv.Address || '',
                     };
                     window.InvoiceStatusStore.set(order.Id, inv, orderShim);
                     // Re-render PBH cell
@@ -294,7 +310,14 @@
                         }
                     }
                 }
-                console.log('[TPOS-RT] 📄 Updated PBH for order', orderCode, 'from invoice', invoiceNumber, '→', inv.ShowState);
+                console.log(
+                    '[TPOS-RT] 📄 Updated PBH for order',
+                    orderCode,
+                    'from invoice',
+                    invoiceNumber,
+                    '→',
+                    inv.ShowState
+                );
             }
         } catch (e) {
             console.warn('[TPOS-RT] Invoice lookup failed:', e.message);
@@ -323,7 +346,7 @@
 
         // Case 2: Check each TPOS tag against local cache
         let addedCount = 0;
-        const existingIds = new Set(available.map(t => String(t.Id)));
+        const existingIds = new Set(available.map((t) => String(t.Id)));
 
         for (const tag of tposTags) {
             if (!tag.Id) continue;
@@ -332,7 +355,7 @@
                 const newTag = {
                     Id: tag.Id,
                     Name: tag.Name || '',
-                    Color: tag.Color || '#999'
+                    Color: tag.Color || '#999',
                 };
                 available.push(newTag);
                 existingIds.add(String(tag.Id));
@@ -366,7 +389,7 @@
             const url = `${ODATA_BASE}?$top=1&$filter=${filter}`;
 
             const response = await fetch(url, {
-                headers: { ...headers, accept: 'application/json' }
+                headers: { ...headers, accept: 'application/json' },
             });
 
             if (!response.ok) {
@@ -392,7 +415,10 @@
         let attempts = 0;
         const tryTag = () => {
             attempts++;
-            if (typeof window.toggleOrderFlag !== 'function' || !window.ProcessingTagState?._isLoaded) {
+            if (
+                typeof window.toggleOrderFlag !== 'function' ||
+                !window.ProcessingTagState?._isLoaded
+            ) {
                 if (attempts < 3) {
                     setTimeout(tryTag, 2000);
                 }
@@ -402,7 +428,7 @@
             // Kiểm tra đã có flag THE_KHACH_LA chưa (tránh duplicate)
             const data = window.ProcessingTagState.getOrderData(orderCode);
             const flags = data?.flags || [];
-            const alreadyHas = flags.some(f => (f.id || f) === 'THE_KHACH_LA');
+            const alreadyHas = flags.some((f) => (f.id || f) === 'THE_KHACH_LA');
             if (alreadyHas) return;
 
             console.log('[TPOS-RT] Auto-tag THẺ KHÁCH LẠ (no phone):', orderCode);
@@ -418,7 +444,7 @@
         if (typeof allData === 'undefined') return;
 
         // Check if already exists (race condition guard)
-        if (allData.find(o => o.Id === order.Id)) return;
+        if (allData.find((o) => o.Id === order.Id)) return;
 
         // Add to beginning of allData (newest first)
         allData.unshift(order);
@@ -444,7 +470,14 @@
             updateStats();
         }
 
-        console.log('[TPOS-RT] Added order to table:', order.Code, 'STT:', order.SessionIndex, 'Total:', allData.length);
+        console.log(
+            '[TPOS-RT] Added order to table:',
+            order.Code,
+            'STT:',
+            order.SessionIndex,
+            'Total:',
+            allData.length
+        );
     }
 
     // ===== Toast Notification =====
@@ -583,32 +616,45 @@
                 if (!code) continue;
                 const stt = entry.session_index;
                 if (stt && (stt < fromSTT || stt > toSTT)) continue;
-                if (allData.find(o => o.Code === code)) continue;
+                if (allData.find((o) => o.Code === code)) continue;
                 if (!missingCodes.includes(code)) missingCodes.push(code);
             }
 
             if (missingCodes.length === 0) return;
 
-            console.log(`[TPOS-RT] Fetching ${missingCodes.length} missing orders (STT ${fromSTT}-${toSTT}):`, missingCodes);
+            console.log(
+                `[TPOS-RT] Fetching ${missingCodes.length} missing orders (STT ${fromSTT}-${toSTT}):`,
+                missingCodes
+            );
 
             for (const code of missingCodes) {
-                if (allData.find(o => o.Code === code)) continue;
+                if (allData.find((o) => o.Code === code)) continue;
                 const order = await fetchOrderByCode(code);
                 if (order) {
                     // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất
-                    const topOrder = allData.reduce((max, o) =>
-                        (o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max, allData[0]);
-                    if (topOrder?.LiveCampaignId && order.LiveCampaignId !== topOrder.LiveCampaignId) {
+                    const topOrder = allData.reduce(
+                        (max, o) => ((o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max),
+                        allData[0]
+                    );
+                    if (
+                        topOrder?.LiveCampaignId &&
+                        order.LiveCampaignId !== topOrder.LiveCampaignId
+                    ) {
                         console.log(`[TPOS-RT] Gap fill skip ${code}: different campaign`);
                         continue;
                     }
                     addOrderToTable(order);
                     autoTagTheKhachLa(code, order);
                     markProcessed(code);
-                    console.log('[TPOS-RT] Gap fill: added order', code, 'STT:', order.SessionIndex);
+                    console.log(
+                        '[TPOS-RT] Gap fill: added order',
+                        code,
+                        'STT:',
+                        order.SessionIndex
+                    );
                 }
                 if (missingCodes.length > 3) {
-                    await new Promise(r => setTimeout(r, 300));
+                    await new Promise((r) => setTimeout(r, 300));
                 }
             }
         } catch (e) {
@@ -628,7 +674,7 @@
 
         // Set initial lastReceivedSTT from current data
         if (allData.length > 0) {
-            lastReceivedSTT = Math.max(...allData.map(o => o.SessionIndex || 0));
+            lastReceivedSTT = Math.max(...allData.map((o) => o.SessionIndex || 0));
             console.log('[TPOS-RT] Initial max STT:', lastReceivedSTT);
         }
     }
@@ -654,10 +700,13 @@
             connected: ws?.readyState === 1,
             reconnectAttempts,
             recentlyProcessed: recentlyProcessed.size,
-            lastReceivedSTT
+            lastReceivedSTT,
         }),
         toggle,
-        reconnect: () => { reconnectAttempts = 0; connect(); },
-        checkGap: (fromSTT, toSTT) => fetchMissingFromBuffer(fromSTT, toSTT)
+        reconnect: () => {
+            reconnectAttempts = 0;
+            connect();
+        },
+        checkGap: (fromSTT, toSTT) => fetchMissingFromBuffer(fromSTT, toSTT),
     };
 })();

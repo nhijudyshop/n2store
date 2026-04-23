@@ -5,18 +5,18 @@
 // With XSS protection, proper error handling, loading states
 // =====================================================
 
-const LiveModeModule = (function() {
+const LiveModeModule = (function () {
     'use strict';
 
     // ===== STATE =====
     const state = {
         // 3 Kanban columns
-        manualItems: [],        // NHẬP TAY - cần nhập SĐT
-        autoMatchedItems: [],   // TỰ ĐỘNG GÁN - có KH, chờ confirm
-        confirmedItems: [],     // ĐÃ XÁC NHẬN - hoàn thành
+        manualItems: [], // NHẬP TAY - cần nhập SĐT
+        autoMatchedItems: [], // TỰ ĐỘNG GÁN - có KH, chờ confirm
+        confirmedItems: [], // ĐÃ XÁC NHẬN - hoàn thành
 
         // UI state
-        showConfirmed: false,   // Column 3 ẩn mặc định
+        showConfirmed: false, // Column 3 ẩn mặc định
         searchQuery: '',
         isLoading: false,
         lastUpdate: null,
@@ -31,7 +31,7 @@ const LiveModeModule = (function() {
         sseConnection: null,
         sseReconnectAttempts: 0,
         maxReconnectAttempts: 10,
-        sseDebounceTimer: null,  // Debounce rapid SSE updates
+        sseDebounceTimer: null, // Debounce rapid SSE updates
 
         // TPOS Cache with expiry
         tposCache: new Map(),
@@ -46,7 +46,8 @@ const LiveModeModule = (function() {
     };
 
     // ===== CONSTANTS =====
-    const API_BASE = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE =
+        window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const SSE_URL = `${API_BASE}/api/sepay/stream`;
 
     // ===== SECURITY: XSS Protection =====
@@ -61,7 +62,11 @@ const LiveModeModule = (function() {
     function getUserFriendlyError(error) {
         const message = error?.message || String(error);
 
-        if (message.includes('fetch') || message.includes('network') || message.includes('Failed to fetch')) {
+        if (
+            message.includes('fetch') ||
+            message.includes('network') ||
+            message.includes('Failed to fetch')
+        ) {
             return 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.';
         }
         if (message.includes('401') || message.includes('Unauthorized')) {
@@ -112,10 +117,27 @@ const LiveModeModule = (function() {
 
     // ===== FRAUD DETECTION HELPERS =====
     const INTL_REMITTANCE_KEYWORDS = [
-        'zepz', 'worldremit', 'wise', 'remitly', 'western union', 'moneygram',
-        'xoom', 'ria', 'sendwave', 'transferwise', 'payoneer', 'vnpayment',
-        'zepzvnpayment', 'wupayment', 'mgpayment', 'orlafin', 'thunes',
-        'tranglo', 'terrapay', 'nium', 'instarem'
+        'zepz',
+        'worldremit',
+        'wise',
+        'remitly',
+        'western union',
+        'moneygram',
+        'xoom',
+        'ria',
+        'sendwave',
+        'transferwise',
+        'payoneer',
+        'vnpayment',
+        'zepzvnpayment',
+        'wupayment',
+        'mgpayment',
+        'orlafin',
+        'thunes',
+        'tranglo',
+        'terrapay',
+        'nium',
+        'instarem',
     ];
 
     function detectFraudRisks(tx) {
@@ -124,7 +146,7 @@ const LiveModeModule = (function() {
         const amount = tx.transfer_amount || 0;
 
         // 1. International remittance source
-        if (INTL_REMITTANCE_KEYWORDS.some(kw => content.includes(kw))) {
+        if (INTL_REMITTANCE_KEYWORDS.some((kw) => content.includes(kw))) {
             risks.push({ type: 'intl', label: 'Quốc tế', icon: 'globe' });
         }
 
@@ -149,10 +171,12 @@ const LiveModeModule = (function() {
 
     function renderFraudBadges(risks) {
         if (risks.length === 0) return '';
-        return risks.map(r => {
-            const cls = `fraud-badge fraud-${r.type}`;
-            return `<span class="${cls}" title="${escapeHtml(r.label)}"><i data-lucide="${r.icon}"></i>${escapeHtml(r.label)}</span>`;
-        }).join('');
+        return risks
+            .map((r) => {
+                const cls = `fraud-badge fraud-${r.type}`;
+                return `<span class="${cls}" title="${escapeHtml(r.label)}"><i data-lucide="${r.icon}"></i>${escapeHtml(r.label)}</span>`;
+            })
+            .join('');
     }
 
     // Map account numbers to known names
@@ -178,17 +202,23 @@ const LiveModeModule = (function() {
 
         // Full account number (TK nhận)
         if (tx.account_number) {
-            line1Parts.push(`<span class="detail-account" title="TK nhận: ${escapeHtml(tx.account_number)}"><i data-lucide="landmark"></i>${escapeHtml(tx.account_number)}</span>`);
+            line1Parts.push(
+                `<span class="detail-account" title="TK nhận: ${escapeHtml(tx.account_number)}"><i data-lucide="landmark"></i>${escapeHtml(tx.account_number)}</span>`
+            );
         }
 
         // Reference code
         if (tx.reference_code) {
-            line1Parts.push(`<span class="detail-ref" title="Mã tham chiếu">#${escapeHtml(tx.reference_code)}</span>`);
+            line1Parts.push(
+                `<span class="detail-ref" title="Mã tham chiếu">#${escapeHtml(tx.reference_code)}</span>`
+            );
         }
 
         // Transaction code (mã GD ngân hàng)
         if (tx.code) {
-            line1Parts.push(`<span class="detail-code" title="Mã GD ngân hàng">${escapeHtml(tx.code)}</span>`);
+            line1Parts.push(
+                `<span class="detail-code" title="Mã GD ngân hàng">${escapeHtml(tx.code)}</span>`
+            );
         }
 
         // Sepay ID
@@ -198,7 +228,9 @@ const LiveModeModule = (function() {
 
         // Balance after transaction
         if (tx.accumulated) {
-            line1Parts.push(`<span class="detail-balance" title="Số dư sau GD">SD: ${formatCurrency(tx.accumulated)}</span>`);
+            line1Parts.push(
+                `<span class="detail-balance" title="Số dư sau GD">SD: ${formatCurrency(tx.accumulated)}</span>`
+            );
         }
 
         // === BADGES: Risk indicators ===
@@ -259,11 +291,7 @@ const LiveModeModule = (function() {
         // TỰ ĐỘNG GÁN: CHỈ các phương thức tự động (qr_code, exact_phone, single_match)
         // và chưa xác nhận (is_hidden = false)
         const autoMethods = ['qr_code', 'exact_phone', 'single_match'];
-        if (
-            tx.customer_phone &&
-            !tx.has_pending_match &&
-            autoMethods.includes(tx.match_method)
-        ) {
+        if (tx.customer_phone && !tx.has_pending_match && autoMethods.includes(tx.match_method)) {
             return 'autoMatched';
         }
 
@@ -280,15 +308,19 @@ const LiveModeModule = (function() {
         state.confirmedItems = [];
 
         // Client-side date filtering (since API may not support it)
-        const startDateTime = state.filterStartDate ? new Date(state.filterStartDate + 'T' + (state.filterStartTime || '00:00') + ':00') : null;
-        const endDateTime = state.filterEndDate ? new Date(state.filterEndDate + 'T' + (state.filterEndTime || '23:59') + ':59') : null;
+        const startDateTime = state.filterStartDate
+            ? new Date(state.filterStartDate + 'T' + (state.filterStartTime || '00:00') + ':00')
+            : null;
+        const endDateTime = state.filterEndDate
+            ? new Date(state.filterEndDate + 'T' + (state.filterEndTime || '23:59') + ':59')
+            : null;
 
-        transactions.forEach(tx => {
+        transactions.forEach((tx) => {
             // Filter by date range (client-side)
             if (tx.transaction_date) {
                 const txDate = new Date(tx.transaction_date);
                 if (startDateTime && txDate < startDateTime) return; // Skip if before start
-                if (endDateTime && txDate > endDateTime) return;     // Skip if after end
+                if (endDateTime && txDate > endDateTime) return; // Skip if after end
             }
 
             const category = classifyTransaction(tx);
@@ -307,8 +339,15 @@ const LiveModeModule = (function() {
         state.autoMatchedItems.sort(sortByDate);
         state.confirmedItems.sort(sortByDate);
 
-        console.log('[LiveMode] Classified:', state.manualItems.length, 'manual,',
-            state.autoMatchedItems.length, 'auto,', state.confirmedItems.length, 'confirmed');
+        console.log(
+            '[LiveMode] Classified:',
+            state.manualItems.length,
+            'manual,',
+            state.autoMatchedItems.length,
+            'auto,',
+            state.confirmedItems.length,
+            'confirmed'
+        );
     }
 
     // ===== RENDER FUNCTIONS =====
@@ -324,11 +363,12 @@ const LiveModeModule = (function() {
         const filterItems = (items) => {
             if (!state.searchQuery) return items;
             const query = state.searchQuery.toLowerCase();
-            return items.filter(tx =>
-                (tx.content || '').toLowerCase().includes(query) ||
-                (tx.customer_name || '').toLowerCase().includes(query) ||
-                (tx.customer_phone || '').includes(query) ||
-                String(tx.transfer_amount || '').includes(query)
+            return items.filter(
+                (tx) =>
+                    (tx.content || '').toLowerCase().includes(query) ||
+                    (tx.customer_name || '').toLowerCase().includes(query) ||
+                    (tx.customer_phone || '').includes(query) ||
+                    String(tx.transfer_amount || '').includes(query)
             );
         };
 
@@ -392,29 +432,40 @@ const LiveModeModule = (function() {
             </div>`;
         }
 
-        return items.map(tx => {
-            // Use transfer_amount and transfer_type (correct API fields)
-            const amount = tx.transfer_amount || 0;
-            const isPositive = tx.transfer_type === 'in';
-            const hasPendingMatch = tx.has_pending_match || (tx.pending_match_skipped && tx.pending_match_options?.length > 0);
-            const escapedContent = escapeHtml(tx.content || '');
-            const fullContent = tx.content || '';
+        return items
+            .map((tx) => {
+                // Use transfer_amount and transfer_type (correct API fields)
+                const amount = tx.transfer_amount || 0;
+                const isPositive = tx.transfer_type === 'in';
+                const hasPendingMatch =
+                    tx.has_pending_match ||
+                    (tx.pending_match_skipped && tx.pending_match_options?.length > 0);
+                const escapedContent = escapeHtml(tx.content || '');
+                const fullContent = tx.content || '';
 
-            if (hasPendingMatch && tx.pending_match_options?.length > 0) {
-                // Row with dropdown
-                // Structure: [{phone, count, customers: [{id, name, phone}]}]
-                const options = tx.pending_match_options.flatMap(opt => {
-                    const customers = opt.customers || [];
-                    return customers.map(c => {
-                        const customerId = c.id || c.customer_id || (c.phone ? `LOCAL_${c.phone}` : '');
-                        const customerName = c.name || c.customer_name || 'N/A';
-                        const customerPhone = c.phone || c.customer_phone || opt.phone || 'N/A';
-                        if (!customerId) return '';
-                        return `<option value="${escapeHtml(customerId)}" data-phone="${escapeHtml(customerPhone)}" data-name="${escapeHtml(customerName)}">${escapeHtml(customerName)} - ${escapeHtml(customerPhone)}</option>`;
-                    }).join('');
-                }).join('');
+                if (hasPendingMatch && tx.pending_match_options?.length > 0) {
+                    // Row with dropdown
+                    // Structure: [{phone, count, customers: [{id, name, phone}]}]
+                    const options = tx.pending_match_options
+                        .flatMap((opt) => {
+                            const customers = opt.customers || [];
+                            return customers
+                                .map((c) => {
+                                    const customerId =
+                                        c.id ||
+                                        c.customer_id ||
+                                        (c.phone ? `LOCAL_${c.phone}` : '');
+                                    const customerName = c.name || c.customer_name || 'N/A';
+                                    const customerPhone =
+                                        c.phone || c.customer_phone || opt.phone || 'N/A';
+                                    if (!customerId) return '';
+                                    return `<option value="${escapeHtml(customerId)}" data-phone="${escapeHtml(customerPhone)}" data-name="${escapeHtml(customerName)}">${escapeHtml(customerName)} - ${escapeHtml(customerPhone)}</option>`;
+                                })
+                                .join('');
+                        })
+                        .join('');
 
-                return `
+                    return `
                     <div class="kanban-card manual has-dropdown" data-id="${tx.id}" data-pending-id="${tx.pending_match_id || ''}">
                         <div class="card-main-row">
                             <span class="card-time">${formatTime(tx.transaction_date)}</span>
@@ -430,9 +481,9 @@ const LiveModeModule = (function() {
                         ${renderDetailRow(tx)}
                     </div>
                 `;
-            } else {
-                // Row with phone input + TPOS suggest - stacked vertically
-                return `
+                } else {
+                    // Row with phone input + TPOS suggest - stacked vertically
+                    return `
                     <div class="kanban-card manual" data-id="${tx.id}">
                         <div class="card-main-row">
                             <span class="card-time">${formatTime(tx.transaction_date)}</span>
@@ -448,8 +499,9 @@ const LiveModeModule = (function() {
                         ${renderDetailRow(tx)}
                     </div>
                 `;
-            }
-        }).join('');
+                }
+            })
+            .join('');
     }
 
     function renderAutoCards(items) {
@@ -460,16 +512,17 @@ const LiveModeModule = (function() {
             </div>`;
         }
 
-        return items.map(tx => {
-            // Use transfer_amount and transfer_type (correct API fields)
-            const amount = tx.transfer_amount || 0;
-            const isPositive = tx.transfer_type === 'in';
-            const methodClass = tx.match_method === 'qr_code' ? 'qr' : 'phone';
-            const methodLabel = tx.match_method === 'qr_code' ? 'QR' : 'SĐT';
-            const escapedContent = escapeHtml(tx.content || '');
-            const fullContent = tx.content || '';
+        return items
+            .map((tx) => {
+                // Use transfer_amount and transfer_type (correct API fields)
+                const amount = tx.transfer_amount || 0;
+                const isPositive = tx.transfer_type === 'in';
+                const methodClass = tx.match_method === 'qr_code' ? 'qr' : 'phone';
+                const methodLabel = tx.match_method === 'qr_code' ? 'QR' : 'SĐT';
+                const escapedContent = escapeHtml(tx.content || '');
+                const fullContent = tx.content || '';
 
-            return `
+                return `
                 <div class="kanban-card auto" data-id="${tx.id}">
                     <div class="card-main-row">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
@@ -485,7 +538,8 @@ const LiveModeModule = (function() {
                     ${renderDetailRow(tx)}
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     function renderConfirmedCards(items) {
@@ -496,25 +550,35 @@ const LiveModeModule = (function() {
             </div>`;
         }
 
-        return items.map(tx => {
-            // Use transfer_amount and transfer_type (correct API fields)
-            const amount = tx.transfer_amount || 0;
-            const isPositive = tx.transfer_type === 'in';
-            const methodClass = tx.match_method === 'qr_code' ? 'qr' :
-                               tx.match_method === 'manual_entry' ? 'manual' : 'phone';
-            const methodLabel = tx.match_method === 'qr_code' ? 'QR' :
-                               tx.match_method === 'manual_entry' ? 'Tay' : 'SĐT';
-            const escapedContent = escapeHtml(tx.content || '');
-            const fullContent = tx.content || '';
+        return items
+            .map((tx) => {
+                // Use transfer_amount and transfer_type (correct API fields)
+                const amount = tx.transfer_amount || 0;
+                const isPositive = tx.transfer_type === 'in';
+                const methodClass =
+                    tx.match_method === 'qr_code'
+                        ? 'qr'
+                        : tx.match_method === 'manual_entry'
+                          ? 'manual'
+                          : 'phone';
+                const methodLabel =
+                    tx.match_method === 'qr_code'
+                        ? 'QR'
+                        : tx.match_method === 'manual_entry'
+                          ? 'Tay'
+                          : 'SĐT';
+                const escapedContent = escapeHtml(tx.content || '');
+                const fullContent = tx.content || '';
 
-            // Chỉ cho phép sửa với giao dịch NHẬP TAY (manual_entry), chưa được kế toán duyệt, và chưa cộng ví
-            // Giao dịch tự động gán (qr_code, phone_match) KHÔNG cho phép sửa trong Live Mode
-            // SECURITY: Nếu đã cộng ví (wallet_processed = true) thì KHÔNG cho phép sửa
-            const canEdit = tx.match_method === 'manual_entry'
-                && tx.verification_status !== 'APPROVED'
-                && tx.wallet_processed !== true;
+                // Chỉ cho phép sửa với giao dịch NHẬP TAY (manual_entry), chưa được kế toán duyệt, và chưa cộng ví
+                // Giao dịch tự động gán (qr_code, phone_match) KHÔNG cho phép sửa trong Live Mode
+                // SECURITY: Nếu đã cộng ví (wallet_processed = true) thì KHÔNG cho phép sửa
+                const canEdit =
+                    tx.match_method === 'manual_entry' &&
+                    tx.verification_status !== 'APPROVED' &&
+                    tx.wallet_processed !== true;
 
-            return `
+                return `
                 <div class="kanban-card confirmed" data-id="${tx.id}">
                     <div class="card-main-row">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
@@ -530,14 +594,20 @@ const LiveModeModule = (function() {
                     ${renderDetailRow(tx)}
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     function updateStats() {
-        const totalGD = state.manualItems.length + state.autoMatchedItems.length + state.confirmedItems.length;
+        const totalGD =
+            state.manualItems.length + state.autoMatchedItems.length + state.confirmedItems.length;
         // Use transfer_amount and filter for incoming only (transfer_type === 'in')
-        const totalAmount = [...state.manualItems, ...state.autoMatchedItems, ...state.confirmedItems]
-            .filter(tx => tx.transfer_type === 'in')
+        const totalAmount = [
+            ...state.manualItems,
+            ...state.autoMatchedItems,
+            ...state.confirmedItems,
+        ]
+            .filter((tx) => tx.transfer_type === 'in')
             .reduce((sum, tx) => sum + (tx.transfer_amount || 0), 0);
 
         const statsEl = document.getElementById('liveStatsTotal');
@@ -578,7 +648,8 @@ const LiveModeModule = (function() {
         if (tposSuggest) {
             if (phone.length < 10) {
                 tposSuggest.className = 'tpos-suggest empty';
-                tposSuggest.textContent = phone.length > 0 ? `${phone.length}/10...` : 'Nhập SĐT...';
+                tposSuggest.textContent =
+                    phone.length > 0 ? `${phone.length}/10...` : 'Nhập SĐT...';
             } else if (phone.length === 10) {
                 // Show loading
                 tposSuggest.className = 'tpos-suggest loading';
@@ -588,7 +659,10 @@ const LiveModeModule = (function() {
                     const customer = await lookupTPOS(phone);
                     if (customer && customer.name) {
                         tposSuggest.className = 'tpos-suggest found';
-                        tposSuggest.textContent = truncateText(customer.name || customer.customer_name, 20);
+                        tposSuggest.textContent = truncateText(
+                            customer.name || customer.customer_name,
+                            20
+                        );
                         tposSuggest.title = customer.name || customer.customer_name;
                     } else {
                         tposSuggest.className = 'tpos-suggest not-found';
@@ -705,10 +779,10 @@ const LiveModeModule = (function() {
                 body: JSON.stringify({
                     phone: phone,
                     name: customerName,
-                    is_manual_entry: true,  // Nhập tay từ Live Mode → chờ kế toán duyệt
+                    is_manual_entry: true, // Nhập tay từ Live Mode → chờ kế toán duyệt
                     entered_by: window.authManager?.getUserInfo()?.username || 'staff',
-                    staff_note: staffNote
-                })
+                    staff_note: staffNote,
+                }),
             });
 
             if (!response.ok) {
@@ -719,12 +793,15 @@ const LiveModeModule = (function() {
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true, staff_note: staffNote })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote }),
             });
 
             if (!hideResponse.ok) {
                 // Partial success - phone was assigned but hide failed
-                showNotification('Đã gán SĐT nhưng chưa xác nhận được. Vui lòng thử xác nhận lại.', 'warning');
+                showNotification(
+                    'Đã gán SĐT nhưng chưa xác nhận được. Vui lòng thử xác nhận lại.',
+                    'warning'
+                );
                 await loadTransactions();
                 return;
             }
@@ -740,18 +817,20 @@ const LiveModeModule = (function() {
                         oldData: null,
                         newData: { txId: String(txId), customerPhone: phone, staffNote: staffNote },
                         entityId: String(txId),
-                        entityType: 'transaction'
+                        entityType: 'transaction',
                     });
                 }
-            } catch (e) { /* audit log error - ignore */ }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
 
             // Move item from manualItems to confirmedItems locally
-            const txIndex = state.manualItems.findIndex(t => String(t.id) === String(txId));
+            const txIndex = state.manualItems.findIndex((t) => String(t.id) === String(txId));
             if (txIndex !== -1) {
                 const tx = state.manualItems[txIndex];
                 tx.is_hidden = true;
                 tx.customer_phone = phone;
-                tx.customer_name = customerName;  // Lấy tên từ gợi ý TPOS
+                tx.customer_name = customerName; // Lấy tên từ gợi ý TPOS
                 tx.match_method = 'manual_entry';
                 tx.staff_note = staffNote;
                 state.manualItems.splice(txIndex, 1);
@@ -760,7 +839,6 @@ const LiveModeModule = (function() {
 
             // Re-render without fetching from API
             renderKanbanBoard();
-
         } catch (err) {
             console.error('assignManual error:', err);
             showNotification(getUserFriendlyError(err), 'error');
@@ -794,15 +872,22 @@ const LiveModeModule = (function() {
 
         try {
             // Resolve pending match using pendingMatchId and customer_id
-            const response = await fetch(`${API_BASE}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    customer_id: customerId.startsWith('LOCAL_') ? customerId : parseInt(customerId),
-                    resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin',
-                    staff_note: staffNote
-                })
-            });
+            const response = await fetch(
+                `${API_BASE}/api/sepay/pending-matches/${pendingMatchId}/resolve`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: customerId.startsWith('LOCAL_')
+                            ? customerId
+                            : parseInt(customerId),
+                        resolved_by:
+                            JSON.parse(localStorage.getItem('n2shop_current_user') || '{}')
+                                .username || 'admin',
+                        staff_note: staffNote,
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 const result = await response.json().catch(() => ({}));
@@ -813,11 +898,14 @@ const LiveModeModule = (function() {
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true, staff_note: staffNote })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote }),
             });
 
             if (!hideResponse.ok) {
-                showNotification(`Đã gán ${customerName} nhưng chưa xác nhận được. Vui lòng thử lại.`, 'warning');
+                showNotification(
+                    `Đã gán ${customerName} nhưng chưa xác nhận được. Vui lòng thử lại.`,
+                    'warning'
+                );
                 await loadTransactions();
                 return;
             }
@@ -825,7 +913,7 @@ const LiveModeModule = (function() {
             showNotification(`Đã gán ${customerName} (${customerPhone}) và xác nhận!`, 'success');
 
             // Move item from manualItems to confirmedItems locally
-            const txIndex = state.manualItems.findIndex(t => String(t.id) === String(txId));
+            const txIndex = state.manualItems.findIndex((t) => String(t.id) === String(txId));
             if (txIndex !== -1) {
                 const tx = state.manualItems[txIndex];
                 tx.is_hidden = true;
@@ -839,7 +927,6 @@ const LiveModeModule = (function() {
 
             // Re-render without fetching from API
             renderKanbanBoard();
-
         } catch (err) {
             console.error('assignFromDropdown error:', err);
             showNotification(getUserFriendlyError(err), 'error');
@@ -861,19 +948,19 @@ const LiveModeModule = (function() {
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true, staff_note: staffNote })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote }),
             });
 
             if (!response.ok) throw new Error('Xác nhận thất bại');
 
             // Move item from autoMatchedItems to confirmedItems locally
-            const txIndex = state.autoMatchedItems.findIndex(t => String(t.id) === String(txId));
+            const txIndex = state.autoMatchedItems.findIndex((t) => String(t.id) === String(txId));
             if (txIndex !== -1) {
                 const tx = state.autoMatchedItems[txIndex];
-                tx.is_hidden = true;  // Mark as confirmed
+                tx.is_hidden = true; // Mark as confirmed
                 tx.staff_note = staffNote;
                 state.autoMatchedItems.splice(txIndex, 1);
-                state.confirmedItems.unshift(tx);  // Add to top of confirmed list
+                state.confirmedItems.unshift(tx); // Add to top of confirmed list
             }
 
             showNotification('Đã xác nhận giao dịch!', 'success');
@@ -886,16 +973,22 @@ const LiveModeModule = (function() {
                         module: 'balance-history',
                         description: 'Xác nhận giao dịch #' + txId + ' (auto-matched)',
                         oldData: null,
-                        newData: { txId: String(txId), customerPhone: confirmedTx?.customer_phone || '', customerName: confirmedTx?.customer_name || '', staffNote: staffNote },
+                        newData: {
+                            txId: String(txId),
+                            customerPhone: confirmedTx?.customer_phone || '',
+                            customerName: confirmedTx?.customer_name || '',
+                            staffNote: staffNote,
+                        },
                         entityId: String(txId),
-                        entityType: 'transaction'
+                        entityType: 'transaction',
                     });
                 }
-            } catch (e) { /* audit log error - ignore */ }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
 
             // Re-render without fetching from API
             renderKanbanBoard();
-
         } catch (err) {
             console.error('confirmAutoMatched error:', err);
             showNotification(getUserFriendlyError(err), 'error');
@@ -907,7 +1000,7 @@ const LiveModeModule = (function() {
 
     function editConfirmedItem(txId) {
         // Mở modal chỉnh sửa có sẵn
-        const tx = state.confirmedItems.find(t => String(t.id) === String(txId));
+        const tx = state.confirmedItems.find((t) => String(t.id) === String(txId));
         if (!tx) return;
 
         // Sử dụng modal editCustomerModal có sẵn trong index.html
@@ -926,7 +1019,7 @@ const LiveModeModule = (function() {
 
             // Store current tx id for form submission
             modal.dataset.txId = txId;
-            modal.dataset.isLiveMode = 'true';  // Flag để biết đang gọi từ Live Mode
+            modal.dataset.isLiveMode = 'true'; // Flag để biết đang gọi từ Live Mode
 
             // Show TPOS lookup container
             if (tposContainer) tposContainer.style.display = 'block';
@@ -1017,7 +1110,6 @@ const LiveModeModule = (function() {
             }
 
             if (window.lucide) lucide.createIcons();
-
         } catch (err) {
             console.error('TPOS lookup error:', err);
             if (loadingEl) loadingEl.style.display = 'none';
@@ -1067,15 +1159,15 @@ const LiveModeModule = (function() {
                 body: JSON.stringify({
                     phone: phone,
                     name: name,
-                    is_manual_entry: true,  // Nhập tay từ Live Mode → chờ kế toán duyệt
-                    entered_by: window.authManager?.getUserInfo()?.username || 'staff'
-                })
+                    is_manual_entry: true, // Nhập tay từ Live Mode → chờ kế toán duyệt
+                    entered_by: window.authManager?.getUserInfo()?.username || 'staff',
+                }),
             });
 
             if (!response.ok) throw new Error('Cập nhật thất bại');
 
             // Update local state
-            const txIndex = state.confirmedItems.findIndex(t => String(t.id) === String(txId));
+            const txIndex = state.confirmedItems.findIndex((t) => String(t.id) === String(txId));
             if (txIndex !== -1) {
                 state.confirmedItems[txIndex].customer_phone = phone;
                 state.confirmedItems[txIndex].customer_name = name;
@@ -1089,7 +1181,6 @@ const LiveModeModule = (function() {
 
             // Re-render
             renderKanbanBoard();
-
         } catch (err) {
             console.error('Update customer error:', err);
             showNotification(getUserFriendlyError(err), 'error');
@@ -1119,7 +1210,7 @@ const LiveModeModule = (function() {
                 startDate: fetchStartDate,
                 endDate: endDate,
                 limit: 1000,
-                showHidden: 'true'  // Include confirmed (hidden) transactions
+                showHidden: 'true', // Include confirmed (hidden) transactions
             });
 
             console.log('[LiveMode] Fetching transactions:', fetchStartDate, 'to', endDate);
@@ -1137,7 +1228,6 @@ const LiveModeModule = (function() {
             state.isLoading = false;
 
             renderKanbanBoard();
-
         } catch (err) {
             console.error('loadTransactions error:', err);
             showNotification(getUserFriendlyError(err), 'error');
@@ -1207,14 +1297,15 @@ const LiveModeModule = (function() {
                     state.sseReconnectAttempts++;
                     // True exponential backoff: 1s, 2s, 4s, 8s... max 30s
                     const delay = Math.min(1000 * Math.pow(2, state.sseReconnectAttempts), 30000);
-                    console.log(`[LiveMode] Reconnecting in ${delay}ms (attempt ${state.sseReconnectAttempts})`);
+                    console.log(
+                        `[LiveMode] Reconnecting in ${delay}ms (attempt ${state.sseReconnectAttempts})`
+                    );
                     setTimeout(connectSSE, delay);
                 } else {
                     console.log('[LiveMode] Max reconnect attempts reached');
                     showNotification('Mất kết nối realtime. Vui lòng tải lại trang.', 'warning');
                 }
             };
-
         } catch (err) {
             console.error('[LiveMode] SSE connection error:', err);
             updateSSEStatus(false);
@@ -1226,7 +1317,11 @@ const LiveModeModule = (function() {
         console.log('[LiveMode] handleSSEMessage:', type);
 
         // All event types should trigger a reload to get fresh data
-        if (type === 'new-transaction' || type === 'customer-info-updated' || type === 'pending-match-created') {
+        if (
+            type === 'new-transaction' ||
+            type === 'customer-info-updated' ||
+            type === 'pending-match-created'
+        ) {
             // Debounce rapid updates - wait 500ms before reloading
             if (state.sseDebounceTimer) {
                 clearTimeout(state.sseDebounceTimer);
@@ -1396,7 +1491,8 @@ const LiveModeModule = (function() {
         console.log('[LiveMode] Initializing Kanban...');
 
         // Load saved preference
-        state.showConfirmed = localStorage.getItem('balanceHistory_livemode_show_confirmed') === 'true';
+        state.showConfirmed =
+            localStorage.getItem('balanceHistory_livemode_show_confirmed') === 'true';
 
         // Initial load
         loadTransactions();
@@ -1557,7 +1653,12 @@ const LiveModeModule = (function() {
             }
         }
 
-        console.log('[LiveMode] Date filter changed:', state.filterStartDate, 'to', state.filterEndDate);
+        console.log(
+            '[LiveMode] Date filter changed:',
+            state.filterStartDate,
+            'to',
+            state.filterEndDate
+        );
 
         // Reload with new date range
         loadTransactions();
@@ -1575,7 +1676,12 @@ const LiveModeModule = (function() {
             state.filterEndTime = endTimeInput.value;
         }
 
-        console.log('[LiveMode] Time filter changed:', state.filterStartTime, 'to', state.filterEndTime);
+        console.log(
+            '[LiveMode] Time filter changed:',
+            state.filterStartTime,
+            'to',
+            state.filterEndTime
+        );
 
         // Reload with new time range
         loadTransactions();
@@ -1614,7 +1720,6 @@ const LiveModeModule = (function() {
         editConfirmedItem,
         toggleConfirmedColumn,
     };
-
 })();
 
 // Export to window

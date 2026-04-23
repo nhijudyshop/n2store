@@ -19,7 +19,9 @@ window.TPOSProductCreator = (function () {
     const TPOS_INSERT_URL = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
 
     // CSV file paths — auto-detect base path for cross-module reuse
-    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : '../purchase-orders/';
+    const _csvBase = window.location.pathname.includes('/purchase-orders/')
+        ? ''
+        : '../purchase-orders/';
     const ATTR_VALUES_CSV = `${_csvBase}product_attribute_values_rows.csv`;
     const ATTR_GROUPS_CSV = `${_csvBase}product_attributes_rows.csv`;
 
@@ -38,7 +40,7 @@ window.TPOSProductCreator = (function () {
         const lines = text.trim().split('\n');
         if (lines.length < 2) return [];
         const headers = lines[0].split(',');
-        return lines.slice(1).map(line => {
+        return lines.slice(1).map((line) => {
             const values = line.split(',');
             const obj = {};
             headers.forEach((h, i) => {
@@ -58,7 +60,7 @@ window.TPOSProductCreator = (function () {
         try {
             const [valuesResp, groupsResp] = await Promise.all([
                 fetch(ATTR_VALUES_CSV),
-                fetch(ATTR_GROUPS_CSV)
+                fetch(ATTR_GROUPS_CSV),
             ]);
 
             if (!valuesResp.ok || !groupsResp.ok) {
@@ -67,23 +69,23 @@ window.TPOSProductCreator = (function () {
 
             const [valuesText, groupsText] = await Promise.all([
                 valuesResp.text(),
-                groupsResp.text()
+                groupsResp.text(),
             ]);
 
             // Build attribute groups map
             const groups = parseCSV(groupsText);
             attrGroupMap = new Map();
-            groups.forEach(g => {
+            groups.forEach((g) => {
                 attrGroupMap.set(g.id, {
                     name: g.name,
-                    display_order: parseInt(g.display_order) || 0
+                    display_order: parseInt(g.display_order) || 0,
                 });
             });
 
             // Build attribute values map
             const values = parseCSV(valuesText);
             attrValueMap = new Map();
-            values.forEach(v => {
+            values.forEach((v) => {
                 attrValueMap.set(v.id, {
                     value: v.value,
                     code: v.code,
@@ -91,11 +93,13 @@ window.TPOSProductCreator = (function () {
                     tpos_attribute_id: parseInt(v.tpos_attribute_id) || 0,
                     attribute_id: v.attribute_id,
                     name_get: v.name_get || '',
-                    sequence: parseInt(v.sequence) || 0
+                    sequence: parseInt(v.sequence) || 0,
                 });
             });
 
-            console.log(`[TPOSCreator] Loaded ${attrValueMap.size} attribute values, ${attrGroupMap.size} attribute groups`);
+            console.log(
+                `[TPOSCreator] Loaded ${attrValueMap.size} attribute values, ${attrGroupMap.size} attribute groups`
+            );
         } catch (error) {
             console.error('[TPOSCreator] Failed to load attribute data:', error);
             throw error;
@@ -120,7 +124,7 @@ window.TPOSProductCreator = (function () {
             resolved.push({
                 ...val,
                 attribute_name: group?.name || '',
-                attribute_display_order: group?.display_order || 0
+                attribute_display_order: group?.display_order || 0,
             });
         }
 
@@ -142,11 +146,13 @@ window.TPOSProductCreator = (function () {
             groups.get(val.attribute_id).push(val);
         }
         // Sort groups by display_order
-        const sorted = new Map([...groups.entries()].sort((a, b) => {
-            const orderA = a[1][0]?.attribute_display_order || 0;
-            const orderB = b[1][0]?.attribute_display_order || 0;
-            return orderA - orderB;
-        }));
+        const sorted = new Map(
+            [...groups.entries()].sort((a, b) => {
+                const orderA = a[1][0]?.attribute_display_order || 0;
+                const orderB = b[1][0]?.attribute_display_order || 0;
+                return orderA - orderB;
+            })
+        );
         return sorted;
     }
 
@@ -183,33 +189,33 @@ window.TPOSProductCreator = (function () {
     /** Shared UOM object */
     const UOM_OBJECT = {
         Id: 1,
-        Name: "Cái",
+        Name: 'Cái',
         NameNoSign: null,
         Rounding: 0.001,
         Active: true,
         Factor: 1,
         FactorInv: 1,
-        UOMType: "reference",
+        UOMType: 'reference',
         CategoryId: 1,
-        CategoryName: "Đơn vị",
+        CategoryName: 'Đơn vị',
         Description: null,
-        ShowUOMType: "Đơn vị gốc của nhóm này",
-        NameGet: "Cái",
+        ShowUOMType: 'Đơn vị gốc của nhóm này',
+        NameGet: 'Cái',
         ShowFactor: 1,
-        DateCreated: "2018-05-25T15:44:44.14+07:00"
+        DateCreated: '2018-05-25T15:44:44.14+07:00',
     };
 
     /** Shared Categ object */
     const CATEG_OBJECT = {
         Id: 2,
-        Name: "Có thể bán",
-        CompleteName: "Có thể bán",
+        Name: 'Có thể bán',
+        CompleteName: 'Có thể bán',
         ParentId: null,
         ParentCompleteName: null,
         ParentLeft: 0,
         ParentRight: 1,
         Sequence: null,
-        Type: "normal",
+        Type: 'normal',
         AccountIncomeCategId: null,
         AccountExpenseCategId: null,
         StockJournalId: null,
@@ -217,11 +223,11 @@ window.TPOSProductCreator = (function () {
         StockAccountOutputCategId: null,
         StockValuationAccountId: null,
         PropertyValuation: null,
-        PropertyCostMethod: "average",
-        NameNoSign: "Co the ban",
+        PropertyCostMethod: 'average',
+        NameNoSign: 'Co the ban',
         IsPos: true,
         Version: null,
-        IsDelete: false
+        IsDelete: false,
     };
 
     /**
@@ -233,8 +239,8 @@ window.TPOSProductCreator = (function () {
             Name: productName,
             NameNoSign: null,
             Description: null,
-            Type: "product",
-            ShowType: "Có thể lưu trữ",
+            Type: 'product',
+            ShowType: 'Có thể lưu trữ',
             ListPrice: sellingPrice,
             DiscountSale: 0,
             DiscountPurchase: 0,
@@ -260,15 +266,15 @@ window.TPOSProductCreator = (function () {
             CategCompleteName: null,
             CategName: null,
             Weight: 0,
-            Tracking: "none",
+            Tracking: 'none',
             DescriptionPurchase: null,
             DescriptionSale: null,
             CompanyId: window.ShopConfig ? window.ShopConfig.getConfig().CompanyId : 1,
             NameGet: null,
             PropertyStockProductionId: null,
             SaleDelay: 0,
-            InvoicePolicy: "order",
-            PurchaseMethod: "receive",
+            InvoicePolicy: 'order',
+            PurchaseMethod: 'receive',
             PropertyValuation: null,
             Valuation: null,
             AvailableInPOS: true,
@@ -328,7 +334,7 @@ window.TPOSProductCreator = (function () {
             UOMLines: [],
             ComboProducts: [],
             ProductSupplierInfos: [],
-            ProductVariants: []
+            ProductVariants: [],
         };
     }
 
@@ -346,9 +352,9 @@ window.TPOSProductCreator = (function () {
                     Name: first.attribute_name,
                     Code: first.attribute_name,
                     Sequence: null,
-                    CreateVariant: true
+                    CreateVariant: true,
                 },
-                Values: values.map(v => ({
+                Values: values.map((v) => ({
                     Id: v.tpos_id,
                     Name: v.value,
                     Code: v.code,
@@ -357,9 +363,9 @@ window.TPOSProductCreator = (function () {
                     AttributeName: v.attribute_name,
                     PriceExtra: null,
                     NameGet: v.name_get,
-                    DateCreated: null
+                    DateCreated: null,
                 })),
-                AttributeId: first.tpos_attribute_id
+                AttributeId: first.tpos_attribute_id,
             });
         }
         return lines;
@@ -372,7 +378,7 @@ window.TPOSProductCreator = (function () {
      */
     function cartesianProduct(arrays) {
         if (arrays.length === 0) return [];
-        if (arrays.length === 1) return arrays[0].map(v => [v]);
+        if (arrays.length === 1) return arrays[0].map((v) => [v]);
 
         const result = [];
         const [first, ...rest] = arrays;
@@ -397,9 +403,12 @@ window.TPOSProductCreator = (function () {
         const valueArrays = [...attrGroups.values()];
         const allCombinations = cartesianProduct(valueArrays);
 
-        return allCombinations.map(combo => {
+        return allCombinations.map((combo) => {
             // NameGet uses REVERSED order (per Section 13.8)
-            const variantName = `${baseProductCode} (${[...combo].reverse().map(v => v.value).join(', ')})`;
+            const variantName = `${baseProductCode} (${[...combo]
+                .reverse()
+                .map((v) => v.value)
+                .join(', ')})`;
 
             return {
                 Id: 0,
@@ -441,15 +450,15 @@ window.TPOSProductCreator = (function () {
                 Version: 0,
                 Description: null,
                 LastUpdated: null,
-                Type: "product",
+                Type: 'product',
                 CategId: 0,
                 CostMethod: null,
-                InvoicePolicy: "order",
+                InvoicePolicy: 'order',
                 Variant_TeamId: 0,
                 Name: variantName,
                 PropertyCostMethod: null,
                 PropertyValuation: null,
-                PurchaseMethod: "receive",
+                PurchaseMethod: 'receive',
                 SaleDelay: 0,
                 Tracking: null,
                 Valuation: null,
@@ -476,7 +485,7 @@ window.TPOSProductCreator = (function () {
                 TaxAmount: null,
                 Error: null,
                 // AttributeValues keep ORIGINAL order (not reversed)
-                AttributeValues: combo.map(v => ({
+                AttributeValues: combo.map((v) => ({
                     Id: v.tpos_id,
                     Name: v.value,
                     Code: null,
@@ -485,8 +494,8 @@ window.TPOSProductCreator = (function () {
                     AttributeName: v.attribute_name,
                     PriceExtra: null,
                     NameGet: v.name_get,
-                    DateCreated: null
-                }))
+                    DateCreated: null,
+                })),
             };
         });
     }
@@ -567,11 +576,7 @@ window.TPOSProductCreator = (function () {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
 
-                canvas.toBlob(
-                    (resizedBlob) => resolve(resizedBlob || blob),
-                    'image/jpeg',
-                    quality
-                );
+                canvas.toBlob((resizedBlob) => resolve(resizedBlob || blob), 'image/jpeg', quality);
             };
             img.onerror = () => resolve(blob); // fallback to original
             img.src = URL.createObjectURL(blob);
@@ -603,8 +608,11 @@ window.TPOSProductCreator = (function () {
 
             // Loại false-positive: chỉ giữ SP có DefaultCode === productCode
             // hoặc DefaultCode = productCode + {1-4 ký tự variant}  (vd Q130T, Q130D1)
-            const re = new RegExp(`^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z0-9]{0,4}$`, 'i');
-            const matches = variants.filter(v => re.test(v.DefaultCode || ''));
+            const re = new RegExp(
+                `^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z0-9]{0,4}$`,
+                'i'
+            );
+            const matches = variants.filter((v) => re.test(v.DefaultCode || ''));
             return { exists: matches.length > 0, variants: matches };
         } catch (err) {
             console.warn(`[TPOSCreator] checkProductExists ${productCode} error:`, err);
@@ -622,7 +630,7 @@ window.TPOSProductCreator = (function () {
             try {
                 const response = await window.TPOSClient.authenticatedFetch(TPOS_INSERT_URL, {
                     method: 'POST',
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
                 });
 
                 // Success
@@ -643,7 +651,7 @@ window.TPOSProductCreator = (function () {
                 if (response.status === 429 && attempt < maxRetries) {
                     const waitMs = 2000 * (attempt + 1);
                     console.warn(`[TPOSCreator] Rate limited (429), retrying in ${waitMs}ms...`);
-                    await new Promise(r => setTimeout(r, waitMs));
+                    await new Promise((r) => setTimeout(r, waitMs));
                     continue;
                 }
 
@@ -651,7 +659,6 @@ window.TPOSProductCreator = (function () {
                 const errorText = await response.text();
                 console.error(`[TPOSCreator] TPOS API error ${response.status}:`, errorText);
                 return { success: false, error: `TPOS API ${response.status}: ${errorText}` };
-
             } catch (error) {
                 console.error('[TPOSCreator] Network error:', error);
                 return { success: false, error: error.message };
@@ -706,7 +713,10 @@ window.TPOSProductCreator = (function () {
         if (!nameGet) return [];
         const match = nameGet.match(/\(([^)]+)\)\s*$/);
         if (!match) return [];
-        return match[1].split(',').map(s => s.trim()).filter(Boolean);
+        return match[1]
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
     }
 
     /**
@@ -716,7 +726,10 @@ window.TPOSProductCreator = (function () {
         if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
             return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
         }
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, d => d === 'đ' ? 'd' : 'D');
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, (d) => (d === 'đ' ? 'd' : 'D'));
     }
 
     /**
@@ -725,7 +738,9 @@ window.TPOSProductCreator = (function () {
      * Returns array of { itemId, barcode, tposVariantId } for batchUpdateSyncResults
      */
     function matchVariantBarcodes(groupItems, responseVariants) {
-        console.log(`[TPOSCreator] matchVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
+        console.log(
+            `[TPOSCreator] matchVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`
+        );
 
         const updates = [];
         const usedVariantIds = new Set();
@@ -738,39 +753,49 @@ window.TPOSProductCreator = (function () {
             // Strategy 1: Match by TPOS attribute value IDs (most reliable)
             if (!matched && item.selectedAttributeValueIds?.length > 0 && attrValueMap) {
                 const itemTposIds = item.selectedAttributeValueIds
-                    .map(uuid => attrValueMap.get(uuid)?.tpos_id)
-                    .filter(id => id > 0)
+                    .map((uuid) => attrValueMap.get(uuid)?.tpos_id)
+                    .filter((id) => id > 0)
                     .sort((a, b) => a - b);
 
                 if (itemTposIds.length > 0) {
-                    matched = responseVariants.find(v => {
+                    matched = responseVariants.find((v) => {
                         if (usedVariantIds.has(v.Id)) return false;
                         if (!v.AttributeValues?.length) return false;
-                        const vTposIds = v.AttributeValues
-                            .map(a => a.Id)
-                            .sort((a, b) => a - b);
-                        return itemTposIds.length === vTposIds.length
-                            && itemTposIds.every((id, i) => id === vTposIds[i]);
+                        const vTposIds = v.AttributeValues.map((a) => a.Id).sort((a, b) => a - b);
+                        return (
+                            itemTposIds.length === vTposIds.length &&
+                            itemTposIds.every((id, i) => id === vTposIds[i])
+                        );
                     });
-                    if (matched) console.log(`[TPOSCreator] ✓ Matched "${item.variant}" by TPOS ID → ${matched.DefaultCode}`);
+                    if (matched)
+                        console.log(
+                            `[TPOSCreator] ✓ Matched "${item.variant}" by TPOS ID → ${matched.DefaultCode}`
+                        );
                 }
             }
 
             // Strategy 2: Match by normalized name (fallback)
             if (!matched) {
-                const itemAttrs = item.variant.split(/[\/,|]/).map(s => removeDiacritics(s.trim()).toUpperCase()).filter(Boolean).sort();
+                const itemAttrs = item.variant
+                    .split(/[\/,|]/)
+                    .map((s) => removeDiacritics(s.trim()).toUpperCase())
+                    .filter(Boolean)
+                    .sort();
                 const itemKey = itemAttrs.join('|');
                 console.log(`[TPOSCreator] Trying name match: "${item.variant}" → [${itemAttrs}]`);
 
-                matched = responseVariants.find(v => {
+                matched = responseVariants.find((v) => {
                     if (usedVariantIds.has(v.Id)) return false;
                     const vAttrs = extractVariantAttrs(v.NameGet || v.Name)
-                        .map(s => removeDiacritics(s.trim()).toUpperCase())
+                        .map((s) => removeDiacritics(s.trim()).toUpperCase())
                         .filter(Boolean)
                         .sort();
                     return vAttrs.join('|') === itemKey;
                 });
-                if (matched) console.log(`[TPOSCreator] ✓ Matched "${item.variant}" by name → ${matched.DefaultCode}`);
+                if (matched)
+                    console.log(
+                        `[TPOSCreator] ✓ Matched "${item.variant}" by name → ${matched.DefaultCode}`
+                    );
             }
 
             if (matched) {
@@ -778,14 +803,16 @@ window.TPOSProductCreator = (function () {
                 updates.push({
                     itemId: item.id,
                     barcode: matched.Barcode || matched.DefaultCode,
-                    tposVariantId: matched.Id
+                    tposVariantId: matched.Id,
                 });
             } else {
                 console.warn(`[TPOSCreator] ✗ No TPOS variant match for "${item.variant}"`);
             }
         }
 
-        console.log(`[TPOSCreator] Total updates: ${updates.length}/${groupItems.filter(i => i.variant).length}`);
+        console.log(
+            `[TPOSCreator] Total updates: ${updates.length}/${groupItems.filter((i) => i.variant).length}`
+        );
         return updates.length > 0 ? updates : null;
     }
 
@@ -825,7 +852,7 @@ window.TPOSProductCreator = (function () {
             // 2. Update variant barcodes
             if (variantUpdates && variantUpdates.length > 0) {
                 for (const update of variantUpdates) {
-                    const item = allItems.find(i => i.id === update.itemId);
+                    const item = allItems.find((i) => i.id === update.itemId);
                     if (item && update.barcode) {
                         if (!item.parentProductCode) {
                             item.parentProductCode = item.productCode;
@@ -848,7 +875,9 @@ window.TPOSProductCreator = (function () {
         }
 
         const totalItems = groupResults.reduce((sum, g) => sum + (g.itemIds?.length || 0), 0);
-        console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`);
+        console.log(
+            `[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`
+        );
     }
 
     // =====================================================
@@ -862,7 +891,7 @@ window.TPOSProductCreator = (function () {
      */
     async function processGroup(orderId, groupItems) {
         // Skip if all items already synced to TPOS
-        if (groupItems.every(i => i.tposSynced)) {
+        if (groupItems.every((i) => i.tposSynced)) {
             console.log(`[TPOSCreator] Skipping ${groupItems[0].productCode} — already synced`);
             return { success: true, productCode: groupItems[0].productCode, skipped: true };
         }
@@ -872,12 +901,12 @@ window.TPOSProductCreator = (function () {
         const productName = firstItem.productName.trim().toUpperCase();
         const purchasePrice = firstItem.purchasePrice || 0;
         const sellingPrice = firstItem.sellingPrice || 0;
-        const itemIds = groupItems.map(i => i.id);
+        const itemIds = groupItems.map((i) => i.id);
 
         // Collect ALL unique attribute IDs from ALL items in this group
         const allAttrIds = new Set();
         for (const item of groupItems) {
-            (item.selectedAttributeValueIds || []).forEach(id => allAttrIds.add(id));
+            (item.selectedAttributeValueIds || []).forEach((id) => allAttrIds.add(id));
         }
 
         // Collect first available productImages URL from any item in the group
@@ -895,16 +924,18 @@ window.TPOSProductCreator = (function () {
             // Pre-check TPOS: nếu mã (hoặc biến thể của mã) đã tồn tại → skip POST
             const existing = await checkProductExists(productCode);
             if (existing.exists) {
-                console.log(`[TPOSCreator] ${productCode} đã tồn tại trên TPOS (${existing.variants.length} SP) — skip upload`);
+                console.log(
+                    `[TPOSCreator] ${productCode} đã tồn tại trên TPOS (${existing.variants.length} SP) — skip upload`
+                );
                 const productData = {
                     Id: existing.variants[0].ProductTmplId,
-                    ProductVariants: existing.variants.map(v => ({
+                    ProductVariants: existing.variants.map((v) => ({
                         Id: v.Id,
                         Barcode: v.Barcode || v.DefaultCode,
                         DefaultCode: v.DefaultCode,
                         NameGet: v.NameGet || null,
-                        AttributeValues: v.AttributeValues || null
-                    }))
+                        AttributeValues: v.AttributeValues || null,
+                    })),
                 };
 
                 // Need combos to match variant barcodes if items have variants
@@ -923,9 +954,17 @@ window.TPOSProductCreator = (function () {
                 }
 
                 return {
-                    success: true, productCode, alreadyExists: true,
+                    success: true,
+                    productCode,
+                    alreadyExists: true,
                     itemIds,
-                    syncData: { status: 'success', tposProductId: productData.Id, error: null, variantUpdates, tposImageUrl: null }
+                    syncData: {
+                        status: 'success',
+                        tposProductId: productData.Id,
+                        error: null,
+                        variantUpdates,
+                        tposImageUrl: null,
+                    },
                 };
             }
 
@@ -934,7 +973,9 @@ window.TPOSProductCreator = (function () {
             if (imageUrl) {
                 imageBase64 = await convertImageToBase64(imageUrl);
                 if (imageBase64) {
-                    console.log(`[TPOSCreator] Image converted for ${productCode} (${Math.round(imageBase64.length / 1024)}KB base64)`);
+                    console.log(
+                        `[TPOSCreator] Image converted for ${productCode} (${Math.round(imageBase64.length / 1024)}KB base64)`
+                    );
                 }
             }
 
@@ -980,7 +1021,9 @@ window.TPOSProductCreator = (function () {
 
                 // If product already exists on TPOS, fetch existing data
                 if (result.alreadyExists && allCombinations) {
-                    console.log(`[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`);
+                    console.log(
+                        `[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`
+                    );
                     try {
                         const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet,AttributeValues`;
                         console.log(`[TPOSCreator] Fetching: ${productUrl}`);
@@ -988,22 +1031,28 @@ window.TPOSProductCreator = (function () {
                         if (resp.ok) {
                             const fetchData = await resp.json();
                             const variants = fetchData.value || [];
-                            console.log(`[TPOSCreator] Fetched ${variants.length} product(s) for ${productCode}:`, variants.map(v => `${v.DefaultCode} ${v.NameGet || ''}`));
+                            console.log(
+                                `[TPOSCreator] Fetched ${variants.length} product(s) for ${productCode}:`,
+                                variants.map((v) => `${v.DefaultCode} ${v.NameGet || ''}`)
+                            );
                             if (variants.length > 0) {
                                 productData = {
                                     Id: variants[0].ProductTmplId,
-                                    ProductVariants: variants.map(v => ({
+                                    ProductVariants: variants.map((v) => ({
                                         Id: v.Id,
                                         Barcode: v.DefaultCode,
                                         DefaultCode: v.DefaultCode,
                                         NameGet: v.NameGet || null,
-                                        AttributeValues: v.AttributeValues || null
-                                    }))
+                                        AttributeValues: v.AttributeValues || null,
+                                    })),
                                 };
                             }
                         }
                     } catch (fetchErr) {
-                        console.warn(`[TPOSCreator] Failed to fetch existing product ${productCode}:`, fetchErr);
+                        console.warn(
+                            `[TPOSCreator] Failed to fetch existing product ${productCode}:`,
+                            fetchErr
+                        );
                     }
                 }
 
@@ -1018,23 +1067,47 @@ window.TPOSProductCreator = (function () {
 
                 // Return result data (Firestore write is batched in syncOrderToTPOS)
                 return {
-                    success: true, productCode, alreadyExists: result.alreadyExists,
+                    success: true,
+                    productCode,
+                    alreadyExists: result.alreadyExists,
                     itemIds,
-                    syncData: { status: 'success', tposProductId: tposId, error: null, variantUpdates, tposImageUrl: tposImgUrl }
+                    syncData: {
+                        status: 'success',
+                        tposProductId: tposId,
+                        error: null,
+                        variantUpdates,
+                        tposImageUrl: tposImgUrl,
+                    },
                 };
             } else {
                 return {
-                    success: false, productCode, error: result.error,
+                    success: false,
+                    productCode,
+                    error: result.error,
                     itemIds,
-                    syncData: { status: 'failed', tposProductId: null, error: result.error, variantUpdates: null, tposImageUrl: null }
+                    syncData: {
+                        status: 'failed',
+                        tposProductId: null,
+                        error: result.error,
+                        variantUpdates: null,
+                        tposImageUrl: null,
+                    },
                 };
             }
         } catch (error) {
             console.error(`[TPOSCreator] Error processing ${productCode}:`, error);
             return {
-                success: false, productCode, error: error.message,
+                success: false,
+                productCode,
+                error: error.message,
                 itemIds,
-                syncData: { status: 'failed', tposProductId: null, error: error.message, variantUpdates: null, tposImageUrl: null }
+                syncData: {
+                    status: 'failed',
+                    tposProductId: null,
+                    error: error.message,
+                    variantUpdates: null,
+                    tposImageUrl: null,
+                },
             };
         }
     }
@@ -1049,8 +1122,10 @@ window.TPOSProductCreator = (function () {
             if (lastResult.success || lastResult.skipped) return lastResult;
             if (attempt < maxRetries) {
                 const waitMs = 1000 * attempt;
-                console.warn(`[TPOSCreator] Retry ${attempt}/${maxRetries} for ${groupItems[0]?.productCode}, waiting ${waitMs}ms...`);
-                await new Promise(r => setTimeout(r, waitMs));
+                console.warn(
+                    `[TPOSCreator] Retry ${attempt}/${maxRetries} for ${groupItems[0]?.productCode}, waiting ${waitMs}ms...`
+                );
+                await new Promise((r) => setTimeout(r, waitMs));
             }
         }
         return lastResult;
@@ -1080,7 +1155,9 @@ window.TPOSProductCreator = (function () {
 
             // Step 3: Process groups in parallel batches
             const groupEntries = [...groups.entries()];
-            console.log(`[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`);
+            console.log(
+                `[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`
+            );
 
             // Process in batches with single 'processing' status update per batch
             const results = [];
@@ -1090,7 +1167,7 @@ window.TPOSProductCreator = (function () {
                 // Collect all itemIds in this batch, mark 'processing' in ONE transaction
                 const batchItemIds = [];
                 for (const [, groupItems] of batch) {
-                    if (!groupItems.every(item => item.tposSynced)) {
+                    if (!groupItems.every((item) => item.tposSynced)) {
                         for (const item of groupItems) batchItemIds.push(item.id);
                     }
                 }
@@ -1106,9 +1183,10 @@ window.TPOSProductCreator = (function () {
                 // Collect results and update in-memory
                 const syncUpdates = [];
                 for (const r of batchResults) {
-                    const result = r.status === 'fulfilled'
-                        ? r.value
-                        : { success: false, error: r.reason?.message || 'Unknown error' };
+                    const result =
+                        r.status === 'fulfilled'
+                            ? r.value
+                            : { success: false, error: r.reason?.message || 'Unknown error' };
                     results.push(result);
                     if (result.itemIds && result.syncData) {
                         syncUpdates.push({ itemIds: result.itemIds, syncData: result.syncData });
@@ -1120,7 +1198,7 @@ window.TPOSProductCreator = (function () {
 
                 // Small delay between batches to avoid rate limiting
                 if (i + TPOS_SYNC_CONCURRENCY < groupEntries.length) {
-                    await new Promise(r => setTimeout(r, 300));
+                    await new Promise((r) => setTimeout(r, 300));
                 }
             }
 
@@ -1147,15 +1225,17 @@ window.TPOSProductCreator = (function () {
                         'warning'
                     );
                 } else {
-                    const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
-                    window.notificationManager.show(
-                        `Đồng bộ TPOS thất bại: ${errors}`,
-                        'error'
-                    );
+                    const errors = results
+                        .filter((r) => !r.success)
+                        .map((r) => r.error)
+                        .join('; ');
+                    window.notificationManager.show(`Đồng bộ TPOS thất bại: ${errors}`, 'error');
                 }
             }
 
-            console.log(`[TPOSCreator] Sync complete: ${successCount} success, ${failCount} failed`);
+            console.log(
+                `[TPOSCreator] Sync complete: ${successCount} success, ${failCount} failed`
+            );
 
             // Save updated items to PostgreSQL (single write at the end)
             if (successCount > 0) {
@@ -1171,14 +1251,10 @@ window.TPOSProductCreator = (function () {
             }
 
             return { successCount, failCount, results };
-
         } catch (error) {
             console.error('[TPOSCreator] Sync failed:', error);
             if (window.notificationManager) {
-                window.notificationManager.show(
-                    `Lỗi đồng bộ TPOS: ${error.message}`,
-                    'error'
-                );
+                window.notificationManager.show(`Lỗi đồng bộ TPOS: ${error.message}`, 'error');
             }
             return { successCount: 0, failCount: 1, error: error.message };
         }
@@ -1192,7 +1268,9 @@ window.TPOSProductCreator = (function () {
      * @returns {Object} { successCount, failCount, results }
      */
     async function retrySyncItems(orderId, failedItems) {
-        console.log(`[TPOSCreator] Retrying sync for ${failedItems.length} failed items in order ${orderId}`);
+        console.log(
+            `[TPOSCreator] Retrying sync for ${failedItems.length} failed items in order ${orderId}`
+        );
 
         try {
             await loadAttributeData();
@@ -1220,9 +1298,10 @@ window.TPOSProductCreator = (function () {
 
                 const syncUpdates = [];
                 for (const r of batchResults) {
-                    const result = r.status === 'fulfilled'
-                        ? r.value
-                        : { success: false, error: r.reason?.message || 'Unknown error' };
+                    const result =
+                        r.status === 'fulfilled'
+                            ? r.value
+                            : { success: false, error: r.reason?.message || 'Unknown error' };
                     results.push(result);
                     if (result.itemIds && result.syncData) {
                         syncUpdates.push({ itemIds: result.itemIds, syncData: result.syncData });
@@ -1233,12 +1312,15 @@ window.TPOSProductCreator = (function () {
                 }
 
                 if (i + TPOS_SYNC_CONCURRENCY < groupEntries.length) {
-                    await new Promise(r => setTimeout(r, 300));
+                    await new Promise((r) => setTimeout(r, 300));
                 }
             }
 
-            let successCount = 0, failCount = 0;
-            for (const r of results) { r.success ? successCount++ : failCount++; }
+            let successCount = 0,
+                failCount = 0;
+            for (const r of results) {
+                r.success ? successCount++ : failCount++;
+            }
 
             // Save to PostgreSQL
             if (successCount > 0) {
@@ -1248,22 +1330,33 @@ window.TPOSProductCreator = (function () {
                         // Load full order, merge updated failed items back
                         const fullOrder = await service.getOrderById(orderId);
                         if (fullOrder?.items) {
-                            const failedMap = new Map(failedItems.map(i => [i.id, i]));
-                            const mergedItems = fullOrder.items.map(i => failedMap.get(i.id) || i);
+                            const failedMap = new Map(failedItems.map((i) => [i.id, i]));
+                            const mergedItems = fullOrder.items.map(
+                                (i) => failedMap.get(i.id) || i
+                            );
                             await service.updateOrder(orderId, { items: mergedItems });
                             console.log('[TPOSCreator] Saved retry results to PostgreSQL');
                         }
                     }
                 } catch (pgErr) {
-                    console.warn('[TPOSCreator] Failed to save retry to PostgreSQL:', pgErr.message);
+                    console.warn(
+                        '[TPOSCreator] Failed to save retry to PostgreSQL:',
+                        pgErr.message
+                    );
                 }
             }
 
             if (window.notificationManager) {
                 if (failCount === 0) {
-                    window.notificationManager.show(`Upload lại thành công ${successCount} sản phẩm!`, 'success');
+                    window.notificationManager.show(
+                        `Upload lại thành công ${successCount} sản phẩm!`,
+                        'success'
+                    );
                 } else {
-                    window.notificationManager.show(`Upload lại: ${successCount} OK, ${failCount} thất bại`, 'warning');
+                    window.notificationManager.show(
+                        `Upload lại: ${successCount} OK, ${failCount} thất bại`,
+                        'warning'
+                    );
                 }
             }
 
@@ -1291,9 +1384,8 @@ window.TPOSProductCreator = (function () {
         buildProductVariants,
         createTPOSProduct,
         checkProductExists,
-        convertImageToBase64
+        convertImageToBase64,
     };
-
 })();
 
 console.log('[TPOSCreator] TPOS Product Creator loaded');

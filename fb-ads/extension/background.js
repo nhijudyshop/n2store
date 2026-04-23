@@ -4,13 +4,19 @@
 const N2_ADS_URL = 'https://nhijudyshop.github.io/n2store/fb-ads/index.html';
 const FB_APP_ID = '1290728302927895';
 const OAUTH_REDIRECT = 'https://www.facebook.com/connect/login_success.html';
-const OAUTH_SCOPES = 'ads_management,ads_read,business_management,pages_read_engagement,pages_manage_ads';
+const OAUTH_SCOPES =
+    'ads_management,ads_read,business_management,pages_read_engagement,pages_manage_ads';
 
 // =====================================================
 // STATE
 // =====================================================
 let state = {
-    status: 'idle', step: 0, message: '', token: null, error: null, startedAt: null,
+    status: 'idle',
+    step: 0,
+    message: '',
+    token: null,
+    error: null,
+    startedAt: null,
 };
 
 function setState(updates) {
@@ -23,7 +29,9 @@ function setState(updates) {
 // =====================================================
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.action === 'auto-login') {
-        doAutoLogin().then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
+        doAutoLogin()
+            .then((r) => sendResponse(r))
+            .catch((e) => sendResponse({ success: false, error: e.message }));
         return true;
     }
     if (msg.action === 'get-state') {
@@ -31,7 +39,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return false;
     }
     if (msg.action === 'reset') {
-        setState({ status: 'idle', step: 0, message: '', token: null, error: null, startedAt: null });
+        setState({
+            status: 'idle',
+            step: 0,
+            message: '',
+            token: null,
+            error: null,
+            startedAt: null,
+        });
         sendResponse({ ok: true });
         return false;
     }
@@ -42,11 +57,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // =====================================================
 async function doAutoLogin() {
     // Step 1: Check FB cookies
-    setState({ status: 'working', step: 1, message: 'Kiểm tra đăng nhập Facebook...', startedAt: Date.now(), error: null });
+    setState({
+        status: 'working',
+        step: 1,
+        message: 'Kiểm tra đăng nhập Facebook...',
+        startedAt: Date.now(),
+        error: null,
+    });
 
     const cookies = await chrome.cookies.getAll({ domain: '.facebook.com' });
     const cookieMap = {};
-    (cookies || []).forEach(c => { cookieMap[c.name] = c.value; });
+    (cookies || []).forEach((c) => {
+        cookieMap[c.name] = c.value;
+    });
 
     if (!cookieMap['c_user'] || !cookieMap['xs']) {
         setState({ status: 'error', step: 1, error: 'Hãy mở facebook.com và đăng nhập trước.' });
@@ -64,21 +87,35 @@ async function doAutoLogin() {
 
         const token = await waitForOAuthRedirect(tab.id, 30000);
 
-        try { await chrome.tabs.remove(tab.id); } catch (e) {}
+        try {
+            await chrome.tabs.remove(tab.id);
+        } catch (e) {}
 
         if (!token) {
-            setState({ status: 'error', step: 2, error: 'Không nhận được token. Có thể cần approve app trên popup Facebook.' });
+            setState({
+                status: 'error',
+                step: 2,
+                error: 'Không nhận được token. Có thể cần approve app trên popup Facebook.',
+            });
             return { success: false, error: 'OAuth timeout' };
         }
 
         // Step 3: Open N2 Ads Manager
-        setState({ status: 'working', step: 3, message: 'Đang đăng nhập N2 Ads Manager...', token });
+        setState({
+            status: 'working',
+            step: 3,
+            message: 'Đang đăng nhập N2 Ads Manager...',
+            token,
+        });
         await openWithToken(token);
         setState({ status: 'success', step: 3, message: 'Đăng nhập thành công!' });
         return { success: true };
-
     } catch (error) {
-        if (tab) { try { await chrome.tabs.remove(tab.id); } catch (e) {} }
+        if (tab) {
+            try {
+                await chrome.tabs.remove(tab.id);
+            } catch (e) {}
+        }
         setState({ status: 'error', step: 2, error: error.message });
         return { success: false, error: error.message };
     }
@@ -105,7 +142,10 @@ function waitForOAuthRedirect(tabId, timeout) {
                 const match = hashParams.match(/access_token=([^&]+)/);
                 const token = match ? decodeURIComponent(match[1]) : null;
 
-                console.log('[N2-BG] OAuth token received!', token ? token.substring(0, 20) + '...' : 'null');
+                console.log(
+                    '[N2-BG] OAuth token received!',
+                    token ? token.substring(0, 20) + '...' : 'null'
+                );
                 setState({ status: 'working', step: 2, message: 'Token nhận được!' });
                 resolve(token);
             }
@@ -115,7 +155,9 @@ function waitForOAuthRedirect(tabId, timeout) {
                 done = true;
                 chrome.tabs.onUpdated.removeListener(listener);
                 const errorMatch = url.match(/error_description=([^&]+)/);
-                const errorMsg = errorMatch ? decodeURIComponent(errorMatch[1].replace(/\+/g, ' ')) : 'User denied';
+                const errorMsg = errorMatch
+                    ? decodeURIComponent(errorMatch[1].replace(/\+/g, ' '))
+                    : 'User denied';
                 setState({ status: 'error', step: 2, error: errorMsg });
                 resolve(null);
             }

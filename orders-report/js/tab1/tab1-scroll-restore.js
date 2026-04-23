@@ -43,12 +43,17 @@
     }
 
     function clearState() {
-        try { sessionStorage.removeItem(STORAGE_KEY); } catch (_) { /* noop */ }
+        try {
+            sessionStorage.removeItem(STORAGE_KEY);
+        } catch (_) {
+            /* noop */
+        }
     }
 
     function getDisplayedLength() {
         if (Array.isArray(window.displayedData)) return window.displayedData.length;
-        if (typeof displayedData !== 'undefined' && Array.isArray(displayedData)) return displayedData.length;
+        if (typeof displayedData !== 'undefined' && Array.isArray(displayedData))
+            return displayedData.length;
         return 0;
     }
 
@@ -100,7 +105,10 @@
         if (currentLen === 0) return; // chưa có data, chờ lần render sau
         if (state.campaign && state.campaign !== getCurrentCampaignKey()) return;
         // Cho phép chênh lệch nhỏ (±20) vì có thể có đơn mới vào qua realtime
-        if (state.displayedLength && Math.abs(currentLen - state.displayedLength) > Math.max(20, state.displayedLength * 0.1)) {
+        if (
+            state.displayedLength &&
+            Math.abs(currentLen - state.displayedLength) > Math.max(20, state.displayedLength * 0.1)
+        ) {
             return;
         }
 
@@ -115,11 +123,11 @@
             if (wrapper.scrollHeight >= needed) break;
 
             if (!triggerLoadMoreIfPossible()) break;
-            await new Promise(r => setTimeout(r, RESTORE_TICK_MS));
+            await new Promise((r) => setTimeout(r, RESTORE_TICK_MS));
 
             // Nếu scrollHeight không tăng thêm 2 tick liền, coi như không còn data
             if (wrapper.scrollHeight === lastScrollHeight) {
-                await new Promise(r => setTimeout(r, RESTORE_TICK_MS));
+                await new Promise((r) => setTimeout(r, RESTORE_TICK_MS));
                 if (wrapper.scrollHeight === lastScrollHeight) break;
             }
             lastScrollHeight = wrapper.scrollHeight;

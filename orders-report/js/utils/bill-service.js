@@ -238,7 +238,9 @@ const BillService = (function () {
                 const price = item.PriceUnit || item.Price || 0;
                 const total = quantity * price;
                 const productName = item.ProductName || item.ProductNameGet || '';
-                const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(item) : 0;
+                const warehouseSTT = window.WebWarehouseCache
+                    ? window.WebWarehouseCache.getSTT(item)
+                    : 0;
                 const displayName = `${warehouseSTT} - ${productName}`;
                 const uomName = item.ProductUOMName || 'Cái';
                 const note = item.Note || '';
@@ -1183,7 +1185,6 @@ ${
 
         // Fallback if onload doesn't fire
         setTimeout(triggerPrint, 2000);
-
     }
 
     /**
@@ -1260,7 +1261,9 @@ ${
                 smallCanvas.height = Math.round(canvas.height * ratio);
                 const ctx = smallCanvas.getContext('2d');
                 ctx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
-                blob = await new Promise((resolve) => smallCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+                blob = await new Promise((resolve) =>
+                    smallCanvas.toBlob(resolve, 'image/jpeg', 0.6)
+                );
             }
 
             console.log(`[BILL-SERVICE] Image size: ${(blob.size / 1024).toFixed(0)}KB`);
@@ -1298,7 +1301,8 @@ ${
                 // Use pre-generated content_id
             } else {
                 // Generate bill image (reuse pre-generated blob if available)
-                const imageBlob = options.preGeneratedBlob || await generateBillImage(orderResult, options);
+                const imageBlob =
+                    options.preGeneratedBlob || (await generateBillImage(orderResult, options));
 
                 // Convert blob to File for upload
                 const isJpeg = imageBlob.type === 'image/jpeg';
@@ -1328,7 +1332,9 @@ ${
                 }
 
                 if (!contentId) {
-                    throw new Error('Upload failed - no content id returned: ' + JSON.stringify(uploadResult));
+                    throw new Error(
+                        'Upload failed - no content id returned: ' + JSON.stringify(uploadResult)
+                    );
                 }
             }
 
@@ -1349,9 +1355,10 @@ ${
                         const inboxConversations = result.conversations.filter(
                             (conv) => conv.type === 'INBOX'
                         );
-                        convId = inboxConversations.length > 0
-                            ? inboxConversations[0].id
-                            : result.conversations[0].id;
+                        convId =
+                            inboxConversations.length > 0
+                                ? inboxConversations[0].id
+                                : result.conversations[0].id;
                     } else {
                         console.warn('[BILL-SERVICE] No conversations found for customer');
                     }
@@ -1365,7 +1372,11 @@ ${
 
             // If no conversation found, try extension bypass as fallback
             if (!convId) {
-                if (billImageFile && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
+                if (
+                    billImageFile &&
+                    window.pancakeExtension?.connected &&
+                    window.sendImagesViaExtension
+                ) {
                     console.log('[BILL-SERVICE] No conversation — trying extension bypass');
                     try {
                         await window.sendImagesViaExtension(pageId, psid, [billImageFile]);
@@ -1417,11 +1428,13 @@ ${
             let sendResult = await _postBill(pageAccessToken);
 
             // Detect "access_token renewed" → refresh PAT and retry once
-            const isRenewedMsg = (m) =>
-                typeof m === 'string' && /access_token\s+renewed/i.test(m);
+            const isRenewedMsg = (m) => typeof m === 'string' && /access_token\s+renewed/i.test(m);
             if (sendResult.success === false && isRenewedMsg(sendResult.message)) {
-                console.warn('[BILL-SERVICE] 🔄 PAT rotated by Pancake, refreshing and retrying once');
-                const refreshed = await window.pancakeTokenManager?.refreshPageAccessToken?.(pageId);
+                console.warn(
+                    '[BILL-SERVICE] 🔄 PAT rotated by Pancake, refreshing and retrying once'
+                );
+                const refreshed =
+                    await window.pancakeTokenManager?.refreshPageAccessToken?.(pageId);
                 if (refreshed) {
                     pageAccessToken = refreshed;
                     sendResult = await _postBill(pageAccessToken);
@@ -1444,10 +1457,15 @@ ${
                     (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
                     (sendResult.message &&
                         sendResult.message.includes('khoảng thời gian cho phép'));
-                const isUserUnavailable = sendResult.e_code === 551 ||
+                const isUserUnavailable =
+                    sendResult.e_code === 551 ||
                     (sendResult.message && sendResult.message.includes('không có mặt'));
 
-                if ((is24HourError || isUserUnavailable) && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
+                if (
+                    (is24HourError || isUserUnavailable) &&
+                    window.pancakeExtension?.connected &&
+                    window.sendImagesViaExtension
+                ) {
                     try {
                         // Fetch messages API to get thread_id + global_id + customers
                         const pdm = window.pancakeDataManager;
@@ -1468,25 +1486,42 @@ ${
                                     customers = msgData.customers;
                                 }
                             } catch (e) {
-                                console.warn('[BILL-SERVICE] Messages fetch for ext data failed:', e.message);
+                                console.warn(
+                                    '[BILL-SERVICE] Messages fetch for ext data failed:',
+                                    e.message
+                                );
                             }
                         }
 
                         // Fallback customerName from orderResult
                         if (!customerName && orderResult) {
-                            customerName = orderResult.Partner?.Name || orderResult.PartnerDisplayName || orderResult.ReceiverName || '';
+                            customerName =
+                                orderResult.Partner?.Name ||
+                                orderResult.PartnerDisplayName ||
+                                orderResult.ReceiverName ||
+                                '';
                         }
 
                         const extConv = {
-                            pageId, psid, conversationId: convId, _raw: raw,
-                            customers, _messagesData: { customers },
-                            updated_at: null, customerName, type: 'INBOX',
+                            pageId,
+                            psid,
+                            conversationId: convId,
+                            _raw: raw,
+                            customers,
+                            _messagesData: { customers },
+                            updated_at: null,
+                            customerName,
+                            type: 'INBOX',
                         };
 
                         // Regenerate bill image if not available (preGenerated path)
                         if (!billImageFile) {
                             const blob = await generateBillImage(orderResult, options);
-                            billImageFile = new File([blob], `bill_${orderResult?.Number || Date.now()}.png`, { type: 'image/png' });
+                            billImageFile = new File(
+                                [blob],
+                                `bill_${orderResult?.Number || Date.now()}.png`,
+                                { type: 'image/png' }
+                            );
                         }
 
                         // Send actual bill IMAGE via extension (not just text)
@@ -1494,22 +1529,33 @@ ${
 
                         // Send CAMON (image + text) via extension
                         try {
-                            const camonReply = window.quickReplyManager?.replies?.find(r =>
-                                (r.shortcut || '').toUpperCase() === 'CAMON'
+                            const camonReply = window.quickReplyManager?.replies?.find(
+                                (r) => (r.shortcut || '').toUpperCase() === 'CAMON'
                             );
-                            const camonImageUrl = camonReply?.imageUrl || 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
-                            let camonText = camonReply?.message || 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
-                            const displayName = window.authManager?.getUserInfo?.()?.displayName
-                                || window.authManager?.getAuthState?.()?.displayName;
+                            const camonImageUrl =
+                                camonReply?.imageUrl ||
+                                'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
+                            let camonText =
+                                camonReply?.message ||
+                                'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
+                            const displayName =
+                                window.authManager?.getUserInfo?.()?.displayName ||
+                                window.authManager?.getAuthState?.()?.displayName;
                             if (displayName) camonText += '\nNv. ' + displayName;
 
                             // Get CAMON image from cache (IndexedDB) or download + cache
                             const camonBlob = await window.imageBlobCache.getOrFetch(camonImageUrl);
-                            const ext = camonImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                            const camonFile = new File([camonBlob], `camon.${ext}`, { type: camonBlob.type || `image/${ext}` });
+                            const ext =
+                                camonImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                            const camonFile = new File([camonBlob], `camon.${ext}`, {
+                                type: camonBlob.type || `image/${ext}`,
+                            });
                             await window.sendImagesViaExtension([camonFile], camonText, extConv);
                         } catch (camonErr) {
-                            console.warn('[BILL-SERVICE] CAMON via extension failed:', camonErr.message);
+                            console.warn(
+                                '[BILL-SERVICE] CAMON via extension failed:',
+                                camonErr.message
+                            );
                         }
 
                         return {
@@ -1563,15 +1609,18 @@ ${
         };
 
         // Get CAMON template from quick reply manager (or use defaults)
-        const camonReply = window.quickReplyManager?.replies?.find(r =>
-            (r.shortcut || '').toUpperCase() === 'CAMON'
+        const camonReply = window.quickReplyManager?.replies?.find(
+            (r) => (r.shortcut || '').toUpperCase() === 'CAMON'
         );
         const camonImageContentId = camonReply?.contentId || '4d0b73b0-8d3f-4dfa-bb9b-11a82096734d';
-        let camonText = camonReply?.message || 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
+        let camonText =
+            camonReply?.message ||
+            'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
 
         // Add employee signature
-        const displayName = window.authManager?.getUserInfo?.()?.displayName
-            || window.authManager?.getAuthState?.()?.displayName;
+        const displayName =
+            window.authManager?.getUserInfo?.()?.displayName ||
+            window.authManager?.getAuthState?.()?.displayName;
         if (displayName) camonText += '\nNv. ' + displayName;
 
         // Message 1: Send image via content_ids (Official API docs §3.3)
@@ -1851,4 +1900,3 @@ window.fetchTPOSBillHTML = BillService.fetchTPOSBillHTML;
 window.openPrintPopupWithHtml = BillService.openPrintPopupWithHtml;
 window.openCombinedTPOSPrintPopup = BillService.openCombinedTPOSPrintPopup;
 window.fetchAndPrintTPOSBill = BillService.fetchAndPrintTPOSBill;
-

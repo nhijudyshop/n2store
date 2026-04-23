@@ -241,12 +241,14 @@ function setQuickDateRange(days, activeBtn) {
  * Show custom date range picker
  */
 function showCustomDateRangePicker(tab) {
-    const fromInput = tab === 'tracking'
-        ? document.getElementById('filterDateFrom')
-        : document.getElementById('filterBookingDateFrom');
-    const toInput = tab === 'tracking'
-        ? document.getElementById('filterDateTo')
-        : document.getElementById('filterBookingDateTo');
+    const fromInput =
+        tab === 'tracking'
+            ? document.getElementById('filterDateFrom')
+            : document.getElementById('filterBookingDateFrom');
+    const toInput =
+        tab === 'tracking'
+            ? document.getElementById('filterDateTo')
+            : document.getElementById('filterBookingDateTo');
 
     // Create modal for custom date range
     const existingModal = document.getElementById('customDateRangeModal');
@@ -290,12 +292,14 @@ function applyCustomDateRange(tab) {
         return;
     }
 
-    const fromInput = tab === 'tracking'
-        ? document.getElementById('filterDateFrom')
-        : document.getElementById('filterBookingDateFrom');
-    const toInput = tab === 'tracking'
-        ? document.getElementById('filterDateTo')
-        : document.getElementById('filterBookingDateTo');
+    const fromInput =
+        tab === 'tracking'
+            ? document.getElementById('filterDateFrom')
+            : document.getElementById('filterBookingDateFrom');
+    const toInput =
+        tab === 'tracking'
+            ? document.getElementById('filterDateTo')
+            : document.getElementById('filterBookingDateTo');
 
     if (fromInput) fromInput.value = customFrom;
     if (toInput) toInput.value = customTo;
@@ -317,7 +321,7 @@ function applyCustomDateRange(tab) {
  * Clear active state from all quick date buttons
  */
 function clearQuickDateButtonActive() {
-    document.querySelectorAll('.btn-quick-date').forEach(btn => {
+    document.querySelectorAll('.btn-quick-date').forEach((btn) => {
         btn.classList.remove('active');
     });
 }
@@ -333,7 +337,7 @@ function applyFilters() {
     globalState.filters = {
         dateFrom,
         dateTo,
-        ncc
+        ncc,
     };
 
     applyFiltersAndRender();
@@ -365,7 +369,7 @@ function clearFilters() {
     globalState.filters = {
         dateFrom: dateToVNStr(thirtyDaysAgo),
         dateTo: dateToVNStr(now),
-        ncc: 'all'
+        ncc: 'all',
     };
     globalState.searchQuery = '';
 
@@ -382,19 +386,19 @@ function applyFiltersAndRender() {
 
     // Filter by date range
     if (filters.dateFrom) {
-        filtered = filtered.filter(s => s.ngayDiHang >= filters.dateFrom);
+        filtered = filtered.filter((s) => s.ngayDiHang >= filters.dateFrom);
     }
     if (filters.dateTo) {
-        filtered = filtered.filter(s => s.ngayDiHang <= filters.dateTo);
+        filtered = filtered.filter((s) => s.ngayDiHang <= filters.dateTo);
     }
 
     // Filter by NCC (skip if "all" is selected)
     if (filters.ncc && filters.ncc !== 'all') {
         const nccFilter = filters.ncc;
         const nccNum = parseInt(nccFilter);
-        filtered = filtered.filter(s =>
-            (s.hoaDon || []).some(hd =>
-                (!isNaN(nccNum) && hd.sttNCC === nccNum) || hd.tenNCC === nccFilter
+        filtered = filtered.filter((s) =>
+            (s.hoaDon || []).some(
+                (hd) => (!isNaN(nccNum) && hd.sttNCC === nccNum) || hd.tenNCC === nccFilter
             )
         );
     }
@@ -402,11 +406,12 @@ function applyFiltersAndRender() {
     // Filter by product code search
     if (searchQuery) {
         const query = searchQuery.toUpperCase();
-        filtered = filtered.filter(s =>
-            (s.hoaDon || []).some(hd =>
-                (hd.sanPham || []).some(p =>
-                    (p.maSP || '').toUpperCase().includes(query) ||
-                    (p.rawText || '').toUpperCase().includes(query)
+        filtered = filtered.filter((s) =>
+            (s.hoaDon || []).some((hd) =>
+                (hd.sanPham || []).some(
+                    (p) =>
+                        (p.maSP || '').toUpperCase().includes(query) ||
+                        (p.rawText || '').toUpperCase().includes(query)
                 )
             )
         );
@@ -672,7 +677,7 @@ function setBookingQuickDateRange(days, activeBtn) {
  * Clear active state from booking quick date buttons
  */
 function clearBookingQuickDateButtonActive() {
-    document.querySelectorAll('#tabContentBooking .btn-quick-date').forEach(btn => {
+    document.querySelectorAll('#tabContentBooking .btn-quick-date').forEach((btn) => {
         btn.classList.remove('active');
     });
 }
@@ -693,32 +698,36 @@ function applyBookingFilters() {
 
     // Filter by date range
     if (dateFrom) {
-        filtered = filtered.filter(b => b.ngayDatHang >= dateFrom);
+        filtered = filtered.filter((b) => b.ngayDatHang >= dateFrom);
     }
     if (dateTo) {
-        filtered = filtered.filter(b => b.ngayDatHang <= dateTo);
+        filtered = filtered.filter((b) => b.ngayDatHang <= dateTo);
     }
 
     // Filter by NCC
     if (ncc && ncc !== 'all') {
         const nccNum = parseInt(ncc);
-        filtered = filtered.filter(b =>
-            (!isNaN(nccNum) && b.sttNCC === nccNum) || b.tenNCC === ncc || String(b.sttNCC) === ncc
+        filtered = filtered.filter(
+            (b) =>
+                (!isNaN(nccNum) && b.sttNCC === nccNum) ||
+                b.tenNCC === ncc ||
+                String(b.sttNCC) === ncc
         );
     }
 
     // Filter by status
     if (status && status !== 'all') {
-        filtered = filtered.filter(b => b.trangThai === status);
+        filtered = filtered.filter((b) => b.trangThai === status);
     }
 
     // Filter by product code search
     if (product) {
         const query = product.toUpperCase();
-        filtered = filtered.filter(b =>
-            (b.sanPham || []).some(p =>
-                (p.maSP || '').toUpperCase().includes(query) ||
-                (p.rawText || '').toUpperCase().includes(query)
+        filtered = filtered.filter((b) =>
+            (b.sanPham || []).some(
+                (p) =>
+                    (p.maSP || '').toUpperCase().includes(query) ||
+                    (p.rawText || '').toUpperCase().includes(query)
             )
         );
     }

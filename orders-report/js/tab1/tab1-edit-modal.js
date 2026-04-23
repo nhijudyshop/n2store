@@ -8,7 +8,7 @@ function toggleMergedEditDropdown(button, event) {
     const options = dropdown.querySelector('.merged-edit-options');
 
     // Close all other dropdowns first
-    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+    document.querySelectorAll('.merged-edit-options').forEach((opt) => {
         if (opt !== options) opt.style.display = 'none';
     });
 
@@ -18,7 +18,7 @@ function toggleMergedEditDropdown(button, event) {
 
 // Close all merged edit dropdowns
 function closeMergedEditDropdown() {
-    document.querySelectorAll('.merged-edit-options').forEach(opt => {
+    document.querySelectorAll('.merged-edit-options').forEach((opt) => {
         opt.style.display = 'none';
     });
 }
@@ -33,10 +33,10 @@ document.addEventListener('click', function (e) {
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
     hasUnsavedOrderChanges = false; // Reset dirty flag
-    const modal = document.getElementById("editOrderModal");
-    modal.classList.add("show");
-    switchEditTab("info");
-    document.getElementById("editModalBody").innerHTML =
+    const modal = document.getElementById('editOrderModal');
+    modal.classList.add('show');
+    switchEditTab('info');
+    document.getElementById('editModalBody').innerHTML =
         `<div class="loading-state"><div class="loading-spinner"></div><div class="loading-text">Đang tải dữ liệu đơn hàng...</div></div>`;
     try {
         await fetchOrderData(orderId);
@@ -54,24 +54,22 @@ async function fetchOrderData(orderId) {
     const response = await API_CONFIG.smartFetch(apiUrl, {
         headers: {
             ...headers,
-            "Content-Type": "application/json",
-            Accept: "application/json",
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
         },
     });
-    if (!response.ok)
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     currentEditOrderData = await response.json();
     updateModalWithData(currentEditOrderData);
 }
 
 function updateModalWithData(data) {
-    document.getElementById("modalOrderCode").textContent = data.Code || "";
-    document.getElementById("lastUpdated").textContent = new Date(
-        data.LastUpdated,
-    ).toLocaleString("vi-VN");
-    document.getElementById("editProductCount").textContent =
-        data.Details?.length || 0;
-    switchEditTab("info");
+    document.getElementById('modalOrderCode').textContent = data.Code || '';
+    document.getElementById('lastUpdated').textContent = new Date(data.LastUpdated).toLocaleString(
+        'vi-VN'
+    );
+    document.getElementById('editProductCount').textContent = data.Details?.length || 0;
+    switchEditTab('info');
 
     // 🔄 Refresh inline search UI after data is loaded
     // Use setTimeout to ensure DOM is ready
@@ -81,19 +79,15 @@ function updateModalWithData(data) {
 }
 
 function switchEditTab(tabName) {
-    document
-        .querySelectorAll(".edit-tab-btn")
-        .forEach((btn) => btn.classList.remove("active"));
-    const activeTab = document.querySelector(
-        `.edit-tab-btn[onclick*="${tabName}"]`,
-    );
-    if (activeTab) activeTab.classList.add("active");
+    document.querySelectorAll('.edit-tab-btn').forEach((btn) => btn.classList.remove('active'));
+    const activeTab = document.querySelector(`.edit-tab-btn[onclick*="${tabName}"]`);
+    if (activeTab) activeTab.classList.add('active');
     renderTabContent(tabName);
-    if (tabName === "products") initInlineSearchAfterRender();
+    if (tabName === 'products') initInlineSearchAfterRender();
 }
 
 function renderTabContent(tabName) {
-    const body = document.getElementById("editModalBody");
+    const body = document.getElementById('editModalBody');
     if (!currentEditOrderData) {
         body.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div></div>`;
         return;
@@ -120,7 +114,7 @@ function renderInfoTab(data) {
                 <div class="info-field">
                     <div class="info-label">Tên khách hàng</div>
                     <div class="info-value">
-                        <input type="text" class="form-control" value="${(data.Name || "").replace(/"/g, '&quot;')}"
+                        <input type="text" class="form-control" value="${(data.Name || '').replace(/"/g, '&quot;')}"
                             onchange="updateOrderInfo('Name', this.value)"
                             style="width: 100%; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; color: #3b82f6; font-weight: 600;">
                     </div>
@@ -128,7 +122,7 @@ function renderInfoTab(data) {
                 <div class="info-field">
                     <div class="info-label">Điện thoại</div>
                     <div class="info-value">
-                        <input type="text" class="form-control" value="${data.Telephone || ""}" 
+                        <input type="text" class="form-control" value="${data.Telephone || ''}" 
                             onchange="updateOrderInfo('Telephone', this.value)" 
                             style="width: 100%; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
                     </div>
@@ -138,7 +132,7 @@ function renderInfoTab(data) {
                     <div class="info-value">
                         <textarea class="form-control" 
                             onchange="updateOrderInfo('Address', this.value)" 
-                            style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; min-height: 60px; resize: vertical;">${data.Address || ""}</textarea>
+                            style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; min-height: 60px; resize: vertical;">${data.Address || ''}</textarea>
                     </div>
                 </div>
                 <div class="info-field" style="grid-column: 1 / -1; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
@@ -162,12 +156,12 @@ function renderInfoTab(data) {
         <div class="info-card">
             <h4><i class="fas fa-shopping-cart"></i> Thông tin đơn hàng</h4>
             <div class="info-grid">
-                <div class="info-field"><div class="info-label">Mã đơn</div><div class="info-value highlight">${data.Code || ""}</div></div>
-                <div class="info-field"><div class="info-label">Trạng thái</div><div class="info-value"><span class="status-badge-large ${(data.Status === "Nháp" || data.Status === "Draft") ? "status-badge-draft" : (data.Status === "Hủy" || data.Status === "Cancel") ? "status-badge-cancel" : "status-badge-order"}">${data.StatusText || data.Status || ""}</span></div></div>
-                <div class="info-field"><div class="info-label">Tổng tiền</div><div class="info-value highlight">${(data.TotalAmount || 0).toLocaleString("vi-VN")}đ</div></div>
+                <div class="info-field"><div class="info-label">Mã đơn</div><div class="info-value highlight">${data.Code || ''}</div></div>
+                <div class="info-field"><div class="info-label">Trạng thái</div><div class="info-value"><span class="status-badge-large ${data.Status === 'Nháp' || data.Status === 'Draft' ? 'status-badge-draft' : data.Status === 'Hủy' || data.Status === 'Cancel' ? 'status-badge-cancel' : 'status-badge-order'}">${data.StatusText || data.Status || ''}</span></div></div>
+                <div class="info-field"><div class="info-label">Tổng tiền</div><div class="info-value highlight">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</div></div>
                 <div class="info-field" style="grid-column: 1 / -1;">
                     <div class="info-label">Ghi chú</div>
-                    <div class="info-value">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(data.Note || "") : (data.Note || "")}</div>
+                    <div class="info-value">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(data.Note || '') : data.Note || ''}</div>
                 </div>
             </div>
         </div>`;
@@ -190,9 +184,9 @@ function updateOrderInfo(field, value) {
 
     // Show quick feedback
     if (window.showSaveIndicator) {
-        showSaveIndicator("success", "Đã cập nhật thông tin (chưa lưu)");
+        showSaveIndicator('success', 'Đã cập nhật thông tin (chưa lưu)');
     } else if (window.notificationManager) {
-        window.notificationManager.show("Đã cập nhật thông tin (chưa lưu)", "info");
+        window.notificationManager.show('Đã cập nhật thông tin (chưa lưu)', 'info');
     }
 }
 
@@ -221,22 +215,27 @@ async function checkWalletOnPhoneChange(orderId, orderData, oldPhone, newPhone) 
     if (!normOld || !normNew || normOld === normNew) return;
 
     try {
-        const apiUrl = typeof QR_API_URL !== 'undefined'
-            ? QR_API_URL
-            : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const apiUrl =
+            typeof QR_API_URL !== 'undefined'
+                ? QR_API_URL
+                : 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         // Fetch wallet for both phones in parallel
         const [oldRes, newRes] = await Promise.allSettled([
-            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normOld)}`).then(r => r.json()),
-            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normNew)}`).then(r => r.json()),
+            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normOld)}`).then((r) => r.json()),
+            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normNew)}`).then((r) => r.json()),
         ]);
 
-        const oldBalance = oldRes.status === 'fulfilled' && oldRes.value?.data
-            ? (parseFloat(oldRes.value.data.balance) || 0) + (parseFloat(oldRes.value.data.virtual_balance) || 0)
-            : 0;
-        const newBalance = newRes.status === 'fulfilled' && newRes.value?.data
-            ? (parseFloat(newRes.value.data.balance) || 0) + (parseFloat(newRes.value.data.virtual_balance) || 0)
-            : 0;
+        const oldBalance =
+            oldRes.status === 'fulfilled' && oldRes.value?.data
+                ? (parseFloat(oldRes.value.data.balance) || 0) +
+                  (parseFloat(oldRes.value.data.virtual_balance) || 0)
+                : 0;
+        const newBalance =
+            newRes.status === 'fulfilled' && newRes.value?.data
+                ? (parseFloat(newRes.value.data.balance) || 0) +
+                  (parseFloat(newRes.value.data.virtual_balance) || 0)
+                : 0;
 
         if (oldBalance > 0 || newBalance > 0) {
             // Create pending adjustment record
@@ -254,8 +253,10 @@ async function checkWalletOnPhoneChange(orderId, orderData, oldPhone, newPhone) 
 
             // Show warning
             const balanceInfo = [];
-            if (oldBalance > 0) balanceInfo.push(`SĐT cũ (${normOld}): ${oldBalance.toLocaleString('vi-VN')}đ`);
-            if (newBalance > 0) balanceInfo.push(`SĐT mới (${normNew}): ${newBalance.toLocaleString('vi-VN')}đ`);
+            if (oldBalance > 0)
+                balanceInfo.push(`SĐT cũ (${normOld}): ${oldBalance.toLocaleString('vi-VN')}đ`);
+            if (newBalance > 0)
+                balanceInfo.push(`SĐT mới (${normNew}): ${newBalance.toLocaleString('vi-VN')}đ`);
 
             const msg = `⚠️ Phát hiện công nợ khi đổi SĐT!\n${balanceInfo.join('\n')}\n\nĐơn sẽ bị đánh dấu chờ kế toán điều chỉnh công nợ trước khi ra đơn.`;
 
@@ -265,7 +266,9 @@ async function checkWalletOnPhoneChange(orderId, orderData, oldPhone, newPhone) 
                 alert(msg);
             }
 
-            console.log(`[WALLET-ADJ] Created pending adjustment for order ${orderId}: old=${normOld}(${oldBalance}), new=${normNew}(${newBalance})`);
+            console.log(
+                `[WALLET-ADJ] Created pending adjustment for order ${orderId}: old=${normOld}(${oldBalance}), new=${normNew}(${newBalance})`
+            );
         }
     } catch (error) {
         console.error('[WALLET-ADJ] Error checking wallet on phone change:', error);
@@ -295,15 +298,15 @@ function renderProductsTab(data) {
         (p, i) => `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ""}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
+            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
+            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
-            <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
-            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
-            <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
+            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
+            <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`,
-    ).join("");
+        </tr>`
+    ).join('');
 
     return `
         <div class="info-card">
@@ -312,7 +315,7 @@ function renderProductsTab(data) {
             <table class="products-table">
                 <thead><tr><th>#</th><th>Ảnh</th><th>Sản phẩm</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th><th>Ghi chú</th><th style="text-align: center;">Thao tác</th></tr></thead>
                 <tbody id="productsTableBody">${productsHTML}</tbody>
-                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString("vi-VN")}đ</td><td colspan="2"></td></tr></tfoot>
+                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</td><td colspan="2"></td></tr></tfoot>
             </table>
         </div>`;
 }
@@ -347,12 +350,16 @@ function renderLiveTab(data) {
                     <div class="info-label">Mã chiến dịch</div>
                     <div class="info-value">${liveInfo.Code || 'N/A'}</div>
                 </div>
-                ${liveInfo.Description ? `
+                ${
+                    liveInfo.Description
+                        ? `
                 <div class="info-field" style="grid-column: 1 / -1;">
                     <div class="info-label">Mô tả</div>
                     <div class="info-value">${liveInfo.Description}</div>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         </div>
         <div class="info-card">
@@ -400,26 +407,36 @@ function renderInvoicesTab(data) {
                 </div>
                 <div class="info-field">
                     <div class="info-label">Còn lại</div>
-                    <div class="info-value" style="color: ${(data.TotalAmount - (data.PaidAmount || 0)) > 0 ? '#ef4444' : '#059669'};">
+                    <div class="info-value" style="color: ${data.TotalAmount - (data.PaidAmount || 0) > 0 ? '#ef4444' : '#059669'};">
                         ${((data.TotalAmount || 0) - (data.PaidAmount || 0)).toLocaleString('vi-VN')}đ
                     </div>
                 </div>
                 <div class="info-field">
                     <div class="info-label">Trạng thái thanh toán</div>
                     <div class="info-value">
-                        <span class="status-badge-large ${data.PaidAmount >= data.TotalAmount ? 'status-badge-paid' :
-            data.PaidAmount > 0 ? 'status-badge-partial' : 'status-badge-unpaid'
-        }">
-                            ${data.PaidAmount >= data.TotalAmount ? 'Đã thanh toán' :
-            data.PaidAmount > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán'
-        }
+                        <span class="status-badge-large ${
+                            data.PaidAmount >= data.TotalAmount
+                                ? 'status-badge-paid'
+                                : data.PaidAmount > 0
+                                  ? 'status-badge-partial'
+                                  : 'status-badge-unpaid'
+                        }">
+                            ${
+                                data.PaidAmount >= data.TotalAmount
+                                    ? 'Đã thanh toán'
+                                    : data.PaidAmount > 0
+                                      ? 'Thanh toán một phần'
+                                      : 'Chưa thanh toán'
+                            }
                         </span>
                     </div>
                 </div>
             </div>
         </div>
         
-        ${data.PaymentMethod ? `
+        ${
+            data.PaymentMethod
+                ? `
         <div class="info-card">
             <h4><i class="fas fa-credit-card"></i> Phương thức thanh toán</h4>
             <div class="info-grid">
@@ -427,22 +444,32 @@ function renderInvoicesTab(data) {
                     <div class="info-label">Phương thức</div>
                     <div class="info-value">${data.PaymentMethod}</div>
                 </div>
-                ${data.PaymentNote ? `
+                ${
+                    data.PaymentNote
+                        ? `
                 <div class="info-field" style="grid-column: 1 / -1;">
                     <div class="info-label">Ghi chú thanh toán</div>
                     <div class="info-value">${data.PaymentNote}</div>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         </div>
-        ` : ''}
+        `
+                : ''
+        }
         
-        ${!hasInvoice ? `
+        ${
+            !hasInvoice
+                ? `
         <div class="empty-state">
             <i class="fas fa-file-invoice" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
             <p style="color: #9ca3af; font-size: 13px;">Đơn hàng chưa có hóa đơn chi tiết</p>
         </div>
-        ` : ''}
+        `
+                : ''
+        }
     `;
 }
 async function renderHistoryTab(data) {
@@ -489,7 +516,7 @@ async function renderInvoiceHistoryTab(data) {
         try {
             const partnerId = data.PartnerId || (data.Partner && data.Partner.Id);
             if (!partnerId) {
-                throw new Error("Không tìm thấy thông tin khách hàng (PartnerId)");
+                throw new Error('Không tìm thấy thông tin khách hàng (PartnerId)');
             }
             await fetchAndDisplayInvoiceHistory(partnerId);
         } catch (error) {
@@ -525,8 +552,8 @@ async function fetchAndDisplayInvoiceHistory(partnerId) {
         headers: {
             ...headers,
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
+            Accept: 'application/json',
+        },
     });
 
     if (!response.ok) {
@@ -535,7 +562,9 @@ async function fetchAndDisplayInvoiceHistory(partnerId) {
 
     const data = await response.json();
     console.log('[INVOICE HISTORY] Received data:', data);
-    document.getElementById('editModalBody').innerHTML = renderInvoiceHistoryTable(data.value || []);
+    document.getElementById('editModalBody').innerHTML = renderInvoiceHistoryTable(
+        data.value || []
+    );
 }
 
 function renderInvoiceHistoryTable(invoices) {
@@ -549,7 +578,9 @@ function renderInvoiceHistoryTable(invoices) {
         `;
     }
 
-    const rows = invoices.map((inv, index) => `
+    const rows = invoices
+        .map(
+            (inv, index) => `
         <tr>
             <td>${index + 1}</td>
             <td><a href="https://tomato.tpos.vn/#/app/fastsaleorder/invoiceform1?id=${inv.Id}" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 500;">${inv.Number || 'N/A'}</a></td>
@@ -561,7 +592,9 @@ function renderInvoiceHistoryTable(invoices) {
             </td>
             <td>${inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleString('vi-VN') : 'N/A'}</td>
         </tr>
-    `).join('');
+    `
+        )
+        .join('');
 
     return `
         <div class="info-card">
@@ -596,8 +629,8 @@ async function fetchAndDisplayAuditLog(orderId) {
         headers: {
             ...headers,
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
+            Accept: 'application/json',
+        },
     });
 
     if (!response.ok) {
@@ -608,7 +641,9 @@ async function fetchAndDisplayAuditLog(orderId) {
     console.log('[AUDIT LOG] Received audit log:', auditData);
 
     // Display the audit log
-    document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(auditData.value || []);
+    document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(
+        auditData.value || []
+    );
 }
 
 function renderAuditLogTimeline(auditLogs) {
@@ -624,11 +659,11 @@ function renderAuditLogTimeline(auditLogs) {
 
     // Map action to icon and color
     const actionConfig = {
-        'CREATE': { icon: 'plus-circle', color: '#3b82f6', label: 'Tạo mới' },
-        'UPDATE': { icon: 'edit', color: '#8b5cf6', label: 'Cập nhật' },
-        'DELETE': { icon: 'trash', color: '#ef4444', label: 'Xóa' },
-        'APPROVE': { icon: 'check-circle', color: '#10b981', label: 'Phê duyệt' },
-        'REJECT': { icon: 'x-circle', color: '#ef4444', label: 'Từ chối' }
+        CREATE: { icon: 'plus-circle', color: '#3b82f6', label: 'Tạo mới' },
+        UPDATE: { icon: 'edit', color: '#8b5cf6', label: 'Cập nhật' },
+        DELETE: { icon: 'trash', color: '#ef4444', label: 'Xóa' },
+        APPROVE: { icon: 'check-circle', color: '#10b981', label: 'Phê duyệt' },
+        REJECT: { icon: 'x-circle', color: '#ef4444', label: 'Từ chối' },
     };
 
     return `
@@ -638,12 +673,17 @@ function renderAuditLogTimeline(auditLogs) {
                 <span class="timeline-count">${auditLogs.length} thay đổi</span>
             </div>
             <div class="timeline-content">
-                ${auditLogs.map((log, index) => {
-        const config = actionConfig[log.Action] || { icon: 'circle', color: '#6b7280', label: log.Action };
-        const date = new Date(log.DateCreated);
-        const description = formatAuditDescription(log.Description);
+                ${auditLogs
+                    .map((log, index) => {
+                        const config = actionConfig[log.Action] || {
+                            icon: 'circle',
+                            color: '#6b7280',
+                            label: log.Action,
+                        };
+                        const date = new Date(log.DateCreated);
+                        const description = formatAuditDescription(log.Description);
 
-        return `
+                        return `
                         <div class="timeline-item ${index === 0 ? 'timeline-item-latest' : ''}">
                             <div class="timeline-marker" style="background: ${config.color};">
                                 <i class="fas fa-${config.icon}"></i>
@@ -662,31 +702,40 @@ function renderAuditLogTimeline(auditLogs) {
                                     <div class="timeline-date">
                                         <i class="fas fa-clock"></i>
                                         ${date.toLocaleString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        })}
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
                                     </div>
                                 </div>
-                                ${description ? `
+                                ${
+                                    description
+                                        ? `
                                 <div class="timeline-details">
                                     ${description}
                                 </div>
-                                ` : ''}
-                                ${log.TransactionId ? `
+                                `
+                                        : ''
+                                }
+                                ${
+                                    log.TransactionId
+                                        ? `
                                 <div class="timeline-meta">
                                     <i class="fas fa-fingerprint"></i>
                                     <span style="font-family: monospace; font-size: 11px; color: #9ca3af;">
                                         ${log.TransactionId.substring(0, 8)}...
                                     </span>
                                 </div>
-                                ` : ''}
+                                `
+                                        : ''
+                                }
                             </div>
                         </div>
                     `;
-    }).join('')}
+                    })
+                    .join('')}
             </div>
         </div>
         
@@ -698,7 +747,7 @@ function renderAuditLogTimeline(auditLogs) {
                     <div class="audit-stat-label">Tổng thay đổi</div>
                 </div>
                 <div class="audit-stat-item">
-                    <div class="audit-stat-value">${[...new Set(auditLogs.map(l => l.UserName))].length}</div>
+                    <div class="audit-stat-value">${[...new Set(auditLogs.map((l) => l.UserName))].length}</div>
                     <div class="audit-stat-label">Người chỉnh sửa</div>
                 </div>
                 <div class="audit-stat-item">
@@ -730,52 +779,57 @@ function formatAuditDescription(description) {
     }
 
     // Replace \r\n with <br> and format the text
-    let formatted = description
-        .replace(/\r\n/g, '<br>')
-        .replace(/\n/g, '<br>');
+    let formatted = description.replace(/\r\n/g, '<br>').replace(/\n/g, '<br>');
 
     // Highlight changes with arrows (=>)
-    formatted = formatted.replace(/(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g,
-        '<span class="change-from">$1</span> <i class="fas fa-arrow-right" style="color: #6b7280; font-size: 10px;"></i> <span class="change-to">$2</span>');
+    formatted = formatted.replace(
+        /(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g,
+        '<span class="change-from">$1</span> <i class="fas fa-arrow-right" style="color: #6b7280; font-size: 10px;"></i> <span class="change-to">$2</span>'
+    );
 
     // Highlight product codes and names (e.g., "0610 A3 ÁO TN HT")
-    formatted = formatted.replace(/(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g,
-        '<strong style="color: #3b82f6;">$1</strong>:');
+    formatted = formatted.replace(
+        /(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g,
+        '<strong style="color: #3b82f6;">$1</strong>:'
+    );
 
     // Highlight "Thêm chi tiết"
-    formatted = formatted.replace(/Thêm chi tiết/g,
-        '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-plus-circle"></i> Thêm chi tiết</span>');
+    formatted = formatted.replace(
+        /Thêm chi tiết/g,
+        '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-plus-circle"></i> Thêm chi tiết</span>'
+    );
 
-    // Highlight "Xóa chi tiết"  
-    formatted = formatted.replace(/Xóa chi tiết/g,
-        '<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-minus-circle"></i> Xóa chi tiết</span>');
+    // Highlight "Xóa chi tiết"
+    formatted = formatted.replace(
+        /Xóa chi tiết/g,
+        '<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-minus-circle"></i> Xóa chi tiết</span>'
+    );
 
     return formatted;
 }
 
 function showErrorState(message) {
-    document.getElementById("editModalBody").innerHTML =
+    document.getElementById('editModalBody').innerHTML =
         `<div class="empty-state" style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i><p>Lỗi: ${message}</p><button class="btn-primary" onclick="fetchOrderData('${currentEditOrderId}')">Thử lại</button></div>`;
 }
 
 function closeEditModal() {
     if (hasUnsavedOrderChanges) {
         // Use custom confirm popup since native confirm may be blocked
-        window.notificationManager.confirm(
-            "Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?",
-            "Cảnh báo"
-        ).then(result => {
-            if (result) {
-                forceCloseEditModal();
-            }
-        });
+        window.notificationManager
+            .confirm('Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?', 'Cảnh báo')
+            .then((result) => {
+                if (result) {
+                    forceCloseEditModal();
+                }
+            });
         return;
     }
     forceCloseEditModal();
 }
 
 function forceCloseEditModal() {
-    document.getElementById("editOrderModal").classList.remove("show");
+    document.getElementById('editOrderModal').classList.remove('show');
     currentEditOrderData = null;
     currentEditOrderId = null;
     hasUnsavedOrderChanges = false;
@@ -791,8 +845,7 @@ function printOrder() {
 function updateProductQuantity(index, change, value = null) {
     const product = currentEditOrderData.Details[index];
     const oldQty = product.Quantity || 0;
-    let newQty =
-        value !== null ? parseInt(value, 10) : oldQty + change;
+    let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
     if (newQty < 1) newQty = 1;
     product.Quantity = newQty;
 
@@ -801,37 +854,38 @@ function updateProductQuantity(index, change, value = null) {
     const actualDelta = newQty - oldQty;
     if (window.kpiAuditLogger && actualDelta !== 0) {
         const orderId = currentEditOrderData.Id;
-        const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
+        const orderCode = currentEditOrderData.Code || window.OrderStore?.get(orderId)?.Code || '';
         const action = actualDelta > 0 ? 'add' : 'remove';
         const qty = Math.abs(actualDelta);
-        window.kpiAuditLogger.logProductAction({
-            orderCode: orderCode,
-            orderId: String(orderId),
-            action: action,
-            productId: parseInt(product.ProductId),
-            productCode: product.ProductCode || '',
-            productName: product.ProductName || product.ProductNameGet || '',
-            quantity: qty,
-            source: 'edit_modal_quantity'
-        }).then(() => {
-            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
-                window.kpiManager.recalculateAndSaveKPI(orderCode);
-            }
-        }).catch(err => {
-            console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', err);
-        });
+        window.kpiAuditLogger
+            .logProductAction({
+                orderCode: orderCode,
+                orderId: String(orderId),
+                action: action,
+                productId: parseInt(product.ProductId),
+                productCode: product.ProductCode || '',
+                productName: product.ProductName || product.ProductNameGet || '',
+                quantity: qty,
+                source: 'edit_modal_quantity',
+            })
+            .then(() => {
+                if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                    window.kpiManager.recalculateAndSaveKPI(orderCode);
+                }
+            })
+            .catch((err) => {
+                console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', err);
+            });
     }
 
-    const row = document.querySelector(
-        `#productsTableBody tr[data-index='${index}']`,
-    );
+    const row = document.querySelector(`#productsTableBody tr[data-index='${index}']`);
     if (row) {
-        row.querySelector(".quantity-input").value = newQty;
-        row.querySelector("td:nth-child(6)").textContent =
-            (newQty * (product.Price || 0)).toLocaleString("vi-VN") + "đ";
+        row.querySelector('.quantity-input').value = newQty;
+        row.querySelector('td:nth-child(6)').textContent =
+            (newQty * (product.Price || 0)).toLocaleString('vi-VN') + 'đ';
     }
     recalculateTotals();
-    showSaveIndicator("success", "Số lượng đã cập nhật");
+    showSaveIndicator('success', 'Số lượng đã cập nhật');
 
     // 🔄 Refresh inline search UI to reflect quantity change
     refreshInlineSearchUI();
@@ -839,14 +893,14 @@ function updateProductQuantity(index, change, value = null) {
 
 function updateProductNote(index, note) {
     currentEditOrderData.Details[index].Note = note;
-    showSaveIndicator("success", "Ghi chú đã cập nhật");
+    showSaveIndicator('success', 'Ghi chú đã cập nhật');
 }
 
 async function removeProduct(index) {
     const product = currentEditOrderData.Details[index];
     const confirmed = await window.notificationManager.confirm(
         `Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
-        "Xác nhận xóa"
+        'Xác nhận xóa'
     );
     if (!confirmed) return;
 
@@ -857,7 +911,8 @@ async function removeProduct(index) {
     if (window.kpiAuditLogger) {
         try {
             const orderId = currentEditOrderData.Id;
-            const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
+            const orderCode =
+                currentEditOrderData.Code || window.OrderStore?.get(orderId)?.Code || '';
             await window.kpiAuditLogger.logProductAction({
                 orderCode: orderCode,
                 orderId: String(orderId),
@@ -866,7 +921,7 @@ async function removeProduct(index) {
                 productCode: product.ProductCode || '',
                 productName: product.ProductName || product.ProductNameGet || '',
                 quantity: product.Quantity || 1,
-                source: 'edit_modal_remove'
+                source: 'edit_modal_remove',
             });
             if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
                 await window.kpiManager.recalculateAndSaveKPI(orderCode);
@@ -879,19 +934,17 @@ async function removeProduct(index) {
     // Surgical table update (preserves search input/results)
     refreshProductsTableOnly();
 
-    showSaveIndicator("success", "Đã xóa sản phẩm");
+    showSaveIndicator('success', 'Đã xóa sản phẩm');
 
     // Refresh inline search UI to remove green highlight and badge
     refreshInlineSearchUI();
 }
 
 function editProductDetail(index) {
-    const row = document.querySelector(
-        `#productsTableBody tr[data-index='${index}']`,
-    );
+    const row = document.querySelector(`#productsTableBody tr[data-index='${index}']`);
     const product = currentEditOrderData.Details[index];
-    const priceCell = row.querySelector("td:nth-child(5)");
-    const actionCell = row.querySelector("td:nth-child(8) .action-buttons");
+    const priceCell = row.querySelector('td:nth-child(5)');
+    const actionCell = row.querySelector('td:nth-child(8) .action-buttons');
     priceCell.innerHTML = `<input type="number" class="edit-input" id="price-edit-${index}" value="${product.Price || 0}">`;
     actionCell.innerHTML = `
         <button onclick="saveProductDetail(${index})" class="btn-product-action btn-save-item" title="Lưu"><i class="fas fa-check"></i></button>
@@ -910,7 +963,7 @@ function saveProductDetail(index) {
     // Surgical table update (preserves search input/results)
     refreshProductsTableOnly();
 
-    showSaveIndicator("success", "Giá đã cập nhật");
+    showSaveIndicator('success', 'Giá đã cập nhật');
 
     refreshInlineSearchUI();
 }
@@ -939,15 +992,15 @@ function refreshProductsTableOnly() {
         (p, i) => `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ""}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
+            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
+            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
-            <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
-            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
-            <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
+            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
+            <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
         </tr>`
-    ).join("");
+    ).join('');
 
     // Update product count header
     const h4 = tbody.closest('.info-card')?.querySelector('h4');
@@ -967,15 +1020,15 @@ function recalculateTotals() {
     currentEditOrderData.TotalAmount = totalAmount;
 
     // Update DOM elements if they exist (may not exist if tab is not rendered yet)
-    const totalQuantityEl = document.getElementById("totalQuantity");
-    const totalAmountEl = document.getElementById("totalAmount");
-    const productCountEl = document.getElementById("editProductCount");
+    const totalQuantityEl = document.getElementById('totalQuantity');
+    const totalAmountEl = document.getElementById('totalAmount');
+    const productCountEl = document.getElementById('editProductCount');
 
     if (totalQuantityEl) {
         totalQuantityEl.textContent = totalQty;
     }
     if (totalAmountEl) {
-        totalAmountEl.textContent = totalAmount.toLocaleString("vi-VN") + "đ";
+        totalAmountEl.textContent = totalAmount.toLocaleString('vi-VN') + 'đ';
     }
     if (productCountEl) {
         productCountEl.textContent = currentEditOrderData.Details.length;
@@ -989,8 +1042,8 @@ async function saveAllOrderChanges() {
 
     // Use custom confirm popup since native confirm may be blocked
     const userConfirmed = await window.notificationManager.confirm(
-        "Lưu tất cả thay đổi cho đơn hàng này?",
-        "Xác nhận lưu"
+        'Lưu tất cả thay đổi cho đơn hàng này?',
+        'Xác nhận lưu'
     );
     console.log('[SAVE DEBUG] User confirmed:', userConfirmed);
 
@@ -1001,7 +1054,7 @@ async function saveAllOrderChanges() {
     try {
         // Show loading notification
         if (window.notificationManager) {
-            notifId = window.notificationManager.saving("Đang lưu đơn hàng...");
+            notifId = window.notificationManager.saving('Đang lưu đơn hàng...');
         }
 
         // Prepare payload
@@ -1010,17 +1063,11 @@ async function saveAllOrderChanges() {
         // Validate payload (optional but recommended)
         const validation = validatePayloadBeforePUT(payload);
         if (!validation.valid) {
-            throw new Error(
-                `Payload validation failed: ${validation.errors.join(", ")}`,
-            );
+            throw new Error(`Payload validation failed: ${validation.errors.join(', ')}`);
         }
 
-        console.log("[SAVE] Payload to send:", payload);
-        console.log(
-            "[SAVE] Payload size:",
-            JSON.stringify(payload).length,
-            "bytes",
-        );
+        console.log('[SAVE] Payload to send:', payload);
+        console.log('[SAVE] Payload size:', JSON.stringify(payload).length, 'bytes');
 
         // Get auth headers
         const headers = await window.tokenManager.getAuthHeader();
@@ -1029,35 +1076,37 @@ async function saveAllOrderChanges() {
         const response = await API_CONFIG.smartFetch(
             `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
-                method: "PUT",
+                method: 'PUT',
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify(payload),
-            },
+            }
         );
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("[SAVE] Error response:", errorText);
+            console.error('[SAVE] Error response:', errorText);
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
         // Success
         if (window.notificationManager && notifId) {
             window.notificationManager.remove(notifId);
-            window.notificationManager.success("Đã lưu thành công!", 2000);
+            window.notificationManager.success('Đã lưu thành công!', 2000);
         }
 
         hasUnsavedOrderChanges = false; // Reset dirty flag after save
 
         // Clear cache và reload data từ API
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         // 🔒 Preserve Tags từ dữ liệu cũ trước khi fetch - O(1) via OrderStore
-        const existingOrder = window.OrderStore?.get(currentEditOrderId) || allData.find(order => order.Id === currentEditOrderId);
+        const existingOrder =
+            window.OrderStore?.get(currentEditOrderId) ||
+            allData.find((order) => order.Id === currentEditOrderId);
         const preservedTags = existingOrder ? existingOrder.Tags : null;
 
         await fetchOrderData(currentEditOrderId);
@@ -1078,18 +1127,15 @@ async function saveAllOrderChanges() {
         // 🔄 Refresh inline search UI after save and reload
         refreshInlineSearchUI();
 
-        console.log("[SAVE] Order saved successfully ✓");
+        console.log('[SAVE] Order saved successfully ✓');
     } catch (error) {
-        console.error("[SAVE] Error:", error);
+        console.error('[SAVE] Error:', error);
 
         if (window.notificationManager) {
             if (notifId) {
                 window.notificationManager.remove(notifId);
             }
-            window.notificationManager.error(
-                `Lỗi khi lưu: ${error.message}`,
-                5000,
-            );
+            window.notificationManager.error(`Lỗi khi lưu: ${error.message}`, 5000);
         }
     }
 }
@@ -1098,16 +1144,16 @@ async function saveAllOrderChanges() {
 // PREPARE PAYLOAD FOR PUT REQUEST
 // =====================================================
 function prepareOrderPayload(orderData) {
-    console.log("[PAYLOAD] Preparing payload for PUT request...");
+    console.log('[PAYLOAD] Preparing payload for PUT request...');
 
     // Clone dữ liệu để không ảnh hưởng original
     const payload = JSON.parse(JSON.stringify(orderData));
 
     // THÊM @odata.context
-    if (!payload["@odata.context"]) {
-        payload["@odata.context"] =
-            "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
-        console.log("[PAYLOAD] ✓ Added @odata.context");
+    if (!payload['@odata.context']) {
+        payload['@odata.context'] =
+            'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+        console.log('[PAYLOAD] ✓ Added @odata.context');
     }
 
     // ✅ CRITICAL FIX: XỬ LÝ DETAILS ARRAY
@@ -1116,21 +1162,14 @@ function prepareOrderPayload(orderData) {
             const cleaned = { ...detail };
 
             // ✅ XÓA Id nếu null/undefined
-            if (
-                !cleaned.Id ||
-                cleaned.Id === null ||
-                cleaned.Id === undefined
-            ) {
+            if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
                 delete cleaned.Id;
                 console.log(
                     `[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`,
-                    cleaned.ProductId,
+                    cleaned.ProductId
                 );
             } else {
-                console.log(
-                    `[PAYLOAD] Detail[${index}]: Keeping existing Id:`,
-                    cleaned.Id,
-                );
+                console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
             }
 
             // Đảm bảo OrderId match
@@ -1142,8 +1181,7 @@ function prepareOrderPayload(orderData) {
 
     // Statistics
     const newDetailsCount = payload.Details?.filter((d) => !d.Id).length || 0;
-    const existingDetailsCount =
-        payload.Details?.filter((d) => d.Id).length || 0;
+    const existingDetailsCount = payload.Details?.filter((d) => d.Id).length || 0;
 
     const summary = {
         orderId: payload.Id,
@@ -1152,38 +1190,32 @@ function prepareOrderPayload(orderData) {
         detailsCount: payload.Details?.length || 0,
         newDetails: newDetailsCount,
         existingDetails: existingDetailsCount,
-        hasContext: !!payload["@odata.context"],
+        hasContext: !!payload['@odata.context'],
         hasPartner: !!payload.Partner,
         hasUser: !!payload.User,
         hasCRMTeam: !!payload.CRMTeam,
         hasRowVersion: !!payload.RowVersion,
     };
 
-    console.log("[PAYLOAD] ✓ Payload prepared successfully:", summary);
+    console.log('[PAYLOAD] ✓ Payload prepared successfully:', summary);
 
     // Validate critical fields
     if (!payload.RowVersion) {
-        console.warn("[PAYLOAD] ⚠️ WARNING: Missing RowVersion!");
+        console.warn('[PAYLOAD] ⚠️ WARNING: Missing RowVersion!');
     }
-    if (!payload["@odata.context"]) {
-        console.error("[PAYLOAD] ❌ ERROR: Missing @odata.context!");
+    if (!payload['@odata.context']) {
+        console.error('[PAYLOAD] ❌ ERROR: Missing @odata.context!');
     }
 
     // ✅ VALIDATION: Check for Id: null
     const detailsWithNullId =
         payload.Details?.filter(
-            (d) =>
-                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+            (d) => d.hasOwnProperty('Id') && (d.Id === null || d.Id === undefined)
         ) || [];
 
     if (detailsWithNullId.length > 0) {
-        console.error(
-            "[PAYLOAD] ❌ ERROR: Found details with null Id:",
-            detailsWithNullId,
-        );
-        throw new Error(
-            "Payload contains details with null Id - this will cause API error",
-        );
+        console.error('[PAYLOAD] ❌ ERROR: Found details with null Id:', detailsWithNullId);
+        throw new Error('Payload contains details with null Id - this will cause API error');
     }
 
     return payload;
@@ -1201,8 +1233,8 @@ let inlineSearchTimeout = null;
 
 function initInlineSearchAfterRender() {
     setTimeout(() => {
-        const searchInput = document.getElementById("inlineProductSearch");
-        if (searchInput && typeof initInlineProductSearch === "function") {
+        const searchInput = document.getElementById('inlineProductSearch');
+        if (searchInput && typeof initInlineProductSearch === 'function') {
             initInlineProductSearch();
         }
 
@@ -1212,30 +1244,30 @@ function initInlineSearchAfterRender() {
 }
 
 async function reloadExcelProducts() {
-    const btn = document.getElementById("btnReloadExcel");
+    const btn = document.getElementById('btnReloadExcel');
     if (!btn || btn.disabled) return;
     btn.disabled = true;
-    btn.querySelector("i").className = "fas fa-sync-alt fa-spin";
+    btn.querySelector('i').className = 'fas fa-sync-alt fa-spin';
     try {
         await window.productSearchManager.fetchExcelProducts(true);
         // Re-run current search if there's a query
-        const searchInput = document.getElementById("inlineProductSearch");
+        const searchInput = document.getElementById('inlineProductSearch');
         if (searchInput && searchInput.value.trim().length >= 2) {
             await performInlineSearch(searchInput.value.trim());
         }
     } catch (error) {
-        console.error("Reload Excel failed:", error);
+        console.error('Reload Excel failed:', error);
     } finally {
         btn.disabled = false;
-        btn.querySelector("i").className = "fas fa-sync-alt";
+        btn.querySelector('i').className = 'fas fa-sync-alt';
     }
 }
 
 function initInlineProductSearch() {
-    const searchInput = document.getElementById("inlineProductSearch");
+    const searchInput = document.getElementById('inlineProductSearch');
     if (!searchInput || searchInput.dataset.searchInit) return;
-    searchInput.dataset.searchInit = "1";
-    searchInput.addEventListener("input", () => {
+    searchInput.dataset.searchInit = '1';
+    searchInput.addEventListener('input', () => {
         const query = searchInput.value.trim();
         if (inlineSearchTimeout) clearTimeout(inlineSearchTimeout);
         if (query.length < 2) {
@@ -1247,10 +1279,10 @@ function initInlineProductSearch() {
 }
 
 async function performInlineSearch(query) {
-    const resultsDiv = document.getElementById("inlineSearchResults");
-    const searchInput = document.getElementById("inlineProductSearch");
-    searchInput.classList.add("searching");
-    resultsDiv.className = "inline-search-results loading show";
+    const resultsDiv = document.getElementById('inlineSearchResults');
+    const searchInput = document.getElementById('inlineProductSearch');
+    searchInput.classList.add('searching');
+    resultsDiv.className = 'inline-search-results loading show';
     resultsDiv.innerHTML = `<div class="inline-search-loading"></div>`;
     try {
         if (!window.productSearchManager.isLoaded)
@@ -1258,26 +1290,26 @@ async function performInlineSearch(query) {
         const results = window.productSearchManager.search(query, 20);
         displayInlineResults(results);
     } catch (error) {
-        resultsDiv.className = "inline-search-results empty show";
+        resultsDiv.className = 'inline-search-results empty show';
         resultsDiv.innerHTML = `<div style="color: #ef4444;">Lỗi: ${error.message}</div>`;
     } finally {
-        searchInput.classList.remove("searching");
+        searchInput.classList.remove('searching');
     }
 }
 
 function displayInlineResults(results) {
-    const resultsDiv = document.getElementById("inlineSearchResults");
+    const resultsDiv = document.getElementById('inlineSearchResults');
     if (!results || results.length === 0) {
-        resultsDiv.className = "inline-search-results empty show";
+        resultsDiv.className = 'inline-search-results empty show';
         resultsDiv.innerHTML = `<div>Không tìm thấy sản phẩm</div>`;
         return;
     }
-    resultsDiv.className = "inline-search-results show";
+    resultsDiv.className = 'inline-search-results show';
 
     // Check which products are already in the order
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
-        currentEditOrderData.Details.forEach(detail => {
+        currentEditOrderData.Details.forEach((detail) => {
             productsInOrder.set(detail.ProductId, detail.Quantity || 0);
         });
     }
@@ -1298,18 +1330,18 @@ function displayInlineResults(results) {
                 <div class="inline-result-name">${p.Name}</div>
                 <div class="inline-result-code">Mã: ${p.Code}</div>
             </div>
-            <div class="inline-result-price">${(p.Price || 0).toLocaleString("vi-VN")}đ</div>
+            <div class="inline-result-price">${(p.Price || 0).toLocaleString('vi-VN')}đ</div>
             <button class="inline-result-add" onclick="event.stopPropagation(); addProductToOrderFromInline(${p.Id})">
                 <i class="fas ${buttonIcon}"></i> ${buttonText}
             </button>
         </div>`;
         })
-        .join("");
+        .join('');
 }
 
 function hideInlineResults() {
-    const resultsDiv = document.getElementById("inlineSearchResults");
-    if (resultsDiv) resultsDiv.classList.remove("show");
+    const resultsDiv = document.getElementById('inlineSearchResults');
+    if (resultsDiv) resultsDiv.classList.remove('show');
 }
 
 // =====================================================
@@ -1318,20 +1350,18 @@ function hideInlineResults() {
 function highlightProductRow(index) {
     // Wait for DOM to update
     setTimeout(() => {
-        const row = document.querySelector(
-            `#productsTableBody tr[data-index="${index}"]`,
-        );
+        const row = document.querySelector(`#productsTableBody tr[data-index="${index}"]`);
         if (!row) return;
 
         // Add highlight class
-        row.classList.add("product-row-highlight");
+        row.classList.add('product-row-highlight');
 
         // Scroll to the row
-        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         // Remove highlight after animation
         setTimeout(() => {
-            row.classList.remove("product-row-highlight");
+            row.classList.remove('product-row-highlight');
         }, 2000);
     }, 100);
 }
@@ -1348,50 +1378,48 @@ function updateProductItemUI(productId) {
     if (!productItem) return;
 
     // Add animation
-    productItem.classList.add("just-added");
+    productItem.classList.add('just-added');
 
     // Remove animation class after it completes
     setTimeout(() => {
-        productItem.classList.remove("just-added");
+        productItem.classList.remove('just-added');
     }, 500);
 
     // Get updated quantity from order
     let updatedQty = 0;
     if (currentEditOrderData && currentEditOrderData.Details) {
-        const product = currentEditOrderData.Details.find(
-            p => p.ProductId == productId
-        );
-        updatedQty = product ? (product.Quantity || 0) : 0;
+        const product = currentEditOrderData.Details.find((p) => p.ProductId == productId);
+        updatedQty = product ? product.Quantity || 0 : 0;
     }
 
     // Update the item to show it's in order
-    if (!productItem.classList.contains("in-order")) {
-        productItem.classList.add("in-order");
+    if (!productItem.classList.contains('in-order')) {
+        productItem.classList.add('in-order');
     }
 
     // Update or add quantity badge
-    let badge = productItem.querySelector(".inline-result-quantity-badge");
+    let badge = productItem.querySelector('.inline-result-quantity-badge');
     if (!badge) {
-        badge = document.createElement("div");
-        badge.className = "inline-result-quantity-badge";
+        badge = document.createElement('div');
+        badge.className = 'inline-result-quantity-badge';
         productItem.insertBefore(badge, productItem.firstChild);
     }
 
     badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${updatedQty}`;
 
     // Update button
-    const button = productItem.querySelector(".inline-result-add");
+    const button = productItem.querySelector('.inline-result-add');
     if (button) {
-        const icon = button.querySelector("i");
+        const icon = button.querySelector('i');
         if (icon) {
-            icon.className = "fas fa-check";
+            icon.className = 'fas fa-check';
         }
         // Update button text
         const textNode = Array.from(button.childNodes).find(
-            node => node.nodeType === Node.TEXT_NODE
+            (node) => node.nodeType === Node.TEXT_NODE
         );
         if (textNode) {
-            textNode.textContent = " Thêm nữa";
+            textNode.textContent = ' Thêm nữa';
         }
     }
 
@@ -1407,12 +1435,12 @@ function refreshInlineSearchUI() {
 
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
-        currentEditOrderData.Details.forEach(detail => {
+        currentEditOrderData.Details.forEach((detail) => {
             productsInOrder.set(detail.ProductId, detail.Quantity || 0);
         });
     }
 
-    productItems.forEach(item => {
+    productItems.forEach((item) => {
         const productId = parseInt(item.getAttribute('data-product-id'));
         if (!productId) return;
 
@@ -1454,7 +1482,7 @@ function refreshInlineSearchUI() {
 
             // Update button text
             const textNode = Array.from(button.childNodes).find(
-                node => node.nodeType === Node.TEXT_NODE
+                (node) => node.nodeType === Node.TEXT_NODE
             );
             if (textNode) {
                 textNode.textContent = isInOrder ? ' Thêm nữa' : ' Thêm';
@@ -1470,30 +1498,26 @@ async function addProductToOrderFromInline(productId) {
         // Show loading notification
         if (window.notificationManager) {
             notificationId = window.notificationManager.show(
-                "Đang tải thông tin sản phẩm...",
-                "info",
+                'Đang tải thông tin sản phẩm...',
+                'info',
                 0,
                 {
                     showOverlay: true,
                     persistent: true,
-                    icon: "package",
-                },
+                    icon: 'package',
+                }
             );
         }
 
         // Get full product details from API
-        console.log(
-            "[INLINE ADD] Fetching full product details for ID:",
-            productId,
-        );
-        const fullProduct =
-            await window.productSearchManager.getFullProductDetails(productId);
+        console.log('[INLINE ADD] Fetching full product details for ID:', productId);
+        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
 
         if (!fullProduct) {
-            throw new Error("Không tìm thấy thông tin sản phẩm");
+            throw new Error('Không tìm thấy thông tin sản phẩm');
         }
 
-        console.log("[INLINE ADD] Full product details:", fullProduct);
+        console.log('[INLINE ADD] Full product details:', fullProduct);
 
         // Close loading notification
         if (window.notificationManager && notificationId) {
@@ -1507,25 +1531,24 @@ async function addProductToOrderFromInline(productId) {
 
         // Check if product already exists in order
         const existingProductIndex = currentEditOrderData.Details.findIndex(
-            (p) => p.ProductId == productId,
+            (p) => p.ProductId == productId
         );
 
         if (existingProductIndex > -1) {
             // Product exists - increase quantity
-            const existingProduct =
-                currentEditOrderData.Details[existingProductIndex];
+            const existingProduct = currentEditOrderData.Details[existingProductIndex];
             const oldQty = existingProduct.Quantity || 0;
             const newQty = oldQty + 1;
 
             updateProductQuantity(existingProductIndex, 1);
 
             console.log(
-                `[INLINE ADD] Product already exists, increased quantity: ${oldQty} → ${newQty}`,
+                `[INLINE ADD] Product already exists, increased quantity: ${oldQty} → ${newQty}`
             );
 
             showSaveIndicator(
-                "success",
-                `${existingProduct.ProductNameGet || existingProduct.ProductName} (SL: ${oldQty} → ${newQty})`,
+                'success',
+                `${existingProduct.ProductNameGet || existingProduct.ProductName} (SL: ${oldQty} → ${newQty})`
             );
 
             highlightProductRow(existingProductIndex);
@@ -1536,8 +1559,13 @@ async function addProductToOrderFromInline(productId) {
             // Validate sale price (only use PriceVariant or ListPrice, never StandardPrice)
             const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
             if (salePrice == null || salePrice < 0) {
-                showSaveIndicator("error", `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
-                throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                showSaveIndicator(
+                    'error',
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`
+                );
+                throw new Error(
+                    `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`
+                );
             }
 
             const newProduct = {
@@ -1561,30 +1589,24 @@ async function addProductToOrderFromInline(productId) {
                 // ============================================
                 ProductName: fullProduct.Name || fullProduct.NameTemplate,
                 ProductNameGet:
-                    fullProduct.NameGet ||
-                    `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                 ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
-                UOMName: fullProduct.UOM?.Name || "Cái",
+                UOMName: fullProduct.UOM?.Name || 'Cái',
                 ImageUrl: fullProduct.ImageUrl,
                 IsOrderPriority: null,
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
 
                 // Creator ID
-                CreatedById:
-                    currentEditOrderData.UserId ||
-                    currentEditOrderData.CreatedById,
+                CreatedById: currentEditOrderData.UserId || currentEditOrderData.CreatedById,
             };
 
             currentEditOrderData.Details.push(newProduct);
-            showSaveIndicator("success", "Đã thêm sản phẩm");
-            console.log(
-                "[INLINE ADD] Product added with computed fields:",
-                newProduct,
-            );
+            showSaveIndicator('success', 'Đã thêm sản phẩm');
+            console.log('[INLINE ADD] Product added with computed fields:', newProduct);
         }
 
-        // ⚠️ QUAN TRỌNG: KHÔNG xóa input và KHÔNG ẩn results 
+        // ⚠️ QUAN TRỌNG: KHÔNG xóa input và KHÔNG ẩn results
         // Điều này cho phép user tiếp tục thêm sản phẩm khác từ cùng danh sách gợi ý
         // document.getElementById("inlineProductSearch").value = "";
         // hideInlineResults();
@@ -1593,7 +1615,7 @@ async function addProductToOrderFromInline(productId) {
         updateProductItemUI(productId);
 
         // Chỉ focus lại vào input để tiện thao tác
-        const searchInput = document.getElementById("inlineProductSearch");
+        const searchInput = document.getElementById('inlineProductSearch');
         if (searchInput) {
             searchInput.focus();
             // Select text để user có thể tiếp tục search hoặc giữ nguyên
@@ -1608,8 +1630,11 @@ async function addProductToOrderFromInline(productId) {
         if (window.kpiAuditLogger) {
             try {
                 const orderId = currentEditOrderData.Id;
-                const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
-                const addedProduct = currentEditOrderData.Details.find(p => p.ProductId == productId);
+                const orderCode =
+                    currentEditOrderData.Code || window.OrderStore?.get(orderId)?.Code || '';
+                const addedProduct = currentEditOrderData.Details.find(
+                    (p) => p.ProductId == productId
+                );
                 await window.kpiAuditLogger.logProductAction({
                     orderCode: orderCode,
                     orderId: String(orderId),
@@ -1618,7 +1643,7 @@ async function addProductToOrderFromInline(productId) {
                     productCode: addedProduct?.ProductCode || fullProduct?.DefaultCode || '',
                     productName: addedProduct?.ProductName || fullProduct?.Name || '',
                     quantity: 1,
-                    source: 'edit_modal_inline'
+                    source: 'edit_modal_inline',
                 });
                 if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
                     await window.kpiManager.recalculateAndSaveKPI(orderCode);
@@ -1628,7 +1653,7 @@ async function addProductToOrderFromInline(productId) {
             }
         }
     } catch (error) {
-        console.error("[INLINE ADD] Error:", error);
+        console.error('[INLINE ADD] Error:', error);
 
         // Close loading and show error
         if (window.notificationManager) {
@@ -1636,11 +1661,11 @@ async function addProductToOrderFromInline(productId) {
                 window.notificationManager.remove(notificationId);
             }
             window.notificationManager.error(
-                "Không thể tải thông tin sản phẩm: " + error.message,
-                4000,
+                'Không thể tải thông tin sản phẩm: ' + error.message,
+                4000
             );
         } else {
-            alert("Lỗi: " + error.message);
+            alert('Lỗi: ' + error.message);
         }
     }
 }
@@ -1652,14 +1677,14 @@ function validatePayloadBeforePUT(payload) {
     const errors = [];
 
     // Check @odata.context
-    if (!payload["@odata.context"]) {
-        errors.push("Missing @odata.context");
+    if (!payload['@odata.context']) {
+        errors.push('Missing @odata.context');
     }
 
     // Check required fields
-    if (!payload.Id) errors.push("Missing Id");
-    if (!payload.Code) errors.push("Missing Code");
-    if (!payload.RowVersion) errors.push("Missing RowVersion");
+    if (!payload.Id) errors.push('Missing Id');
+    if (!payload.Code) errors.push('Missing Code');
+    if (!payload.RowVersion) errors.push('Missing RowVersion');
 
     // Check Details
     if (payload.Details && Array.isArray(payload.Details)) {
@@ -1669,71 +1694,60 @@ function validatePayloadBeforePUT(payload) {
             }
 
             // Check computed fields (should exist for all products)
-            const requiredComputedFields = [
-                "ProductName",
-                "ProductCode",
-                "UOMName",
-            ];
+            const requiredComputedFields = ['ProductName', 'ProductCode', 'UOMName'];
             requiredComputedFields.forEach((field) => {
                 if (!detail[field]) {
-                    errors.push(
-                        `Detail[${index}]: Missing computed field ${field}`,
-                    );
+                    errors.push(`Detail[${index}]: Missing computed field ${field}`);
                 }
             });
         });
     }
 
     if (errors.length > 0) {
-        console.error("[VALIDATE] Payload validation errors:", errors);
+        console.error('[VALIDATE] Payload validation errors:', errors);
         return { valid: false, errors };
     }
 
-    console.log("[VALIDATE] Payload is valid ✓");
+    console.log('[VALIDATE] Payload is valid ✓');
     return { valid: true, errors: [] };
 }
 
 // Debug payload trước khi gửi API
 function debugPayloadBeforeSend(payload) {
-    console.group("🔍 PAYLOAD DEBUG");
+    console.group('🔍 PAYLOAD DEBUG');
 
-    console.log("Order Info:", {
+    console.log('Order Info:', {
         id: payload.Id,
         code: payload.Code,
         detailsCount: payload.Details?.length || 0,
     });
 
     if (payload.Details) {
-        console.log("\n📦 Details Analysis:");
+        console.log('\n📦 Details Analysis:');
 
         const detailsWithId = payload.Details.filter((d) => d.Id);
         const detailsWithoutId = payload.Details.filter((d) => !d.Id);
         const detailsWithNullId = payload.Details.filter(
-            (d) =>
-                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+            (d) => d.hasOwnProperty('Id') && (d.Id === null || d.Id === undefined)
         );
 
         console.log(`  ✅ Details with valid Id: ${detailsWithId.length}`);
+        console.log(`  ✅ Details without Id (new): ${detailsWithoutId.length}`);
         console.log(
-            `  ✅ Details without Id (new): ${detailsWithoutId.length}`,
-        );
-        console.log(
-            `  ${detailsWithNullId.length > 0 ? "❌" : "✅"} Details with null Id: ${detailsWithNullId.length}`,
+            `  ${detailsWithNullId.length > 0 ? '❌' : '✅'} Details with null Id: ${detailsWithNullId.length}`
         );
 
         if (detailsWithNullId.length > 0) {
-            console.error("\n❌ FOUND DETAILS WITH NULL ID:");
+            console.error('\n❌ FOUND DETAILS WITH NULL ID:');
             detailsWithNullId.forEach((d, i) => {
-                console.error(
-                    `  Detail[${i}]: ProductId=${d.ProductId}, Id=${d.Id}`,
-                );
+                console.error(`  Detail[${i}]: ProductId=${d.ProductId}, Id=${d.Id}`);
             });
         }
 
-        console.log("\n📋 Details List:");
+        console.log('\n📋 Details List:');
         payload.Details.forEach((d, i) => {
             console.log(
-                `  [${i}] ${d.Id ? "✅" : "🆕"} ProductId=${d.ProductId}, Id=${d.Id || "N/A"}`,
+                `  [${i}] ${d.Id ? '✅' : '🆕'} ProductId=${d.ProductId}, Id=${d.Id || 'N/A'}`
             );
         });
     }
@@ -1743,57 +1757,59 @@ function debugPayloadBeforeSend(payload) {
     // Return validation result
     const hasNullIds =
         payload.Details?.some(
-            (d) =>
-                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+            (d) => d.hasOwnProperty('Id') && (d.Id === null || d.Id === undefined)
         ) || false;
 
     return {
         valid: !hasNullIds,
-        message: hasNullIds
-            ? "Payload has details with null Id"
-            : "Payload is valid",
+        message: hasNullIds ? 'Payload has details with null Id' : 'Payload is valid',
     };
 }
 
 // =====================================================
 // MESSAGE HANDLER FOR CROSS-TAB COMMUNICATION
 // =====================================================
-window.addEventListener("message", function (event) {
+window.addEventListener('message', function (event) {
     // Handle request to fetch conversations for orders loaded from Firebase
-    if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
+    if (event.data.type === 'FETCH_CONVERSATIONS_FOR_ORDERS') {
         handleFetchConversationsRequest(event.data.orders || []);
     }
 
     // Handle request for employee ranges from overview tab
-    if (event.data.type === "REQUEST_EMPLOYEE_RANGES") {
+    if (event.data.type === 'REQUEST_EMPLOYEE_RANGES') {
         console.log('📨 [EMPLOYEE] Nhận request employee ranges từ tab Báo Cáo Tổng Hợp');
         console.log('📊 [EMPLOYEE] employeeRanges length:', employeeRanges.length);
 
         // Send employee ranges back to overview
-        window.parent.postMessage({
-            type: 'EMPLOYEE_RANGES_RESPONSE',
-            ranges: employeeRanges || []
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'EMPLOYEE_RANGES_RESPONSE',
+                ranges: employeeRanges || [],
+            },
+            '*'
+        );
     }
 
     // Handle request for campaign info from overview tab
-    if (event.data.type === "REQUEST_CAMPAIGN_INFO") {
+    if (event.data.type === 'REQUEST_CAMPAIGN_INFO') {
         console.log('📨 [CAMPAIGN] Nhận request campaign info từ tab Báo Cáo Tổng Hợp');
 
         // Send campaign info back to overview
-        window.parent.postMessage({
-            type: 'CAMPAIGN_INFO_RESPONSE',
-            campaignInfo: {
-                allCampaigns: window.campaignManager?.allCampaigns || {},
-                activeCampaign: window.campaignManager?.activeCampaign || null,
-                activeCampaignId: window.campaignManager?.activeCampaignId || null
-            }
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'CAMPAIGN_INFO_RESPONSE',
+                campaignInfo: {
+                    allCampaigns: window.campaignManager?.allCampaigns || {},
+                    activeCampaign: window.campaignManager?.activeCampaign || null,
+                    activeCampaignId: window.campaignManager?.activeCampaignId || null,
+                },
+            },
+            '*'
+        );
 
         console.log('✅ [CAMPAIGN] Sent campaign info:', {
             campaignCount: Object.keys(window.campaignManager?.allCampaigns || {}).length,
-            activeCampaign: window.campaignManager?.activeCampaign?.name
+            activeCampaign: window.campaignManager?.activeCampaign?.name,
         });
     }
 });
-

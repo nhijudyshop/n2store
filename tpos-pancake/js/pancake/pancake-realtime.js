@@ -40,25 +40,42 @@ const PancakeRealtime = {
             }
 
             this.token = await window.pancakeTokenManager.getToken();
-            if (!this.token) { this.isConnecting = false; return false; }
+            if (!this.token) {
+                this.isConnecting = false;
+                return false;
+            }
 
             var tokenInfo = window.pancakeTokenManager.getTokenInfo();
             this.userId = tokenInfo ? tokenInfo.uid : null;
-            if (!this.userId) { this.isConnecting = false; return false; }
+            if (!this.userId) {
+                this.isConnecting = false;
+                return false;
+            }
 
             var state = window.PancakeState;
             if (state.pageIds.length === 0) await window.PancakeAPI.fetchPages();
             this.pageIds = state.pageIds;
 
-            var wsUrl = 'wss://pancake.vn/socket/websocket?access_token=' + encodeURIComponent(this.token) + '&vsn=2.0.0';
+            var wsUrl =
+                'wss://pancake.vn/socket/websocket?access_token=' +
+                encodeURIComponent(this.token) +
+                '&vsn=2.0.0';
             this._closeWs();
             this.ws = new WebSocket(wsUrl);
 
             var self = this;
-            this.ws.onopen = function() { self._onOpen(); };
-            this.ws.onclose = function(e) { self._onClose(e); };
-            this.ws.onerror = function(e) { console.error('[PK-RT] WS error:', e); };
-            this.ws.onmessage = function(e) { self._onMessage(e); };
+            this.ws.onopen = function () {
+                self._onOpen();
+            };
+            this.ws.onclose = function (e) {
+                self._onClose(e);
+            };
+            this.ws.onerror = function (e) {
+                console.error('[PK-RT] WS error:', e);
+            };
+            this.ws.onmessage = function (e) {
+                self._onMessage(e);
+            };
 
             return true;
         } catch (error) {
@@ -98,13 +115,25 @@ const PancakeRealtime = {
             var response = await fetch(serverBaseUrl + '/api/realtime/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: token, userId: userId, pageIds: pageIds, cookie: cookie })
+                body: JSON.stringify({
+                    token: token,
+                    userId: userId,
+                    pageIds: pageIds,
+                    cookie: cookie,
+                }),
             });
             var data = await response.json();
             if (data.success) {
-                var wsUrl = mode === 'localhost' ? 'ws://localhost:3000' : 'wss://n2store-realtime.onrender.com';
+                var wsUrl =
+                    mode === 'localhost'
+                        ? 'ws://localhost:3000'
+                        : 'wss://n2store-realtime.onrender.com';
                 this._connectToProxy(wsUrl);
-                if (window.notificationManager) window.notificationManager.show('Server đã bắt đầu nhận tin nhắn 24/7', 'success');
+                if (window.notificationManager)
+                    window.notificationManager.show(
+                        'Server đã bắt đầu nhận tin nhắn 24/7',
+                        'success'
+                    );
             } else {
                 console.error('[PK-RT] Server start failed:', data.error);
             }
@@ -120,15 +149,22 @@ const PancakeRealtime = {
         this.proxyWs = new WebSocket(url);
         var self = this;
 
-        this.proxyWs.onopen = function() { self.isConnected = true; };
-        this.proxyWs.onclose = function() {
+        this.proxyWs.onopen = function () {
+            self.isConnected = true;
+        };
+        this.proxyWs.onclose = function () {
             self.isConnected = false;
-            if (window.chatAPISettings && window.chatAPISettings.isRealtimeEnabled() &&
-                window.chatAPISettings.getRealtimeMode() !== 'browser') {
-                setTimeout(function() { self.connectServerMode(); }, 3000);
+            if (
+                window.chatAPISettings &&
+                window.chatAPISettings.isRealtimeEnabled() &&
+                window.chatAPISettings.getRealtimeMode() !== 'browser'
+            ) {
+                setTimeout(function () {
+                    self.connectServerMode();
+                }, 3000);
             }
         };
-        this.proxyWs.onmessage = function(event) {
+        this.proxyWs.onmessage = function (event) {
             try {
                 var data = JSON.parse(event.data);
                 if (data.type === 'pages:update_conversation') {
@@ -143,8 +179,14 @@ const PancakeRealtime = {
     },
 
     disconnect() {
-        if (this.ws) { this.ws.close(); this.ws = null; }
-        if (this.proxyWs) { this.proxyWs.close(); this.proxyWs = null; }
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+        if (this.proxyWs) {
+            this.proxyWs.close();
+            this.proxyWs = null;
+        }
         this._stopHeartbeat();
         this.stopAutoRefresh();
         this.isConnected = false;
@@ -164,20 +206,48 @@ const PancakeRealtime = {
     joinChannels() {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
         var ref1 = this._makeRef();
-        this.ws.send(JSON.stringify([ref1, ref1, 'users:' + this.userId, 'phx_join', {
-            accessToken: this.token, userId: this.userId, platform: 'web'
-        }]));
+        this.ws.send(
+            JSON.stringify([
+                ref1,
+                ref1,
+                'users:' + this.userId,
+                'phx_join',
+                {
+                    accessToken: this.token,
+                    userId: this.userId,
+                    platform: 'web',
+                },
+            ])
+        );
         var ref2 = this._makeRef();
-        this.ws.send(JSON.stringify([ref2, ref2, 'multiple_pages:' + this.userId, 'phx_join', {
-            accessToken: this.token, userId: this.userId,
-            clientSession: this._genSession(),
-            pageIds: this.pageIds.map(String), platform: 'web'
-        }]));
+        this.ws.send(
+            JSON.stringify([
+                ref2,
+                ref2,
+                'multiple_pages:' + this.userId,
+                'phx_join',
+                {
+                    accessToken: this.token,
+                    userId: this.userId,
+                    clientSession: this._genSession(),
+                    pageIds: this.pageIds.map(String),
+                    platform: 'web',
+                },
+            ])
+        );
         var self = this;
-        setTimeout(function() {
+        setTimeout(function () {
             if (!self.ws || self.ws.readyState !== WebSocket.OPEN) return;
             var ref3 = self._makeRef();
-            self.ws.send(JSON.stringify([ref2, ref3, 'multiple_pages:' + self.userId, 'get_online_status', {}]));
+            self.ws.send(
+                JSON.stringify([
+                    ref2,
+                    ref3,
+                    'multiple_pages:' + self.userId,
+                    'get_online_status',
+                    {},
+                ])
+            );
         }, 1000);
     },
 
@@ -195,11 +265,16 @@ const PancakeRealtime = {
     _startHeartbeat() {
         this._stopHeartbeat();
         var self = this;
-        this.heartbeatInterval = setInterval(function() { self.sendHeartbeat(); }, this.HEARTBEAT_INTERVAL);
+        this.heartbeatInterval = setInterval(function () {
+            self.sendHeartbeat();
+        }, this.HEARTBEAT_INTERVAL);
     },
 
     _stopHeartbeat() {
-        if (this.heartbeatInterval) { clearInterval(this.heartbeatInterval); this.heartbeatInterval = null; }
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     },
 
     // =====================================================
@@ -209,15 +284,17 @@ const PancakeRealtime = {
     startAutoRefresh() {
         this.stopAutoRefresh();
         var self = this;
-        this.autoRefreshInterval = setInterval(async function() {
+        this.autoRefreshInterval = setInterval(async function () {
             try {
                 var state = window.PancakeState;
-                state.pagesWithUnread = await window.PancakeAPI.fetchPagesWithUnreadCount() || [];
+                state.pagesWithUnread = (await window.PancakeAPI.fetchPagesWithUnreadCount()) || [];
                 window.PancakePageSelector.updateSelectedDisplay();
                 if (!state.isLoading) {
                     var convs = await window.PancakeAPI.fetchConversations(false);
                     if (convs && convs.length > 0) {
-                        var hasNew = convs.some(function(c) { return c.unread_count > 0; });
+                        var hasNew = convs.some(function (c) {
+                            return c.unread_count > 0;
+                        });
                         if (convs.length !== state.conversations.length || hasNew) {
                             state.conversations = convs;
                             window.PancakeConversationList.renderConversationList();
@@ -231,7 +308,10 @@ const PancakeRealtime = {
     },
 
     stopAutoRefresh() {
-        if (this.autoRefreshInterval) { clearInterval(this.autoRefreshInterval); this.autoRefreshInterval = null; }
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+        }
     },
 
     // =====================================================
@@ -243,7 +323,10 @@ const PancakeRealtime = {
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.reconnectDelay = 2000;
-        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         this._updateStatusUI(true);
         this.joinChannels();
         this._startHeartbeat();
@@ -256,13 +339,19 @@ const PancakeRealtime = {
         this.isConnecting = false;
         this._updateStatusUI(false);
         this._stopHeartbeat();
-        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
 
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            var delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
+            var delay = Math.min(
+                this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1),
+                30000
+            );
             var self = this;
-            this.reconnectTimer = setTimeout(function() {
+            this.reconnectTimer = setTimeout(function () {
                 // After first failed browser WS attempt, switch to server mode
                 if (self.reconnectAttempts >= 2) {
                     console.log('[PK-RT] Browser WS failed, switching to server mode');
@@ -307,7 +396,9 @@ const PancakeRealtime = {
         if (!conv || !conv.id) return;
 
         var state = window.PancakeState;
-        var idx = state.conversations.findIndex(function(c) { return c.id === conv.id; });
+        var idx = state.conversations.findIndex(function (c) {
+            return c.id === conv.id;
+        });
         var isActive = state.activeConversation && state.activeConversation.id === conv.id;
 
         if (idx >= 0) {
@@ -316,13 +407,15 @@ const PancakeRealtime = {
                 snippet: conv.snippet || existing.snippet,
                 updated_at: conv.updated_at || new Date().toISOString(),
                 unread_count: isActive ? 0 : (existing.unread_count || 0) + 1,
-                last_message: conv.last_message || existing.last_message
+                last_message: conv.last_message || existing.last_message,
             });
             state.conversations.splice(idx, 1);
             state.conversations.unshift(existing);
             window.PancakeConversationList.updateConversationInDOM(existing);
         } else {
-            state.conversations.unshift(Object.assign({ unread_count: 1, type: conv.type || 'INBOX' }, conv));
+            state.conversations.unshift(
+                Object.assign({ unread_count: 1, type: conv.type || 'INBOX' }, conv)
+            );
             window.PancakeConversationList.renderConversationList();
         }
 
@@ -332,7 +425,9 @@ const PancakeRealtime = {
             if (document.hidden) {
                 var origTitle = document.title;
                 document.title = 'Tin nhắn mới!';
-                setTimeout(function() { document.title = origTitle; }, 3000);
+                setTimeout(function () {
+                    document.title = origTitle;
+                }, 3000);
             }
         }
 
@@ -344,7 +439,11 @@ const PancakeRealtime = {
         var convId = payload.conversation_id || message.conversation_id;
         var state = window.PancakeState;
         if (state.activeConversation && state.activeConversation.id === convId) {
-            if (!state.messages.find(function(m) { return m.id === message.id; })) {
+            if (
+                !state.messages.find(function (m) {
+                    return m.id === message.id;
+                })
+            ) {
                 state.messages.push(message);
                 window.PancakeChatWindow.renderMessages();
             }
@@ -361,11 +460,22 @@ const PancakeRealtime = {
         try {
             var pageId = state.activeConversation.page_id;
             var convId = state.activeConversation.id;
-            var customerId = state.activeConversation.customers && state.activeConversation.customers[0] ? state.activeConversation.customers[0].id : null;
-            var result = await window.PancakeAPI.fetchMessages(pageId, convId, { customerId: customerId });
+            var customerId =
+                state.activeConversation.customers && state.activeConversation.customers[0]
+                    ? state.activeConversation.customers[0].id
+                    : null;
+            var result = await window.PancakeAPI.fetchMessages(pageId, convId, {
+                customerId: customerId,
+            });
             if (result && result.messages) {
-                var existingIds = new Set(state.messages.map(function(m) { return m.id; }));
-                var newMsgs = result.messages.filter(function(m) { return !existingIds.has(m.id) && !m._temp; });
+                var existingIds = new Set(
+                    state.messages.map(function (m) {
+                        return m.id;
+                    })
+                );
+                var newMsgs = result.messages.filter(function (m) {
+                    return !existingIds.has(m.id) && !m._temp;
+                });
                 if (newMsgs.length > 0) {
                     state.messages.push.apply(state.messages, newMsgs);
                     window.PancakeChatWindow.renderMessages();
@@ -390,18 +500,27 @@ const PancakeRealtime = {
 
     _closeWs() {
         this._stopHeartbeat();
-        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
-        if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.ws) {
+            this.ws.onclose = null;
+            this.ws.close();
+            this.ws = null;
+        }
     },
 
-    _makeRef() { return String(this.refCounter++); },
+    _makeRef() {
+        return String(this.refCounter++);
+    },
 
     _genSession() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0;
-            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = (Math.random() * 16) | 0;
+            return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
         });
-    }
+    },
 };
 
 if (typeof window !== 'undefined') {

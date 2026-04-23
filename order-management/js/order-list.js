@@ -1651,11 +1651,14 @@ function _tposToast(message, level = 'info') {
     const nm = window.notificationManager;
     if (!nm) return;
     const fn = nm[level] || nm.info;
-    try { fn.call(nm, message); } catch (_) {}
+    try {
+        fn.call(nm, message);
+    } catch (_) {}
 }
 
 function setupImageSSE() {
-    const SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web_warehouse';
+    const SSE_URL =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web_warehouse';
     try {
         _sseSource = new EventSource(SSE_URL);
 
@@ -1671,14 +1674,17 @@ function setupImageSSE() {
                     if (changed > 0 || stats.deactivated) {
                         const parts = [];
                         if (stats.inserted) parts.push(`+${stats.inserted} mới`);
-                        if (stats.updated)  parts.push(`${stats.updated} cập nhật`);
+                        if (stats.updated) parts.push(`${stats.updated} cập nhật`);
                         if (stats.deactivated) parts.push(`${stats.deactivated} ngừng`);
                         _tposToast(`TPOS đồng bộ: ${parts.join(', ')}`, 'success');
                     }
                     return;
                 }
                 if (action === 'deactivated') {
-                    _tposToast(`TPOS xóa sản phẩm (${payload.data.count || 1} biến thể)`, 'warning');
+                    _tposToast(
+                        `TPOS xóa sản phẩm (${payload.data.count || 1} biến thể)`,
+                        'warning'
+                    );
                     return;
                 }
 
@@ -1696,7 +1702,9 @@ function setupImageSSE() {
                 _sseImageTimer = setTimeout(() => {
                     refreshProductImages(tposProductId, tposTemplateId, timestamp);
                 }, 2000);
-            } catch (_) { /* ignore parse errors */ }
+            } catch (_) {
+                /* ignore parse errors */
+            }
         });
 
         _sseSource.onerror = () => {
@@ -1714,11 +1722,9 @@ function setupImageSSE() {
  * Re-fetches from Render DB and updates Firebase RTDB + local state.
  */
 async function refreshProductImages(tposProductId, tposTemplateId, timestamp) {
-    const matchingKeys = Object.keys(orderProducts).filter(key => {
+    const matchingKeys = Object.keys(orderProducts).filter((key) => {
         const p = orderProducts[key];
-        return p.Id == tposProductId ||
-               p.Id == tposTemplateId ||
-               p.ProductTmplId == tposTemplateId;
+        return p.Id == tposProductId || p.Id == tposTemplateId || p.ProductTmplId == tposTemplateId;
     });
 
     if (matchingKeys.length === 0) return;
@@ -1740,10 +1746,13 @@ async function refreshProductImages(tposProductId, tposTemplateId, timestamp) {
             // Sync to Firebase RTDB (scoped by campaign)
             if (!isSyncingFromFirebase && currentCampaignId) {
                 const path = `${getProductsPath(currentCampaignId)}/${productKey}`;
-                database.ref(path).update({
-                    imageUrl: product.imageUrl,
-                    lastRefreshed: product.lastRefreshed,
-                }).catch(err => console.error('[SSE-Image] Firebase sync error:', err));
+                database
+                    .ref(path)
+                    .update({
+                        imageUrl: product.imageUrl,
+                        lastRefreshed: product.lastRefreshed,
+                    })
+                    .catch((err) => console.error('[SSE-Image] Firebase sync error:', err));
             }
         } catch (err) {
             console.warn('[SSE-Image] Refresh error for', productKey, err);
@@ -1951,10 +1960,11 @@ async function loadCampaignsOL() {
 
         selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
-        const list = (window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function')
-            ? await window.CampaignAPI.loadAll()
-            : [];
-        const campaigns = list.map(c => ({
+        const list =
+            window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function'
+                ? await window.CampaignAPI.loadAll()
+                : [];
+        const campaigns = list.map((c) => ({
             id: c.id,
             name: c.name || c.id,
             createdAt: c.createdAt || '',
@@ -2023,7 +2033,7 @@ function handleCampaignChangeOL() {
 async function searchProductsFromAPI(searchText) {
     if (!searchText || searchText.length < 1) return [];
     const rows = await WarehouseAPI.search(searchText, 10);
-    return rows.map(row => WarehouseAPI.toSearchSuggestion(row));
+    return rows.map((row) => WarehouseAPI.toSearchSuggestion(row));
 }
 
 function displayAddProductSuggestions(suggestions) {
@@ -2168,6 +2178,9 @@ async function addSingleProductOL(productData, imageUrl) {
 
 // Cleanup SSE on page unload
 window.addEventListener('beforeunload', () => {
-    if (_sseSource) { _sseSource.close(); _sseSource = null; }
+    if (_sseSource) {
+        _sseSource.close();
+        _sseSource = null;
+    }
     if (_sseImageTimer) clearTimeout(_sseImageTimer);
 });

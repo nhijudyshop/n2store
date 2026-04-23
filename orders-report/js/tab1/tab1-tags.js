@@ -19,13 +19,13 @@ async function fetchAllTagsWithPagination(headers) {
     const firstResponse = await API_CONFIG.smartFetch(
         `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=0&$count=true`,
         {
-            method: "GET",
+            method: 'GET',
             headers: {
                 ...headers,
-                accept: "application/json",
-                "content-type": "application/json",
+                accept: 'application/json',
+                'content-type': 'application/json',
             },
-        },
+        }
     );
 
     if (!firstResponse.ok) {
@@ -34,7 +34,7 @@ async function fetchAllTagsWithPagination(headers) {
 
     const firstData = await firstResponse.json();
     allTags = firstData.value || [];
-    totalCount = firstData["@odata.count"] || allTags.length;
+    totalCount = firstData['@odata.count'] || allTags.length;
 
     console.log(`[TAG] First batch: ${allTags.length} tags, total count: ${totalCount}`);
 
@@ -48,13 +48,13 @@ async function fetchAllTagsWithPagination(headers) {
             const response = await API_CONFIG.smartFetch(
                 `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=${PAGE_SIZE}&$skip=${skip}&$count=true`,
                 {
-                    method: "GET",
+                    method: 'GET',
                     headers: {
                         ...headers,
-                        accept: "application/json",
-                        "content-type": "application/json",
+                        accept: 'application/json',
+                        'content-type': 'application/json',
                     },
-                },
+                }
             );
 
             if (!response.ok) {
@@ -71,7 +71,9 @@ async function fetchAllTagsWithPagination(headers) {
             allTags = allTags.concat(batchTags);
             skip += PAGE_SIZE;
 
-            console.log(`[TAG] Fetched ${batchTags.length} more tags, total now: ${allTags.length}`);
+            console.log(
+                `[TAG] Fetched ${batchTags.length} more tags, total now: ${allTags.length}`
+            );
         }
     }
 
@@ -81,27 +83,27 @@ async function fetchAllTagsWithPagination(headers) {
 
 async function loadAvailableTags() {
     try {
-        const cached = window.cacheManager.get("tags", "tags");
+        const cached = window.cacheManager.get('tags', 'tags');
         if (cached) {
-            console.log("[TAG] Using cached tags");
+            console.log('[TAG] Using cached tags');
             availableTags = cached;
             window.availableTags = availableTags; // Export to window
             populateTagFilter(); // Populate filter dropdown
             return;
         }
 
-        console.log("[TAG] Loading tags from API...");
+        console.log('[TAG] Loading tags from API...');
         const headers = await window.tokenManager.getAuthHeader();
 
         // Use pagination helper to fetch all tags
         availableTags = await fetchAllTagsWithPagination(headers);
 
         window.availableTags = availableTags; // Export to window
-        window.cacheManager.set("tags", availableTags, "tags");
+        window.cacheManager.set('tags', availableTags, 'tags');
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
         populateTagFilter(); // Populate filter dropdown
     } catch (error) {
-        console.error("[TAG] Error loading tags:", error);
+        console.error('[TAG] Error loading tags:', error);
         availableTags = [];
         window.availableTags = availableTags; // Export to window
     }
@@ -115,7 +117,7 @@ async function refreshTags() {
         if (btn) btn.disabled = true;
         if (icon) icon.classList.add('fa-spin');
 
-        console.log("[TAG] Refreshing tags from TPOS...");
+        console.log('[TAG] Refreshing tags from TPOS...');
         const headers = await window.tokenManager.getAuthHeader();
 
         // Use pagination helper to fetch all tags (TPOS max $top=1000)
@@ -132,37 +134,38 @@ async function refreshTags() {
         // Update local state
         availableTags = newTags;
         window.availableTags = availableTags;
-        window.cacheManager.set("tags", availableTags, "tags");
+        window.cacheManager.set('tags', availableTags, 'tags');
 
         // Update UI
         populateTagFilter();
 
         // Clear search input and render full tag list
-        const searchInput = document.getElementById("tagSearchInput");
+        const searchInput = document.getElementById('tagSearchInput');
         if (searchInput) {
-            searchInput.value = "";
+            searchInput.value = '';
         }
 
         // Update current order tags with new tag info (if modal is open)
         if (currentOrderTags && currentOrderTags.length > 0) {
-            currentOrderTags = currentOrderTags.map(selectedTag => {
-                const updatedTag = newTags.find(t => t.Id === selectedTag.Id);
-                return updatedTag ? { Id: updatedTag.Id, Name: updatedTag.Name, Color: updatedTag.Color } : selectedTag;
+            currentOrderTags = currentOrderTags.map((selectedTag) => {
+                const updatedTag = newTags.find((t) => t.Id === selectedTag.Id);
+                return updatedTag
+                    ? { Id: updatedTag.Id, Name: updatedTag.Name, Color: updatedTag.Color }
+                    : selectedTag;
             });
             updateSelectedTagsDisplay();
         }
 
         // Render tag list without search filter
-        renderTagList("");
+        renderTagList('');
 
         if (window.notificationManager) {
             window.notificationManager.success(`Đã cập nhật ${newTags.length} tags thành công!`);
         } else {
             alert(`✅ Đã cập nhật ${newTags.length} tags thành công!`);
         }
-
     } catch (error) {
-        console.error("[TAG] Error refreshing tags:", error);
+        console.error('[TAG] Error refreshing tags:', error);
         if (window.notificationManager) {
             window.notificationManager.error(`Lỗi cập nhật tags: ${error.message}`);
         } else {
@@ -221,10 +224,26 @@ function closeCreateTagModal() {
 // Generate Random Color for auto-create tag
 function generateRandomColor() {
     const colors = [
-        '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-        '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
-        '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
-        '#ec4899', '#f43f5e', '#78716c', '#737373', '#71717a'
+        '#ef4444',
+        '#f97316',
+        '#f59e0b',
+        '#eab308',
+        '#84cc16',
+        '#22c55e',
+        '#10b981',
+        '#14b8a6',
+        '#06b6d4',
+        '#0ea5e9',
+        '#3b82f6',
+        '#6366f1',
+        '#8b5cf6',
+        '#a855f7',
+        '#d946ef',
+        '#ec4899',
+        '#f43f5e',
+        '#78716c',
+        '#737373',
+        '#71717a',
     ];
     return colors[Math.floor(Math.random() * colors.length)];
 }
@@ -258,18 +277,19 @@ async function autoCreateAndAddTTag(fullName) {
         if (!currentEditingOrderId) {
             throw new Error('Không có đơn hàng đang chỉnh sửa');
         }
-        const orderCode = window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        const orderCode = window._ptagResolveCode
+            ? window._ptagResolveCode(currentEditingOrderId)
+            : currentEditingOrderId;
         await window.assignTTagToOrder(orderCode, tagId);
 
         // Clear search input and update UI
-        const searchInput = document.getElementById("tagSearchInput");
-        if (searchInput) searchInput.value = "";
-        renderTagList("");
+        const searchInput = document.getElementById('tagSearchInput');
+        if (searchInput) searchInput.value = '';
+        renderTagList('');
 
         if (window.notificationManager) {
             window.notificationManager.success(`Đã tạo và gán "${name}"!`);
         }
-
     } catch (error) {
         console.error('[AUTO-CREATE-TAG] Error creating T-tag:', error);
         if (window.notificationManager) {
@@ -282,12 +302,14 @@ async function autoCreateAndAddTTag(fullName) {
 async function selectTTag(tagId) {
     try {
         if (!currentEditingOrderId) return;
-        const orderCode = window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        const orderCode = window._ptagResolveCode
+            ? window._ptagResolveCode(currentEditingOrderId)
+            : currentEditingOrderId;
         await window.assignTTagToOrder(orderCode, tagId);
 
-        const searchInput = document.getElementById("tagSearchInput");
-        if (searchInput) searchInput.value = "";
-        renderTagList("");
+        const searchInput = document.getElementById('tagSearchInput');
+        if (searchInput) searchInput.value = '';
+        renderTagList('');
 
         const def = window.ProcessingTagState?.getTTagDef(tagId);
         if (window.notificationManager) {
@@ -333,13 +355,13 @@ async function autoCreateAndAddTag(tagName) {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'accept': 'application/json, text/plain, */*',
+                    accept: 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
                 },
                 body: JSON.stringify({
                     Name: name,
-                    Color: color
-                })
+                    Color: color,
+                }),
             }
         );
 
@@ -360,7 +382,7 @@ async function autoCreateAndAddTag(tagName) {
         if (Array.isArray(availableTags)) {
             availableTags.push(newTag);
             window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
+            window.cacheManager.set('tags', availableTags, 'tags');
         }
 
         // Save to Firebase
@@ -376,16 +398,16 @@ async function autoCreateAndAddTag(tagName) {
         currentOrderTags.push({
             Id: newTag.Id,
             Name: newTag.Name,
-            Color: newTag.Color
+            Color: newTag.Color,
         });
 
         // Clear search input and update UI
-        const searchInput = document.getElementById("tagSearchInput");
+        const searchInput = document.getElementById('tagSearchInput');
         if (searchInput) {
-            searchInput.value = "";
+            searchInput.value = '';
         }
         updateSelectedTagsDisplay();
-        renderTagList("");
+        renderTagList('');
 
         // Show success notification
         if (window.notificationManager) {
@@ -393,7 +415,6 @@ async function autoCreateAndAddTag(tagName) {
         }
 
         console.log('[AUTO-CREATE-TAG] Tag added to order selection');
-
     } catch (error) {
         console.error('[AUTO-CREATE-TAG] Error creating tag:', error);
         if (window.notificationManager) {
@@ -450,7 +471,9 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
     // Check if identifier is loaded
     if (!currentUserIdentifier) {
         if (window.notificationManager) {
-            window.notificationManager.warning('Chưa có tên định danh. Vui lòng cập nhật trong Quản lý User.');
+            window.notificationManager.warning(
+                'Chưa có tên định danh. Vui lòng cập nhật trong Quản lý User.'
+            );
         }
         return;
     }
@@ -458,7 +481,7 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
     const tagName = `${tagPrefix} ${currentUserIdentifier}`.toUpperCase();
 
     // Store original tags for rollback
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
     if (!order) {
         if (window.notificationManager) {
             window.notificationManager.error('Không tìm thấy đơn hàng');
@@ -469,22 +492,26 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
     try {
         // Check if tag exists in availableTags
-        let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+        let existingTag = availableTags.find((t) => t.Name.toUpperCase() === tagName);
 
         // If tag doesn't exist in local cache, fetch ALL tags from API using pagination
         if (!existingTag) {
-            console.log('[QUICK-TAG] Tag not found in local cache, fetching ALL tags from API with pagination...');
+            console.log(
+                '[QUICK-TAG] Tag not found in local cache, fetching ALL tags from API with pagination...'
+            );
             const headers = await window.tokenManager.getAuthHeader();
 
             // Use pagination helper to fetch ALL tags (TPOS max $top=1000)
             try {
                 availableTags = await fetchAllTagsWithPagination(headers);
                 window.availableTags = availableTags;
-                window.cacheManager.set("tags", availableTags, "tags");
-                console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API (with pagination)`);
+                window.cacheManager.set('tags', availableTags, 'tags');
+                console.log(
+                    `[QUICK-TAG] Refreshed ${availableTags.length} tags from API (with pagination)`
+                );
 
                 // Check again after refresh
-                existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                existingTag = availableTags.find((t) => t.Name.toUpperCase() === tagName);
                 if (existingTag) {
                     console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
                 }
@@ -505,35 +532,44 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
                     method: 'POST',
                     headers: {
                         ...headers,
-                        'accept': 'application/json, text/plain, */*',
+                        accept: 'application/json, text/plain, */*',
                         'content-type': 'application/json;charset=UTF-8',
                     },
                     body: JSON.stringify({
                         Name: tagName,
-                        Color: color
-                    })
+                        Color: color,
+                    }),
                 }
             );
 
             if (!createResponse.ok) {
                 // Handle "tag already exists" error (400) - fetch fresh and find the tag
                 if (createResponse.status === 400) {
-                    console.log('[QUICK-TAG] Create returned 400 (tag may already exist), fetching fresh tags...');
+                    console.log(
+                        '[QUICK-TAG] Create returned 400 (tag may already exist), fetching fresh tags...'
+                    );
                     try {
                         const freshHeaders = await window.tokenManager.getAuthHeader();
                         availableTags = await fetchAllTagsWithPagination(freshHeaders);
                         window.availableTags = availableTags;
-                        window.cacheManager.set("tags", availableTags, "tags");
+                        window.cacheManager.set('tags', availableTags, 'tags');
 
-                        existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                        existingTag = availableTags.find((t) => t.Name.toUpperCase() === tagName);
                         if (existingTag) {
-                            console.log('[QUICK-TAG] Found existing tag after 400 error:', existingTag.Name);
+                            console.log(
+                                '[QUICK-TAG] Found existing tag after 400 error:',
+                                existingTag.Name
+                            );
                         } else {
-                            throw new Error(`Tag "${tagName}" đã tồn tại nhưng không tìm thấy trong hệ thống`);
+                            throw new Error(
+                                `Tag "${tagName}" đã tồn tại nhưng không tìm thấy trong hệ thống`
+                            );
                         }
                     } catch (fetchError) {
                         console.error('[QUICK-TAG] Failed to recover from 400 error:', fetchError);
-                        throw new Error(`Lỗi tạo tag: ${createResponse.status} - Tag có thể đã tồn tại`);
+                        throw new Error(
+                            `Lỗi tạo tag: ${createResponse.status} - Tag có thể đã tồn tại`
+                        );
                     }
                 } else {
                     throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
@@ -549,7 +585,7 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
                 // Update local tags list
                 availableTags.push(existingTag);
                 window.availableTags = availableTags;
-                window.cacheManager.set("tags", availableTags, "tags");
+                window.cacheManager.set('tags', availableTags, 'tags');
 
                 // Save to Firebase
                 if (database) {
@@ -577,7 +613,9 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         // Remove opposite tag if exists (xử lý <-> ok)
         const oppositePrefix = tagPrefix.toLowerCase() === 'xử lý' ? 'OK' : 'XỬ LÝ';
         const oppositeTagName = `${oppositePrefix} ${currentUserIdentifier}`.toUpperCase();
-        const oppositeTagIndex = orderTags.findIndex(t => t.Name && t.Name.toUpperCase() === oppositeTagName);
+        const oppositeTagIndex = orderTags.findIndex(
+            (t) => t.Name && t.Name.toUpperCase() === oppositeTagName
+        );
 
         // Track removed tag ID for filter re-apply check
         let removedTagId = null;
@@ -590,7 +628,7 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         }
 
         // Check if tag already assigned
-        if (orderTags.some(t => t.Id === existingTag.Id)) {
+        if (orderTags.some((t) => t.Id === existingTag.Id)) {
             if (window.notificationManager) {
                 window.notificationManager.info(`Tag "${tagName}" đã được gán cho đơn này rồi.`);
             }
@@ -601,7 +639,7 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         orderTags.push({
             Id: existingTag.Id,
             Name: existingTag.Name,
-            Color: existingTag.Color
+            Color: existingTag.Color,
         });
 
         // ═══════════════════════════════════════════════════════════════════
@@ -626,12 +664,12 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({
-                    Tags: orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                    OrderId: orderId
-                })
+                    Tags: orderTags.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: orderId,
+                }),
             }
         );
 
@@ -641,11 +679,14 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         }
 
         // Clear cache
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         // Success notification
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã gán tag "${tagName}" cho đơn ${orderCode}!`, 2000);
+            window.notificationManager.success(
+                `Đã gán tag "${tagName}" cho đơn ${orderCode}!`,
+                2000
+            );
         }
 
         console.log('[QUICK-TAG] Tag assigned successfully:', tagName, 'to order:', orderCode);
@@ -659,19 +700,27 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
             // Check if the removed tag matches the current filter - if so, always re-filter
-            const removedTagMatchesFilter = removedTagId && String(removedTagId) === String(currentTagFilter);
+            const removedTagMatchesFilter =
+                removedTagId && String(removedTagId) === String(currentTagFilter);
 
             // Also check if filter tag name starts with opposite prefix (handle Unicode comparison issues)
             // e.g., if we're adding "OK" tag and filter is set to a "XỬ LÝ" tag, always re-filter
             let filterTagMatchesOppositePrefix = false;
             if (window.availableTags) {
-                const filterTag = window.availableTags.find(t => String(t.Id) === String(currentTagFilter));
+                const filterTag = window.availableTags.find(
+                    (t) => String(t.Id) === String(currentTagFilter)
+                );
                 if (filterTag && filterTag.Name) {
                     const filterTagNameUpper = filterTag.Name.toUpperCase();
                     // oppositePrefix is "XỬ LÝ" when tagPrefix is "ok", or "OK" when tagPrefix is "xử lý"
                     filterTagMatchesOppositePrefix = filterTagNameUpper.startsWith(oppositePrefix);
                     if (filterTagMatchesOppositePrefix) {
-                        console.log('[QUICK-TAG] Filter tag matches opposite prefix:', filterTag.Name, '→', oppositePrefix);
+                        console.log(
+                            '[QUICK-TAG] Filter tag matches opposite prefix:',
+                            filterTag.Name,
+                            '→',
+                            oppositePrefix
+                        );
                     }
                 }
             }
@@ -680,11 +729,15 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
                 // The tag that was removed matches the current filter - re-filter immediately
                 if (typeof window.performTableSearch === 'function') {
                     window.performTableSearch();
-                    console.log('[QUICK-TAG] Order hidden - removed tag matches current filter or filter matches opposite prefix');
+                    console.log(
+                        '[QUICK-TAG] Order hidden - removed tag matches current filter or filter matches opposite prefix'
+                    );
                 }
             } else {
                 // Fallback: Check if order still matches the filter
-                const orderStillMatchesFilter = orderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+                const orderStillMatchesFilter = orderTags.some(
+                    (tag) => String(tag.Id) === String(currentTagFilter)
+                );
                 if (!orderStillMatchesFilter) {
                     // Order no longer matches filter - re-filter the table
                     if (typeof window.performTableSearch === 'function') {
@@ -694,7 +747,6 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
                 }
             }
         }
-
     } catch (error) {
         console.error('[QUICK-TAG] Error:', error);
 
@@ -741,7 +793,7 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
     console.log('[QUICK-TAG] Removing tag:', { orderId, orderCode, tagId });
 
     // Get current order from data - O(1) via OrderStore with fallback
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
     if (!order) {
         if (window.notificationManager) {
             window.notificationManager.error('Không tìm thấy đơn hàng');
@@ -767,14 +819,19 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
 
     // Find tag to remove (compare as string to handle both number and string IDs)
     const tagIdStr = String(tagId);
-    const tagToRemove = orderTags.find(t => String(t.Id) === tagIdStr);
+    const tagToRemove = orderTags.find((t) => String(t.Id) === tagIdStr);
     if (!tagToRemove) {
-        console.warn('[QUICK-TAG] Tag not found in order:', tagId, 'Available:', orderTags.map(t => t.Id));
+        console.warn(
+            '[QUICK-TAG] Tag not found in order:',
+            tagId,
+            'Available:',
+            orderTags.map((t) => t.Id)
+        );
         return;
     }
 
     // Remove tag from list
-    const newOrderTags = orderTags.filter(t => String(t.Id) !== tagIdStr);
+    const newOrderTags = orderTags.filter((t) => String(t.Id) !== tagIdStr);
 
     try {
         // ═══════════════════════════════════════════════════════════════════
@@ -799,12 +856,12 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({
-                    Tags: newOrderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                    OrderId: orderId
-                })
+                    Tags: newOrderTags.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: orderId,
+                }),
             }
         );
 
@@ -814,14 +871,24 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
         }
 
         // Clear cache
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         // Success notification
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã xóa tag "${tagToRemove.Name}" khỏi đơn ${orderCode}!`, 2000);
+            window.notificationManager.success(
+                `Đã xóa tag "${tagToRemove.Name}" khỏi đơn ${orderCode}!`,
+                2000
+            );
         }
 
-        console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'ID:', tagToRemove.Id, 'from order:', orderCode);
+        console.log(
+            '[QUICK-TAG] Tag removed successfully:',
+            tagToRemove.Name,
+            'ID:',
+            tagToRemove.Id,
+            'from order:',
+            orderCode
+        );
 
         // Reverse sync TPOS → XL
         if (typeof window.handleTPOSTagsChanged === 'function') {
@@ -838,21 +905,27 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
                 // The tag that was removed matches the current filter - re-filter immediately
                 if (typeof window.performTableSearch === 'function') {
                     window.performTableSearch();
-                    console.log('[QUICK-TAG] Order hidden - removed tag matches current filter, ID:', tagToRemove.Id);
+                    console.log(
+                        '[QUICK-TAG] Order hidden - removed tag matches current filter, ID:',
+                        tagToRemove.Id
+                    );
                 }
             } else {
                 // Fallback: Check if order still matches the filter
-                const orderStillMatchesFilter = newOrderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+                const orderStillMatchesFilter = newOrderTags.some(
+                    (tag) => String(tag.Id) === String(currentTagFilter)
+                );
                 if (!orderStillMatchesFilter) {
                     // Order no longer matches filter - re-filter the table
                     if (typeof window.performTableSearch === 'function') {
                         window.performTableSearch();
-                        console.log('[QUICK-TAG] Order hidden - no longer matches tag filter after removal');
+                        console.log(
+                            '[QUICK-TAG] Order hidden - no longer matches tag filter after removal'
+                        );
                     }
                 }
             }
         }
-
     } catch (error) {
         console.error('[QUICK-TAG] Error removing tag:', error);
 
@@ -975,13 +1048,13 @@ async function createNewTag() {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'accept': 'application/json, text/plain, */*',
+                    accept: 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
                 },
                 body: JSON.stringify({
                     Name: name,
-                    Color: color
-                })
+                    Color: color,
+                }),
             }
         );
 
@@ -1008,7 +1081,7 @@ async function createNewTag() {
         if (Array.isArray(availableTags)) {
             availableTags.push(newTag);
             window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
+            window.cacheManager.set('tags', availableTags, 'tags');
         }
 
         // Save to Firebase
@@ -1021,11 +1094,11 @@ async function createNewTag() {
         populateTagFilter();
 
         // Clear search and render updated tag list
-        const searchInput = document.getElementById("tagSearchInput");
+        const searchInput = document.getElementById('tagSearchInput');
         if (searchInput) {
-            searchInput.value = "";
+            searchInput.value = '';
         }
-        renderTagList("");
+        renderTagList('');
 
         // Show notification
         if (window.notificationManager) {
@@ -1036,7 +1109,6 @@ async function createNewTag() {
         setTimeout(() => {
             closeCreateTagModal();
         }, 1000);
-
     } catch (error) {
         console.error('[CREATE-TAG] Error creating tag:', error);
         statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Lỗi: ' + error.message;
@@ -1078,27 +1150,27 @@ function openTagModal(orderId, orderCode) {
 
     renderTagList();
     updateSelectedTagsDisplay();
-    document.getElementById("tagModal").classList.add("show");
+    document.getElementById('tagModal').classList.add('show');
 
     // Auto-refresh tags when modal opens
     refreshTags();
 
     // Focus on search input
     setTimeout(() => {
-        document.getElementById("tagSearchInput").focus();
+        document.getElementById('tagSearchInput').focus();
     }, 100);
 }
 
 function closeTagModal() {
-    document.getElementById("tagModal").classList.remove("show");
-    document.getElementById("tagSearchInput").value = "";
+    document.getElementById('tagModal').classList.remove('show');
+    document.getElementById('tagSearchInput').value = '';
     currentEditingOrderId = null;
     currentOrderTags = [];
     pendingDeleteTagIndex = -1;
 }
 
-function renderTagList(searchQuery = "") {
-    const tagList = document.getElementById("tagList");
+function renderTagList(searchQuery = '') {
+    const tagList = document.getElementById('tagList');
     if (availableTags.length === 0 && !window.ProcessingTagState) {
         tagList.innerHTML = `<div class="no-tags-message"><i class="fas fa-exclamation-circle"></i><p>Không có tag nào</p></div>`;
         return;
@@ -1114,8 +1186,7 @@ function renderTagList(searchQuery = "") {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
         return (
-            tag.Name.toLowerCase().includes(query) ||
-            tag.NameNosign.toLowerCase().includes(query)
+            tag.Name.toLowerCase().includes(query) || tag.NameNosign.toLowerCase().includes(query)
         );
     });
 
@@ -1123,7 +1194,10 @@ function renderTagList(searchQuery = "") {
     let filteredTTags = [];
     if (window.ProcessingTagState) {
         const allTTags = window.ProcessingTagState.getTTagDefinitions() || [];
-        const _oc = currentEditingOrderId && window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        const _oc =
+            currentEditingOrderId && window._ptagResolveCode
+                ? window._ptagResolveCode(currentEditingOrderId)
+                : currentEditingOrderId;
         const orderData = _oc ? window.ProcessingTagState.getOrderData(_oc) : null;
         const assignedTTags = orderData?.tTags || [];
 
@@ -1156,7 +1230,7 @@ function renderTagList(searchQuery = "") {
                 <div class="tag-item-name">${tag.Name}</div>
             </div>`;
         })
-        .join("");
+        .join('');
 
     // Render Tag T chờ hàng section at bottom
     if (filteredTTags.length > 0) {
@@ -1170,7 +1244,7 @@ function renderTagList(searchQuery = "") {
                 <div class="tag-item-name">${def.name}</div>
             </div>`;
             })
-            .join("");
+            .join('');
     }
 
     tagList.innerHTML = html;
@@ -1188,36 +1262,38 @@ function toggleTag(tagId) {
     }
 
     updateSelectedTagsDisplay();
-    renderTagList(document.getElementById("tagSearchInput").value);
+    renderTagList(document.getElementById('tagSearchInput').value);
 }
 
 function updateSelectedTagsDisplay() {
-    const container = document.getElementById("selectedTagsPills");
+    const container = document.getElementById('selectedTagsPills');
     if (currentOrderTags.length === 0) {
         container.innerHTML = '';
         pendingDeleteTagIndex = -1;
         return;
     }
     container.innerHTML = currentOrderTags
-        .map(
-            (tag, index) => {
-                const isPendingDelete = index === pendingDeleteTagIndex;
-                const bgColor = isPendingDelete ? '#ef4444' : '#3b82f6'; // Red if pending delete, blue otherwise
-                const safeName = (tag.Name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                return `
+        .map((tag, index) => {
+            const isPendingDelete = index === pendingDeleteTagIndex;
+            const bgColor = isPendingDelete ? '#ef4444' : '#3b82f6'; // Red if pending delete, blue otherwise
+            const safeName = (tag.Name || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            return `
         <span class="selected-tag-pill ${isPendingDelete ? 'deletion-pending' : ''}" style="background-color: ${bgColor}" data-tag-index="${index}">
             ${safeName}
             <button class="selected-tag-remove" onclick="event.stopPropagation(); removeTag(${index})" title="Xóa tag">
                 ✕
             </button>
         </span>`;
-            }
-        )
-        .join("");
+        })
+        .join('');
 }
 
 function filterTags() {
-    renderTagList(document.getElementById("tagSearchInput").value);
+    renderTagList(document.getElementById('tagSearchInput').value);
 }
 
 function removeTag(index) {
@@ -1225,12 +1301,12 @@ function removeTag(index) {
         currentOrderTags.splice(index, 1);
         pendingDeleteTagIndex = -1;
         updateSelectedTagsDisplay();
-        renderTagList(document.getElementById("tagSearchInput").value);
+        renderTagList(document.getElementById('tagSearchInput').value);
     }
 }
 
 function handleTagInputKeydown(event) {
-    const inputValue = document.getElementById("tagSearchInput").value;
+    const inputValue = document.getElementById('tagSearchInput').value;
 
     if (event.key === 'Enter') {
         event.preventDefault();
@@ -1248,9 +1324,9 @@ function handleTagInputKeydown(event) {
                 if (tagId) {
                     toggleTag(parseInt(tagId));
                     // Clear search input after selecting
-                    document.getElementById("tagSearchInput").value = "";
+                    document.getElementById('tagSearchInput').value = '';
                     // Re-render to show all available tags again
-                    renderTagList("");
+                    renderTagList('');
                     pendingDeleteTagIndex = -1;
                 }
             }
@@ -1320,21 +1396,18 @@ async function saveOrderTags() {
         };
         const headers = await window.tokenManager.getAuthHeader();
         const response = await API_CONFIG.smartFetch(
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
             {
-                method: "POST",
+                method: 'POST',
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify(payload),
-            },
+            }
         );
-        if (!response.ok)
-            throw new Error(
-                `HTTP ${response.status}: ${await response.text()}`,
-            );
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
 
         // 🔄 Cập nhật tags trong data
         const updatedData = { Tags: JSON.stringify(currentOrderTags) };
@@ -1348,7 +1421,7 @@ async function saveOrderTags() {
             window.handleTPOSTagsChanged(currentEditingOrderId, currentOrderTags);
         }
 
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
         showLoading(false);
 
         closeTagModal();
@@ -1359,12 +1432,10 @@ async function saveOrderTags() {
                 2000
             );
         } else {
-            showInfoBanner(
-                `✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
-            );
+            showInfoBanner(`✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`);
         }
     } catch (error) {
-        console.error("[TAG] Error saving tags:", error);
+        console.error('[TAG] Error saving tags:', error);
         showLoading(false);
 
         if (window.notificationManager) {
@@ -1400,7 +1471,7 @@ const EXCLUDED_TAGS_FILTER_KEY = 'orderTableExcludedTags';
 /**
  * Get selected tags from localStorage
  */
-window.getSelectedTagFilters = function() {
+window.getSelectedTagFilters = function () {
     try {
         const saved = localStorage.getItem(SELECTED_TAGS_KEY);
         return saved ? JSON.parse(saved) : [];
@@ -1413,7 +1484,7 @@ window.getSelectedTagFilters = function() {
 /**
  * Save selected tags to localStorage
  */
-window.saveSelectedTagFilters = function(tagIds) {
+window.saveSelectedTagFilters = function (tagIds) {
     try {
         localStorage.setItem(SELECTED_TAGS_KEY, JSON.stringify(tagIds));
         console.log('[TAG-FILTER] Saved selected tags:', tagIds);
@@ -1426,14 +1497,16 @@ window.saveSelectedTagFilters = function(tagIds) {
 /**
  * Toggle tag filter dropdown
  */
-window.toggleTagFilterDropdown = function() {
+window.toggleTagFilterDropdown = function () {
     const dropdown = document.getElementById('tagFilterDropdown');
     if (!dropdown) return;
 
     const isOpen = dropdown.classList.contains('open');
 
     // Close all other dropdowns
-    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+    document
+        .querySelectorAll('.tag-filter-dropdown.open')
+        .forEach((d) => d.classList.remove('open'));
 
     if (!isOpen) {
         dropdown.classList.add('open');
@@ -1458,7 +1531,7 @@ window.toggleTagFilterDropdown = function() {
 /**
  * Close tag filter dropdown
  */
-window.closeTagFilterDropdown = function() {
+window.closeTagFilterDropdown = function () {
     const dropdown = document.getElementById('tagFilterDropdown');
     if (dropdown) dropdown.classList.remove('open');
 };
@@ -1466,7 +1539,7 @@ window.closeTagFilterDropdown = function() {
 /**
  * Populate tag filter options (Multi-select with checkboxes)
  */
-window.populateTagFilterOptions = function(searchTerm = '') {
+window.populateTagFilterOptions = function (searchTerm = '') {
     const optionsContainer = document.getElementById('tagFilterOptions');
     if (!optionsContainer) return;
 
@@ -1477,7 +1550,7 @@ window.populateTagFilterOptions = function(searchTerm = '') {
     // Filter tags by search term (diacritic-free matching)
     let filteredTags = tags;
     if (search) {
-        filteredTags = tags.filter(tag =>
+        filteredTags = tags.filter((tag) =>
             removeVietnameseDiacritics(tag.Name || '').includes(search)
         );
     }
@@ -1485,9 +1558,11 @@ window.populateTagFilterOptions = function(searchTerm = '') {
     // Build options HTML with checkboxes
     let html = '';
 
-    filteredTags.forEach(tag => {
+    filteredTags.forEach((tag) => {
         const isSelected = selectedTags.includes(String(tag.Id));
-        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+        const colorStyle = tag.Color
+            ? `background-color: ${tag.Color}`
+            : 'background-color: #9ca3af';
         html += `
             <label class="tag-filter-option" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s; ${isSelected ? 'background: #eff6ff;' : ''}"
                 onmouseover="this.style.background='${isSelected ? '#dbeafe' : '#f9fafb'}'"
@@ -1514,7 +1589,7 @@ window.populateTagFilterOptions = function(searchTerm = '') {
 /**
  * Toggle a tag in the filter selection
  */
-window.toggleTagFilterOption = function(tagId) {
+window.toggleTagFilterOption = function (tagId) {
     const selectedTags = window.getSelectedTagFilters();
     const tagIdStr = String(tagId);
     const index = selectedTags.indexOf(tagIdStr);
@@ -1551,7 +1626,7 @@ window.toggleTagFilterOption = function(tagId) {
 /**
  * Select all visible tags in filter
  */
-window.selectAllTagFilters = function() {
+window.selectAllTagFilters = function () {
     const tags = window.availableTags || [];
     const searchInput = document.getElementById('tagFilterSearchInput');
     const search = (searchInput?.value || '').toLowerCase().trim();
@@ -1559,13 +1634,13 @@ window.selectAllTagFilters = function() {
     // Get currently visible tags
     let visibleTags = tags;
     if (search) {
-        visibleTags = tags.filter(tag => (tag.Name || '').toLowerCase().includes(search));
+        visibleTags = tags.filter((tag) => (tag.Name || '').toLowerCase().includes(search));
     }
 
     const selectedTags = window.getSelectedTagFilters();
 
     // Add all visible tags to selection
-    visibleTags.forEach(tag => {
+    visibleTags.forEach((tag) => {
         const tagIdStr = String(tag.Id);
         if (!selectedTags.includes(tagIdStr)) {
             selectedTags.push(tagIdStr);
@@ -1592,7 +1667,7 @@ window.selectAllTagFilters = function() {
 /**
  * Clear all tag filters
  */
-window.clearTagFilters = function() {
+window.clearTagFilters = function () {
     window.saveSelectedTagFilters([]);
 
     // Update hidden input
@@ -1626,7 +1701,7 @@ function updateTagFilterDisplayText() {
         displayText.textContent = 'Tất cả';
         displayText.style.color = '';
     } else if (selectedTags.length === 1) {
-        const tag = tags.find(t => String(t.Id) === selectedTags[0]);
+        const tag = tags.find((t) => String(t.Id) === selectedTags[0]);
         displayText.textContent = tag ? tag.Name : '1 tag';
         displayText.style.color = tag?.Color || '';
     } else {
@@ -1643,7 +1718,7 @@ function updateTagFilterDisplayText() {
 /**
  * Filter tag options based on search input
  */
-window.filterTagOptions = function() {
+window.filterTagOptions = function () {
     const searchInput = document.getElementById('tagFilterSearchInput');
     const searchTerm = searchInput ? searchInput.value : '';
     window.populateTagFilterOptions(searchTerm);
@@ -1656,7 +1731,7 @@ window.filterTagOptions = function() {
 /**
  * Get excluded tags from localStorage
  */
-window.getExcludedTagFilters = function() {
+window.getExcludedTagFilters = function () {
     try {
         const saved = localStorage.getItem(EXCLUDED_TAGS_FILTER_KEY);
         return saved ? JSON.parse(saved) : [];
@@ -1669,7 +1744,7 @@ window.getExcludedTagFilters = function() {
 /**
  * Save excluded tags to localStorage
  */
-window.saveExcludedTagFilters = function(tagIds) {
+window.saveExcludedTagFilters = function (tagIds) {
     try {
         localStorage.setItem(EXCLUDED_TAGS_FILTER_KEY, JSON.stringify(tagIds));
         console.log('[EXCLUDE-TAG-FILTER] Saved excluded tags:', tagIds);
@@ -1682,14 +1757,16 @@ window.saveExcludedTagFilters = function(tagIds) {
 /**
  * Toggle exclude tag filter dropdown
  */
-window.toggleExcludeTagFilterDropdown = function() {
+window.toggleExcludeTagFilterDropdown = function () {
     const dropdown = document.getElementById('excludeTagFilterDropdown');
     if (!dropdown) return;
 
     const isOpen = dropdown.classList.contains('open');
 
     // Close all other dropdowns
-    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+    document
+        .querySelectorAll('.tag-filter-dropdown.open')
+        .forEach((d) => d.classList.remove('open'));
 
     if (!isOpen) {
         dropdown.classList.add('open');
@@ -1714,7 +1791,7 @@ window.toggleExcludeTagFilterDropdown = function() {
 /**
  * Close exclude tag filter dropdown
  */
-window.closeExcludeTagFilterDropdown = function() {
+window.closeExcludeTagFilterDropdown = function () {
     const dropdown = document.getElementById('excludeTagFilterDropdown');
     if (dropdown) dropdown.classList.remove('open');
 };
@@ -1722,7 +1799,7 @@ window.closeExcludeTagFilterDropdown = function() {
 /**
  * Populate exclude tag filter options
  */
-window.populateExcludeTagFilterOptions = function(searchTerm = '') {
+window.populateExcludeTagFilterOptions = function (searchTerm = '') {
     const optionsContainer = document.getElementById('excludeTagFilterOptions');
     if (!optionsContainer) return;
 
@@ -1733,7 +1810,7 @@ window.populateExcludeTagFilterOptions = function(searchTerm = '') {
     // Filter tags by search term (diacritic-free matching)
     let filteredTags = tags;
     if (search) {
-        filteredTags = tags.filter(tag =>
+        filteredTags = tags.filter((tag) =>
             removeVietnameseDiacritics(tag.Name || '').includes(search)
         );
     }
@@ -1741,9 +1818,11 @@ window.populateExcludeTagFilterOptions = function(searchTerm = '') {
     // Build options HTML with checkboxes
     let html = '';
 
-    filteredTags.forEach(tag => {
+    filteredTags.forEach((tag) => {
         const isExcluded = excludedTags.includes(String(tag.Id));
-        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+        const colorStyle = tag.Color
+            ? `background-color: ${tag.Color}`
+            : 'background-color: #9ca3af';
         html += `
             <label class="tag-filter-option" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s; ${isExcluded ? 'background: #fef2f2;' : ''}"
                 onmouseover="this.style.background='${isExcluded ? '#fee2e2' : '#f9fafb'}'"
@@ -1773,7 +1852,7 @@ window.populateExcludeTagFilterOptions = function(searchTerm = '') {
 /**
  * Toggle a tag in the exclude filter selection
  */
-window.toggleExcludeTagFilterOption = function(tagId) {
+window.toggleExcludeTagFilterOption = function (tagId) {
     const excludedTags = window.getExcludedTagFilters();
     const tagIdStr = String(tagId);
     const index = excludedTags.indexOf(tagIdStr);
@@ -1804,7 +1883,7 @@ window.toggleExcludeTagFilterOption = function(tagId) {
 /**
  * Clear all exclude tag filters
  */
-window.clearExcludeTagFilters = function() {
+window.clearExcludeTagFilters = function () {
     window.saveExcludedTagFilters([]);
 
     // Update display
@@ -1834,7 +1913,7 @@ function updateExcludeTagFilterDisplayText() {
         displayText.textContent = 'Không ẩn';
         displayText.style.color = '';
     } else if (excludedTags.length === 1) {
-        const tag = tags.find(t => String(t.Id) === excludedTags[0]);
+        const tag = tags.find((t) => String(t.Id) === excludedTags[0]);
         displayText.textContent = tag ? tag.Name : '1 tag';
         displayText.style.color = '#ef4444';
     } else {
@@ -1846,7 +1925,7 @@ function updateExcludeTagFilterDisplayText() {
 /**
  * Filter exclude tag options based on search input
  */
-window.filterExcludeTagOptions = function() {
+window.filterExcludeTagOptions = function () {
     const searchInput = document.getElementById('excludeTagFilterSearchInput');
     const searchTerm = searchInput ? searchInput.value : '';
     window.populateExcludeTagFilterOptions(searchTerm);
@@ -1855,7 +1934,7 @@ window.filterExcludeTagOptions = function() {
 /**
  * Update selected tags display in main area
  */
-window.updateSelectedTagsMainDisplay = function() {
+window.updateSelectedTagsMainDisplay = function () {
     const parentContainer = document.getElementById('activeFiltersDisplay');
     const container = document.getElementById('selectedTagsDisplay');
     const listEl = document.getElementById('selectedTagsDisplayList');
@@ -1879,16 +1958,18 @@ window.updateSelectedTagsMainDisplay = function() {
         return;
     }
 
-    listEl.innerHTML = selectedTags.map(tagId => {
-        const tag = tags.find(t => String(t.Id) === String(tagId));
-        const tagColor = tag?.Color || '#3b82f6';
-        const tagName = tag?.Name || `Tag #${tagId}`;
-        return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+    listEl.innerHTML = selectedTags
+        .map((tagId) => {
+            const tag = tags.find((t) => String(t.Id) === String(tagId));
+            const tagColor = tag?.Color || '#3b82f6';
+            const tagName = tag?.Name || `Tag #${tagId}`;
+            return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
             ${tagName}
             <button onclick="removeSelectedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ lọc tag này">×</button>
         </span>`;
-    }).join('');
+        })
+        .join('');
 
     updateActiveFiltersVisibility();
 };
@@ -1896,7 +1977,7 @@ window.updateSelectedTagsMainDisplay = function() {
 /**
  * Remove a tag from selected filter list directly from main page
  */
-window.removeSelectedTagFromMain = function(tagId) {
+window.removeSelectedTagFromMain = function (tagId) {
     const selectedTags = window.getSelectedTagFilters();
     const index = selectedTags.indexOf(String(tagId));
     if (index > -1) {
@@ -1917,7 +1998,7 @@ window.removeSelectedTagFromMain = function(tagId) {
 /**
  * Update excluded tags display in main area
  */
-window.updateExcludedTagsMainDisplay = function() {
+window.updateExcludedTagsMainDisplay = function () {
     const container = document.getElementById('excludedTagsDisplay');
     const listEl = document.getElementById('excludedTagsDisplayList');
     if (!container || !listEl) return;
@@ -1940,16 +2021,18 @@ window.updateExcludedTagsMainDisplay = function() {
         return;
     }
 
-    listEl.innerHTML = excludedTags.map(tagId => {
-        const tag = tags.find(t => String(t.Id) === String(tagId));
-        const tagColor = tag?.Color || '#6b7280';
-        const tagName = tag?.Name || `Tag #${tagId}`;
-        return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+    listEl.innerHTML = excludedTags
+        .map((tagId) => {
+            const tag = tags.find((t) => String(t.Id) === String(tagId));
+            const tagColor = tag?.Color || '#6b7280';
+            const tagName = tag?.Name || `Tag #${tagId}`;
+            return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
             ${tagName}
             <button onclick="removeExcludedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ ẩn tag này">×</button>
         </span>`;
-    }).join('');
+        })
+        .join('');
 
     updateActiveFiltersVisibility();
 };
@@ -1967,13 +2050,13 @@ function updateActiveFiltersVisibility() {
     const hasSelected = selectedDisplay && selectedDisplay.style.display !== 'none';
     const hasExcluded = excludedDisplay && excludedDisplay.style.display !== 'none';
 
-    parentContainer.style.display = (hasSelected || hasExcluded) ? 'block' : 'none';
+    parentContainer.style.display = hasSelected || hasExcluded ? 'block' : 'none';
 }
 
 /**
  * Remove a tag from excluded list directly from main page
  */
-window.removeExcludedTagFromMain = function(tagId) {
+window.removeExcludedTagFromMain = function (tagId) {
     const excludedTags = window.getExcludedTagFilters();
     const index = excludedTags.indexOf(String(tagId));
     if (index > -1) {
@@ -1989,7 +2072,7 @@ window.removeExcludedTagFromMain = function(tagId) {
 };
 
 // Close dropdowns when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const tagDropdown = document.getElementById('tagFilterDropdown');
     const excludeDropdown = document.getElementById('excludeTagFilterDropdown');
 
@@ -2004,4 +2087,3 @@ document.addEventListener('click', function(event) {
         ptagXlDropdown.classList.remove('open');
     }
 });
-

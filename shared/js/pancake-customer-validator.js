@@ -18,12 +18,13 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
-    const WORKER_URL = window.API_CONFIG?.WORKER_URL
-        || window.CONFIG?.API_BASE_URL
-        || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        window.API_CONFIG?.WORKER_URL ||
+        window.CONFIG?.API_BASE_URL ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     const cache = new Map();
     const CACHE_TTL = 3 * 60 * 1000; // 3 min
@@ -53,7 +54,7 @@
                 wallet: json.data.wallet,
                 notes: json.data.notes || [],
                 recentTickets: json.data.recentTickets || [],
-                risk: assessRisk(json.data.customer)
+                risk: assessRisk(json.data.customer),
             };
 
             cache.set(key, { data: result, ts: Date.now() });
@@ -83,7 +84,7 @@
 
             const result = {
                 customer: json.data,
-                risk: assessRisk(json.data)
+                risk: assessRisk(json.data),
             };
 
             cache.set('q_' + key, { data: result, ts: Date.now() });
@@ -140,7 +141,7 @@
             level,
             warnings,
             stats: { orderOk, orderFail, total: orderOk + orderFail },
-            hasData: !!(customer.fb_id || customer.global_id || customer.pancake_synced_at)
+            hasData: !!(customer.fb_id || customer.global_id || customer.pancake_synced_at),
         };
     }
 
@@ -154,13 +155,16 @@
 
         const colors = {
             danger: { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626' },
-            caution: { bg: '#fffbeb', border: '#fcd34d', text: '#d97706' }
+            caution: { bg: '#fffbeb', border: '#fcd34d', text: '#d97706' },
         };
         const c = colors[risk.level] || colors.caution;
 
-        const badges = risk.warnings.map(w =>
-            `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:${c.bg};border:1px solid ${c.border};color:${c.text};border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;" title="${escapeHtml(w.text)}">${escapeHtml(w.text)}</span>`
-        ).join(' ');
+        const badges = risk.warnings
+            .map(
+                (w) =>
+                    `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:${c.bg};border:1px solid ${c.border};color:${c.text};border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;" title="${escapeHtml(w.text)}">${escapeHtml(w.text)}</span>`
+            )
+            .join(' ');
 
         return `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;">${badges}</div>`;
     }
@@ -176,9 +180,13 @@
 
         // Order stats
         if (risk.stats.total > 0) {
-            parts.push(`<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:#dcfce7;border:1px solid #bbf7d0;color:#16a34a;border-radius:4px;font-size:10px;font-weight:600;">${risk.stats.orderOk}OK</span>`);
+            parts.push(
+                `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:#dcfce7;border:1px solid #bbf7d0;color:#16a34a;border-radius:4px;font-size:10px;font-weight:600;">${risk.stats.orderOk}OK</span>`
+            );
             if (risk.stats.orderFail > 0) {
-                parts.push(`<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:4px;font-size:10px;font-weight:600;">${risk.stats.orderFail}hoàn</span>`);
+                parts.push(
+                    `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:4px;font-size:10px;font-weight:600;">${risk.stats.orderFail}hoàn</span>`
+                );
             }
         }
 
@@ -198,7 +206,7 @@
             const resp = await fetch(`${WORKER_URL}/api/v2/customers/${phone}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content, created_by: createdBy || 'n2store' })
+                body: JSON.stringify({ content, created_by: createdBy || 'n2store' }),
             });
             const json = await resp.json();
             if (json.success) {
@@ -219,7 +227,7 @@
             const resp = await fetch(`${WORKER_URL}/api/v2/customers/sync-pancake`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
             return await resp.json();
         } catch (e) {
@@ -229,7 +237,11 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     function clearCache() {
@@ -245,7 +257,6 @@
         renderCustomerBadge,
         addNote,
         syncPancakeCustomer,
-        clearCache
+        clearCache,
     };
-
 })();

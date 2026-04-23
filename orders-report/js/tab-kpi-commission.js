@@ -24,15 +24,15 @@ const KPICommission = {
             employee: '',
             dateFrom: '',
             dateTo: '',
-            status: ''
+            status: '',
         },
-        statsData: [],       // Raw kpi_statistics data [{userId, userName, dates: {...}}]
-        filteredData: [],     // Filtered + aggregated data for display
+        statsData: [], // Raw kpi_statistics data [{userId, userName, dates: {...}}]
+        filteredData: [], // Filtered + aggregated data for display
         currentEmployeeOrders: [], // Orders for Modal L1
-        currentOrderId: null,      // Current order in Modal L2
+        currentOrderId: null, // Current order in Modal L2
         currentEmployeeUserId: null,
         isLoading: false,
-        employeeNameCache: {} // Cache for resolved employee names (Bug #4 fix)
+        employeeNameCache: {}, // Cache for resolved employee names (Bug #4 fix)
     },
 
     KPI_PER_PRODUCT: 5000,
@@ -57,7 +57,7 @@ const KPICommission = {
             date = new Date(ts);
         }
         if (isNaN(date.getTime())) return '---';
-        const pad = n => String(n).padStart(2, '0');
+        const pad = (n) => String(n).padStart(2, '0');
         return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     },
 
@@ -153,7 +153,7 @@ const KPICommission = {
                     const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
                     if (rangesDoc.exists) {
                         const ranges = rangesDoc.data().ranges || [];
-                        const found = ranges.find(r => (r.userId || r.id) === userId);
+                        const found = ranges.find((r) => (r.userId || r.id) === userId);
                         if (found) name = found.userName || found.name || null;
                     }
                 } catch (e) {}
@@ -184,10 +184,11 @@ const KPICommission = {
         // Special cases
         for (const uid of userIds) {
             if (uid === 'unassigned') this.state.employeeNameCache[uid] = 'Chưa phân công';
-            else if (uid.startsWith('user_admin_')) this.state.employeeNameCache[uid] = 'Administrator';
+            else if (uid.startsWith('user_admin_'))
+                this.state.employeeNameCache[uid] = 'Administrator';
         }
 
-        const unresolved = userIds.filter(id => !this.state.employeeNameCache[id]);
+        const unresolved = userIds.filter((id) => !this.state.employeeNameCache[id]);
         if (unresolved.length === 0) return;
 
         // Source 1: statsData (already from PostgreSQL)
@@ -201,7 +202,7 @@ const KPICommission = {
         }
 
         // Source 2: employee_ranges (Firebase settings - admin panel)
-        let stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
+        let stillUnresolved = unresolved.filter((id) => !this.state.employeeNameCache[id]);
         if (stillUnresolved.length > 0) {
             const db = this.getDb();
             if (db) {
@@ -210,7 +211,7 @@ const KPICommission = {
                     if (rangesDoc.exists) {
                         const ranges = rangesDoc.data().ranges || [];
                         for (const uid of stillUnresolved) {
-                            const found = ranges.find(r => (r.userId || r.id) === uid);
+                            const found = ranges.find((r) => (r.userId || r.id) === uid);
                             if (found) {
                                 const name = found.userName || found.name;
                                 if (name) this.state.employeeNameCache[uid] = name;
@@ -247,7 +248,7 @@ const KPICommission = {
         const allOrderCodes = new Set();
         for (const stat of statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
-                for (const order of (dateData.orders || [])) {
+                for (const order of dateData.orders || []) {
                     if (order.orderCode) allOrderCodes.add(order.orderCode);
                 }
             }
@@ -261,7 +262,7 @@ const KPICommission = {
             const res = await fetch(`${KPI_API}/kpi-base/check-exists`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderCodes: [...allOrderCodes] })
+                body: JSON.stringify({ orderCodes: [...allOrderCodes] }),
             });
             if (res.ok) {
                 const data = await res.json();
@@ -274,7 +275,7 @@ const KPICommission = {
         // Mark stale orders (BASE missing)
         for (const stat of statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
-                for (const order of (dateData.orders || [])) {
+                for (const order of dateData.orders || []) {
                     if (order.orderCode && !existingBases.has(order.orderCode)) {
                         order._stale = true;
                         order._staleReason = 'BASE đã bị xóa';
@@ -302,7 +303,8 @@ const KPICommission = {
         if (emptyEl) {
             const msgEl = emptyEl.querySelector('p');
             if (msgEl) {
-                msgEl.textContent = 'Chưa có dữ liệu KPI. Dữ liệu sẽ xuất hiện sau khi gửi tin nhắn hàng loạt và nhân viên thao tác sản phẩm.';
+                msgEl.textContent =
+                    'Chưa có dữ liệu KPI. Dữ liệu sẽ xuất hiện sau khi gửi tin nhắn hàng loạt và nhân viên thao tác sản phẩm.';
             }
         }
 
@@ -328,10 +330,7 @@ const KPICommission = {
             this.hideEl('kpiTableWrapper');
 
             // Load invoice status + KPI stats in parallel from Render API
-            await Promise.all([
-                this.loadInvoiceStatusData(),
-                this.loadAllStatistics()
-            ]);
+            await Promise.all([this.loadInvoiceStatusData(), this.loadAllStatistics()]);
             // Derive filters from loaded data
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
@@ -372,13 +371,18 @@ const KPICommission = {
             const userMap = {};
             for (const row of rows) {
                 if (!userMap[row.userId]) {
-                    userMap[row.userId] = { userId: row.userId, userName: row.userName || row.userId, dates: {} };
+                    userMap[row.userId] = {
+                        userId: row.userId,
+                        userName: row.userName || row.userId,
+                        dates: {},
+                    };
                 }
-                const dateKey = typeof row.date === 'string' ? row.date.substring(0, 10) : String(row.date);
+                const dateKey =
+                    typeof row.date === 'string' ? row.date.substring(0, 10) : String(row.date);
                 userMap[row.userId].dates[dateKey] = {
                     totalNetProducts: row.totalNetProducts || 0,
                     totalKPI: row.totalKPI || 0,
-                    orders: row.orders || []
+                    orders: row.orders || [],
                 };
                 // Use userName from row if available
                 if (row.userName && row.userName !== row.userId) {
@@ -401,7 +405,6 @@ const KPICommission = {
 
             // Detect stale statistics (BASE missing)
             await this.detectStaleStatistics(allStats);
-
         } catch (error) {
             console.error('[KPI Tab] Error loading statistics:', error);
         }
@@ -418,13 +421,13 @@ const KPICommission = {
         const campaigns = new Set();
         for (const stat of this.state.statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
-                for (const order of (dateData.orders || [])) {
+                for (const order of dateData.orders || []) {
                     if (order.campaignName) campaigns.add(order.campaignName);
                 }
             }
         }
 
-        [...campaigns].sort().forEach(name => {
+        [...campaigns].sort().forEach((name) => {
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
@@ -440,7 +443,8 @@ const KPICommission = {
             const parentCM = window.parent?.campaignManager;
             if (!parentCM?.activeCampaign) return;
 
-            const activeName = parentCM.activeCampaign.name || parentCM.activeCampaign.displayName || '';
+            const activeName =
+                parentCM.activeCampaign.name || parentCM.activeCampaign.displayName || '';
             if (!activeName) return;
 
             const select = document.getElementById('kpiFilterCampaign');
@@ -482,7 +486,8 @@ const KPICommission = {
             // Use already-loaded statsData + cached names from batchResolve
             const employees = new Map();
             for (const stat of this.state.statsData) {
-                const name = this.state.employeeNameCache[stat.userId] || stat.userName || stat.userId;
+                const name =
+                    this.state.employeeNameCache[stat.userId] || stat.userName || stat.userId;
                 employees.set(stat.userId, name);
             }
 
@@ -508,9 +513,12 @@ const KPICommission = {
     // ========================================
     async applyFilters() {
         // Read filter values
-        this.state.filters.campaign = (document.getElementById('kpiFilterCampaign') || {}).value || '';
-        this.state.filters.employee = (document.getElementById('kpiFilterEmployee') || {}).value || '';
-        this.state.filters.dateFrom = (document.getElementById('kpiFilterDateFrom') || {}).value || '';
+        this.state.filters.campaign =
+            (document.getElementById('kpiFilterCampaign') || {}).value || '';
+        this.state.filters.employee =
+            (document.getElementById('kpiFilterEmployee') || {}).value || '';
+        this.state.filters.dateFrom =
+            (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         this.state.filters.dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
         this.state.filters.status = (document.getElementById('kpiFilterStatus') || {}).value || '';
 
@@ -541,7 +549,7 @@ const KPICommission = {
 
                     employeeOrders.push({
                         ...order,
-                        date: dateKey
+                        date: dateKey,
                     });
                 }
             }
@@ -550,7 +558,7 @@ const KPICommission = {
                 filtered.push({
                     userId: stat.userId,
                     userName: stat.userName || stat.userId,
-                    orders: employeeOrders
+                    orders: employeeOrders,
                 });
             }
         }
@@ -602,9 +610,14 @@ const KPICommission = {
 
     // ShowState display config (mirrors Tab 1)
     _SHOW_STATE_CONFIG: {
-        'Nháp': { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
+        Nháp: { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
         'Đã xác nhận': { color: '#2563eb', bgColor: '#dbeafe', borderColor: '#93c5fd' },
-        'Huỷ bỏ': { color: '#dc2626', bgColor: '#fee2e2', borderColor: '#fca5a5', style: 'text-decoration: line-through;' },
+        'Huỷ bỏ': {
+            color: '#dc2626',
+            bgColor: '#fee2e2',
+            borderColor: '#fca5a5',
+            style: 'text-decoration: line-through;',
+        },
         'Đã thanh toán': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
         'Hoàn thành': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
     },
@@ -612,7 +625,11 @@ const KPICommission = {
         draft: { label: 'Nháp', color: '#17a2b8' },
         NotEnoughInventory: { label: 'Chờ nhập hàng', color: '#e67e22' },
         cancel: { label: 'Hủy', color: '#6c757d', style: 'text-decoration: line-through;' },
-        IsMergeCancel: { label: 'Hủy do gộp đơn', color: '#6c757d', style: 'text-decoration: line-through;' },
+        IsMergeCancel: {
+            label: 'Hủy do gộp đơn',
+            color: '#6c757d',
+            style: 'text-decoration: line-through;',
+        },
         CrossCheckingError: { label: 'Lỗi đối soát', color: '#c0392b' },
         CrossCheckComplete: { label: 'Hoàn thành đối soát', color: '#27ae60' },
         CrossCheckSuccess: { label: 'Đối soát OK', color: '#27ae60' },
@@ -631,7 +648,9 @@ const KPICommission = {
     async loadInvoiceStatusData() {
         if (this._invoiceCacheLoaded) return;
         try {
-            const apiBase = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
+            const apiBase =
+                (window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
             const response = await fetch(`${apiBase}/load`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const result = await response.json();
@@ -639,7 +658,7 @@ const KPICommission = {
 
             // Group by SaleOnlineId, keep latest by timestamp
             const latestMap = new Map();
-            for (const row of (result.entries || [])) {
+            for (const row of result.entries || []) {
                 const soId = row.sale_online_id;
                 if (!soId) continue;
                 const ts = parseInt(row.entry_timestamp) || 0;
@@ -656,7 +675,7 @@ const KPICommission = {
                         UserName: row.user_name,
                         CarrierName: row.carrier_name,
                         DateInvoice: row.date_invoice,
-                        _ts: ts
+                        _ts: ts,
                     });
                 }
             }
@@ -669,7 +688,13 @@ const KPICommission = {
     },
 
     _getShowStateConfig(showState) {
-        return this._SHOW_STATE_CONFIG[showState] || { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' };
+        return (
+            this._SHOW_STATE_CONFIG[showState] || {
+                color: '#6c757d',
+                bgColor: '#f3f4f6',
+                borderColor: '#d1d5db',
+            }
+        );
     },
 
     _getStateCodeConfig(stateCode, isMergeCancel) {
@@ -765,9 +790,9 @@ const KPICommission = {
         const shortLabels = {
             'Đã thanh toán': 'Đã TT',
             'Đã xác nhận': 'Đã XN',
-            'Nháp': 'Nháp',
+            Nháp: 'Nháp',
             'Huỷ bỏ': 'Hủy',
-            'Hoàn thành': 'HT'
+            'Hoàn thành': 'HT',
         };
 
         let html = '<div style="display:flex; flex-wrap:wrap; gap:3px;">';
@@ -823,7 +848,7 @@ const KPICommission = {
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
-                <td>${emp.orders.filter(o => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length}</td>
+                <td>${emp.orders.filter((o) => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
                 <td>${invoiceSummaryHtml}</td>
@@ -858,7 +883,7 @@ const KPICommission = {
                 resolvedName,
                 orders: emp.orders,
                 totalNetProducts,
-                totalKPI
+                totalKPI,
             });
         }
 
@@ -869,7 +894,7 @@ const KPICommission = {
     // MODAL L1: SHOW EMPLOYEE ORDERS (12.8)
     // ========================================
     async showEmployeeOrders(userId) {
-        const emp = this.state.filteredData.find(e => e.userId === userId);
+        const emp = this.state.filteredData.find((e) => e.userId === userId);
         if (!emp) {
             console.warn('[KPI Tab] Employee not found:', userId);
             return;
@@ -901,22 +926,26 @@ const KPICommission = {
 
     filterEmployeeOrders() {
         const statusVal = (document.getElementById('modalL1FilterStatus') || {}).value || '';
-        const searchVal = ((document.getElementById('modalL1Search') || {}).value || '').toLowerCase().trim();
+        const searchVal = ((document.getElementById('modalL1Search') || {}).value || '')
+            .toLowerCase()
+            .trim();
 
         let orders = this.state.currentEmployeeOrders;
 
         if (statusVal === 'ok') {
-            orders = orders.filter(o => !o.hasDiscrepancy);
+            orders = orders.filter((o) => !o.hasDiscrepancy);
         } else if (statusVal === 'discrepancy') {
-            orders = orders.filter(o => o.hasDiscrepancy);
+            orders = orders.filter((o) => o.hasDiscrepancy);
         }
 
         if (searchVal) {
-            orders = orders.filter(o => {
+            orders = orders.filter((o) => {
                 const oid = (o.orderId || '').toLowerCase();
                 const code = (o.orderCode || '').toLowerCase();
                 const stt = String(o.stt != null ? o.stt : '').toLowerCase();
-                return oid.includes(searchVal) || code.includes(searchVal) || stt.includes(searchVal);
+                return (
+                    oid.includes(searchVal) || code.includes(searchVal) || stt.includes(searchVal)
+                );
             });
         }
 
@@ -939,7 +968,7 @@ const KPICommission = {
         if (!tbody) return;
 
         let html = '';
-        orders.forEach(order => {
+        orders.forEach((order) => {
             // Ẩn đơn stale hoặc SP NET = 0 và KPI = 0
             if (order._stale) return;
             if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
@@ -983,7 +1012,7 @@ const KPICommission = {
         // Set header - show orderCode instead of raw orderId
         const orderIdEl = document.getElementById('modalL2OrderId');
         if (orderIdEl) {
-            const order = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             orderIdEl.textContent = order?.orderCode || orderId;
         }
 
@@ -1000,7 +1029,7 @@ const KPICommission = {
 
     switchOrderTab(tabName) {
         // Update tab buttons
-        document.querySelectorAll('[data-order-tab]').forEach(btn => {
+        document.querySelectorAll('[data-order-tab]').forEach((btn) => {
             btn.classList.toggle('active', btn.getAttribute('data-order-tab') === tabName);
         });
 
@@ -1009,10 +1038,10 @@ const KPICommission = {
             'kpi-compare': 'tabKpiCompare',
             'audit-log': 'tabAuditLog',
             'all-products': 'tabAllProducts',
-            'base-products': 'tabBaseProducts'
+            'base-products': 'tabBaseProducts',
         };
 
-        Object.values(tabMap).forEach(id => {
+        Object.values(tabMap).forEach((id) => {
             const el = document.getElementById(id);
             if (el) {
                 el.style.display = 'none';
@@ -1054,7 +1083,7 @@ const KPICommission = {
 
         try {
             // Find orderCode from current employee orders
-            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderData = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             const orderCode = orderData?.orderCode || orderId;
 
             // 1. Get BASE from REST API (chỉ để check sự tồn tại cho empty state)
@@ -1063,7 +1092,9 @@ const KPICommission = {
                 this.hideEl('kpiCompareLoading');
                 this.showEl('kpiCompareEmpty');
                 const emptyEl = document.getElementById('kpiCompareEmpty');
-                if (emptyEl) emptyEl.querySelector('p').textContent = 'Đơn hàng chưa có BASE snapshot. Không thể tính KPI.';
+                if (emptyEl)
+                    emptyEl.querySelector('p').textContent =
+                        'Đơn hàng chưa có BASE snapshot. Không thể tính KPI.';
                 return;
             }
 
@@ -1079,7 +1110,7 @@ const KPICommission = {
                 added: data.added || 0,
                 removed: data.removed || 0,
                 net: data.net || 0,
-                kpi: (data.net || 0) * this.KPI_PER_PRODUCT
+                kpi: (data.net || 0) * this.KPI_PER_PRODUCT,
             }));
 
             this.hideEl('kpiCompareLoading');
@@ -1096,7 +1127,10 @@ const KPICommission = {
             const tfoot = document.getElementById('kpiCompareFoot');
             if (!tbody) return;
 
-            let totalAdded = 0, totalRemoved = 0, totalNet = 0, totalKPI = 0;
+            let totalAdded = 0,
+                totalRemoved = 0,
+                totalNet = 0,
+                totalKPI = 0;
             let html = '';
 
             products.forEach((p, idx) => {
@@ -1130,7 +1164,6 @@ const KPICommission = {
 
             // Per-user attribution breakdown (audit-based, không phải chủ đơn)
             this.renderPerUserBreakdown(kpiResult);
-
         } catch (error) {
             console.error('[KPI Tab] Error rendering NET KPI tab:', error);
             this.hideEl('kpiCompareLoading');
@@ -1146,17 +1179,19 @@ const KPICommission = {
         if (!breakdownEl) {
             breakdownEl = document.createElement('div');
             breakdownEl.id = 'kpiPerUserBreakdown';
-            breakdownEl.style.cssText = 'margin-top:16px;padding:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;';
+            breakdownEl.style.cssText =
+                'margin-top:16px;padding:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;';
             wrapper.appendChild(breakdownEl);
         }
 
         const perUserKPI = kpiResult.perUserKPI || {};
         const perUserNet = kpiResult.perUserNet || {};
         const perUserNames = kpiResult.perUserNames || {};
-        const userIds = Object.keys(perUserKPI).filter(uid => (perUserKPI[uid] || 0) > 0);
+        const userIds = Object.keys(perUserKPI).filter((uid) => (perUserKPI[uid] || 0) > 0);
 
         if (userIds.length === 0) {
-            breakdownEl.innerHTML = '<div style="color:#6b7280;font-size:13px;">Chưa có nhân viên nào được tính KPI cho đơn này.</div>';
+            breakdownEl.innerHTML =
+                '<div style="color:#6b7280;font-size:13px;">Chưa có nhân viên nào được tính KPI cho đơn này.</div>';
             return;
         }
 
@@ -1198,7 +1233,7 @@ const KPICommission = {
         this.hideEl('auditLogWrapper');
 
         try {
-            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderData = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             const orderCode = orderData?.orderCode || orderId;
 
             // Get audit logs from REST API
@@ -1220,14 +1255,19 @@ const KPICommission = {
             const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
             const baseProductIds = new Set();
             if (base) {
-                (base.products || []).forEach(p => {
+                (base.products || []).forEach((p) => {
                     const pid = p.ProductId || p.productId;
                     if (pid) baseProductIds.add(Number(pid));
                 });
             }
 
             // Non-chat sources for highlighting
-            const nonChatSources = ['edit_modal_inline', 'edit_modal_remove', 'edit_modal_quantity', 'sale_modal'];
+            const nonChatSources = [
+                'edit_modal_inline',
+                'edit_modal_remove',
+                'edit_modal_quantity',
+                'sale_modal',
+            ];
 
             // Render table
             const tbody = document.getElementById('auditLogBody');
@@ -1265,13 +1305,14 @@ const KPICommission = {
                 ? await window.kpiManager.calculateNetKPI(orderCode)
                 : { details: {}, netProducts: 0, kpiAmount: 0 };
 
-            let totalAdded = 0, totalRemoved = 0;
+            let totalAdded = 0,
+                totalRemoved = 0;
             for (const data of Object.values(kpiResult.details || {})) {
                 totalAdded += data.added || 0;
                 totalRemoved += data.removed || 0;
             }
             const totalNet = kpiResult.netProducts || 0;
-            const totalKPI = kpiResult.kpiAmount || (totalNet * this.KPI_PER_PRODUCT);
+            const totalKPI = kpiResult.kpiAmount || totalNet * this.KPI_PER_PRODUCT;
 
             // Render summary
             const summaryEl = document.getElementById('auditLogSummary');
@@ -1298,7 +1339,6 @@ const KPICommission = {
                         <span class="value">${this.formatCurrency(totalKPI)}</span>
                     </div>`;
             }
-
         } catch (error) {
             console.error('[KPI Tab] Error rendering audit log tab:', error);
             this.hideEl('auditLogLoading');
@@ -1322,24 +1362,27 @@ const KPICommission = {
             let products = null;
 
             // Find campaign name from current order data
-            const order = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             const campaignName = order ? order.campaignName : null;
 
             if (campaignName) {
                 const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
                 try {
-                    const doc = await db.collection('report_order_details').doc(safeTableName).get();
+                    const doc = await db
+                        .collection('report_order_details')
+                        .doc(safeTableName)
+                        .get();
                     if (doc.exists) {
                         const data = doc.data();
-                        const orderData = (data.orders || []).find(o =>
-                            (o.Id || o.id) === orderId
+                        const orderData = (data.orders || []).find(
+                            (o) => (o.Id || o.id) === orderId
                         );
                         if (orderData && orderData.Details) {
-                            products = orderData.Details.map(d => ({
+                            products = orderData.Details.map((d) => ({
                                 code: d.ProductCode || d.Code || d.DefaultCode || '',
                                 name: d.ProductName || d.Name || '',
                                 quantity: d.Quantity || 1,
-                                price: d.Price || 0
+                                price: d.Price || 0,
                             }));
                         }
                     }
@@ -1372,7 +1415,6 @@ const KPICommission = {
             });
 
             tbody.innerHTML = html;
-
         } catch (error) {
             console.error('[KPI Tab] Error rendering all products tab:', error);
             this.hideEl('allProductsLoading');
@@ -1389,7 +1431,7 @@ const KPICommission = {
         this.hideEl('baseProductsContent');
 
         try {
-            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderData = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             const orderCode = orderData?.orderCode || orderId;
 
             const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
@@ -1444,7 +1486,6 @@ const KPICommission = {
 
             tbody.innerHTML = html;
             this.reinitIcons();
-
         } catch (error) {
             console.error('[KPI Tab] Error rendering BASE products tab:', error);
             this.hideEl('baseProductsLoading');
@@ -1479,7 +1520,9 @@ const KPICommission = {
                 this.hideEl('reconLoading');
                 this.showEl('reconEmpty');
                 const emptyEl = document.getElementById('reconEmpty');
-                if (emptyEl) emptyEl.querySelector('p').textContent = 'Không có đơn hàng nào để đối soát. Hãy áp dụng bộ lọc trước.';
+                if (emptyEl)
+                    emptyEl.querySelector('p').textContent =
+                        'Không có đơn hàng nào để đối soát. Hãy áp dụng bộ lọc trước.';
                 if (btn) btn.disabled = false;
                 return;
             }
@@ -1491,7 +1534,11 @@ const KPICommission = {
                 try {
                     let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
-                        result = await window.kpiManager.reconcileKPI(order.orderId, order.campaignName, order.orderCode);
+                        result = await window.kpiManager.reconcileKPI(
+                            order.orderId,
+                            order.campaignName,
+                            order.orderCode
+                        );
                     } else {
                         // Fallback: basic reconciliation
                         result = {
@@ -1499,7 +1546,7 @@ const KPICommission = {
                             hasDiscrepancy: false,
                             expected: {},
                             actual: {},
-                            discrepancies: []
+                            discrepancies: [],
                         };
                     }
 
@@ -1508,9 +1555,10 @@ const KPICommission = {
                         orderCode: order.orderCode || '',
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
-                        actualNet: result.actualNet != null ? result.actualNet : (order.netProducts || 0),
+                        actualNet:
+                            result.actualNet != null ? result.actualNet : order.netProducts || 0,
                         hasDiscrepancy: result.hasDiscrepancy,
-                        discrepancies: result.discrepancies || []
+                        discrepancies: result.discrepancies || [],
                     });
                 } catch (e) {
                     console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
@@ -1521,7 +1569,7 @@ const KPICommission = {
                         expectedNet: order.netProducts || 0,
                         actualNet: 'Lỗi',
                         hasDiscrepancy: true,
-                        discrepancies: [{ type: 'error', message: e.message }]
+                        discrepancies: [{ type: 'error', message: e.message }],
                     });
                 }
             }
@@ -1529,17 +1577,18 @@ const KPICommission = {
             this.hideEl('reconLoading');
 
             // Filter to show only discrepancies or all
-            const discrepancies = results.filter(r => r.hasDiscrepancy);
+            const discrepancies = results.filter((r) => r.hasDiscrepancy);
 
             if (discrepancies.length === 0) {
                 this.showEl('reconEmpty');
                 const emptyEl = document.getElementById('reconEmpty');
-                if (emptyEl) emptyEl.querySelector('p').textContent = `✅ Đã kiểm tra ${results.length} đơn hàng. Không phát hiện sai lệch.`;
+                if (emptyEl)
+                    emptyEl.querySelector('p').textContent =
+                        `✅ Đã kiểm tra ${results.length} đơn hàng. Không phát hiện sai lệch.`;
             } else {
                 this.showEl('reconResultsWrapper');
                 this.renderReconciliationResults(results);
             }
-
         } catch (error) {
             console.error('[KPI Tab] Reconciliation error:', error);
             this.hideEl('reconLoading');
@@ -1554,7 +1603,7 @@ const KPICommission = {
         if (!tbody) return;
 
         let html = '';
-        results.forEach(r => {
+        results.forEach((r) => {
             const delta = typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '---';
             let deltaClass = 'delta-zero';
             if (typeof delta === 'number') {
@@ -1598,7 +1647,7 @@ const KPICommission = {
 
             // Build data rows
             const rows = [
-                ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng']
+                ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng'],
             ];
 
             aggregated.forEach((emp, idx) => {
@@ -1608,7 +1657,10 @@ const KPICommission = {
                 let noInvoice = 0;
                 for (const order of emp.orders) {
                     const inv = this._invoiceCache.get(order.orderId);
-                    if (!inv) { noInvoice++; continue; }
+                    if (!inv) {
+                        noInvoice++;
+                        continue;
+                    }
                     const state = inv.ShowState || 'Không rõ';
                     counts[state] = (counts[state] || 0) + 1;
                 }
@@ -1622,10 +1674,12 @@ const KPICommission = {
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
-                    emp.orders.filter(o => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length,
+                    emp.orders.filter(
+                        (o) => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)
+                    ).length,
                     emp.totalNetProducts,
                     emp.totalKPI,
-                    invoiceSummary || '−'
+                    invoiceSummary || '−',
                 ]);
             });
 
@@ -1634,12 +1688,12 @@ const KPICommission = {
 
             // Set column widths
             ws['!cols'] = [
-                { wch: 6 },   // STT
-                { wch: 25 },  // Tên NV
-                { wch: 10 },  // Số đơn
-                { wch: 10 },  // SP NET
-                { wch: 18 },  // Tổng KPI
-                { wch: 30 }   // Phiếu bán hàng
+                { wch: 6 }, // STT
+                { wch: 25 }, // Tên NV
+                { wch: 10 }, // Số đơn
+                { wch: 10 }, // SP NET
+                { wch: 18 }, // Tổng KPI
+                { wch: 30 }, // Phiếu bán hàng
             ];
 
             const wb = XLSX.utils.book_new();
@@ -1673,10 +1727,16 @@ const KPICommission = {
         const dateFrom = (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         const dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
 
-        const rangeText = (dateFrom || dateTo)
-            ? `từ ${dateFrom || '—'} đến ${dateTo || '—'}`
-            : 'TOÀN BỘ data (không có filter ngày)';
-        if (!confirm(`Tính lại KPI ${rangeText}?\n\nHành động này:\n• Chạy calculateNetKPI cho từng đơn\n• Lưu đè lên kpi_statistics hiện tại\n• Có thể mất vài phút tùy số đơn\n\nTiếp tục?`)) return;
+        const rangeText =
+            dateFrom || dateTo
+                ? `từ ${dateFrom || '—'} đến ${dateTo || '—'}`
+                : 'TOÀN BỘ data (không có filter ngày)';
+        if (
+            !confirm(
+                `Tính lại KPI ${rangeText}?\n\nHành động này:\n• Chạy calculateNetKPI cho từng đơn\n• Lưu đè lên kpi_statistics hiện tại\n• Có thể mất vài phút tùy số đơn\n\nTiếp tục?`
+            )
+        )
+            return;
 
         const originalHTML = btn ? btn.innerHTML : '';
         if (btn) {
@@ -1690,12 +1750,15 @@ const KPICommission = {
             const qs = new URLSearchParams();
             if (dateFrom) qs.append('dateFrom', dateFrom);
             if (dateTo) qs.append('dateTo', dateTo);
-            const statsRes = await window.kpiManager.kpiAPI('GET', `/kpi-statistics${qs.toString() ? '?' + qs.toString() : ''}`);
+            const statsRes = await window.kpiManager.kpiAPI(
+                'GET',
+                `/kpi-statistics${qs.toString() ? '?' + qs.toString() : ''}`
+            );
             const statistics = (statsRes && statsRes.statistics) || [];
 
             const orderCodes = new Set();
             for (const s of statistics) {
-                for (const o of (s.orders || [])) {
+                for (const o of s.orders || []) {
                     if (o && o.orderCode) orderCodes.add(o.orderCode);
                 }
             }
@@ -1722,13 +1785,20 @@ const KPICommission = {
             // Smoke test endpoint cleanup — fail fast nếu Render chưa deploy DELETE route.
             let cleanupAvailable = true;
             try {
-                await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent('__probe_' + Date.now())}`);
+                await window.kpiManager.kpiAPI(
+                    'DELETE',
+                    `/kpi-statistics/order/${encodeURIComponent('__probe_' + Date.now())}`
+                );
             } catch (e) {
                 const msg = String(e?.message || e);
                 if (msg.includes('404')) {
                     cleanupAvailable = false;
-                    console.warn('[KPI Recompute] DELETE /kpi-statistics/order chưa có trên server (404). Render có thể đang deploy — bấm lại sau vài phút.');
-                    alert('⚠ Server Render chưa có endpoint dọn orphan (chưa deploy xong).\nBackfill vẫn sẽ chạy nhưng các đơn duplicate cũ SẼ KHÔNG ĐƯỢC DỌN.\n\nKhuyến nghị: đợi 2-3 phút cho Render deploy xong rồi bấm lại.');
+                    console.warn(
+                        '[KPI Recompute] DELETE /kpi-statistics/order chưa có trên server (404). Render có thể đang deploy — bấm lại sau vài phút.'
+                    );
+                    alert(
+                        '⚠ Server Render chưa có endpoint dọn orphan (chưa deploy xong).\nBackfill vẫn sẽ chạy nhưng các đơn duplicate cũ SẼ KHÔNG ĐƯỢC DỌN.\n\nKhuyến nghị: đợi 2-3 phút cho Render deploy xong rồi bấm lại.'
+                    );
                 }
                 // Non-404 errors: orderCode ngẫu nhiên không match row nào → server trả 200 hoặc lỗi khác — vẫn coi là available.
             }
@@ -1744,11 +1814,17 @@ const KPICommission = {
                         //     từ các lần save cũ (sai ngày hoặc sai userId).
                         if (cleanupAvailable) {
                             try {
-                                await window.kpiManager.kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
+                                await window.kpiManager.kpiAPI(
+                                    'DELETE',
+                                    `/kpi-statistics/order/${encodeURIComponent(orderCode)}`
+                                );
                             } catch (e) {
                                 cleanupFailures++;
                                 if (cleanupFailures <= 5) {
-                                    console.warn(`[KPI Recompute] Cleanup fail ${orderCode}:`, e?.message || e);
+                                    console.warn(
+                                        `[KPI Recompute] Cleanup fail ${orderCode}:`,
+                                        e?.message || e
+                                    );
                                 }
                             }
                         }
@@ -1766,11 +1842,17 @@ const KPICommission = {
             const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker());
             await Promise.all(workers);
 
-            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}, cleanup fail ${cleanupFailures}`);
+            console.log(
+                `[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}, cleanup fail ${cleanupFailures}`
+            );
             const cleanupWarn = !cleanupAvailable
                 ? '\n\n⚠ Không dọn được orphan — các đơn duplicate cũ vẫn còn.\nĐợi Render deploy xong rồi bấm lại.'
-                : (cleanupFailures > 0 ? `\n\n⚠ ${cleanupFailures} đơn dọn orphan lỗi (xem console).` : '');
-            alert(`Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}${cleanupWarn}\n\nĐang refresh bảng…`);
+                : cleanupFailures > 0
+                  ? `\n\n⚠ ${cleanupFailures} đơn dọn orphan lỗi (xem console).`
+                  : '';
+            alert(
+                `Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}${cleanupWarn}\n\nĐang refresh bảng…`
+            );
             await this.refreshData();
         } catch (e) {
             console.error('[KPI Recompute] error:', e);
@@ -1814,7 +1896,7 @@ const KPICommission = {
             this.hideEl('kpiTableLoading');
             this.showEl('kpiTableEmpty');
         }
-    }
+    },
 };
 
 // ========================================

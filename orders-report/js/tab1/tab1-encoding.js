@@ -16,12 +16,10 @@ const BASE_TIME = 1704067200000; // 2024-01-01 00:00:00 UTC
  * @returns {string} Decoded string
  */
 function base64UrlDecode(str) {
-    const padding = '='.repeat((4 - str.length % 4) % 4);
+    const padding = '='.repeat((4 - (str.length % 4)) % 4);
     const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
     const binary = atob(base64);
-    return new TextDecoder().decode(
-        Uint8Array.from(binary, c => c.charCodeAt(0))
-    );
+    return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
 }
 
 /**
@@ -36,7 +34,7 @@ function shortChecksum(str) {
     // DJB2 hash
     let h1 = 0;
     for (let i = 0; i < str.length; i++) {
-        h1 = ((h1 << 5) - h1) + str.charCodeAt(i);
+        h1 = (h1 << 5) - h1 + str.charCodeAt(i);
         h1 = h1 & h1;
     }
     // FNV-1a hash (different algorithm for diversity)
@@ -60,7 +58,7 @@ function shortChecksum(str) {
  */
 function xorDecrypt(encoded, key) {
     // Decode from base64
-    const encrypted = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+    const encrypted = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
     const keyBytes = new TextEncoder().encode(key);
     const decrypted = new Uint8Array(encrypted.length);
 
@@ -82,7 +80,10 @@ function xorDecrypt(encoded, key) {
 function decodeProductLine(encoded, expectedOrderId = null) {
     try {
         // Detect format by checking for Base64URL characters
-        const isNewFormat = encoded.includes('-') || encoded.includes('_') || (!encoded.includes('+') && !encoded.includes('/') && !encoded.includes('='));
+        const isNewFormat =
+            encoded.includes('-') ||
+            encoded.includes('_') ||
+            (!encoded.includes('+') && !encoded.includes('/') && !encoded.includes('='));
 
         if (isNewFormat) {
             // ===== NEW FORMAT: Base64URL + orderId + checksum =====
@@ -111,7 +112,9 @@ function decodeProductLine(encoded, expectedOrderId = null) {
 
                 // Verify order ID if provided
                 if (expectedOrderId !== null && orderId !== expectedOrderId.toString()) {
-                    console.debug(`[DECODE] OrderId mismatch: encoded=${orderId}, expected=${expectedOrderId}`);
+                    console.debug(
+                        `[DECODE] OrderId mismatch: encoded=${orderId}, expected=${expectedOrderId}`
+                    );
                     return null;
                 }
 
@@ -123,7 +126,7 @@ function decodeProductLine(encoded, expectedOrderId = null) {
                     productCode,
                     quantity: parseInt(quantity),
                     price: parseFloat(price),
-                    timestamp
+                    timestamp,
                 };
             } catch (newFormatError) {
                 // Fallback to old format
@@ -141,7 +144,7 @@ function decodeProductLine(encoded, expectedOrderId = null) {
         const result = {
             productCode: parts[0],
             quantity: parseInt(parts[1]),
-            price: parseFloat(parts[2])
+            price: parseFloat(parts[2]),
         };
 
         // Add timestamp if present
@@ -177,11 +180,11 @@ async function loadNoteSnapshots() {
 
         // Clean up expired snapshots (older than 30 days)
         const now = Date.now();
-        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
         const cleanedData = {};
         let expiredCount = 0;
 
-        Object.keys(data).forEach(orderId => {
+        Object.keys(data).forEach((orderId) => {
             const snapshot = data[orderId];
             if (snapshot.timestamp && snapshot.timestamp > thirtyDaysAgo) {
                 cleanedData[orderId] = snapshot;
@@ -192,7 +195,9 @@ async function loadNoteSnapshots() {
             }
         });
 
-        console.log(`[NOTE-TRACKER] Loaded ${Object.keys(cleanedData).length} snapshots, cleaned ${expiredCount} expired`);
+        console.log(
+            `[NOTE-TRACKER] Loaded ${Object.keys(cleanedData).length} snapshots, cleaned ${expiredCount} expired`
+        );
         return cleanedData;
     } catch (error) {
         console.error('[NOTE-TRACKER] Error loading snapshots:', error);
@@ -235,7 +240,9 @@ function hasValidEncodedProducts(note, expectedOrderId) {
                 if (decoded && decoded.orderId === expectedOrderId) {
                     // ✅ Valid encoded product for THIS order
                     foundValid = true;
-                    console.log(`[NOTE-TRACKER] ✅ Valid encoded line for order #${expectedOrderId}`);
+                    console.log(
+                        `[NOTE-TRACKER] ✅ Valid encoded line for order #${expectedOrderId}`
+                    );
                 } else {
                     // ⚠️ Encoded line from ANOTHER order (copy attack) or decode failed
                     // Try decode without verification to see original orderId
@@ -259,10 +266,11 @@ function hasValidEncodedProducts(note, expectedOrderId) {
                     // Old format doesn't have orderId to verify
                     // Accept as valid (backward compatibility)
                     foundValid = true;
-                    console.log(`[NOTE-TRACKER] ℹ️ Found old format encoded line (no orderId verification available)`);
+                    console.log(
+                        `[NOTE-TRACKER] ℹ️ Found old format encoded line (no orderId verification available)`
+                    );
                 }
             }
-
         } catch (e) {
             // Decode failed, not a valid encoded line
             console.debug(`[NOTE-TRACKER] Failed to decode line: ${trimmed.substring(0, 20)}...`);
@@ -287,7 +295,7 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
     let editedCount = 0;
     let newSnapshotsToSave = {};
 
-    orders.forEach(order => {
+    orders.forEach((order) => {
         const orderId = order.Id;
         const currentNote = (order.Note || '').trim();
         const snapshot = snapshots[orderId];
@@ -300,7 +308,9 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
                 // Note has been edited!
                 order.noteEdited = true;
                 editedCount++;
-                console.log(`[NOTE-TRACKER] ✏️ Edited: STT ${order.SessionIndex}, "${savedNote}" → "${currentNote}"`);
+                console.log(
+                    `[NOTE-TRACKER] ✏️ Edited: STT ${order.SessionIndex}, "${savedNote}" → "${currentNote}"`
+                );
             } else {
                 order.noteEdited = false;
             }
@@ -311,13 +321,15 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
             // ✅ NEW: Verify orderId in encoded products to prevent cross-order copy
             if (hasValidEncodedProducts(currentNote, orderId)) {
                 // Has valid encoded products belonging to THIS order → Save snapshot
-                console.log(`[NOTE-TRACKER] 📸 Saving snapshot for order #${orderId} (has valid encoded products)`);
+                console.log(
+                    `[NOTE-TRACKER] 📸 Saving snapshot for order #${orderId} (has valid encoded products)`
+                );
 
                 newSnapshotsToSave[orderId] = {
                     note: currentNote,
                     code: order.Code,
                     stt: order.SessionIndex,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                 };
             }
             // else: No valid encoded products → Skip silently
@@ -329,7 +341,9 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
         await saveNoteSnapshots(newSnapshotsToSave);
     }
 
-    console.log(`[NOTE-TRACKER] ✅ Found ${editedCount} edited notes out of ${orders.length} orders`);
+    console.log(
+        `[NOTE-TRACKER] ✅ Found ${editedCount} edited notes out of ${orders.length} orders`
+    );
 }
 
 /**
@@ -345,12 +359,14 @@ async function saveNoteSnapshots(snapshots) {
 
     try {
         const updates = {};
-        Object.keys(snapshots).forEach(orderId => {
+        Object.keys(snapshots).forEach((orderId) => {
             updates[`order_notes_snapshot/${orderId}`] = snapshots[orderId];
         });
 
         await database.ref().update(updates);
-        console.log(`[NOTE-TRACKER] Saved ${Object.keys(snapshots).length} new snapshots to Firebase`);
+        console.log(
+            `[NOTE-TRACKER] Saved ${Object.keys(snapshots).length} new snapshots to Firebase`
+        );
     } catch (error) {
         console.error('[NOTE-TRACKER] Error saving snapshots:', error);
     }
@@ -430,7 +446,8 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
     // console.log('[TAB1] Handling realtime update:', conversation);
 
-    let psid = conversation.from_psid || (conversation.customers && conversation.customers[0]?.fb_id);
+    let psid =
+        conversation.from_psid || (conversation.customers && conversation.customers[0]?.fb_id);
     let pageId = conversation.page_id;
 
     // Fallback: Extract from conversation.id (format: pageId_psid)
@@ -449,10 +466,12 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         const convType = conversation.type || 'INBOX';
         if (convType === 'INBOX') {
             if (psid) window.pancakeDataManager.inboxMapByPSID.set(psid, conversation);
-            if (conversation.from && conversation.from.id) window.pancakeDataManager.inboxMapByFBID.set(conversation.from.id, conversation);
+            if (conversation.from && conversation.from.id)
+                window.pancakeDataManager.inboxMapByFBID.set(conversation.from.id, conversation);
         } else if (convType === 'COMMENT') {
             if (psid) window.pancakeDataManager.commentMapByPSID.set(psid, conversation);
-            if (conversation.from && conversation.from.id) window.pancakeDataManager.commentMapByFBID.set(conversation.from.id, conversation);
+            if (conversation.from && conversation.from.id)
+                window.pancakeDataManager.commentMapByFBID.set(conversation.from.id, conversation);
         }
     }
 
@@ -461,7 +480,9 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
     // 2. CHECK FILTER
     // If filtering by read/unread, we MUST re-run search to show/hide rows
-    const currentFilter = document.getElementById('conversationFilter') ? document.getElementById('conversationFilter').value : 'all';
+    const currentFilter = document.getElementById('conversationFilter')
+        ? document.getElementById('conversationFilter').value
+        : 'all';
     if (currentFilter === 'unread' || currentFilter === 'read') {
         console.log(`[TAB1] Realtime update with filter '${currentFilter}' - Triggering re-search`);
         performTableSearch();
@@ -475,10 +496,12 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
     // Find matching orders in displayedData
     // Match both PSID and PageID (via Facebook_PostId which starts with PageID)
-    const matchingOrders = displayedData.filter(o => {
+    const matchingOrders = displayedData.filter((o) => {
         const matchesPsid = o.Facebook_ASUserId === psid;
         // If we have a pageId, check if Facebook_PostId starts with it
-        const matchesPage = pageId ? (o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)) : true;
+        const matchesPage = pageId
+            ? o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)
+            : true;
         return matchesPsid && matchesPage;
     });
 
@@ -486,7 +509,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
     console.log(`[TAB1] Updating ${matchingOrders.length} rows for PSID ${psid} on Page ${pageId}`);
 
-    matchingOrders.forEach(order => {
+    matchingOrders.forEach((order) => {
         // Find row
         const checkbox = document.querySelector(`input[value="${order.Id}"]`);
         if (!checkbox) return;
@@ -502,11 +525,15 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             const fontWeight = isUnread ? '700' : '400';
             const color = isUnread ? '#111827' : '#6b7280';
             const unreadBadge = isUnread ? `<span class="unread-badge"></span>` : '';
-            const unreadText = unreadCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 600;">${unreadCount} tin mới</span>` : '';
+            const unreadText =
+                unreadCount > 0
+                    ? `<span style="font-size: 11px; color: #ef4444; font-weight: 600;">${unreadCount} tin mới</span>`
+                    : '';
 
             // Truncate message
             let displayMessage = message;
-            if (displayMessage.length > 30) displayMessage = displayMessage.substring(0, 30) + '...';
+            if (displayMessage.length > 30)
+                displayMessage = displayMessage.substring(0, 30) + '...';
 
             // Update innerHTML
             cell.innerHTML = `
@@ -523,13 +550,13 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
             // Add click event and styling
             // Use separate modals: openChatModal for messages, openCommentModal for comments
-            const clickHandler = type === 'INBOX'
-                ? `showConversationPicker('${order.Id}', '${pageId}', '${psid}', event)`
-                : `openCommentModal('${order.Id}', '${pageId}', '${psid}')`;
+            const clickHandler =
+                type === 'INBOX'
+                    ? `showConversationPicker('${order.Id}', '${pageId}', '${psid}', event)`
+                    : `openCommentModal('${order.Id}', '${pageId}', '${psid}')`;
 
-            const tooltipText = type === 'INBOX'
-                ? 'Click để xem toàn bộ tin nhắn'
-                : 'Click để xem bình luận';
+            const tooltipText =
+                type === 'INBOX' ? 'Click để xem toàn bộ tin nhắn' : 'Click để xem bình luận';
 
             cell.setAttribute('onclick', clickHandler);
             cell.style.cursor = 'pointer';
@@ -551,12 +578,12 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         // which reads from this cache.
         // The conversation object from the event has the structure we need.
 
-        // We need to find where to put it. 
+        // We need to find where to put it.
         // PancakeDataManager stores conversations in inboxMapByPSID and inboxMapByFBID
         // We can try to call a method to update it, or manually set it if exposed.
-        // Looking at PancakeDataManager, it doesn't seem to have a public 'updateConversation' method 
+        // Looking at PancakeDataManager, it doesn't seem to have a public 'updateConversation' method
         // that takes a raw payload easily without fetching.
-        // However, we can try to update the map if we can access it, but it's better to rely on 
+        // However, we can try to update the map if we can access it, but it's better to rely on
         // what we have.
 
         // Actually, let's just update the order's internal state if possible, OR
@@ -580,16 +607,20 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
     if (conversationFilter === 'unread') {
         // Check if any matching order is NOT in displayedData
         // We need to find orders in allData that match this PSID/PageID
-        const allMatchingOrders = allData.filter(o => {
+        const allMatchingOrders = allData.filter((o) => {
             const matchesPsid = o.Facebook_ASUserId === psid;
-            const matchesPage = pageId ? (o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)) : true;
+            const matchesPage = pageId
+                ? o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)
+                : true;
             return matchesPsid && matchesPage;
         });
 
-        const hiddenOrders = allMatchingOrders.filter(o => !displayedData.includes(o));
+        const hiddenOrders = allMatchingOrders.filter((o) => !displayedData.includes(o));
 
         if (hiddenOrders.length > 0) {
-            console.log(`[TAB1] Found ${hiddenOrders.length} hidden orders matching realtime update. Refreshing table...`);
+            console.log(
+                `[TAB1] Found ${hiddenOrders.length} hidden orders matching realtime update. Refreshing table...`
+            );
 
             // We need to ensure the filter logic sees them as "unread".
             // Since we updated the PancakeDataManager cache above, performTableSearch should now
@@ -599,7 +630,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 
             // After refresh, highlight them
             setTimeout(() => {
-                hiddenOrders.forEach(order => {
+                hiddenOrders.forEach((order) => {
                     const checkbox = document.querySelector(`input[value="${order.Id}"]`);
                     if (checkbox) {
                         const row = checkbox.closest('tr');
@@ -640,7 +671,7 @@ function createMessageElement(msg, chatType = 'message') {
 
     // Attachments (capital A - messages)
     if (msg.Attachments && msg.Attachments.length > 0) {
-        msg.Attachments.forEach(att => {
+        msg.Attachments.forEach((att) => {
             if (att.Type === 'image' && att.Payload && att.Payload.Url) {
                 content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy">`;
             } else if (att.Type === 'audio' && att.Payload && att.Payload.Url) {
@@ -653,7 +684,7 @@ function createMessageElement(msg, chatType = 'message') {
 
     // attachments (lowercase a - comments)
     if (msg.attachments && msg.attachments.length > 0) {
-        msg.attachments.forEach(att => {
+        msg.attachments.forEach((att) => {
             if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
                 content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy">`;
             } else if (att.mime_type === 'audio/mp4' && att.file_url) {
@@ -701,7 +732,7 @@ function appendNewMessages(messages, chatType = 'message') {
     // Create document fragment for batch append (better performance)
     const fragment = document.createDocumentFragment();
 
-    messages.forEach(msg => {
+    messages.forEach((msg) => {
         const msgEl = createMessageElement(msg, chatType);
         fragment.appendChild(msgEl);
     });
@@ -731,4 +762,3 @@ function appendNewMessages(messages, chatType = 'message') {
 // =====================================================
 // Note: Variables and functions are defined in tab1-chat-products.js
 // This file uses window.quickAddSelectedProducts directly
-

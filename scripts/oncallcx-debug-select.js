@@ -8,7 +8,9 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
 (async () => {
     const { chromium } = require('playwright');
     const content = fs.readFileSync(SECRETS_FILE, 'utf8');
-    const line = content.split('\n').find(l => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
+    const line = content
+        .split('\n')
+        .find((l) => l.includes('pbx-ucaas.oncallcx.vn') && !l.includes('PBX_HOST'));
     const after = line.replace(/^\s*\d+\/?\s*/, '').replace(/"[^"]*"\s*/, '');
     const parts = after.trim().split(/\s+/);
     const creds = { username: parts[0], password: parts.slice(1).join(' ') };
@@ -19,19 +21,26 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
 
     // Log tất cả POST request trong suốt click
     const posts = [];
-    page.on('request', req => {
+    page.on('request', (req) => {
         if (req.method() === 'POST' && req.url().includes('oncallcx')) {
             posts.push({ url: req.url(), data: req.postData()?.slice(0, 300) });
         }
     });
 
-    await page.goto('https://pbx-ucaas.oncallcx.vn/portal/login.xhtml', { waitUntil: 'networkidle' });
+    await page.goto('https://pbx-ucaas.oncallcx.vn/portal/login.xhtml', {
+        waitUntil: 'networkidle',
+    });
     await page.locator('input[type="text"]').first().fill(creds.username);
     await page.locator('input[type="password"]').first().fill(creds.password);
-    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.locator('button[type="submit"], input[type="submit"]').first().click()]);
+    await Promise.all([
+        page.waitForLoadState('networkidle').catch(() => {}),
+        page.locator('button[type="submit"], input[type="submit"]').first().click(),
+    ]);
     await page.waitForTimeout(2000);
 
-    await page.goto('https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml', { waitUntil: 'networkidle' });
+    await page.goto('https://pbx-ucaas.oncallcx.vn/portal/pbxCalls.xhtml', {
+        waitUntil: 'networkidle',
+    });
     await page.waitForTimeout(2000);
 
     // Pick row có Duration > 0 (row index 11 có duration 01:49)
@@ -43,10 +52,14 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
         const d1 = await downloadBtn.getAttribute('disabled');
         const d2 = await playBtn.getAttribute('disabled');
         const ariaSelected = await page.evaluate(() => {
-            const tr = document.querySelector('#content\\:calls\\:calls tbody tr[aria-selected=\"true\"]');
+            const tr = document.querySelector(
+                '#content\\:calls\\:calls tbody tr[aria-selected=\"true\"]'
+            );
             return tr ? tr.getAttribute('data-ri') : null;
         });
-        console.log(`  [${label}] download.disabled=${d1} play.disabled=${d2} selectedRow=${ariaSelected}`);
+        console.log(
+            `  [${label}] download.disabled=${d1} play.disabled=${d2} selectedRow=${ariaSelected}`
+        );
     }
 
     await checkState('baseline');
@@ -59,7 +72,8 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
     await row11.click({ timeout: 3000 });
     await page.waitForTimeout(1500);
     await checkState('after tr.click');
-    console.log('  POSTs:'); posts.forEach(p => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
+    console.log('  POSTs:');
+    posts.forEach((p) => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
     posts.length = 0;
 
     // Cách 2: click vào radio button
@@ -68,7 +82,8 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
     await radioDiv.click({ timeout: 3000 });
     await page.waitForTimeout(1500);
     await checkState('after radio.click');
-    console.log('  POSTs:'); posts.forEach(p => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
+    console.log('  POSTs:');
+    posts.forEach((p) => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
     posts.length = 0;
 
     // Cách 3: click vào cell giữa (không phải radio cell)
@@ -77,7 +92,8 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
     await row8.locator('td').nth(3).click({ timeout: 3000 }); // cell "To" column
     await page.waitForTimeout(1500);
     await checkState('after td.click');
-    console.log('  POSTs:'); posts.forEach(p => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
+    console.log('  POSTs:');
+    posts.forEach((p) => console.log('   ', p.url, '|', (p.data || '').slice(0, 150)));
     posts.length = 0;
 
     // Cách 4: check aria-selected row, xem Download Audio có text/tooltip báo lý do disabled không
@@ -100,7 +116,9 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
     await downloadBtn.hover({ timeout: 2000, force: true }).catch(() => {});
     await page.waitForTimeout(1000);
     const tooltipTxt = await page.evaluate(() => {
-        const tip = document.querySelector('.ui-tooltip:not([style*="display: none"]), .ui-tooltip-text');
+        const tip = document.querySelector(
+            '.ui-tooltip:not([style*="display: none"]), .ui-tooltip-text'
+        );
         return tip?.textContent?.trim() || null;
     });
     console.log('  Tooltip visible:', tooltipTxt);
@@ -114,4 +132,7 @@ const SECRETS_FILE = path.resolve(__dirname, '..', 'serect_dont_push.txt');
     console.log('\n  Radio checked count:', radioChecked);
 
     await browser.close();
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch((e) => {
+    console.error(e);
+    process.exit(1);
+});

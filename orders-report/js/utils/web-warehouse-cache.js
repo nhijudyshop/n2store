@@ -21,7 +21,10 @@ const WebWarehouseCache = (function () {
      */
     function normalizeCode(code) {
         if (!code) return '';
-        return code.replace(/[\[\]]/g, '').trim().toUpperCase();
+        return code
+            .replace(/[\[\]]/g, '')
+            .trim()
+            .toUpperCase();
     }
 
     /**
@@ -117,8 +120,7 @@ const WebWarehouseCache = (function () {
         if (!_loaded || _sttMap.size === 0) return 0;
 
         // Try ProductCode first (bare code like "B211A3")
-        const productCode =
-            orderLineItem.ProductCode || orderLineItem.Product?.DefaultCode || '';
+        const productCode = orderLineItem.ProductCode || orderLineItem.Product?.DefaultCode || '';
         if (productCode) {
             const normalized = normalizeCode(productCode);
             if (_sttMap.has(normalized)) {

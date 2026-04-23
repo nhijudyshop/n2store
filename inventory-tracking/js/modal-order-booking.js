@@ -47,7 +47,13 @@ function renderOrderBookingForm(booking) {
     const isEdit = !!booking;
     const date = booking?.ngayDatHang || todayVN();
     const products = booking?.sanPham || [];
-    const productLines = products.map(p => p.rawText || `MA ${p.maSP} ${p.soMau || ''} MAU ${p.soLuong || 0}X${p.giaDonVi || 0}`).join('\n');
+    const productLines = products
+        .map(
+            (p) =>
+                p.rawText ||
+                `MA ${p.maSP} ${p.soMau || ''} MAU ${p.soLuong || 0}X${p.giaDonVi || 0}`
+        )
+        .join('\n');
 
     return `
         <div class="form-row">
@@ -111,14 +117,18 @@ function renderExistingImages() {
         return '';
     }
 
-    return pendingOrderBookingImages.map((url, index) => `
+    return pendingOrderBookingImages
+        .map(
+            (url, index) => `
         <div class="image-preview-item" data-index="${index}">
             <img src="${url}" alt="Ảnh ${index + 1}">
             <button type="button" class="btn-remove-image" onclick="removeBookingImage(${index})">
                 <i data-lucide="x"></i>
             </button>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 /**
@@ -234,7 +244,7 @@ function updateBookingProductsPreview() {
     }
 
     // Calculate totals
-    const total = products.reduce((sum, p) => sum + ((p.soLuong || 0) * (p.giaDonVi || 0)), 0);
+    const total = products.reduce((sum, p) => sum + (p.soLuong || 0) * (p.giaDonVi || 0), 0);
     const items = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
 
     if (totalAmount) totalAmount.textContent = formatNumber(total);
@@ -242,21 +252,23 @@ function updateBookingProductsPreview() {
 
     // Render preview
     const isVietnamese = globalState.langMode === 'vi';
-    preview.innerHTML = products.map(p => {
-        const displayText = isVietnamese && p.rawText ?
-            translateToVietnamese(p.rawText) : p.rawText;
-        return `<div class="preview-item">${displayText}</div>`;
-    }).join('');
+    preview.innerHTML = products
+        .map((p) => {
+            const displayText =
+                isVietnamese && p.rawText ? translateToVietnamese(p.rawText) : p.rawText;
+            return `<div class="preview-item">${displayText}</div>`;
+        })
+        .join('');
 }
 
 /**
  * Parse product lines (simple parser)
  */
 function parseProductLines(text) {
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split('\n').filter((line) => line.trim());
     const products = [];
 
-    lines.forEach(line => {
+    lines.forEach((line) => {
         const parsed = parseProductLine(line);
         if (parsed) {
             products.push(parsed);
@@ -291,14 +303,17 @@ function parseProductLine(line) {
             // Everything between MA xxx and SLxGia is color/description
             const colorPart = rest.substring(0, rest.indexOf(slMatch[0])).trim();
             // Remove "MAU" or "mau" keyword if present
-            const soMau = colorPart.replace(/^MAU\s*/i, '').replace(/\s*MAU$/i, '').trim();
+            const soMau = colorPart
+                .replace(/^MAU\s*/i, '')
+                .replace(/\s*MAU$/i, '')
+                .trim();
 
             return {
                 maSP,
                 soMau,
                 soLuong,
                 giaDonVi,
-                rawText: trimmed
+                rawText: trimmed,
             };
         }
     }
@@ -309,7 +324,7 @@ function parseProductLine(line) {
         soMau: '',
         soLuong: 0,
         giaDonVi: 0,
-        rawText: trimmed
+        rawText: trimmed,
     };
 }
 
@@ -336,7 +351,7 @@ async function saveOrderBooking() {
 
     // Parse products
     const products = parseProductLines(productsInput?.value || '');
-    const tongTienHD = products.reduce((sum, p) => sum + ((p.soLuong || 0) * (p.giaDonVi || 0)), 0);
+    const tongTienHD = products.reduce((sum, p) => sum + (p.soLuong || 0) * (p.giaDonVi || 0), 0);
     const tongMon = products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
 
     const bookingData = {
@@ -347,7 +362,7 @@ async function saveOrderBooking() {
         tongTienHD,
         tongMon,
         anhHoaDon: pendingOrderBookingImages,
-        ghiChu: noteInput?.value || ''
+        ghiChu: noteInput?.value || '',
     };
 
     try {
@@ -400,7 +415,7 @@ function debounce(func, wait) {
 }
 
 // Initialize modal event listeners
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Add order booking button
     const btnAdd = document.getElementById('btnAddOrderBooking');
     if (btnAdd) {

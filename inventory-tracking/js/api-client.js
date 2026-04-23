@@ -13,7 +13,7 @@ async function apiFetch(path, options = {}) {
     const url = `${API_BASE}${path}`;
     const headers = {
         'Content-Type': 'application/json',
-        ...(options.headers || {})
+        ...(options.headers || {}),
     };
 
     // Pass auth data to server
@@ -22,13 +22,15 @@ async function apiFetch(path, options = {}) {
         if (userInfo) {
             const authJson = JSON.stringify({
                 userName: userInfo.displayName || userInfo.username || 'anonymous',
-                userId: userInfo.uid || userInfo.username || 'anonymous'
+                userId: userInfo.uid || userInfo.username || 'anonymous',
             });
             // Base64-encode để header chấp nhận ký tự Unicode (vd tên tiếng Việt có dấu).
             // Server decode: Buffer.from(authData,'base64') → decodeURIComponent(escape(...))
             headers['x-auth-data'] = btoa(unescape(encodeURIComponent(authJson)));
         }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+        /* ignore */
+    }
 
     const response = await fetch(url, { ...options, headers });
     const data = await response.json();
@@ -53,10 +55,10 @@ const suppliersApi = {
     async create(sttNCC, tenNCC) {
         const result = await apiFetch('/suppliers', {
             method: 'POST',
-            body: JSON.stringify({ stt_ncc: sttNCC, ten_ncc: tenNCC })
+            body: JSON.stringify({ stt_ncc: sttNCC, ten_ncc: tenNCC }),
         });
         return result.data;
-    }
+    },
 };
 
 // =====================================================
@@ -69,7 +71,8 @@ const orderBookingsApi = {
         if (filters.dateFrom) params.set('date_from', filters.dateFrom);
         if (filters.dateTo) params.set('date_to', filters.dateTo);
         if (filters.sttNCC && filters.sttNCC !== 'all') params.set('stt_ncc', filters.sttNCC);
-        if (filters.trangThai && filters.trangThai !== 'all') params.set('trang_thai', filters.trangThai);
+        if (filters.trangThai && filters.trangThai !== 'all')
+            params.set('trang_thai', filters.trangThai);
         if (filters.search) params.set('search', filters.search);
         if (filters.limit) params.set('limit', filters.limit);
 
@@ -97,8 +100,8 @@ const orderBookingsApi = {
                 tong_mon: data.tongMon || 0,
                 anh_hoa_don: data.anhHoaDon || [],
                 ghi_chu: data.ghiChu || '',
-                linked_dot_hang_id: data.linkedDotHangId || null
-            })
+                linked_dot_hang_id: data.linkedDotHangId || null,
+            }),
         });
         return result.data;
     },
@@ -118,7 +121,7 @@ const orderBookingsApi = {
 
         const result = await apiFetch(`/order-bookings/${id}`, {
             method: 'PUT',
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return result.data;
     },
@@ -126,7 +129,7 @@ const orderBookingsApi = {
     async updateStatus(id, trangThai) {
         const result = await apiFetch(`/order-bookings/${id}/status`, {
             method: 'PATCH',
-            body: JSON.stringify({ trang_thai: trangThai })
+            body: JSON.stringify({ trang_thai: trangThai }),
         });
         return result.data;
     },
@@ -134,7 +137,7 @@ const orderBookingsApi = {
     async delete(id) {
         await apiFetch(`/order-bookings/${id}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 // =====================================================
@@ -183,8 +186,8 @@ const shipmentsApi = {
                 ghi_chu_admin: data.ghiChuAdmin || '',
                 thanh_toan_ck: data.thanhToanCK || [],
                 ti_gia: data.tiGia || 0,
-                dot_so: data.dotSo
-            })
+                dot_so: data.dotSo,
+            }),
         });
         return result.data;
     },
@@ -213,7 +216,7 @@ const shipmentsApi = {
 
         const result = await apiFetch(`/shipments/${id}`, {
             method: 'PUT',
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return result.data;
     },
@@ -226,7 +229,7 @@ const shipmentsApi = {
     async updateShortage(id, soMonThieu, ghiChuThieu) {
         const result = await apiFetch(`/shipments/${id}/shortage`, {
             method: 'PATCH',
-            body: JSON.stringify({ so_mon_thieu: soMonThieu, ghi_chu_thieu: ghiChuThieu })
+            body: JSON.stringify({ so_mon_thieu: soMonThieu, ghi_chu_thieu: ghiChuThieu }),
         });
         return result.data;
     },
@@ -239,7 +242,7 @@ const shipmentsApi = {
         if (patch.tiGia !== undefined) body.ti_gia = patch.tiGia;
         const result = await apiFetch('/shipments/payment-by-dot', {
             method: 'PATCH',
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return result.data;
     },
@@ -247,7 +250,7 @@ const shipmentsApi = {
     async delete(id) {
         await apiFetch(`/shipments/${id}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 // =====================================================
@@ -266,8 +269,8 @@ const prepaymentsApi = {
             body: JSON.stringify({
                 ngay: data.ngay,
                 so_tien: data.soTien,
-                ghi_chu: data.ghiChu || ''
-            })
+                ghi_chu: data.ghiChu || '',
+            }),
         });
         return result.data;
     },
@@ -278,8 +281,8 @@ const prepaymentsApi = {
             body: JSON.stringify({
                 ngay: data.ngay,
                 so_tien: data.soTien,
-                ghi_chu: data.ghiChu
-            })
+                ghi_chu: data.ghiChu,
+            }),
         });
         return result.data;
     },
@@ -287,7 +290,7 @@ const prepaymentsApi = {
     async delete(id) {
         await apiFetch(`/prepayments/${id}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 // =====================================================
@@ -307,8 +310,8 @@ const otherExpensesApi = {
                 ngay: data.ngay,
                 loai_chi: data.loaiChi || '',
                 so_tien: data.soTien,
-                ghi_chu: data.ghiChu || ''
-            })
+                ghi_chu: data.ghiChu || '',
+            }),
         });
         return result.data;
     },
@@ -320,8 +323,8 @@ const otherExpensesApi = {
                 ngay: data.ngay,
                 loai_chi: data.loaiChi,
                 so_tien: data.soTien,
-                ghi_chu: data.ghiChu
-            })
+                ghi_chu: data.ghiChu,
+            }),
         });
         return result.data;
     },
@@ -329,7 +332,7 @@ const otherExpensesApi = {
     async delete(id) {
         await apiFetch(`/other-expenses/${id}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 // =====================================================
@@ -340,7 +343,7 @@ const financeApi = {
     async getSummary() {
         const result = await apiFetch('/finance/summary');
         return result.data;
-    }
+    },
 };
 
 // =====================================================
@@ -362,10 +365,16 @@ const editHistoryApi = {
     async log(action, entityType, entityId, sttNCC, changes) {
         const result = await apiFetch('/edit-history', {
             method: 'POST',
-            body: JSON.stringify({ action, entity_type: entityType, entity_id: entityId, stt_ncc: sttNCC, changes })
+            body: JSON.stringify({
+                action,
+                entity_type: entityType,
+                entity_id: entityId,
+                stt_ncc: sttNCC,
+                changes,
+            }),
         });
         return result.data;
-    }
+    },
 };
 
 // =====================================================
@@ -380,7 +389,7 @@ function pgToBooking(row) {
         ngayDatHang: row.ngay_dat_hang ? row.ngay_dat_hang.split('T')[0] : row.ngay_dat_hang,
         tenNCC: row.ten_ncc,
         trangThai: row.trang_thai,
-        sanPham: typeof row.san_pham === 'string' ? JSON.parse(row.san_pham) : (row.san_pham || []),
+        sanPham: typeof row.san_pham === 'string' ? JSON.parse(row.san_pham) : row.san_pham || [],
         tongTienHD: parseFloat(row.tong_tien_hd) || 0,
         tongMon: parseInt(row.tong_mon) || 0,
         anhHoaDon: row.anh_hoa_don || [],
@@ -389,7 +398,7 @@ function pgToBooking(row) {
         createdBy: row.created_by,
         updatedBy: row.updated_by,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
     };
 }
 
@@ -401,25 +410,32 @@ function pgToShipment(row) {
         ngayDiHang: row.ngay_di_hang ? row.ngay_di_hang.split('T')[0] : row.ngay_di_hang,
         dotSo: row.dot_so || 1,
         tenNCC: row.ten_ncc,
-        kienHang: typeof row.kien_hang === 'string' ? JSON.parse(row.kien_hang) : (row.kien_hang || []),
+        kienHang:
+            typeof row.kien_hang === 'string' ? JSON.parse(row.kien_hang) : row.kien_hang || [],
         tongKien: parseInt(row.tong_kien) || 0,
         tongKg: parseFloat(row.tong_kg) || 0,
-        sanPham: typeof row.san_pham === 'string' ? JSON.parse(row.san_pham) : (row.san_pham || []),
+        sanPham: typeof row.san_pham === 'string' ? JSON.parse(row.san_pham) : row.san_pham || [],
         tongTienHD: parseFloat(row.tong_tien_hd) || 0,
         tongMon: parseInt(row.tong_mon) || 0,
         soMonThieu: parseInt(row.so_mon_thieu) || 0,
         ghiChuThieu: row.ghi_chu_thieu || '',
         anhHoaDon: row.anh_hoa_don || [],
         ghiChu: row.ghi_chu || '',
-        chiPhiHangVe: typeof row.chi_phi_hang_ve === 'string' ? JSON.parse(row.chi_phi_hang_ve) : (row.chi_phi_hang_ve || []),
+        chiPhiHangVe:
+            typeof row.chi_phi_hang_ve === 'string'
+                ? JSON.parse(row.chi_phi_hang_ve)
+                : row.chi_phi_hang_ve || [],
         tongChiPhi: parseFloat(row.tong_chi_phi) || 0,
         ghiChuAdmin: row.ghi_chu_admin || '',
-        thanhToanCK: typeof row.thanh_toan_ck === 'string' ? JSON.parse(row.thanh_toan_ck) : (row.thanh_toan_ck || []),
+        thanhToanCK:
+            typeof row.thanh_toan_ck === 'string'
+                ? JSON.parse(row.thanh_toan_ck)
+                : row.thanh_toan_ck || [],
         tiGia: parseFloat(row.ti_gia) || 0,
         createdBy: row.created_by,
         updatedBy: row.updated_by,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
     };
 }
 
@@ -431,7 +447,7 @@ function pgToPrepayment(row) {
         ghiChu: row.ghi_chu || '',
         createdBy: row.created_by,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
     };
 }
 
@@ -444,7 +460,7 @@ function pgToOtherExpense(row) {
         ghiChu: row.ghi_chu || '',
         createdBy: row.created_by,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
     };
 }
 
@@ -466,8 +482,8 @@ const notesApi = {
                 invoice_id: invoiceId,
                 note_text: noteText || '',
                 note_images: noteImages || [],
-                is_admin: isAdmin || false
-            })
+                is_admin: isAdmin || false,
+            }),
         });
         return result.data;
     },
@@ -477,8 +493,8 @@ const notesApi = {
             method: 'PUT',
             body: JSON.stringify({
                 note_text: noteText || '',
-                note_images: noteImages || []
-            })
+                note_images: noteImages || [],
+            }),
         });
         return result.data;
     },
@@ -486,7 +502,7 @@ const notesApi = {
     async deleteNote(noteId) {
         await apiFetch(`/notes/${noteId}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 // =====================================================
@@ -507,7 +523,7 @@ const productImagesApi = {
         if (dotSo) body.dot_so = dotSo;
         const result = await apiFetch('/product-images', {
             method: 'PUT',
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return result.data;
     },
@@ -515,7 +531,7 @@ const productImagesApi = {
     async remove(id) {
         await apiFetch(`/product-images/${id}`, { method: 'DELETE' });
         return true;
-    }
+    },
 };
 
 console.log('[API-CLIENT] Inventory tracking API client initialized');

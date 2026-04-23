@@ -13,7 +13,7 @@
 
 const ApiService = {
     // API mode: 'FIREBASE' (legacy) or 'POSTGRESQL' (new Customer 360°)
-    mode: 'POSTGRESQL',  // Changed to use PostgreSQL by default
+    mode: 'POSTGRESQL', // Changed to use PostgreSQL by default
 
     // PostgreSQL API base URL - Via Cloudflare Worker proxy to avoid CORS
     // Worker proxies to n2store-chat.onrender.com which hosts Customer 360° routes
@@ -77,7 +77,10 @@ const ApiService = {
         if (mode === 'phone') fieldFilter = `contains(Phone,'${safeValue}')`;
         else if (mode === 'name') fieldFilter = `contains(PartnerNameNoSign,'${safeValue}')`;
         else if (mode === 'code') fieldFilter = `contains(Number,'${safeValue}')`;
-        else { console.warn('[API] Unknown search mode:', mode); return []; }
+        else {
+            console.warn('[API] Unknown search mode:', mode);
+            return [];
+        }
 
         const filter = `(Type eq 'invoice' and IsMergeCancel ne true and DateInvoice ge ${startDate} and DateInvoice le ${endDate} and ${fieldFilter})`;
 
@@ -90,9 +93,9 @@ const ApiService = {
             const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -110,15 +113,20 @@ const ApiService = {
 
             // Filter: only open and paid orders (exclude draft and cancel)
             const validStates = ['open', 'paid'];
-            const filteredOrders = data.value.filter(order => validStates.includes(order.State));
+            const filteredOrders = data.value.filter((order) => validStates.includes(order.State));
 
-            console.log('[API] Filtered orders (open/paid):', filteredOrders.length, 'of', data.value.length);
+            console.log(
+                '[API] Filtered orders (open/paid):',
+                filteredOrders.length,
+                'of',
+                data.value.length
+            );
 
             // Check if all orders were cancelled/draft
             const allCancelled = data.value.length > 0 && filteredOrders.length === 0;
 
             // Map TPOS fields to internal format
-            const mappedOrders = filteredOrders.map(order => ({
+            const mappedOrders = filteredOrders.map((order) => ({
                 id: order.Id,
                 tposCode: order.Number,
                 reference: order.Reference,
@@ -134,15 +142,14 @@ const ApiService = {
                 carrier: order.CarrierName || '',
                 channel: order.CRMTeamName || 'TPOS',
                 products: [], // Will fetch separately via getOrderDetails()
-                createdAt: new Date(order.DateInvoice).getTime()
+                createdAt: new Date(order.DateInvoice).getTime(),
             }));
 
             return {
                 orders: mappedOrders,
                 totalFound: data.value.length,
-                allCancelled: allCancelled
+                allCancelled: allCancelled,
             };
-
         } catch (error) {
             console.error('[API] Search orders failed:', error);
             throw error;
@@ -168,30 +175,37 @@ const ApiService = {
                 const response = await window.tokenManager.authenticatedFetch(url, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
                 });
 
                 // Retry on 502/503 (TPOS server overload)
                 if ((response.status === 502 || response.status === 503) && attempt < retries) {
                     const waitMs = 1500 * (attempt + 1);
-                    console.warn(`[API] Order ${orderId} got ${response.status}, retry ${attempt + 1}/${retries} after ${waitMs}ms...`);
-                    await new Promise(r => setTimeout(r, waitMs));
+                    console.warn(
+                        `[API] Order ${orderId} got ${response.status}, retry ${attempt + 1}/${retries} after ${waitMs}ms...`
+                    );
+                    await new Promise((r) => setTimeout(r, waitMs));
                     continue;
                 }
 
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[API] Order details error:', errorText);
-                    throw new Error(`Lỗi tải đơn hàng (HTTP ${response.status}). Vui lòng thử lại.`);
+                    throw new Error(
+                        `Lỗi tải đơn hàng (HTTP ${response.status}). Vui lòng thử lại.`
+                    );
                 }
 
                 const data = await response.json();
                 console.log('[API] Order details loaded, products:', data.OrderLines?.length || 0);
 
                 // Calculate product subtotal from OrderLines (sum of PriceTotal for each line)
-                const productSubtotal = (data.OrderLines || []).reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+                const productSubtotal = (data.OrderLines || []).reduce(
+                    (sum, line) => sum + (line.PriceTotal || 0),
+                    0
+                );
 
                 // Map to internal format
                 return {
@@ -212,7 +226,7 @@ const ApiService = {
                     carrier: data.CarrierName || '',
                     channel: data.CRMTeamName || 'TPOS',
                     // Map OrderLines to products array
-                    products: (data.OrderLines || []).map(line => ({
+                    products: (data.OrderLines || []).map((line) => ({
                         id: line.Id,
                         productId: line.ProductId,
                         code: line.ProductBarcode || '',
@@ -221,19 +235,24 @@ const ApiService = {
                         price: line.PriceUnit || 0,
                         total: line.PriceTotal || 0,
                         note: line.Note || '',
-                        imageUrl: line.ProductImageUrl || ''
+                        imageUrl: line.ProductImageUrl || '',
                     })),
-                    createdAt: new Date(data.DateInvoice).getTime()
+                    createdAt: new Date(data.DateInvoice).getTime(),
                 };
-
             } catch (error) {
                 if (attempt < retries) {
                     const waitMs = 1500 * (attempt + 1);
-                    console.warn(`[API] Order ${orderId} error, retry ${attempt + 1}/${retries} after ${waitMs}ms...`, error.message);
-                    await new Promise(r => setTimeout(r, waitMs));
+                    console.warn(
+                        `[API] Order ${orderId} error, retry ${attempt + 1}/${retries} after ${waitMs}ms...`,
+                        error.message
+                    );
+                    await new Promise((r) => setTimeout(r, waitMs));
                     continue;
                 }
-                console.error(`[API] Get order details failed after ${retries + 1} attempts:`, error);
+                console.error(
+                    `[API] Get order details failed after ${retries + 1} attempts:`,
+                    error
+                );
                 throw error;
             }
         }
@@ -254,7 +273,7 @@ const ApiService = {
                 const response = await fetch(`${this.RENDER_API_URL}/v2/tickets`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
                         phone: ticketData.phone,
@@ -276,8 +295,8 @@ const ApiService = {
                         internal_note: ticketData.note,
                         created_by: ticketData.createdBy || 'system',
                         return_from_order_id: ticketData.returnFromOrderId,
-                        return_from_tpos_id: ticketData.returnFromTposId
-                    })
+                        return_from_tpos_id: ticketData.returnFromTposId,
+                    }),
                 });
 
                 if (!response.ok) {
@@ -294,7 +313,7 @@ const ApiService = {
                     firebaseId: result.data.ticket_code,
                     ticketCode: result.data.ticket_code,
                     id: result.data.id,
-                    createdAt: new Date(result.data.created_at).getTime()
+                    createdAt: new Date(result.data.created_at).getTime(),
                 };
             } catch (error) {
                 console.error('[API-V2] Create ticket failed:', error);
@@ -309,7 +328,7 @@ const ApiService = {
                 ...ticketData,
                 firebaseId: newRef.key,
                 createdAt: firebase.database.ServerValue.TIMESTAMP,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP
+                updatedAt: firebase.database.ServerValue.TIMESTAMP,
             };
             await newRef.set(ticket);
             console.log('[API-FB] Ticket created:', ticket.firebaseId);
@@ -334,25 +353,32 @@ const ApiService = {
                 if (updates.status !== undefined) apiUpdates.status = updates.status;
                 if (updates.priority !== undefined) apiUpdates.priority = updates.priority;
                 if (updates.products !== undefined) apiUpdates.products = updates.products;
-                if (updates.originalCod !== undefined) apiUpdates.original_cod = updates.originalCod;
+                if (updates.originalCod !== undefined)
+                    apiUpdates.original_cod = updates.originalCod;
                 if (updates.newCod !== undefined) apiUpdates.new_cod = updates.newCod;
                 if (updates.money !== undefined) apiUpdates.refund_amount = updates.money;
                 if (updates.fixReason !== undefined) apiUpdates.fix_cod_reason = updates.fixReason;
                 if (updates.note !== undefined) apiUpdates.internal_note = updates.note;
                 if (updates.assignedTo !== undefined) apiUpdates.assigned_to = updates.assignedTo;
-                if (updates.receivedAt !== undefined) apiUpdates.received_at = new Date(updates.receivedAt).toISOString();
-                if (updates.settledAt !== undefined) apiUpdates.settled_at = new Date(updates.settledAt).toISOString();
-                if (updates.completedAt !== undefined) apiUpdates.completed_at = new Date(updates.completedAt).toISOString();
-                if (updates.refundOrderId !== undefined) apiUpdates.refund_order_id = updates.refundOrderId;
-                if (updates.refundNumber !== undefined) apiUpdates.refund_number = updates.refundNumber;
-                if (updates.virtualCreditId !== undefined) apiUpdates.virtual_credit_id = updates.virtualCreditId;
+                if (updates.receivedAt !== undefined)
+                    apiUpdates.received_at = new Date(updates.receivedAt).toISOString();
+                if (updates.settledAt !== undefined)
+                    apiUpdates.settled_at = new Date(updates.settledAt).toISOString();
+                if (updates.completedAt !== undefined)
+                    apiUpdates.completed_at = new Date(updates.completedAt).toISOString();
+                if (updates.refundOrderId !== undefined)
+                    apiUpdates.refund_order_id = updates.refundOrderId;
+                if (updates.refundNumber !== undefined)
+                    apiUpdates.refund_number = updates.refundNumber;
+                if (updates.virtualCreditId !== undefined)
+                    apiUpdates.virtual_credit_id = updates.virtualCreditId;
 
                 const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${firebaseId}`, {
                     method: 'PATCH',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(apiUpdates)
+                    body: JSON.stringify(apiUpdates),
                 });
 
                 if (!response.ok) {
@@ -374,7 +400,7 @@ const ApiService = {
             const ref = getTicketsRef().child(firebaseId);
             await ref.update({
                 ...updates,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP
+                updatedAt: firebase.database.ServerValue.TIMESTAMP,
             });
             console.log('[API-FB] Ticket updated:', firebaseId);
         } catch (error) {
@@ -397,8 +423,8 @@ const ApiService = {
                 const response = await fetch(url, {
                     method: 'DELETE',
                     headers: {
-                        'Content-Type': 'application/json'
-                    }
+                        'Content-Type': 'application/json',
+                    },
                 });
 
                 if (!response.ok) {
@@ -437,7 +463,7 @@ const ApiService = {
             if (!response.ok) return [];
             const result = await response.json();
             if (!result.success || !result.data) return [];
-            return result.data.map(ticket => ({
+            return result.data.map((ticket) => ({
                 ...ticket,
                 firebaseId: ticket.ticket_code,
                 ticketCode: ticket.ticket_code,
@@ -454,10 +480,12 @@ const ApiService = {
                 note: ticket.internal_note,
                 virtualCreditId: ticket.virtual_credit_id,
                 virtual_credit_id: ticket.virtual_credit_id,
-                virtualCredit: ticket.virtual_credit_amount ? {
-                    amount: ticket.virtual_credit_amount,
-                    status: 'ACTIVE'
-                } : null,
+                virtualCredit: ticket.virtual_credit_amount
+                    ? {
+                          amount: ticket.virtual_credit_amount,
+                          status: 'ACTIVE',
+                      }
+                    : null,
                 vcRemainingAmount: ticket.vc_remaining_amount,
                 vcOriginalAmount: ticket.vc_original_amount,
                 vcUsedInOrders: ticket.vc_used_in_orders,
@@ -465,7 +493,7 @@ const ApiService = {
                 returnFromTposId: ticket.return_from_tpos_id,
                 createdAt: new Date(ticket.created_at).getTime(),
                 updatedAt: ticket.updated_at ? new Date(ticket.updated_at).getTime() : null,
-                completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null
+                completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null,
             }));
         } catch (error) {
             console.error('[API-V2] Search tickets failed:', error);
@@ -508,7 +536,7 @@ const ApiService = {
 
                     if (result.success && result.data) {
                         // Transform to Firebase-compatible format
-                        const tickets = result.data.map(ticket => ({
+                        const tickets = result.data.map((ticket) => ({
                             ...ticket,
                             firebaseId: ticket.ticket_code,
                             ticketCode: ticket.ticket_code,
@@ -525,18 +553,24 @@ const ApiService = {
                             note: ticket.internal_note,
                             virtualCreditId: ticket.virtual_credit_id,
                             virtual_credit_id: ticket.virtual_credit_id,
-                            virtualCredit: ticket.virtual_credit_amount ? {
-                                amount: ticket.virtual_credit_amount,
-                                status: 'ACTIVE'
-                            } : null,
+                            virtualCredit: ticket.virtual_credit_amount
+                                ? {
+                                      amount: ticket.virtual_credit_amount,
+                                      status: 'ACTIVE',
+                                  }
+                                : null,
                             vcRemainingAmount: ticket.vc_remaining_amount,
                             vcOriginalAmount: ticket.vc_original_amount,
                             vcUsedInOrders: ticket.vc_used_in_orders,
                             returnFromOrderId: ticket.return_from_order_id,
                             returnFromTposId: ticket.return_from_tpos_id,
                             createdAt: new Date(ticket.created_at).getTime(),
-                            updatedAt: ticket.updated_at ? new Date(ticket.updated_at).getTime() : null,
-                            completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null
+                            updatedAt: ticket.updated_at
+                                ? new Date(ticket.updated_at).getTime()
+                                : null,
+                            completedAt: ticket.completed_at
+                                ? new Date(ticket.completed_at).getTime()
+                                : null,
                         }));
 
                         tickets.sort((a, b) => b.createdAt - a.createdAt);
@@ -612,7 +646,7 @@ const ApiService = {
             const data = snapshot.val();
             const tickets = [];
             if (data) {
-                Object.keys(data).forEach(key => {
+                Object.keys(data).forEach((key) => {
                     tickets.push({ ...data[key], firebaseId: key });
                 });
             }
@@ -631,15 +665,18 @@ const ApiService = {
      */
     async ticketAction(ticketCode, action, options = {}) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketCode}/resolve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    note: options.note,
-                    performed_by: options.performed_by || 'system'
-                })
-            });
+            const response = await fetch(
+                `${this.RENDER_API_URL}/v2/tickets/${ticketCode}/resolve`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action,
+                        note: options.note,
+                        performed_by: options.performed_by || 'system',
+                    }),
+                }
+            );
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to perform ticket action');
@@ -698,7 +735,7 @@ const ApiService = {
                 money: ticket.refund_amount,
                 fixReason: ticket.fix_cod_reason,
                 note: ticket.internal_note,
-                createdAt: new Date(ticket.created_at).getTime()
+                createdAt: new Date(ticket.created_at).getTime(),
             };
         } catch (error) {
             console.error('[API-V2] Get ticket failed:', error);
@@ -718,7 +755,7 @@ const ApiService = {
             const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketCode}/cancel`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(options)
+                body: JSON.stringify(options),
             });
 
             if (!response.ok) {
@@ -741,7 +778,9 @@ const ApiService = {
      */
     async canDeleteTicket(ticketId) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/can-delete`);
+            const response = await fetch(
+                `${this.RENDER_API_URL}/v2/tickets/${ticketId}/can-delete`
+            );
             if (!response.ok) {
                 throw new Error(`Failed to check can-delete: ${response.status}`);
             }
@@ -762,7 +801,7 @@ const ApiService = {
             const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/resolve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(resolveData)
+                body: JSON.stringify(resolveData),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -782,11 +821,14 @@ const ApiService = {
      */
     async resolveTicketCredit(ticketId, creditData) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/resolve-credit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(creditData)
-            });
+            const response = await fetch(
+                `${this.RENDER_API_URL}/v2/tickets/${ticketId}/resolve-credit`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(creditData),
+                }
+            );
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to resolve ticket credit');
@@ -839,10 +881,10 @@ const ApiService = {
             {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'Content-Type': 'application/json;charset=UTF-8'
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ id: originalOrderId })
+                body: JSON.stringify({ id: originalOrderId }),
             }
         );
 
@@ -856,7 +898,9 @@ const ApiService = {
                 const errorData = JSON.parse(errorText);
                 const msg = errorData?.error?.message || '';
                 if (msg.includes('đã được trả hết') || msg.includes('đã được trả')) {
-                    console.warn('[API] Order already refunded on TPOS - skipping refund flow, treating as success');
+                    console.warn(
+                        '[API] Order already refunded on TPOS - skipping refund flow, treating as success'
+                    );
                     reportProgress(5, 'Đơn đã được trả hết trước đó trên TPOS');
                     return {
                         alreadyRefunded: true,
@@ -864,7 +908,7 @@ const ApiService = {
                         printHtml: null,
                         confirmResult: null,
                         refundAmountFromHtml: null,
-                        message: msg
+                        message: msg,
                     };
                 }
             } catch (_parseErr) {
@@ -881,15 +925,16 @@ const ApiService = {
         // ========== FETCH 2: Get Refund Order Details ==========
         console.log('[API] Step 2: Get refund order details');
         reportProgress(2, 'Lấy chi tiết phiếu hoàn...');
-        const expand = 'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
+        const expand =
+            'Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
 
         const detailsResponse = await window.tokenManager.authenticatedFetch(
             `${API_CONFIG.TPOS_ODATA}/FastSaleOrder(${refundOrderId})?$expand=${encodeURIComponent(expand)}`,
             {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*'
-                }
+                    Accept: 'application/json, text/plain, */*',
+                },
             }
         );
 
@@ -910,23 +955,26 @@ const ApiService = {
             const originalOrderLines = refundDetails.OrderLines || [];
             console.log('[API] Original OrderLines count:', originalOrderLines.length);
 
-            console.log('[API] Products to match:', productsToRefund.map(p => ({
-                id: p.id,
-                productId: p.productId,
-                code: p.code
-            })));
-            originalOrderLines.forEach(line => {
+            console.log(
+                '[API] Products to match:',
+                productsToRefund.map((p) => ({
+                    id: p.id,
+                    productId: p.productId,
+                    code: p.code,
+                }))
+            );
+            originalOrderLines.forEach((line) => {
                 console.log('[API] OrderLine:', {
                     Id: line.Id,
                     ProductId: line.ProductId,
                     ProductBarcode: line.ProductBarcode,
-                    ProductName: line.ProductName
+                    ProductName: line.ProductName,
                 });
             });
 
             // Filter and update quantities based on productsToRefund
-            const filteredOrderLines = originalOrderLines.filter(line => {
-                const productMatch = productsToRefund.find(p => {
+            const filteredOrderLines = originalOrderLines.filter((line) => {
+                const productMatch = productsToRefund.find((p) => {
                     const pId = parseInt(p.productId || p.id);
                     const pCode = p.code || '';
                     const lineProductId = parseInt(line.ProductId);
@@ -936,7 +984,9 @@ const ApiService = {
                     const matchByCode = pCode && lineBarcode && pCode === lineBarcode;
 
                     if (matchById || matchByCode) {
-                        console.log(`[API] Matched: pId=${pId}, pCode=${pCode}, lineProductId=${lineProductId}, lineBarcode=${lineBarcode}`);
+                        console.log(
+                            `[API] Matched: pId=${pId}, pCode=${pCode}, lineProductId=${lineProductId}, lineBarcode=${lineBarcode}`
+                        );
                     }
 
                     return matchById || matchByCode;
@@ -944,14 +994,18 @@ const ApiService = {
 
                 if (productMatch) {
                     if (productMatch.returnQuantity && productMatch.returnQuantity > 0) {
-                        console.log(`[API] Updating line ${line.ProductBarcode}: qty ${line.ProductUOMQty} -> ${productMatch.returnQuantity}`);
+                        console.log(
+                            `[API] Updating line ${line.ProductBarcode}: qty ${line.ProductUOMQty} -> ${productMatch.returnQuantity}`
+                        );
                         line.ProductUOMQty = productMatch.returnQuantity;
                         line.PriceTotal = line.PriceUnit * line.ProductUOMQty;
                         line.PriceSubTotal = line.PriceTotal;
                     }
                     return true;
                 }
-                console.log(`[API] Excluding line ${line.ProductBarcode} - not in products to refund`);
+                console.log(
+                    `[API] Excluding line ${line.ProductBarcode} - not in products to refund`
+                );
                 return false;
             });
 
@@ -959,15 +1013,26 @@ const ApiService = {
 
             refundDetails.OrderLines = filteredOrderLines;
 
-            const newTotalQuantity = filteredOrderLines.reduce((sum, line) => sum + line.ProductUOMQty, 0);
-            const newAmountTotal = filteredOrderLines.reduce((sum, line) => sum + (line.PriceUnit * line.ProductUOMQty), 0);
+            const newTotalQuantity = filteredOrderLines.reduce(
+                (sum, line) => sum + line.ProductUOMQty,
+                0
+            );
+            const newAmountTotal = filteredOrderLines.reduce(
+                (sum, line) => sum + line.PriceUnit * line.ProductUOMQty,
+                0
+            );
 
             refundDetails.TotalQuantity = newTotalQuantity;
             refundDetails.AmountTotal = newAmountTotal;
             refundDetails.AmountUntaxed = newAmountTotal;
             refundDetails.AmountTotalSigned = -newAmountTotal;
 
-            console.log('[API] Recalculated totals - Qty:', newTotalQuantity, 'Amount:', newAmountTotal);
+            console.log(
+                '[API] Recalculated totals - Qty:',
+                newTotalQuantity,
+                'Amount:',
+                newAmountTotal
+            );
         }
 
         // ========== FETCH 3: PUT Update with FormAction: SaveAndPrint ==========
@@ -981,10 +1046,10 @@ const ApiService = {
             {
                 method: 'PUT',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'Content-Type': 'application/json;charset=UTF-8'
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify(updatePayload)
+                body: JSON.stringify(updatePayload),
             }
         );
 
@@ -1006,10 +1071,10 @@ const ApiService = {
             {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'Content-Type': 'application/json;charset=UTF-8'
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ ids: [refundOrderId] })
+                body: JSON.stringify({ ids: [refundOrderId] }),
             }
         );
 
@@ -1037,9 +1102,9 @@ const ApiService = {
         const printResponse = await fetch(printUrl, {
             method: 'GET',
             headers: {
-                'Accept': '*/*',
-                'Authorization': `Bearer ${token}`
-            }
+                Accept: '*/*',
+                Authorization: `Bearer ${token}`,
+            },
         });
 
         if (!printResponse.ok) {
@@ -1054,7 +1119,9 @@ const ApiService = {
         // ========== Extract "Tổng tiền" from HTML for validation ==========
         let refundAmountFromHtml = null;
         try {
-            const totalMatch = printHtml.match(/Tổng tiền:.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)<\/td>/is);
+            const totalMatch = printHtml.match(
+                /Tổng tiền:.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)<\/td>/is
+            );
             if (totalMatch && totalMatch[1]) {
                 const amountStr = totalMatch[1].replace(/\./g, '').replace(/,/g, '');
                 refundAmountFromHtml = parseInt(amountStr, 10);
@@ -1070,7 +1137,7 @@ const ApiService = {
             refundOrderId: refundOrderId,
             printHtml: printHtml,
             confirmResult: confirmResult,
-            refundAmountFromHtml: refundAmountFromHtml
+            refundAmountFromHtml: refundAmountFromHtml,
         };
     },
 
@@ -1224,7 +1291,9 @@ const ApiService = {
             Ship_Extras: details.Ship_Extras,
             PaymentInfo: details.PaymentInfo || [],
             Search: details.Search,
-            ShipmentDetailsAship: details.ShipmentDetailsAship || { PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 } },
+            ShipmentDetailsAship: details.ShipmentDetailsAship || {
+                PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
+            },
             OrderMergeds: details.OrderMergeds || [],
             OrderAfterMerged: details.OrderAfterMerged,
             TPayment: details.TPayment,
@@ -1232,7 +1301,11 @@ const ApiService = {
             AppliedPromotionLoyalty: details.AppliedPromotionLoyalty,
             FastSaleOrderOmniExtras: details.FastSaleOrderOmniExtras,
             Billing: details.Billing,
-            PackageInfo: details.PackageInfo || { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
+            PackageInfo: details.PackageInfo || {
+                PackageLength: 0,
+                PackageWidth: 0,
+                PackageHeight: 0,
+            },
             Error: details.Error,
             Partner: details.Partner,
             User: details.User,
@@ -1253,7 +1326,7 @@ const ApiService = {
             Team: details.Team,
             OfferAmountDetails: details.OfferAmountDetails || [],
             DestConvertCurrencyUnit: details.DestConvertCurrencyUnit,
-            PackageImages: details.PackageImages || []
+            PackageImages: details.PackageImages || [],
         };
 
         return payload;
@@ -1312,7 +1385,7 @@ const ApiService = {
             const response = await fetch(`${this.RENDER_API_URL}/v2/customers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(customerData)
+                body: JSON.stringify(customerData),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -1341,8 +1414,8 @@ const ApiService = {
                 query,
                 limit,
                 search_type: options.searchType || '',
-                status: options.status || ''
-            })
+                status: options.status || '',
+            }),
         });
     },
 
@@ -1370,8 +1443,8 @@ const ApiService = {
                     content,
                     category: options.category || 'general',
                     is_pinned: options.is_pinned || false,
-                    created_by: options.created_by || 'system'
-                })
+                    created_by: options.created_by || 'system',
+                }),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -1449,8 +1522,8 @@ const ApiService = {
                     source: options.source || 'MANUAL_ADJUSTMENT',
                     reference_id: options.reference_id,
                     note: options.note,
-                    created_by: options.created_by || 'system'
-                })
+                    created_by: options.created_by || 'system',
+                }),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -1477,7 +1550,7 @@ const ApiService = {
             const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}/withdraw`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount, order_id: orderId, note, created_by })
+                body: JSON.stringify({ amount, order_id: orderId, note, created_by }),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -1509,8 +1582,8 @@ const ApiService = {
                     source_id: options.source_id,
                     expiry_days: options.expiry_days || 15,
                     note: options.note,
-                    created_by: options.created_by || 'system'
-                })
+                    created_by: options.created_by || 'system',
+                }),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -1534,7 +1607,7 @@ const ApiService = {
             const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phones })
+                body: JSON.stringify({ phones }),
             });
             if (!response.ok) {
                 throw new Error(`Failed to fetch wallet batch: ${response.status}`);
@@ -1554,11 +1627,14 @@ const ApiService = {
      */
     async logCustomerActivity(phone, activityData) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/v2/customers/${phone}/activities`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(activityData)
-            });
+            const response = await fetch(
+                `${this.RENDER_API_URL}/v2/customers/${phone}/activities`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(activityData),
+                }
+            );
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.error || `Failed to log activity: ${response.status}`);
@@ -1588,8 +1664,8 @@ const ApiService = {
                     order_id: orderId,
                     phone,
                     reason,
-                    created_by: createdBy
-                })
+                    created_by: createdBy,
+                }),
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -1614,7 +1690,9 @@ const ApiService = {
      * @param {number} limit
      */
     async getUnlinkedBankTransactions(page = 1, limit = 10) {
-        return fetchJson(`${this.RENDER_API_URL}/v2/balance-history?linked=false&page=${page}&limit=${limit}`);
+        return fetchJson(
+            `${this.RENDER_API_URL}/v2/balance-history?linked=false&page=${page}&limit=${limit}`
+        );
     },
 
     /**
@@ -1622,10 +1700,12 @@ const ApiService = {
      */
     async getUnlinkedTransactionsCount() {
         try {
-            const response = await fetchJson(`${this.RENDER_API_URL}/v2/balance-history?linked=false&page=1&limit=1`);
+            const response = await fetchJson(
+                `${this.RENDER_API_URL}/v2/balance-history?linked=false&page=1&limit=1`
+            );
             return {
                 success: response.success,
-                count: response.pagination?.total || response.data?.length || 0
+                count: response.pagination?.total || response.data?.length || 0,
             };
         } catch (error) {
             console.error('[API] getUnlinkedTransactionsCount failed:', error);
@@ -1658,8 +1738,8 @@ const ApiService = {
             Active: true,
             Employee: false,
             CompanyId: companyId,
-            Type: "contact",
-            CompanyType: "person",
+            Type: 'contact',
+            CompanyType: 'person',
             Credit: 0,
             Debit: 0,
             CreditLimit: 0,
@@ -1668,46 +1748,68 @@ const ApiService = {
             AmountDiscount: 0,
             CategoryId: 0,
             DateCreated: now,
-            Status: "Normal",
-            StatusText: "Bình thường",
-            Source: "Default",
+            Status: 'Normal',
+            StatusText: 'Bình thường',
+            Source: 'Default',
             IsNewAddress: false,
-            Ward_District_City: "",
+            Ward_District_City: '',
             ExtraAddress: {
-                Street: street || "",
+                Street: street || '',
                 City: {},
                 District: {},
-                Ward: {}
+                Ward: {},
             },
             City: {},
             District: {},
             Ward: {},
             AccountPayable: {
-                Id: 4, Name: "Phải trả người bán", Code: "331",
-                UserTypeId: 2, UserTypeName: "Payable", Active: true,
-                CompanyId: companyId, InternalType: "payable",
-                NameGet: "331 Phải trả người bán", Reconcile: true
+                Id: 4,
+                Name: 'Phải trả người bán',
+                Code: '331',
+                UserTypeId: 2,
+                UserTypeName: 'Payable',
+                Active: true,
+                CompanyId: companyId,
+                InternalType: 'payable',
+                NameGet: '331 Phải trả người bán',
+                Reconcile: true,
             },
             AccountReceivable: {
-                Id: 1, Name: "Phải thu của khách hàng", Code: "131",
-                UserTypeId: 1, UserTypeName: "Receivable", Active: true,
-                CompanyId: companyId, InternalType: "receivable",
-                NameGet: "131 Phải thu của khách hàng", Reconcile: true
+                Id: 1,
+                Name: 'Phải thu của khách hàng',
+                Code: '131',
+                UserTypeId: 1,
+                UserTypeName: 'Receivable',
+                Active: true,
+                CompanyId: companyId,
+                InternalType: 'receivable',
+                NameGet: '131 Phải thu của khách hàng',
+                Reconcile: true,
             },
             StockCustomer: {
-                Id: 9, Usage: "customer", ScrapLocation: false,
-                Name: "Khách hàng", CompleteName: "Địa điểm đối tác / Khách hàng",
-                ParentLocationId: 2, Active: true, ParentLeft: 13,
-                ShowUsage: "Địa điểm khách hàng",
-                NameGet: "Địa điểm đối tác/Khách hàng"
+                Id: 9,
+                Usage: 'customer',
+                ScrapLocation: false,
+                Name: 'Khách hàng',
+                CompleteName: 'Địa điểm đối tác / Khách hàng',
+                ParentLocationId: 2,
+                Active: true,
+                ParentLeft: 13,
+                ShowUsage: 'Địa điểm khách hàng',
+                NameGet: 'Địa điểm đối tác/Khách hàng',
             },
             StockSupplier: {
-                Id: 8, Usage: "supplier", ScrapLocation: false,
-                Name: "Nhà cung cấp", CompleteName: "Địa điểm đối tác / Nhà cung cấp",
-                ParentLocationId: 2, Active: true, ParentLeft: 15,
-                ShowUsage: "Địa điểm nhà cung cấp",
-                NameGet: "Địa điểm đối tác/Nhà cung cấp"
-            }
+                Id: 8,
+                Usage: 'supplier',
+                ScrapLocation: false,
+                Name: 'Nhà cung cấp',
+                CompleteName: 'Địa điểm đối tác / Nhà cung cấp',
+                ParentLocationId: 2,
+                Active: true,
+                ParentLeft: 15,
+                ShowUsage: 'Địa điểm nhà cung cấp',
+                NameGet: 'Địa điểm đối tác/Nhà cung cấp',
+            },
         };
 
         console.log('[API] Creating TPOS Partner:', { name, phone, street, companyId });
@@ -1717,11 +1819,11 @@ const ApiService = {
             {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*',
+                    Accept: 'application/json, text/plain, */*',
                     'Content-Type': 'application/json;charset=UTF-8',
-                    'feature-version': '2'
+                    'feature-version': '2',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             }
         );
 
@@ -1745,9 +1847,9 @@ const ApiService = {
     async linkBankTransaction(transaction_id, phone, auto_deposit = true) {
         return fetchJson(`${this.RENDER_API_URL}/v2/balance-history/${transaction_id}/link`, {
             method: 'POST',
-            body: JSON.stringify({ phone, auto_deposit })
+            body: JSON.stringify({ phone, auto_deposit }),
         });
-    }
+    },
 };
 
 // =====================================================
@@ -1766,7 +1868,9 @@ async function fetchJson(url, options = {}) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
+            throw new Error(
+                errorData.error || errorData.message || `API error: ${response.status}`
+            );
         }
 
         return await response.json();

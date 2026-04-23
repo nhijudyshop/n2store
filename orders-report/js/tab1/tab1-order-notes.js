@@ -16,7 +16,9 @@
         (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
         '/api/order-notes';
     const SSE_KEY = 'order_notes_global';
-    const SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=' + encodeURIComponent(SSE_KEY);
+    const SSE_URL =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=' +
+        encodeURIComponent(SSE_KEY);
     const POLL_INTERVAL_MS = 30000; // fallback polling when SSE disconnected
 
     // =====================================================
@@ -47,7 +49,7 @@
             try {
                 const source = new EventSource(SSE_URL);
                 this._sseSource = source;
-                source.addEventListener('update', ev => {
+                source.addEventListener('update', (ev) => {
                     try {
                         const payload = JSON.parse(ev.data);
                         const body = payload.data || payload;
@@ -69,7 +71,9 @@
 
         _teardownRealtime() {
             if (this._sseSource) {
-                try { this._sseSource.close(); } catch (_) {}
+                try {
+                    this._sseSource.close();
+                } catch (_) {}
                 this._sseSource = null;
             }
             if (this._pollTimer) {
@@ -93,7 +97,7 @@
                 arr = [];
                 this._data.set(note.orderId, arr);
             }
-            const idx = arr.findIndex(x => x.id === note.id);
+            const idx = arr.findIndex((x) => x.id === note.id);
             if (idx >= 0) arr[idx] = note;
             else arr.push(note);
         },
@@ -111,7 +115,7 @@
                 if (!orderId || !noteId) return;
                 const arr = this._data.get(orderId);
                 if (arr) {
-                    const i = arr.findIndex(x => x.id === noteId);
+                    const i = arr.findIndex((x) => x.id === noteId);
                     if (i >= 0) arr.splice(i, 1);
                 }
                 this._saveToLocalStorage();
@@ -134,7 +138,10 @@
                 this._saveToLocalStorage();
                 return true;
             } catch (err) {
-                console.warn('[OrderNotesStore] API load failed, falling back to cache:', err.message);
+                console.warn(
+                    '[OrderNotesStore] API load failed, falling back to cache:',
+                    err.message
+                );
                 return false;
             }
         },
@@ -220,7 +227,7 @@
             }
             const arr = this._data.get(orderId);
             if (arr) {
-                const idx = arr.findIndex(n => n.id === noteId);
+                const idx = arr.findIndex((n) => n.id === noteId);
                 if (idx >= 0) arr.splice(idx, 1);
             }
             this._saveToLocalStorage();
@@ -236,7 +243,7 @@
 
         _refreshAllVisibleCells() {
             const cells = document.querySelectorAll('td[data-column="cs-notes"]');
-            cells.forEach(cell => {
+            cells.forEach((cell) => {
                 const tr = cell.closest('tr[data-order-id]');
                 const orderId = tr?.getAttribute('data-order-id');
                 if (orderId) cell.innerHTML = renderCellInner(orderId);
@@ -293,13 +300,13 @@
         const items = notes
             .slice()
             .sort((a, b) => a.createdAt - b.createdAt)
-            .filter(n => {
+            .filter((n) => {
                 if (!n?.id) return true;
                 if (seen.has(n.id)) return false;
                 seen.add(n.id);
                 return true;
             })
-            .map(n => renderNoteItem(n, currentUser))
+            .map((n) => renderNoteItem(n, currentUser))
             .join('');
         const orderIdAttr = escapeAttr(orderId);
         return `
@@ -318,9 +325,7 @@
 
     function renderNoteItem(note, currentUser) {
         const own = note.author === currentUser;
-        const editedTag = note.isEdited
-            ? `<span class="note-edited-tag">(đã sửa)</span>`
-            : '';
+        const editedTag = note.isEdited ? `<span class="note-edited-tag">(đã sửa)</span>` : '';
         const actions = own
             ? `<span class="note-actions">
                  <button type="button" class="edit-btn" title="Sửa ghi chú"
@@ -362,12 +367,12 @@
         const ta = form.querySelector('textarea');
         ta.focus();
 
-        form.querySelector('.cancel-btn').addEventListener('click', e => {
+        form.querySelector('.cancel-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             form.remove();
             btnEl.style.display = '';
         });
-        form.querySelector('.save-btn').addEventListener('click', async e => {
+        form.querySelector('.save-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
             const text = ta.value.trim();
             if (!text) {
@@ -395,7 +400,7 @@
         const orderId = orderIdEl?.getAttribute('data-order-id');
         if (!orderId) return;
         const arr = OrderNotesStore.getAll(orderId);
-        const note = arr.find(n => n.id === noteId);
+        const note = arr.find((n) => n.id === noteId);
         if (!note) return;
 
         // Replace item with an inline edit form
@@ -414,11 +419,11 @@
         ta.value = note.text;
         ta.focus();
 
-        form.querySelector('.cancel-btn').addEventListener('click', e => {
+        form.querySelector('.cancel-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             OrderNotesStore._refreshCell(orderId);
         });
-        form.querySelector('.save-btn').addEventListener('click', async e => {
+        form.querySelector('.save-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
             const text = ta.value.trim();
             if (!text) {

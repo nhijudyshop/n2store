@@ -28,8 +28,14 @@ class ImageBlobCache {
                     db.createObjectStore(this.storeName, { keyPath: 'url' });
                 }
             };
-            req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
-            req.onerror = (e) => { this._dbPromise = null; reject(e.target.error); };
+            req.onsuccess = (e) => {
+                this._db = e.target.result;
+                resolve(this._db);
+            };
+            req.onerror = (e) => {
+                this._dbPromise = null;
+                reject(e.target.error);
+            };
         });
         return this._dbPromise;
     }
@@ -42,7 +48,7 @@ class ImageBlobCache {
                 const req = tx.objectStore(this.storeName).get(url);
                 req.onsuccess = () => {
                     const entry = req.result;
-                    if (entry && (Date.now() - entry.cachedAt < this.maxAgeMs)) {
+                    if (entry && Date.now() - entry.cachedAt < this.maxAgeMs) {
                         resolve(entry.blob);
                     } else {
                         resolve(null);
@@ -50,7 +56,9 @@ class ImageBlobCache {
                 };
                 req.onerror = () => resolve(null);
             });
-        } catch { return null; }
+        } catch {
+            return null;
+        }
     }
 
     async put(url, blob) {
@@ -58,7 +66,9 @@ class ImageBlobCache {
             const db = await this._openDB();
             const tx = db.transaction(this.storeName, 'readwrite');
             tx.objectStore(this.storeName).put({ url, blob, cachedAt: Date.now() });
-        } catch { /* silent */ }
+        } catch {
+            /* silent */
+        }
     }
 
     /** Get cached blob or fetch + cache. Returns Blob. */
@@ -342,7 +352,6 @@ class QuickReplyManager {
                 this.closeModal();
             }
         });
-
     }
 
     // =====================================================
@@ -367,7 +376,9 @@ class QuickReplyManager {
             if (localStored) {
                 try {
                     cached = JSON.parse(localStored);
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
             }
         }
 
@@ -413,10 +424,37 @@ class QuickReplyManager {
 
     getDefaultReplies() {
         return [
-            { id: 1, shortcut: '', topic: 'CHỐT ĐƠN', topicColor: '#3add99', message: 'Dạ mình xem okee shop chốt đơn cho c nhaa 😍' },
-            { id: 2, shortcut: 'CAMON', topic: 'C.ƠN KH', topicColor: '#cec40c', message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️', imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg' },
-            { id: 3, shortcut: 'STK', topic: 'STK NGÂN HÀNG', topicColor: '#969894', message: 'Dạ em gửi mình số tài khoản ạ ❗\nNGÂN HÀNG: ACB\nSTK: 93616\nTÊN: LẠI THỤY YẾN NHI\n⛔ MÌNH LƯU Ý khi chuyển khoản kèm nội dung ❌TÊN FB +5 SDTĐUÔI ❌chụp gửi qua giúp em nhé ☺️✉️' },
-            { id: 4, shortcut: 'XIN', topic: 'XIN SDT & Đ/C', topicColor: '#138809', message: 'Dạ mình cho shop xin thông tin SĐT & ĐỊA CHỈ ạ ❤️' },
+            {
+                id: 1,
+                shortcut: '',
+                topic: 'CHỐT ĐƠN',
+                topicColor: '#3add99',
+                message: 'Dạ mình xem okee shop chốt đơn cho c nhaa 😍',
+            },
+            {
+                id: 2,
+                shortcut: 'CAMON',
+                topic: 'C.ƠN KH',
+                topicColor: '#cec40c',
+                message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
+                imageUrl:
+                    'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg',
+            },
+            {
+                id: 3,
+                shortcut: 'STK',
+                topic: 'STK NGÂN HÀNG',
+                topicColor: '#969894',
+                message:
+                    'Dạ em gửi mình số tài khoản ạ ❗\nNGÂN HÀNG: ACB\nSTK: 93616\nTÊN: LẠI THỤY YẾN NHI\n⛔ MÌNH LƯU Ý khi chuyển khoản kèm nội dung ❌TÊN FB +5 SDTĐUÔI ❌chụp gửi qua giúp em nhé ☺️✉️',
+            },
+            {
+                id: 4,
+                shortcut: 'XIN',
+                topic: 'XIN SDT & Đ/C',
+                topicColor: '#138809',
+                message: 'Dạ mình cho shop xin thông tin SĐT & ĐỊA CHỈ ạ ❤️',
+            },
         ];
     }
 
@@ -431,7 +469,6 @@ class QuickReplyManager {
     }
 
     async openModal(targetInputId) {
-
         this.targetInputId = targetInputId;
 
         // Ensure replies are loaded from IndexedDB before rendering
@@ -445,7 +482,6 @@ class QuickReplyManager {
     }
 
     closeModal() {
-
         const modal = document.getElementById('quickReplyModal');
         modal?.classList.remove('active');
         document.body.style.overflow = 'auto';
@@ -475,19 +511,23 @@ class QuickReplyManager {
             return;
         }
 
-        const repliesHTML = this.replies.map((reply, index) => {
-            const topicHTML = reply.topic ? `
+        const repliesHTML = this.replies
+            .map((reply, index) => {
+                const topicHTML = reply.topic
+                    ? `
                 <span class="quick-reply-topic" style="background-color: ${reply.topicColor || '#6b7280'}">
                     ${this.escapeHtml(reply.topic)}
                 </span>
-            ` : '';
+            `
+                    : '';
 
-            // Preview first 80 characters
-            const messagePreview = reply.message.length > 80
-                ? reply.message.substring(0, 80) + '...'
-                : reply.message;
+                // Preview first 80 characters
+                const messagePreview =
+                    reply.message.length > 80
+                        ? reply.message.substring(0, 80) + '...'
+                        : reply.message;
 
-            return `
+                return `
                 <div class="quick-reply-item" onclick="quickReplyManager.selectReply(${reply.id})">
                     <div class="qr-col-stt">${index + 1}.</div>
                     <div class="qr-col-shortcut">
@@ -503,13 +543,14 @@ class QuickReplyManager {
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         bodyEl.innerHTML = repliesHTML;
     }
 
     selectReply(replyId) {
-        const reply = this.replies.find(r => r.id === replyId);
+        const reply = this.replies.find((r) => r.id === replyId);
 
         if (!reply) {
             console.error('[QUICK-REPLY] Reply not found:', replyId);
@@ -552,7 +593,6 @@ class QuickReplyManager {
         const currentValue = inputElement.value || '';
         const newValue = currentValue ? `${currentValue}\n${message}` : message;
         inputElement.value = newValue;
-
 
         // Show notification
         if (window.notificationManager) {
@@ -624,7 +664,6 @@ class QuickReplyManager {
             // Attach event listeners
             chatInput.addEventListener('input', (e) => this.handleAutocompleteInput(e));
             chatInput.addEventListener('keydown', (e) => this.handleAutocompleteKeydown(e));
-
         }, 1000);
     }
 
@@ -663,15 +702,17 @@ class QuickReplyManager {
             input.style.height = 'auto';
 
             // Find the CAMON reply from loaded templates
-            const camonReply = this.replies.find(r =>
-                this.removeVietnameseDiacritics(r.shortcut || '').toUpperCase() === 'CAMON'
+            const camonReply = this.replies.find(
+                (r) => this.removeVietnameseDiacritics(r.shortcut || '').toUpperCase() === 'CAMON'
             );
             if (camonReply) {
                 this.sendQuickReplyWithImage(camonReply);
             } else {
                 this.sendQuickReplyWithImage({
-                    imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg',
-                    message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️'
+                    imageUrl:
+                        'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg',
+                    message:
+                        'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
                 });
             }
             return;
@@ -679,13 +720,15 @@ class QuickReplyManager {
 
         // Filter suggestions
         const queryNoDiacritics = this.removeVietnameseDiacritics(query.toLowerCase());
-        this.currentSuggestions = this.replies.filter(reply => {
+        this.currentSuggestions = this.replies.filter((reply) => {
             if (!query) return true;
             if (!reply.shortcut) return false;
             const shortcutLower = reply.shortcut.toLowerCase();
             const shortcutNoDiacritics = this.removeVietnameseDiacritics(shortcutLower);
-            return shortcutLower.startsWith(query.toLowerCase()) ||
-                shortcutNoDiacritics.startsWith(queryNoDiacritics);
+            return (
+                shortcutLower.startsWith(query.toLowerCase()) ||
+                shortcutNoDiacritics.startsWith(queryNoDiacritics)
+            );
         });
 
         if (this.currentSuggestions.length > 0) {
@@ -754,19 +797,23 @@ class QuickReplyManager {
     renderAutocomplete() {
         const dropdown = document.getElementById('quickReplyAutocompleteItems');
 
-        const suggestionsHTML = this.currentSuggestions.map((reply, index) => {
-            const isSelected = index === this.selectedSuggestionIndex;
-            const topicHTML = reply.topic ? `
+        const suggestionsHTML = this.currentSuggestions
+            .map((reply, index) => {
+                const isSelected = index === this.selectedSuggestionIndex;
+                const topicHTML = reply.topic
+                    ? `
                 <span class="quick-reply-topic" style="background-color: ${reply.topicColor || '#6b7280'}; font-size: 10px; padding: 2px 6px;">
                     ${this.escapeHtml(reply.topic)}
                 </span>
-            ` : '';
+            `
+                    : '';
 
-            const messagePreview = reply.message.length > 60
-                ? reply.message.substring(0, 60) + '...'
-                : reply.message;
+                const messagePreview =
+                    reply.message.length > 60
+                        ? reply.message.substring(0, 60) + '...'
+                        : reply.message;
 
-            return `
+                return `
                 <div class="autocomplete-item ${isSelected ? 'selected' : ''}"
                      data-index="${index}"
                      onclick="quickReplyManager.selectAutocompleteSuggestion(${index})">
@@ -779,7 +826,8 @@ class QuickReplyManager {
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         dropdown.innerHTML = suggestionsHTML;
     }
@@ -839,7 +887,13 @@ class QuickReplyManager {
 
         const existing = window.ProcessingTagState?.getOrderData?.(String(orderCode));
         if (existing && existing.category != null) {
-            console.log('[QUICK-REPLY] order', orderCode, 'already has category', existing.category, '— skip auto-tag');
+            console.log(
+                '[QUICK-REPLY] order',
+                orderCode,
+                'already has category',
+                existing.category,
+                '— skip auto-tag'
+            );
             return;
         }
 
@@ -855,7 +909,8 @@ class QuickReplyManager {
         window.isQuickReplySending = true;
 
         if (!window.currentConversationId || !window.currentChatChannelId) {
-            if (window.notificationManager) window.notificationManager.error('Thiếu thông tin cuộc hội thoại');
+            if (window.notificationManager)
+                window.notificationManager.error('Thiếu thông tin cuộc hội thoại');
             window.isQuickReplySending = false;
             return;
         }
@@ -873,8 +928,9 @@ class QuickReplyManager {
 
             // Add employee signature
             let finalMessage = message;
-            const displayName = window.authManager?.getUserInfo?.()?.displayName
-                || window.authManager?.getAuthState?.()?.displayName;
+            const displayName =
+                window.authManager?.getUserInfo?.()?.displayName ||
+                window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalMessage = message + '\nNv. ' + displayName;
 
             // Step 1: Get content_id
@@ -884,7 +940,9 @@ class QuickReplyManager {
             if (!contentId && imageUrl) {
                 const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                 const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                const file = new File([blob], `quick-reply.${ext}`, {
+                    type: blob.type || `image/${ext}`,
+                });
 
                 const uploadResult = await pdm.uploadMedia(channelId, file, pat);
 
@@ -896,17 +954,27 @@ class QuickReplyManager {
 
             // Step 2: Send image
             if (contentId) {
-                const sendResult = await pdm.sendMessage(channelId, conversationId, {
-                    action: 'reply_inbox', content_ids: [contentId]
-                }, pat);
+                const sendResult = await pdm.sendMessage(
+                    channelId,
+                    conversationId,
+                    {
+                        action: 'reply_inbox',
+                        content_ids: [contentId],
+                    },
+                    pat
+                );
 
                 if (sendResult?.success === false) {
                     const errMsg = sendResult.message || '';
-                    const is24h = sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
+                    const is24h =
+                        sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
                     const is551 = sendResult.e_code === 551 || errMsg.includes('không có mặt');
                     if (is24h || is551) {
-                        const msg = is551 ? 'Lỗi #551: Khách không có mặt.' : 'Không thể gửi (quá 24h). Vui lòng dùng COMMENT!';
-                        if (window.notificationManager) window.notificationManager.show(msg, 'warning', 8000);
+                        const msg = is551
+                            ? 'Lỗi #551: Khách không có mặt.'
+                            : 'Không thể gửi (quá 24h). Vui lòng dùng COMMENT!';
+                        if (window.notificationManager)
+                            window.notificationManager.show(msg, 'warning', 8000);
                         return;
                     }
                     // Re-upload if cached contentId expired
@@ -915,12 +983,20 @@ class QuickReplyManager {
                         try {
                             const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                             const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                            const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                            const file = new File([blob], `quick-reply.${ext}`, {
+                                type: blob.type || `image/${ext}`,
+                            });
                             const uploadResult = await pdm.uploadMedia(channelId, file, pat);
                             if (uploadResult?.id) {
-                                const retryResult = await pdm.sendMessage(channelId, conversationId, {
-                                    action: 'reply_inbox', content_ids: [uploadResult.id]
-                                }, pat);
+                                const retryResult = await pdm.sendMessage(
+                                    channelId,
+                                    conversationId,
+                                    {
+                                        action: 'reply_inbox',
+                                        content_ids: [uploadResult.id],
+                                    },
+                                    pat
+                                );
                                 if (retryResult?.success !== false) {
                                     imageSent = true;
                                     this._cacheContentId(replyId, uploadResult.id);
@@ -937,28 +1013,41 @@ class QuickReplyManager {
             }
 
             // Step 3: Send text
-            if (imageSent) await new Promise(r => setTimeout(r, 300));
-            const textResult = await pdm.sendMessage(channelId, conversationId, {
-                action: 'reply_inbox', message: finalMessage
-            }, pat);
+            if (imageSent) await new Promise((r) => setTimeout(r, 300));
+            const textResult = await pdm.sendMessage(
+                channelId,
+                conversationId,
+                {
+                    action: 'reply_inbox',
+                    message: finalMessage,
+                },
+                pat
+            );
 
             const textSent = textResult?.success !== false;
 
             if (imageSent && textSent) {
                 if (window.notificationManager) window.notificationManager.success('Đã gửi!', 2000);
             } else if (textSent) {
-                if (window.notificationManager) window.notificationManager.show('Đã gửi tin nhắn (ảnh thất bại)', 'warning', 4000);
+                if (window.notificationManager)
+                    window.notificationManager.show(
+                        'Đã gửi tin nhắn (ảnh thất bại)',
+                        'warning',
+                        4000
+                    );
             } else {
                 throw new Error(textResult?.message || 'Gửi thất bại');
             }
 
             this._refreshMessagesAfterSend(channelId, conversationId);
-
         } catch (error) {
             console.error('[QUICK-REPLY] Error:', error);
-            if (window.notificationManager) window.notificationManager.error('Lỗi: ' + error.message);
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi: ' + error.message);
         } finally {
-            setTimeout(() => { window.isQuickReplySending = false; }, 500);
+            setTimeout(() => {
+                window.isQuickReplySending = false;
+            }, 500);
         }
     }
 
@@ -967,7 +1056,7 @@ class QuickReplyManager {
      */
     async _cacheContentId(replyId, contentId) {
         if (!replyId || !contentId) return;
-        const reply = this.replies.find(r => r.id === replyId);
+        const reply = this.replies.find((r) => r.id === replyId);
         if (!reply) return;
 
         reply.contentId = contentId;
@@ -978,7 +1067,7 @@ class QuickReplyManager {
             await fetch(`${this.API_BASE}/${replyId}/content-id`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contentId })
+                body: JSON.stringify({ contentId }),
             });
         } catch (e) {
             console.warn('[QUICK-REPLY] Failed to save contentId to Render:', e);
@@ -993,19 +1082,25 @@ class QuickReplyManager {
                 if (!pdm || window.currentConversationId !== conversationId) return;
                 pdm.clearMessagesCache(channelId, conversationId);
                 const result = await pdm.fetchMessages(channelId, conversationId);
-                if (result.messages?.length > 0 && window.currentConversationId === conversationId) {
+                if (
+                    result.messages?.length > 0 &&
+                    window.currentConversationId === conversationId
+                ) {
                     const pageId = channelId;
-                    const messages = result.messages.map(msg => {
+                    const messages = result.messages.map((msg) => {
                         const isFromPage = msg.from?.id === pageId;
                         return {
                             id: msg.id,
-                            text: msg.original_message || (msg.message || '').replace(/<[^>]+>/g, ''),
-                            time: window._parseTimestamp?.(msg.inserted_at) || new Date(msg.inserted_at),
+                            text:
+                                msg.original_message || (msg.message || '').replace(/<[^>]+>/g, ''),
+                            time:
+                                window._parseTimestamp?.(msg.inserted_at) ||
+                                new Date(msg.inserted_at),
                             sender: isFromPage ? 'shop' : 'customer',
                             senderName: msg.from?.name || '',
                             fromId: msg.from?.id || '',
                             attachments: msg.attachments || [],
-                            reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                            reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
                             reactionSummary: msg.reaction_summary || msg.reactions || null,
                             isHidden: msg.is_hidden || false,
                             isRemoved: msg.is_removed || false,
@@ -1019,7 +1114,9 @@ class QuickReplyManager {
                     window.allChatMessages = messages;
                     if (window.renderChatMessages) window.renderChatMessages(messages);
                 }
-            } catch (e) { /* ignore refresh error */ }
+            } catch (e) {
+                /* ignore refresh error */
+            }
         }, 2000);
     }
 
@@ -1048,7 +1145,6 @@ class QuickReplyManager {
     }
 
     closeSettings() {
-
         const modal = document.getElementById('quickReplySettingsModal');
         modal?.classList.remove('active');
 
@@ -1063,18 +1159,22 @@ class QuickReplyManager {
         if (!listEl) return;
 
         if (this.replies.length === 0) {
-            listEl.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 20px;">Chưa có mẫu tin nhắn nào</p>';
+            listEl.innerHTML =
+                '<p style="text-align: center; color: #9ca3af; padding: 20px;">Chưa có mẫu tin nhắn nào</p>';
             return;
         }
 
-        const itemsHTML = this.replies.map((reply, index) => {
-            const topicHTML = reply.topic ? `
+        const itemsHTML = this.replies
+            .map((reply, index) => {
+                const topicHTML = reply.topic
+                    ? `
                 <span class="quick-reply-topic" style="background-color: ${reply.topicColor || '#6b7280'}; font-size: 11px; padding: 3px 8px; margin-left: 8px;">
                     ${this.escapeHtml(reply.topic)}
                 </span>
-            ` : '';
+            `
+                    : '';
 
-            return `
+                return `
                 <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                         <div style="flex: 1;">
@@ -1099,7 +1199,8 @@ class QuickReplyManager {
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         listEl.innerHTML = itemsHTML;
     }
@@ -1109,7 +1210,14 @@ class QuickReplyManager {
         this.openTemplateInputModal('Thêm mẫu tin nhắn', '', '', '', '', '');
     }
 
-    openTemplateInputModal(title, shortcut = '', topic = '', topicColor = '', message = '', imageUrl = '') {
+    openTemplateInputModal(
+        title,
+        shortcut = '',
+        topic = '',
+        topicColor = '',
+        message = '',
+        imageUrl = ''
+    ) {
         const modal = document.getElementById('templateInputModal');
         const modalTitle = document.getElementById('templateInputModalTitle');
         const shortcutInput = document.getElementById('templateInputShortcut');
@@ -1241,7 +1349,7 @@ class QuickReplyManager {
         }
 
         if (this.currentEditingTemplateId !== null) {
-            const reply = this.replies.find(r => r.id === this.currentEditingTemplateId);
+            const reply = this.replies.find((r) => r.id === this.currentEditingTemplateId);
             if (reply) delete reply.contentId;
         }
 
@@ -1320,7 +1428,9 @@ class QuickReplyManager {
                 }
 
                 try {
-                    const uploadResult = await this.uploadTemplateImage(this.pendingTemplateImageBlob);
+                    const uploadResult = await this.uploadTemplateImage(
+                        this.pendingTemplateImageBlob
+                    );
                     contentId = uploadResult.contentId;
                     if (!imageUrl) {
                         imageUrl = await this._blobToDataUrl(this.pendingTemplateImageBlob);
@@ -1328,7 +1438,9 @@ class QuickReplyManager {
                 } catch (uploadError) {
                     console.error('[QUICK-REPLY] Image upload failed:', uploadError);
                     if (window.notificationManager) {
-                        window.notificationManager.error('Upload hình thất bại: ' + uploadError.message);
+                        window.notificationManager.error(
+                            'Upload hình thất bại: ' + uploadError.message
+                        );
                     }
                     return;
                 }
@@ -1340,7 +1452,7 @@ class QuickReplyManager {
                 topicColor,
                 message,
                 imageUrl: imageUrl || '',
-                contentId: contentId || ''
+                contentId: contentId || '',
             };
 
             if (this.currentEditingTemplateId === null) {
@@ -1348,7 +1460,7 @@ class QuickReplyManager {
                 const response = await fetch(this.API_BASE, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(templateData)
+                    body: JSON.stringify(templateData),
                 });
 
                 if (!response.ok) throw new Error('Server error');
@@ -1365,20 +1477,21 @@ class QuickReplyManager {
                 } else {
                     throw new Error(data.error || 'Lưu thất bại');
                 }
-
             } else {
                 // EDIT EXISTING - PUT to Render API
                 const response = await fetch(`${this.API_BASE}/${this.currentEditingTemplateId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(templateData)
+                    body: JSON.stringify(templateData),
                 });
 
                 if (!response.ok) throw new Error('Server error');
                 const data = await response.json();
 
                 if (data.success && data.reply) {
-                    const index = this.replies.findIndex(r => r.id === this.currentEditingTemplateId);
+                    const index = this.replies.findIndex(
+                        (r) => r.id === this.currentEditingTemplateId
+                    );
                     if (index !== -1) {
                         this.replies[index] = data.reply;
                     }
@@ -1403,7 +1516,7 @@ class QuickReplyManager {
     }
 
     editTemplate(id) {
-        const reply = this.replies.find(r => r.id === id);
+        const reply = this.replies.find((r) => r.id === id);
         if (!reply) return;
 
         this.currentEditingTemplateId = id;
@@ -1418,7 +1531,7 @@ class QuickReplyManager {
     }
 
     async deleteTemplate(id) {
-        const reply = this.replies.find(r => r.id === id);
+        const reply = this.replies.find((r) => r.id === id);
         if (!reply) return;
 
         if (!confirm(`Xóa mẫu "${reply.shortcut || reply.topic}"?`)) {
@@ -1428,19 +1541,18 @@ class QuickReplyManager {
         try {
             // DELETE from Render API
             const response = await fetch(`${this.API_BASE}/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
 
             if (!response.ok) throw new Error('Server error');
 
-            this.replies = this.replies.filter(r => r.id !== id);
+            this.replies = this.replies.filter((r) => r.id !== id);
             await this.saveToCache();
             this.renderSettingsList();
 
             if (window.notificationManager) {
                 window.notificationManager.success('Đã xóa mẫu tin nhắn!');
             }
-
         } catch (error) {
             if (window.notificationManager) {
                 window.notificationManager.error('Lỗi khi xóa: ' + error.message);

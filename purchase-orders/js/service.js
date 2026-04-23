@@ -28,12 +28,14 @@ class PurchaseOrderService {
         try {
             // Get current user from shared authManager
             if (window.authManager) {
-                const authState = window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
+                const authState =
+                    window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
                 if (authState) {
                     this.currentUser = {
                         uid: authState.userId || authState.userType || 'anonymous',
-                        displayName: authState.userName || authState.userType?.split('-')[0] || 'User',
-                        email: authState.email || ''
+                        displayName:
+                            authState.userName || authState.userType?.split('-')[0] || 'User',
+                        email: authState.email || '',
                     };
                 }
             }
@@ -61,7 +63,7 @@ class PurchaseOrderService {
             headers['X-Auth-Data'] = JSON.stringify({
                 userId: this.currentUser.uid,
                 userName: this.currentUser.displayName,
-                email: this.currentUser.email
+                email: this.currentUser.email,
             });
         }
         return headers;
@@ -71,7 +73,7 @@ class PurchaseOrderService {
         const url = `${this.API_BASE}${path}`;
         const response = await fetch(url, {
             headers: this._getHeaders(),
-            ...options
+            ...options,
         });
         const data = await response.json();
         if (!response.ok || !data.success) {
@@ -98,7 +100,7 @@ class PurchaseOrderService {
         return {
             uid: this.currentUser.uid || this.currentUser.id,
             displayName: this.currentUser.displayName || this.currentUser.name || 'Unknown',
-            email: this.currentUser.email || ''
+            email: this.currentUser.email || '',
         };
     }
 
@@ -123,7 +125,7 @@ class PurchaseOrderService {
 
             const data = await this._fetch('', {
                 method: 'POST',
-                body: JSON.stringify(orderData)
+                body: JSON.stringify(orderData),
             });
 
             console.log('[PurchaseOrderService] Order created:', data.id);
@@ -132,7 +134,10 @@ class PurchaseOrderService {
             if (error instanceof validation.ValidationException) throw error;
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Create failed:', error);
-            throw new validation.ServiceException('CREATE_FAILED', 'Không thể tạo đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'CREATE_FAILED',
+                'Không thể tạo đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -149,7 +154,7 @@ class PurchaseOrderService {
             startDate = null,
             endDate = null,
             searchTerm = null,
-            page = 1
+            page = 1,
         } = options;
 
         try {
@@ -159,8 +164,13 @@ class PurchaseOrderService {
             }
             params.set('pageSize', pageSize);
             params.set('page', lastDoc ? (lastDoc._page || 1) + 1 : page);
-            if (startDate) params.set('startDate', startDate instanceof Date ? startDate.toISOString() : startDate);
-            if (endDate) params.set('endDate', endDate instanceof Date ? endDate.toISOString() : endDate);
+            if (startDate)
+                params.set(
+                    'startDate',
+                    startDate instanceof Date ? startDate.toISOString() : startDate
+                );
+            if (endDate)
+                params.set('endDate', endDate instanceof Date ? endDate.toISOString() : endDate);
             if (searchTerm) params.set('search', searchTerm);
 
             const data = await this._fetch(`?${params.toString()}`);
@@ -171,7 +181,7 @@ class PurchaseOrderService {
             return {
                 orders: data.orders,
                 lastDoc: data.hasMore ? { _page: currentPage } : null,
-                hasMore: data.hasMore
+                hasMore: data.hasMore,
             };
         } catch (error) {
             console.error('[PurchaseOrderService] Fetch failed:', error);
@@ -207,8 +217,14 @@ class PurchaseOrderService {
         } catch (error) {
             console.error('[PurchaseOrderService] Stats failed:', error);
             return {
-                stats: { totalOrders: 0, totalValue: 0, todayOrders: 0, todayValue: 0, tposSyncRate: 0 },
-                counts: {}
+                stats: {
+                    totalOrders: 0,
+                    totalValue: 0,
+                    todayOrders: 0,
+                    todayValue: 0,
+                    tposSyncRate: 0,
+                },
+                counts: {},
             };
         }
     }
@@ -237,14 +253,17 @@ class PurchaseOrderService {
         try {
             await this._fetch(`/${orderId}`, {
                 method: 'PUT',
-                body: JSON.stringify(updateData)
+                body: JSON.stringify(updateData),
             });
 
             console.log('[PurchaseOrderService] Order updated:', orderId);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Update failed:', error);
-            throw new validation.ServiceException('UPDATE_FAILED', 'Không thể cập nhật đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'UPDATE_FAILED',
+                'Không thể cập nhật đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -259,22 +278,31 @@ class PurchaseOrderService {
             // Get current order to validate transition
             const order = await this.getOrderById(orderId);
             if (order) {
-                const transitionCheck = validation.validateStatusTransition(order.status, newStatus);
+                const transitionCheck = validation.validateStatusTransition(
+                    order.status,
+                    newStatus
+                );
                 if (!transitionCheck.isValid) {
-                    throw new validation.ServiceException('INVALID_TRANSITION', transitionCheck.error);
+                    throw new validation.ServiceException(
+                        'INVALID_TRANSITION',
+                        transitionCheck.error
+                    );
                 }
             }
 
             await this._fetch(`/${orderId}/status`, {
                 method: 'PATCH',
-                body: JSON.stringify({ status: newStatus, reason })
+                body: JSON.stringify({ status: newStatus, reason }),
             });
 
             console.log('[PurchaseOrderService] Status updated:', orderId, '->', newStatus);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Status update failed:', error);
-            throw new validation.ServiceException('UPDATE_FAILED', 'Không thể cập nhật trạng thái. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'UPDATE_FAILED',
+                'Không thể cập nhật trạng thái. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -292,7 +320,10 @@ class PurchaseOrderService {
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Delete failed:', error);
-            throw new validation.ServiceException('DELETE_FAILED', 'Không thể xóa đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'DELETE_FAILED',
+                'Không thể xóa đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -306,7 +337,10 @@ class PurchaseOrderService {
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Restore failed:', error);
-            throw new validation.ServiceException('RESTORE_FAILED', 'Không thể khôi phục đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'RESTORE_FAILED',
+                'Không thể khôi phục đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -320,7 +354,10 @@ class PurchaseOrderService {
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Permanent delete failed:', error);
-            throw new validation.ServiceException('DELETE_FAILED', 'Không thể xóa vĩnh viễn đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'DELETE_FAILED',
+                'Không thể xóa vĩnh viễn đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -331,10 +368,12 @@ class PurchaseOrderService {
         try {
             const data = await this._fetch('/cleanup-trash', {
                 method: 'POST',
-                body: JSON.stringify({ retentionDays: config.TRASH_RETENTION_DAYS || 30 })
+                body: JSON.stringify({ retentionDays: config.TRASH_RETENTION_DAYS || 30 }),
             });
             if (data.deletedCount > 0) {
-                console.log(`[PurchaseOrderService] Trash cleanup: deleted ${data.deletedCount} orders`);
+                console.log(
+                    `[PurchaseOrderService] Trash cleanup: deleted ${data.deletedCount} orders`
+                );
             }
             return data.deletedCount;
         } catch (error) {
@@ -358,7 +397,10 @@ class PurchaseOrderService {
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Copy failed:', error);
-            throw new validation.ServiceException('COPY_FAILED', 'Không thể sao chép đơn hàng. Vui lòng thử lại.');
+            throw new validation.ServiceException(
+                'COPY_FAILED',
+                'Không thể sao chép đơn hàng. Vui lòng thử lại.'
+            );
         }
     }
 
@@ -385,18 +427,21 @@ class PurchaseOrderService {
             tposSyncStatus: item.tposSyncStatus || null,
             tposProductId: item.tposProductId || null,
             tposProductTmplId: item.tposProductTmplId || null,
-            tposSynced: item.tposSynced || false
+            tposSynced: item.tposSynced || false,
         }));
     }
 
     filterFirebaseUrls(urls) {
         if (!Array.isArray(urls)) return [];
-        return urls.filter(url => typeof url === 'string' && !url.startsWith('data:'));
+        return urls.filter((url) => typeof url === 'string' && !url.startsWith('data:'));
     }
 
     calculateTotalAmount(items) {
         if (!items || !Array.isArray(items)) return 0;
-        return items.reduce((sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 1), 0);
+        return items.reduce(
+            (sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 1),
+            0
+        );
     }
 
     async generateOrderNumber() {
@@ -433,15 +478,17 @@ class PurchaseOrderService {
                 method: 'POST',
                 headers: {
                     // Don't set Content-Type - browser sets it with boundary for FormData
-                    ...(this.currentUser ? {
-                        'X-Auth-Data': JSON.stringify({
-                            userId: this.currentUser.uid,
-                            userName: this.currentUser.displayName,
-                            email: this.currentUser.email
-                        })
-                    } : {})
+                    ...(this.currentUser
+                        ? {
+                              'X-Auth-Data': JSON.stringify({
+                                  userId: this.currentUser.uid,
+                                  userName: this.currentUser.displayName,
+                                  email: this.currentUser.email,
+                              }),
+                          }
+                        : {}),
                 },
-                body: formData
+                body: formData,
             });
 
             const data = await response.json();
@@ -454,7 +501,8 @@ class PurchaseOrderService {
         } catch (error) {
             console.error('[PurchaseOrderService] Upload failed:', error);
             throw new window.PurchaseOrderValidation.ServiceException(
-                'UPLOAD_FAILED', 'Không thể tải lên hình ảnh. Vui lòng thử lại.'
+                'UPLOAD_FAILED',
+                'Không thể tải lên hình ảnh. Vui lòng thử lại.'
             );
         }
     }

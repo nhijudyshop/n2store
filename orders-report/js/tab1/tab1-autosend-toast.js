@@ -156,9 +156,10 @@
                         .replace(/>/g, '&gt;');
                     return `<li>${safe}</li>`;
                 });
-                const extra = currentErrors.length > 10
-                    ? `<li style="opacity:.7;">... và ${currentErrors.length - 10} lỗi khác (xem console)</li>`
-                    : '';
+                const extra =
+                    currentErrors.length > 10
+                        ? `<li style="opacity:.7;">... và ${currentErrors.length - 10} lỗi khác (xem console)</li>`
+                        : '';
                 panel.innerHTML = `<ul>${items.join('')}${extra}</ul>`;
             }
             // Sticky — don't auto-dismiss when there are errors

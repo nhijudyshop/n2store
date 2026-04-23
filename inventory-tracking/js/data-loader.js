@@ -18,12 +18,12 @@ async function loadNCCData() {
         const suppliers = await suppliersApi.getAll();
 
         // Build nccList structure (backward compatible with old Firestore format)
-        globalState.nccList = suppliers.map(s => ({
+        globalState.nccList = suppliers.map((s) => ({
             id: `ncc_${s.stt_ncc}`,
             sttNCC: s.stt_ncc,
             tenNCC: s.ten_ncc,
             datHang: [],
-            dotHang: []
+            dotHang: [],
         }));
 
         // Sort by sttNCC
@@ -36,7 +36,7 @@ async function loadNCCData() {
         await Promise.all([
             loadAndAttachOrderBookings(),
             loadAndAttachShipments(),
-            loadProductImages()
+            loadProductImages(),
         ]);
 
         // Flatten data for backward compatibility
@@ -52,7 +52,6 @@ async function loadNCCData() {
 
         // Setup realtime sync for product images (cross-device)
         setupProductImagesRealtimeSync();
-
     } catch (error) {
         console.error('[DATA] Error loading NCC data:', error);
         throw error;
@@ -70,12 +69,12 @@ async function loadAndAttachOrderBookings() {
         const bookings = result.data.map(pgToBooking);
 
         // Attach to nccList — match by sttNCC (if > 0) or tenNCC
-        bookings.forEach(b => {
+        bookings.forEach((b) => {
             let ncc;
             if (b.sttNCC > 0) {
-                ncc = globalState.nccList.find(n => n.sttNCC === b.sttNCC);
+                ncc = globalState.nccList.find((n) => n.sttNCC === b.sttNCC);
             } else if (b.tenNCC) {
-                ncc = globalState.nccList.find(n => n.tenNCC === b.tenNCC);
+                ncc = globalState.nccList.find((n) => n.tenNCC === b.tenNCC);
             }
             if (ncc) {
                 ncc.datHang.push(b);
@@ -97,12 +96,12 @@ async function loadAndAttachShipments() {
         const shipments = result.data.map(pgToShipment);
 
         // Attach to nccList — match by sttNCC (if > 0) or tenNCC
-        shipments.forEach(s => {
+        shipments.forEach((s) => {
             let ncc;
             if (s.sttNCC > 0) {
-                ncc = globalState.nccList.find(n => n.sttNCC === s.sttNCC);
+                ncc = globalState.nccList.find((n) => n.sttNCC === s.sttNCC);
             } else if (s.tenNCC) {
-                ncc = globalState.nccList.find(n => n.tenNCC === s.tenNCC);
+                ncc = globalState.nccList.find((n) => n.tenNCC === s.tenNCC);
             }
             if (ncc) {
                 ncc.dotHang.push(s);
@@ -121,11 +120,11 @@ async function loadAndAttachShipments() {
 async function loadProductImages() {
     try {
         const images = await productImagesApi.getAll();
-        globalState.productImages = images.map(img => ({
+        globalState.productImages = images.map((img) => ({
             ...img,
             ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
             dotSo: img.dot_so || 1,
-            urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || [])
+            urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [],
         }));
         console.log(`[DATA] Loaded ${globalState.productImages.length} product image groups`);
     } catch (error) {
@@ -140,7 +139,9 @@ async function loadProductImages() {
  */
 function setupProductImagesRealtimeSync() {
     if (typeof RealtimeClient === 'undefined') {
-        console.log('[DATA] RealtimeClient not available, skipping realtime sync for product images');
+        console.log(
+            '[DATA] RealtimeClient not available, skipping realtime sync for product images'
+        );
         return;
     }
 
@@ -153,9 +154,9 @@ function setupProductImagesRealtimeSync() {
 
             if (data && data.data) {
                 // Full update: replace all product images
-                globalState.productImages = data.data.map(img => ({
+                globalState.productImages = data.data.map((img) => ({
                     ...img,
-                    urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || [])
+                    urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [],
                 }));
             } else {
                 // Deleted or partial update: reload from API
@@ -183,13 +184,14 @@ function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     const nccNum = parseInt(ncc);
     const images = globalState.productImages || [];
     if (ngayDiHang && dotSo) {
-        const exact = images.find(img =>
-            img.ncc === nccNum && img.ngayDiHang === ngayDiHang && (img.dotSo || 1) === dotSo
+        const exact = images.find(
+            (img) =>
+                img.ncc === nccNum && img.ngayDiHang === ngayDiHang && (img.dotSo || 1) === dotSo
         );
         if (exact) return exact.urls || [];
     }
-    const any = images.find(img => img.ncc === nccNum);
-    return any ? (any.urls || []) : [];
+    const any = images.find((img) => img.ncc === nccNum);
+    return any ? any.urls || [] : [];
 }
 
 /**
@@ -204,7 +206,9 @@ function flattenNCCData() {
     globalState.shipments = getAllDotHangAsShipments();
     globalState.filteredShipments = [...globalState.shipments];
 
-    console.log(`[DATA] Flattened: ${globalState.orderBookings.length} datHang, ${globalState.shipments.length} shipments`);
+    console.log(
+        `[DATA] Flattened: ${globalState.orderBookings.length} datHang, ${globalState.shipments.length} shipments`
+    );
 
     // Keep the horizontal stats bar in sync with any data mutation
     // (chi phí, tiền HĐ, tổng món, kiện/KG, payment changes, etc.)
@@ -225,14 +229,14 @@ async function loadShipmentsData() {
  * Get NCC document by sttNCC
  */
 function getNCCById(sttNCC) {
-    return globalState.nccList.find(ncc => ncc.sttNCC === sttNCC);
+    return globalState.nccList.find((ncc) => ncc.sttNCC === sttNCC);
 }
 
 /**
  * Get NCC document by document ID (ncc_1, ncc_2, etc.)
  */
 function getNCCByDocId(docId) {
-    return globalState.nccList.find(ncc => ncc.id === docId);
+    return globalState.nccList.find((ncc) => ncc.id === docId);
 }
 
 /**
@@ -244,7 +248,7 @@ async function getOrCreateNCC(sttNCC, tenNCC) {
     if (sttNCC > 0) {
         existing = getNCCById(sttNCC);
     } else if (tenNCC) {
-        existing = globalState.nccList.find(ncc => ncc.tenNCC === tenNCC);
+        existing = globalState.nccList.find((ncc) => ncc.tenNCC === tenNCC);
     }
     if (existing) return existing;
 
@@ -257,7 +261,7 @@ async function getOrCreateNCC(sttNCC, tenNCC) {
         sttNCC: sttNCC,
         tenNCC: tenNCC || '',
         datHang: [],
-        dotHang: []
+        dotHang: [],
     };
 
     globalState.nccList.push(newNCC);
@@ -272,13 +276,13 @@ async function getOrCreateNCC(sttNCC, tenNCC) {
  */
 function getAllDatHang() {
     const all = [];
-    globalState.nccList.forEach(ncc => {
-        (ncc.datHang || []).forEach(dh => {
+    globalState.nccList.forEach((ncc) => {
+        (ncc.datHang || []).forEach((dh) => {
             all.push({
                 ...dh,
                 sttNCC: ncc.sttNCC,
                 nccDocId: ncc.id,
-                id: dh.id || `${ncc.id}_dh_${dh.ngayDatHang}`
+                id: dh.id || `${ncc.id}_dh_${dh.ngayDatHang}`,
             });
         });
     });
@@ -290,13 +294,13 @@ function getAllDatHang() {
  */
 function getAllDotHang() {
     const all = [];
-    globalState.nccList.forEach(ncc => {
-        (ncc.dotHang || []).forEach(dot => {
+    globalState.nccList.forEach((ncc) => {
+        (ncc.dotHang || []).forEach((dot) => {
             all.push({
                 ...dot,
                 sttNCC: ncc.sttNCC,
                 nccDocId: ncc.id,
-                id: dot.id || `${ncc.id}_dot_${dot.ngayDiHang}`
+                id: dot.id || `${ncc.id}_dot_${dot.ngayDiHang}`,
             });
         });
     });
@@ -316,10 +320,11 @@ function normalizeProductData(product) {
     if (product.mauSac !== undefined) {
         return {
             ...product,
-            tongSoLuong: product.tongSoLuong ||
-                        (product.mauSac && product.mauSac.length > 0
-                            ? product.mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0)
-                            : product.soLuong || 0)
+            tongSoLuong:
+                product.tongSoLuong ||
+                (product.mauSac && product.mauSac.length > 0
+                    ? product.mauSac.reduce((sum, c) => sum + (c.soLuong || 0), 0)
+                    : product.soLuong || 0),
         };
     }
 
@@ -334,7 +339,7 @@ function normalizeProductData(product) {
         thanhTien: product.thanhTien || 0,
         rawText: product.rawText || '',
         dataSource: 'legacy',
-        aiExtracted: product.aiExtracted || false
+        aiExtracted: product.aiExtracted || false,
     };
 }
 
@@ -346,7 +351,7 @@ function getAllDotHangAsShipments() {
     const allDotHang = getAllDotHang();
 
     const byKey = {};
-    allDotHang.forEach(dot => {
+    allDotHang.forEach((dot) => {
         const date = dot.ngayDiHang;
         const dotSo = dot.dotSo || 1;
         const key = `${date}__${dotSo}`;
@@ -369,7 +374,7 @@ function getAllDotHangAsShipments() {
                 // Take the first non-empty value we encounter — backend keeps rows in sync.
                 thanhToanCK: [],
                 tiGia: 0,
-                _dotIds: [] // all real DB row IDs for this đợt (used when writing, if ever needed)
+                _dotIds: [], // all real DB row IDs for this đợt (used when writing, if ever needed)
             };
         }
 
@@ -383,7 +388,7 @@ function getAllDotHangAsShipments() {
             soMonThieu: dot.soMonThieu || 0,
             ghiChuThieu: dot.ghiChuThieu || '',
             anhHoaDon: dot.anhHoaDon || [],
-            ghiChu: dot.ghiChu || ''
+            ghiChu: dot.ghiChu || '',
         });
 
         if (dot.kienHang && dot.kienHang.length > 0) {
@@ -393,8 +398,11 @@ function getAllDotHangAsShipments() {
         }
         // chiPhiHangVe is per-đợt (same value mirrored across NCC rows for legacy reasons).
         // Take the first non-empty — concat would N× duplicate costs.
-        if ((!byKey[key].chiPhiHangVe || byKey[key].chiPhiHangVe.length === 0)
-            && Array.isArray(dot.chiPhiHangVe) && dot.chiPhiHangVe.length > 0) {
+        if (
+            (!byKey[key].chiPhiHangVe || byKey[key].chiPhiHangVe.length === 0) &&
+            Array.isArray(dot.chiPhiHangVe) &&
+            dot.chiPhiHangVe.length > 0
+        ) {
             byKey[key].chiPhiHangVe = [...dot.chiPhiHangVe];
         }
         // ghiChuAdmin same semantics — first non-empty wins.
@@ -404,8 +412,11 @@ function getAllDotHangAsShipments() {
 
         // Absorb per-đợt payment data from whichever row carries it.
         byKey[key]._dotIds.push(dot.id);
-        if ((!byKey[key].thanhToanCK || byKey[key].thanhToanCK.length === 0)
-            && Array.isArray(dot.thanhToanCK) && dot.thanhToanCK.length > 0) {
+        if (
+            (!byKey[key].thanhToanCK || byKey[key].thanhToanCK.length === 0) &&
+            Array.isArray(dot.thanhToanCK) &&
+            dot.thanhToanCK.length > 0
+        ) {
             byKey[key].thanhToanCK = dot.thanhToanCK;
         }
         if (!byKey[key].tiGia && dot.tiGia) {
@@ -413,7 +424,7 @@ function getAllDotHangAsShipments() {
         }
     });
 
-    const shipments = Object.values(byKey).map(ship => {
+    const shipments = Object.values(byKey).map((ship) => {
         ship.tongKien = ship.kienHang.length;
         ship.tongKg = ship.kienHang.reduce((sum, k) => sum + (k.soKg || 0), 0);
         ship.tongTienHoaDon = ship.hoaDon.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
@@ -441,7 +452,7 @@ function getAllDotsAggregated() {
     const allDotHang = getAllDotHang();
     const byDot = {};
 
-    allDotHang.forEach(dot => {
+    allDotHang.forEach((dot) => {
         const dotSo = dot.dotSo || 1;
         if (!byDot[dotSo]) {
             byDot[dotSo] = {
@@ -453,7 +464,7 @@ function getAllDotsAggregated() {
                 tiGia: 0,
                 _dotIds: [],
                 hdByDate: {},
-                cpByDate: {}
+                cpByDate: {},
             };
         }
         const entry = byDot[dotSo];
@@ -466,8 +477,11 @@ function getAllDotsAggregated() {
         if (hd > 0 && ngay) entry.hdByDate[ngay] = (entry.hdByDate[ngay] || 0) + hd;
         if (cp > 0 && ngay) entry.cpByDate[ngay] = (entry.cpByDate[ngay] || 0) + cp;
         entry._dotIds.push(dot.id);
-        if ((!entry.thanhToanCK || entry.thanhToanCK.length === 0)
-            && Array.isArray(dot.thanhToanCK) && dot.thanhToanCK.length > 0) {
+        if (
+            (!entry.thanhToanCK || entry.thanhToanCK.length === 0) &&
+            Array.isArray(dot.thanhToanCK) &&
+            dot.thanhToanCK.length > 0
+        ) {
             entry.thanhToanCK = dot.thanhToanCK;
         }
         if (!entry.tiGia && dot.tiGia) {
@@ -475,17 +489,19 @@ function getAllDotsAggregated() {
         }
     });
 
-    return Object.values(byDot).map(entry => ({
-        dotSo: entry.dotSo,
-        ngayDiHangList: [...entry.ngayDiHangSet].sort((a, b) => new Date(b) - new Date(a)),
-        tongTienHoaDon: entry.tongTienHoaDon,
-        tongChiPhi: entry.tongChiPhi,
-        thanhToanCK: entry.thanhToanCK,
-        tiGia: entry.tiGia,
-        _dotIds: entry._dotIds,
-        hdByDate: entry.hdByDate,
-        cpByDate: entry.cpByDate
-    })).sort((a, b) => a.dotSo - b.dotSo);
+    return Object.values(byDot)
+        .map((entry) => ({
+            dotSo: entry.dotSo,
+            ngayDiHangList: [...entry.ngayDiHangSet].sort((a, b) => new Date(b) - new Date(a)),
+            tongTienHoaDon: entry.tongTienHoaDon,
+            tongChiPhi: entry.tongChiPhi,
+            thanhToanCK: entry.thanhToanCK,
+            tiGia: entry.tiGia,
+            _dotIds: entry._dotIds,
+            hdByDate: entry.hdByDate,
+            cpByDate: entry.cpByDate,
+        }))
+        .sort((a, b) => a.dotSo - b.dotSo);
 }
 
 /**
@@ -494,7 +510,7 @@ function getAllDotsAggregated() {
 function findDatHang(sttNCC, datHangId) {
     const ncc = getNCCById(sttNCC);
     if (!ncc) return null;
-    return (ncc.datHang || []).find(dh => dh.id === datHangId);
+    return (ncc.datHang || []).find((dh) => dh.id === datHangId);
 }
 
 /**
@@ -503,7 +519,7 @@ function findDatHang(sttNCC, datHangId) {
 function findDotHang(sttNCC, dotHangId) {
     const ncc = getNCCById(sttNCC);
     if (!ncc) return null;
-    return (ncc.dotHang || []).find(dot => dot.id === dotHangId);
+    return (ncc.dotHang || []).find((dot) => dot.id === dotHangId);
 }
 
 /**
@@ -543,17 +559,17 @@ function updateNCCFilterOptions() {
 
     // Build NCC options: use tenNCC as display, sttNCC or tenNCC as value
     const nccOptions = globalState.nccList
-        .filter(ncc => ncc.sttNCC > 0 || ncc.tenNCC)
-        .map(ncc => ({
+        .filter((ncc) => ncc.sttNCC > 0 || ncc.tenNCC)
+        .map((ncc) => ({
             value: ncc.sttNCC > 0 ? String(ncc.sttNCC) : ncc.tenNCC,
-            label: ncc.tenNCC || `NCC ${ncc.sttNCC}`
+            label: ncc.tenNCC || `NCC ${ncc.sttNCC}`,
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
 
     if (filterNCC) {
         const currentValue = filterNCC.value;
         filterNCC.innerHTML = '<option value="all">Tất cả</option>';
-        nccOptions.forEach(opt => {
+        nccOptions.forEach((opt) => {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
@@ -565,7 +581,7 @@ function updateNCCFilterOptions() {
     if (filterBookingNCC) {
         const currentValue = filterBookingNCC.value;
         filterBookingNCC.innerHTML = '<option value="all">Tất cả NCC</option>';
-        nccOptions.forEach(opt => {
+        nccOptions.forEach((opt) => {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;

@@ -14,8 +14,8 @@ class InboxPancakeFeatures {
     constructor() {
         // Page settings cache: { pageId: { tags, quick_replies, quick_reply_types, users, warehouses, ... } }
         this.pageSettings = {};
-        this.pageUsers = {};          // { pageId: User[] }
-        this.viewingUsers = {};       // { convId: Set<userId> }
+        this.pageUsers = {}; // { pageId: User[] }
+        this.viewingUsers = {}; // { convId: Set<userId> }
         this.bulkSelected = new Set(); // Selected conversation IDs for bulk actions
         this.isBulkMode = false;
 
@@ -71,7 +71,7 @@ class InboxPancakeFeatures {
             if (!token) return null;
 
             // Find page username for Referer header
-            const page = this.data.pages.find(p => String(p.id) === String(pageId));
+            const page = this.data.pages.find((p) => String(p.id) === String(pageId));
             const username = page?.username || page?.name || '';
 
             const url = InboxApiConfig.buildUrl.pancake(
@@ -80,9 +80,9 @@ class InboxPancakeFeatures {
             );
             const res = await fetch(url, {
                 headers: {
-                    'Accept': 'application/json',
-                    'Referer': `https://pancake.vn/${username}`
-                }
+                    Accept: 'application/json',
+                    Referer: `https://pancake.vn/${username}`,
+                },
             });
             if (!res.ok) return null;
             const data = await res.json();
@@ -107,10 +107,12 @@ class InboxPancakeFeatures {
                 notification: settings.notification || false,
                 unread_first: settings.unread_first || false,
                 show_only_assigned_conv: settings.show_only_assigned_conv || false,
-                _raw: settings
+                _raw: settings,
             };
 
-            console.log(`[PancakeFeatures] Loaded settings for page ${pageId}: ${this.pageSettings[pageId].tags.length} tags, ${this.pageSettings[pageId].quick_replies.length} QRs`);
+            console.log(
+                `[PancakeFeatures] Loaded settings for page ${pageId}: ${this.pageSettings[pageId].tags.length} tags, ${this.pageSettings[pageId].quick_replies.length} QRs`
+            );
             return this.pageSettings[pageId];
         } catch (e) {
             console.error('[PancakeFeatures] loadPageSettings error:', e);
@@ -141,7 +143,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag_id: tagId })
+                body: JSON.stringify({ tag_id: tagId }),
             });
             const data = await res.json();
             if (data.success || res.ok) {
@@ -171,7 +173,7 @@ class InboxPancakeFeatures {
             );
             const res = await fetch(url, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
             if (res.ok) {
                 this._updateConvTags(conversationId, tagId, 'remove');
@@ -192,14 +194,18 @@ class InboxPancakeFeatures {
         if (!conv) return;
 
         const currentTags = conv._raw?.tags || [];
-        const hasTag = currentTags.some(t => t.id === tagId || t === tagId);
+        const hasTag = currentTags.some((t) => t.id === tagId || t === tagId);
 
         const btn = document.querySelector(`.pancake-tag-btn[data-tag-id="${tagId}"]`);
         if (btn) btn.classList.toggle('loading', true);
 
         let ok;
         if (hasTag) {
-            ok = await this.removeTagFromConversation(conv.pageId, conv.conversationId || convId, tagId);
+            ok = await this.removeTagFromConversation(
+                conv.pageId,
+                conv.conversationId || convId,
+                tagId
+            );
         } else {
             ok = await this.addTagToConversation(conv.pageId, conv.conversationId || convId, tagId);
         }
@@ -222,12 +228,12 @@ class InboxPancakeFeatures {
         const tags = conv._raw.tags || [];
         const pageId = conv.pageId;
         const pageTags = this.pageSettings[pageId]?.tags || [];
-        const tagObj = pageTags.find(t => t.id === tagId);
+        const tagObj = pageTags.find((t) => t.id === tagId);
 
-        if (action === 'add' && tagObj && !tags.some(t => t.id === tagId)) {
+        if (action === 'add' && tagObj && !tags.some((t) => t.id === tagId)) {
             conv._raw.tags = [...tags, tagObj];
         } else if (action === 'remove') {
-            conv._raw.tags = tags.filter(t => t.id !== tagId);
+            conv._raw.tags = tags.filter((t) => t.id !== tagId);
         }
     }
 
@@ -241,7 +247,7 @@ class InboxPancakeFeatures {
         const pageId = conv.pageId;
         const pageTags = this.pageSettings[pageId]?.tags || [];
         const convTags = (conv._raw?.tags || []).filter(Boolean);
-        const convTagIds = new Set(convTags.map(t => t.id).filter(Boolean));
+        const convTagIds = new Set(convTags.map((t) => t.id).filter(Boolean));
 
         if (pageTags.length === 0) {
             container.style.display = 'none';
@@ -257,11 +263,12 @@ class InboxPancakeFeatures {
             <div class="pancake-tag-bar-inner">
                 <span class="pancake-tag-bar-title"><i data-lucide="tag"></i> Tags:</span>
                 <div class="pancake-tag-bar-list">
-                    ${pageTags.map(tag => {
-                        const isActive = convTagIds.has(tag.id);
-                        const bgColor = tag.color || '#6b7280';
-                        const lighten = tag.lighten_color || `${bgColor}20`;
-                        return `
+                    ${pageTags
+                        .map((tag) => {
+                            const isActive = convTagIds.has(tag.id);
+                            const bgColor = tag.color || '#6b7280';
+                            const lighten = tag.lighten_color || `${bgColor}20`;
+                            return `
                             <button class="pancake-tag-btn ${isActive ? 'active' : ''}"
                                     data-tag-id="${tag.id}"
                                     style="${isActive ? `background:${bgColor};color:white;` : `background:${lighten};color:${bgColor};border-color:${bgColor}30;`}"
@@ -269,7 +276,8 @@ class InboxPancakeFeatures {
                                 ${this._escapeHtml(tag.text || tag.name || '')}
                             </button>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
         `;
@@ -295,10 +303,10 @@ class InboxPancakeFeatures {
                 `pages/${pageId}/users`,
                 `access_token=${token}`
             );
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
             if (!res.ok) return [];
             const data = await res.json();
-            const users = (data.users || []).filter(u => u.status_in_page === 'active');
+            const users = (data.users || []).filter((u) => u.status_in_page === 'active');
             this.pageUsers[pageId] = users;
             console.log(`[PancakeFeatures] Loaded ${users.length} users for page ${pageId}`);
             return users;
@@ -323,7 +331,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assignee_id: userId })
+                body: JSON.stringify({ assignee_id: userId }),
             });
             return res.ok;
         } catch (e) {
@@ -347,7 +355,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assignee_id: userId })
+                body: JSON.stringify({ assignee_id: userId }),
             });
             return res.ok;
         } catch (e) {
@@ -368,9 +376,13 @@ class InboxPancakeFeatures {
 
         let ok;
         if (isAssigned) {
-            ok = await this.unassignConversation(conv.pageId, conv.conversationId || convId, userId);
+            ok = await this.unassignConversation(
+                conv.pageId,
+                conv.conversationId || convId,
+                userId
+            );
             if (ok) {
-                conv._raw.assignee_ids = assignees.filter(id => id !== userId);
+                conv._raw.assignee_ids = assignees.filter((id) => id !== userId);
                 showToast('Đã gỡ phân công', 'success');
             }
         } else {
@@ -402,14 +414,14 @@ class InboxPancakeFeatures {
 
         if (users.length === 0) {
             container.style.display = 'none';
-            this.loadPageUsers(pageId).then(loadedUsers => {
+            this.loadPageUsers(pageId).then((loadedUsers) => {
                 if (loadedUsers.length > 0) this.renderAssigneeSection(conv);
             });
             return;
         }
 
-        const assignedUsers = users.filter(u => assigneeIds.has(u.id));
-        const unassignedUsers = users.filter(u => !assigneeIds.has(u.id));
+        const assignedUsers = users.filter((u) => assigneeIds.has(u.id));
+        const unassignedUsers = users.filter((u) => !assigneeIds.has(u.id));
 
         container.innerHTML = `
             <div class="assignee-header">
@@ -417,24 +429,36 @@ class InboxPancakeFeatures {
                 <span class="assignee-count">${assignedUsers.length}/${users.length}</span>
             </div>
             <div class="assignee-list">
-                ${assignedUsers.map(u => `
+                ${assignedUsers
+                    .map(
+                        (u) => `
                     <div class="assignee-item assigned" onclick="window.inboxFeatures.toggleAssignee('${conv.id}','${u.id}')">
                         <div class="assignee-avatar">${(u.name || '?')[0].toUpperCase()}</div>
                         <span class="assignee-name">${this._escapeHtml(u.name)}</span>
                         <span class="assignee-role">${u.role_in_page === 'ADMINISTER' ? 'Admin' : 'Staff'}</span>
                         <i data-lucide="check-circle" class="assignee-check"></i>
                     </div>
-                `).join('')}
-                ${unassignedUsers.length > 0 ? `
+                `
+                    )
+                    .join('')}
+                ${
+                    unassignedUsers.length > 0
+                        ? `
                     <div class="assignee-divider"></div>
-                    ${unassignedUsers.map(u => `
+                    ${unassignedUsers
+                        .map(
+                            (u) => `
                         <div class="assignee-item" onclick="window.inboxFeatures.toggleAssignee('${conv.id}','${u.id}')">
                             <div class="assignee-avatar">${(u.name || '?')[0].toUpperCase()}</div>
                             <span class="assignee-name">${this._escapeHtml(u.name)}</span>
                             <span class="assignee-role">${u.role_in_page === 'ADMINISTER' ? 'Admin' : 'Staff'}</span>
                         </div>
-                    `).join('')}
-                ` : ''}
+                    `
+                        )
+                        .join('')}
+                `
+                        : ''
+                }
             </div>
         `;
         container.style.display = 'block';
@@ -478,7 +502,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newText })
+                body: JSON.stringify({ content: newText }),
             });
             return res.ok;
         } catch (e) {
@@ -539,11 +563,18 @@ class InboxPancakeFeatures {
         const list = document.getElementById('convNotesList');
         if (!list) return;
 
-        list.innerHTML = notes.filter(Boolean).map(n => {
-            const date = new Date(n.created_at);
-            const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
-            const author = n.created_by?.fb_name || '';
-            return `<div class="conv-note-item">
+        list.innerHTML = notes
+            .filter(Boolean)
+            .map((n) => {
+                const date = new Date(n.created_at);
+                const timeStr = date.toLocaleString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit',
+                });
+                const author = n.created_by?.fb_name || '';
+                return `<div class="conv-note-item">
                 <div class="conv-note-meta">
                     <span class="conv-note-author">${this._escapeHtml(author)}</span>
                     <span class="conv-note-time">${timeStr}</span>
@@ -558,7 +589,8 @@ class InboxPancakeFeatures {
                 </div>
                 <div class="conv-note-text">${this._escapeHtml(n.message)}</div>
             </div>`;
-        }).join('');
+            })
+            .join('');
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -574,7 +606,7 @@ class InboxPancakeFeatures {
         const settings = await this.loadPageSettings(pageId);
         return {
             replies: settings?.quick_replies || [],
-            types: settings?.quick_reply_types || []
+            types: settings?.quick_reply_types || [],
         };
     }
 
@@ -622,26 +654,30 @@ class InboxPancakeFeatures {
         const row1El = document.getElementById('quickReplyRow1');
         const row2El = document.getElementById('quickReplyRow2');
         if (row1El) {
-            row1El.innerHTML = row1.map(qr => {
-                const text = qr.messages?.[0]?.message || qr.shortcut || '';
-                const shortcut = qr.shortcut || '';
-                const preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
-                return `<button class="qr-chip" title="${this._escapeHtml(text)}" onclick="window.inboxFeatures.applyQuickReply('${this._escapeHtml(text.replace(/'/g, "\\'"))}')">
+            row1El.innerHTML = row1
+                .map((qr) => {
+                    const text = qr.messages?.[0]?.message || qr.shortcut || '';
+                    const shortcut = qr.shortcut || '';
+                    const preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                    return `<button class="qr-chip" title="${this._escapeHtml(text)}" onclick="window.inboxFeatures.applyQuickReply('${this._escapeHtml(text.replace(/'/g, "\\'"))}')">
                     ${shortcut ? `<span class="qr-shortcut">/${this._escapeHtml(shortcut)}</span>` : ''}
                     <span class="qr-text">${this._escapeHtml(preview)}</span>
                 </button>`;
-            }).join('');
+                })
+                .join('');
         }
         if (row2El) {
-            row2El.innerHTML = row2.map(qr => {
-                const text = qr.messages?.[0]?.message || qr.shortcut || '';
-                const shortcut = qr.shortcut || '';
-                const preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
-                return `<button class="qr-chip" title="${this._escapeHtml(text)}" onclick="window.inboxFeatures.applyQuickReply('${this._escapeHtml(text.replace(/'/g, "\\'"))}')">
+            row2El.innerHTML = row2
+                .map((qr) => {
+                    const text = qr.messages?.[0]?.message || qr.shortcut || '';
+                    const shortcut = qr.shortcut || '';
+                    const preview = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                    return `<button class="qr-chip" title="${this._escapeHtml(text)}" onclick="window.inboxFeatures.applyQuickReply('${this._escapeHtml(text.replace(/'/g, "\\'"))}')">
                     ${shortcut ? `<span class="qr-shortcut">/${this._escapeHtml(shortcut)}</span>` : ''}
                     <span class="qr-text">${this._escapeHtml(preview)}</span>
                 </button>`;
-            }).join('');
+                })
+                .join('');
         }
 
         bar.style.display = allReplies.length > 0 ? 'block' : 'none';
@@ -765,7 +801,7 @@ class InboxPancakeFeatures {
 
     selectAllBulk() {
         const items = document.querySelectorAll('.conversation-item');
-        items.forEach(item => {
+        items.forEach((item) => {
             const id = item.dataset.id;
             if (id) {
                 this.bulkSelected.add(id);
@@ -778,7 +814,7 @@ class InboxPancakeFeatures {
 
     deselectAllBulk() {
         this.bulkSelected.clear();
-        document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.classList.remove('checked'));
+        document.querySelectorAll('.bulk-checkbox').forEach((cb) => cb.classList.remove('checked'));
         this._updateBulkCount();
     }
 
@@ -814,8 +850,13 @@ class InboxPancakeFeatures {
             const conv = this.data.getConversation(convId);
             if (conv) {
                 promises.push(
-                    this.addTagToConversation(conv.pageId, conv.conversationId || convId, tagId)
-                        .then(ok => { if (ok) success++; })
+                    this.addTagToConversation(
+                        conv.pageId,
+                        conv.conversationId || convId,
+                        tagId
+                    ).then((ok) => {
+                        if (ok) success++;
+                    })
                 );
             }
         }
@@ -835,8 +876,13 @@ class InboxPancakeFeatures {
             const conv = this.data.getConversation(convId);
             if (conv) {
                 promises.push(
-                    this.assignConversation(conv.pageId, conv.conversationId || convId, userId)
-                        .then(ok => { if (ok) success++; })
+                    this.assignConversation(
+                        conv.pageId,
+                        conv.conversationId || convId,
+                        userId
+                    ).then((ok) => {
+                        if (ok) success++;
+                    })
                 );
             }
         }
@@ -877,19 +923,28 @@ class InboxPancakeFeatures {
 
         const menu = document.createElement('div');
         menu.className = 'bulk-dropdown-menu';
-        menu.innerHTML = pageTags.map(t => `
+        menu.innerHTML = pageTags
+            .map(
+                (t) => `
             <button class="bulk-dropdown-item" onclick="window.inboxFeatures.bulkAddTag(${t.id});this.closest('.bulk-dropdown-menu').remove()">
                 <span class="bulk-tag-dot" style="background:${t.color}"></span>
                 ${this._escapeHtml(t.text || t.name)}
             </button>
-        `).join('');
+        `
+            )
+            .join('');
 
         const btn = document.getElementById('btnBulkTag');
         if (btn) {
             btn.style.position = 'relative';
             btn.appendChild(menu);
             setTimeout(() => {
-                const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+                const close = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', close);
+                    }
+                };
                 document.addEventListener('click', close);
             }, 0);
         }
@@ -913,19 +968,28 @@ class InboxPancakeFeatures {
 
         const menu = document.createElement('div');
         menu.className = 'bulk-dropdown-menu';
-        menu.innerHTML = users.map(u => `
+        menu.innerHTML = users
+            .map(
+                (u) => `
             <button class="bulk-dropdown-item" onclick="window.inboxFeatures.bulkAssign('${u.id}');this.closest('.bulk-dropdown-menu').remove()">
                 <span class="bulk-assign-avatar">${(u.name || '?')[0]}</span>
                 ${this._escapeHtml(u.name)}
             </button>
-        `).join('');
+        `
+            )
+            .join('');
 
         const btn = document.getElementById('btnBulkAssign');
         if (btn) {
             btn.style.position = 'relative';
             btn.appendChild(menu);
             setTimeout(() => {
-                const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+                const close = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', close);
+                    }
+                };
                 document.addEventListener('click', close);
             }, 0);
         }
@@ -938,19 +1002,28 @@ class InboxPancakeFeatures {
         const groups = this.data.groups || [];
         const menu = document.createElement('div');
         menu.className = 'bulk-dropdown-menu';
-        menu.innerHTML = groups.map(g => `
+        menu.innerHTML = groups
+            .map(
+                (g) => `
             <button class="bulk-dropdown-item" onclick="window.inboxFeatures.bulkAssignLabel('${g.id}');this.closest('.bulk-dropdown-menu').remove()">
                 <span class="bulk-tag-dot" style="background:${g.color}"></span>
                 ${this._escapeHtml(g.name)}
             </button>
-        `).join('');
+        `
+            )
+            .join('');
 
         const btn = document.getElementById('btnBulkLabel');
         if (btn) {
             btn.style.position = 'relative';
             btn.appendChild(menu);
             setTimeout(() => {
-                const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+                const close = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', close);
+                    }
+                };
                 document.addEventListener('click', close);
             }, 0);
         }
@@ -968,12 +1041,18 @@ class InboxPancakeFeatures {
             const conv = this.data.getConversation(this.chat.activeConversationId);
             pageId = conv?.pageId || this.data.pages[0]?.id;
         }
-        if (!pageId) { showToast('Không tìm thấy page', 'warning'); return; }
+        if (!pageId) {
+            showToast('Không tìm thấy page', 'warning');
+            return;
+        }
 
         const settings = await this.loadPageSettings(pageId, true);
-        if (!settings) { showToast('Không thể load settings', 'error'); return; }
+        if (!settings) {
+            showToast('Không thể load settings', 'error');
+            return;
+        }
 
-        const page = this.data.pages.find(p => String(p.id) === String(pageId));
+        const page = this.data.pages.find((p) => String(p.id) === String(pageId));
         const pageName = page?.name || pageId;
 
         const overlay = document.createElement('div');
@@ -1003,11 +1082,15 @@ class InboxPancakeFeatures {
                     <div class="settings-section">
                         <h4>Tags (${settings.tags.length})</h4>
                         <div class="settings-tag-list">
-                            ${settings.tags.map(t => `
+                            ${settings.tags
+                                .map(
+                                    (t) => `
                                 <span class="settings-tag" style="background:${t.color || '#6b7280'}20;color:${t.color || '#6b7280'};border:1px solid ${t.color || '#6b7280'}30;">
                                     ${this._escapeHtml(t.text || t.name || '')}
                                 </span>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                         </div>
                     </div>
 
@@ -1015,12 +1098,17 @@ class InboxPancakeFeatures {
                     <div class="settings-section">
                         <h4>Tin nhắn nhanh (${settings.quick_replies.length})</h4>
                         <div class="settings-qr-list" style="max-height:200px;overflow-y:auto;">
-                            ${settings.quick_replies.slice(0, 20).map(qr => `
+                            ${settings.quick_replies
+                                .slice(0, 20)
+                                .map(
+                                    (qr) => `
                                 <div class="settings-qr-item">
                                     <span class="settings-qr-shortcut">/${this._escapeHtml(qr.shortcut || '')}</span>
                                     <span class="settings-qr-text">${this._escapeHtml((qr.messages?.[0]?.message || '').substring(0, 80))}</span>
                                 </div>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                             ${settings.quick_replies.length > 20 ? `<div style="text-align:center;padding:8px;color:var(--text-tertiary);font-size:0.75rem;">+${settings.quick_replies.length - 20} tin nhắn nhanh khác</div>` : ''}
                         </div>
                     </div>
@@ -1029,13 +1117,17 @@ class InboxPancakeFeatures {
                     <div class="settings-section">
                         <h4>Kho hàng (${settings.warehouses.length})</h4>
                         <div class="settings-warehouse-list">
-                            ${settings.warehouses.map(w => `
+                            ${settings.warehouses
+                                .map(
+                                    (w) => `
                                 <div class="settings-warehouse-item">
                                     <strong>${this._escapeHtml(w.name)}</strong>
                                     <span>${this._escapeHtml(w.full_address || '')}</span>
                                     <span>${this._escapeHtml(w.phone_number || '')}</span>
                                 </div>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                         </div>
                     </div>
                 </div>
@@ -1046,7 +1138,9 @@ class InboxPancakeFeatures {
         `;
 
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
@@ -1075,10 +1169,7 @@ class InboxPancakeFeatures {
             const shopId = settings?.shop_id;
             const warehouse = settings?.warehouses?.[0];
 
-            const url = InboxApiConfig.buildUrl.pancakeOfficial(
-                `pages/${pageId}/orders`,
-                pat
-            );
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/orders`, pat);
 
             const payload = {
                 customer_name: orderData.customerName,
@@ -1091,22 +1182,22 @@ class InboxPancakeFeatures {
                 discount: orderData.discount || 0,
                 payment_method: orderData.paymentMethod === 'cod' ? 'COD' : 'BANK_TRANSFER',
                 note: orderData.note || '',
-                items: orderData.products.map(p => ({
+                items: orderData.products.map((p) => ({
                     name: p.name,
                     variant_name: p.variant || '',
                     quantity: p.qty || 1,
-                    price: p.price || 0
+                    price: p.price || 0,
                 })),
                 shop_id: shopId || null,
                 warehouse_id: warehouse?.id || null,
                 conversation_id: orderData.conversationId || null,
-                source: 'n2store_inbox'
+                source: 'n2store_inbox',
             };
 
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             const data = await res.json();
@@ -1136,20 +1227,28 @@ class InboxPancakeFeatures {
         if (!container) return;
 
         if (orders.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:1rem;font-size:0.75rem;">Chưa có đơn hàng</div>';
+            container.innerHTML =
+                '<div style="text-align:center;color:var(--text-tertiary);padding:1rem;font-size:0.75rem;">Chưa có đơn hàng</div>';
             return;
         }
 
-        container.innerHTML = orders.map(order => {
-            const status = order.status || 'unknown';
-            const statusColors = {
-                'confirmed': 'green', 'shipped': 'blue', 'delivered': 'green',
-                'cancelled': 'red', 'returned': 'orange', 'pending': 'yellow'
-            };
-            const color = statusColors[status] || 'gray';
-            const total = order.total_price || order.amount || 0;
-            const date = order.inserted_at ? new Date(order.inserted_at).toLocaleDateString('vi-VN') : '';
-            return `
+        container.innerHTML = orders
+            .map((order) => {
+                const status = order.status || 'unknown';
+                const statusColors = {
+                    confirmed: 'green',
+                    shipped: 'blue',
+                    delivered: 'green',
+                    cancelled: 'red',
+                    returned: 'orange',
+                    pending: 'yellow',
+                };
+                const color = statusColors[status] || 'gray';
+                const total = order.total_price || order.amount || 0;
+                const date = order.inserted_at
+                    ? new Date(order.inserted_at).toLocaleDateString('vi-VN')
+                    : '';
+                return `
                 <div class="recent-order-item">
                     <div class="recent-order-header">
                         <span class="recent-order-id">#${this._escapeHtml(order.id || '')}</span>
@@ -1161,7 +1260,8 @@ class InboxPancakeFeatures {
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     // =====================================================
@@ -1182,7 +1282,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_number: phone })
+                body: JSON.stringify({ phone_number: phone }),
             });
             return res.ok;
         } catch (e) {
@@ -1205,7 +1305,7 @@ class InboxPancakeFeatures {
             const res = await fetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify({ name }),
             });
             return res.ok;
         } catch (e) {
@@ -1222,7 +1322,10 @@ class InboxPancakeFeatures {
         if (!conv) return;
 
         const customerId = conv.customerId || conv._messagesData?.customers?.[0]?.id;
-        if (!customerId) { showToast('Không tìm thấy customer ID', 'warning'); return; }
+        if (!customerId) {
+            showToast('Không tìm thấy customer ID', 'warning');
+            return;
+        }
 
         const customer = conv._messagesData?.customers?.[0];
         let currentValue = '';

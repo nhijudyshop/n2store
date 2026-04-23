@@ -16,7 +16,7 @@ async function createShipment(data) {
         // Process each invoice (hoaDon) and save via API
         // kienHang only on FIRST invoice to avoid duplication when grouped by date
         let isFirstInvoice = true;
-        for (const invoice of (data.hoaDon || [])) {
+        for (const invoice of data.hoaDon || []) {
             const sttNCC = parseInt(invoice.sttNCC, 10) || 0;
             const tenNCC = invoice.tenNCC || '';
             // Skip invoice only if BOTH sttNCC and tenNCC are empty
@@ -28,9 +28,9 @@ async function createShipment(data) {
                 ngayDiHang: ngayDiHang,
                 dotSo: data.dotSo || 1,
                 tenNCC: tenNCC,
-                kienHang: isFirstInvoice ? (data.kienHang || []) : [],
-                tongKien: isFirstInvoice ? (data.tongKien || 0) : 0,
-                tongKg: isFirstInvoice ? (data.tongKg || 0) : 0,
+                kienHang: isFirstInvoice ? data.kienHang || [] : [],
+                tongKien: isFirstInvoice ? data.tongKien || 0 : 0,
+                tongKg: isFirstInvoice ? data.tongKg || 0 : 0,
                 sanPham: invoice.sanPham || [],
                 tongTienHD: invoice.tongTienHD || 0,
                 tongMon: invoice.tongMon || 0,
@@ -39,16 +39,16 @@ async function createShipment(data) {
                 anhHoaDon: invoice.anhHoaDon || [],
                 ghiChu: invoice.ghiChu || '',
                 // Costs/admin note are per-đợt — only store on first row to avoid N× duplication on re-read
-                chiPhiHangVe: isFirstInvoice ? (data.chiPhiHangVe || []) : [],
-                tongChiPhi: isFirstInvoice ? (data.tongChiPhi || 0) : 0,
-                ghiChuAdmin: isFirstInvoice ? (data.ghiChuAdmin || '') : ''
+                chiPhiHangVe: isFirstInvoice ? data.chiPhiHangVe || [] : [],
+                tongChiPhi: isFirstInvoice ? data.tongChiPhi || 0 : 0,
+                ghiChuAdmin: isFirstInvoice ? data.ghiChuAdmin || '' : '',
             };
 
             // Save via API
             const saved = await shipmentsApi.create(newDotHang);
 
             // Update local state
-            const ncc = getNCCById(sttNCC) || await getOrCreateNCC(sttNCC, tenNCC);
+            const ncc = getNCCById(sttNCC) || (await getOrCreateNCC(sttNCC, tenNCC));
             if (ncc) {
                 if (!ncc.dotHang) ncc.dotHang = [];
                 ncc.dotHang.push(pgToShipment(saved));
@@ -66,7 +66,6 @@ async function createShipment(data) {
 
         window.notificationManager?.success('Đã tạo đợt hàng mới');
         return data;
-
     } catch (error) {
         console.error('[CRUD] Error creating shipment:', error);
         window.notificationManager?.error('Không thể tạo đợt hàng');
@@ -81,14 +80,14 @@ async function updateShipment(id, data) {
     console.log('[CRUD] Updating shipment...', id, data);
 
     try {
-        const existingShipment = globalState.shipments.find(s => s.id === id);
+        const existingShipment = globalState.shipments.find((s) => s.id === id);
         if (!existingShipment) {
             throw new Error('Shipment not found');
         }
 
         // kienHang only on first invoice to avoid duplication
         let isFirstUpdate = true;
-        for (const invoice of (data.hoaDon || [])) {
+        for (const invoice of data.hoaDon || []) {
             const sttNCC = parseInt(invoice.sttNCC, 10) || 0;
             const tenNCC = invoice.tenNCC || '';
             if (!sttNCC && !tenNCC) continue;
@@ -110,7 +109,7 @@ async function updateShipment(id, data) {
                 // Costs/admin note are per-đợt — only store on first row to avoid N× duplication on re-read
                 chiPhiHangVe: isFirstUpdate ? data.chiPhiHangVe : [],
                 tongChiPhi: isFirstUpdate ? data.tongChiPhi : 0,
-                ghiChuAdmin: isFirstUpdate ? data.ghiChuAdmin : ''
+                ghiChuAdmin: isFirstUpdate ? data.ghiChuAdmin : '',
             };
 
             const saved = await shipmentsApi.update(invoice.id, updateData);
@@ -118,7 +117,7 @@ async function updateShipment(id, data) {
             // Update local state
             const ncc = getNCCById(sttNCC);
             if (ncc) {
-                const idx = (ncc.dotHang || []).findIndex(d => d.id === invoice.id);
+                const idx = (ncc.dotHang || []).findIndex((d) => d.id === invoice.id);
                 if (idx !== -1) {
                     ncc.dotHang[idx] = pgToShipment(saved);
                 }
@@ -133,7 +132,6 @@ async function updateShipment(id, data) {
 
         window.notificationManager?.success('Đã cập nhật đợt hàng');
         return data;
-
     } catch (error) {
         console.error('[CRUD] Error updating shipment:', error);
         window.notificationManager?.error('Không thể cập nhật đợt hàng');
@@ -152,12 +150,12 @@ async function deleteShipment(id) {
     console.log('[CRUD] Deleting shipment...', id);
 
     try {
-        const existingShipment = globalState.shipments.find(s => s.id === id);
+        const existingShipment = globalState.shipments.find((s) => s.id === id);
         if (!existingShipment) {
             throw new Error('Shipment not found');
         }
 
-        const dotHangIds = (existingShipment.hoaDon || []).map(hd => hd.id);
+        const dotHangIds = (existingShipment.hoaDon || []).map((hd) => hd.id);
 
         // Delete each dotHang via API
         for (const dotId of dotHangIds) {
@@ -165,7 +163,7 @@ async function deleteShipment(id) {
 
             // Remove from local state
             for (const ncc of globalState.nccList) {
-                const idx = (ncc.dotHang || []).findIndex(d => d.id === dotId);
+                const idx = (ncc.dotHang || []).findIndex((d) => d.id === dotId);
                 if (idx !== -1) {
                     ncc.dotHang.splice(idx, 1);
                 }
@@ -178,7 +176,6 @@ async function deleteShipment(id) {
 
         window.notificationManager?.success('Đã xóa đợt hàng');
         return true;
-
     } catch (error) {
         console.error('[CRUD] Error deleting shipment:', error);
         window.notificationManager?.error('Không thể xóa đợt hàng');
@@ -196,12 +193,11 @@ async function deleteInvoiceFromShipment(sttNCC, dotHangId) {
         // Update local state
         const ncc = getNCCById(sttNCC);
         if (ncc) {
-            ncc.dotHang = (ncc.dotHang || []).filter(d => d.id !== dotHangId);
+            ncc.dotHang = (ncc.dotHang || []).filter((d) => d.id !== dotHangId);
         }
 
         flattenNCCData();
         return true;
-
     } catch (error) {
         console.error('[CRUD] Error deleting invoice:', error);
         throw error;
@@ -221,7 +217,7 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
 
         // Update local state — find NCC by scanning dotHang for dotHangId (reliable)
         for (const ncc of globalState.nccList) {
-            const idx = (ncc.dotHang || []).findIndex(d => d.id === dotHangId);
+            const idx = (ncc.dotHang || []).findIndex((d) => d.id === dotHangId);
             if (idx !== -1) {
                 ncc.dotHang[idx] = pgToShipment(saved);
                 break;
@@ -230,7 +226,6 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
 
         flattenNCCData();
         return true;
-
     } catch (error) {
         console.error('[CRUD] Error updating shortage:', error);
         throw error;
@@ -241,7 +236,7 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
  * Edit shipment (open modal)
  */
 function editShipment(id) {
-    const shipment = globalState.shipments.find(s => s.id === id);
+    const shipment = globalState.shipments.find((s) => s.id === id);
     if (!shipment) {
         window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
@@ -256,7 +251,7 @@ function editShipment(id) {
  * Update shortage (open modal)
  */
 function updateShortage(id) {
-    const shipment = globalState.shipments.find(s => s.id === id);
+    const shipment = globalState.shipments.find((s) => s.id === id);
     if (!shipment) {
         window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
@@ -274,7 +269,7 @@ async function logEditHistory(action, type, id, oldData, newData) {
     try {
         await editHistoryApi.log(action, type, id || '', null, {
             oldData: oldData || null,
-            newData: newData || null
+            newData: newData || null,
         });
     } catch (error) {
         console.error('[CRUD] Error logging edit history:', error);
@@ -289,8 +284,11 @@ async function deleteProductRow(invoiceId, productIdx) {
     // Find the dotHang in nccList
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
     }
 
     if (!targetDot) {
@@ -307,13 +305,16 @@ async function deleteProductRow(invoiceId, productIdx) {
     try {
         // Remove product from array
         const newProducts = products.filter((_, i) => i !== productIdx);
-        const newTongMon = newProducts.reduce((sum, p) => sum + (p.tongSoLuong || p.soLuong || 0), 0);
+        const newTongMon = newProducts.reduce(
+            (sum, p) => sum + (p.tongSoLuong || p.soLuong || 0),
+            0
+        );
         const newTongTien = newProducts.reduce((sum, p) => sum + (p.thanhTien || 0), 0);
 
         await shipmentsApi.update(invoiceId, {
             sanPham: newProducts,
             tongMon: newTongMon,
-            tongTienHD: newTongTien
+            tongTienHD: newTongTien,
         });
 
         // Update local state
@@ -339,8 +340,12 @@ async function deleteNccInvoice(invoiceId) {
     let targetNcc = null;
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetNcc = ncc; targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetNcc = ncc;
+            targetDot = dot;
+            break;
+        }
     }
 
     if (!targetDot) {
@@ -355,7 +360,7 @@ async function deleteNccInvoice(invoiceId) {
         await shipmentsApi.delete(invoiceId);
 
         // Remove from local state
-        const idx = targetNcc.dotHang.findIndex(d => d.id === invoiceId);
+        const idx = targetNcc.dotHang.findIndex((d) => d.id === invoiceId);
         if (idx !== -1) targetNcc.dotHang.splice(idx, 1);
 
         flattenNCCData();

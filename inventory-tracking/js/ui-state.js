@@ -17,7 +17,7 @@ window.UIState = (function () {
             const p = JSON.parse(raw);
             return {
                 expanded: Array.isArray(p.expanded) ? p.expanded.map(String) : [],
-                detailsVisible: !!p.detailsVisible
+                detailsVisible: !!p.detailsVisible,
             };
         } catch (_) {
             return { expanded: [], detailsVisible: false };
@@ -29,7 +29,9 @@ window.UIState = (function () {
     function _save() {
         try {
             localStorage.setItem(KEY, JSON.stringify(state));
-        } catch (_) { /* storage quota / private mode */ }
+        } catch (_) {
+            /* storage quota / private mode */
+        }
     }
 
     // -------- Expand/collapse state --------
@@ -59,7 +61,7 @@ window.UIState = (function () {
     function pruneExpanded(validIds) {
         const set = new Set(validIds.map(String));
         const before = state.expanded.length;
-        state.expanded = state.expanded.filter(id => set.has(id));
+        state.expanded = state.expanded.filter((id) => set.has(id));
         if (state.expanded.length !== before) _save();
     }
 
@@ -68,7 +70,7 @@ window.UIState = (function () {
         setExpanded,
         isDetailsVisible,
         setDetailsVisible,
-        pruneExpanded
+        pruneExpanded,
     };
 })();
 

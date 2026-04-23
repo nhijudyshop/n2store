@@ -151,7 +151,9 @@ class RealtimeClient {
                 console.error('[RealtimeClient] Max reconnect attempts reached. Stopping.');
                 this.disconnect();
             } else {
-                console.log(`[RealtimeClient] Will auto-reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(
+                    `[RealtimeClient] Will auto-reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+                );
             }
         };
     }
@@ -236,7 +238,7 @@ class RealtimeClient {
         // Exact match
         const callbacks = this.listeners.get(key);
         if (callbacks) {
-            callbacks.forEach(cb => {
+            callbacks.forEach((cb) => {
                 try {
                     cb(data, key);
                 } catch (e) {
@@ -251,11 +253,14 @@ class RealtimeClient {
         this.listeners.forEach((cbs, listenerKey) => {
             if (key !== listenerKey) {
                 if (key.startsWith(listenerKey + '/') || listenerKey.startsWith(key + '/')) {
-                    cbs.forEach(cb => {
+                    cbs.forEach((cb) => {
                         try {
                             cb(data, key);
                         } catch (e) {
-                            console.error('[RealtimeClient] Error in wildcard listener callback:', e);
+                            console.error(
+                                '[RealtimeClient] Error in wildcard listener callback:',
+                                e
+                            );
                         }
                     });
                 }
@@ -276,7 +281,9 @@ class RealtimeClient {
      */
     async get(key) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`);
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`
+            );
             const result = await response.json();
 
             if (!result.exists) {
@@ -300,11 +307,14 @@ class RealtimeClient {
      */
     async set(key, value) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ value })
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -326,9 +336,12 @@ class RealtimeClient {
      */
     async remove(key) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`, {
-                method: 'DELETE'
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/kv/${encodeURIComponent(key)}`,
+                {
+                    method: 'DELETE',
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -352,7 +365,9 @@ class RealtimeClient {
      */
     async getHeldProducts(orderId) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/held-products/${encodeURIComponent(orderId)}`);
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/held-products/${encodeURIComponent(orderId)}`
+            );
             return response.json();
         } catch (error) {
             console.error('[RealtimeClient] GET held products error:', error);
@@ -375,7 +390,7 @@ class RealtimeClient {
                 {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(data),
                 }
             );
 
@@ -402,7 +417,7 @@ class RealtimeClient {
             const response = await fetch(
                 `${this.baseUrl}/api/realtime/held-products/${encodeURIComponent(orderId)}/${encodeURIComponent(productId)}/${encodeURIComponent(userId)}`,
                 {
-                    method: 'DELETE'
+                    method: 'DELETE',
                 }
             );
 
@@ -428,7 +443,9 @@ class RealtimeClient {
      */
     async getKpiBase(orderId) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/kpi-base/${encodeURIComponent(orderId)}`);
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/kpi-base/${encodeURIComponent(orderId)}`
+            );
             const result = await response.json();
             return result.exists ? result.data : null;
         } catch (error) {
@@ -445,11 +462,14 @@ class RealtimeClient {
      */
     async setKpiBase(orderId, data) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/kpi-base/${encodeURIComponent(orderId)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/kpi-base/${encodeURIComponent(orderId)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -499,7 +519,7 @@ class RealtimeClient {
                 {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(data),
                 }
             );
 
@@ -525,7 +545,9 @@ class RealtimeClient {
      */
     async getTagUpdate(orderId) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`);
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`
+            );
             const result = await response.json();
             return result.exists ? result.data : null;
         } catch (error) {
@@ -542,11 +564,14 @@ class RealtimeClient {
      */
     async updateTags(orderId, data) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/tag-updates/${encodeURIComponent(orderId)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -600,11 +625,14 @@ class RealtimeClient {
      */
     async setDroppedProduct(id, data) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -624,9 +652,12 @@ class RealtimeClient {
      */
     async removeDroppedProduct(id) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`, {
-                method: 'DELETE'
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/dropped-products/${encodeURIComponent(id)}`,
+                {
+                    method: 'DELETE',
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -659,7 +690,9 @@ class RealtimeClient {
      */
     async getNoteSnapshot(orderId) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`);
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`
+            );
             const result = await response.json();
             return result.exists ? result.data : null;
         } catch (error) {
@@ -676,11 +709,14 @@ class RealtimeClient {
      */
     async saveNoteSnapshot(orderId, data) {
         try {
-            const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            const response = await fetch(
+                `${this.baseUrl}/api/realtime/note-snapshots/${encodeURIComponent(orderId)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -700,7 +736,7 @@ class RealtimeClient {
     async cleanupNoteSnapshots() {
         try {
             const response = await fetch(`${this.baseUrl}/api/realtime/note-snapshots/cleanup`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
 
             if (!response.ok) {
@@ -727,7 +763,7 @@ class RealtimeClient {
             connected: this.isConnected,
             subscribedKeys: this.subscribedKeys,
             activeListeners: this.listeners.size,
-            reconnectAttempts: this.reconnectAttempts
+            reconnectAttempts: this.reconnectAttempts,
         };
     }
 

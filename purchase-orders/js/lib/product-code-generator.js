@@ -8,7 +8,7 @@
  * Each rule maps a product name prefix (e.g., "MM", "B") to a code prefix (e.g., "MM", "B").
  */
 
-window.ProductCodeGenerator = (function() {
+window.ProductCodeGenerator = (function () {
     'use strict';
 
     /**
@@ -38,16 +38,23 @@ window.ProductCodeGenerator = (function() {
 
         try {
             if (window.firebase && window.firebase.firestore) {
-                const doc = await firebase.firestore()
-                    .collection('settings').doc('product_code_rules').get();
+                const doc = await firebase
+                    .firestore()
+                    .collection('settings')
+                    .doc('product_code_rules')
+                    .get();
                 if (doc.exists) {
                     const data = doc.data();
                     if (data.rules && Array.isArray(data.rules)) {
                         cachedConfig = {
                             rules: data.rules,
-                            defaultPrefix: data.defaultPrefix || DEFAULT_PREFIX
+                            defaultPrefix: data.defaultPrefix || DEFAULT_PREFIX,
                         };
-                        console.log('[ProductCodeGen] Loaded prefix rules from Firestore:', cachedConfig.rules.length, 'rules');
+                        console.log(
+                            '[ProductCodeGen] Loaded prefix rules from Firestore:',
+                            cachedConfig.rules.length,
+                            'rules'
+                        );
                         return cachedConfig;
                     }
                 }
@@ -58,7 +65,7 @@ window.ProductCodeGenerator = (function() {
 
         cachedConfig = {
             rules: DEFAULT_PREFIX_RULES,
-            defaultPrefix: DEFAULT_PREFIX
+            defaultPrefix: DEFAULT_PREFIX,
         };
         console.log('[ProductCodeGen] Using default prefix rules');
         return cachedConfig;
@@ -144,7 +151,7 @@ window.ProductCodeGenerator = (function() {
     const CACHE_TTL = 60000; // 60 seconds
 
     async function loadFirestoreCodes() {
-        if (_firestoreCodesCache && (Date.now() - _firestoreCacheTime) < CACHE_TTL) {
+        if (_firestoreCodesCache && Date.now() - _firestoreCacheTime < CACHE_TTL) {
             return _firestoreCodesCache;
         }
         if (!window.firebase || !window.firebase.firestore) return new Set();
@@ -153,7 +160,7 @@ window.ProductCodeGenerator = (function() {
         const snapshot = await db.collection('purchase_orders').get();
         const codes = new Set();
 
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc) => {
             const items = doc.data().items || [];
             for (const item of items) {
                 const code = (item.productCode || '').toUpperCase();
@@ -222,8 +229,13 @@ window.ProductCodeGenerator = (function() {
     function codeExistsInItems(code, items) {
         if (!code || !items) return false;
         const upperCode = code.toUpperCase();
-        return items.some(item => {
-            const itemCode = (item.productCode || item.product_code || item._tempProductCode || '').toUpperCase();
+        return items.some((item) => {
+            const itemCode = (
+                item.productCode ||
+                item.product_code ||
+                item._tempProductCode ||
+                ''
+            ).toUpperCase();
             return itemCode === upperCode;
         });
     }
@@ -283,11 +295,13 @@ window.ProductCodeGenerator = (function() {
         // Get max numbers from all sources (parallel)
         const [maxFromFirestore, maxFromTPOS] = await Promise.all([
             getMaxNumberFromFirestore(codePrefix),
-            getMaxNumberFromTPOS(codePrefix)
+            getMaxNumberFromTPOS(codePrefix),
         ]);
         const maxFromItems = getMaxNumberFromItems(existingItems, codePrefix);
         const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
-        console.log(`[ProductCodeGen] Max for ${codePrefix}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
+        console.log(
+            `[ProductCodeGen] Max for ${codePrefix}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`
+        );
 
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -334,11 +348,13 @@ window.ProductCodeGenerator = (function() {
         // Get max numbers from all sources (parallel)
         const [maxFromFirestore, maxFromTPOS] = await Promise.all([
             getMaxNumberFromFirestore(upperPrefix),
-            getMaxNumberFromTPOS(upperPrefix)
+            getMaxNumberFromTPOS(upperPrefix),
         ]);
         const maxFromItems = getMaxNumberFromItems(existingItems, upperPrefix);
         const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
-        console.log(`[ProductCodeGen] Prefix "${upperPrefix}" max: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
+        console.log(
+            `[ProductCodeGen] Prefix "${upperPrefix}" max: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`
+        );
 
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -356,7 +372,9 @@ window.ProductCodeGenerator = (function() {
             return candidateCode;
         }
 
-        console.warn(`Failed to generate code with prefix "${upperPrefix}" after ${maxAttempts} attempts`);
+        console.warn(
+            `Failed to generate code with prefix "${upperPrefix}" after ${maxAttempts} attempts`
+        );
         return null;
     }
 
@@ -377,7 +395,10 @@ window.ProductCodeGenerator = (function() {
      * @returns {string|null}
      */
     function generateProductCodeSync(productName, existingItems = []) {
-        const config = cachedConfig || { rules: DEFAULT_PREFIX_RULES, defaultPrefix: DEFAULT_PREFIX };
+        const config = cachedConfig || {
+            rules: DEFAULT_PREFIX_RULES,
+            defaultPrefix: DEFAULT_PREFIX,
+        };
         const codePrefix = detectCodePrefix(productName, config.rules, config.defaultPrefix);
         if (!codePrefix) {
             return null;
@@ -432,6 +453,6 @@ window.ProductCodeGenerator = (function() {
         codeExistsOnTPOS,
         // Constants for reference
         DEFAULT_PREFIX_RULES,
-        DEFAULT_PREFIX
+        DEFAULT_PREFIX,
     };
 })();

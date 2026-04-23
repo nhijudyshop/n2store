@@ -7,11 +7,13 @@
 // =====================================================
 function switchMainTab(tabName) {
     // Update buttons
-    document.querySelectorAll('.main-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.main-tab-btn').forEach((btn) => btn.classList.remove('active'));
     document.querySelector(`.main-tab-btn[data-tab="${tabName}"]`).classList.add('active');
 
     // Update content
-    document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+    document
+        .querySelectorAll('.main-tab-content')
+        .forEach((content) => content.classList.remove('active'));
 
     if (tabName === 'overview') {
         document.getElementById('tabOverview').classList.add('active');
@@ -42,9 +44,12 @@ function requestDataFromTab1() {
     dataReceivedFromTab1 = false; // Reset flag before request
     setRefreshLoading(true);
 
-    window.parent.postMessage({
-        type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
-    }, '*');
+    window.parent.postMessage(
+        {
+            type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW',
+        },
+        '*'
+    );
 }
 
 function setRefreshLoading(loading) {
@@ -118,14 +123,22 @@ async function executeExcelFetch() {
 
         // Save to sessionStorage for quick access on refresh (with quota handling)
         try {
-            sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
-                orders: parsedOrders,
-                timestamp: Date.now()
-            }));
+            sessionStorage.setItem(
+                'reportOrdersExcelCache',
+                JSON.stringify({
+                    orders: parsedOrders,
+                    timestamp: Date.now(),
+                })
+            );
         } catch (storageError) {
-            console.warn('[REPORT] ⚠️ Could not cache to sessionStorage (quota exceeded):', storageError.message);
+            console.warn(
+                '[REPORT] ⚠️ Could not cache to sessionStorage (quota exceeded):',
+                storageError.message
+            );
             // Clear old cache and continue - this is not critical
-            try { sessionStorage.removeItem('reportOrdersExcelCache'); } catch (e) { }
+            try {
+                sessionStorage.removeItem('reportOrdersExcelCache');
+            } catch (e) {}
         }
 
         console.log(`[REPORT] ✅ Fetched ${parsedOrders.length} orders from Excel`);
@@ -138,7 +151,7 @@ async function executeExcelFetch() {
             totalOrders: parsedOrders.length,
             successCount: parsedOrders.length,
             errorCount: 0,
-            _source: 'excel_manual_fetch'
+            _source: 'excel_manual_fetch',
         };
 
         // Load into local cache
@@ -176,11 +189,12 @@ async function executeExcelFetch() {
         }
 
         // Show success message
-        alert(`✅ Đã tải dữ liệu từ Excel!\n- Số đơn hàng: ${parsedOrders.length}\n- Bảng: ${currentTableName}\n- Đã lưu vào Firebase`);
+        alert(
+            `✅ Đã tải dữ liệu từ Excel!\n- Số đơn hàng: ${parsedOrders.length}\n- Bảng: ${currentTableName}\n- Đã lưu vào Firebase`
+        );
 
         // Switch to details tab
         switchMainTab('details');
-
     } catch (error) {
         console.error('[REPORT] ❌ Error fetching from Excel:', error);
         alert(`Lỗi khi tải từ Excel: ${error.message}`);
@@ -247,7 +261,7 @@ async function executeAPIFetch() {
                 totalOrders: allOrders.length,
                 successOrders: excelResult.length,
                 errorOrders: 0,
-                method: 'excel'
+                method: 'excel',
             };
             cachedOrderDetails[currentTableName] = cacheData;
 
@@ -295,7 +309,7 @@ async function executeAPIFetch() {
             const results = await Promise.all(promises);
 
             // Process results
-            results.forEach(result => {
+            results.forEach((result) => {
                 completed++;
                 if (result.success) {
                     fetchedOrders.push(result.data);
@@ -312,7 +326,7 @@ async function executeAPIFetch() {
 
             // Delay before next batch (if not last batch)
             if (i + BATCH_SIZE < total) {
-                await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+                await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
             }
         }
 
@@ -324,7 +338,7 @@ async function executeAPIFetch() {
             totalOrders: total,
             successCount: fetchedOrders.length,
             errorCount: errors,
-            _source: 'api_manual_fetch'
+            _source: 'api_manual_fetch',
         };
 
         cachedOrderDetails[currentTableName] = cacheData;
@@ -349,7 +363,9 @@ async function executeAPIFetch() {
 
         // Show completion message
         const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
-        alert(`Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
+        alert(
+            `Hoàn thành!\n- Đã tải: ${fetchedOrders.length}/${total} đơn hàng\n- Lỗi: ${errors}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`
+        );
 
         // Switch to details tab
         switchMainTab('details');
@@ -373,11 +389,19 @@ async function _fetchViaExcel(orders) {
 
         // Use campaignId from first order if available
         const campaignId = orders[0]?.LiveCampaignId || '';
-        const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile', {
-            method: 'POST',
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: '{}', campaignId: campaignId ? String(campaignId) : '', postId: '', ids: '' })
-        });
+        const resp = await fetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/SaleOnline_Order/ExportFile',
+            {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: '{}',
+                    campaignId: campaignId ? String(campaignId) : '',
+                    postId: '',
+                    ids: '',
+                }),
+            }
+        );
 
         if (!resp.ok) return null;
 
@@ -387,25 +411,44 @@ async function _fetchViaExcel(orders) {
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         // Find header
-        let headerIdx = -1, colCode = -1, colName = -1, colPhone = -1;
-        let colAddress = -1, colProducts = -1, colTotalQty = -1, colTotal = -1, colStatus = -1, colDate = -1, colNote = -1;
+        let headerIdx = -1,
+            colCode = -1,
+            colName = -1,
+            colPhone = -1;
+        let colAddress = -1,
+            colProducts = -1,
+            colTotalQty = -1,
+            colTotal = -1,
+            colStatus = -1,
+            colDate = -1,
+            colNote = -1;
 
         for (let i = 0; i < Math.min(rows.length, 10); i++) {
-            const row = (rows[i] || []).map(c => String(c || '').toLowerCase().trim());
-            const maIdx = row.findIndex(c => c === 'ma' || c === 'mã');
-            const spIdx = row.findIndex(c => c.includes('san pham') || c.includes('sản phẩm'));
+            const row = (rows[i] || []).map((c) =>
+                String(c || '')
+                    .toLowerCase()
+                    .trim()
+            );
+            const maIdx = row.findIndex((c) => c === 'ma' || c === 'mã');
+            const spIdx = row.findIndex((c) => c.includes('san pham') || c.includes('sản phẩm'));
             if (maIdx >= 0 && spIdx >= 0) {
                 headerIdx = i;
                 colCode = maIdx;
                 colProducts = spIdx;
-                colName = row.findIndex(c => c === 'ten' || c === 'tên');
-                colPhone = row.findIndex(c => c.includes('dien thoai') || c.includes('điện thoại'));
-                colAddress = row.findIndex(c => c.includes('dia chi') || c.includes('địa chỉ'));
-                colTotalQty = row.findIndex(c => c.includes('tong so luong') || c.includes('tổng số lượng'));
-                colTotal = row.findIndex(c => c.includes('tong tien') || c.includes('tổng tiền'));
-                colStatus = row.findIndex(c => c.includes('trang thai') || c.includes('trạng thái'));
-                colDate = row.findIndex(c => c.includes('ngay tao') || c.includes('ngày tạo'));
-                colNote = row.findIndex(c => c.includes('ghi chu') || c.includes('ghi chú'));
+                colName = row.findIndex((c) => c === 'ten' || c === 'tên');
+                colPhone = row.findIndex(
+                    (c) => c.includes('dien thoai') || c.includes('điện thoại')
+                );
+                colAddress = row.findIndex((c) => c.includes('dia chi') || c.includes('địa chỉ'));
+                colTotalQty = row.findIndex(
+                    (c) => c.includes('tong so luong') || c.includes('tổng số lượng')
+                );
+                colTotal = row.findIndex((c) => c.includes('tong tien') || c.includes('tổng tiền'));
+                colStatus = row.findIndex(
+                    (c) => c.includes('trang thai') || c.includes('trạng thái')
+                );
+                colDate = row.findIndex((c) => c.includes('ngay tao') || c.includes('ngày tạo'));
+                colNote = row.findIndex((c) => c.includes('ghi chu') || c.includes('ghi chú'));
                 break;
             }
         }
@@ -414,7 +457,9 @@ async function _fetchViaExcel(orders) {
 
         // Build orderId lookup
         const codeToOrder = new Map();
-        orders.forEach(o => { if (o.Code) codeToOrder.set(String(o.Code).trim(), o); });
+        orders.forEach((o) => {
+            if (o.Code) codeToOrder.set(String(o.Code).trim(), o);
+        });
 
         const result = [];
         for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -435,7 +480,10 @@ async function _fetchViaExcel(orders) {
                 Telephone: colPhone >= 0 ? String(row[colPhone] || '') : srcOrder.Telephone || '',
                 Address: colAddress >= 0 ? String(row[colAddress] || '') : '',
                 TotalQuantity: colTotalQty >= 0 ? parseInt(row[colTotalQty]) || 0 : 0,
-                AmountTotal: colTotal >= 0 ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0 : 0,
+                AmountTotal:
+                    colTotal >= 0
+                        ? parseFloat(String(row[colTotal] || '0').replace(/[.,]/g, '')) || 0
+                        : 0,
                 Details: details,
                 Tags: srcOrder.Tags || '',
                 SessionIndex: srcOrder.stt || '',
@@ -444,7 +492,6 @@ async function _fetchViaExcel(orders) {
 
         console.log(`[REPORT] Excel parsed: ${result.length} orders`);
         return result.length > 0 ? result : null;
-
     } catch (err) {
         console.warn('[REPORT] Excel fetch error:', err.message);
         return null;
@@ -453,22 +500,32 @@ async function _fetchViaExcel(orders) {
 
 function _parseProductsFromText(text) {
     if (!text || !text.trim()) return [];
-    return text.split(/\n|\r\n/).filter(l => l.trim()).map(line => {
-        const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
-        if (match) {
+    return text
+        .split(/\n|\r\n/)
+        .filter((l) => l.trim())
+        .map((line) => {
+            const match = line.match(/^\[([^\]]+)\]\s*(.+?)\s+SL:\s*(\d+)\s+Gia:\s*([\d.,]+)/i);
+            if (match) {
+                return {
+                    ProductCode: match[1].trim(),
+                    productCode: match[1].trim(),
+                    ProductName: match[2].trim(),
+                    ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
+                    Quantity: parseInt(match[3]) || 1,
+                    ProductUOMQty: parseInt(match[3]) || 1,
+                    Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                    PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                };
+            }
             return {
-                ProductCode: match[1].trim(),
-                productCode: match[1].trim(),
-                ProductName: match[2].trim(),
-                ProductNameGet: `[${match[1].trim()}] ${match[2].trim()}`,
-                Quantity: parseInt(match[3]) || 1,
-                ProductUOMQty: parseInt(match[3]) || 1,
-                Price: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
-                PriceUnit: parseFloat(match[4].replace(/\./g, '').replace(',', '.')) || 0,
+                ProductCode: '',
+                productCode: '',
+                ProductName: line.trim(),
+                Quantity: 1,
+                Price: 0,
             };
-        }
-        return { ProductCode: '', productCode: '', ProductName: line.trim(), Quantity: 1, Price: 0 };
-    }).filter(d => d.ProductName);
+        })
+        .filter((d) => d.ProductName);
 }
 
 // =====================================================
@@ -481,8 +538,8 @@ async function fetchOrderData(orderId) {
     const response = await API_CONFIG.smartFetch(apiUrl, {
         headers: {
             ...headers,
-            "Content-Type": "application/json",
-            Accept: "application/json",
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
         },
     });
 
@@ -559,12 +616,14 @@ function renderCachedDetailsTab() {
     const fetchedAt = new Date(cached.fetchedAt);
 
     // Build filter badge HTML if filter is active
-    const filterBadgeHtml = currentProductFilter ? `
+    const filterBadgeHtml = currentProductFilter
+        ? `
         <span class="product-filter-badge">
             <i class="fas fa-filter"></i> "${currentProductFilter}" (${filteredOrders.length} đơn)
             <button class="clear-btn" onclick="clearProductFilter()" title="Xóa bộ lọc">×</button>
         </span>
-    ` : '';
+    `
+        : '';
 
     // Build validation warning HTML
     let validationHtml = '';
@@ -575,37 +634,55 @@ function renderCachedDetailsTab() {
                     <i class="fas fa-exclamation-triangle" style="color: #dc2626; font-size: 24px;"></i>
                     <strong style="color: #dc2626; font-size: 16px;">Phát hiện lỗi dữ liệu!</strong>
                 </div>
-                ${validation.duplicateSTT.length > 0 ? `
+                ${
+                    validation.duplicateSTT.length > 0
+                        ? `
                     <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #ef4444;">
                         <strong style="color: #dc2626;"><i class="fas fa-copy"></i> STT trùng (${validation.duplicateSTT.length}):</strong>
                         <span style="color: #991b1b;">${validation.duplicateSTT.slice(0, 20).join(', ')}${validation.duplicateSTT.length > 20 ? '...' : ''}</span>
                     </div>
-                ` : ''}
-                ${validation.duplicateCodes.length > 0 ? `
+                `
+                        : ''
+                }
+                ${
+                    validation.duplicateCodes.length > 0
+                        ? `
                     <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #ef4444;">
                         <strong style="color: #dc2626;"><i class="fas fa-barcode"></i> Mã đơn trùng (${validation.duplicateCodes.length}):</strong>
                         <span style="color: #991b1b;">${validation.duplicateCodes.slice(0, 10).join(', ')}${validation.duplicateCodes.length > 10 ? '...' : ''}</span>
                     </div>
-                ` : ''}
-                ${validation.missingSTT.length > 0 ? `
+                `
+                        : ''
+                }
+                ${
+                    validation.missingSTT.length > 0
+                        ? `
                     <div style="background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #f97316;">
                         <strong style="color: #c2410c;"><i class="fas fa-search-minus"></i> Thiếu STT (${validation.missingSTT.length}):</strong>
                         <span style="color: #9a3412;">${formatMissingSTT(validation.missingSTT)}</span>
                     </div>
-                ` : ''}
-                ${validation.extraSTT > 0 ? `
+                `
+                        : ''
+                }
+                ${
+                    validation.extraSTT > 0
+                        ? `
                     <div style="background: white; padding: 10px; border-radius: 8px; border-left: 4px solid #f97316;">
                         <strong style="color: #c2410c;"><i class="fas fa-search-plus"></i> Thừa đơn:</strong>
                         <span style="color: #9a3412;">Có ${validation.extraSTT} đơn thừa so với STT cao nhất (${validation.maxSTT})</span>
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
     }
 
     // Build info section with conditional error styling
     const infoClass = validation.hasErrors ? 'cached-info error' : 'cached-info';
-    const infoStyle = validation.hasErrors ? 'background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-color: #ef4444;' : '';
+    const infoStyle = validation.hasErrors
+        ? 'background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-color: #ef4444;'
+        : '';
     const textColor = validation.hasErrors ? 'color: #dc2626;' : '';
 
     let html = `
@@ -676,14 +753,19 @@ function renderCachedDetailsTab() {
     filteredOrders.forEach((item) => {
         const order = item.order;
         const originalIndex = item.originalIndex;
-        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
+        const productCount = order.TotalQuantity ?? order.Details?.length ?? 0;
         const tagsHtml = parseOrderTagsHtml(order.Tags);
         const stt = order.SessionIndex || originalIndex + 1;
 
         // Highlight duplicate STT or Code
-        const isDuplicateSTT = validation.duplicateSTTSet && validation.duplicateSTTSet.has(parseInt(stt));
-        const isDuplicateCode = validation.duplicateCodesSet && validation.duplicateCodesSet.has(order.Code);
-        const rowStyle = (isDuplicateSTT || isDuplicateCode) ? 'background: #fef2f2; border-left: 3px solid #ef4444;' : '';
+        const isDuplicateSTT =
+            validation.duplicateSTTSet && validation.duplicateSTTSet.has(parseInt(stt));
+        const isDuplicateCode =
+            validation.duplicateCodesSet && validation.duplicateCodesSet.has(order.Code);
+        const rowStyle =
+            isDuplicateSTT || isDuplicateCode
+                ? 'background: #fef2f2; border-left: 3px solid #ef4444;'
+                : '';
         const sttStyle = isDuplicateSTT ? 'color: #dc2626; font-weight: bold;' : '';
         const codeStyle = isDuplicateCode ? 'color: #dc2626; font-weight: bold;' : '';
 
@@ -728,7 +810,7 @@ function validateOrderData(orders) {
         duplicateCodesSet: new Set(),
         missingSTT: [],
         extraSTT: 0,
-        maxSTT: 0
+        maxSTT: 0,
     };
 
     if (!orders || orders.length === 0) return result;
@@ -738,7 +820,7 @@ function validateOrderData(orders) {
     const codeCount = new Map();
     let maxSTT = 0;
 
-    orders.forEach(order => {
+    orders.forEach((order) => {
         const stt = parseInt(order.SessionIndex) || 0;
         const code = order.Code || '';
 
@@ -786,7 +868,8 @@ function validateOrderData(orders) {
     }
 
     // Mark if has errors
-    result.hasErrors = result.duplicateSTT.length > 0 ||
+    result.hasErrors =
+        result.duplicateSTT.length > 0 ||
         result.duplicateCodes.length > 0 ||
         result.missingSTT.length > 0 ||
         result.extraSTT > 0;
@@ -833,7 +916,7 @@ function filterOrdersByProduct(orders, searchTerm) {
     orders.forEach((order, index) => {
         const details = order.Details || [];
         // Check if any product in the order matches the search term
-        const hasMatchingProduct = details.some(product => {
+        const hasMatchingProduct = details.some((product) => {
             const productCode = (product.ProductCode || '').toLowerCase();
             const productName = (product.ProductName || '').toLowerCase();
             return productCode.includes(term) || productName.includes(term);
@@ -872,7 +955,11 @@ async function reloadFromExcel() {
         return;
     }
 
-    if (!confirm(`Tải lại dữ liệu từ file Excel cho "${currentTableName}"?\n\nThao tác này sẽ:\n1. Xóa cache hiện tại\n2. Tải lại từ file Excel\n3. Lưu lên Firebase`)) {
+    if (
+        !confirm(
+            `Tải lại dữ liệu từ file Excel cho "${currentTableName}"?\n\nThao tác này sẽ:\n1. Xóa cache hiện tại\n2. Tải lại từ file Excel\n3. Lưu lên Firebase`
+        )
+    ) {
         return;
     }
 
@@ -910,7 +997,7 @@ async function reloadFromExcel() {
             totalOrders: orders.length,
             successCount: orders.length,
             errorCount: 0,
-            _source: 'excel_reload'
+            _source: 'excel_reload',
         };
 
         // Step 5: Save to cache
@@ -932,8 +1019,9 @@ async function reloadFromExcel() {
 
         // Show success message
         const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
-        alert(`✅ Tải lại thành công!\n\n- Số đơn hàng: ${orders.length}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`);
-
+        alert(
+            `✅ Tải lại thành công!\n\n- Số đơn hàng: ${orders.length}\n- Bảng: ${currentTableName}\n- ${firebaseMsg}`
+        );
     } catch (error) {
         console.error('[REPORT] ❌ Error reloading from Excel:', error);
         alert(`❌ Lỗi tải lại từ Excel:\n${error.message}`);
@@ -979,8 +1067,8 @@ function updateStats() {
     const uniqueProductCodes = new Set();
     const cached = currentTableName && cachedOrderDetails[currentTableName];
     if (cached && cached.orders) {
-        cached.orders.forEach(order => {
-            (order.Details || []).forEach(d => {
+        cached.orders.forEach((order) => {
+            (order.Details || []).forEach((d) => {
                 const code = d.ProductCode || d.productCode || '';
                 if (code) uniqueProductCodes.add(code);
             });
@@ -988,25 +1076,31 @@ function updateStats() {
     }
     // Also check allOrders if they have Details loaded (from OrderStore enrichment)
     if (uniqueProductCodes.size === 0) {
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             const storeOrder = window.OrderStore?.get(order.orderId);
             if (storeOrder?.Details) {
-                storeOrder.Details.forEach(d => {
-                    const code = d.ProductCode || d.ProductNameGet?.match(/\[([^\]]+)\]/)?.[1] || '';
+                storeOrder.Details.forEach((d) => {
+                    const code =
+                        d.ProductCode || d.ProductNameGet?.match(/\[([^\]]+)\]/)?.[1] || '';
                     if (code) uniqueProductCodes.add(code);
                 });
             }
         });
     }
 
-    const uniqueCustomers = new Set(allOrders.map(order => order.Telephone || order.PartnerPhone).filter(Boolean));
+    const uniqueCustomers = new Set(
+        allOrders.map((order) => order.Telephone || order.PartnerPhone).filter(Boolean)
+    );
 
     document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
-    document.getElementById('statTotalProducts').textContent = totalProducts.toLocaleString('vi-VN');
-    document.getElementById('statUniqueProducts').textContent = uniqueProductCodes.size > 0
-        ? uniqueProductCodes.size.toLocaleString('vi-VN') + ' mã SP'
-        : '';
-    document.getElementById('statTotalCustomers').textContent = uniqueCustomers.size.toLocaleString('vi-VN');
+    document.getElementById('statTotalProducts').textContent =
+        totalProducts.toLocaleString('vi-VN');
+    document.getElementById('statUniqueProducts').textContent =
+        uniqueProductCodes.size > 0
+            ? uniqueProductCodes.size.toLocaleString('vi-VN') + ' mã SP'
+            : '';
+    document.getElementById('statTotalCustomers').textContent =
+        uniqueCustomers.size.toLocaleString('vi-VN');
 }
 
 function formatCurrency(amount) {
@@ -1017,7 +1111,6 @@ function formatCurrency(amount) {
     }
     return amount.toLocaleString('vi-VN');
 }
-
 
 // =====================================================
 // ORDER DETAIL MODAL
@@ -1103,12 +1196,16 @@ function renderOrderDetailModal(basicOrder, fullOrder) {
                 </div>
             </div>
 
-            ${order.Note ? `
+            ${
+                order.Note
+                    ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 10px;">
                     <div class="label" style="margin-bottom: 10px;"><i class="fas fa-sticky-note"></i> Ghi chú</div>
                     <div style="white-space: pre-wrap;">${order.Note}</div>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
         </div>
 
         <div class="tab-content" id="modalTabProducts">
@@ -1155,8 +1252,10 @@ function renderProductsList(products) {
                 <tbody>`;
 
     products.forEach((product, index) => {
-        const name = product.ProductName || product.ProductNameGet || product.name || product.nameGet || '';
-        const code = product.ProductCode || product.productCode || product.Code || product.code || '';
+        const name =
+            product.ProductName || product.ProductNameGet || product.name || product.nameGet || '';
+        const code =
+            product.ProductCode || product.productCode || product.Code || product.code || '';
         const qty = product.Quantity || product.ProductUOMQty || product.quantity || 0;
         const price = product.Price || product.PriceUnit || product.price || 0;
         const subtotal = price * qty;
@@ -1170,10 +1269,11 @@ function renderProductsList(products) {
             <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 10px; text-align: center; color: #64748b;">${index + 1}</td>
                 <td style="padding: 10px; text-align: center;">
-                    ${image
-                ? `<img src="${image}" alt="${name}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;">`
-                : `<div style="width: 45px; height: 45px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #cbd5e1;"></i></div>`
-            }
+                    ${
+                        image
+                            ? `<img src="${image}" alt="${name}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;">`
+                            : `<div style="width: 45px; height: 45px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #cbd5e1;"></i></div>`
+                    }
                 </td>
                 <td style="padding: 10px;">
                     <div style="font-weight: 600; color: #1e293b;">${name}</div>
@@ -1206,12 +1306,16 @@ function renderProductsList(products) {
 }
 
 function switchModalTab(tabName) {
-    document.querySelectorAll('#modalBody .tab-btn').forEach(btn => btn.classList.remove('active'));
+    document
+        .querySelectorAll('#modalBody .tab-btn')
+        .forEach((btn) => btn.classList.remove('active'));
     document.querySelector(`#modalBody .tab-btn[onclick*="${tabName}"]`).classList.add('active');
 
-    document.querySelectorAll('#modalBody .tab-content').forEach(content => content.classList.remove('active'));
+    document
+        .querySelectorAll('#modalBody .tab-content')
+        .forEach((content) => content.classList.remove('active'));
 
-    const tabMap = { 'info': 'modalTabInfo', 'products': 'modalTabProducts', 'json': 'modalTabJson' };
+    const tabMap = { info: 'modalTabInfo', products: 'modalTabProducts', json: 'modalTabJson' };
     document.getElementById(tabMap[tabName]).classList.add('active');
 }
 
@@ -1222,7 +1326,7 @@ function closeOrderDetailModal() {
 // Function để mở modal chi tiết đơn hàng chỉ với orderId (cho discount stats UI)
 async function openOrderDetailById(orderId) {
     // Tìm order trong allOrders
-    const index = allOrders.findIndex(o => o.orderId === orderId || o.Id === orderId);
+    const index = allOrders.findIndex((o) => o.orderId === orderId || o.Id === orderId);
 
     if (index >= 0) {
         // Tìm thấy trong cache, gọi function cũ
@@ -1247,7 +1351,7 @@ async function openOrderDetailById(orderId) {
                 orderId: orderId,
                 orderCode: fullOrderData?.Code || '',
                 customerName: fullOrderData?.Name || '',
-                stt: fullOrderData?.SessionIndex || ''
+                stt: fullOrderData?.SessionIndex || '',
             };
             renderOrderDetailModal(basicOrder, fullOrderData);
         } catch (error) {
@@ -1302,19 +1406,25 @@ function parseOrderTagsHtml(tagsData, order = null) {
                 }
             } catch (e) {
                 // Not JSON - treat as comma-separated string (from Excel)
-                tags = tagsData.split(',').map(t => t.trim()).filter(t => t).map(name => ({
-                    Name: name,
-                    Color: getTagColor(name)
-                }));
+                tags = tagsData
+                    .split(',')
+                    .map((t) => t.trim())
+                    .filter((t) => t)
+                    .map((name) => ({
+                        Name: name,
+                        Color: getTagColor(name),
+                    }));
             }
         }
 
         if (tags.length > 0) {
-            html += tags.map(tag => {
-                const tagName = tag.Name || tag.name || tag;
-                const tagColor = tag.Color || tag.color || getTagColor(tagName);
-                return `<span class="order-tag" style="background-color: ${tagColor};" title="${tagName}">${tagName}</span>`;
-            }).join('');
+            html += tags
+                .map((tag) => {
+                    const tagName = tag.Name || tag.name || tag;
+                    const tagColor = tag.Color || tag.color || getTagColor(tagName);
+                    return `<span class="order-tag" style="background-color: ${tagColor};" title="${tagName}">${tagName}</span>`;
+                })
+                .join('');
         }
 
         return html;
@@ -1359,21 +1469,24 @@ function syntaxHighlightJSON(obj) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-            let cls = 'json-number';
-            if (/^"/.test(match)) {
-                if (/:$/.test(match)) {
-                    cls = 'json-key';
-                } else {
-                    cls = 'json-string';
+        .replace(
+            /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+            function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
                 }
-            } else if (/true|false/.test(match)) {
-                cls = 'json-boolean';
-            } else if (/null/.test(match)) {
-                cls = 'json-null';
+                return '<span class="' + cls + '">' + match + '</span>';
             }
-            return '<span class="' + cls + '">' + match + '</span>';
-        });
+        );
 }
 
 // =====================================================
@@ -1403,7 +1516,9 @@ function openSaveReportModal() {
     // Set default name suggestion
     const now = new Date();
     const dateStr = now.toLocaleDateString('vi-VN').replace(/\//g, '-');
-    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+    const timeStr = now
+        .toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        .replace(':', 'h');
     const suggestedName = `${currentTableName} - Bản lưu ${dateStr} ${timeStr}`;
 
     document.getElementById('saveReportName').value = suggestedName;
@@ -1425,8 +1540,8 @@ function openDataSourceModal() {
 
     // Add click handlers to options
     const options = modal.querySelectorAll('.data-source-option');
-    options.forEach(option => {
-        option.onclick = function() {
+    options.forEach((option) => {
+        option.onclick = function () {
             const choice = this.getAttribute('data-choice');
             handleDataSourceChoice(choice);
         };
@@ -1472,7 +1587,7 @@ async function confirmSaveReport() {
             errorCount: currentData.errorCount || 0,
             fetchedAt: new Date().toISOString(),
             isSavedCopy: true,
-            originalCampaign: currentTableName
+            originalCampaign: currentTableName,
         });
 
         console.log(`[REPORT] ✅ Saved report copy: ${reportName}`);
@@ -1482,7 +1597,6 @@ async function confirmSaveReport() {
 
         // Reload dropdown to show new saved copy
         await loadAvailableTables();
-
     } catch (error) {
         console.error('[REPORT] ❌ Error saving report copy:', error);
         alert('Lỗi khi lưu bản sao: ' + error.message);
@@ -1530,10 +1644,12 @@ async function loadAllReportsForManagement() {
             return dateB - dateA;
         });
 
-        reports.forEach(report => {
+        reports.forEach((report) => {
             const originalName = report.tableName;
             const orderCount = report.totalOrders || 0;
-            const fetchedAt = report.fetchedAt ? new Date(report.fetchedAt).toLocaleString('vi-VN') : '-';
+            const fetchedAt = report.fetchedAt
+                ? new Date(report.fetchedAt).toLocaleString('vi-VN')
+                : '-';
             const isSavedCopy = report.isSavedCopy || false;
             const safeTableName = originalName.replace(/[.$#\[\]\/]/g, '_');
 
@@ -1570,7 +1686,6 @@ async function loadAllReportsForManagement() {
 
         document.getElementById('manageReportsLoading').style.display = 'none';
         document.getElementById('manageReportsList').style.display = 'block';
-
     } catch (error) {
         console.error('[REPORT] ❌ Error loading reports for management:', error);
         document.getElementById('manageReportsLoading').innerHTML = `
@@ -1603,7 +1718,6 @@ async function deleteReport(safeTableName, displayName, isSavedCopy) {
         await loadAvailableTables();
 
         alert(`Đã xóa "${displayName}" thành công!`);
-
     } catch (error) {
         console.error('[REPORT] ❌ Error deleting report:', error);
         alert('Lỗi khi xóa: ' + error.message);
@@ -1652,16 +1766,18 @@ async function syncAllDataFromTab1() {
         await requestFreshDataFromTab1();
 
         // Wait a bit for data to arrive
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
         // Now allOrders should have fresh data from Tab1
         if (allOrders.length === 0) {
-            throw new Error('Không nhận được dữ liệu từ Tab Quản lý đơn hàng. Vui lòng đảm bảo tab này đang mở.');
+            throw new Error(
+                'Không nhận được dữ liệu từ Tab Quản lý đơn hàng. Vui lòng đảm bảo tab này đang mở.'
+            );
         }
 
         // Build a map of orderId -> order data from allOrders (Tab1)
         const ordersMap = new Map();
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             const orderId = order.orderId || order.Id;
             if (orderId) {
                 ordersMap.set(orderId, order);
@@ -1672,7 +1788,7 @@ async function syncAllDataFromTab1() {
 
         // Update ONLY specific fields in cachedOrderDetails
         let updatedCount = 0;
-        currentData.orders.forEach(cachedOrder => {
+        currentData.orders.forEach((cachedOrder) => {
             const orderId = cachedOrder.Id || cachedOrder.orderId;
 
             if (ordersMap.has(orderId)) {
@@ -1723,8 +1839,9 @@ async function syncAllDataFromTab1() {
         updateCachedCountBadge();
 
         // Show success message
-        alert(`Đã đồng bộ thành công!\n\n✅ Cập nhật: ${updatedCount}/${currentData.orders.length} đơn hàng\n\nCác trường đã cập nhật:\n- Tags\n- TotalAmount\n- Status\n- SL`);
-
+        alert(
+            `Đã đồng bộ thành công!\n\n✅ Cập nhật: ${updatedCount}/${currentData.orders.length} đơn hàng\n\nCác trường đã cập nhật:\n- Tags\n- TotalAmount\n- Status\n- SL`
+        );
     } catch (error) {
         console.error('[REPORT] ❌ Error syncing data:', error);
         alert('Lỗi khi đồng bộ dữ liệu: ' + error.message);
@@ -1740,9 +1857,12 @@ async function syncAllDataFromTab1() {
 function requestFreshDataFromTab1() {
     return new Promise((resolve) => {
         console.log('[REPORT] 🔄 Requesting fresh data from Tab1...');
-        window.parent.postMessage({
-            type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW',
+            },
+            '*'
+        );
 
         // Resolve after a timeout (data will arrive via message listener)
         setTimeout(resolve, 500);
@@ -1770,7 +1890,6 @@ async function downloadProductPriceExcel() {
         await window.standardPriceManager.fetchProducts(true);
 
         console.log('[STANDARD-PRICE] Cache refresh completed successfully!');
-
     } catch (error) {
         console.error('[STANDARD-PRICE] Cache refresh error:', error);
         if (window.notificationManager) {
@@ -1790,7 +1909,7 @@ async function downloadProductPriceExcel() {
 const OVERVIEW_FULFILLMENT_COLORS = {
     da_ra_don: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
     cho_ra_don: { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
-    huy_cho_ra_don: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
+    huy_cho_ra_don: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
 };
 
 /**
@@ -1865,15 +1984,18 @@ function openOverviewFulfillmentModal(orderId, orderCode) {
     `;
 
     if (timeline.length === 0) {
-        html += '<div style="text-align: center; color: #9ca3af; padding: 32px;">Chưa có lịch sử ra đơn</div>';
+        html +=
+            '<div style="text-align: center; color: #9ca3af; padding: 32px;">Chưa có lịch sử ra đơn</div>';
     } else {
         html += '<div>';
-        timeline.forEach(event => {
+        timeline.forEach((event) => {
             const isCreate = event.type === 'create';
             const eventColor = isCreate ? '#059669' : '#dc2626';
             const eventBg = isCreate ? '#ecfdf5' : '#fef2f2';
             const eventIcon = isCreate ? '✓' : '✕';
-            const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleString('vi-VN') : 'N/A';
+            const timeStr = event.timestamp
+                ? new Date(event.timestamp).toLocaleString('vi-VN')
+                : 'N/A';
 
             html += `
                 <div style="border-left: 3px solid ${eventColor}; background: ${eventBg};
@@ -1928,7 +2050,8 @@ function openOverviewFulfillmentModal(orderId, orderCode) {
     }
 
     modal.style.display = 'block';
-    document.getElementById('overviewFulfillmentTitle').textContent = `Lịch sử ra đơn - ${orderCode || orderId}`;
+    document.getElementById('overviewFulfillmentTitle').textContent =
+        `Lịch sử ra đơn - ${orderCode || orderId}`;
     document.getElementById('overviewFulfillmentBody').innerHTML = html;
 }
 

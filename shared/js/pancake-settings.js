@@ -7,7 +7,7 @@
 // ====== PANCAKE SETTINGS ======
 
 // Open Pancake Settings Modal
-window.openPancakeSettingsModal = async function() {
+window.openPancakeSettingsModal = async function () {
     document.getElementById('pancakeSettingsModal').style.display = 'flex';
 
     // Check admin permission and show/hide buttons accordingly
@@ -30,27 +30,27 @@ window.openPancakeSettingsModal = async function() {
 };
 
 // Close Pancake Settings Modal
-window.closePancakeSettingsModal = function() {
+window.closePancakeSettingsModal = function () {
     document.getElementById('pancakeSettingsModal').style.display = 'none';
     window.hideAddAccountForm();
 };
 
 // Show Add Account Form
-window.showAddAccountForm = function() {
+window.showAddAccountForm = function () {
     document.getElementById('addAccountForm').style.display = 'block';
     document.getElementById('newAccountTokenInput').value = '';
     document.getElementById('newAccountTokenInput').focus();
 };
 
 // Hide Add Account Form
-window.hideAddAccountForm = function() {
+window.hideAddAccountForm = function () {
     document.getElementById('addAccountForm').style.display = 'none';
     document.getElementById('newAccountTokenInput').value = '';
     document.getElementById('tokenValidationMessage').style.display = 'none';
 };
 
 // Validate Token Input (real-time)
-window.validateTokenInput = function() {
+window.validateTokenInput = function () {
     const input = document.getElementById('newAccountTokenInput').value;
     const messageDiv = document.getElementById('tokenValidationMessage');
 
@@ -101,9 +101,9 @@ window.validateTokenInput = function() {
             }
         }
 
-        messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
+        messageDiv.innerHTML =
+            '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
         messageDiv.style.display = 'block';
-
     } catch (error) {
         messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
         messageDiv.style.display = 'block';
@@ -111,7 +111,7 @@ window.validateTokenInput = function() {
 };
 
 // Debug Token Input
-window.debugTokenInput = function() {
+window.debugTokenInput = function () {
     const input = document.getElementById('newAccountTokenInput').value;
 
     if (!input || input.trim() === '') {
@@ -179,7 +179,7 @@ window.debugTokenInput = function() {
 };
 
 // Refresh Accounts List
-window.refreshAccountsList = async function() {
+window.refreshAccountsList = async function () {
     try {
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
@@ -207,7 +207,9 @@ window.refreshAccountsList = async function() {
             const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
             const statusColor = isExpired ? '#ef4444' : '#10b981';
             const statusText = isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
-            const activeStyle = isActive ? 'border: 2px solid #3b82f6; background: #eff6ff;' : 'border: 1px solid #e5e7eb; background: white;';
+            const activeStyle = isActive
+                ? 'border: 2px solid #3b82f6; background: #eff6ff;'
+                : 'border: 1px solid #e5e7eb; background: white;';
 
             html += `
                 <div style="padding: 12px; ${activeStyle} border-radius: 8px; margin-bottom: 8px;">
@@ -234,23 +236,35 @@ window.refreshAccountsList = async function() {
                         </div>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        ${!isActive && !isExpired ? `
+                        ${
+                            !isActive && !isExpired
+                                ? `
                             <button onclick="selectAccount('${accountId}')"
                                 style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
                                 <i class="fas fa-check"></i> Chọn
                             </button>
-                        ` : ''}
-                        ${isActive ? `
+                        `
+                                : ''
+                        }
+                        ${
+                            isActive
+                                ? `
                             <span style="padding: 4px 10px; background: #3b82f6; color: white; border-radius: 4px; font-size: 11px;">
                                 <i class="fas fa-star"></i> Đang dùng
                             </span>
-                        ` : ''}
-                        ${isAdmin ? `
+                        `
+                                : ''
+                        }
+                        ${
+                            isAdmin
+                                ? `
                             <button onclick="deleteAccount('${accountId}')"
                                 style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
                                 <i class="fas fa-trash"></i> Xóa
                             </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
                 </div>
             `;
@@ -268,7 +282,9 @@ window.refreshAccountsList = async function() {
             const div = document.getElementById(`accountPages_${accountId}`);
             const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
             if (isExpired || !account.token) {
-                if (div) div.innerHTML = '<span style="color: #ef4444; font-size: 11px;">Token hết hạn</span>';
+                if (div)
+                    div.innerHTML =
+                        '<span style="color: #ef4444; font-size: 11px;">Token hết hạn</span>';
                 continue;
             }
 
@@ -281,7 +297,6 @@ window.refreshAccountsList = async function() {
             // Cache miss or last_status !== 'ok' → live verify
             fetchPagesForAccount(accountId, account.token, account);
         }
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
         document.getElementById('pancakeAccountsList').innerHTML = `
@@ -307,7 +322,12 @@ async function loadAccountPagesCache() {
             const data = await r.json();
             const map = data.accounts || {};
             // Mirror to localStorage for offline fallback
-            try { localStorage.setItem(PAGES_CACHE_LS_KEY, JSON.stringify({ ts: Date.now(), accounts: map })); } catch (_) {}
+            try {
+                localStorage.setItem(
+                    PAGES_CACHE_LS_KEY,
+                    JSON.stringify({ ts: Date.now(), accounts: map })
+                );
+            } catch (_) {}
             return map;
         }
         console.warn('[PANCAKE-SETTINGS] Pages cache GET non-OK:', r.status);
@@ -332,17 +352,25 @@ function renderPagesIntoDiv(div, pages, opts = {}) {
         div.innerHTML = '<span style="color: #f59e0b;">⚠️ 0 pages</span>';
         return;
     }
-    const pageNames = pages.map(p =>
-        `<span style="display: inline-block; padding: 1px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; margin: 1px 2px; font-size: 10px;">${escapeHtml(p.name || p.id)}</span>`
-    ).join('');
-    const cacheBadge = opts.fromCache ? ' <span title="Từ cache Render" style="font-size:9px;color:#10b981;">●</span>' : '';
+    const pageNames = pages
+        .map(
+            (p) =>
+                `<span style="display: inline-block; padding: 1px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; margin: 1px 2px; font-size: 10px;">${escapeHtml(p.name || p.id)}</span>`
+        )
+        .join('');
+    const cacheBadge = opts.fromCache
+        ? ' <span title="Từ cache Render" style="font-size:9px;color:#10b981;">●</span>'
+        : '';
     div.innerHTML = `<i class="fas fa-file-alt" style="color: #8b5cf6; font-size: 10px;"></i> <strong>${pages.length} pages</strong>${cacheBadge}: ${pageNames}`;
     div.style.color = '#374151';
 }
 
 if (!window.escapeHtml) {
-    window.escapeHtml = function(s) {
-        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    window.escapeHtml = function (s) {
+        return String(s ?? '').replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
     };
 }
 
@@ -378,14 +406,16 @@ async function fetchPagesForAccount(accountId, token, accountMeta = null) {
             const response = await fetch(url);
             const httpStatus = response.status;
             let data = null;
-            try { data = await response.json(); } catch (parseErr) {
+            try {
+                data = await response.json();
+            } catch (parseErr) {
                 throw new Error(`JSON parse failed (HTTP ${httpStatus}): ${parseErr.message}`);
             }
 
             if (data && data.success && data.categorized?.activated) {
                 const pages = data.categorized.activated
-                    .filter(p => !p.id.startsWith('igo_'))
-                    .map(p => ({ id: p.id, name: p.name, type: p.type || null }));
+                    .filter((p) => !p.id.startsWith('igo_'))
+                    .map((p) => ({ id: p.id, name: p.name, type: p.type || null }));
                 renderPagesIntoDiv(div, pages, { fromCache: false });
                 // Push successful verify to cache
                 pushAccountPagesCache(accountId, { ...meta, pages, lastStatus: 'ok' });
@@ -394,16 +424,28 @@ async function fetchPagesForAccount(accountId, token, accountMeta = null) {
 
             // 'success' but no pages OR success false → auth/empty (NOT a network error → no retry)
             const errDetail = data?.error || data?.message || `success=${data?.success}`;
-            console.warn(`[PANCAKE-SETTINGS] fetchPages non-ok for ${accountId}:`, { httpStatus, errDetail, dataKeys: data ? Object.keys(data) : [] });
+            console.warn(`[PANCAKE-SETTINGS] fetchPages non-ok for ${accountId}:`, {
+                httpStatus,
+                errDetail,
+                dataKeys: data ? Object.keys(data) : [],
+            });
             const status = data?.success === false ? 'auth_failed' : 'empty';
             div.innerHTML = `<span style="color: #f59e0b;" title="${escapeHtml(errDetail)}">⚠️ Không thể kiểm tra (${status})</span> <a href="javascript:void(0)" onclick="window._reverifyPancakeAccount('${accountId}')" style="font-size:10px;color:#3b82f6;">🔄</a>`;
-            pushAccountPagesCache(accountId, { ...meta, pages: [], lastStatus: status, errorDetail: errDetail });
+            pushAccountPagesCache(accountId, {
+                ...meta,
+                pages: [],
+                lastStatus: status,
+                errorDetail: errDetail,
+            });
             return;
         } catch (err) {
             lastErr = err;
-            console.warn(`[PANCAKE-SETTINGS] fetchPages attempt ${attempt}/2 network error for ${accountId}:`, err.message);
+            console.warn(
+                `[PANCAKE-SETTINGS] fetchPages attempt ${attempt}/2 network error for ${accountId}:`,
+                err.message
+            );
             if (attempt < 2) {
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise((r) => setTimeout(r, 800));
             }
         }
     }
@@ -411,15 +453,22 @@ async function fetchPagesForAccount(accountId, token, accountMeta = null) {
     // Both attempts failed
     console.error(`[PANCAKE-SETTINGS] fetchPages gave up for ${accountId}:`, lastErr?.message);
     div.innerHTML = `<span style="color: #ef4444;" title="${escapeHtml(lastErr?.message || '')}">❌ Lỗi mạng</span> <a href="javascript:void(0)" onclick="window._reverifyPancakeAccount('${accountId}')" style="font-size:10px;color:#3b82f6;">🔄</a>`;
-    pushAccountPagesCache(accountId, { ...meta, pages: [], lastStatus: 'network', errorDetail: lastErr?.message || 'network error' });
+    pushAccountPagesCache(accountId, {
+        ...meta,
+        pages: [],
+        lastStatus: 'network',
+        errorDetail: lastErr?.message || 'network error',
+    });
 }
 
 // Manual re-verify trigger (called from inline 🔄 button)
-window._reverifyPancakeAccount = function(accountId) {
+window._reverifyPancakeAccount = function (accountId) {
     const account = window.pancakeTokenManager?.accounts?.[accountId];
     if (!account || !account.token) return;
     const div = document.getElementById(`accountPages_${accountId}`);
-    if (div) div.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 10px;"></i> Đang kiểm tra lại...';
+    if (div)
+        div.innerHTML =
+            '<i class="fas fa-spinner fa-spin" style="font-size: 10px;"></i> Đang kiểm tra lại...';
     fetchPagesForAccount(accountId, account.token, account);
 };
 
@@ -431,7 +480,11 @@ function isUserAdmin() {
     }
     // Fallback: check localStorage directly
     try {
-        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
+        const authData = JSON.parse(
+            localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}'
+        );
         return authData.roleTemplate === 'admin';
     } catch {
         return false;
@@ -453,7 +506,7 @@ function checkAdminPermission(action = 'thực hiện thao tác này') {
 }
 
 // Add Account From Cookie
-window.addAccountFromCookie = async function() {
+window.addAccountFromCookie = async function () {
     try {
         // Admin check
         if (!checkAdminPermission('thêm tài khoản Pancake')) return;
@@ -464,7 +517,9 @@ window.addAccountFromCookie = async function() {
 
         const token = window.pancakeTokenManager.getTokenFromCookie();
         if (!token) {
-            throw new Error('Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.');
+            throw new Error(
+                'Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.'
+            );
         }
 
         // Save to Firebase
@@ -488,7 +543,6 @@ window.addAccountFromCookie = async function() {
         if (window.pancakeDataManager) {
             await window.pancakeDataManager.initialize();
         }
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error adding account from cookie:', error);
         if (window.notificationManager) {
@@ -500,7 +554,7 @@ window.addAccountFromCookie = async function() {
 };
 
 // Add Account Manual
-window.addAccountManual = async function() {
+window.addAccountManual = async function () {
     try {
         // Admin check
         if (!checkAdminPermission('thêm tài khoản Pancake')) return;
@@ -535,7 +589,6 @@ window.addAccountManual = async function() {
         if (window.pancakeDataManager) {
             await window.pancakeDataManager.initialize();
         }
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error adding account manually:', error);
         if (window.notificationManager) {
@@ -547,7 +600,7 @@ window.addAccountManual = async function() {
 };
 
 // Select Account (cho phép tất cả user chọn account để dùng)
-window.selectAccount = async function(accountId) {
+window.selectAccount = async function (accountId) {
     try {
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
@@ -572,7 +625,6 @@ window.selectAccount = async function(accountId) {
         if (window.pancakeDataManager) {
             await window.pancakeDataManager.initialize();
         }
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error selecting account:', error);
         if (window.notificationManager) {
@@ -584,7 +636,7 @@ window.selectAccount = async function(accountId) {
 };
 
 // Delete Account
-window.deleteAccount = async function(accountId) {
+window.deleteAccount = async function (accountId) {
     // Admin check
     if (!checkAdminPermission('xóa tài khoản Pancake')) return;
 
@@ -605,7 +657,9 @@ window.deleteAccount = async function(accountId) {
 
         // Remove from Render pages cache (fire-and-forget)
         try {
-            fetch(`${PAGES_CACHE_API}/${encodeURIComponent(accountId)}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${PAGES_CACHE_API}/${encodeURIComponent(accountId)}`, {
+                method: 'DELETE',
+            }).catch(() => {});
         } catch (_) {}
 
         if (window.notificationManager) {
@@ -616,7 +670,6 @@ window.deleteAccount = async function(accountId) {
 
         // Refresh list
         await window.refreshAccountsList();
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error deleting account:', error);
         if (window.notificationManager) {
@@ -628,7 +681,7 @@ window.deleteAccount = async function(accountId) {
 };
 
 // Clear All Accounts
-window.clearAllPancakeAccounts = async function() {
+window.clearAllPancakeAccounts = async function () {
     // Admin check
     if (!checkAdminPermission('xóa tất cả tài khoản Pancake')) return;
 
@@ -651,7 +704,6 @@ window.clearAllPancakeAccounts = async function() {
 
         // Refresh list
         await window.refreshAccountsList();
-
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error clearing all accounts:', error);
         if (window.notificationManager) {
@@ -668,15 +720,18 @@ const TAG_FILTER_LIMIT = 12; // Show only 12 tags initially
 /**
  * Load available tags from API
  */
-window.loadAvailableTags = async function() {
+window.loadAvailableTags = async function () {
     try {
-        const response = await window.tokenManager.authenticatedFetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
-            headers: {
-                "accept": "application/json",
-                "content-type": "application/json"
-            },
-            method: "GET"
-        });
+        const response = await window.tokenManager.authenticatedFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
+            {
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                },
+                method: 'GET',
+            }
+        );
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -715,7 +770,7 @@ const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
 /**
  * Get tag custom data from localStorage
  */
-window.getTagSettings = function() {
+window.getTagSettings = function () {
     try {
         const saved = localStorage.getItem(TAG_SETTINGS_KEY);
         return saved ? JSON.parse(saved) : {};
@@ -728,7 +783,7 @@ window.getTagSettings = function() {
 /**
  * Save tag custom data to localStorage
  */
-window.setTagSettings = function(settings) {
+window.setTagSettings = function (settings) {
     try {
         localStorage.setItem(TAG_SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {
@@ -739,7 +794,7 @@ window.setTagSettings = function(settings) {
 /**
  * Open tag settings modal
  */
-window.openTagSettingsModal = async function() {
+window.openTagSettingsModal = async function () {
     const modal = document.getElementById('tagSettingsModal');
     modal.style.display = 'flex';
 
@@ -755,7 +810,7 @@ window.openTagSettingsModal = async function() {
 /**
  * Close tag settings modal
  */
-window.closeTagSettingsModal = function() {
+window.closeTagSettingsModal = function () {
     document.getElementById('tagSettingsModal').style.display = 'none';
     document.getElementById('tagSettingsSearchInput').value = '';
 };
@@ -763,7 +818,7 @@ window.closeTagSettingsModal = function() {
 /**
  * Render tag settings list
  */
-window.renderTagSettingsList = function(filteredTags = null) {
+window.renderTagSettingsList = function (filteredTags = null) {
     const listContainer = document.getElementById('tagSettingsList');
     if (!listContainer) return;
 
@@ -780,10 +835,11 @@ window.renderTagSettingsList = function(filteredTags = null) {
         return;
     }
 
-    listContainer.innerHTML = tags.map(tag => {
-        const customValue = settings[tag.Id] || '';
-        const hasSavedValue = customValue !== '';
-        return `
+    listContainer.innerHTML = tags
+        .map((tag) => {
+            const customValue = settings[tag.Id] || '';
+            const hasSavedValue = customValue !== '';
+            return `
             <div class="tag-settings-item" data-tag-id="${tag.Id}">
                 <div class="tag-settings-color" style="background-color: ${tag.Color || '#6b7280'}"></div>
                 <div class="tag-settings-name">${tag.Name}</div>
@@ -804,13 +860,14 @@ window.renderTagSettingsList = function(filteredTags = null) {
                 ${hasSavedValue ? `<div class="tag-settings-saved-badge" id="savedBadge_${tag.Id}"><i class="fas fa-check"></i></div>` : ''}
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 };
 
 /**
  * Filter tag settings based on search input
  */
-window.filterTagSettings = function() {
+window.filterTagSettings = function () {
     const searchTerm = document.getElementById('tagSettingsSearchInput').value.toLowerCase().trim();
 
     if (!window.availableTags) return;
@@ -820,7 +877,7 @@ window.filterTagSettings = function() {
         return;
     }
 
-    const filtered = window.availableTags.filter(tag =>
+    const filtered = window.availableTags.filter((tag) =>
         tag.Name.toLowerCase().includes(searchTerm)
     );
 
@@ -830,7 +887,7 @@ window.filterTagSettings = function() {
 /**
  * Save individual tag setting
  */
-window.saveTagSettingItem = function(tagId) {
+window.saveTagSettingItem = function (tagId) {
     const input = document.getElementById(`tagInput_${tagId}`);
     if (!input) return;
 
@@ -867,11 +924,11 @@ window.saveTagSettingItem = function(tagId) {
 /**
  * Save all tag settings (for footer Save button)
  */
-window.saveTagSettings = function() {
+window.saveTagSettings = function () {
     const inputs = document.querySelectorAll('.tag-settings-input');
     const settings = window.getTagSettings();
 
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
         const tagId = input.dataset.tagId;
         const value = input.value.trim();
 
@@ -897,7 +954,7 @@ window.saveTagSettings = function() {
 /**
  * Toggle giữa Pancake API và ChatOmni API
  */
-window.toggleChatAPISource = function() {
+window.toggleChatAPISource = function () {
     if (!window.chatAPISettings) {
         console.error('[CHAT-API-TOGGLE] chatAPISettings not available');
         alert('❌ Lỗi: chatAPISettings không khả dụng');
@@ -929,7 +986,7 @@ window.toggleChatAPISource = function() {
 /**
  * Update UI label cho button
  */
-window.updateChatAPISourceLabel = function() {
+window.updateChatAPISourceLabel = function () {
     const label = document.getElementById('chatApiSourceLabel');
     if (!label || !window.chatAPISettings) return;
 
@@ -938,7 +995,7 @@ window.updateChatAPISourceLabel = function() {
 };
 
 // ====== REALTIME TOGGLE ======
-window.toggleRealtimeMode = function(enabled) {
+window.toggleRealtimeMode = function (enabled) {
     if (!window.chatAPISettings) {
         console.error('[REALTIME-TOGGLE] chatAPISettings not available');
         return;
@@ -953,7 +1010,7 @@ window.toggleRealtimeMode = function(enabled) {
     }
 };
 
-window.changeRealtimeMode = function(mode) {
+window.changeRealtimeMode = function (mode) {
     if (!window.chatAPISettings) return;
     window.chatAPISettings.setRealtimeMode(mode);
 
@@ -963,7 +1020,7 @@ window.changeRealtimeMode = function(mode) {
     }
 };
 
-window.updateRealtimeCheckbox = function() {
+window.updateRealtimeCheckbox = function () {
     const checkbox = document.getElementById('realtimeToggleCheckbox');
     const modeContainer = document.getElementById('realtimeModeContainer');
     const modeSelect = document.getElementById('realtimeModeSelect');
@@ -999,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // ====== PAGE ACCESS TOKEN MANAGEMENT ======
 
 // Show Add Page Token Form
-window.showAddPageTokenForm = async function() {
+window.showAddPageTokenForm = async function () {
     // Admin check
     if (!checkAdminPermission('thêm Page Access Token')) return;
 
@@ -1012,7 +1069,7 @@ window.showAddPageTokenForm = async function() {
 };
 
 // Hide Add Page Token Form
-window.hideAddPageTokenForm = function() {
+window.hideAddPageTokenForm = function () {
     document.getElementById('addPageTokenForm').style.display = 'none';
     document.getElementById('newPageAccessTokenInput').value = '';
     document.getElementById('pageTokenValidationMessage').style.display = 'none';
@@ -1039,11 +1096,10 @@ async function loadPagesToSelector() {
         }
 
         let options = '<option value="">-- Chọn page --</option>';
-        pages.forEach(page => {
+        pages.forEach((page) => {
             options += `<option value="${page.id}" data-name="${page.name}">${page.name} (${page.id})</option>`;
         });
         selector.innerHTML = options;
-
     } catch (error) {
         console.error('[PAGE-TOKEN] Error loading pages:', error);
         selector.innerHTML = '<option value="">-- Lỗi tải pages --</option>';
@@ -1051,7 +1107,7 @@ async function loadPagesToSelector() {
 }
 
 // Generate page token from API
-window.generatePageTokenFromAPI = async function() {
+window.generatePageTokenFromAPI = async function () {
     try {
         // Admin check
         if (!checkAdminPermission('tạo Page Access Token')) return;
@@ -1071,7 +1127,8 @@ window.generatePageTokenFromAPI = async function() {
 
         // Show loading
         const messageDiv = document.getElementById('pageTokenValidationMessage');
-        messageDiv.innerHTML = '<span style="color: #3b82f6;"><i class="fas fa-spinner fa-spin"></i> Đang tạo token...</span>';
+        messageDiv.innerHTML =
+            '<span style="color: #3b82f6;"><i class="fas fa-spinner fa-spin"></i> Đang tạo token...</span>';
         messageDiv.style.display = 'block';
 
         // Generate token via API
@@ -1080,7 +1137,8 @@ window.generatePageTokenFromAPI = async function() {
         if (newToken) {
             // Show in textarea
             document.getElementById('newPageAccessTokenInput').value = newToken;
-            messageDiv.innerHTML = '<span style="color: #10b981;">✅ Token đã được tạo và lưu tự động!</span>';
+            messageDiv.innerHTML =
+                '<span style="color: #10b981;">✅ Token đã được tạo và lưu tự động!</span>';
 
             // Refresh list
             await refreshPageTokensList();
@@ -1104,7 +1162,7 @@ window.generatePageTokenFromAPI = async function() {
 };
 
 // Add page access token manually
-window.addPageAccessTokenManual = async function() {
+window.addPageAccessTokenManual = async function () {
     try {
         // Admin check
         if (!checkAdminPermission('thêm Page Access Token')) return;
@@ -1128,7 +1186,11 @@ window.addPageAccessTokenManual = async function() {
         const pageName = selector.options[selector.selectedIndex].dataset.name || '';
 
         // Save token
-        const success = await window.pancakeTokenManager.savePageAccessToken(pageId, token, pageName);
+        const success = await window.pancakeTokenManager.savePageAccessToken(
+            pageId,
+            token,
+            pageName
+        );
 
         if (success) {
             const messageDiv = document.getElementById('pageTokenValidationMessage');
@@ -1158,7 +1220,7 @@ window.addPageAccessTokenManual = async function() {
 };
 
 // Refresh page tokens list
-window.refreshPageTokensList = async function() {
+window.refreshPageTokensList = async function () {
     const listDiv = document.getElementById('pageAccessTokensList');
     if (!listDiv) return;
 
@@ -1182,9 +1244,11 @@ window.refreshPageTokensList = async function() {
         }
 
         let html = '';
-        tokens.forEach(item => {
-            const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleDateString('vi-VN') : 'N/A';
-            const tokenPreview = item.token ? (item.token.substring(0, 20) + '...') : 'N/A';
+        tokens.forEach((item) => {
+            const savedDate = item.savedAt
+                ? new Date(item.savedAt).toLocaleDateString('vi-VN')
+                : 'N/A';
+            const tokenPreview = item.token ? item.token.substring(0, 20) + '...' : 'N/A';
 
             html += `
                 <div style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px;">
@@ -1201,12 +1265,16 @@ window.refreshPageTokensList = async function() {
                                 Token: ${tokenPreview} | Lưu: ${savedDate}
                             </div>
                         </div>
-                        ${isAdmin ? `
+                        ${
+                            isAdmin
+                                ? `
                             <button onclick="deletePageAccessToken('${item.pageId}')"
                                 style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
                                 <i class="fas fa-trash"></i>
                             </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
                 </div>
             `;
@@ -1225,7 +1293,7 @@ window.refreshPageTokensList = async function() {
 };
 
 // Delete page access token
-window.deletePageAccessToken = async function(pageId) {
+window.deletePageAccessToken = async function (pageId) {
     // Admin check
     if (!checkAdminPermission('xóa Page Access Token')) return;
 
@@ -1248,7 +1316,7 @@ window.deletePageAccessToken = async function(pageId) {
         if (window.pancakeTokenManager.pageTokensRef) {
             const firebase = window.firebase;
             await window.pancakeTokenManager.pageTokensRef.update({
-                [pageId]: firebase.firestore.FieldValue.delete()
+                [pageId]: firebase.firestore.FieldValue.delete(),
             });
         }
 
@@ -1268,7 +1336,7 @@ window.deletePageAccessToken = async function(pageId) {
 
 // Update openPancakeSettingsModal to also refresh page tokens list
 const originalOpenPancakeSettingsModal = window.openPancakeSettingsModal;
-window.openPancakeSettingsModal = async function() {
+window.openPancakeSettingsModal = async function () {
     await originalOpenPancakeSettingsModal();
     await window.refreshPageTokensList();
 };

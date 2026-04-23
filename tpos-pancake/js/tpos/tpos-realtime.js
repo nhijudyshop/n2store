@@ -44,7 +44,7 @@ const TposRealtime = {
             this.stopSSE();
         }
 
-        window.TposApi.getToken().then(token => {
+        window.TposApi.getToken().then((token) => {
             if (!token) {
                 console.error('[TPOS-RT] No token for SSE');
                 return;
@@ -134,7 +134,7 @@ const TposRealtime = {
         if (pageId && fromId === pageId) return true;
 
         if (state.selectedPages.length > 0) {
-            const selectedPageIds = state.selectedPages.map(p => p.Facebook_PageId);
+            const selectedPageIds = state.selectedPages.map((p) => p.Facebook_PageId);
             if (selectedPageIds.includes(fromId)) return true;
         }
 
@@ -156,8 +156,8 @@ const TposRealtime = {
             const comments = JSON.parse(data);
             if (!Array.isArray(comments)) return;
 
-            comments.forEach(comment => {
-                const exists = state.comments.some(c => c.id === comment.id);
+            comments.forEach((comment) => {
+                const exists = state.comments.some((c) => c.id === comment.id);
                 if (exists) return;
 
                 // Tag with page name for multi-campaign display
@@ -231,7 +231,7 @@ const TposRealtime = {
             const response = await fetch(`${this.serverBaseUrl}/api/realtime/tpos/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, room })
+                body: JSON.stringify({ token, room }),
             });
 
             const data = await response.json();
@@ -310,7 +310,9 @@ const TposRealtime = {
                     break;
                 case 'tpos:order-update':
                     window.eventBus.emit('tpos:orderUpdated', message.data);
-                    window.dispatchEvent(new CustomEvent('tposOrderUpdate', { detail: message.data }));
+                    window.dispatchEvent(
+                        new CustomEvent('tposOrderUpdate', { detail: message.data })
+                    );
                     break;
                 default:
                     break;
@@ -328,9 +330,11 @@ const TposRealtime = {
         const { context, eventType, data } = message;
         if (!data) return;
 
-        window.dispatchEvent(new CustomEvent('tposParsedEvent', {
-            detail: { context, eventType, data }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('tposParsedEvent', {
+                detail: { context, eventType, data },
+            })
+        );
 
         if (context === 'Conversation') {
             const conversation = {
@@ -339,12 +343,14 @@ const TposRealtime = {
                 IsRead: data.IsRead,
                 Customer: data.Customer,
                 Product: data.Product,
-                Type: eventType
+                Type: eventType,
             };
 
-            window.dispatchEvent(new CustomEvent('tposConversationUpdate', {
-                detail: { conversation, eventType, rawData: data }
-            }));
+            window.dispatchEvent(
+                new CustomEvent('tposConversationUpdate', {
+                    detail: { conversation, eventType, rawData: data },
+                })
+            );
         }
     },
 
@@ -368,7 +374,7 @@ const TposRealtime = {
             customer: data.Customer,
             product: data.Product,
             isRead: data.IsRead,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
 
         window.eventBus.emit('tpos:orderCreated', orderInfo);
@@ -394,7 +400,9 @@ const TposRealtime = {
      */
     async stopServerConnection() {
         try {
-            const response = await fetch(`${this.serverBaseUrl}/api/realtime/tpos/stop`, { method: 'POST' });
+            const response = await fetch(`${this.serverBaseUrl}/api/realtime/tpos/stop`, {
+                method: 'POST',
+            });
             const data = await response.json();
             return data.success;
         } catch (error) {
@@ -424,7 +432,7 @@ const TposRealtime = {
         this.reconnectAttempts = 0;
         await this.startServerConnection();
         this.connectWebSocket();
-    }
+    },
 };
 
 // Export for script-tag usage

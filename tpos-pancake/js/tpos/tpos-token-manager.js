@@ -16,7 +16,8 @@ class TokenManager {
         this.storageKey = 'bearer_token_data_' + this.companyId;
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = this.PROXY_URL + '/api/token';
-        this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
+        this.SWITCH_COMPANY_URL =
+            this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
         this.credentials = TokenManager.getCredentials(this.companyId);
         this.firestoreRef = null;
         this.firestoreReady = false;
@@ -54,11 +55,15 @@ class TokenManager {
         let retries = 0;
 
         while (retries < maxRetries) {
-            if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
+            if (
+                window.firebase &&
+                window.firebase.firestore &&
+                typeof window.firebase.firestore === 'function'
+            ) {
                 this.firestoreReady = true;
                 return;
             }
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             retries++;
         }
 
@@ -71,8 +76,18 @@ class TokenManager {
 
     static getCredentials(companyId) {
         const CREDENTIALS_BY_COMPANY = {
-            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-            2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+            1: {
+                grant_type: 'password',
+                username: 'nvktlive1',
+                password: 'Aa@28612345678',
+                client_id: 'tmtWebApp',
+            },
+            2: {
+                grant_type: 'password',
+                username: 'nvktshop1',
+                password: 'Aa@28612345678',
+                client_id: 'tmtWebApp',
+            },
         };
         return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
     }
@@ -105,7 +120,9 @@ class TokenManager {
                     localStorage.setItem(this.storageKey, oldData);
                     localStorage.removeItem('bearer_token_data');
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
 
         // Try localStorage FIRST (faster than Firestore)
@@ -136,7 +153,7 @@ class TokenManager {
             if (!tokenData || !tokenData.access_token) return null;
 
             const bufferTime = 5 * 60 * 1000;
-            if (Date.now() < (tokenData.expires_at - bufferTime)) {
+            if (Date.now() < tokenData.expires_at - bufferTime) {
                 return tokenData;
             }
             return null;
@@ -176,7 +193,7 @@ class TokenManager {
             if (tokenData.expires_at) {
                 expiresAt = tokenData.expires_at;
             } else if (tokenData.expires_in) {
-                expiresAt = Date.now() + (tokenData.expires_in * 1000);
+                expiresAt = Date.now() + tokenData.expires_in * 1000;
             } else {
                 console.error('[TOKEN] Invalid token data: missing expires_at and expires_in');
                 return;
@@ -187,7 +204,7 @@ class TokenManager {
                 token_type: tokenData.token_type || 'Bearer',
                 expires_in: tokenData.expires_in || Math.floor((expiresAt - Date.now()) / 1000),
                 expires_at: expiresAt,
-                issued_at: tokenData.issued_at || Date.now()
+                issued_at: tokenData.issued_at || Date.now(),
             };
 
             if (tokenData.userName !== undefined) dataToSave.userName = tokenData.userName;
@@ -201,9 +218,12 @@ class TokenManager {
                     const existing = localStorage.getItem(this.storageKey);
                     if (existing) {
                         const existingData = JSON.parse(existing);
-                        if (existingData.refresh_token) dataToSave.refresh_token = existingData.refresh_token;
+                        if (existingData.refresh_token)
+                            dataToSave.refresh_token = existingData.refresh_token;
                     }
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
             }
 
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
@@ -227,7 +247,7 @@ class TokenManager {
         if (!this.tokenExpiry) return false;
 
         const bufferTime = 5 * 60 * 1000;
-        return Date.now() < (this.tokenExpiry - bufferTime);
+        return Date.now() < this.tokenExpiry - bufferTime;
     }
 
     async clearToken() {
@@ -252,9 +272,13 @@ class TokenManager {
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) {
-                    localStorage.setItem(this.storageKey, JSON.stringify({
-                        refresh_token: data.refresh_token, expires_at: 0
-                    }));
+                    localStorage.setItem(
+                        this.storageKey,
+                        JSON.stringify({
+                            refresh_token: data.refresh_token,
+                            expires_at: 0,
+                        })
+                    );
                     return;
                 }
             }
@@ -271,7 +295,9 @@ class TokenManager {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
         return null;
     }
 
@@ -280,7 +306,7 @@ class TokenManager {
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
             });
             if (!response.ok) return false;
             const data = await response.json();
@@ -303,23 +329,27 @@ class TokenManager {
         const response = await fetch(this.API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
+            body: formData.toString(),
         });
 
         if (!response.ok) throw new Error(`Password login failed: ${response.status}`);
         const data = await response.json();
         if (!data.access_token) throw new Error('Invalid token response');
 
-        const expiresAt = Date.now() + (data.expires_in * 1000);
+        const expiresAt = Date.now() + data.expires_in * 1000;
         const tokenData = {
             access_token: data.access_token,
             refresh_token: data.refresh_token || null,
             token_type: 'Bearer',
             expires_in: data.expires_in,
             expires_at: expiresAt,
-            issued_at: Date.now()
+            issued_at: Date.now(),
         };
-        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(tokenData));
+        } catch (e) {
+            /* ignore */
+        }
 
         this.token = data.access_token;
         this.tokenExpiry = expiresAt;
@@ -335,17 +365,17 @@ class TokenManager {
         if (!refreshToken) throw new Error('No refresh_token for SwitchCompany');
 
         const tposHeaders = {
-            'Authorization': `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json;charset=UTF-8',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'feature-version': '2',
-            'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '6.2.6.1'
+            tposappversion: window.TPOS_CONFIG?.tposAppVersion || '6.2.6.1',
         };
 
         const switchResp = await fetch(this.SWITCH_COMPANY_URL, {
             method: 'POST',
             headers: tposHeaders,
-            body: JSON.stringify({ companyId: this.companyId })
+            body: JSON.stringify({ companyId: this.companyId }),
         });
 
         if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
@@ -354,12 +384,13 @@ class TokenManager {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${accessToken}`
+                Authorization: `Bearer ${accessToken}`,
             },
-            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
         });
 
-        if (!refreshResp.ok) throw new Error(`Token refresh after SwitchCompany failed: ${refreshResp.status}`);
+        if (!refreshResp.ok)
+            throw new Error(`Token refresh after SwitchCompany failed: ${refreshResp.status}`);
 
         const newTokenData = await refreshResp.json();
         await this.saveToStorage(newTokenData);
@@ -374,7 +405,9 @@ class TokenManager {
         try {
             if (window.notificationManager) {
                 notificationId = window.notificationManager.show(
-                    'Đang lấy token xác thực...', 'info', 0,
+                    'Đang lấy token xác thực...',
+                    'info',
+                    0,
                     { showOverlay: true, persistent: true, icon: 'key', title: 'Xác thực' }
                 );
             }
@@ -384,7 +417,8 @@ class TokenManager {
             if (storedRefresh) {
                 const ok = await this.refreshWithToken(storedRefresh);
                 if (ok && this.isTokenValid()) {
-                    if (window.notificationManager && notificationId) window.notificationManager.remove(notificationId);
+                    if (window.notificationManager && notificationId)
+                        window.notificationManager.remove(notificationId);
                     return this.token;
                 }
             }
@@ -402,7 +436,11 @@ class TokenManager {
             console.error('[TOKEN] Error fetching token:', error);
             if (window.notificationManager) {
                 if (notificationId) window.notificationManager.remove(notificationId);
-                window.notificationManager.error(`Không thể lấy token: ${error.message}`, 4000, 'Lỗi xác thực');
+                window.notificationManager.error(
+                    `Không thể lấy token: ${error.message}`,
+                    4000,
+                    'Lỗi xác thực'
+                );
             }
             await this.clearToken();
             throw error;
@@ -415,8 +453,8 @@ class TokenManager {
         const maxWait = 10000;
         const startTime = Date.now();
 
-        while (this.isRefreshing && (Date.now() - startTime) < maxWait) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+        while (this.isRefreshing && Date.now() - startTime < maxWait) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         if (this.isTokenValid()) return this.token;
@@ -434,7 +472,7 @@ class TokenManager {
 
     async getAuthHeader() {
         const token = await this.getToken();
-        return { 'Authorization': `Bearer ${token}` };
+        return { Authorization: `Bearer ${token}` };
     }
 
     async authenticatedFetch(url, options = {}) {
@@ -442,7 +480,7 @@ class TokenManager {
             const headers = await this.getAuthHeader();
             const response = await fetch(url, {
                 ...options,
-                headers: { ...headers, ...options.headers }
+                headers: { ...headers, ...options.headers },
             });
 
             if (response.status === 401) {
@@ -450,7 +488,7 @@ class TokenManager {
                 const newHeaders = await this.getAuthHeader();
                 return await fetch(url, {
                     ...options,
-                    headers: { ...newHeaders, ...options.headers }
+                    headers: { ...newHeaders, ...options.headers },
                 });
             }
 
@@ -476,7 +514,7 @@ class TokenManager {
             isValid: this.isTokenValid(),
             expiresAt: new Date(this.tokenExpiry).toLocaleString('vi-VN'),
             timeRemaining: `${hoursRemaining}h ${minutesRemaining}m`,
-            token: this.token.substring(0, 20) + '...'
+            token: this.token.substring(0, 20) + '...',
         };
     }
 

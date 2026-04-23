@@ -16,7 +16,7 @@
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             const arr = raw ? JSON.parse(raw) : [];
-            return Array.isArray(arr) ? arr.filter(k => typeof k === 'string' && k) : [];
+            return Array.isArray(arr) ? arr.filter((k) => typeof k === 'string' && k) : [];
         } catch (e) {
             console.error('[EXCLUDE-PTAG-XL] parse err:', e);
             return [];
@@ -25,7 +25,9 @@
 
     function saveExcluded(keys) {
         try {
-            const clean = Array.from(new Set((keys || []).filter(k => typeof k === 'string' && k)));
+            const clean = Array.from(
+                new Set((keys || []).filter((k) => typeof k === 'string' && k))
+            );
             localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
             if (window.FilterPersistence?.scheduleSave) window.FilterPersistence.scheduleSave();
         } catch (e) {
@@ -39,13 +41,18 @@
         const dd = document.getElementById('excludePtagXlFilterDropdown');
         if (!dd) return;
         const isOpen = dd.classList.contains('open');
-        document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+        document
+            .querySelectorAll('.tag-filter-dropdown.open')
+            .forEach((d) => d.classList.remove('open'));
         if (!isOpen) {
             dd.classList.add('open');
             populateOptions('');
             setTimeout(() => {
                 const input = document.getElementById('excludePtagXlFilterSearchInput');
-                if (input) { input.value = ''; input.focus(); }
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
             }, 50);
         }
     }
@@ -59,19 +66,22 @@
         const container = document.getElementById('excludePtagXlFilterOptions');
         if (!container) return;
         if (typeof window._ptagXlGetFilterOptions !== 'function') {
-            container.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;">Đang tải…</div>';
+            container.innerHTML =
+                '<div style="padding:12px;text-align:center;color:#9ca3af;">Đang tải…</div>';
             return;
         }
 
         const excluded = new Set(getExcluded());
         const opts = window._ptagXlGetFilterOptions();
-        const norm = (typeof window._ptagNormalize === 'function')
-            ? window._ptagNormalize(searchTerm || '')
-            : (searchTerm || '').toLowerCase();
+        const norm =
+            typeof window._ptagNormalize === 'function'
+                ? window._ptagNormalize(searchTerm || '')
+                : (searchTerm || '').toLowerCase();
 
         const match = (s) => {
             if (!norm) return true;
-            if (typeof window._ptagMatchTokens === 'function') return window._ptagMatchTokens(s || '', norm);
+            if (typeof window._ptagMatchTokens === 'function')
+                return window._ptagMatchTokens(s || '', norm);
             return (s || '').includes(norm);
         };
 
@@ -97,7 +107,8 @@
         }
 
         if (!html) {
-            html = '<div style="padding:12px;text-align:center;color:#9ca3af;">Không tìm thấy</div>';
+            html =
+                '<div style="padding:12px;text-align:center;color:#9ca3af;">Không tìm thấy</div>';
         }
 
         container.innerHTML = html;
@@ -110,7 +121,8 @@
 
     function toggleOption(key) {
         const excluded = new Set(getExcluded());
-        if (excluded.has(key)) excluded.delete(key); else excluded.add(key);
+        if (excluded.has(key)) excluded.delete(key);
+        else excluded.add(key);
         saveExcluded([...excluded]);
         populateOptions(document.getElementById('excludePtagXlFilterSearchInput')?.value || '');
         if (typeof window.performTableSearch === 'function') window.performTableSearch();
@@ -132,9 +144,10 @@
             return;
         }
         if (excluded.length === 1) {
-            const label = (typeof window._ptagXlResolveKeyLabel === 'function')
-                ? window._ptagXlResolveKeyLabel(excluded[0])
-                : excluded[0];
+            const label =
+                typeof window._ptagXlResolveKeyLabel === 'function'
+                    ? window._ptagXlResolveKeyLabel(excluded[0])
+                    : excluded[0];
             el.textContent = label.length > 22 ? label.substring(0, 20) + '…' : label;
         } else {
             el.textContent = `${excluded.length} tag XL`;
@@ -161,7 +174,7 @@
         const excluded = getExcluded();
         if (excluded.length === 0) return false;
         if (typeof window._ptagOrderMatchesSingleKey !== 'function') return false;
-        return excluded.some(key => window._ptagOrderMatchesSingleKey(orderCodeOrId, key));
+        return excluded.some((key) => window._ptagOrderMatchesSingleKey(orderCodeOrId, key));
     }
 
     function hasExcludedPtagXl() {

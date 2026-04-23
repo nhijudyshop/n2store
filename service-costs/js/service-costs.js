@@ -45,7 +45,10 @@
                 { label: 'Auto Deploy', value: 'Yes (main branch)' },
                 { label: 'Created', value: '18/11/2025' },
                 { label: 'Telegram Webhook', value: 'Active → /api/telegram/webhook' },
-                { label: 'Routes', value: 'customers, return-orders, goong, gemini, sepay, realtime-sse, tpos-saved...' },
+                {
+                    label: 'Routes',
+                    value: 'customers, return-orders, goong, gemini, sepay, realtime-sse, tpos-saved...',
+                },
             ],
             consoleUrl: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600',
             status: 'active',
@@ -139,12 +142,18 @@
                 { label: 'Database ID', value: 'dpg-d4kr80npm1nc738em3j0-a' },
                 { label: 'Database Name', value: 'n2store_chat' },
                 { label: 'User', value: 'n2store_user' },
-                { label: 'Host', value: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com' },
+                {
+                    label: 'Host',
+                    value: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com',
+                },
                 { label: 'PostgreSQL', value: 'Version 18' },
                 { label: 'Disk Size', value: '1 GB SSD' },
                 { label: 'Plan', value: 'Basic 256MB ($6/mo) - 256MB RAM, 0.1 CPU' },
                 { label: 'Created', value: '28/11/2025' },
-                { label: 'Tables', value: '~30+ (customers, balance_history, return_orders, tickets...)' },
+                {
+                    label: 'Tables',
+                    value: '~30+ (customers, balance_history, return_orders, tickets...)',
+                },
             ],
             consoleUrl: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a',
             status: 'active',
@@ -164,21 +173,35 @@
             plan: 'Blaze (Pay as you go)',
             costType: 'usage-based',
             monthlyCost: 0,
-            costNote: 'Blaze plan - trả theo usage. Kiểm tra console để xem chi phí thực tế hàng tháng',
+            costNote:
+                'Blaze plan - trả theo usage. Kiểm tra console để xem chi phí thực tế hàng tháng',
             region: 'nam5 (US) / asia-southeast1 (SG)',
-            freeTier: 'Firestore: 50K reads, 20K writes, 20K deletes/ngày. RTDB: 1GB stored, 10GB/tháng. Storage: 5GB. Auth: 10K/tháng',
+            freeTier:
+                'Firestore: 50K reads, 20K writes, 20K deletes/ngày. RTDB: 1GB stored, 10GB/tháng. Storage: 5GB. Auth: 10K/tháng',
             details: [
                 { label: 'GCP Project', value: 'n2shop-69e37 (#598906493303)' },
                 { label: 'Created', value: '14/10/2023' },
-                { label: 'Firestore', value: '67 collections, ~10K+ documents (NATIVE mode, nam5)' },
-                { label: 'Top collections', value: 'edit_history: 5,979 | kpi_base: 1,382 | attendance_records: 571 | soquy_edit_history: 488' },
+                {
+                    label: 'Firestore',
+                    value: '67 collections, ~10K+ documents (NATIVE mode, nam5)',
+                },
+                {
+                    label: 'Top collections',
+                    value: 'edit_history: 5,979 | kpi_base: 1,382 | attendance_records: 571 | soquy_edit_history: 488',
+                },
                 { label: 'Realtime DB', value: '39 nodes (asia-southeast1, Singapore)' },
                 { label: 'Storage', value: '3 buckets, 10,021 files = 3.58 GB / 5 GB free' },
                 { label: 'Main bucket', value: 'n2shop-69e37-ne0q1 (ASIA1, dual-region)' },
                 { label: 'Hosting', value: 'n2shop-69e37.web.app (DEFAULT_SITE)' },
                 { label: 'Auth', value: 'Anonymous Auth' },
-                { label: 'Giá Firestore', value: '$0.06/100K reads, $0.18/100K writes, $0.02/100K deletes' },
-                { label: 'Giá Realtime DB', value: '$5/GB stored (sau 1GB), $1/GB download (sau 10GB)' },
+                {
+                    label: 'Giá Firestore',
+                    value: '$0.06/100K reads, $0.18/100K writes, $0.02/100K deletes',
+                },
+                {
+                    label: 'Giá Realtime DB',
+                    value: '$5/GB stored (sau 1GB), $1/GB download (sau 10GB)',
+                },
                 { label: 'Giá Storage', value: '$0.026/GB/tháng (sau 5GB), $0.12/GB download' },
             ],
             consoleUrl: 'https://console.firebase.google.com/project/n2shop-69e37/usage',
@@ -200,9 +223,11 @@
             costType: 'paid',
             monthlyCost: 5,
             billingDay: 13,
-            costNote: '$5/mo qua Stripe. Tháng 3/2026: ~615K requests, 0 errors. Included: 10M req/mo',
+            costNote:
+                '$5/mo qua Stripe. Tháng 3/2026: ~615K requests, 0 errors. Included: 10M req/mo',
             region: 'Global Edge (auto)',
-            freeTier: 'Workers Paid: 10M requests/tháng included, sau đó $0.30/1M. 30ms CPU/request',
+            freeTier:
+                'Workers Paid: 10M requests/tháng included, sau đó $0.30/1M. 30ms CPU/request',
             details: [
                 { label: 'Account ID', value: '27170a8625bb696ad1c253e6b221f59e' },
                 { label: 'Plan', value: 'Workers Paid - $5/tháng (Stripe)' },
@@ -218,9 +243,13 @@
                 { label: 'Avg/ngày', value: '~20,500 requests' },
                 { label: 'Handlers', value: 'tpos, pancake, facebook, ai, image-proxy, token' },
                 { label: 'Deploy', value: 'Wrangler CLI, compatibility: 2025-11-27' },
-                { label: 'Lịch sử billing', value: '12/2025: $5, 01/2026: $5, 02/2026: $5, 03/2026: $5' },
+                {
+                    label: 'Lịch sử billing',
+                    value: '12/2025: $5, 01/2026: $5, 02/2026: $5, 03/2026: $5',
+                },
             ],
-            consoleUrl: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production',
+            consoleUrl:
+                'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production',
             status: 'active',
         },
 
@@ -262,10 +291,17 @@
             freeTier: '15 RPM, 1M tokens/phút, 1500 requests/ngày (free)',
             details: [
                 { label: 'API Status', value: 'ACTIVE (verified)' },
-                { label: 'Models available', value: 'Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 1.5 Flash/Pro...' },
+                {
+                    label: 'Models available',
+                    value: 'Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 1.5 Flash/Pro...',
+                },
                 { label: 'Google Project', value: '51754929973' },
                 { label: 'Free tier', value: '15 RPM, 1M TPM, 1500 RPD' },
-                { label: 'API Key', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', masked: true },
+                {
+                    label: 'API Key',
+                    value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+                    masked: true,
+                },
                 { label: 'Sử dụng', value: 'AI route trên Render server (/api/gemini)' },
             ],
             consoleUrl: 'https://aistudio.google.com/',
@@ -287,12 +323,19 @@
             freeTier: '1,000 units/tháng free (nếu enable). $1.50/1000 units sau đó',
             details: [
                 { label: 'API Status', value: 'DISABLED (SERVICE_DISABLED)' },
-                { label: 'Error', value: 'Cloud Vision API has not been used in project 51754929973' },
+                {
+                    label: 'Error',
+                    value: 'Cloud Vision API has not been used in project 51754929973',
+                },
                 { label: 'Key dùng chung', value: 'Chung key Gemini (AIzaSyCuo0e...)' },
-                { label: 'Enable tại', value: 'console.developers.google.com/apis/api/vision.googleapis.com' },
+                {
+                    label: 'Enable tại',
+                    value: 'console.developers.google.com/apis/api/vision.googleapis.com',
+                },
                 { label: 'Chi phí nếu bật', value: 'Free 1000 units/tháng, sau đó $1.50/1K units' },
             ],
-            consoleUrl: 'https://console.developers.google.com/apis/api/vision.googleapis.com/overview?project=51754929973',
+            consoleUrl:
+                'https://console.developers.google.com/apis/api/vision.googleapis.com/overview?project=51754929973',
             status: 'disabled',
         },
         {
@@ -309,13 +352,27 @@
             freeTier: '$200 credit/tháng nếu enable. Autocomplete: $2.83/1K requests',
             details: [
                 { label: 'API Status', value: 'DISABLED (cả Legacy + New)' },
-                { label: 'Legacy API', value: 'REQUEST_DENIED - "calling a legacy API, not enabled"' },
+                {
+                    label: 'Legacy API',
+                    value: 'REQUEST_DENIED - "calling a legacy API, not enabled"',
+                },
                 { label: 'Places API (New)', value: 'SERVICE_DISABLED - project 598906493303' },
-                { label: 'API Key', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', masked: true },
-                { label: 'Lưu ý', value: 'Key khác project với Gemini (598906493303 vs 51754929973)' },
-                { label: 'Enable tại', value: 'console.developers.google.com/apis/api/places.googleapis.com' },
+                {
+                    label: 'API Key',
+                    value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw',
+                    masked: true,
+                },
+                {
+                    label: 'Lưu ý',
+                    value: 'Key khác project với Gemini (598906493303 vs 51754929973)',
+                },
+                {
+                    label: 'Enable tại',
+                    value: 'console.developers.google.com/apis/api/places.googleapis.com',
+                },
             ],
-            consoleUrl: 'https://console.developers.google.com/apis/api/places.googleapis.com/overview?project=598906493303',
+            consoleUrl:
+                'https://console.developers.google.com/apis/api/places.googleapis.com/overview?project=598906493303',
             status: 'disabled',
         },
 
@@ -336,7 +393,11 @@
                 { label: 'API Status', value: 'ACTIVE (verified - geocoding OK)' },
                 { label: 'APIs', value: 'Autocomplete, Geocoding, Place Detail' },
                 { label: 'Free tier', value: '5,000 requests/tháng' },
-                { label: 'API Key', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', masked: true },
+                {
+                    label: 'API Key',
+                    value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2',
+                    masked: true,
+                },
                 { label: 'Sử dụng', value: 'Tìm địa chỉ VN qua Render server (/api/goong-places)' },
             ],
             consoleUrl: 'https://account.goong.io/',
@@ -361,11 +422,18 @@
                 { label: 'Bot ID', value: '8546129159' },
                 { label: 'Bot Username', value: '@N2Store_bot' },
                 { label: 'Bot Name', value: 'N2Shop' },
-                { label: 'Webhook URL', value: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/telegram/webhook' },
+                {
+                    label: 'Webhook URL',
+                    value: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/telegram/webhook',
+                },
                 { label: 'Webhook IP', value: '216.24.57.251' },
                 { label: 'Pending Updates', value: '0' },
                 { label: 'Max Connections', value: '40' },
-                { label: 'Bot Token', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', masked: true },
+                {
+                    label: 'Bot Token',
+                    value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI',
+                    masked: true,
+                },
             ],
             consoleUrl: 'https://t.me/N2Store_bot',
             status: 'active',
@@ -390,15 +458,47 @@
             region: 'Vietnam',
             freeTier: 'Free: 50 GD/tháng. VIP 589K đ/tháng: 1,000 GD',
             details: [
-                { label: 'G\u00F3i d\u1ECBch v\u1EE5', value: '\u0110ang t\u1EA3i...', _liveKey: 'plan' },
+                {
+                    label: 'G\u00F3i d\u1ECBch v\u1EE5',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'plan',
+                },
                 { label: 'Gi\u00E1', value: '589,000 \u0111/th\u00E1ng' },
-                { label: '\u0110\u00E3 d\u00F9ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'txCount' },
-                { label: 'Ng\u00E0y h\u1EBFt h\u1EA1n', value: '\u0110ang t\u1EA3i...', _liveKey: 'expiry' },
-                { label: 'H\u00F3a \u0111\u01A1n', value: '\u0110ang t\u1EA3i...', _liveKey: 'invoices' },
-                { label: 'Tr\u1EA1ng th\u00E1i', value: '\u0110ang t\u1EA3i...', _liveKey: 'status' },
-                { label: 'S\u1ED1 d\u01B0 ng\u00E2n h\u00E0ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'balance' },
-                { label: 'GD g\u1EA7n nh\u1EA5t', value: '\u0110ang t\u1EA3i...', _liveKey: 'lastTx' },
-                { label: 'Ng\u00E2n h\u00E0ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'bankName' },
+                {
+                    label: '\u0110\u00E3 d\u00F9ng',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'txCount',
+                },
+                {
+                    label: 'Ng\u00E0y h\u1EBFt h\u1EA1n',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'expiry',
+                },
+                {
+                    label: 'H\u00F3a \u0111\u01A1n',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'invoices',
+                },
+                {
+                    label: 'Tr\u1EA1ng th\u00E1i',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'status',
+                },
+                {
+                    label: 'S\u1ED1 d\u01B0 ng\u00E2n h\u00E0ng',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'balance',
+                },
+                {
+                    label: 'GD g\u1EA7n nh\u1EA5t',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'lastTx',
+                },
+                {
+                    label: 'Ng\u00E2n h\u00E0ng',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'bankName',
+                },
                 { label: 'Ch\u1EE7 TK', value: '\u0110ang t\u1EA3i...', _liveKey: 'accountHolder' },
                 { label: 'API Key', value: 'E0ZG...OTBY (t\u1EEB Render env)', masked: true },
             ],
@@ -423,11 +523,19 @@
             freeTier: 'Kh\u00F4ng c\u00F3 free tier. N\u1EA1p ti\u1EC1n d\u00F9ng d\u1EA7n',
             details: [
                 { label: 'S\u1ED1 d\u01B0', value: '\u0110ang t\u1EA3i...', _liveKey: 'balance' },
-                { label: 'S\u1ED1 d\u01B0 (VN\u0110)', value: '\u0110ang t\u1EA3i...', _liveKey: 'balanceVND' },
+                {
+                    label: 'S\u1ED1 d\u01B0 (VN\u0110)',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'balanceVND',
+                },
                 { label: 'Username', value: 'n2shop' },
                 { label: 'H\u1EA1ng th\u00E0nh vi\u00EAn', value: 'Level 1' },
                 { label: 'Thanh to\u00E1n', value: 'Vietcombank (n\u1EA1p qua web)' },
-                { label: 'C\u1EADp nh\u1EADt', value: '\u0110ang t\u1EA3i...', _liveKey: 'fetchedAt' },
+                {
+                    label: 'C\u1EADp nh\u1EADt',
+                    value: '\u0110ang t\u1EA3i...',
+                    _liveKey: 'fetchedAt',
+                },
             ],
             consoleUrl: 'https://autofb.pro/vi/wallet',
             status: 'active',
@@ -487,9 +595,12 @@
                 { label: 'URL (WSS)', value: 'wss://45-76-155-207.sslip.io/ws' },
                 { label: 'Health Check', value: 'https://45-76-155-207.sslip.io/health' },
                 { label: 'Service', value: 'sip-proxy (systemd) — Node.js WSS↔UDP bridge' },
-                { label: 'SSL', value: 'Caddy + Let\'s Encrypt auto-renew via sslip.io' },
+                { label: 'SSL', value: "Caddy + Let's Encrypt auto-renew via sslip.io" },
                 { label: 'PBX Target', value: 'pbx-ucaas.oncallcx.vn:9060 (UDP)' },
-                { label: 'Extensions', value: '101-110 (10 ext, config in Render DB phone_config)' },
+                {
+                    label: 'Extensions',
+                    value: '101-110 (10 ext, config in Render DB phone_config)',
+                },
                 { label: 'SSH', value: 'ssh root@45.76.155.207 (ED25519 key)' },
                 { label: 'Firewall', value: 'UFW: 22, 80, 443, 8089' },
             ],
@@ -499,22 +610,66 @@
     ];
 
     const QUICK_LINKS = [
-        { name: 'Firebase Console', url: 'https://console.firebase.google.com/project/n2shop-69e37/overview', icon: 'flame' },
-        { name: 'Firebase Billing', url: 'https://console.firebase.google.com/project/n2shop-69e37/usage', icon: 'bar-chart-2' },
+        {
+            name: 'Firebase Console',
+            url: 'https://console.firebase.google.com/project/n2shop-69e37/overview',
+            icon: 'flame',
+        },
+        {
+            name: 'Firebase Billing',
+            url: 'https://console.firebase.google.com/project/n2shop-69e37/usage',
+            icon: 'bar-chart-2',
+        },
         { name: 'Render Dashboard', url: 'https://dashboard.render.com/', icon: 'server' },
-        { name: 'Render: n2store-fallback', url: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600', icon: 'server' },
-        { name: 'Render: n2store-realtime', url: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0', icon: 'radio' },
-        { name: 'Render: tpos-pancake', url: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800', icon: 'package' },
-        { name: 'Render: facebook', url: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g', icon: 'message-circle' },
-        { name: 'Render: PostgreSQL DB', url: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a', icon: 'database' },
+        {
+            name: 'Render: n2store-fallback',
+            url: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600',
+            icon: 'server',
+        },
+        {
+            name: 'Render: n2store-realtime',
+            url: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0',
+            icon: 'radio',
+        },
+        {
+            name: 'Render: tpos-pancake',
+            url: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800',
+            icon: 'package',
+        },
+        {
+            name: 'Render: facebook',
+            url: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g',
+            icon: 'message-circle',
+        },
+        {
+            name: 'Render: PostgreSQL DB',
+            url: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a',
+            icon: 'database',
+        },
         { name: 'Vultr VPS (SIP Proxy)', url: 'https://my.vultr.com/', icon: 'phone-call' },
-        { name: 'SIP Proxy Health', url: 'https://45-76-155-207.sslip.io/health', icon: 'activity' },
+        {
+            name: 'SIP Proxy Health',
+            url: 'https://45-76-155-207.sslip.io/health',
+            icon: 'activity',
+        },
         { name: 'OnCallCX PBX', url: 'https://pbx-ucaas.oncallcx.vn', icon: 'phone' },
-        { name: 'Cloudflare Workers', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production', icon: 'cloud' },
-        { name: 'Cloudflare Analytics', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/analytics', icon: 'bar-chart-2' },
+        {
+            name: 'Cloudflare Workers',
+            url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production',
+            icon: 'cloud',
+        },
+        {
+            name: 'Cloudflare Analytics',
+            url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/analytics',
+            icon: 'bar-chart-2',
+        },
         { name: 'DeepSeek Platform', url: 'https://platform.deepseek.com/', icon: 'brain' },
         { name: 'Google AI Studio', url: 'https://aistudio.google.com/', icon: 'sparkles' },
-        { name: 'Google Cloud Console', url: 'https://console.cloud.google.com/', icon: 'settings' },
+        {
+            name: 'Google Cloud Console',
+            url: 'https://console.cloud.google.com/',
+            icon: 'settings',
+        },
         { name: 'Goong Account', url: 'https://account.goong.io/', icon: 'map' },
         { name: 'SePay Dashboard', url: 'https://my.sepay.vn/', icon: 'banknote' },
         { name: 'AutoFB Wallet', url: 'https://autofb.pro/vi/wallet', icon: 'bot' },
@@ -523,18 +678,78 @@
     ];
 
     const API_KEYS = [
-        { name: 'RENDER_API_KEY', service: 'Render', value: 'rnd_AcWEm67JDpbHEuAcWWALokwJ7Di9', sensitive: true },
-        { name: 'RENDER_DB_URL', service: 'Render DB', value: 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat', sensitive: true },
-        { name: 'CLOUDFLARE_GLOBAL_API', service: 'Cloudflare', value: 'f9cbd30e5a04a651f20b263f137b53b28b0a3', sensitive: true },
-        { name: 'FIREBASE_PROJECT_ID', service: 'Firebase', value: 'n2shop-69e37', sensitive: false },
-        { name: 'FIREBASE_CLIENT_EMAIL', service: 'Firebase', value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com', sensitive: false },
-        { name: 'DEEPSEEK_API_KEY', service: 'DeepSeek', value: 'sk-319cef4faabf413aa84beb51c383e9b1', sensitive: true },
-        { name: 'GEMINI_API_KEY', service: 'Google (project 51754929973)', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', sensitive: true },
-        { name: 'GOOGLE_CLOUD_VISION_API_KEY', service: 'Google (DISABLED)', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', sensitive: true },
-        { name: 'GOOGLE_PLACES_API_KEY', service: 'Google (project 598906493303, DISABLED)', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', sensitive: true },
-        { name: 'GOONG_API_KEY', service: 'Goong.io', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', sensitive: true },
-        { name: 'TELEGRAM_BOT_TOKEN', service: 'Telegram (@N2Store_bot)', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', sensitive: true },
-        { name: 'SEPAY_API', service: 'SePay (ACB 75918)', value: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY', sensitive: true },
+        {
+            name: 'RENDER_API_KEY',
+            service: 'Render',
+            value: 'rnd_AcWEm67JDpbHEuAcWWALokwJ7Di9',
+            sensitive: true,
+        },
+        {
+            name: 'RENDER_DB_URL',
+            service: 'Render DB',
+            value: 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat',
+            sensitive: true,
+        },
+        {
+            name: 'CLOUDFLARE_GLOBAL_API',
+            service: 'Cloudflare',
+            value: 'f9cbd30e5a04a651f20b263f137b53b28b0a3',
+            sensitive: true,
+        },
+        {
+            name: 'FIREBASE_PROJECT_ID',
+            service: 'Firebase',
+            value: 'n2shop-69e37',
+            sensitive: false,
+        },
+        {
+            name: 'FIREBASE_CLIENT_EMAIL',
+            service: 'Firebase',
+            value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com',
+            sensitive: false,
+        },
+        {
+            name: 'DEEPSEEK_API_KEY',
+            service: 'DeepSeek',
+            value: 'sk-319cef4faabf413aa84beb51c383e9b1',
+            sensitive: true,
+        },
+        {
+            name: 'GEMINI_API_KEY',
+            service: 'Google (project 51754929973)',
+            value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+            sensitive: true,
+        },
+        {
+            name: 'GOOGLE_CLOUD_VISION_API_KEY',
+            service: 'Google (DISABLED)',
+            value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+            sensitive: true,
+        },
+        {
+            name: 'GOOGLE_PLACES_API_KEY',
+            service: 'Google (project 598906493303, DISABLED)',
+            value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw',
+            sensitive: true,
+        },
+        {
+            name: 'GOONG_API_KEY',
+            service: 'Goong.io',
+            value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2',
+            sensitive: true,
+        },
+        {
+            name: 'TELEGRAM_BOT_TOKEN',
+            service: 'Telegram (@N2Store_bot)',
+            value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI',
+            sensitive: true,
+        },
+        {
+            name: 'SEPAY_API',
+            service: 'SePay (ACB 75918)',
+            value: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
+            sensitive: true,
+        },
         { name: 'TPOS_CLIENT_ID', service: 'TPOS', value: 'tmtWebApp', sensitive: false },
         { name: 'TPOS_USERNAME', service: 'TPOS', value: 'nvkt', sensitive: false },
         { name: 'TPOS_PASSWORD', service: 'TPOS', value: 'Aa@123456789', sensitive: true },
@@ -558,19 +773,28 @@
     }
 
     function renderSummary() {
-        const totalUSD = SERVICES.reduce((sum, s) => sum + (s.monthlyCostVND ? 0 : (s.monthlyCost || 0)), 0);
-        const totalVND = SERVICES.reduce((sum, s) => sum + (s.monthlyCostVND ? (s.monthlyCost || 0) : 0), 0);
-        const freeCount = SERVICES.filter(s => s.costType === 'free').length;
-        const paidCount = SERVICES.filter(s => s.costType === 'paid').length;
-        const usageCount = SERVICES.filter(s => s.costType === 'usage-based').length;
+        const totalUSD = SERVICES.reduce(
+            (sum, s) => sum + (s.monthlyCostVND ? 0 : s.monthlyCost || 0),
+            0
+        );
+        const totalVND = SERVICES.reduce(
+            (sum, s) => sum + (s.monthlyCostVND ? s.monthlyCost || 0 : 0),
+            0
+        );
+        const freeCount = SERVICES.filter((s) => s.costType === 'free').length;
+        const paidCount = SERVICES.filter((s) => s.costType === 'paid').length;
+        const usageCount = SERVICES.filter((s) => s.costType === 'usage-based').length;
 
-        const costStr = totalVND > 0
-            ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}đ/tháng`
-            : `~$${totalUSD}/tháng`;
+        const costStr =
+            totalVND > 0
+                ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}đ/tháng`
+                : `~$${totalUSD}/tháng`;
         document.getElementById('totalMonthlyCost').textContent = costStr;
-        document.getElementById('totalMonthlyCost').title = `USD: $${totalUSD} (Render $70 + CF $5 + DeepSeek ~$1) | VND: ${totalVND.toLocaleString('vi-VN')}đ (SePay)`;
+        document.getElementById('totalMonthlyCost').title =
+            `USD: $${totalUSD} (Render $70 + CF $5 + DeepSeek ~$1) | VND: ${totalVND.toLocaleString('vi-VN')}đ (SePay)`;
         document.getElementById('freeServicesCount').textContent = `${freeCount} dịch vụ`;
-        document.getElementById('paidServicesCount').textContent = `${paidCount} paid + ${usageCount} usage`;
+        document.getElementById('paidServicesCount').textContent =
+            `${paidCount} paid + ${usageCount} usage`;
         document.getElementById('totalServicesCount').textContent = SERVICES.length;
     }
 
@@ -586,7 +810,8 @@
 
     function renderServicesGrid() {
         const grid = document.getElementById('servicesGrid');
-        grid.innerHTML = SERVICES.map(s => `
+        grid.innerHTML = SERVICES.map(
+            (s) => `
             <div class="service-card" data-service="${s.id}">
                 <div class="service-card-header">
                     <div class="service-card-header-left">
@@ -619,18 +844,26 @@
                         <span class="detail-label">Free tier</span>
                         <span class="detail-value" style="font-size:0.78rem">${s.freeTier}</span>
                     </div>
-                    ${s.details.map(d => `
+                    ${s.details
+                        .map(
+                            (d) => `
                         <div class="service-detail-row">
                             <span class="detail-label">${d.label}</span>
                             <span class="detail-value ${d.masked ? 'masked' : ''}">${d.masked && !keysVisible ? maskValue(d.value) : d.value}</span>
                         </div>
-                    `).join('')}
-                    ${s.costNote ? `
+                    `
+                        )
+                        .join('')}
+                    ${
+                        s.costNote
+                            ? `
                         <div class="service-detail-row" style="border-bottom:none; padding-top:0.75rem">
                             <span class="detail-label">Ghi ch&uacute;</span>
                             <span class="detail-value" style="color:var(--warning); font-size:0.78rem">${s.costNote}</span>
                         </div>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
                 <div class="service-card-footer">
                     <a href="${s.consoleUrl}" target="_blank">
@@ -639,12 +872,14 @@
                     ${getStatusBadge(s.status)}
                 </div>
             </div>
-        `).join('');
+        `
+        ).join('');
     }
 
     function formatCost(s) {
         if (s.monthlyCost <= 0) return '<span style="color:var(--success)">$0</span>';
-        if (s.monthlyCostVND) return `<strong style="color:var(--danger)">${s.monthlyCost.toLocaleString('vi-VN')}\u0111</strong>`;
+        if (s.monthlyCostVND)
+            return `<strong style="color:var(--danger)">${s.monthlyCost.toLocaleString('vi-VN')}\u0111</strong>`;
         return `<strong style="color:var(--danger)">$${s.monthlyCost}</strong>`;
     }
 
@@ -653,11 +888,13 @@
         let totalUSD = 0;
         let totalVND = 0;
 
-        tbody.innerHTML = SERVICES.map(s => {
+        tbody.innerHTML = SERVICES.map((s) => {
             if (s.monthlyCostVND) totalVND += s.monthlyCost || 0;
             else totalUSD += s.monthlyCost || 0;
-            const costTypeClass = s.costType === 'free' ? 'free' : s.costType === 'paid' ? 'paid' : 'usage';
-            const costTypeLabel = s.costType === 'free' ? 'Free' : s.costType === 'paid' ? 'Paid' : 'Usage';
+            const costTypeClass =
+                s.costType === 'free' ? 'free' : s.costType === 'paid' ? 'paid' : 'usage';
+            const costTypeLabel =
+                s.costType === 'free' ? 'Free' : s.costType === 'paid' ? 'Paid' : 'Usage';
             return `
                 <tr>
                     <td><strong>${s.name}</strong></td>
@@ -671,15 +908,18 @@
             `;
         }).join('');
 
-        const totalStr = totalVND > 0
-            ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}\u0111/th\u00E1ng`
-            : `~$${totalUSD}/th\u00E1ng`;
-        document.getElementById('totalCostCell').innerHTML = `<strong style="color:var(--danger)">${totalStr}</strong>`;
+        const totalStr =
+            totalVND > 0
+                ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}\u0111/th\u00E1ng`
+                : `~$${totalUSD}/th\u00E1ng`;
+        document.getElementById('totalCostCell').innerHTML =
+            `<strong style="color:var(--danger)">${totalStr}</strong>`;
     }
 
     function renderAPIKeys() {
         const grid = document.getElementById('keysGrid');
-        grid.innerHTML = API_KEYS.map(k => `
+        grid.innerHTML = API_KEYS.map(
+            (k) => `
             <div class="key-item">
                 <div class="key-header">
                     <span class="key-name">${k.name}</span>
@@ -689,17 +929,20 @@
                     ${k.sensitive && !keysVisible ? maskValue(k.value) : k.value}
                 </div>
             </div>
-        `).join('');
+        `
+        ).join('');
     }
 
     function renderQuickLinks() {
         const grid = document.getElementById('quickLinksGrid');
-        grid.innerHTML = QUICK_LINKS.map(l => `
+        grid.innerHTML = QUICK_LINKS.map(
+            (l) => `
             <a href="${l.url}" target="${l.url.startsWith('../') ? '_self' : '_blank'}" class="quick-link">
                 <i data-lucide="${l.icon}"></i>
                 <span>${l.name}</span>
             </a>
-        `).join('');
+        `
+        ).join('');
     }
 
     // =========================================================
@@ -715,7 +958,9 @@
 
     async function checkRenderPlans() {
         try {
-            const res = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render/services');
+            const res = await fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render/services'
+            );
             if (!res.ok) return;
             const { success, services } = await res.json();
             if (!success || !services) return;
@@ -756,11 +1001,15 @@
                 <div class="billing-alert-content">
                     <strong>Render bị downgrade - Kiểm tra thanh toán!</strong>
                     <div class="billing-alert-items">
-                        ${downgraded.map(d => `
+                        ${downgraded
+                            .map(
+                                (d) => `
                         <div class="billing-alert-item">
                             <span>${d.name}</span>
                             <span class="billing-alert-due overdue">${d.expected} → ${d.actual}${d.suspended ? ' (suspended)' : ''}</span>
-                        </div>`).join('')}
+                        </div>`
+                            )
+                            .join('')}
                     </div>
                 </div>
                 <a href="https://dashboard.render.com/billing" target="_blank" class="billing-alert-toggle" style="text-decoration:none">
@@ -784,15 +1033,26 @@
         // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         // Cloudflare Workers auto-pay via Stripe → không cần nhắc
         const BILLING_SCHEDULE = [
-            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
+            {
+                name: 'SePay VIP (589K \u0111)',
+                amount: 589000,
+                amountVND: true,
+                billingDay: 27,
+                warnBefore: 3,
+                showDays: 3,
+            },
         ];
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const alerts = [];
 
-        BILLING_SCHEDULE.forEach(bill => {
-            const billingThisMonth = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+        BILLING_SCHEDULE.forEach((bill) => {
+            const billingThisMonth = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                bill.billingDay
+            );
             const daysDiff = Math.round((billingThisMonth - today) / (1000 * 60 * 60 * 24));
 
             let shouldAlert = false;
@@ -834,7 +1094,7 @@
         const contentArea = document.querySelector('.content-area');
         if (!contentArea) return;
 
-        const paymentAlerts = alerts.filter(a => a.payment);
+        const paymentAlerts = alerts.filter((a) => a.payment);
 
         const banner = document.createElement('div');
         banner.className = 'billing-alert-banner';
@@ -842,35 +1102,53 @@
             <div class="billing-alert-header">
                 <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
                 <div class="billing-alert-content">
-                    <strong>${alerts.some(a => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
+                    <strong>${alerts.some((a) => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
                     <div class="billing-alert-items">
-                        ${alerts.map(a => {
-                            const amountStr = a.amount > 0 ? (a.amountVND ? `${a.amount.toLocaleString('vi-VN')}\u0111` : `$${a.amount}`) : '';
-                            let timeStr;
-                            if (a.isOverdue) {
-                                timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
-                            } else {
-                                timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`;
-                            }
-                            const noteStr = a.note ? ` <small style="opacity:0.7">${a.note}</small>` : '';
-                            return `
+                        ${alerts
+                            .map((a) => {
+                                const amountStr =
+                                    a.amount > 0
+                                        ? a.amountVND
+                                            ? `${a.amount.toLocaleString('vi-VN')}\u0111`
+                                            : `$${a.amount}`
+                                        : '';
+                                let timeStr;
+                                if (a.isOverdue) {
+                                    timeStr =
+                                        a.daysLeft === 0
+                                            ? 'H\u00D4M NAY'
+                                            : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
+                                } else {
+                                    timeStr =
+                                        a.daysLeft === 0
+                                            ? 'H\u00D4M NAY'
+                                            : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`;
+                                }
+                                const noteStr = a.note
+                                    ? ` <small style="opacity:0.7">${a.note}</small>`
+                                    : '';
+                                return `
                             <div class="billing-alert-item">
                                 <span>${a.name}</span>
                                 ${amountStr ? `<span class="billing-alert-amount">${amountStr}</span>` : ''}
                                 <span class="billing-alert-due ${a.isOverdue ? 'overdue' : ''}">${timeStr}</span>
                                 ${noteStr}
                             </div>`;
-                        }).join('')}
+                            })
+                            .join('')}
                     </div>
                 </div>
                 ${paymentAlerts.length > 0 ? '<button class="billing-alert-toggle" id="billingToggle"><i data-lucide="chevron-down"></i> Chi ti\u1EBFt thanh to\u00E1n</button>' : ''}
                 <button class="billing-alert-close" id="billingAlertClose" title="Đóng">✕</button>
             </div>
-            ${paymentAlerts.length > 0 ? `
+            ${
+                paymentAlerts.length > 0
+                    ? `
             <div class="billing-payment-details" id="billingPaymentDetails" style="display:none">
-                ${paymentAlerts.map(a => {
-                    const p = a.payment;
-                    return `
+                ${paymentAlerts
+                    .map((a) => {
+                        const p = a.payment;
+                        return `
                     <div class="billing-payment-card">
                         <div class="billing-payment-qr">
                             <img src="${p.qrUrl}" alt="QR thanh to\u00E1n" />
@@ -887,8 +1165,11 @@
                             <a href="${p.invoiceUrl}" target="_blank" class="billing-invoice-link"><i data-lucide="external-link" style="width:14px;height:14px"></i> Xem tr\u00EAn SePay</a>
                         </div>
                     </div>`;
-                }).join('')}
-            </div>` : ''}
+                    })
+                    .join('')}
+            </div>`
+                    : ''
+            }
         `;
 
         contentArea.insertBefore(banner, contentArea.firstChild);
@@ -920,13 +1201,16 @@
         }
 
         // Copy to clipboard
-        banner.querySelectorAll('.billing-copy').forEach(el => {
+        banner.querySelectorAll('.billing-copy').forEach((el) => {
             el.style.cursor = 'pointer';
             el.addEventListener('click', () => {
                 navigator.clipboard.writeText(el.dataset.copy).then(() => {
                     const orig = el.innerHTML;
                     el.innerHTML = '<span style="color:#16a34a">\u0110\u00E3 copy!</span>';
-                    setTimeout(() => { el.innerHTML = orig; if (typeof lucide !== 'undefined') lucide.createIcons(); }, 1500);
+                    setTimeout(() => {
+                        el.innerHTML = orig;
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    }, 1500);
                 });
             });
         });
@@ -965,7 +1249,7 @@
     function updateSepayCard(liveData) {
         if (!liveData) return;
 
-        const sepayService = SERVICES.find(s => s.id === 'sepay');
+        const sepayService = SERVICES.find((s) => s.id === 'sepay');
         if (!sepayService) return;
 
         const { plans, invoices, month } = liveData;
@@ -977,7 +1261,7 @@
         const txQuota = plans?.transactionQuota || 1000;
 
         // Update details with live data
-        sepayService.details.forEach(d => {
+        sepayService.details.forEach((d) => {
             if (d._liveKey === 'txCount') {
                 d.value = `${txUsed} / ${txQuota.toLocaleString('vi-VN')} GD (T${month || new Date().getMonth() + 1})`;
             } else if (d._liveKey === 'status') {
@@ -1084,13 +1368,13 @@
     function updateAutofbCard(liveData) {
         if (!liveData) return;
 
-        const autofbService = SERVICES.find(s => s.id === 'autofb');
+        const autofbService = SERVICES.find((s) => s.id === 'autofb');
         if (!autofbService) return;
 
         const { balance, balanceVND, username } = liveData;
 
         // Update details with live data
-        autofbService.details.forEach(d => {
+        autofbService.details.forEach((d) => {
             if (d._liveKey === 'balance') {
                 d.value = `$${balance.toFixed(2)} USD (credits)`;
             } else if (d._liveKey === 'balanceVND') {
@@ -1198,12 +1482,12 @@
         }
 
         // Fetch live SePay data
-        fetchSepayLiveData().then(data => {
+        fetchSepayLiveData().then((data) => {
             if (data) updateSepayCard(data);
         });
 
         // Fetch live AutoFB balance
-        fetchAutofbLiveData().then(data => {
+        fetchAutofbLiveData().then((data) => {
             if (data) updateAutofbCard(data);
         });
 

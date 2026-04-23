@@ -28,7 +28,7 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
     const TPOS_CDN_PATTERN = /vn\.img1\.tpos\.vn/;
@@ -37,9 +37,11 @@
     const FAILED_MARK_ATTR = 'data-tpos-fallback';
 
     function getWorkerUrl() {
-        return window.WORKER_URL
-            || window.API_CONFIG?.WORKER_URL
-            || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        return (
+            window.WORKER_URL ||
+            window.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
     }
 
     function extractOriginalUrl(src) {
@@ -146,7 +148,7 @@
         const observer = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 if (m.type === 'childList') {
-                    m.addedNodes.forEach(node => {
+                    m.addedNodes.forEach((node) => {
                         if (node.nodeType !== 1) return;
                         if (node.tagName === 'IMG') rewriteImg(node);
                         else if (node.querySelectorAll) {
@@ -164,15 +166,19 @@
             document.addEventListener('DOMContentLoaded', () => {
                 interceptImages();
                 observer.observe(document.body, {
-                    childList: true, subtree: true,
-                    attributes: true, attributeFilter: ['src']
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['src'],
                 });
             });
         } else {
             interceptImages();
             observer.observe(document.body, {
-                childList: true, subtree: true,
-                attributes: true, attributeFilter: ['src']
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['src'],
             });
         }
     }
@@ -183,7 +189,6 @@
         fallbackImageUrl,
         proxyImgTag,
         interceptImages,
-        handleImageError
+        handleImageError,
     };
-
 })();

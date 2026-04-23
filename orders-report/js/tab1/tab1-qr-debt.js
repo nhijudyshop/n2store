@@ -97,7 +97,7 @@ function getCachedDebt(phone) {
     const cache = getDebtCache();
     const cached = cache[normalizedPhone];
 
-    if (cached && (Date.now() - cached.lastFetched) < DEBT_CACHE_TTL) {
+    if (cached && Date.now() - cached.lastFetched < DEBT_CACHE_TTL) {
         return cached.totalDebt;
     }
 
@@ -116,7 +116,7 @@ function saveDebtToCache(phone, totalDebt) {
     const cache = getDebtCache();
     cache[normalizedPhone] = {
         totalDebt: totalDebt,
-        lastFetched: Date.now()
+        lastFetched: Date.now(),
     };
     saveDebtCache(cache);
 }
@@ -132,15 +132,18 @@ async function fetchDebtForPhone(phone) {
 
     try {
         // Use wallet balance API instead of debt-summary
-        const response = await fetch(`${QR_API_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(
+            `${QR_API_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(normalizedPhone)}`
+        );
         const result = await response.json();
 
         if (result.success) {
             // Validate balance is a finite non-negative number
             const rawBalance = result.balance;
-            const totalBalance = (typeof rawBalance === 'number' && isFinite(rawBalance) && rawBalance >= 0)
-                ? rawBalance
-                : 0;
+            const totalBalance =
+                typeof rawBalance === 'number' && isFinite(rawBalance) && rawBalance >= 0
+                    ? rawBalance
+                    : 0;
             saveDebtToCache(normalizedPhone, totalBalance);
             return totalBalance;
         }
@@ -182,9 +185,10 @@ function renderDebtColumn(phone) {
     if (cachedDebt !== null) {
         // Has cached value - display immediately with click to open Customer 360° modal
         const color = cachedDebt > 0 ? '#10b981' : '#9ca3af';
-        const clickHandler = typeof WalletIntegration !== 'undefined'
-            ? `onclick="WalletIntegration.showWalletModal('${normalizedPhone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
-            : '';
+        const clickHandler =
+            typeof WalletIntegration !== 'undefined'
+                ? `onclick="WalletIntegration.showWalletModal('${normalizedPhone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+                : '';
         return `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(cachedDebt)}</span>`;
     }
 
@@ -201,13 +205,14 @@ function renderDebtColumn(phone) {
 function updateDebtCells(phone, debt) {
     const color = debt > 0 ? '#10b981' : '#9ca3af';
     // Add click handler if WalletIntegration is available
-    const clickHandler = typeof WalletIntegration !== 'undefined'
-        ? `onclick="WalletIntegration.showWalletModal('${phone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
-        : '';
+    const clickHandler =
+        typeof WalletIntegration !== 'undefined'
+            ? `onclick="WalletIntegration.showWalletModal('${phone}'); event.stopPropagation();" style="cursor: pointer;" title="Click để xem chi tiết ví"`
+            : '';
     const html = `<span ${clickHandler} style="color: ${color}; font-weight: 500; font-size: 12px;${typeof WalletIntegration !== 'undefined' ? ' cursor: pointer;' : ''}">${formatDebtCurrency(debt)}</span>`;
 
     // Find all loading cells with this phone and update them
-    document.querySelectorAll(`.debt-loading[data-phone="${phone}"]`).forEach(cell => {
+    document.querySelectorAll(`.debt-loading[data-phone="${phone}"]`).forEach((cell) => {
         cell.outerHTML = html;
     });
 }
@@ -224,8 +229,8 @@ async function batchFetchDebts(phones) {
         return;
     }
 
-    const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
-    const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
+    const uniquePhones = [...new Set(phones.map((p) => normalizePhoneForQR(p)).filter((p) => p))];
+    const uncachedPhones = uniquePhones.filter((p) => getCachedDebt(p) === null);
 
     // Double-check before API call to prevent 400 errors
     if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
@@ -238,7 +243,7 @@ async function batchFetchDebts(phones) {
         const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: requestBody
+            body: requestBody,
         });
 
         // Check response status first
@@ -298,11 +303,11 @@ window.walletDebtData = new Map();
 const WALLET_BATCH_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
 const WALLET_DEBT_BADGE_CONFIG = {
-    BANK_TRANSFER:        { label: 'CK',        bg: '#10b981' },
-    RETURN_GOODS:         { label: 'Khách gửi',  bg: '#8b5cf6' },
-    VIRTUAL_CREDIT_ISSUE: { label: 'Thu về',     bg: '#f59e0b' },
-    MANUAL_ADJUSTMENT:    { label: 'Nạp Tay',   bg: '#3b82f6' },
-    ORDER_CANCEL_REFUND:  { label: 'Hoàn đơn',  bg: '#ef4444' },
+    BANK_TRANSFER: { label: 'CK', bg: '#10b981' },
+    RETURN_GOODS: { label: 'Khách gửi', bg: '#8b5cf6' },
+    VIRTUAL_CREDIT_ISSUE: { label: 'Thu về', bg: '#f59e0b' },
+    MANUAL_ADJUSTMENT: { label: 'Nạp Tay', bg: '#3b82f6' },
+    ORDER_CANCEL_REFUND: { label: 'Hoàn đơn', bg: '#ef4444' },
 };
 
 function formatAmountShort(amount) {
@@ -319,7 +324,7 @@ function formatAmountShort(amount) {
 async function fetchWalletDebtBatch(phones) {
     if (!phones || !Array.isArray(phones) || phones.length === 0) return;
 
-    const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(Boolean))];
+    const uniquePhones = [...new Set(phones.map((p) => normalizePhoneForQR(p)).filter(Boolean))];
     if (uniquePhones.length === 0) return;
 
     const CHUNK_SIZE = 150;
@@ -330,11 +335,13 @@ async function fetchWalletDebtBatch(phones) {
             const response = await fetch(`${WALLET_BATCH_API_URL}/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phones: chunk })
+                body: JSON.stringify({ phones: chunk }),
             });
 
             if (!response.ok) {
-                console.error(`[WALLET-DEBT] ❌ HTTP ${response.status} for chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+                console.error(
+                    `[WALLET-DEBT] ❌ HTTP ${response.status} for chunk ${Math.floor(i / CHUNK_SIZE) + 1}`
+                );
                 continue;
             }
 
@@ -349,7 +356,10 @@ async function fetchWalletDebtBatch(phones) {
                 }
             }
         } catch (error) {
-            console.error(`[WALLET-DEBT] Error fetching chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, error);
+            console.error(
+                `[WALLET-DEBT] Error fetching chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`,
+                error
+            );
         }
     }
 }
@@ -385,13 +395,17 @@ function renderWalletDebtBadges(phone) {
         if (sourceAmount <= 0) continue;
 
         const shortAmt = formatAmountShort(sourceAmount);
-        badges.push(`<span class="wallet-debt-badge" data-source="${source}" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="${config.label}: ${new Intl.NumberFormat('vi-VN').format(sourceAmount)}đ">${config.label} ${shortAmt}</span>`);
+        badges.push(
+            `<span class="wallet-debt-badge" data-source="${source}" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="${config.label}: ${new Intl.NumberFormat('vi-VN').format(sourceAmount)}đ">${config.label} ${shortAmt}</span>`
+        );
     }
 
     // If no source breakdown available but total > 0, show generic badge
     if (badges.length === 0 && total > 0) {
         const shortAmt = formatAmountShort(total);
-        badges.push(`<span class="wallet-debt-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="Số dư ví: ${new Intl.NumberFormat('vi-VN').format(total)}đ">Ví ${shortAmt}</span>`);
+        badges.push(
+            `<span class="wallet-debt-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="Số dư ví: ${new Intl.NumberFormat('vi-VN').format(total)}đ">Ví ${shortAmt}</span>`
+        );
     }
 
     return ' ' + badges.join(' ');
@@ -441,7 +455,7 @@ function _applyWalletAutoTags() {
     if (!window.walletDebtData || walletSize === 0) return;
 
     let taggedCount = 0;
-    document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
+    document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
         const row = cell.closest('tr');
         if (!row) return;
         const phoneCell = row.querySelector('td[data-column="phone"]');
@@ -456,17 +470,22 @@ function _applyWalletAutoTags() {
         if ((data.total || 0) <= 0) return;
 
         const orderId = row.getAttribute('data-order-id');
-        const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
+        const orderCode =
+            row.getAttribute('data-order-code') ||
+            (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
         if (!orderCode) return;
 
         const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
-        const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
+        const existingFlagIds = existingFlags.map((f) => (typeof f === 'object' ? f.id : f));
 
         if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
             window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động', { batchQueue: true });
             taggedCount++;
         }
-        if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
+        if (
+            (data.virtualBalance || data.virtual_balance || 0) > 0 &&
+            !existingFlagIds.includes('TRU_CONG_NO')
+        ) {
             window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động', { batchQueue: true });
             taggedCount++;
         }
@@ -485,7 +504,7 @@ function _applyWalletAutoTags() {
  */
 function updateWalletDebtBadgesInTable(targetPhone) {
     const normalized = targetPhone ? normalizePhoneForQR(targetPhone) : null;
-    document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
+    document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
         const row = cell.closest('tr');
         if (!row) return;
         const phoneCell = row.querySelector('td[data-column="phone"]');
@@ -494,7 +513,7 @@ function updateWalletDebtBadgesInTable(targetPhone) {
         if (normalized && rowPhone !== normalized) return;
 
         // Remove existing badges
-        cell.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+        cell.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
 
         const nameDiv = cell.querySelector('.customer-name');
         if (!nameDiv) return;
@@ -514,7 +533,8 @@ function updateWalletDebtBadgesInTable(targetPhone) {
             }
 
             // Watermark background
-            cell.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
+            cell.style.background =
+                'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
 
             // Schedule auto-tag CK / Trừ Công Nợ (tách ra function riêng để retry khi _isLoaded=false)
             _scheduleWalletAutoTag();
@@ -534,15 +554,17 @@ function triggerWalletDebtFetch() {
     clearTimeout(_walletDebtFetchTimer);
     _walletDebtFetchTimer = setTimeout(() => {
         const phones = [];
-        document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+        document.querySelectorAll('td[data-column="phone"]').forEach((cell) => {
             const p = cell.textContent.trim();
             if (p) phones.push(p);
         });
         const unique = [...new Set(phones)];
         if (unique.length > 0) {
-            fetchWalletDebtBatch(unique).then(() => {
-                updateWalletDebtBadgesInTable();
-            }).catch(err => console.error('[WALLET-DEBT] Fetch error:', err));
+            fetchWalletDebtBatch(unique)
+                .then(() => {
+                    updateWalletDebtBadgesInTable();
+                })
+                .catch((err) => console.error('[WALLET-DEBT] Fetch error:', err));
         }
     }, 300);
 }
@@ -562,7 +584,7 @@ const RENDER_SSE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
  */
 function isEmployeeMode() {
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
-    return !isAdmin && (window.employeeRanges?.length > 0);
+    return !isAdmin && window.employeeRanges?.length > 0;
 }
 
 /**
@@ -570,7 +592,7 @@ function isEmployeeMode() {
  */
 function getEmployeePhones() {
     const phones = new Set();
-    document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+    document.querySelectorAll('td[data-column="phone"]').forEach((cell) => {
         const phone = normalizePhoneForQR(cell.textContent.trim());
         if (phone) phones.add(phone);
     });
@@ -592,7 +614,7 @@ function getCustomerNameByPhone(phone) {
             if (nameDiv) {
                 // Get text content without badge text
                 const clone = nameDiv.cloneNode(true);
-                clone.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+                clone.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
                 return clone.textContent.trim();
             }
         }
@@ -626,22 +648,25 @@ function connectWalletSSE() {
                 // Mark phone dirty để auto-tag chạy lại cho phone này
                 _markWalletAutoTagDirty(phone);
 
-                const newTotal = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
+                const newTotal =
+                    (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
                 const oldData = window.walletDebtData.get(normalized);
-                const oldTotal = oldData ? (oldData.total || 0) : 0;
+                const oldTotal = oldData ? oldData.total || 0 : 0;
 
                 // Update local wallet data
                 if (newTotal > 0) {
                     // Merge source breakdown - add the new transaction source amount
                     const existingSources = oldData?.sourceBreakdown || {};
                     if (transaction?.source && transaction?.amount > 0) {
-                        existingSources[transaction.source] = (existingSources[transaction.source] || 0) + parseFloat(transaction.amount);
+                        existingSources[transaction.source] =
+                            (existingSources[transaction.source] || 0) +
+                            parseFloat(transaction.amount);
                     }
                     window.walletDebtData.set(normalized, {
                         balance: parseFloat(wallet.balance) || 0,
                         virtualBalance: parseFloat(wallet.virtual_balance) || 0,
                         total: newTotal,
-                        sourceBreakdown: existingSources
+                        sourceBreakdown: existingSources,
                     });
                 } else {
                     window.walletDebtData.delete(normalized);
@@ -662,7 +687,10 @@ function connectWalletSSE() {
                     if (employeePhones.has(normalized)) {
                         const increase = newTotal - oldTotal;
                         const customerName = getCustomerNameByPhone(phone);
-                        showNotification(`Ví khách ${customerName} vừa tăng ${new Intl.NumberFormat('vi-VN').format(increase)}đ`, 'success');
+                        showNotification(
+                            `Ví khách ${customerName} vừa tăng ${new Intl.NumberFormat('vi-VN').format(increase)}đ`,
+                            'success'
+                        );
                     }
                 }
             } catch (err) {
@@ -670,8 +698,7 @@ function connectWalletSSE() {
             }
         });
 
-        walletEventSource.addEventListener('connected', () => {
-        });
+        walletEventSource.addEventListener('connected', () => {});
 
         walletEventSource.onerror = () => {
             console.warn('[WALLET-SSE] Connection error');
@@ -684,7 +711,6 @@ function connectWalletSSE() {
                 walletReconnectTimeout = setTimeout(connectWalletSSE, 15000);
             }
         };
-
     } catch (error) {
         console.error('[WALLET-SSE] Failed to connect:', error);
     }
@@ -809,7 +835,7 @@ function updateDebtCellsInTable(phone, debt) {
     const html = `<span style="color: ${color}; font-weight: 500; font-size: 12px;">${formatDebtCurrency(debt)}</span>`;
 
     // Find all debt cells and update those matching this phone
-    document.querySelectorAll('td[data-column="debt"]').forEach(cell => {
+    document.querySelectorAll('td[data-column="debt"]').forEach((cell) => {
         // Get the phone from the same row
         const row = cell.closest('tr');
         if (row) {
@@ -834,8 +860,7 @@ function connectDebtRealtime() {
         debtEventSource = new EventSource(`${QR_API_URL}/api/sepay/stream`);
 
         // Connection established
-        debtEventSource.addEventListener('connected', (e) => {
-        });
+        debtEventSource.addEventListener('connected', (e) => {});
 
         // New transaction received
         debtEventSource.addEventListener('new-transaction', (e) => {
@@ -881,7 +906,6 @@ function connectDebtRealtime() {
                 }, 10000);
             }
         };
-
     } catch (error) {
         console.error('[DEBT-REALTIME] Failed to connect:', error);
     }
@@ -926,7 +950,6 @@ let currentSaleVirtualCredits = []; // [{ remaining_amount, source_type, source_
 // (carrier cache, delivery dropdown, COD, smart delivery, district parsing,
 //  carrier matching, formatCurrencyVND → all in sale-modal-common.js)
 
-
 /**
  * Open Sale Button Modal and fetch order details from API
  */
@@ -941,7 +964,7 @@ async function openSaleButtonModal() {
 
     const orderId = Array.from(selectedOrderIds)[0];
     // O(1) via OrderStore with fallback
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
 
     if (!order) {
         if (window.notificationManager) {
@@ -960,7 +983,9 @@ async function openSaleButtonModal() {
         if (window.notificationManager) {
             window.notificationManager.error(msg, 10000, 'Chờ điều chỉnh công nợ');
         } else {
-            alert(`Đơn STT ${stt} - ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`);
+            alert(
+                `Đơn STT ${stt} - ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`
+            );
         }
         return;
     }
@@ -1046,7 +1071,10 @@ async function openSaleButtonModal() {
     if (shippingFeeInput) {
         shippingFeeInput.oninput = function () {
             // Recalculate COD when shipping fee changes
-            const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const finalTotal =
+                parseFloat(
+                    document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')
+                ) || 0;
             const shippingFee = parseFloat(this.value) || 0;
             const codInput = document.getElementById('saleCOD');
             if (codInput) {
@@ -1061,8 +1089,12 @@ async function openSaleButtonModal() {
     if (discountInput) {
         discountInput.oninput = function () {
             // Recalculate totals when discount changes
-            const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
-            const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+            const totalAmount =
+                parseFloat(
+                    document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')
+                ) || 0;
+            const totalQuantity =
+                parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
             updateSaleTotals(totalQuantity, totalAmount);
         };
     }
@@ -1100,9 +1132,9 @@ async function openSaleButtonModal() {
         // Populate order lines if available
         if (orderDetails.orderLines && orderDetails.orderLines.length > 0) {
             // 🔥 Map SaleOnlineDetailId from orderLine.Id for FastSaleOrder compatibility
-            const mappedOrderLines = orderDetails.orderLines.map(line => ({
+            const mappedOrderLines = orderDetails.orderLines.map((line) => ({
                 ...line,
-                SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null
+                SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null,
             }));
             populateSaleOrderLinesFromAPI(mappedOrderLines);
         }
@@ -1135,7 +1167,8 @@ async function openSaleModalFromSocialOrder(socialOrder) {
         const phone = socialOrder.phone || adj.newPhone || '';
         window.notificationManager?.error(
             `<div style="font-size:15px;line-height:1.6;"><b style="font-size:16px;">Đơn ${name} (${phone})</b><br>đang chờ điều chỉnh công nợ ví.<br><b>Liên hệ kế toán để điều chỉnh.</b></div>`,
-            10000, 'Chờ điều chỉnh công nợ'
+            10000,
+            'Chờ điều chỉnh công nợ'
         );
         return;
     }
@@ -1151,16 +1184,16 @@ async function openSaleModalFromSocialOrder(socialOrder) {
         Address: socialOrder.address,
         TotalAmount: socialOrder.totalAmount || 0,
         Comment: socialOrder.note || '',
-        Details: (socialOrder.products || []).map(p => ({
+        Details: (socialOrder.products || []).map((p) => ({
             ProductNameGet: p.productName || '',
             ProductName: p.productName || '',
             Quantity: p.quantity || 1,
             PriceUnit: p.sellingPrice || 0,
             Price: p.sellingPrice || 0,
-            Note: p.variant || ''
+            Note: p.variant || '',
         })),
         Tags: socialOrder.tags ? JSON.stringify(socialOrder.tags) : '[]',
-        _isSocialOrder: true
+        _isSocialOrder: true,
     };
 
     currentSaleOrderData = mappedOrder;
@@ -1231,12 +1264,17 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     // Event listeners for COD, shipping fee, discount (same as openSaleButtonModal)
     const codInput = document.getElementById('saleCOD');
     if (codInput) {
-        codInput.oninput = function () { updateSaleRemainingBalance(); };
+        codInput.oninput = function () {
+            updateSaleRemainingBalance();
+        };
     }
     const shippingFeeInput = document.getElementById('saleShippingFee');
     if (shippingFeeInput) {
         shippingFeeInput.oninput = function () {
-            const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const finalTotal =
+                parseFloat(
+                    document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')
+                ) || 0;
             const shippingFee = parseFloat(this.value) || 0;
             const codInput = document.getElementById('saleCOD');
             if (codInput) {
@@ -1248,8 +1286,12 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     const discountInput = document.getElementById('saleDiscount');
     if (discountInput) {
         discountInput.oninput = function () {
-            const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
-            const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+            const totalAmount =
+                parseFloat(
+                    document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')
+                ) || 0;
+            const totalQuantity =
+                parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
             updateSaleTotals(totalQuantity, totalAmount);
         };
     }
@@ -1295,7 +1337,7 @@ function closeSaleButtonModal(clearSelection = false) {
 
         // Uncheck all checkboxes in table
         const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
-        checkboxes.forEach(cb => cb.checked = false);
+        checkboxes.forEach((cb) => (cb.checked = false));
 
         // Uncheck "Select All" checkbox
         const selectAllCheckbox = document.getElementById('selectAll');
@@ -1344,20 +1386,22 @@ async function confirmDebtUpdate() {
         const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 phone: phone,
                 new_debt: newDebt,
-                reason: 'Admin manual adjustment from Sale Modal'
-            })
+                reason: 'Admin manual adjustment from Sale Modal',
+            }),
         });
 
         const result = await response.json();
 
         if (result.success) {
             if (window.notificationManager) {
-                window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
+                window.notificationManager.success(
+                    `Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`
+                );
             }
             // Update the field background to indicate saved
             prepaidAmountField.style.background = '#d1fae5'; // Light green
@@ -1377,13 +1421,13 @@ async function confirmDebtUpdate() {
                 // Also update "Nợ cũ" display in modal
                 const oldDebtField = document.getElementById('saleOldDebt');
                 if (oldDebtField) {
-                    oldDebtField.textContent = newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
+                    oldDebtField.textContent =
+                        newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
                 }
             }
         } else {
             throw new Error(result.error || 'Failed to update debt');
         }
-
     } catch (error) {
         console.error('[DEBT-UPDATE] Error:', error);
         if (window.notificationManager) {
@@ -1403,7 +1447,7 @@ async function confirmDebtUpdate() {
  */
 function switchSaleTab(tabName) {
     // Update tab buttons
-    document.querySelectorAll('.sale-tab').forEach(tab => {
+    document.querySelectorAll('.sale-tab').forEach((tab) => {
         tab.classList.remove('active');
         if (tab.dataset.tab === tabName) {
             tab.classList.add('active');
@@ -1411,12 +1455,14 @@ function switchSaleTab(tabName) {
     });
 
     // Update tab contents
-    document.querySelectorAll('.sale-tab-content').forEach(content => {
+    document.querySelectorAll('.sale-tab-content').forEach((content) => {
         content.classList.remove('active');
         content.style.display = 'none';
     });
 
-    const activeContent = document.getElementById(`saleTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+    const activeContent = document.getElementById(
+        `saleTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`
+    );
     if (activeContent) {
         activeContent.classList.add('active');
         activeContent.style.display = 'block';
@@ -1433,14 +1479,17 @@ async function fetchOrderDetailsForSale(orderUuid) {
             return null;
         }
 
-        const response = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse', {
-            method: 'POST',
-            headers: {
-                'accept': 'application/json, text/plain, */*',
-                'content-type': 'application/json;charset=UTF-8'
-            },
-            body: JSON.stringify({ ids: [orderUuid] })
-        });
+        const response = await window.tokenManager.authenticatedFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse',
+            {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({ ids: [orderUuid] }),
+            }
+        );
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1448,7 +1497,6 @@ async function fetchOrderDetailsForSale(orderUuid) {
 
         const data = await response.json();
         return data;
-
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching order details:', error);
         if (window.notificationManager) {
@@ -1498,4 +1546,3 @@ window.disconnectDebtRealtime = disconnectDebtRealtime;
 // Export sale modal functions
 window.openSaleButtonModal = openSaleButtonModal;
 window.closeSaleButtonModal = closeSaleButtonModal;
-

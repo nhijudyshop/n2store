@@ -64,10 +64,12 @@ class PurchaseOrderTableRenderer {
         if (!rows || rows.length === 0) return;
 
         // Get all order IDs
-        const orderIds = Array.from(rows).map(row => row.dataset.orderId).filter(Boolean);
+        const orderIds = Array.from(rows)
+            .map((row) => row.dataset.orderId)
+            .filter(Boolean);
 
         // Update sync status badges
-        rows.forEach(row => {
+        rows.forEach((row) => {
             const orderId = row.dataset.orderId;
             const statusCell = row.querySelector('.sync-status-cell');
             if (statusCell && this.syncStatusMap.has(orderId)) {
@@ -99,10 +101,7 @@ class PurchaseOrderTableRenderer {
         const unlockTime = this.ordersToUnlock.get(orderId);
         const status = this.syncStatusMap.get(orderId);
 
-        return (
-            (status?.processing ?? 0) > 0 ||
-            (unlockTime !== undefined && now < unlockTime)
-        );
+        return (status?.processing ?? 0) > 0 || (unlockTime !== undefined && now < unlockTime);
     }
 
     // ========================================
@@ -122,7 +121,7 @@ class PurchaseOrderTableRenderer {
             return;
         }
 
-        const allSelected = orders.length > 0 && orders.every(o => selectedIds.has(o.id));
+        const allSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
 
         const tableHTML = `
             <!-- Bulk Action Toolbar -->
@@ -164,7 +163,7 @@ class PurchaseOrderTableRenderer {
             return '';
         }
 
-        const allDrafts = orders.length > 0 && orders.every(o => o.status === 'DRAFT');
+        const allDrafts = orders.length > 0 && orders.every((o) => o.status === 'DRAFT');
 
         return `
             <div class="bulk-action-toolbar">
@@ -173,12 +172,16 @@ class PurchaseOrderTableRenderer {
                     <span>đơn hàng đã chọn</span>
                 </div>
                 <div class="bulk-action-toolbar__actions">
-                    ${!allDrafts ? `
+                    ${
+                        !allDrafts
+                            ? `
                     <button class="btn btn-outline btn-sm" data-bulk-action="export">
                         <i data-lucide="download"></i>
                         <span>Xuất Excel</span>
                     </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                     <button class="btn btn-outline btn-sm btn-danger" data-bulk-action="delete">
                         <i data-lucide="trash-2"></i>
                         <span>Xóa ${selectedCount} đơn</span>
@@ -234,7 +237,7 @@ class PurchaseOrderTableRenderer {
      * @returns {string} HTML string
      */
     renderTableBody(orders, selectedIds) {
-        return orders.map(order => this.renderOrderRows(order, selectedIds)).join('');
+        return orders.map((order) => this.renderOrderRows(order, selectedIds)).join('');
     }
 
     /**
@@ -253,9 +256,12 @@ class PurchaseOrderTableRenderer {
         const isProcessing = this.isOrderProcessing(order.id);
 
         // Calculate price mismatch
-        const calculatedTotal = items.reduce((sum, item) =>
-            sum + ((item.purchasePrice || 0) * (item.quantity || 0)), 0);
-        const calculatedFinalAmount = calculatedTotal - (order.discountAmount || 0) + (order.shippingFee || 0);
+        const calculatedTotal = items.reduce(
+            (sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 0),
+            0
+        );
+        const calculatedFinalAmount =
+            calculatedTotal - (order.discountAmount || 0) + (order.shippingFee || 0);
         const hasPriceMismatch = Math.abs(calculatedFinalAmount - (order.finalAmount || 0)) > 0.01;
 
         // If no items, render a single row
@@ -273,11 +279,12 @@ class PurchaseOrderTableRenderer {
         }
 
         // Render rows with row spanning
-        return items.map((item, index) => {
-            const isFirstRow = index === 0;
+        return items
+            .map((item, index) => {
+                const isFirstRow = index === 0;
 
-            if (isFirstRow) {
-                return `
+                if (isFirstRow) {
+                    return `
                     <tr class="order-row order-row--first ${isSelected ? 'selected' : ''} ${isProcessing ? 'order-row--processing' : ''}"
                         data-order-id="${order.id}">
                         ${this.renderSpannedCells(order, rowSpan, isSelected, hasPriceMismatch, calculatedFinalAmount)}
@@ -286,15 +293,16 @@ class PurchaseOrderTableRenderer {
                         ${this.renderActionCell(order, rowSpan, isSelected, canEdit, canDelete, isProcessing)}
                     </tr>
                 `;
-            } else {
-                return `
+                } else {
+                    return `
                     <tr class="order-row ${isSelected ? 'selected' : ''} ${isProcessing ? 'order-row--processing' : ''}"
                         data-order-id="${order.id}">
                         ${this.renderItemCells(item)}
                     </tr>
                 `;
-            }
-        }).join('');
+                }
+            })
+            .join('');
     }
 
     /**
@@ -308,7 +316,10 @@ class PurchaseOrderTableRenderer {
      */
     renderSpannedCells(order, rowSpan, isSelected, hasPriceMismatch, calculatedFinalAmount) {
         const config = window.PurchaseOrderConfig;
-        const totalQuantity = (order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const totalQuantity = (order.items || []).reduce(
+            (sum, item) => sum + (item.quantity || 0),
+            0
+        );
 
         return `
             <!-- Ngày đặt -->
@@ -338,11 +349,15 @@ class PurchaseOrderTableRenderer {
                     ${this.renderInvoiceImages(order.invoiceImages)}
                     <div class="invoice-amounts">
                         <div class="invoice-amount invoice-amount--main">${config.formatVND(order.finalAmount || 0)}</div>
-                        ${hasPriceMismatch ? `
+                        ${
+                            hasPriceMismatch
+                                ? `
                             <div class="invoice-amount invoice-amount--calculated">
                                 Thành tiền: ${config.formatVND(calculatedFinalAmount)}
                             </div>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                         ${order.discountAmount ? `<div class="invoice-detail text-muted" style="font-size:11px;">Giảm: ${config.formatVND(order.discountAmount)}</div>` : ''}
                         ${order.shippingFee ? `<div class="invoice-detail text-muted" style="font-size:11px;">Ship: ${config.formatVND(order.shippingFee)}</div>` : ''}
                     </div>
@@ -395,23 +410,31 @@ class PurchaseOrderTableRenderer {
             <!-- Giá bán với hình ảnh sản phẩm -->
             <td class="col-selling-price">
                 <div class="cell-price">
-                    ${this.renderProductImages(item.productImages && item.productImages.length > 0 ? item.productImages : (item.tposImageUrl ? [item.tposImageUrl] : null))}
+                    ${this.renderProductImages(item.productImages && item.productImages.length > 0 ? item.productImages : item.tposImageUrl ? [item.tposImageUrl] : null)}
                     <span class="price-value">${config.formatVND(item.sellingPrice || 0)}</span>
                 </div>
             </td>
 
             <!-- Ghi chú item -->
             <td class="col-notes">
-                ${orderNotes ? `
+                ${
+                    orderNotes
+                        ? `
                     <div class="notes-hover" title="${orderNotes}" style="color: #4b5563; font-style: italic;">
                         <span class="notes-text" style="font-weight: 700;">${orderNotes}</span>
                     </div>
-                ` : ''}
-                ${item.notes ? `
+                `
+                        : ''
+                }
+                ${
+                    item.notes
+                        ? `
                     <div class="notes-hover" title="${item.notes}">
                         <span class="notes-text" style="font-weight: 700;">${item.notes}</span>
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </td>
         `;
     }
@@ -481,7 +504,7 @@ class PurchaseOrderTableRenderer {
         const isDraft = order.status === 'DRAFT';
         const isAwaitingDelivery = order.status === 'AWAITING_DELIVERY';
         const items = order.items || [];
-        const canPrintBarcode = items.length > 0 && items.some(item => !!item.productCode);
+        const canPrintBarcode = items.length > 0 && items.some((item) => !!item.productCode);
 
         return `
             <td class="col-actions" rowspan="${rowSpan}">
@@ -496,7 +519,9 @@ class PurchaseOrderTableRenderer {
                     </button>
 
                     <!-- Export Excel (not available for drafts) -->
-                    ${!isDraft ? `
+                    ${
+                        !isDraft
+                            ? `
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="Xuất Excel mua hàng"
                             data-action="export"
@@ -504,10 +529,14 @@ class PurchaseOrderTableRenderer {
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="file-down" class="text-green"></i>
                     </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
                     <!-- Print barcode (only for drafts with all items from inventory) -->
-                    ${canPrintBarcode ? `
+                    ${
+                        canPrintBarcode
+                            ? `
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="In tem barcode"
                             data-action="print-barcode"
@@ -515,7 +544,9 @@ class PurchaseOrderTableRenderer {
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="printer" class="text-teal"></i>
                     </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
                     <!-- Copy order -->
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
@@ -587,10 +618,15 @@ class PurchaseOrderTableRenderer {
 
         return `
             <div class="price-images image-zoom-container">
-                ${images.slice(0, 2).map((url, index) => `
+                ${images
+                    .slice(0, 2)
+                    .map(
+                        (url, index) => `
                     <img src="${url}" alt="Giá mua ${index + 1}"
                          class="mini-thumb zoomable-image" loading="lazy">
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
     }
@@ -607,10 +643,15 @@ class PurchaseOrderTableRenderer {
 
         return `
             <div class="product-images image-zoom-container">
-                ${images.slice(0, 2).map((url, index) => `
+                ${images
+                    .slice(0, 2)
+                    .map(
+                        (url, index) => `
                     <img src="${url}" alt="Sản phẩm ${index + 1}"
                          class="mini-thumb zoomable-image" loading="lazy">
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
     }
@@ -635,7 +676,9 @@ class PurchaseOrderTableRenderer {
         const config = window.PurchaseOrderConfig;
         const selectedCount = selectedIds.size;
 
-        const bulkToolbar = selectedCount > 0 ? `
+        const bulkToolbar =
+            selectedCount > 0
+                ? `
             <div class="bulk-action-toolbar">
                 <div class="bulk-action-toolbar__info">
                     <span class="bulk-action-toolbar__count">${selectedCount}</span>
@@ -656,9 +699,10 @@ class PurchaseOrderTableRenderer {
                     </button>
                 </div>
             </div>
-        ` : '';
+        `
+                : '';
 
-        const allSelected = orders.length > 0 && orders.every(o => selectedIds.has(o.id));
+        const allSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
 
         const tableHTML = `
             ${bulkToolbar}
@@ -685,7 +729,7 @@ class PurchaseOrderTableRenderer {
                         </tr>
                     </thead>
                     <tbody>
-                        ${orders.map(order => this.renderTrashRow(order, selectedIds)).join('')}
+                        ${orders.map((order) => this.renderTrashRow(order, selectedIds)).join('')}
                     </tbody>
                 </table>
             </div>
@@ -711,11 +755,18 @@ class PurchaseOrderTableRenderer {
         const isSelected = selectedIds.has(order.id);
         const previousStatus = order.previousStatus || 'DRAFT';
         const previousLabel = config.STATUS_LABELS[previousStatus] || previousStatus;
-        const previousColors = config.STATUS_COLORS[previousStatus] || config.STATUS_COLORS[config.OrderStatus.DRAFT];
+        const previousColors =
+            config.STATUS_COLORS[previousStatus] || config.STATUS_COLORS[config.OrderStatus.DRAFT];
 
         // Calculate days remaining before auto-delete
-        const deletedAt = order.deletedAt?.toDate ? order.deletedAt.toDate() : (order.deletedAt ? new Date(order.deletedAt) : new Date());
-        const expiryDate = new Date(deletedAt.getTime() + config.TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        const deletedAt = order.deletedAt?.toDate
+            ? order.deletedAt.toDate()
+            : order.deletedAt
+              ? new Date(order.deletedAt)
+              : new Date();
+        const expiryDate = new Date(
+            deletedAt.getTime() + config.TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000
+        );
         const now = new Date();
         const daysRemaining = Math.max(0, Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000)));
 
@@ -834,7 +885,10 @@ class PurchaseOrderTableRenderer {
     renderSkeleton() {
         if (!this.container) return;
 
-        const skeletonRows = Array(5).fill(0).map(() => `
+        const skeletonRows = Array(5)
+            .fill(0)
+            .map(
+                () => `
             <tr class="skeleton-row">
                 <td class="col-date"><div class="skeleton" style="width: 80px; height: 40px;"></div></td>
                 <td class="col-supplier"><div class="skeleton" style="width: 100px; height: 40px;"></div></td>
@@ -849,7 +903,9 @@ class PurchaseOrderTableRenderer {
                 <td class="col-status"><div class="skeleton" style="width: 70px; height: 24px;"></div></td>
                 <td class="col-actions"><div class="skeleton" style="width: 120px; height: 32px;"></div></td>
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         this.container.innerHTML = `
             <div class="table-wrapper">
@@ -964,7 +1020,8 @@ class PurchaseOrderTableRenderer {
         const THUMB_SELECTOR = '.zoomable-image, .mini-thumb';
 
         const ensurePreview = () => {
-            if (this._imgPreview && document.body.contains(this._imgPreview)) return this._imgPreview;
+            if (this._imgPreview && document.body.contains(this._imgPreview))
+                return this._imgPreview;
             const el = document.createElement('img');
             el.className = 'po-image-preview';
             el.style.display = 'none';
@@ -1119,11 +1176,13 @@ class PurchaseOrderTableRenderer {
         if (!this.container) return;
 
         const rows = this.container.querySelectorAll(`[data-order-id="${orderId}"]`);
-        rows.forEach(row => {
+        rows.forEach((row) => {
             row.classList.toggle('selected', isSelected);
         });
 
-        const checkbox = this.container.querySelector(`.order-checkbox[data-order-id="${orderId}"]`);
+        const checkbox = this.container.querySelector(
+            `.order-checkbox[data-order-id="${orderId}"]`
+        );
         if (checkbox) {
             checkbox.checked = isSelected;
         }

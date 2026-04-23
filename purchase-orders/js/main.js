@@ -11,7 +11,12 @@
 
 function escapeHtml(str) {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // ========================================
@@ -26,17 +31,21 @@ function escapeHtml(str) {
 function variantsMatch(variant1, variant2) {
     if (!variant1 || !variant2) return false;
 
-    const removeDiacritics = window.ProductCodeGenerator?.removeVietnameseDiacritics
-        || ((s) => s);
+    const removeDiacritics = window.ProductCodeGenerator?.removeVietnameseDiacritics || ((s) => s);
 
     const normalize = (str) =>
-        removeDiacritics(str.trim())
-            .toUpperCase()
-            .replace(/[()]/g, '')
-            .replace(/\s+/g, ' ');
+        removeDiacritics(str.trim()).toUpperCase().replace(/[()]/g, '').replace(/\s+/g, ' ');
 
-    const parts1 = variant1.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
-    const parts2 = variant2.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
+    const parts1 = variant1
+        .split(/[,|\/]/)
+        .map(normalize)
+        .filter((p) => p.length > 0)
+        .sort();
+    const parts2 = variant2
+        .split(/[,|\/]/)
+        .map(normalize)
+        .filter((p) => p.length > 0)
+        .sort();
 
     return parts1.length === parts2.length && parts1.every((part, idx) => part === parts2[idx]);
 }
@@ -61,7 +70,7 @@ async function loadProductsCSV() {
             return [];
         }
         const text = await response.text();
-        const lines = text.split('\n').filter(l => l.trim());
+        const lines = text.split('\n').filter((l) => l.trim());
         if (lines.length < 2) return [];
 
         const headers = lines[0].split(',');
@@ -149,7 +158,7 @@ class PurchaseOrderController {
                 onViewDetail: (orderId) => this.handleViewDetail(orderId),
                 onBulkExport: () => this.handleBulkExport(),
                 onBulkDelete: () => this.handleBulkDelete(),
-                onClearSelection: () => this.handleClearSelection()
+                onClearSelection: () => this.handleClearSelection(),
             });
 
             // Subscribe to data manager events
@@ -163,7 +172,7 @@ class PurchaseOrderController {
 
             // Pre-load NCC names for supplier autocomplete
             if (window.NCCManager) {
-                window.NCCManager.loadNCCNames().catch(err =>
+                window.NCCManager.loadNCCNames().catch((err) =>
                     console.warn('[Init] NCC names load failed:', err)
                 );
             }
@@ -175,10 +184,9 @@ class PurchaseOrderController {
             console.log('[PurchaseOrderController] Initialized successfully');
 
             // Run daily image cleanup in background (non-blocking)
-            this.service.cleanupOldFirebaseImages().catch(err =>
-                console.warn('[Init] Image cleanup failed:', err)
-            );
-
+            this.service
+                .cleanupOldFirebaseImages()
+                .catch((err) => console.warn('[Init] Image cleanup failed:', err));
         } catch (error) {
             console.error('[PurchaseOrderController] Initialization failed:', error);
             this.ui.showToast('Không thể khởi tạo module. Vui lòng tải lại trang.', 'error');
@@ -216,7 +224,7 @@ class PurchaseOrderController {
             paginationContainer: document.getElementById('pagination'),
 
             // Loading
-            loadingOverlay: document.getElementById('loadingOverlay')
+            loadingOverlay: document.getElementById('loadingOverlay'),
         };
     }
 
@@ -246,9 +254,14 @@ class PurchaseOrderController {
         // Status counts changed
         this.unsubscribers.push(
             this.dataManager.on('statusCountsChange', (counts) => {
-                this.ui.renderTabs(this.currentTab, counts, this.elements.tabsContainer, (status) => {
-                    this.handleTabChange(status);
-                });
+                this.ui.renderTabs(
+                    this.currentTab,
+                    counts,
+                    this.elements.tabsContainer,
+                    (status) => {
+                        this.handleTabChange(status);
+                    }
+                );
             })
         );
 
@@ -342,7 +355,13 @@ class PurchaseOrderController {
 
         // Restore tab from URL hash, default to DRAFT
         const hash = window.location.hash.replace('#', '');
-        const validTabs = [...Object.values(this.config.OrderStatus), 'HISTORY', 'REFUNDS', 'PRODUCTS', 'NOTES'];
+        const validTabs = [
+            ...Object.values(this.config.OrderStatus),
+            'HISTORY',
+            'REFUNDS',
+            'PRODUCTS',
+            'NOTES',
+        ];
         this.currentTab = validTabs.includes(hash) ? hash : this.config.OrderStatus.DRAFT;
 
         // Load stats & counts in single Firestore read
@@ -388,7 +407,7 @@ class PurchaseOrderController {
             onSearch: (term) => this.dataManager.setSearchTerm(term),
             onStatusFilter: (status) => this.dataManager.setStatusFilter(status),
             onClear: () => this.dataManager.clearFilters(),
-            onReload: () => this.dataManager.refresh()
+            onReload: () => this.dataManager.refresh(),
         });
     }
 
@@ -423,13 +442,15 @@ class PurchaseOrderController {
             }
 
             const totalItems = suppliers.reduce((s, k) => s + grouped[k].length, 0);
-            const supplierList = suppliers.map(name => {
-                const items = grouped[name];
-                const productNames = items.map(it => it.productName).join(', ');
-                return `<div class="overdue-supplier" style="cursor: pointer; padding: 4px 0;" data-supplier="${escapeHtml(name)}">
+            const supplierList = suppliers
+                .map((name) => {
+                    const items = grouped[name];
+                    const productNames = items.map((it) => it.productName).join(', ');
+                    return `<div class="overdue-supplier" style="cursor: pointer; padding: 4px 0;" data-supplier="${escapeHtml(name)}">
                     <strong>${escapeHtml(name)}</strong>: ${items.length} SP — <span style="font-size: 12px; color: #991b1b;">${escapeHtml(productNames)}</span>
                 </div>`;
-            }).join('');
+                })
+                .join('');
 
             existing.innerHTML = `
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
@@ -449,7 +470,7 @@ class PurchaseOrderController {
             });
 
             // Click on supplier → go to Notes tab
-            existing.querySelectorAll('.overdue-supplier').forEach(el => {
+            existing.querySelectorAll('.overdue-supplier').forEach((el) => {
                 el.addEventListener('click', () => {
                     this.handleTabChange('NOTES');
                 });
@@ -500,7 +521,7 @@ class PurchaseOrderController {
         this.renderPagination({
             currentPage: this.dataManager.currentPage,
             totalItems: orders.length,
-            pageSize: this.config.PAGINATION_CONFIG.pageSize
+            pageSize: this.config.PAGINATION_CONFIG.pageSize,
         });
     }
 
@@ -525,18 +546,22 @@ class PurchaseOrderController {
         const info = paginationInfo || {
             currentPage: this.dataManager.currentPage,
             totalItems: this.dataManager.orders.length,
-            pageSize: this.config.PAGINATION_CONFIG.pageSize
+            pageSize: this.config.PAGINATION_CONFIG.pageSize,
         };
 
-        this.ui.renderPagination({
-            currentPage: info.currentPage,
-            totalItems: info.totalItems,
-            pageSize: info.pageSize,
-            hasMore: this.dataManager.hasMore
-        }, this.elements.paginationContainer, {
-            onPageChange: (page) => this.handlePageChange(page),
-            onLoadMore: () => this.dataManager.loadMore()
-        });
+        this.ui.renderPagination(
+            {
+                currentPage: info.currentPage,
+                totalItems: info.totalItems,
+                pageSize: info.pageSize,
+                hasMore: this.dataManager.hasMore,
+            },
+            this.elements.paginationContainer,
+            {
+                onPageChange: (page) => this.handlePageChange(page),
+                onLoadMore: () => this.dataManager.loadMore(),
+            }
+        );
     }
 
     /**
@@ -563,7 +588,7 @@ class PurchaseOrderController {
      */
     updateSelectionUI(selectedIds) {
         // Update checkboxes
-        selectedIds.forEach(id => {
+        selectedIds.forEach((id) => {
             this.tableRenderer.updateSelection(id, true);
         });
 
@@ -691,15 +716,25 @@ class PurchaseOrderController {
                 // Sync products to TPOS (await result)
                 if (isConfirmed && window.TPOSProductCreator) {
                     this.ui.showToast('Đang đồng bộ sản phẩm lên TPOS...', 'info');
-                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(
+                        orderId,
+                        orderData.items,
+                        orderData.supplier
+                    );
 
                     if (syncResult?.failCount === 0 && syncResult?.successCount > 0) {
                         // All synced OK → update status to AWAITING_PURCHASE
-                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        await this.dataManager.updateOrderStatus(
+                            orderId,
+                            this.config.OrderStatus.AWAITING_PURCHASE
+                        );
                         this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                     } else {
                         // Sync failed → stay as DRAFT, show warning
-                        this.ui.showToast('Đồng bộ TPOS có lỗi — đơn giữ ở Nháp để thử lại', 'warning');
+                        this.ui.showToast(
+                            'Đồng bộ TPOS có lỗi — đơn giữ ở Nháp để thử lại',
+                            'warning'
+                        );
                         this.switchOrRefreshTab(this.config.OrderStatus.DRAFT);
                     }
                 } else {
@@ -710,7 +745,7 @@ class PurchaseOrderController {
             },
             onCancel: () => {
                 // Nothing to do
-            }
+            },
         });
     }
 
@@ -740,33 +775,49 @@ class PurchaseOrderController {
                 // Always sync products to TPOS and move to Chờ mua
                 if (window.TPOSProductCreator) {
                     this.ui.showToast('Đang đồng bộ sản phẩm lên TPOS...', 'info');
-                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(
+                        orderId,
+                        orderData.items,
+                        orderData.supplier
+                    );
 
                     if (syncResult?.failCount === 0 && syncResult?.successCount > 0) {
                         // All synced OK → move to Chờ mua
-                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        await this.dataManager.updateOrderStatus(
+                            orderId,
+                            this.config.OrderStatus.AWAITING_PURCHASE
+                        );
                         this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
                         this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                     } else if (syncResult?.failCount > 0) {
                         // Partial fail → stay current tab, show warning
-                        this.ui.showToast('Đồng bộ TPOS có lỗi — đơn giữ lại để thử lại', 'warning');
+                        this.ui.showToast(
+                            'Đồng bộ TPOS có lỗi — đơn giữ lại để thử lại',
+                            'warning'
+                        );
                         this.switchOrRefreshTab(this.currentTab);
                     } else {
                         // No items to sync → move to Chờ mua directly
-                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        await this.dataManager.updateOrderStatus(
+                            orderId,
+                            this.config.OrderStatus.AWAITING_PURCHASE
+                        );
                         this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
                         this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                     }
                 } else {
                     // TPOSProductCreator not available → move to Chờ mua without sync
-                    await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                    await this.dataManager.updateOrderStatus(
+                        orderId,
+                        this.config.OrderStatus.AWAITING_PURCHASE
+                    );
                     this.ui.showToast('Đã chuyển đơn sang Chờ mua', 'success');
                     this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                 }
             },
             onCancel: () => {
                 // Nothing to do
-            }
+            },
         });
     }
 
@@ -794,12 +845,16 @@ class PurchaseOrderController {
      */
     showTposErrorsModal(errors, opts = {}) {
         const title = opts.title || 'TPOS phát hiện lỗi trên file Excel';
-        const list = (errors || []).map(e =>
-            `<li style="padding: 6px 0; border-bottom: 1px solid #fee2e2; color: #991b1b; font-size: 13px;">${String(e).replace(/</g, '&lt;')}</li>`
-        ).join('');
+        const list = (errors || [])
+            .map(
+                (e) =>
+                    `<li style="padding: 6px 0; border-bottom: 1px solid #fee2e2; color: #991b1b; font-size: 13px;">${String(e).replace(/</g, '&lt;')}</li>`
+            )
+            .join('');
 
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;display:flex;align-items:center;justify-content:center;';
+        overlay.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;display:flex;align-items:center;justify-content:center;';
         overlay.innerHTML = `
             <div style="background:white;border-radius:8px;max-width:640px;width:92%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
                 <div style="padding:16px 20px;border-bottom:1px solid #fecaca;background:#fef2f2;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:10px;">
@@ -831,7 +886,9 @@ class PurchaseOrderController {
                 opts.onContinue();
             });
         }
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
     }
 
     /**
@@ -845,7 +902,7 @@ class PurchaseOrderController {
         let ncc = window.NCCManager?.findByName(singleOrder.supplier?.name);
         const supplierDisplay = ncc
             ? `[${ncc.code}] ${ncc.name}`
-            : (singleOrder.supplier?.name || 'Không rõ');
+            : singleOrder.supplier?.name || 'Không rõ';
 
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
@@ -857,7 +914,11 @@ class PurchaseOrderController {
             const isVariant = parentCode && parentCode !== itemCode;
             const groupKey = isVariant ? parentCode : `__s_${idx}`;
             if (!groupMap.has(groupKey)) {
-                groupMap.set(groupKey, { parentCode: isVariant ? parentCode : '', name: item.productName || '', items: [] });
+                groupMap.set(groupKey, {
+                    parentCode: isVariant ? parentCode : '',
+                    name: item.productName || '',
+                    items: [],
+                });
             }
             groupMap.get(groupKey).items.push({ item, idx });
         });
@@ -870,11 +931,18 @@ class PurchaseOrderController {
             const name = item.productName || '';
             const variant = item.variant || '';
             const isFailed = item.tposSyncStatus === 'failed';
-            const bgStyle = isChild ? (isFailed ? 'background: #fef2f2;' : 'background: #fafbff;') : (isFailed ? 'background: #fef2f2;' : '');
+            const bgStyle = isChild
+                ? isFailed
+                    ? 'background: #fef2f2;'
+                    : 'background: #fafbff;'
+                : isFailed
+                  ? 'background: #fef2f2;'
+                  : '';
             const padLeft = isChild ? '24px' : '12px';
             const parentAttr = isChild ? ` data-parent-code="${parentCode}"` : '';
             const childClass = isChild ? ' po-child-row' : '';
-            const failedBtnHtml = isFailed ? `
+            const failedBtnHtml = isFailed
+                ? `
                 <button class="po-retry-btn" data-idx="${idx}" title="Lỗi: ${(item.tposSyncError || 'Unknown').replace(/"/g, '&quot;')}" style="
                     display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
                     border: 1px solid #fca5a5; border-radius: 4px; background: #fef2f2;
@@ -882,7 +950,8 @@ class PurchaseOrderController {
                 ">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                     Upload lại
-                </button>` : '';
+                </button>`
+                : '';
             return `
                 <tr class="${childClass}" style="border-bottom: 1px solid #dee2e6; ${bgStyle}" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}"${parentAttr}>
                     <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${stt}</td>
@@ -1111,7 +1180,7 @@ class PurchaseOrderController {
         // Update button states based on zero-price and editing state
         const updateButtonStates = () => {
             let zeroPriceCount = 0;
-            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+            overlay.querySelectorAll('tr[data-idx]').forEach((row) => {
                 const price = parseFloat(row.querySelector('.po-price').value) || 0;
                 const bypass = row.querySelector('.po-bypass-zero');
                 if (bypass) {
@@ -1130,7 +1199,7 @@ class PurchaseOrderController {
             const btnTPOS = overlay.querySelector('#btnSubmitTPOS');
 
             // Check for failed TPOS sync
-            const failedSyncCount = items.filter(i => i.tposSyncStatus === 'failed').length;
+            const failedSyncCount = items.filter((i) => i.tposSyncStatus === 'failed').length;
 
             const isEditing = editingPrices.size > 0;
             const isBlocked = zeroPriceCount > 0 || isEditing || failedSyncCount > 0;
@@ -1194,8 +1263,9 @@ class PurchaseOrderController {
 
         // Recalculate all totals from current input values
         const recalcAll = () => {
-            let totalQty = 0, totalAmount = 0;
-            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+            let totalQty = 0,
+                totalAmount = 0;
+            overlay.querySelectorAll('tr[data-idx]').forEach((row) => {
                 const idx = parseInt(row.dataset.idx);
                 const qty = parseFloat(row.querySelector('.po-qty').value) || 0;
                 const price = parseFloat(row.querySelector('.po-price').value) || 0;
@@ -1214,24 +1284,32 @@ class PurchaseOrderController {
             overlay.querySelector('#poSubtotal').textContent = fmt(totalAmount);
             overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
             overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
-            overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
+            overlay.querySelector('#poFinalAmount').textContent = fmt(
+                totalAmount - decrease + costs
+            );
 
             // Update parent group totals
-            overlay.querySelectorAll('.po-parent-row').forEach(parentRow => {
+            overlay.querySelectorAll('.po-parent-row').forEach((parentRow) => {
                 const pCode = parentRow.dataset.parentCode;
-                let groupQty = 0, groupAmount = 0;
-                overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`).forEach(childRow => {
-                    const cQty = parseFloat(childRow.querySelector('.po-qty')?.value) || 0;
-                    const cPrice = parseFloat(childRow.querySelector('.po-price')?.value) || 0;
-                    groupQty += cQty;
-                    groupAmount += cQty * cPrice;
-                });
+                let groupQty = 0,
+                    groupAmount = 0;
+                overlay
+                    .querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`)
+                    .forEach((childRow) => {
+                        const cQty = parseFloat(childRow.querySelector('.po-qty')?.value) || 0;
+                        const cPrice = parseFloat(childRow.querySelector('.po-price')?.value) || 0;
+                        groupQty += cQty;
+                        groupAmount += cQty * cPrice;
+                    });
                 const gqEl = parentRow.querySelector('.po-group-qty');
                 const gtEl = parentRow.querySelector('.po-group-total');
                 if (gqEl) gqEl.textContent = groupQty;
                 if (gtEl) gtEl.textContent = fmt(groupAmount);
                 // Remove parent row if no children left
-                if (overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`).length === 0) {
+                if (
+                    overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`)
+                        .length === 0
+                ) {
                     parentRow.remove();
                 }
             });
@@ -1241,7 +1319,7 @@ class PurchaseOrderController {
         recalcAll();
 
         // Double-click to edit qty
-        overlay.querySelectorAll('.po-qty').forEach(input => {
+        overlay.querySelectorAll('.po-qty').forEach((input) => {
             input.addEventListener('dblclick', () => {
                 enableInput(input);
             });
@@ -1252,7 +1330,7 @@ class PurchaseOrderController {
         });
 
         // Double-click to edit price — shows X/Lưu buttons
-        overlay.querySelectorAll('.po-price').forEach(input => {
+        overlay.querySelectorAll('.po-price').forEach((input) => {
             input.addEventListener('dblclick', () => {
                 const idx = input.dataset.idx;
                 enableInput(input);
@@ -1265,7 +1343,7 @@ class PurchaseOrderController {
         });
 
         // Price cancel (X) button
-        overlay.querySelectorAll('.po-price-cancel').forEach(btn => {
+        overlay.querySelectorAll('.po-price-cancel').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const idx = btn.dataset.idx;
                 const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
@@ -1281,7 +1359,7 @@ class PurchaseOrderController {
         });
 
         // Price save (✓) button — calls TPOS UpdateStandPrice
-        overlay.querySelectorAll('.po-price-save').forEach(btn => {
+        overlay.querySelectorAll('.po-price-save').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 const idx = btn.dataset.idx;
                 const row = overlay.querySelector(`tr[data-idx="${idx}"]`);
@@ -1299,13 +1377,22 @@ class PurchaseOrderController {
                     const token = await window.inventoryPickerDialog?.getAuthToken();
                     if (!token) throw new Error('Không có token');
 
-                    const proxyUrl = window.inventoryPickerDialog?.proxyUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const proxyUrl =
+                        window.inventoryPickerDialog?.proxyUrl ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
                     // If no TPOS ID, look up by product code
                     if (!tposId && code) {
                         const lookupResp = await fetch(
                             `${proxyUrl}/api/odata/Product?$filter=DefaultCode eq '${code}'&$top=1&$select=Id,ProductTmplId`,
-                            { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'feature-version': '2', 'tposappversion': '6.2.6.1' } }
+                            {
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                    Accept: 'application/json',
+                                    'feature-version': '2',
+                                    tposappversion: '6.2.6.1',
+                                },
+                            }
                         );
                         if (lookupResp.ok) {
                             const lookupData = await lookupResp.json();
@@ -1326,26 +1413,31 @@ class PurchaseOrderController {
                         return;
                     }
 
-                    const response = await fetch(`${proxyUrl}/api/odata/ProductTemplate/ODataService.UpdateStandPrice`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json;charset=UTF-8',
-                            'Accept': 'application/json',
-                            'feature-version': '2',
-                            'tposappversion': '6.2.6.1'
-                        },
-                        body: JSON.stringify({
-                            model: [{
-                                Id: tposId,
-                                ProductTmplId: tposTmplId,
-                                DefaultCode: code,
-                                Barcode: code,
-                                StandardPrice: newPrice,
-                                NameTemplate: name
-                            }]
-                        })
-                    });
+                    const response = await fetch(
+                        `${proxyUrl}/api/odata/ProductTemplate/ODataService.UpdateStandPrice`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json;charset=UTF-8',
+                                Accept: 'application/json',
+                                'feature-version': '2',
+                                tposappversion: '6.2.6.1',
+                            },
+                            body: JSON.stringify({
+                                model: [
+                                    {
+                                        Id: tposId,
+                                        ProductTmplId: tposTmplId,
+                                        DefaultCode: code,
+                                        Barcode: code,
+                                        StandardPrice: newPrice,
+                                        NameTemplate: name,
+                                    },
+                                ],
+                            }),
+                        }
+                    );
 
                     if (!response.ok) throw new Error(`API error: ${response.status}`);
 
@@ -1355,7 +1447,9 @@ class PurchaseOrderController {
                         input.dataset.original = newPrice;
                         lockInput(input);
                         editingPrices.delete(idx);
-                        const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                        const actions = overlay.querySelector(
+                            `.po-price-actions[data-idx="${idx}"]`
+                        );
                         if (actions) actions.style.display = 'none';
                         recalcAll();
                     } else {
@@ -1374,16 +1468,18 @@ class PurchaseOrderController {
         overlay.querySelector('#poCostsIncurred').addEventListener('input', recalcAll);
 
         // Bypass checkboxes
-        overlay.querySelectorAll('.po-bypass-zero').forEach(cb => {
+        overlay.querySelectorAll('.po-bypass-zero').forEach((cb) => {
             cb.addEventListener('change', updateButtonStates);
         });
 
         // Cancel / close
         overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
 
         // Delete row buttons
-        overlay.querySelectorAll('.po-del-btn').forEach(btn => {
+        overlay.querySelectorAll('.po-del-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const row = btn.closest('tr[data-idx]');
                 if (row) {
@@ -1394,17 +1490,19 @@ class PurchaseOrderController {
         });
 
         // Expand/collapse parent rows
-        overlay.querySelectorAll('.po-parent-row').forEach(parentRow => {
+        overlay.querySelectorAll('.po-parent-row').forEach((parentRow) => {
             parentRow.addEventListener('click', () => {
                 const pCode = parentRow.dataset.parentCode;
                 const arrow = parentRow.querySelector('.po-expand-arrow');
-                const children = overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`);
+                const children = overlay.querySelectorAll(
+                    `tr.po-child-row[data-parent-code="${pCode}"]`
+                );
                 const isExpanded = arrow.style.transform !== 'rotate(-90deg)';
                 if (isExpanded) {
-                    children.forEach(row => row.style.display = 'none');
+                    children.forEach((row) => (row.style.display = 'none'));
                     arrow.style.transform = 'rotate(-90deg)';
                 } else {
-                    children.forEach(row => row.style.display = '');
+                    children.forEach((row) => (row.style.display = ''));
                     arrow.style.transform = 'rotate(0deg)';
                 }
             });
@@ -1413,7 +1511,10 @@ class PurchaseOrderController {
         // Helper: retry sync for specific items, then refresh UI
         const handleRetrySync = async (retryItems) => {
             if (!window.TPOSProductCreator || !singleOrder.id) return;
-            const result = await window.TPOSProductCreator.retrySyncItems(singleOrder.id, retryItems);
+            const result = await window.TPOSProductCreator.retrySyncItems(
+                singleOrder.id,
+                retryItems
+            );
             if (result) {
                 // Re-fetch updated order from Firestore
                 const updatedOrder = await this.dataManager.getOrder(singleOrder.id);
@@ -1421,7 +1522,7 @@ class PurchaseOrderController {
                     // Update local items array with fresh data
                     const freshItems = updatedOrder.items || [];
                     for (let i = 0; i < items.length; i++) {
-                        const fresh = freshItems.find(fi => fi.id === items[i].id);
+                        const fresh = freshItems.find((fi) => fi.id === items[i].id);
                         if (fresh) Object.assign(items[i], fresh);
                     }
                     // Re-render: close and re-open preview
@@ -1432,7 +1533,7 @@ class PurchaseOrderController {
         };
 
         // Per-item retry buttons
-        overlay.querySelectorAll('.po-retry-btn').forEach(btn => {
+        overlay.querySelectorAll('.po-retry-btn').forEach((btn) => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const idx = parseInt(btn.dataset.idx);
@@ -1447,7 +1548,7 @@ class PurchaseOrderController {
         // Retry all failed button
         overlay.querySelector('#btnRetryAllSync')?.addEventListener('click', async () => {
             const btn = overlay.querySelector('#btnRetryAllSync');
-            const failedItems = items.filter(i => i.tposSyncStatus === 'failed');
+            const failedItems = items.filter((i) => i.tposSyncStatus === 'failed');
             if (failedItems.length === 0) return;
             btn.disabled = true;
             btn.textContent = 'Đang upload...';
@@ -1472,14 +1573,17 @@ class PurchaseOrderController {
                 if (ncc?.tposId && window.TPOSPurchase?.validateExcel) {
                     btn.textContent = 'Đang kiểm tra TPOS...';
                     try {
-                        const validation = await window.TPOSPurchase.validateExcel(result.workbook, ncc);
+                        const validation = await window.TPOSPurchase.validateExcel(
+                            result.workbook,
+                            ncc
+                        );
                         tposErrors = validation.errors || [];
                     } catch (e) {
                         console.warn('[PO Preview] validateExcel failed:', e);
                     }
                 }
 
-                const filename = `MuaHang_${ncc?.code || singleOrder.orderNumber || 'Export'}_${String(new Date().getDate()).padStart(2,'0')}-${String(new Date().getMonth()+1).padStart(2,'0')}.xlsx`;
+                const filename = `MuaHang_${ncc?.code || singleOrder.orderNumber || 'Export'}_${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}.xlsx`;
 
                 if (tposErrors.length > 0) {
                     // Show TPOS-style error modal + cho phép tải vẫn
@@ -1488,8 +1592,11 @@ class PurchaseOrderController {
                         continueLabel: 'Tải xuống vẫn',
                         onContinue: () => {
                             XLSX.writeFile(result.workbook, filename);
-                            this.ui.showToast(`Đã tải file (${result.exported} SP, ${tposErrors.length} lỗi)`, 'warning');
-                        }
+                            this.ui.showToast(
+                                `Đã tải file (${result.exported} SP, ${tposErrors.length} lỗi)`,
+                                'warning'
+                            );
+                        },
                     });
                 } else {
                     XLSX.writeFile(result.workbook, filename);
@@ -1518,19 +1625,26 @@ class PurchaseOrderController {
 
             try {
                 // Attach extra fields to order for TPOS
-                singleOrder.decreaseAmount = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
-                singleOrder.costsIncurred = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
+                singleOrder.decreaseAmount =
+                    parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
+                singleOrder.costsIncurred =
+                    parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
                 singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
 
                 // Step 1: Export MH (resolve codes + build workbook, no download)
                 console.log('[PO Preview] Step 1: exportMuaHang...');
                 const result = await this.exportMuaHang(orders, { download: false });
-                console.log('[PO Preview] exportMuaHang result:', { exported: result.exported, skipped: result.skipped, errors: result.errors });
+                console.log('[PO Preview] exportMuaHang result:', {
+                    exported: result.exported,
+                    skipped: result.skipped,
+                    errors: result.errors,
+                });
 
                 if (result.exported === 0) {
-                    const errMsg = result.errors?.length > 0
-                        ? 'Không tìm thấy SP trên TPOS:\n' + result.errors.join('\n')
-                        : 'Không có SP nào phù hợp để tạo đơn TPOS';
+                    const errMsg =
+                        result.errors?.length > 0
+                            ? 'Không tìm thấy SP trên TPOS:\n' + result.errors.join('\n')
+                            : 'Không có SP nào phù hợp để tạo đơn TPOS';
                     this.ui.showToast(errMsg, 'error');
                     resetBtn();
                     return;
@@ -1552,7 +1666,11 @@ class PurchaseOrderController {
                             if (ncc) {
                                 ncc.tposId = tposId;
                             } else {
-                                ncc = { tposId, name: supplierName, docId: supplierName.split(' ')[0] };
+                                ncc = {
+                                    tposId,
+                                    name: supplierName,
+                                    docId: supplierName.split(' ')[0],
+                                };
                             }
                             console.log('[PO Preview] NCC tposId set:', tposId);
                         } else {
@@ -1569,24 +1687,34 @@ class PurchaseOrderController {
                 }
 
                 if (!window.TPOSPurchase?.createFromExcel) {
-                    this.ui.showToast('Module TPOSPurchase chưa được tải. Hãy reload trang.', 'error');
+                    this.ui.showToast(
+                        'Module TPOSPurchase chưa được tải. Hãy reload trang.',
+                        'error'
+                    );
                     resetBtn();
                     return;
                 }
 
                 // Step 2: Create on TPOS
                 console.log('[PO Preview] Step 2: createFromExcel...');
-                const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder, { ncc });
+                const tposResult = await window.TPOSPurchase.createFromExcel(
+                    result.workbook,
+                    singleOrder,
+                    { ncc }
+                );
                 console.log('[PO Preview] createFromExcel result:', tposResult);
 
                 if (!tposResult.success) {
                     // Nếu TPOS trả về Errors list → show modal đỏ giống TPOS
                     if (tposResult.tposErrors && tposResult.tposErrors.length > 0) {
                         this.showTposErrorsModal(tposResult.tposErrors, {
-                            title: 'TPOS từ chối tạo đơn: file Excel có lỗi'
+                            title: 'TPOS từ chối tạo đơn: file Excel có lỗi',
                         });
                     } else {
-                        this.ui.showToast('Lỗi tạo đơn TPOS: ' + (tposResult.error || 'Không rõ lỗi'), 'error');
+                        this.ui.showToast(
+                            'Lỗi tạo đơn TPOS: ' + (tposResult.error || 'Không rõ lỗi'),
+                            'error'
+                        );
                     }
                     resetBtn();
                     return;
@@ -1613,21 +1741,25 @@ class PurchaseOrderController {
                                 if (tposResult.poId) {
                                     updateData.tposPoId = tposResult.poId;
                                     updateData.tposPoNumber = tposResult.poNumber || null;
-                                    updateData.tposOrderLines = (tposResult.orderLines || []).map(l => ({
-                                        ProductId: l.Product?.Id || l.ProductId,
-                                        ProductQty: l.ProductQty || 1,
-                                        PriceUnit: l.PriceUnit || 0,
-                                        PriceVariant: l.Product?.PriceVariant || 0,
-                                        Product: l.Product ? {
-                                            Id: l.Product.Id,
-                                            DefaultCode: l.Product.DefaultCode,
-                                            Barcode: l.Product.Barcode,
-                                            NameTemplate: l.Product.NameTemplate,
-                                            PriceVariant: l.Product.PriceVariant,
-                                            ProductTmplId: l.Product.ProductTmplId,
-                                            ImageUrl: l.Product.ImageUrl
-                                        } : null
-                                    }));
+                                    updateData.tposOrderLines = (tposResult.orderLines || []).map(
+                                        (l) => ({
+                                            ProductId: l.Product?.Id || l.ProductId,
+                                            ProductQty: l.ProductQty || 1,
+                                            PriceUnit: l.PriceUnit || 0,
+                                            PriceVariant: l.Product?.PriceVariant || 0,
+                                            Product: l.Product
+                                                ? {
+                                                      Id: l.Product.Id,
+                                                      DefaultCode: l.Product.DefaultCode,
+                                                      Barcode: l.Product.Barcode,
+                                                      NameTemplate: l.Product.NameTemplate,
+                                                      PriceVariant: l.Product.PriceVariant,
+                                                      ProductTmplId: l.Product.ProductTmplId,
+                                                      ImageUrl: l.Product.ImageUrl,
+                                                  }
+                                                : null,
+                                        })
+                                    );
                                 }
 
                                 // 2b. Update items with TPOS variant codes.
@@ -1637,23 +1769,40 @@ class PurchaseOrderController {
                                 if (tposResult.orderLines && result.itemCodeMap) {
                                     const updatedItems = [...(singleOrder.items || [])];
                                     let updatedCount = 0;
-                                    for (let i = 0; i < tposResult.orderLines.length && i < result.itemCodeMap.length; i++) {
+                                    for (
+                                        let i = 0;
+                                        i < tposResult.orderLines.length &&
+                                        i < result.itemCodeMap.length;
+                                        i++
+                                    ) {
                                         const line = tposResult.orderLines[i];
                                         const mapping = result.itemCodeMap[i];
-                                        const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
+                                        const barcode =
+                                            line.Product?.Barcode || line.Product?.DefaultCode;
                                         const tposProductId = line.Product?.Id || line.ProductId;
                                         if (barcode && mapping.itemIndex < updatedItems.length) {
                                             const item = updatedItems[mapping.itemIndex];
-                                            if (item.productCode !== barcode || !item.tposProductId) {
-                                                const parentCode = item.parentProductCode || item.productCode;
-                                                updatedItems[mapping.itemIndex] = { ...item, productCode: barcode, parentProductCode: parentCode, tposProductId };
+                                            if (
+                                                item.productCode !== barcode ||
+                                                !item.tposProductId
+                                            ) {
+                                                const parentCode =
+                                                    item.parentProductCode || item.productCode;
+                                                updatedItems[mapping.itemIndex] = {
+                                                    ...item,
+                                                    productCode: barcode,
+                                                    parentProductCode: parentCode,
+                                                    tposProductId,
+                                                };
                                                 updatedCount++;
                                             }
                                         }
                                     }
                                     if (updatedCount > 0) {
                                         updateData.items = updatedItems;
-                                        console.log(`[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`);
+                                        console.log(
+                                            `[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`
+                                        );
                                     }
                                 }
 
@@ -1669,13 +1818,21 @@ class PurchaseOrderController {
                                 // Auto-update status (AWAITING_PURCHASE → AWAITING_DELIVERY)
                                 const config = window.PurchaseOrderConfig;
                                 if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
-                                    await this.dataManager.updateOrderStatus(singleOrder.id, config.OrderStatus.AWAITING_DELIVERY);
-                                    this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'success');
+                                    await this.dataManager.updateOrderStatus(
+                                        singleOrder.id,
+                                        config.OrderStatus.AWAITING_DELIVERY
+                                    );
+                                    this.ui.showToast(
+                                        'Đơn hàng chuyển sang trạng thái Chờ Hàng',
+                                        'success'
+                                    );
                                     this.switchOrRefreshTab(config.OrderStatus.AWAITING_DELIVERY);
                                 } else {
                                     this.switchOrRefreshTab(this.currentTab);
                                 }
-                            })().catch(err => console.error('[TPOSPurchase] Firebase update failed:', err))
+                            })().catch((err) =>
+                                console.error('[TPOSPurchase] Firebase update failed:', err)
+                            )
                         );
                     }
 
@@ -1683,26 +1840,34 @@ class PurchaseOrderController {
 
                     // Sync products to Kho Di Cho (non-blocking)
                     try {
-                        const warehouseItems = (singleOrder.items || []).map(item => ({
-                            product_code: item.productCode || '',
-                            parent_product_code: item.parentProductCode || null,
-                            product_name: item.productName || '',
-                            variant: item.variant || null,
-                            quantity: item.quantity || 1,
-                            purchase_price: item.purchasePrice || 0,
-                            source_po_id: singleOrder.id || ''
-                        })).filter(i => i.product_code && i.product_name);
+                        const warehouseItems = (singleOrder.items || [])
+                            .map((item) => ({
+                                product_code: item.productCode || '',
+                                parent_product_code: item.parentProductCode || null,
+                                product_name: item.productName || '',
+                                variant: item.variant || null,
+                                quantity: item.quantity || 1,
+                                purchase_price: item.purchasePrice || 0,
+                                source_po_id: singleOrder.id || '',
+                            }))
+                            .filter((i) => i.product_code && i.product_name);
 
                         if (warehouseItems.length > 0) {
-                            fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ items: warehouseItems })
-                            }).then(r => r.json()).then(res => {
-                                if (res.success) {
-                                    console.log('[WebWarehouse] Synced:', res.message);
+                            fetch(
+                                'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch',
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ items: warehouseItems }),
                                 }
-                            }).catch(err => console.warn('[WebWarehouse] Sync failed:', err));
+                            )
+                                .then((r) => r.json())
+                                .then((res) => {
+                                    if (res.success) {
+                                        console.log('[WebWarehouse] Synced:', res.message);
+                                    }
+                                })
+                                .catch((err) => console.warn('[WebWarehouse] Sync failed:', err));
                         }
                     } catch (err) {
                         console.warn('[WebWarehouse] Sync error:', err);
@@ -1716,14 +1881,18 @@ class PurchaseOrderController {
                         // Update items with TPOS product codes
                         if (tposResult.orderLines && result.itemCodeMap) {
                             const updatedItems = [...(updatedOrder.items || [])];
-                            for (let i = 0; i < tposResult.orderLines.length && i < result.itemCodeMap.length; i++) {
+                            for (
+                                let i = 0;
+                                i < tposResult.orderLines.length && i < result.itemCodeMap.length;
+                                i++
+                            ) {
                                 const line = tposResult.orderLines[i];
                                 const mapping = result.itemCodeMap[i];
                                 const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
                                 if (barcode && mapping.itemIndex < updatedItems.length) {
                                     updatedItems[mapping.itemIndex] = {
                                         ...updatedItems[mapping.itemIndex],
-                                        productCode: barcode
+                                        productCode: barcode,
                                     };
                                 }
                             }
@@ -1847,7 +2016,7 @@ class PurchaseOrderController {
                     updatedItems[mapping.itemIndex] = {
                         ...item,
                         productCode: barcode,
-                        tposProductId: tposProductId
+                        tposProductId: tposProductId,
                     };
                     updatedCount++;
                 }
@@ -1857,7 +2026,7 @@ class PurchaseOrderController {
         if (updatedCount > 0) {
             const db = firebase.firestore();
             await db.collection('purchase_orders').doc(order.id).update({
-                items: updatedItems
+                items: updatedItems,
             });
             console.log(`[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`);
 
@@ -1911,13 +2080,13 @@ class PurchaseOrderController {
             else {
                 // Step 1: Find variant match in products CSV by base_product_code
                 const candidates = productsCSV.filter(
-                    row => row.base_product_code === item.productCode
-                        && row.variant && row.variant.trim() !== ''
+                    (row) =>
+                        row.base_product_code === item.productCode &&
+                        row.variant &&
+                        row.variant.trim() !== ''
                 );
 
-                const matched = candidates.find(
-                    row => variantsMatch(row.variant, item.variant)
-                );
+                const matched = candidates.find((row) => variantsMatch(row.variant, item.variant));
 
                 if (matched) {
                     productCode = matched.product_code;
@@ -1925,12 +2094,16 @@ class PurchaseOrderController {
                     // Step 2: Check if productCode exists as exact product_code in CSV
                     // BUT skip base codes that have variant children (TPOS only has variant-level codes)
                     const exactMatch = productsCSV.find(
-                        row => row.product_code === item.productCode
+                        (row) => row.product_code === item.productCode
                     );
-                    const hasVariantsInCSV = candidates.length > 0 || productsCSV.some(
-                        row => row.base_product_code === item.productCode
-                            && row.variant && row.variant.trim() !== ''
-                    );
+                    const hasVariantsInCSV =
+                        candidates.length > 0 ||
+                        productsCSV.some(
+                            (row) =>
+                                row.base_product_code === item.productCode &&
+                                row.variant &&
+                                row.variant.trim() !== ''
+                        );
 
                     if (exactMatch && !hasVariantsInCSV) {
                         productCode = item.productCode;
@@ -1948,15 +2121,22 @@ class PurchaseOrderController {
                                     const extractAttrs = (nameGet) => {
                                         if (!nameGet) return [];
                                         const m = nameGet.match(/\(([^)]+)\)\s*$/);
-                                        return m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+                                        return m
+                                            ? m[1]
+                                                  .split(',')
+                                                  .map((s) => s.trim())
+                                                  .filter(Boolean)
+                                            : [];
                                     };
-                                    const variantMatch = tposVariants.find(v => {
+                                    const variantMatch = tposVariants.find((v) => {
                                         const vAttrs = extractAttrs(v.NameGet).join(', ');
                                         return variantsMatch(vAttrs, item.variant);
                                     });
                                     if (variantMatch) {
                                         productCode = variantMatch.DefaultCode;
-                                        console.log(`[ExportMH] Matched variant "${item.variant}" → ${variantMatch.DefaultCode}`);
+                                        console.log(
+                                            `[ExportMH] Matched variant "${item.variant}" → ${variantMatch.DefaultCode}`
+                                        );
                                     }
                                 } else if (tposVariants.length === 1) {
                                     // Single product, no variants
@@ -1964,14 +2144,21 @@ class PurchaseOrderController {
                                 }
                             }
                         } catch (err) {
-                            console.warn('[ExportMH] TPOS variant search failed for', item.productCode, err);
+                            console.warn(
+                                '[ExportMH] TPOS variant search failed for',
+                                item.productCode,
+                                err
+                            );
                         }
                     }
                 }
 
                 // All steps failed → skip
                 if (!productCode) {
-                    const candidateCodes = candidates.map(c => c.product_code).slice(0, 3).join(', ');
+                    const candidateCodes = candidates
+                        .map((c) => c.product_code)
+                        .slice(0, 3)
+                        .join(', ');
                     skippedErrors.push(
                         `❌ ${item.productCode} - ${item.productName || ''} (Variant: ${item.variant}${candidateCodes ? ', Có trong kho: [' + candidateCodes + ']' : ''})`
                     );
@@ -1985,7 +2172,7 @@ class PurchaseOrderController {
                 'Mã sản phẩm (*)': productCode,
                 'Số lượng (*)': item.quantity || 0,
                 'Đơn giá': item.purchasePrice || 0,
-                'Chiết khấu (%)': 0
+                'Chiết khấu (%)': 0,
             });
         }
 
@@ -1998,10 +2185,10 @@ class PurchaseOrderController {
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 25 },  // Mã sản phẩm
-            { wch: 12 },  // Số lượng
-            { wch: 12 },  // Đơn giá
-            { wch: 14 }   // Chiết khấu
+            { wch: 25 }, // Mã sản phẩm
+            { wch: 12 }, // Số lượng
+            { wch: 12 }, // Đơn giá
+            { wch: 14 }, // Chiết khấu
         ];
 
         const wb = XLSX.utils.book_new();
@@ -2025,7 +2212,7 @@ class PurchaseOrderController {
             errors: skippedErrors,
             workbook: wb,
             order: order,
-            itemCodeMap: itemCodeMap
+            itemCodeMap: itemCodeMap,
         };
     }
 
@@ -2042,49 +2229,51 @@ class PurchaseOrderController {
 
         // Header row - 17 columns matching TPOS import template
         data.push([
-            'Mã sản phẩm',      // 1
-            'Tên sản phẩm',     // 2
-            'Mô tả',            // 3
-            'Danh mục',         // 4
-            'Giá bán',          // 5
-            'Giá vốn',          // 6
-            'Tồn kho',          // 7
-            'Đơn vị tính',      // 8
-            'Barcode',          // 9
-            'Trọng lượng (g)',  // 10
-            'Dài (cm)',         // 11
-            'Rộng (cm)',        // 12
-            'Cao (cm)',         // 13
-            'Thương hiệu',      // 14
-            'Xuất xứ',          // 15
-            'Ghi chú',          // 16
-            'Hình ảnh URL'      // 17
+            'Mã sản phẩm', // 1
+            'Tên sản phẩm', // 2
+            'Mô tả', // 3
+            'Danh mục', // 4
+            'Giá bán', // 5
+            'Giá vốn', // 6
+            'Tồn kho', // 7
+            'Đơn vị tính', // 8
+            'Barcode', // 9
+            'Trọng lượng (g)', // 10
+            'Dài (cm)', // 11
+            'Rộng (cm)', // 12
+            'Cao (cm)', // 13
+            'Thương hiệu', // 14
+            'Xuất xứ', // 15
+            'Ghi chú', // 16
+            'Hình ảnh URL', // 17
         ]);
 
-        orders.forEach(order => {
+        orders.forEach((order) => {
             (order.items || []).forEach((item) => {
                 const productName = item.variant
                     ? `${item.productName} - ${item.variant}`
                     : item.productName;
 
                 data.push([
-                    item.productCode || '',           // Mã sản phẩm
-                    productName || '',                // Tên sản phẩm
-                    '',                               // Mô tả
-                    '',                               // Danh mục
-                    item.sellingPrice || 0,           // Giá bán
-                    item.purchasePrice || 0,          // Giá vốn
-                    item.quantity || 0,               // Tồn kho
-                    'Cái',                            // Đơn vị tính
-                    '',                               // Barcode
-                    '',                               // Trọng lượng
-                    '',                               // Dài
-                    '',                               // Rộng
-                    '',                               // Cao
-                    order.supplier?.name || '',       // Thương hiệu (using supplier)
-                    '',                               // Xuất xứ
+                    item.productCode || '', // Mã sản phẩm
+                    productName || '', // Tên sản phẩm
+                    '', // Mô tả
+                    '', // Danh mục
+                    item.sellingPrice || 0, // Giá bán
+                    item.purchasePrice || 0, // Giá vốn
+                    item.quantity || 0, // Tồn kho
+                    'Cái', // Đơn vị tính
+                    '', // Barcode
+                    '', // Trọng lượng
+                    '', // Dài
+                    '', // Rộng
+                    '', // Cao
+                    order.supplier?.name || '', // Thương hiệu (using supplier)
+                    '', // Xuất xứ
                     `Đơn hàng: ${order.orderNumber}`, // Ghi chú
-                    (item.productImages && item.productImages.length > 0 ? item.productImages[0] : item.tposImageUrl) || '' // Hình ảnh URL
+                    (item.productImages && item.productImages.length > 0
+                        ? item.productImages[0]
+                        : item.tposImageUrl) || '', // Hình ảnh URL
                 ]);
             });
         });
@@ -2094,32 +2283,33 @@ class PurchaseOrderController {
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 15 },  // Mã SP
-            { wch: 40 },  // Tên SP
-            { wch: 30 },  // Mô tả
-            { wch: 15 },  // Danh mục
-            { wch: 12 },  // Giá bán
-            { wch: 12 },  // Giá vốn
-            { wch: 10 },  // Tồn kho
-            { wch: 10 },  // Đơn vị
-            { wch: 15 },  // Barcode
-            { wch: 12 },  // Trọng lượng
-            { wch: 8 },   // Dài
-            { wch: 8 },   // Rộng
-            { wch: 8 },   // Cao
-            { wch: 20 },  // Thương hiệu
-            { wch: 15 },  // Xuất xứ
-            { wch: 25 },  // Ghi chú
-            { wch: 50 }   // Hình ảnh URL
+            { wch: 15 }, // Mã SP
+            { wch: 40 }, // Tên SP
+            { wch: 30 }, // Mô tả
+            { wch: 15 }, // Danh mục
+            { wch: 12 }, // Giá bán
+            { wch: 12 }, // Giá vốn
+            { wch: 10 }, // Tồn kho
+            { wch: 10 }, // Đơn vị
+            { wch: 15 }, // Barcode
+            { wch: 12 }, // Trọng lượng
+            { wch: 8 }, // Dài
+            { wch: 8 }, // Rộng
+            { wch: 8 }, // Cao
+            { wch: 20 }, // Thương hiệu
+            { wch: 15 }, // Xuất xứ
+            { wch: 25 }, // Ghi chú
+            { wch: 50 }, // Hình ảnh URL
         ];
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Thêm SP');
 
         // Filename
-        const filename = orders.length === 1
-            ? `TSP_${orders[0].orderNumber}.xlsx`
-            : `TSP_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+        const filename =
+            orders.length === 1
+                ? `TSP_${orders[0].orderNumber}.xlsx`
+                : `TSP_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
 
         XLSX.writeFile(wb, filename);
     }
@@ -2142,13 +2332,40 @@ class PurchaseOrderController {
 
             // Order header
             data.push(['ĐƠN ĐẶT HÀNG', '', '', '', '', '', '', '']);
-            data.push(['Mã đơn:', order.orderNumber, '', 'Ngày đặt:', this.config.formatDate(order.orderDate), '', '', '']);
-            data.push(['Nhà cung cấp:', order.supplier?.name || '', '', 'Trạng thái:', this.config.STATUS_LABELS[order.status] || order.status, '', '', '']);
+            data.push([
+                'Mã đơn:',
+                order.orderNumber,
+                '',
+                'Ngày đặt:',
+                this.config.formatDate(order.orderDate),
+                '',
+                '',
+                '',
+            ]);
+            data.push([
+                'Nhà cung cấp:',
+                order.supplier?.name || '',
+                '',
+                'Trạng thái:',
+                this.config.STATUS_LABELS[order.status] || order.status,
+                '',
+                '',
+                '',
+            ]);
             data.push(['Ghi chú:', order.notes || '', '', '', '', '', '', '']);
             data.push(['']);
 
             // Items header
-            data.push(['STT', 'Tên sản phẩm', 'Mã SP', 'Biến thể', 'SL', 'Giá mua', 'Giá bán', 'Thành tiền']);
+            data.push([
+                'STT',
+                'Tên sản phẩm',
+                'Mã SP',
+                'Biến thể',
+                'SL',
+                'Giá mua',
+                'Giá bán',
+                'Thành tiền',
+            ]);
 
             // Add items
             (order.items || []).forEach((item, index) => {
@@ -2160,7 +2377,7 @@ class PurchaseOrderController {
                     item.quantity || 0,
                     item.purchasePrice || 0,
                     item.sellingPrice || 0,
-                    item.subtotal || ((item.purchasePrice || 0) * (item.quantity || 0))
+                    item.subtotal || (item.purchasePrice || 0) * (item.quantity || 0),
                 ]);
             });
 
@@ -2177,23 +2394,24 @@ class PurchaseOrderController {
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 5 },   // STT
-            { wch: 35 },  // Tên SP
-            { wch: 12 },  // Mã SP
-            { wch: 15 },  // Biến thể
-            { wch: 6 },   // SL
-            { wch: 12 },  // Giá mua
-            { wch: 12 },  // Giá bán
-            { wch: 15 }   // Thành tiền
+            { wch: 5 }, // STT
+            { wch: 35 }, // Tên SP
+            { wch: 12 }, // Mã SP
+            { wch: 15 }, // Biến thể
+            { wch: 6 }, // SL
+            { wch: 12 }, // Giá mua
+            { wch: 12 }, // Giá bán
+            { wch: 15 }, // Thành tiền
         ];
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
 
         // Filename
-        const filename = orders.length === 1
-            ? `${orders[0].orderNumber}.xlsx`
-            : `DonHang_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+        const filename =
+            orders.length === 1
+                ? `${orders[0].orderNumber}.xlsx`
+                : `DonHang_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
 
         XLSX.writeFile(wb, filename);
     }
@@ -2210,21 +2428,25 @@ class PurchaseOrderController {
         }
 
         // Enrich items missing tposProductId from web-warehouse (by productCode)
-        const needLookup = order.items.filter(i => i.productCode && !i.tposProductId);
+        const needLookup = order.items.filter((i) => i.productCode && !i.tposProductId);
         if (needLookup.length > 0) {
             try {
-                const codes = [...new Set(needLookup.map(i => i.productCode))];
+                const codes = [...new Set(needLookup.map((i) => i.productCode))];
                 const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
                 const lookupResults = await Promise.all(
-                    codes.map(code =>
-                        fetch(`${PROXY}/api/v2/web-warehouse/search?q=${encodeURIComponent(code)}&limit=1`)
-                            .then(r => r.json())
-                            .then(d => d.success && d.data?.[0] ? d.data[0] : null)
+                    codes.map((code) =>
+                        fetch(
+                            `${PROXY}/api/v2/web-warehouse/search?q=${encodeURIComponent(code)}&limit=1`
+                        )
+                            .then((r) => r.json())
+                            .then((d) => (d.success && d.data?.[0] ? d.data[0] : null))
                             .catch(() => null)
                     )
                 );
                 const codeMap = new Map();
-                lookupResults.forEach((row, i) => { if (row) codeMap.set(codes[i], row); });
+                lookupResults.forEach((row, i) => {
+                    if (row) codeMap.set(codes[i], row);
+                });
 
                 let patched = 0;
                 for (const item of order.items) {
@@ -2253,9 +2475,10 @@ class PurchaseOrderController {
     async handleCopyOrder(orderId) {
         const confirmed = await this.ui.showConfirmDialog({
             title: 'Sao chép đơn hàng',
-            message: 'Bạn có chắc muốn sao chép đơn hàng này? Đơn mới sẽ được tạo ở trạng thái Nháp.',
+            message:
+                'Bạn có chắc muốn sao chép đơn hàng này? Đơn mới sẽ được tạo ở trạng thái Nháp.',
             confirmText: 'Sao chép',
-            type: 'info'
+            type: 'info',
         });
 
         if (!confirmed) return;
@@ -2293,7 +2516,7 @@ class PurchaseOrderController {
             title: 'Xóa đơn hàng',
             message: `Bạn có chắc muốn xóa đơn hàng ${order.orderNumber}? Đơn sẽ vào thùng rác và tự xóa vĩnh viễn sau 7 ngày.`,
             confirmText: 'Xóa',
-            type: 'danger'
+            type: 'danger',
         });
 
         if (!confirmed) return;
@@ -2378,7 +2601,7 @@ class PurchaseOrderController {
             title: 'Xóa nhiều đơn hàng',
             message: `Bạn có chắc muốn xóa ${selectedIds.length} đơn hàng? Đơn sẽ vào thùng rác và tự xóa vĩnh viễn sau 7 ngày.`,
             confirmText: `Xóa ${selectedIds.length} đơn`,
-            type: 'danger'
+            type: 'danger',
         });
 
         if (!confirmed) return;
@@ -2400,7 +2623,10 @@ class PurchaseOrderController {
             this.dataManager.clearSelection();
 
             if (skippedCount > 0) {
-                this.ui.showToast(`Đã chuyển ${deletedCount} đơn vào thùng rác, bỏ qua ${skippedCount} đơn không thể xóa`, 'warning');
+                this.ui.showToast(
+                    `Đã chuyển ${deletedCount} đơn vào thùng rác, bỏ qua ${skippedCount} đơn không thể xóa`,
+                    'warning'
+                );
             } else {
                 this.ui.showToast(`Đã chuyển ${deletedCount} đơn hàng vào thùng rác`, 'success');
             }
@@ -2445,7 +2671,7 @@ class PurchaseOrderController {
         this.renderPagination({
             currentPage: this.dataManager.currentPage,
             totalItems: orders.length,
-            pageSize: this.config.PAGINATION_CONFIG.pageSize
+            pageSize: this.config.PAGINATION_CONFIG.pageSize,
         });
     }
 
@@ -2510,7 +2736,7 @@ class PurchaseOrderController {
             title: 'Xóa vĩnh viễn',
             message: `Bạn có chắc muốn xóa vĩnh viễn đơn hàng ${orderNumber}? Hành động này không thể hoàn tác.`,
             confirmText: 'Xóa vĩnh viễn',
-            type: 'danger'
+            type: 'danger',
         });
 
         if (!confirmed) return;
@@ -2554,7 +2780,7 @@ class PurchaseOrderController {
             title: 'Xóa vĩnh viễn nhiều đơn',
             message: `Bạn có chắc muốn xóa vĩnh viễn ${selectedIds.length} đơn hàng? Hành động này không thể hoàn tác.`,
             confirmText: `Xóa vĩnh viễn ${selectedIds.length} đơn`,
-            type: 'danger'
+            type: 'danger',
         });
 
         if (!confirmed) return;
@@ -2603,7 +2829,7 @@ class PurchaseOrderController {
                 } catch (error) {
                     this.ui.showToast('Không thể thử lại đồng bộ', 'error');
                 }
-            }
+            },
         });
     }
 
@@ -2645,13 +2871,21 @@ class PurchaseOrderController {
                 <div class="image-viewer__content">
                     <img src="${escapeHtml(images[0])}" alt="${escapeHtml(title)}">
                 </div>
-                ${images.length > 1 ? `
+                ${
+                    images.length > 1
+                        ? `
                     <div class="image-viewer__thumbnails">
-                        ${images.map((img, idx) => `
+                        ${images
+                            .map(
+                                (img, idx) => `
                             <img src="${escapeHtml(img)}" alt="${escapeHtml(title)} ${idx + 1}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
 
@@ -2674,11 +2908,13 @@ class PurchaseOrderController {
         });
 
         // Thumbnail click
-        overlay.querySelectorAll('.image-viewer__thumbnails img').forEach(thumb => {
+        overlay.querySelectorAll('.image-viewer__thumbnails img').forEach((thumb) => {
             thumb.addEventListener('click', () => {
                 const index = parseInt(thumb.dataset.index, 10);
                 overlay.querySelector('.image-viewer__content img').src = images[index];
-                overlay.querySelectorAll('.image-viewer__thumbnails img').forEach(t => t.classList.remove('active'));
+                overlay
+                    .querySelectorAll('.image-viewer__thumbnails img')
+                    .forEach((t) => t.classList.remove('active'));
                 thumb.classList.add('active');
             });
         });
@@ -2693,7 +2929,7 @@ class PurchaseOrderController {
      */
     destroy() {
         // Unsubscribe from all events
-        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers.forEach((unsub) => unsub());
         this.unsubscribers = [];
 
         // Reset data manager

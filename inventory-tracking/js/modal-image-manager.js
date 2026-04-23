@@ -12,8 +12,8 @@ const ImageManager = (() => {
     let _isUploading = false;
     let _rowCounter = 0;
     let _searchNcc = ''; // NCC search filter
-    let _batchNgay = null;  // Current shipment date (YYYY-MM-DD)
-    let _batchDotSo = 1;    // Current đợt number
+    let _batchNgay = null; // Current shipment date (YYYY-MM-DD)
+    let _batchDotSo = 1; // Current đợt number
 
     /**
      * Create a new empty row
@@ -22,11 +22,11 @@ const ImageManager = (() => {
         const row = {
             id: `row_${++_rowCounter}`,
             uploadedUrls: [],
-            ncc: ''
+            ncc: '',
         };
 
         // Auto-fill NCC = last NCC + 1
-        const lastNcc = [..._rows].reverse().find(r => r.ncc && !isNaN(parseInt(r.ncc)));
+        const lastNcc = [..._rows].reverse().find((r) => r.ncc && !isNaN(parseInt(r.ncc)));
         if (lastNcc) {
             row.ncc = String(parseInt(lastNcc.ncc) + 1);
         }
@@ -47,13 +47,13 @@ const ImageManager = (() => {
             // Collect NCCs that exist in current shipments table
             const mappedNCCs = new Set();
             if (typeof getAllDotHang === 'function') {
-                getAllDotHang().forEach(dot => {
+                getAllDotHang().forEach((dot) => {
                     if (dot.sttNCC) mappedNCCs.add(dot.sttNCC);
                 });
             }
 
-            images.forEach(img => {
-                const urls = typeof img.urls === 'string' ? JSON.parse(img.urls) : (img.urls || []);
+            images.forEach((img) => {
+                const urls = typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [];
                 if (urls.length === 0) return;
 
                 const nccNum = img.ncc ? parseInt(img.ncc) : null;
@@ -61,7 +61,7 @@ const ImageManager = (() => {
                     id: `row_${++_rowCounter}`,
                     uploadedUrls: [...urls],
                     ncc: img.ncc ? String(img.ncc) : '',
-                    mapped: nccNum !== null && mappedNCCs.has(nccNum)
+                    mapped: nccNum !== null && mappedNCCs.has(nccNum),
                 });
             });
 
@@ -88,7 +88,7 @@ const ImageManager = (() => {
 
         // Filter rows by NCC search
         const visibleRows = _searchNcc
-            ? _rows.filter(r => r.ncc.includes(_searchNcc) || !r.ncc)
+            ? _rows.filter((r) => r.ncc.includes(_searchNcc) || !r.ncc)
             : _rows;
 
         body.innerHTML = `
@@ -104,7 +104,7 @@ const ImageManager = (() => {
                 </div>
             </div>
             <div class="img-mgr-rows">
-                ${visibleRows.map(row => _renderRow(row)).join('')}
+                ${visibleRows.map((row) => _renderRow(row)).join('')}
             </div>
             <button class="btn btn-outline img-mgr-add-row-btn" onclick="ImageManager.addRow()">
                 <i data-lucide="plus"></i> Thêm NCC
@@ -119,14 +119,16 @@ const ImageManager = (() => {
                 _render();
                 // Re-focus search input after re-render
                 const newInput = document.getElementById('imgMgrSearchNcc');
-                if (newInput) { newInput.focus(); }
+                if (newInput) {
+                    newInput.focus();
+                }
             });
         }
 
         _setupPasteHandler();
 
         // Attach input listeners (must do after innerHTML)
-        _rows.forEach(row => {
+        _rows.forEach((row) => {
             const nccInput = body.querySelector(`#ncc_${row.id}`);
             const hasImages = row.uploadedUrls.length > 0;
 
@@ -162,23 +164,31 @@ const ImageManager = (() => {
 
                 <div class="img-mgr-entry-top">
                     <div class="img-mgr-entry-images-area">
-                        ${hasImages ? `
+                        ${
+                            hasImages
+                                ? `
                             <div class="img-mgr-entry-thumbs">
-                                ${row.uploadedUrls.map((url, idx) => `
+                                ${row.uploadedUrls
+                                    .map(
+                                        (url, idx) => `
                                     <div class="img-mgr-thumb" onclick="event.stopPropagation()">
                                         <img src="${url}" alt="Ảnh" onclick="openImageLightbox('${url}')">
                                         <button class="img-mgr-delete" onclick="event.stopPropagation(); ImageManager.removeImage('${row.id}', ${idx})" title="Xóa ảnh">
                                             <i data-lucide="x"></i>
                                         </button>
                                     </div>
-                                `).join('')}
+                                `
+                                    )
+                                    .join('')}
                             </div>
-                        ` : `
+                        `
+                                : `
                             <div class="img-mgr-entry-paste-zone ${isFocused ? 'img-mgr-paste-active' : ''}">
                                 <i data-lucide="image-plus"></i>
                                 <span>${isFocused ? 'Ctrl+V dán ảnh vào đây' : 'Click để chọn'}</span>
                             </div>
-                        `}
+                        `
+                        }
                         <label class="img-mgr-file-label" onclick="event.stopPropagation()">
                             <i data-lucide="upload"></i>
                             <input type="file" multiple accept="image/*"
@@ -195,11 +205,15 @@ const ImageManager = (() => {
                         </div>
                     </div>
 
-                    ${(_rows.length > 1 || hasImages) ? `
+                    ${
+                        _rows.length > 1 || hasImages
+                            ? `
                         <button class="img-mgr-entry-remove" onclick="event.stopPropagation(); ImageManager.removeRow('${row.id}')" title="Xóa hàng">
                             <i data-lucide="trash-2"></i>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
@@ -210,7 +224,7 @@ const ImageManager = (() => {
      */
     function focusRow(rowId) {
         _focusedRowId = rowId;
-        document.querySelectorAll('.img-mgr-entry').forEach(el => {
+        document.querySelectorAll('.img-mgr-entry').forEach((el) => {
             const isFocused = el.dataset.rowId === rowId;
             el.classList.toggle('img-mgr-entry-focused', isFocused);
             const zone = el.querySelector('.img-mgr-paste-active, .img-mgr-entry-paste-zone');
@@ -236,11 +250,11 @@ const ImageManager = (() => {
      * Remove a row (with confirm if has images)
      */
     function removeRow(rowId) {
-        const row = _rows.find(r => r.id === rowId);
+        const row = _rows.find((r) => r.id === rowId);
         if (row && row.uploadedUrls.length > 0) {
             if (!confirm(`Xóa NCC ${row.ncc || '?'} và ${row.uploadedUrls.length} ảnh?`)) return;
         }
-        _rows = _rows.filter(r => r.id !== rowId);
+        _rows = _rows.filter((r) => r.id !== rowId);
         if (_rows.length === 0) _rows.push(_createRow());
         if (_focusedRowId === rowId) _focusedRowId = _rows[0].id;
         _render();
@@ -299,7 +313,7 @@ const ImageManager = (() => {
     async function _uploadToRow(rowId, files) {
         if (_isUploading) return;
 
-        const row = _rows.find(r => r.id === rowId);
+        const row = _rows.find((r) => r.id === rowId);
         if (!row) return;
 
         _isUploading = true;
@@ -361,7 +375,7 @@ const ImageManager = (() => {
      * Remove an image from a row (with confirm)
      */
     function removeImage(rowId, imageIdx) {
-        const row = _rows.find(r => r.id === rowId);
+        const row = _rows.find((r) => r.id === rowId);
         if (!row || imageIdx >= row.uploadedUrls.length) return;
 
         if (!confirm('Xóa ảnh này?')) return;
@@ -380,10 +394,10 @@ const ImageManager = (() => {
         try {
             // Build rows for API: only rows with images AND NCC
             const apiRows = _rows
-                .filter(r => r.uploadedUrls.length > 0 && r.ncc.trim())
-                .map(r => ({
+                .filter((r) => r.uploadedUrls.length > 0 && r.ncc.trim())
+                .map((r) => ({
                     ncc: parseInt(r.ncc),
-                    urls: r.uploadedUrls
+                    urls: r.uploadedUrls,
                 }));
 
             // Bulk save to product_images table
@@ -400,7 +414,6 @@ const ImageManager = (() => {
 
             // Re-render table to reflect new image mapping (keep modal open for continued editing)
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
-
         } catch (error) {
             console.error('[IMG-MGR] Save error:', error);
             window.notificationManager?.error('Không thể lưu: ' + error.message);
@@ -436,11 +449,15 @@ const ImageManager = (() => {
                 <span>${images.length} ảnh</span>
             </div>
             <div class="img-gallery-grid">
-                ${images.map((url, idx) => `
+                ${images
+                    .map(
+                        (url, idx) => `
                     <div class="img-gallery-item" onclick="ImageManager._openLightbox(${idx})">
                         <img src="${url}" alt="Ảnh ${idx + 1}">
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
             <div class="img-lightbox" id="imgLightbox" style="display:none">
                 <div class="img-lightbox-overlay" onclick="ImageManager._closeLightbox()"></div>
@@ -509,7 +526,7 @@ const ImageManager = (() => {
         viewNccImages,
         _openLightbox,
         _closeLightbox,
-        _navLightbox
+        _navLightbox,
     };
 })();
 

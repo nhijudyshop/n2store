@@ -35,15 +35,19 @@ async function checkFacebookLogin() {
     try {
         const cookies = await chrome.cookies.getAll({ domain: '.facebook.com' });
         const cookieMap = {};
-        (cookies || []).forEach(c => { cookieMap[c.name] = c.value; });
+        (cookies || []).forEach((c) => {
+            cookieMap[c.name] = c.value;
+        });
 
-        const missing = REQUIRED_COOKIES.filter(name => !cookieMap[name]);
+        const missing = REQUIRED_COOKIES.filter((name) => !cookieMap[name]);
         if (missing.length > 0) {
             statusEl.className = 'status err';
             statusEl.innerHTML = '<span class="dot"></span> Chưa đăng nhập Facebook';
             autoBtn.textContent = 'Mở Facebook để đăng nhập';
             autoBtn.disabled = false;
-            autoBtn.addEventListener('click', () => chrome.tabs.create({ url: 'https://www.facebook.com/' }));
+            autoBtn.addEventListener('click', () =>
+                chrome.tabs.create({ url: 'https://www.facebook.com/' })
+            );
             return;
         }
 
@@ -62,11 +66,10 @@ async function checkFacebookLogin() {
 
         // Build cookie string for manual copy
         const parts = [];
-        ['c_user', 'xs', 'datr', 'fr', 'sb'].forEach(n => {
+        ['c_user', 'xs', 'datr', 'fr', 'sb'].forEach((n) => {
             if (cookieMap[n]) parts.push(n + '=' + cookieMap[n]);
         });
         copyBtn.dataset.cookies = parts.join('; ');
-
     } catch (error) {
         statusEl.className = 'status err';
         statusEl.innerHTML = '<span class="dot"></span> Lỗi: ' + error.message;
@@ -149,10 +152,17 @@ function handleAutoLogin() {
         chrome.runtime.sendMessage({ action: 'auto-login' }, (response) => {
             // Response may arrive after popup closes — that's OK
             if (chrome.runtime.lastError) return;
-            if (response) renderState(response.success
-                ? { status: 'success', step: 3, message: 'Thành công!' }
-                : { status: 'error', step: 2, message: response.error, error: response.error }
-            );
+            if (response)
+                renderState(
+                    response.success
+                        ? { status: 'success', step: 3, message: 'Thành công!' }
+                        : {
+                              status: 'error',
+                              step: 2,
+                              message: response.error,
+                              error: response.error,
+                          }
+                );
         });
     });
 }
@@ -168,7 +178,11 @@ function handleCopyCookies() {
     textarea.style.left = '-9999px';
     document.body.appendChild(textarea);
     textarea.select();
-    try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+    try {
+        document.execCommand('copy');
+    } catch (e) {
+        /* ignore */
+    }
     textarea.remove();
 
     btn.className = 'btn btn-success';
@@ -190,7 +204,9 @@ function setStep(num, state) {
     const numEl = el.querySelector('.step-num');
     if (state === 'done') numEl.textContent = '✓';
     else if (state === 'error') numEl.textContent = '✗';
-    else if (state === 'active') numEl.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span>';
+    else if (state === 'active')
+        numEl.innerHTML =
+            '<span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span>';
     else numEl.textContent = num;
 }
 

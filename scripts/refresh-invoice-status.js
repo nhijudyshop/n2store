@@ -10,7 +10,8 @@
 
 const { Pool } = require('pg');
 
-const DB_URL = 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat';
+const DB_URL =
+    'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat';
 const TPOS_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const BATCH_SIZE = 10; // concurrent TPOS requests
 const DELAY_BETWEEN_BATCHES = 500; // ms
@@ -21,7 +22,7 @@ async function getToken() {
     const resp = await fetch(`${TPOS_PROXY}/api/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: 1 })
+        body: JSON.stringify({ companyId: 1 }),
     });
     const data = await resp.json();
     if (!data.access_token) throw new Error('Failed to get token');
@@ -33,9 +34,9 @@ async function fetchInvoiceByNumber(number, token) {
     const url = `${TPOS_PROXY}/api/odata/FastSaleOrder/ODataService.GetView?$top=1&$orderby=DateInvoice desc&$filter=${filter}&$count=true`;
     const resp = await fetch(url, {
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-        }
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+        },
     });
     if (!resp.ok) {
         console.warn(`  ⚠ HTTP ${resp.status} for ${number}`);
@@ -91,11 +92,10 @@ async function main() {
                     if (!inv) return { row, status: 'not_found' };
 
                     // Compare: anything changed?
-                    const changed = (
+                    const changed =
                         inv.ShowState !== row.show_state ||
                         inv.StateCode !== row.state_code ||
-                        (inv.Reference || '') !== (row.reference || '')
-                    );
+                        (inv.Reference || '') !== (row.reference || '');
 
                     if (!changed) return { row, status: 'unchanged' };
 
@@ -125,7 +125,8 @@ async function main() {
             // Update all entries with this Number
             const { row, inv } = result;
             if (!DRY_RUN) {
-                await pool.query(`
+                await pool.query(
+                    `
                     UPDATE invoice_status SET
                         show_state = $1,
                         state_code = $2,
@@ -144,34 +145,38 @@ async function main() {
                         date_invoice = $15,
                         updated_at = NOW()
                     WHERE number = $16
-                `, [
-                    inv.ShowState || '',
-                    inv.StateCode || 'None',
-                    inv.Reference || '',
-                    inv.State || '',
-                    inv.IsMergeCancel === true,
-                    inv.AmountTotal || 0,
-                    inv.AmountUntaxed || 0,
-                    inv.DeliveryPrice || 0,
-                    inv.CashOnDelivery || 0,
-                    inv.PaymentAmount || 0,
-                    inv.CarrierName || '',
-                    inv.TrackingRef || '',
-                    inv.PartnerDisplayName || '',
-                    inv.DeliveryNote || '',
-                    inv.DateInvoice || null,
-                    row.number
-                ]);
+                `,
+                    [
+                        inv.ShowState || '',
+                        inv.StateCode || 'None',
+                        inv.Reference || '',
+                        inv.State || '',
+                        inv.IsMergeCancel === true,
+                        inv.AmountTotal || 0,
+                        inv.AmountUntaxed || 0,
+                        inv.DeliveryPrice || 0,
+                        inv.CashOnDelivery || 0,
+                        inv.PaymentAmount || 0,
+                        inv.CarrierName || '',
+                        inv.TrackingRef || '',
+                        inv.PartnerDisplayName || '',
+                        inv.DeliveryNote || '',
+                        inv.DateInvoice || null,
+                        row.number,
+                    ]
+                );
             }
             updated++;
             if (updated <= 5 || updated % 100 === 0) {
-                console.log(`\n  ✅ ${row.number}: ${row.show_state}→${inv.ShowState} | ${row.state_code}→${inv.StateCode} | ref:${inv.Reference}`);
+                console.log(
+                    `\n  ✅ ${row.number}: ${row.show_state}→${inv.ShowState} | ${row.state_code}→${inv.StateCode} | ref:${inv.Reference}`
+                );
             }
         }
 
         // Delay between batches to avoid rate limiting
         if (i + BATCH_SIZE < rows.length) {
-            await new Promise(r => setTimeout(r, DELAY_BETWEEN_BATCHES));
+            await new Promise((r) => setTimeout(r, DELAY_BETWEEN_BATCHES));
         }
     }
 
@@ -185,7 +190,7 @@ async function main() {
     await pool.end();
 }
 
-main().catch(e => {
+main().catch((e) => {
     console.error('Fatal error:', e);
     process.exit(1);
 });

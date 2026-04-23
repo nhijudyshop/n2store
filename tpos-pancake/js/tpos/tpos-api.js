@@ -35,10 +35,10 @@ const TposApi = {
         let response = await fetch(url, {
             ...options,
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                ...options.headers
-            }
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+                ...options.headers,
+            },
         });
 
         // Auto-retry on 401: refresh token and retry once
@@ -51,10 +51,10 @@ const TposApi = {
                     response = await fetch(url, {
                         ...options,
                         headers: {
-                            'Authorization': `Bearer ${newToken}`,
-                            'Accept': 'application/json',
-                            ...options.headers
-                        }
+                            Authorization: `Bearer ${newToken}`,
+                            Accept: 'application/json',
+                            ...options.headers,
+                        },
                     });
                 }
             }
@@ -70,7 +70,9 @@ const TposApi = {
     async loadCRMTeams() {
         const state = window.TposState;
         try {
-            const response = await this.authenticatedFetch(`${state.proxyBaseUrl}/facebook/crm-teams`);
+            const response = await this.authenticatedFetch(
+                `${state.proxyBaseUrl}/facebook/crm-teams`
+            );
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
             const data = await response.json();
@@ -79,14 +81,14 @@ const TposApi = {
 
             // Collect all pages
             state.allPages = [];
-            state.crmTeams.forEach(team => {
+            state.crmTeams.forEach((team) => {
                 if (team.Childs && team.Childs.length > 0) {
-                    team.Childs.forEach(page => {
+                    team.Childs.forEach((page) => {
                         if (page.Facebook_PageId && page.Facebook_TypeId === 'Page') {
                             state.allPages.push({
                                 ...page,
                                 teamId: team.Id,
-                                teamName: team.Name
+                                teamName: team.Name,
                             });
                         }
                     });
@@ -108,12 +110,14 @@ const TposApi = {
     async loadLiveCampaigns(pageId) {
         const state = window.TposState;
         try {
-            const response = await this.authenticatedFetch(`${state.proxyBaseUrl}/facebook/live-campaigns?top=20`);
+            const response = await this.authenticatedFetch(
+                `${state.proxyBaseUrl}/facebook/live-campaigns?top=20`
+            );
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
             const data = await response.json();
-            state.liveCampaigns = (data.value || []).filter(c =>
-                c.Facebook_UserId === pageId && c.Facebook_LiveId
+            state.liveCampaigns = (data.value || []).filter(
+                (c) => c.Facebook_UserId === pageId && c.Facebook_LiveId
             );
             console.log('[TPOS-API] Loaded Live Campaigns:', state.liveCampaigns.length);
             return state.liveCampaigns;
@@ -130,15 +134,20 @@ const TposApi = {
     async loadLiveCampaignsFromAllPages() {
         const state = window.TposState;
         try {
-            const response = await this.authenticatedFetch(`${state.proxyBaseUrl}/facebook/live-campaigns?top=50`);
+            const response = await this.authenticatedFetch(
+                `${state.proxyBaseUrl}/facebook/live-campaigns?top=50`
+            );
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
             const data = await response.json();
-            const allPageIds = state.allPages.map(p => p.Facebook_PageId);
-            state.liveCampaigns = (data.value || []).filter(c =>
-                allPageIds.includes(c.Facebook_UserId) && c.Facebook_LiveId
+            const allPageIds = state.allPages.map((p) => p.Facebook_PageId);
+            state.liveCampaigns = (data.value || []).filter(
+                (c) => allPageIds.includes(c.Facebook_UserId) && c.Facebook_LiveId
             );
-            console.log('[TPOS-API] Loaded Live Campaigns from all pages:', state.liveCampaigns.length);
+            console.log(
+                '[TPOS-API] Loaded Live Campaigns from all pages:',
+                state.liveCampaigns.length
+            );
             return state.liveCampaigns;
         } catch (error) {
             console.error('[TPOS-API] Error loading Live Campaigns:', error);
@@ -165,9 +174,9 @@ const TposApi = {
 
         const response = await fetch(url, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+            },
         });
 
         if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -175,7 +184,7 @@ const TposApi = {
         const data = await response.json();
         return {
             comments: data.data || [],
-            nextPageUrl: data.paging?.next || null
+            nextPageUrl: data.paging?.next || null,
         };
     },
 
@@ -193,9 +202,9 @@ const TposApi = {
         const url = `${state.proxyBaseUrl}/facebook/comment-orders?postId=${postId}`;
         const response = await fetch(url, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+            },
         });
 
         if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -204,14 +213,14 @@ const TposApi = {
         const orders = data.value || [];
         const map = new Map();
 
-        orders.forEach(item => {
+        orders.forEach((item) => {
             const asuid = item.asuid || item.id;
             if (asuid && item.orders && item.orders.length > 0) {
                 const firstOrder = item.orders[0];
                 map.set(asuid, {
                     index: firstOrder.index,
                     session: firstOrder.session,
-                    code: firstOrder.code
+                    code: firstOrder.code,
                 });
             }
         });
@@ -246,7 +255,7 @@ const TposApi = {
             const response = await this.authenticatedFetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-                body: JSON.stringify({ status: statusValue })
+                body: JSON.stringify({ status: statusValue }),
             });
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -259,7 +268,10 @@ const TposApi = {
         } catch (error) {
             console.error('[TPOS-API] Error updating status:', error);
             if (window.notificationManager) {
-                window.notificationManager.show(`Lỗi cập nhật trạng thái: ${error.message}`, 'error');
+                window.notificationManager.show(
+                    `Lỗi cập nhật trạng thái: ${error.message}`,
+                    'error'
+                );
             }
             return false;
         }
@@ -279,9 +291,9 @@ const TposApi = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json;charset=UTF-8',
-                    'tposappversion': '6.1.8.1'
+                    tposappversion: '6.1.8.1',
                 },
-                body: JSON.stringify({ status: statusValue })
+                body: JSON.stringify({ status: statusValue }),
             });
             if (!response.ok) throw new Error(`API error: ${response.status}`);
             return true;
@@ -306,17 +318,21 @@ const TposApi = {
         }
 
         const model = { ...partner, ...fields };
-        const effectiveTeamId = teamId || state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
+        const effectiveTeamId =
+            teamId ||
+            state.selectedTeamId ||
+            state.selectedPage?.CRMTeamId ||
+            state.selectedPage?.Id;
 
         const apiUrl = `${state.workerUrl}/api/odata/SaleOnline_Order/ODataService.CreateUpdatePartner`;
         const response = await this.authenticatedFetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json;IEEE754Compatible=false;charset=UTF-8',
-                'tposappversion': '6.1.8.1',
-                'x-requested-with': 'XMLHttpRequest'
+                tposappversion: '6.1.8.1',
+                'x-requested-with': 'XMLHttpRequest',
             },
-            body: JSON.stringify({ model, teamId: effectiveTeamId })
+            body: JSON.stringify({ model, teamId: effectiveTeamId }),
         });
 
         if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -342,13 +358,13 @@ const TposApi = {
             pageId: state.selectedPage?.id || null,
             pageName: state.selectedPage?.name || null,
             savedBy: 'TPOS Comment',
-            notes: notes || null
+            notes: notes || null,
         };
 
         const response = await fetch(`${state.tposPancakeUrl}/api/tpos-saved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
         });
 
         return await response.json();
@@ -373,8 +389,8 @@ const TposApi = {
                 body: JSON.stringify({
                     pageid: pageId,
                     commentId: commentId,
-                    is_hidden: hide
-                })
+                    is_hidden: hide,
+                }),
             });
             return response.ok;
         } catch (error) {
@@ -402,8 +418,8 @@ const TposApi = {
                 body: JSON.stringify({
                     pageid: pageId,
                     commentId: commentId,
-                    message: message
-                })
+                    message: message,
+                }),
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -448,7 +464,7 @@ const TposApi = {
             const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [orderId] })
+                body: JSON.stringify({ ids: [orderId] }),
             });
             return response.ok;
         } catch (error) {
@@ -468,7 +484,7 @@ const TposApi = {
             const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [orderId] })
+                body: JSON.stringify({ ids: [orderId] }),
             });
             return response.ok;
         } catch (error) {
@@ -498,14 +514,14 @@ const TposApi = {
                 Facebook_UserName: params.userName,
                 Facebook_ASUserId: params.userId,
                 Facebook_PostId: params.postId,
-                Facebook_CommentId: params.commentId
+                Facebook_CommentId: params.commentId,
             };
             if (params.note) body.Note = params.note;
 
             const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
 
             if (!response.ok) {
@@ -518,7 +534,7 @@ const TposApi = {
             console.error('[TPOS-API] createOrderFromComment error:', error);
             throw error;
         }
-    }
+    },
 };
 
 // Export for script-tag usage

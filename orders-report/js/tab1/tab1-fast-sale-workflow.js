@@ -19,7 +19,9 @@
     // Persists to PostgreSQL via REST API
     // =====================================================
 
-    const DELETE_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status/delete';
+    const DELETE_API_BASE =
+        (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+        '/api/invoice-status/delete';
 
     const InvoiceStatusDeleteStore = {
         _data: new Map(),
@@ -62,7 +64,7 @@
                 if (!result.success) throw new Error(result.error || 'Load failed');
 
                 this._data.clear();
-                (result.entries || []).forEach(row => {
+                (result.entries || []).forEach((row) => {
                     const key = row.compound_key;
                     const value = {
                         SaleOnlineId: row.sale_online_id,
@@ -425,7 +427,7 @@
             // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
             if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
                 try {
-                    const restoreItems = invoiceData.OrderLines.map(line => {
+                    const restoreItems = invoiceData.OrderLines.map((line) => {
                         const nameStr = line.ProductName || line.Name || '';
                         const codeMatch = nameStr.match(/\[([^\]]+)\]/);
                         const productCode = codeMatch ? codeMatch[1].trim() : '';
@@ -436,18 +438,30 @@
                             variant: null,
                             quantity: Math.floor(line.ProductUOMQty || 1),
                             purchase_price: line.PriceUnit || 0,
-                            source_po_id: 'cancel_' + (order.Number || order.Reference || saleOnlineId)
+                            source_po_id:
+                                'cancel_' + (order.Number || order.Reference || saleOnlineId),
                         };
-                    }).filter(i => i.product_code);
+                    }).filter((i) => i.product_code);
 
                     if (restoreItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ items: restoreItems })
-                        }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[WebWarehouse] Đã trả kho:', restoreItems.length, 'SP');
-                        }).catch(err => console.warn('[WebWarehouse] Trả kho lỗi:', err));
+                        fetch(
+                            'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ items: restoreItems }),
+                            }
+                        )
+                            .then((r) => r.json())
+                            .then((res) => {
+                                if (res.success)
+                                    console.log(
+                                        '[WebWarehouse] Đã trả kho:',
+                                        restoreItems.length,
+                                        'SP'
+                                    );
+                            })
+                            .catch((err) => console.warn('[WebWarehouse] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[WebWarehouse] Restore error:', err);
@@ -493,9 +507,18 @@
                 '';
             if (customerPhone) {
                 try {
-                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason, invoiceData?.Comment);
+                    await logCancelOrderActivity(
+                        customerPhone,
+                        orderNumber,
+                        order,
+                        reason,
+                        invoiceData?.Comment
+                    );
                 } catch (refundErr) {
-                    console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
+                    console.error(
+                        '[WORKFLOW] ❌ Wallet refund/activity failed:',
+                        refundErr.message
+                    );
                     window.notificationManager?.error(
                         `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
                     );
@@ -869,7 +892,6 @@
         if (successCount > 0) {
             window.notificationManager?.info(`Đã gắn tag "Âm Mã" cho ${successCount} đơn thất bại`);
         }
-
     }
 
     /**
@@ -926,7 +948,6 @@
                 `Đã gỡ tag "OK + NV" cho ${successCount} đơn thành công`
             );
         }
-
     }
 
     /**
@@ -964,7 +985,10 @@
 
         // Tunable concurrency — override via window.AUTO_SEND_BILL_CONCURRENCY/_PER_PAGE
         const GLOBAL_CONCURRENCY = Math.max(1, Number(window.AUTO_SEND_BILL_CONCURRENCY) || 4);
-        const PER_PAGE_CONCURRENCY = Math.max(1, Number(window.AUTO_SEND_BILL_PER_PAGE_CONCURRENCY) || 2);
+        const PER_PAGE_CONCURRENCY = Math.max(
+            1,
+            Number(window.AUTO_SEND_BILL_PER_PAGE_CONCURRENCY) || 2
+        );
 
         // Build work items with page (channelId) for per-page cap
         const displayedData = window.displayedData || [];
@@ -1038,9 +1062,7 @@
 
                 // Identity check: ensure results-data[index] is STILL the order
                 // we captured. If not (rare race), skip this item.
-                if (
-                    capturedResultsData?.success?.[originalIndex] !== order
-                ) {
+                if (capturedResultsData?.success?.[originalIndex] !== order) {
                     console.warn(
                         `[AUTO-SEND] skip ${order.Number}: results-data shifted (stale index)`
                     );
@@ -1105,10 +1127,7 @@
             }
         };
 
-        const workers = Array.from(
-            { length: Math.min(GLOBAL_CONCURRENCY, total) },
-            () => worker()
-        );
+        const workers = Array.from({ length: Math.min(GLOBAL_CONCURRENCY, total) }, () => worker());
         await Promise.all(workers);
 
         window.autoSendInProgress = false;
@@ -1119,7 +1138,10 @@
         const resultMsg = `Auto-send bill: ${progress.sent} thành công${progress.failed > 0 ? `, ${progress.failed} lỗi` : ''}`;
         if (progress.failed > 0) {
             console.warn('[AUTO-SEND] Errors:', errors);
-            window.notificationManager?.warning(resultMsg + ' (xem console để biết chi tiết)', 6000);
+            window.notificationManager?.warning(
+                resultMsg + ' (xem console để biết chi tiết)',
+                6000
+            );
         } else if (progress.sent > 0) {
             window.notificationManager?.success(resultMsg, 4000);
         }
@@ -1450,7 +1472,7 @@
             // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
             if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
                 try {
-                    const restoreItems = invoiceData.OrderLines.map(line => {
+                    const restoreItems = invoiceData.OrderLines.map((line) => {
                         const nameStr = line.ProductName || line.Name || '';
                         const codeMatch = nameStr.match(/\[([^\]]+)\]/);
                         const productCode = codeMatch ? codeMatch[1].trim() : '';
@@ -1461,18 +1483,30 @@
                             variant: null,
                             quantity: Math.floor(line.ProductUOMQty || 1),
                             purchase_price: line.PriceUnit || 0,
-                            source_po_id: 'cancel_' + (order.Number || order.Reference || saleOnlineId)
+                            source_po_id:
+                                'cancel_' + (order.Number || order.Reference || saleOnlineId),
                         };
-                    }).filter(i => i.product_code);
+                    }).filter((i) => i.product_code);
 
                     if (restoreItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ items: restoreItems })
-                        }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[WebWarehouse] Đã trả kho:', restoreItems.length, 'SP');
-                        }).catch(err => console.warn('[WebWarehouse] Trả kho lỗi:', err));
+                        fetch(
+                            'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ items: restoreItems }),
+                            }
+                        )
+                            .then((r) => r.json())
+                            .then((res) => {
+                                if (res.success)
+                                    console.log(
+                                        '[WebWarehouse] Đã trả kho:',
+                                        restoreItems.length,
+                                        'SP'
+                                    );
+                            })
+                            .catch((err) => console.warn('[WebWarehouse] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[WebWarehouse] Restore error:', err);
@@ -1518,9 +1552,18 @@
                 '';
             if (customerPhone) {
                 try {
-                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason, invoiceData?.Comment);
+                    await logCancelOrderActivity(
+                        customerPhone,
+                        orderNumber,
+                        order,
+                        reason,
+                        invoiceData?.Comment
+                    );
                 } catch (refundErr) {
-                    console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
+                    console.error(
+                        '[WORKFLOW] ❌ Wallet refund/activity failed:',
+                        refundErr.message
+                    );
                     window.notificationManager?.error(
                         `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
                     );
@@ -1562,13 +1605,15 @@
                 try {
                     const invNumber = order.Number;
                     if (!invNumber || !window.tokenManager?.getAuthHeader) return;
-                    const tposOData = window.API_CONFIG?.TPOS_ODATA
-                        || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                    const tposOData =
+                        window.API_CONFIG?.TPOS_ODATA ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
                     const headers = await window.tokenManager.getAuthHeader();
                     const filter = `(Type eq 'invoice' and contains(Number,'${invNumber}'))`;
-                    const url = `${tposOData}/FastSaleOrder/ODataService.GetView`
-                        + `?$top=20&$orderby=DateInvoice desc`
-                        + `&$filter=${encodeURIComponent(filter)}&$count=true`;
+                    const url =
+                        `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                        `?$top=20&$orderby=DateInvoice desc` +
+                        `&$filter=${encodeURIComponent(filter)}&$count=true`;
                     const resp = await fetch(url, {
                         headers: { ...headers, accept: 'application/json' },
                     });
@@ -1587,7 +1632,12 @@
                         tposShowState === 'Hủy bỏ' ||
                         inv.IsMergeCancel === true;
                     if (!tposIsCancelled) {
-                        console.warn('[WORKFLOW] ⚠️ TPOS stale state after cancel, giữ synthetic:', invNumber, '→', tposShowState);
+                        console.warn(
+                            '[WORKFLOW] ⚠️ TPOS stale state after cancel, giữ synthetic:',
+                            invNumber,
+                            '→',
+                            tposShowState
+                        );
                         return;
                     }
                     window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
@@ -1596,9 +1646,17 @@
                     if (laterCell && typeof window.renderInvoiceStatusCell === 'function') {
                         laterCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
                     }
-                    console.log('[WORKFLOW] 🔄 Refreshed PBH after cancel:', invNumber, '→', inv.ShowState);
+                    console.log(
+                        '[WORKFLOW] 🔄 Refreshed PBH after cancel:',
+                        invNumber,
+                        '→',
+                        inv.ShowState
+                    );
                 } catch (refreshErr) {
-                    console.warn('[WORKFLOW] OData refresh after cancel failed:', refreshErr.message);
+                    console.warn(
+                        '[WORKFLOW] OData refresh after cancel failed:',
+                        refreshErr.message
+                    );
                 }
             })();
 

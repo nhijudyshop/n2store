@@ -30,19 +30,22 @@ async function uploadImage(file, path) {
     const base64 = await fileToBase64(file);
 
     // Upload via server endpoint (same server as API_BASE)
-    const serverUrl = (typeof API_BASE !== 'undefined' ? API_BASE.replace('/api/v2/inventory-tracking', '') : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
+    const serverUrl =
+        (typeof API_BASE !== 'undefined'
+            ? API_BASE.replace('/api/v2/inventory-tracking', '')
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
 
     const response = await fetch(serverUrl, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
             image: base64,
             fileName: filename,
             folderPath: path || 'uploads',
-            mimeType: file.type
-        })
+            mimeType: file.type,
+        }),
     });
 
     const result = await response.json();
@@ -96,14 +99,15 @@ async function uploadMultipleImages(files, path) {
  */
 async function deleteImage(url) {
     try {
-        const serverUrl = (typeof API_BASE !== 'undefined'
-            ? API_BASE.replace('/api/v2/inventory-tracking', '')
-            : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
+        const serverUrl =
+            (typeof API_BASE !== 'undefined'
+                ? API_BASE.replace('/api/v2/inventory-tracking', '')
+                : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/upload/image';
 
         const response = await fetch(serverUrl, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url }),
         });
         const result = await response.json();
         if (!result.success) {
@@ -148,7 +152,7 @@ function setupImageUploadArea(container, onUpload) {
 
                 // Update preview
                 if (previewList) {
-                    urls.forEach(url => {
+                    urls.forEach((url) => {
                         const preview = document.createElement('div');
                         preview.className = 'image-preview-item';
                         preview.innerHTML = `
@@ -163,7 +167,6 @@ function setupImageUploadArea(container, onUpload) {
                 }
 
                 window.notificationManager?.success(`Da tai len ${urls.length} anh`);
-
             } catch (error) {
                 window.notificationManager?.error('Khong the tai anh len');
             } finally {

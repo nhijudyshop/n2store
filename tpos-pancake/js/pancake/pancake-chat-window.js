@@ -4,7 +4,6 @@
 // =====================================================
 
 const PancakeChatWindow = {
-
     selectedImage: null,
 
     /**
@@ -34,10 +33,14 @@ const PancakeChatWindow = {
                     </div>
                 </div>
                 <div class="pk-chat-header-right">
-                    ${isComment && state.serverMode === 'n2store' ? `
+                    ${
+                        isComment && state.serverMode === 'n2store'
+                            ? `
                     <button class="pk-header-btn pk-private-reply-btn" id="pkPrivateReplyBtn" title="Gửi tin nhắn riêng (Private Reply)">
                         <i data-lucide="mail"></i><span class="pk-btn-label">Private Reply</span>
-                    </button>` : ''}
+                    </button>`
+                            : ''
+                    }
                     <button class="pk-header-btn" title="Liên kết"><i data-lucide="link"></i></button>
                     <button class="pk-header-btn" title="Lịch sử"><i data-lucide="history"></i></button>
                 </div>
@@ -111,7 +114,7 @@ const PancakeChatWindow = {
         let html = '';
         for (const [date, msgs] of Object.entries(grouped)) {
             html += `<div class="pk-date-separator"><span>${date}</span></div>`;
-            html += msgs.map(msg => this._renderMessage(msg)).join('');
+            html += msgs.map((msg) => this._renderMessage(msg)).join('');
         }
         container.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -131,51 +134,76 @@ const PancakeChatWindow = {
         const text = msg.message || msg.text || '';
         const time = this._formatMessageTime(msg.inserted_at || msg.created_time);
         const attachments = msg.attachments || [];
-        const reactions = attachments.filter(a => a.type === 'reaction');
-        const media = attachments.filter(a => a.type !== 'reaction');
+        const reactions = attachments.filter((a) => a.type === 'reaction');
+        const media = attachments.filter((a) => a.type !== 'reaction');
 
-        let attHtml = media.map(att => {
-            if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-                const url = att.url || att.file_url || att.preview_url || att.image_data?.url;
-                return url ? `<div class="pk-message-image"><img src="${url}" alt="Image" onclick="window.open('${url}','_blank')" loading="lazy"></div>` : '';
-            }
-            if (att.type === 'sticker' || att.sticker_id) {
-                const url = att.url || att.file_url || att.preview_url;
-                return url ? `<div class="pk-message-sticker"><img src="${url}" alt="Sticker" loading="lazy"></div>` : '';
-            }
-            if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                const url = att.url || att.file_url;
-                return url ? `<div class="pk-message-video"><video controls src="${url}" preload="metadata"></video></div>` : '';
-            }
-            if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
-                const url = att.url || att.file_url;
-                return url ? `<div class="pk-message-audio"><audio controls src="${url}" preload="metadata"></audio></div>` : '';
-            }
-            if (att.type === 'file' || att.type === 'document') {
-                const url = att.url || att.file_url;
-                const name = att.name || att.filename || 'Tệp đính kèm';
-                return url ? `<div class="pk-message-file"><a href="${url}" target="_blank"><i data-lucide="file-text"></i><span>${escapeHtml(name)}</span></a></div>` : '';
-            }
-            if (att.type === 'like' || att.type === 'thumbsup') {
-                return '<div class="pk-message-like"><span class="pk-like-icon">👍</span></div>';
-            }
-            if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
-                const url = att.url || att.file_url;
-                return url ? `<div class="pk-message-sticker"><img src="${url}" alt="GIF" loading="lazy"></div>` : '';
-            }
-            return '';
-        }).join('');
+        let attHtml = media
+            .map((att) => {
+                if (
+                    att.type === 'image' ||
+                    att.type === 'photo' ||
+                    att.mime_type?.startsWith('image/')
+                ) {
+                    const url = att.url || att.file_url || att.preview_url || att.image_data?.url;
+                    return url
+                        ? `<div class="pk-message-image"><img src="${url}" alt="Image" onclick="window.open('${url}','_blank')" loading="lazy"></div>`
+                        : '';
+                }
+                if (att.type === 'sticker' || att.sticker_id) {
+                    const url = att.url || att.file_url || att.preview_url;
+                    return url
+                        ? `<div class="pk-message-sticker"><img src="${url}" alt="Sticker" loading="lazy"></div>`
+                        : '';
+                }
+                if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
+                    const url = att.url || att.file_url;
+                    return url
+                        ? `<div class="pk-message-video"><video controls src="${url}" preload="metadata"></video></div>`
+                        : '';
+                }
+                if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
+                    const url = att.url || att.file_url;
+                    return url
+                        ? `<div class="pk-message-audio"><audio controls src="${url}" preload="metadata"></audio></div>`
+                        : '';
+                }
+                if (att.type === 'file' || att.type === 'document') {
+                    const url = att.url || att.file_url;
+                    const name = att.name || att.filename || 'Tệp đính kèm';
+                    return url
+                        ? `<div class="pk-message-file"><a href="${url}" target="_blank"><i data-lucide="file-text"></i><span>${escapeHtml(name)}</span></a></div>`
+                        : '';
+                }
+                if (att.type === 'like' || att.type === 'thumbsup') {
+                    return '<div class="pk-message-like"><span class="pk-like-icon">👍</span></div>';
+                }
+                if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
+                    const url = att.url || att.file_url;
+                    return url
+                        ? `<div class="pk-message-sticker"><img src="${url}" alt="GIF" loading="lazy"></div>`
+                        : '';
+                }
+                return '';
+            })
+            .join('');
 
-        let reactionsHtml = reactions.length > 0
-            ? `<span class="pk-message-reactions">${reactions.map(r => r.emoji || '❤️').join('')}</span>` : '';
+        let reactionsHtml =
+            reactions.length > 0
+                ? `<span class="pk-message-reactions">${reactions.map((r) => r.emoji || '❤️').join('')}</span>`
+                : '';
 
-        const sender = isOutgoing ? (msg.sender_action_name || 'Nv.My') : '';
+        const sender = isOutgoing ? msg.sender_action_name || 'Nv.My' : '';
 
         return `
             <div class="pk-message ${isOutgoing ? 'outgoing' : 'incoming'}">
                 ${attHtml}
-                ${text ? `<div class="pk-message-bubble"><div class="pk-message-text">${escapeHtml(this._parseMessageHtml(text))}</div>${reactionsHtml}</div>`
-                    : (reactionsHtml ? `<div class="pk-message-bubble">${reactionsHtml}</div>` : '')}
+                ${
+                    text
+                        ? `<div class="pk-message-bubble"><div class="pk-message-text">${escapeHtml(this._parseMessageHtml(text))}</div>${reactionsHtml}</div>`
+                        : reactionsHtml
+                          ? `<div class="pk-message-bubble">${reactionsHtml}</div>`
+                          : ''
+                }
                 <div class="pk-message-meta">
                     <span class="pk-message-time">${time}</span>
                     ${sender ? `<span class="pk-message-sender">${escapeHtml(sender)}</span>` : ''}
@@ -190,8 +218,8 @@ const PancakeChatWindow = {
         const row1 = qr.slice(0, 7);
         const row2 = qr.slice(7);
         return `
-            <div class="pk-quick-reply-row">${row1.map(q => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>
-            <div class="pk-quick-reply-row">${row2.map(q => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>`;
+            <div class="pk-quick-reply-row">${row1.map((q) => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>
+            <div class="pk-quick-reply-row">${row2.map((q) => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>`;
     },
 
     // =====================================================
@@ -210,9 +238,19 @@ const PancakeChatWindow = {
         chatInput.value = '';
         chatInput.style.height = 'auto';
         const sendBtn = document.getElementById('pkSendBtn');
-        if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '<i data-lucide="loader" class="pk-spin"></i>'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i data-lucide="loader" class="pk-spin"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-        const tempMsg = { id: 'temp_' + Date.now(), message: text || '[Hình ảnh]', from: { id: state.activeConversation.page_id, name: 'You' }, inserted_at: new Date().toISOString(), _temp: true };
+        const tempMsg = {
+            id: 'temp_' + Date.now(),
+            message: text || '[Hình ảnh]',
+            from: { id: state.activeConversation.page_id, name: 'You' },
+            inserted_at: new Date().toISOString(),
+            _temp: true,
+        };
         state.messages.push(tempMsg);
         state.isScrolledToBottom = true;
         this.renderMessages();
@@ -222,32 +260,53 @@ const PancakeChatWindow = {
             const pageId = state.activeConversation.page_id;
             const convId = state.activeConversation.id;
             const customerId = state.activeConversation.customers?.[0]?.id || null;
-            const action = state.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
+            const action =
+                state.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
             let contentIds = [];
             let attachmentId = null;
             let attachmentType = null;
 
             if (hasImage) {
                 if (state.serverMode === 'n2store') {
-                    const up = await window.PancakeAPI.uploadMediaN2Store(pageId, this.selectedImage);
-                    if (up.success && up.attachment_id) { attachmentId = up.attachment_id; attachmentType = up.attachment_type; }
-                    else throw new Error('Upload ảnh thất bại');
+                    const up = await window.PancakeAPI.uploadMediaN2Store(
+                        pageId,
+                        this.selectedImage
+                    );
+                    if (up.success && up.attachment_id) {
+                        attachmentId = up.attachment_id;
+                        attachmentType = up.attachment_type;
+                    } else throw new Error('Upload ảnh thất bại');
                 } else {
                     const up = await window.PancakeAPI.uploadMedia(pageId, this.selectedImage);
-                    if (up.success && up.id) { contentIds = [up.id]; attachmentType = up.attachment_type; }
-                    else throw new Error('Upload ảnh thất bại');
+                    if (up.success && up.id) {
+                        contentIds = [up.id];
+                        attachmentType = up.attachment_type;
+                    } else throw new Error('Upload ảnh thất bại');
                 }
                 this._clearImagePreview();
             }
 
             let sent;
             if (state.serverMode === 'n2store') {
-                sent = await window.PancakeAPI.sendMessageN2Store(pageId, convId, text, action, attachmentId, attachmentType);
+                sent = await window.PancakeAPI.sendMessageN2Store(
+                    pageId,
+                    convId,
+                    text,
+                    action,
+                    attachmentId,
+                    attachmentType
+                );
             } else {
-                sent = await window.PancakeAPI.sendMessage(pageId, convId, { text, action, customerId, content_ids: contentIds, attachment_type: attachmentType });
+                sent = await window.PancakeAPI.sendMessage(pageId, convId, {
+                    text,
+                    action,
+                    customerId,
+                    content_ids: contentIds,
+                    attachment_type: attachmentType,
+                });
             }
 
-            state.messages = state.messages.filter(m => m.id !== tempMsg.id);
+            state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
             if (sent) state.messages.push(sent);
             state.isScrolledToBottom = true;
             this.renderMessages();
@@ -259,11 +318,15 @@ const PancakeChatWindow = {
                 window.PancakeConversationList.renderConversationList();
             }
         } catch (error) {
-            state.messages = state.messages.filter(m => m.id !== tempMsg.id);
+            state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
             this.renderMessages();
             alert(`Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`);
         } finally {
-            if (sendBtn) { sendBtn.disabled = false; sendBtn.innerHTML = '<i data-lucide="send"></i>'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i data-lucide="send"></i>';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
         }
     },
 
@@ -278,7 +341,10 @@ const PancakeChatWindow = {
         const previewImg = document.getElementById('pkPreviewImg');
         if (preview && previewImg) {
             const reader = new FileReader();
-            reader.onload = (e) => { previewImg.src = e.target.result; preview.style.display = 'block'; };
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+            };
             reader.readAsDataURL(file);
         }
     },
@@ -306,13 +372,136 @@ const PancakeChatWindow = {
 
         if (!window.PancakeState.emojiData) {
             window.PancakeState.emojiData = {
-                recent: JSON.parse(localStorage.getItem('tpos_pk_recent_emojis') || 'null') || ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
-                smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔'],
-                gestures: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','🤝','🙏'],
-                hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝'],
-                animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧'],
-                food: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🥭','🍍','🥥','🍅','🍔','🍟','🍕'],
-                objects: ['💡','📱','💻','⌨️','🔑','⚙️','🔧','🔨','💎','📷','📺','🎙️']
+                recent: JSON.parse(localStorage.getItem('tpos_pk_recent_emojis') || 'null') || [
+                    '😊',
+                    '👍',
+                    '❤️',
+                    '😂',
+                    '🙏',
+                    '😍',
+                    '🔥',
+                    '✨',
+                ],
+                smileys: [
+                    '😀',
+                    '😃',
+                    '😄',
+                    '😁',
+                    '😆',
+                    '😅',
+                    '🤣',
+                    '😂',
+                    '🙂',
+                    '😊',
+                    '😇',
+                    '🥰',
+                    '😍',
+                    '🤩',
+                    '😘',
+                    '😗',
+                    '😚',
+                    '😙',
+                    '🥲',
+                    '😋',
+                    '😛',
+                    '😜',
+                    '🤪',
+                    '😝',
+                    '🤑',
+                    '🤗',
+                    '🤭',
+                    '🤫',
+                    '🤔',
+                ],
+                gestures: [
+                    '👋',
+                    '🤚',
+                    '🖐️',
+                    '✋',
+                    '🖖',
+                    '👌',
+                    '🤌',
+                    '🤏',
+                    '✌️',
+                    '🤞',
+                    '🤟',
+                    '🤘',
+                    '🤙',
+                    '👈',
+                    '👉',
+                    '👆',
+                    '👇',
+                    '☝️',
+                    '👍',
+                    '👎',
+                    '✊',
+                    '👊',
+                    '🤛',
+                    '🤜',
+                    '👏',
+                    '🙌',
+                    '🤝',
+                    '🙏',
+                ],
+                hearts: [
+                    '❤️',
+                    '🧡',
+                    '💛',
+                    '💚',
+                    '💙',
+                    '💜',
+                    '🖤',
+                    '🤍',
+                    '🤎',
+                    '💔',
+                    '❣️',
+                    '💕',
+                    '💞',
+                    '💓',
+                    '💗',
+                    '💖',
+                    '💘',
+                    '💝',
+                ],
+                animals: [
+                    '🐶',
+                    '🐱',
+                    '🐭',
+                    '🐹',
+                    '🐰',
+                    '🦊',
+                    '🐻',
+                    '🐼',
+                    '🐨',
+                    '🐯',
+                    '🦁',
+                    '🐮',
+                    '🐷',
+                    '🐸',
+                    '🐵',
+                    '🐔',
+                    '🐧',
+                ],
+                food: [
+                    '🍎',
+                    '🍐',
+                    '🍊',
+                    '🍋',
+                    '🍌',
+                    '🍉',
+                    '🍇',
+                    '🍓',
+                    '🍒',
+                    '🍑',
+                    '🥭',
+                    '🍍',
+                    '🥥',
+                    '🍅',
+                    '🍔',
+                    '🍟',
+                    '🍕',
+                ],
+                objects: ['💡', '📱', '💻', '⌨️', '🔑', '⚙️', '🔧', '🔨', '💎', '📷', '📺', '🎙️'],
             };
         }
 
@@ -327,9 +516,11 @@ const PancakeChatWindow = {
             if (!picker.contains(e.target) && e.target !== emojiBtn) picker.style.display = 'none';
         });
 
-        picker.querySelectorAll('.pk-emoji-cat').forEach(cat => {
+        picker.querySelectorAll('.pk-emoji-cat').forEach((cat) => {
             cat.addEventListener('click', () => {
-                picker.querySelectorAll('.pk-emoji-cat').forEach(c => c.classList.remove('active'));
+                picker
+                    .querySelectorAll('.pk-emoji-cat')
+                    .forEach((c) => c.classList.remove('active'));
                 cat.classList.add('active');
                 this._renderEmojiGrid(cat.dataset.category);
             });
@@ -340,7 +531,10 @@ const PancakeChatWindow = {
             if (item && chatInput) {
                 const emoji = item.textContent;
                 const start = chatInput.selectionStart;
-                chatInput.value = chatInput.value.substring(0, start) + emoji + chatInput.value.substring(chatInput.selectionEnd);
+                chatInput.value =
+                    chatInput.value.substring(0, start) +
+                    emoji +
+                    chatInput.value.substring(chatInput.selectionEnd);
                 chatInput.selectionStart = chatInput.selectionEnd = start + emoji.length;
                 chatInput.focus();
                 // Update recent
@@ -349,7 +543,10 @@ const PancakeChatWindow = {
                 if (idx > -1) recent.splice(idx, 1);
                 recent.unshift(emoji);
                 window.PancakeState.emojiData.recent = recent.slice(0, 24);
-                localStorage.setItem('tpos_pk_recent_emojis', JSON.stringify(window.PancakeState.emojiData.recent));
+                localStorage.setItem(
+                    'tpos_pk_recent_emojis',
+                    JSON.stringify(window.PancakeState.emojiData.recent)
+                );
             }
         });
     },
@@ -358,7 +555,9 @@ const PancakeChatWindow = {
         const grid = document.getElementById('pkEmojiGrid');
         const data = window.PancakeState.emojiData;
         if (!grid || !data?.[category]) return;
-        grid.innerHTML = data[category].map(e => `<button class="pk-emoji-item" title="${e}">${e}</button>`).join('');
+        grid.innerHTML = data[category]
+            .map((e) => `<button class="pk-emoji-item" title="${e}">${e}</button>`)
+            .join('');
     },
 
     // =====================================================
@@ -377,7 +576,8 @@ const PancakeChatWindow = {
 
     async loadMoreMessages() {
         const state = window.PancakeState;
-        if (state.isLoadingMoreMessages || !state.hasMoreMessages || !state.activeConversation) return;
+        if (state.isLoadingMoreMessages || !state.hasMoreMessages || !state.activeConversation)
+            return;
         state.isLoadingMoreMessages = true;
 
         const container = document.getElementById('pkChatMessages');
@@ -389,8 +589,12 @@ const PancakeChatWindow = {
 
         try {
             const result = await window.PancakeAPI.fetchMessages(
-                state.activeConversation.page_id, state.activeConversation.id,
-                { currentCount: state.messageCurrentCount, customerId: state.activeConversation.customers?.[0]?.id }
+                state.activeConversation.page_id,
+                state.activeConversation.id,
+                {
+                    currentCount: state.messageCurrentCount,
+                    customerId: state.activeConversation.customers?.[0]?.id,
+                }
             );
             loadEl.remove();
             const older = result.messages || [];
@@ -406,12 +610,19 @@ const PancakeChatWindow = {
                 this.renderMessages();
                 if (container) container.scrollTop = container.scrollHeight - scrollBefore;
             }
-        } catch { loadEl.remove(); }
-        finally { state.isLoadingMoreMessages = false; }
+        } catch {
+            loadEl.remove();
+        } finally {
+            state.isLoadingMoreMessages = false;
+        }
     },
 
-    showTypingIndicator() { /* TODO: visual typing indicator */ },
-    hideTypingIndicator() { /* TODO: hide typing indicator */ },
+    showTypingIndicator() {
+        /* TODO: visual typing indicator */
+    },
+    hideTypingIndicator() {
+        /* TODO: hide typing indicator */
+    },
 
     // =====================================================
     // INTERNAL
@@ -424,7 +635,9 @@ const PancakeChatWindow = {
             const pageId = conv.page_id;
             const convId = conv.id;
             const customerId = conv.customers?.[0]?.id || null;
-            const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), 10000));
+            const timeout = new Promise((_, rej) =>
+                setTimeout(() => rej(new Error('Timeout')), 10000)
+            );
 
             let fetchP;
             if (state.serverMode === 'n2store') {
@@ -440,10 +653,13 @@ const PancakeChatWindow = {
 
             if (result.fromCache) this._refreshMessagesInBackground(pageId, convId, customerId);
             if (conv.unread_count > 0) {
-                window.PancakeAPI.markAsRead(pageId, convId).then(() => {
-                    conv.unread_count = 0; conv.seen = true;
-                    window.PancakeConversationList.renderConversationList();
-                }).catch(() => {});
+                window.PancakeAPI.markAsRead(pageId, convId)
+                    .then(() => {
+                        conv.unread_count = 0;
+                        conv.seen = true;
+                        window.PancakeConversationList.renderConversationList();
+                    })
+                    .catch(() => {});
             }
         } catch (error) {
             const mc = document.getElementById('pkChatMessages');
@@ -457,7 +673,10 @@ const PancakeChatWindow = {
 
     async _refreshMessagesInBackground(pageId, convId, customerId) {
         try {
-            const result = await window.PancakeAPI.fetchMessages(pageId, convId, { customerId, forceRefresh: true });
+            const result = await window.PancakeAPI.fetchMessages(pageId, convId, {
+                customerId,
+                forceRefresh: true,
+            });
             const state = window.PancakeState;
             if (state.activeConversation?.id === convId) {
                 const newMsgs = (result.messages || []).reverse();
@@ -472,36 +691,58 @@ const PancakeChatWindow = {
     _bindChatInputEvents() {
         const chatInput = document.getElementById('pkChatInput');
         if (chatInput) {
-            chatInput.addEventListener('input', () => { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px'; });
-            chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMessage(); } });
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+            });
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
         }
         const sendBtn = document.getElementById('pkSendBtn');
         if (sendBtn) sendBtn.addEventListener('click', () => this.sendMessage());
 
         const qrBar = document.getElementById('pkQuickReplyBar');
-        if (qrBar) qrBar.addEventListener('click', (e) => {
-            const btn = e.target.closest('.pk-quick-reply-btn');
-            if (btn?.dataset.template && chatInput) { chatInput.value = btn.dataset.template; chatInput.focus(); }
-        });
+        if (qrBar)
+            qrBar.addEventListener('click', (e) => {
+                const btn = e.target.closest('.pk-quick-reply-btn');
+                if (btn?.dataset.template && chatInput) {
+                    chatInput.value = btn.dataset.template;
+                    chatInput.focus();
+                }
+            });
 
         // Phone/ad badge copy
         const statsBar = document.querySelector('.pk-customer-stats-bar');
-        if (statsBar) statsBar.addEventListener('click', (e) => {
-            const badge = e.target.closest('.pk-phone-ad-badge');
-            if (badge?.dataset.copy) {
-                navigator.clipboard.writeText(badge.dataset.copy).then(() => {
-                    const textEl = badge.querySelector('.pk-badge-text');
-                    if (textEl) { const orig = textEl.textContent; textEl.textContent = 'Đã copy!'; setTimeout(() => textEl.textContent = orig, 1500); }
-                }).catch(() => {});
-            }
-        });
+        if (statsBar)
+            statsBar.addEventListener('click', (e) => {
+                const badge = e.target.closest('.pk-phone-ad-badge');
+                if (badge?.dataset.copy) {
+                    navigator.clipboard
+                        .writeText(badge.dataset.copy)
+                        .then(() => {
+                            const textEl = badge.querySelector('.pk-badge-text');
+                            if (textEl) {
+                                const orig = textEl.textContent;
+                                textEl.textContent = 'Đã copy!';
+                                setTimeout(() => (textEl.textContent = orig), 1500);
+                            }
+                        })
+                        .catch(() => {});
+                }
+            });
 
         // Image upload
         const imageBtn = document.getElementById('pkImageBtn');
         const imageInput = document.getElementById('pkImageInput');
         if (imageBtn && imageInput) {
             imageBtn.addEventListener('click', () => imageInput.click());
-            imageInput.addEventListener('change', (e) => { if (e.target.files[0]) this.handleImageUpload(e.target.files[0]); });
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) this.handleImageUpload(e.target.files[0]);
+            });
         }
         const removePreview = document.getElementById('pkRemovePreview');
         if (removePreview) removePreview.addEventListener('click', () => this._clearImagePreview());
@@ -515,9 +756,15 @@ const PancakeChatWindow = {
             chatInput.addEventListener('input', () => {
                 const ac = window.PancakeState.activeConversation;
                 if (!ac) return;
-                if (!isTyping) { isTyping = true; window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, true); }
+                if (!isTyping) {
+                    isTyping = true;
+                    window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, true);
+                }
                 if (typingTimeout) clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => { isTyping = false; window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, false); }, 2000);
+                typingTimeout = setTimeout(() => {
+                    isTyping = false;
+                    window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, false);
+                }, 2000);
             });
         }
     },
@@ -532,12 +779,21 @@ const PancakeChatWindow = {
 
         container.addEventListener('scroll', () => {
             const state = window.PancakeState;
-            const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            const isAtBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight < 100;
             state.isScrolledToBottom = isAtBottom;
-            if (isAtBottom) { state.newMessageCount = 0; this._updateScrollButtonBadge(); this._updateScrollButtonVisibility(false); }
-            else this._updateScrollButtonVisibility(true);
+            if (isAtBottom) {
+                state.newMessageCount = 0;
+                this._updateScrollButtonBadge();
+                this._updateScrollButtonVisibility(false);
+            } else this._updateScrollButtonVisibility(true);
 
-            if (container.scrollTop < 100 && state.hasMoreMessages && !state.isLoadingMoreMessages && state.messages.length > 0) {
+            if (
+                container.scrollTop < 100 &&
+                state.hasMoreMessages &&
+                !state.isLoadingMoreMessages &&
+                state.messages.length > 0
+            ) {
                 this.loadMoreMessages();
             }
         });
@@ -553,15 +809,18 @@ const PancakeChatWindow = {
         const badge = document.getElementById('pkNewMsgBadge');
         const count = window.PancakeState.newMessageCount;
         if (badge) {
-            if (count > 0) { badge.textContent = count > 99 ? '99+' : count; badge.classList.add('visible'); }
-            else badge.classList.remove('visible');
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.classList.add('visible');
+            } else badge.classList.remove('visible');
         }
     },
 
     _renderCustomerStatsBar(conv) {
         const { escapeHtml } = window.SharedUtils;
         const customer = conv.customers?.[0] || conv.from || {};
-        let phone = customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
+        let phone =
+            customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
         if (typeof phone !== 'string') phone = '';
         let adId = conv.ad_clicks?.[0] || customer.ad_id || '';
         if (typeof adId === 'object') adId = adId?.id || adId?.ad_id || '';
@@ -575,7 +834,9 @@ const PancakeChatWindow = {
 
         let phoneBadge = '';
         if (phone || adId) {
-            const display = adId ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}` : phone;
+            const display = adId
+                ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}`
+                : phone;
             const full = adId || phone;
             phoneBadge = `<span class="pk-phone-ad-badge ${phone ? 'has-phone' : ''}" data-copy="${escapeHtml(full)}" title="Click để copy: ${escapeHtml(full)}"><i data-lucide="phone" class="pk-phone-icon"></i><span class="pk-badge-text">${escapeHtml(display)}</span></span>`;
         }
@@ -595,11 +856,21 @@ const PancakeChatWindow = {
         const name = customer?.name || 'U';
         const initial = name.charAt(0).toUpperCase();
         const fbId = customer?.fb_id || customer?.id || conv.from?.id;
-        let directUrl = customer?.avatar || customer?.picture?.data?.url || customer?.profile_pic || conv.from?.profile_pic || null;
+        let directUrl =
+            customer?.avatar ||
+            customer?.picture?.data?.url ||
+            customer?.profile_pic ||
+            conv.from?.profile_pic ||
+            null;
         let avatarUrl = directUrl;
         if (fbId) avatarUrl = window.SharedUtils.getAvatarUrl(fbId, conv.page_id, null, directUrl);
 
-        const colors = ['linear-gradient(135deg,#667eea,#764ba2)','linear-gradient(135deg,#f093fb,#f5576c)','linear-gradient(135deg,#4facfe,#00f2fe)','linear-gradient(135deg,#43e97b,#38f9d7)'];
+        const colors = [
+            'linear-gradient(135deg,#667eea,#764ba2)',
+            'linear-gradient(135deg,#f093fb,#f5576c)',
+            'linear-gradient(135deg,#4facfe,#00f2fe)',
+            'linear-gradient(135deg,#43e97b,#38f9d7)',
+        ];
         const gradient = colors[name.charCodeAt(0) % colors.length];
 
         if (avatarUrl && !avatarUrl.startsWith('data:image/svg')) {
@@ -619,23 +890,42 @@ const PancakeChatWindow = {
         if (!timestamp) return '';
         const date = window.SharedUtils.parseTimestamp(timestamp);
         if (!date) return '';
-        return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false }).format(date);
+        return new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour12: false,
+        }).format(date);
     },
 
     _groupMessagesByDate(messages) {
         const groups = {};
         const now = new Date();
-        const vnFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' });
-        const pv = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+        const vnFmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        const pv = (parts, type) => parseInt(parts.find((p) => p.type === type)?.value || '0');
         const nowP = vnFmt.formatToParts(now);
-        const todayKey = `${pv(nowP,'year')}-${pv(nowP,'month')}-${pv(nowP,'day')}`;
+        const todayKey = `${pv(nowP, 'year')}-${pv(nowP, 'month')}-${pv(nowP, 'day')}`;
 
-        messages.forEach(msg => {
+        messages.forEach((msg) => {
             const date = window.SharedUtils.parseTimestamp(msg.inserted_at || msg.created_time);
             if (!date) return;
             const dp = vnFmt.formatToParts(date);
-            const key = `${pv(dp,'year')}-${pv(dp,'month')}-${pv(dp,'day')}`;
-            const displayKey = key === todayKey ? 'Hôm nay' : new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+            const key = `${pv(dp, 'year')}-${pv(dp, 'month')}-${pv(dp, 'day')}`;
+            const displayKey =
+                key === todayKey
+                    ? 'Hôm nay'
+                    : new Intl.DateTimeFormat('vi-VN', {
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          timeZone: 'Asia/Ho_Chi_Minh',
+                      }).format(date);
             if (!groups[displayKey]) groups[displayKey] = [];
             groups[displayKey].push(msg);
         });
@@ -647,11 +937,19 @@ const PancakeChatWindow = {
         try {
             const temp = document.createElement('div');
             temp.innerHTML = html;
-            let text = temp.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>/gi, '\n').replace(/<\/p>/gi, '\n');
+            let text = temp.innerHTML
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/div>/gi, '\n')
+                .replace(/<\/p>/gi, '\n');
             temp.innerHTML = text;
             return (temp.textContent || temp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
-        } catch { return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
-    }
+        } catch {
+            return html
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+    },
 };
 
 // Export

@@ -13,8 +13,7 @@ let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 let currentSaleLastDeposit = null;
 let currentSaleAvailableDeposits = []; // [{ amount, date }] all deposits contributing to wallet balance
-let currentSaleVirtualCredits = [];    // [{ remaining_amount, source_type, source_id, ticket_note }] active virtual credits
-
+let currentSaleVirtualCredits = []; // [{ remaining_amount, source_type, source_id, ticket_note }] active virtual credits
 
 // QR/wallet API URL (required by sale-modal-common.js)
 const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -96,13 +95,13 @@ async function confirmDebtUpdate() {
         const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 phone: phone,
                 new_debt: newDebt,
-                reason: 'Admin manual adjustment from Sale Modal (Social)'
-            })
+                reason: 'Admin manual adjustment from Sale Modal (Social)',
+            }),
         });
 
         const result = await response.json();
@@ -110,7 +109,9 @@ async function confirmDebtUpdate() {
         if (result.success) {
             console.log('[DEBT-UPDATE] Success:', result);
             if (window.notificationManager) {
-                window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
+                window.notificationManager.success(
+                    `Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`
+                );
             }
             prepaidAmountField.style.background = '#d1fae5';
             setTimeout(() => {
@@ -127,13 +128,13 @@ async function confirmDebtUpdate() {
 
                 const oldDebtField = document.getElementById('saleOldDebt');
                 if (oldDebtField) {
-                    oldDebtField.textContent = newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
+                    oldDebtField.textContent =
+                        newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
                 }
             }
         } else {
             throw new Error(result.error || 'Failed to update debt');
         }
-
     } catch (error) {
         console.error('[DEBT-UPDATE] Error:', error);
         if (window.notificationManager) {
@@ -240,7 +241,9 @@ async function _syncInboxOrderLinesToRender(saleData) {
         return null;
     }
     if (typeof window.updateSocialOrder !== 'function') {
-        console.warn('[SOCIAL-SALE] updateSocialOrder unavailable — products will persist on submit only');
+        console.warn(
+            '[SOCIAL-SALE] updateSocialOrder unavailable — products will persist on submit only'
+        );
         return null;
     }
 
@@ -322,23 +325,26 @@ async function openSaleModalInSocialTab(orderId) {
         Address: order.address || '',
         TotalAmount: order.totalAmount || 0,
         Comment: order.note || '',
-        Details: (order.products || []).filter(p => {
-            const name = (p.productName || p.name || '').trim();
-            const code = (p.productCode || '').trim();
-            const variant = (p.variant || '').trim();
-            const price = parseFloat(String(p.sellingPrice || p.price || 0).replace(/[,.]/g, '')) || 0;
-            const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
-            return name || code || variant || price > 0 || purchase > 0;
-        }).map((p) => ({
-            ProductId: p.tposProductId || 0,
-            ProductCode: p.productCode || '',
-            ProductNameGet: p.productName || p.name || '',
-            ProductName: p.productName || p.name || '',
-            Quantity: p.quantity || 1,
-            PriceUnit: p.sellingPrice || p.price || 0,
-            Price: p.sellingPrice || p.price || 0,
-            Note: p.variant || '',
-        })),
+        Details: (order.products || [])
+            .filter((p) => {
+                const name = (p.productName || p.name || '').trim();
+                const code = (p.productCode || '').trim();
+                const variant = (p.variant || '').trim();
+                const price =
+                    parseFloat(String(p.sellingPrice || p.price || 0).replace(/[,.]/g, '')) || 0;
+                const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
+                return name || code || variant || price > 0 || purchase > 0;
+            })
+            .map((p) => ({
+                ProductId: p.tposProductId || 0,
+                ProductCode: p.productCode || '',
+                ProductNameGet: p.productName || p.name || '',
+                ProductName: p.productName || p.name || '',
+                Quantity: p.quantity || 1,
+                PriceUnit: p.sellingPrice || p.price || 0,
+                Price: p.sellingPrice || p.price || 0,
+                Note: p.variant || '',
+            })),
         Tags: order.tags ? JSON.stringify(order.tags) : '[]',
         _isSocialOrder: true,
     };
@@ -349,7 +355,7 @@ async function openSaleModalInSocialTab(orderId) {
     // Track broken products để show modal block + ngăn user submit (tránh confusing TPOS NRE error).
     mappedOrder.orderLines = [];
     const brokenProducts = []; // { tposId, code, name, error }
-    for (const p of (order.products || [])) {
+    for (const p of order.products || []) {
         const name = (p.productName || p.name || '').trim();
         const code = (p.productCode || '').trim();
         const variant = (p.variant || '').trim();
@@ -397,7 +403,8 @@ async function openSaleModalInSocialTab(orderId) {
                     Id: fullProduct.Id,
                     Name: fullProduct.Name,
                     DefaultCode: fullProduct.DefaultCode,
-                    NameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    NameGet:
+                        fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                     ImageUrl: fullProduct.ImageUrl,
                 },
                 ProductUOMId: fullProduct.UOM?.Id || 1,
@@ -410,7 +417,8 @@ async function openSaleModalInSocialTab(orderId) {
                 PriceUnit: salePrice,
                 Price: salePrice,
                 ProductName: fullProduct.Name,
-                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductNameGet:
+                    fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                 ProductUOMName: fullProduct.UOM?.Name || 'Cái',
                 Note: variant || null,
                 SaleOnlineDetailId: null,
@@ -420,14 +428,19 @@ async function openSaleModalInSocialTab(orderId) {
         } catch (err) {
             // 500/404 từ TPOS = product/variant bị orphan/broken trên TPOS server-side.
             // Invoice POST với product này CHẮC CHẮN sẽ NRE — block trước khi user mất công nhập form.
-            console.warn('[SOCIAL-SALE] Product broken on TPOS, will block submit:', tposId, code, err.message);
+            console.warn(
+                '[SOCIAL-SALE] Product broken on TPOS, will block submit:',
+                tposId,
+                code,
+                err.message
+            );
             brokenProducts.push({ tposId, code, name, error: err.message });
             mappedOrder.orderLines.push(buildMinimalLine(tposId, price, true));
         }
     }
 
     if (brokenProducts.length > 0) {
-        const list = brokenProducts.map(b => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
+        const list = brokenProducts.map((b) => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
         const msg =
             `Sản phẩm sau bị lỗi trên TPOS (HTTP 500), không thể tạo phiếu:\n\n${list}\n\n` +
             `Cách xử lý:\n` +
@@ -470,7 +483,10 @@ async function openSaleModalInSocialTab(orderId) {
             } else {
                 console.warn('[SOCIAL-SALE] No TPOS partner for phone:', phone);
                 if (typeof showNotification === 'function') {
-                    showNotification('Không tìm thấy KH trên TPOS — vui lòng tạo KH trước khi xác nhận', 'warning');
+                    showNotification(
+                        'Không tìm thấy KH trên TPOS — vui lòng tạo KH trước khi xác nhận',
+                        'warning'
+                    );
                 }
             }
         } else if (!phone) {
@@ -713,12 +729,12 @@ async function socialConfirmAndPrintSale() {
     // Tránh user mất công nhập form rồi gặp TPOS NRE không rõ nguyên nhân.
     const broken = currentSaleOrderData?._brokenProducts;
     if (Array.isArray(broken) && broken.length > 0) {
-        const list = broken.map(b => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
+        const list = broken.map((b) => `• [${b.code || b.tposId}] ${b.name}`).join('\n');
         alert(
             `Không thể tạo phiếu — sản phẩm sau bị lỗi trên TPOS (HTTP 500):\n\n${list}\n\n` +
-            `Vui lòng:\n` +
-            `1. Kiểm tra & sửa SP trên TPOS, HOẶC\n` +
-            `2. Đóng modal → mở lại đơn → xoá SP lỗi → thêm SP khác qua "Tìm kiếm [F2]"`
+                `Vui lòng:\n` +
+                `1. Kiểm tra & sửa SP trên TPOS, HOẶC\n` +
+                `2. Đóng modal → mở lại đơn → xoá SP lỗi → thêm SP khác qua "Tìm kiếm [F2]"`
         );
         return;
     }

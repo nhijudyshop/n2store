@@ -141,12 +141,19 @@ export class CustomerProfileModule {
                 // Render all sections
                 this._renderHeader(data.customer);
                 this._renderRFMCard(data.customer);
-                this._renderTicketsCard(data.recentTickets || [], data.recentActivities || [], data.recentWalletTransactions || []);
+                this._renderTicketsCard(
+                    data.recentTickets || [],
+                    data.recentActivities || [],
+                    data.recentWalletTransactions || []
+                );
                 this._renderNotesSection(data.notes || []);
                 this._renderPancakeInfoCard(data.customer);
 
                 // Initialize wallet panel module
-                this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
+                this.walletPanelModule = new WalletPanelModule(
+                    'customer-wallet-panel',
+                    this.permissionHelper
+                );
                 this.walletPanelModule.render(phone);
 
                 this.loader.classList.add('hidden');
@@ -182,7 +189,12 @@ export class CustomerProfileModule {
 
             if (result.success && result.count > 0) {
                 const tposCustomer = result.customers[0];
-                console.log('[CustomerProfile] TPOS fallback found:', tposCustomer.name, 'ID:', tposCustomer.id);
+                console.log(
+                    '[CustomerProfile] TPOS fallback found:',
+                    tposCustomer.name,
+                    'ID:',
+                    tposCustomer.id
+                );
 
                 // Build minimal customer data from TPOS
                 const data = {
@@ -192,10 +204,10 @@ export class CustomerProfileModule {
                         phone: tposCustomer.phone || phone,
                         address: tposCustomer.address || '',
                         statusText: tposCustomer.statusText || 'Bình thường',
-                        source: 'TPOS'
+                        source: 'TPOS',
                     },
                     recentTickets: [],
-                    notes: []
+                    notes: [],
                 };
 
                 this.customerData = data;
@@ -208,7 +220,10 @@ export class CustomerProfileModule {
                 this._renderPancakeInfoCard(data.customer);
 
                 // Initialize wallet panel module
-                this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
+                this.walletPanelModule = new WalletPanelModule(
+                    'customer-wallet-panel',
+                    this.permissionHelper
+                );
                 this.walletPanelModule.render(phone);
 
                 this.loader.classList.add('hidden');
@@ -283,25 +298,32 @@ export class CustomerProfileModule {
 
             aliasesContainer = document.createElement('div');
             aliasesContainer.id = 'customer-aliases-section';
-            aliasesContainer.className = 'px-6 py-2 bg-slate-50 dark:bg-slate-800 border-b border-border-light dark:border-border-dark flex items-center gap-3 flex-wrap';
+            aliasesContainer.className =
+                'px-6 py-2 bg-slate-50 dark:bg-slate-800 border-b border-border-light dark:border-border-dark flex items-center gap-3 flex-wrap';
             header.after(aliasesContainer);
         }
 
         // Build aliases HTML
-        const aliasesHtml = aliases.map((alias, index) => {
-            const isPrimary = alias === customer.name;
-            return `
+        const aliasesHtml = aliases
+            .map((alias, index) => {
+                const isPrimary = alias === customer.name;
+                return `
                 <span class="alias-tag ${isPrimary ? 'primary' : ''}"
                       title="${isPrimary ? 'Tên chính' : 'Tên tham khảo'}">
                     ${alias}
-                    ${!isPrimary ? `
+                    ${
+                        !isPrimary
+                            ? `
                         <button class="remove-alias-btn" onclick="window.removeCustomerAlias('${customer.phone}', '${alias.replace(/'/g, "\\'")}')" title="Xóa tên này">
                             <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </span>
             `;
-        }).join('');
+            })
+            .join('');
 
         aliasesContainer.innerHTML = `
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Tên tham khảo:</span>
@@ -341,11 +363,15 @@ export class CustomerProfileModule {
                         <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Email</label>
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-medium text-slate-900 dark:text-white select-all">${customer.email || 'Chưa có email'}</span>
-                            ${customer.email ? `
+                            ${
+                                customer.email
+                                    ? `
                                 <button class="opacity-0 group-hover:opacity-100 text-primary transition-opacity" onclick="navigator.clipboard.writeText('${customer.email}')">
                                     <span class="material-symbols-outlined text-lg">content_copy</span>
                                 </button>
-                            ` : ''}
+                            `
+                                    : ''
+                            }
                         </div>
                     </div>
 
@@ -368,22 +394,35 @@ export class CustomerProfileModule {
                 </div>
 
                 <!-- Action Buttons -->
-                ${this.permissionHelper.hasPermission('customer-hub', 'editCustomer') || this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
+                ${
+                    this.permissionHelper.hasPermission('customer-hub', 'editCustomer') ||
+                    this.permissionHelper.hasPermission('customer-hub', 'addNote')
+                        ? `
                     <div class="mt-auto grid grid-cols-2 gap-3 pt-5 border-t border-border-light dark:border-border-dark">
-                        ${this.permissionHelper.hasPermission('customer-hub', 'editCustomer') ? `
+                        ${
+                            this.permissionHelper.hasPermission('customer-hub', 'editCustomer')
+                                ? `
                             <button id="edit-customer-btn" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                                 <span class="material-symbols-outlined text-lg">edit</span>
                                 Sửa
                             </button>
-                        ` : ''}
-                        ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
+                        `
+                                : ''
+                        }
+                        ${
+                            this.permissionHelper.hasPermission('customer-hub', 'addNote')
+                                ? `
                             <button id="add-note-shortcut-btn" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                                 <span class="material-symbols-outlined text-lg">note_add</span>
                                 Ghi chú
                             </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
     }
@@ -480,9 +519,13 @@ export class CustomerProfileModule {
 
     _generateSpendingBars() {
         const heights = [40, 65, 45, 80, 55, 90];
-        return heights.map((h, i) => `
+        return heights
+            .map(
+                (h, i) => `
             <div style="flex: 1; height: ${h}%; background-color: ${i === heights.length - 1 ? '#8b5cf6' : '#c4b5fd'}; border-radius: 4px 4px 0 0;"></div>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     _renderTicketsCard(tickets, activities = [], walletTransactions = []) {
@@ -490,41 +533,50 @@ export class CustomerProfileModule {
 
         // Ticket type translations
         const typeMap = {
-            'BOOM': 'Boom Hàng',
-            'FIX_COD': 'Sửa COD',
-            'RETURN_CLIENT': 'Khách Gửi',
-            'RETURN_SHIPPER': 'Thu Về',
-            'SALE_ORDER': 'Phiếu Bán Hàng',
-            'RETURN_ORDER': 'Phiếu Trả Hàng',
-            'OTHER': 'Khác'
+            BOOM: 'Boom Hàng',
+            FIX_COD: 'Sửa COD',
+            RETURN_CLIENT: 'Khách Gửi',
+            RETURN_SHIPPER: 'Thu Về',
+            SALE_ORDER: 'Phiếu Bán Hàng',
+            RETURN_ORDER: 'Phiếu Trả Hàng',
+            OTHER: 'Khác',
         };
 
         // Status translations and colors
         const statusMap = {
-            'PENDING': { label: 'Chờ xử lý', color: 'bg-amber-100 text-amber-700' },
-            'PROCESSING': { label: 'Đang xử lý', color: 'bg-blue-100 text-blue-700' },
-            'WAITING_GOODS': { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
-            'PENDING_GOODS': { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
-            'COMPLETED': { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
-            'CANCELLED': { label: 'Đã hủy', color: 'bg-slate-100 text-slate-500' }
+            PENDING: { label: 'Chờ xử lý', color: 'bg-amber-100 text-amber-700' },
+            PROCESSING: { label: 'Đang xử lý', color: 'bg-blue-100 text-blue-700' },
+            WAITING_GOODS: { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
+            PENDING_GOODS: { label: 'Chờ hàng về', color: 'bg-purple-100 text-purple-700' },
+            COMPLETED: { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
+            CANCELLED: { label: 'Đã hủy', color: 'bg-slate-100 text-slate-500' },
         };
 
         // Activity type icon/color mapping
         const activityStyleMap = {
-            'WALLET_DEPOSIT': { icon: 'savings', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            'WALLET_WITHDRAW': { icon: 'payments', color: 'text-red-600', bg: 'bg-red-50' },
-            'WALLET_REFUND': { icon: 'currency_exchange', color: 'text-blue-600', bg: 'bg-blue-50' },
-            'WALLET_VIRTUAL_CREDIT': { icon: 'card_giftcard', color: 'text-purple-600', bg: 'bg-purple-50' },
-            'ORDER_CANCELLED': { icon: 'cancel', color: 'text-red-500', bg: 'bg-red-50' },
-            'ORDER_CREATED': { icon: 'shopping_cart', color: 'text-blue-500', bg: 'bg-blue-50' },
-            'ORDER_CANCEL_REFUND': { icon: 'currency_exchange', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            WALLET_DEPOSIT: { icon: 'savings', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            WALLET_WITHDRAW: { icon: 'payments', color: 'text-red-600', bg: 'bg-red-50' },
+            WALLET_REFUND: { icon: 'currency_exchange', color: 'text-blue-600', bg: 'bg-blue-50' },
+            WALLET_VIRTUAL_CREDIT: {
+                icon: 'card_giftcard',
+                color: 'text-purple-600',
+                bg: 'bg-purple-50',
+            },
+            ORDER_CANCELLED: { icon: 'cancel', color: 'text-red-500', bg: 'bg-red-50' },
+            ORDER_CREATED: { icon: 'shopping_cart', color: 'text-blue-500', bg: 'bg-blue-50' },
+            ORDER_CANCEL_REFUND: {
+                icon: 'currency_exchange',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50',
+            },
         };
         const defaultActivityStyle = { icon: 'info', color: 'text-slate-500', bg: 'bg-slate-50' };
 
         const hasTickets = tickets && tickets.length > 0;
         const hasActivities = activities && activities.length > 0;
         const hasWalletTx = walletTransactions && walletTransactions.length > 0;
-        const totalCount = (tickets?.length || 0) + (walletTransactions?.length || activities?.length || 0);
+        const totalCount =
+            (tickets?.length || 0) + (walletTransactions?.length || activities?.length || 0);
 
         let ticketsHtml = '';
         if (hasTickets) {
@@ -540,25 +592,38 @@ export class CustomerProfileModule {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                        ${tickets.slice(0, 10).map(ticket => {
-                            const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
-                            const rawId = ticket.tpos_order_id;
-                            const numericId = rawId ? parseInt(rawId, 10) : 0;
-                            const tposOrderId = (numericId > 0) ? numericId : null;
-                            const type = typeMap[ticket.type] || ticket.type;
-                            const note = ticket.internal_note && ticket.internal_note.trim()
-                                ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
-                                : '<span class="text-slate-400">-</span>';
-                            const refund = ticket.refund_amount && ticket.refund_amount > 0 ? this._formatCurrencyShort(ticket.refund_amount) : '';
-                            const statusInfo = statusMap[ticket.status] || { label: ticket.status, color: 'bg-slate-100 text-slate-500' };
+                        ${tickets
+                            .slice(0, 10)
+                            .map((ticket) => {
+                                const orderIdDisplay = ticket.order_id
+                                    ? ticket.order_id.replace(/^NJD\/\d+\//, '')
+                                    : '-';
+                                const rawId = ticket.tpos_order_id;
+                                const numericId = rawId ? parseInt(rawId, 10) : 0;
+                                const tposOrderId = numericId > 0 ? numericId : null;
+                                const type = typeMap[ticket.type] || ticket.type;
+                                const note =
+                                    ticket.internal_note && ticket.internal_note.trim()
+                                        ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
+                                        : '<span class="text-slate-400">-</span>';
+                                const refund =
+                                    ticket.refund_amount && ticket.refund_amount > 0
+                                        ? this._formatCurrencyShort(ticket.refund_amount)
+                                        : '';
+                                const statusInfo = statusMap[ticket.status] || {
+                                    label: ticket.status,
+                                    color: 'bg-slate-100 text-slate-500',
+                                };
 
-                            return `
+                                return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                     <td class="px-3 py-2 font-medium">
-                                        ${tposOrderId ?
-                                            `<a href="#" onclick="showOrderDetailPopup('${tposOrderId}'); return false;"
+                                        ${
+                                            tposOrderId
+                                                ? `<a href="#" onclick="showOrderDetailPopup('${tposOrderId}'); return false;"
                                                 class="text-blue-600 hover:text-blue-800 hover:underline">${orderIdDisplay}</a>`
-                                            : `<span class="text-slate-600">${orderIdDisplay}</span>`}
+                                                : `<span class="text-slate-600">${orderIdDisplay}</span>`
+                                        }
                                     </td>
                                     <td class="px-3 py-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this._getTypeColor(ticket.type)}">${type}</span>
@@ -572,7 +637,8 @@ export class CustomerProfileModule {
                                     </td>
                                 </tr>
                             `;
-                        }).join('')}
+                            })
+                            .join('')}
                     </tbody>
                 </table>
             `;
@@ -586,18 +652,18 @@ export class CustomerProfileModule {
         if (hasWalletTx) {
             // Wallet transaction type config
             const walletTypeConfig = {
-                'DEPOSIT': { label: 'Cộng Tiền', iconChar: '+', isCredit: true },
-                'WITHDRAW': { label: 'Trừ Tiền', iconChar: '-', isCredit: false },
-                'VIRTUAL_CREDIT': { label: 'Cộng Công Nợ Ảo', iconChar: '+', isCredit: true },
-                'VIRTUAL_DEBIT': { label: 'Trừ Công Nợ Ảo', iconChar: '-', isCredit: false },
-                'VIRTUAL_CANCEL': { label: 'Thu Hồi Công Nợ Ảo', iconChar: '-', isCredit: false },
-                'VIRTUAL_EXPIRE': { label: 'Công Nợ Hết Hạn', iconChar: '-', isCredit: false },
-                'ADJUSTMENT': { label: 'Điều Chỉnh Số Dư', iconChar: '~', isCredit: true },
-                'ORDER_CANCEL_REFUND': { label: 'Hoàn Tiền Hủy Đơn', iconChar: '+', isCredit: true },
-                'RETURN_SHIPPER': { label: 'Phiếu Thu Về', iconChar: '+', isCredit: true },
-                'RETURN_CLIENT': { label: 'Phiếu Trả Hàng', iconChar: '+', isCredit: true },
-                'BOOM': { label: 'Phiếu Boom Hàng', iconChar: '-', isCredit: false },
-                'COD_ADJUSTMENT': { label: 'Điều Chỉnh COD', iconChar: '~', isCredit: true },
+                DEPOSIT: { label: 'Cộng Tiền', iconChar: '+', isCredit: true },
+                WITHDRAW: { label: 'Trừ Tiền', iconChar: '-', isCredit: false },
+                VIRTUAL_CREDIT: { label: 'Cộng Công Nợ Ảo', iconChar: '+', isCredit: true },
+                VIRTUAL_DEBIT: { label: 'Trừ Công Nợ Ảo', iconChar: '-', isCredit: false },
+                VIRTUAL_CANCEL: { label: 'Thu Hồi Công Nợ Ảo', iconChar: '-', isCredit: false },
+                VIRTUAL_EXPIRE: { label: 'Công Nợ Hết Hạn', iconChar: '-', isCredit: false },
+                ADJUSTMENT: { label: 'Điều Chỉnh Số Dư', iconChar: '~', isCredit: true },
+                ORDER_CANCEL_REFUND: { label: 'Hoàn Tiền Hủy Đơn', iconChar: '+', isCredit: true },
+                RETURN_SHIPPER: { label: 'Phiếu Thu Về', iconChar: '+', isCredit: true },
+                RETURN_CLIENT: { label: 'Phiếu Trả Hàng', iconChar: '+', isCredit: true },
+                BOOM: { label: 'Phiếu Boom Hàng', iconChar: '-', isCredit: false },
+                COD_ADJUSTMENT: { label: 'Điều Chỉnh COD', iconChar: '~', isCredit: true },
             };
             const defaultConfig = { label: 'Giao Dịch Ví', iconChar: '~', isCredit: false };
 
@@ -625,11 +691,17 @@ export class CustomerProfileModule {
                             const groupMap = new Map();
                             for (const tx of walletTransactions) {
                                 const rn = tx.note || tx.source || '';
-                                const isCod = tx.type === 'WITHDRAW'
-                                    && (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
-                                if (!isCod) { out.push(tx); continue; }
-                                const m = rn.match(/#?(NJD\/\d{4}\/\d+)/i)
-                                    || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+                                const isCod =
+                                    tx.type === 'WITHDRAW' &&
+                                    (tx.source === 'SALE_ORDER' ||
+                                        /Thanh toán.*đơn hàng/i.test(rn));
+                                if (!isCod) {
+                                    out.push(tx);
+                                    continue;
+                                }
+                                const m =
+                                    rn.match(/#?(NJD\/\d{4}\/\d+)/i) ||
+                                    (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
                                 const orderCode = m ? m[1] : '';
                                 // Gộp tất cả WITHDRAW cùng mã đơn (bất kể thời điểm) — 1 đơn = 1 dòng thanh toán
                                 const key = `${orderCode}`;
@@ -638,146 +710,212 @@ export class CustomerProfileModule {
                                     out.push({ ...tx, amount: parseFloat(tx.amount) || 0 });
                                 } else {
                                     const ex = out[groupMap.get(key)];
-                                    ex.amount = (parseFloat(ex.amount) || 0) + (parseFloat(tx.amount) || 0);
-                                    const exAfter = (parseFloat(ex.balance_after) || 0) + (parseFloat(ex.virtual_balance_after) || 0);
-                                    const txAfter = (parseFloat(tx.balance_after) || 0) + (parseFloat(tx.virtual_balance_after) || 0);
+                                    ex.amount =
+                                        (parseFloat(ex.amount) || 0) + (parseFloat(tx.amount) || 0);
+                                    const exAfter =
+                                        (parseFloat(ex.balance_after) || 0) +
+                                        (parseFloat(ex.virtual_balance_after) || 0);
+                                    const txAfter =
+                                        (parseFloat(tx.balance_after) || 0) +
+                                        (parseFloat(tx.virtual_balance_after) || 0);
                                     if (txAfter < exAfter) {
                                         ex.balance_after = tx.balance_after;
                                         ex.virtual_balance_after = tx.virtual_balance_after;
                                     }
-                                    const exBefore = (parseFloat(ex.balance_before) || 0) + (parseFloat(ex.virtual_balance_before) || 0);
-                                    const txBefore = (parseFloat(tx.balance_before) || 0) + (parseFloat(tx.virtual_balance_before) || 0);
+                                    const exBefore =
+                                        (parseFloat(ex.balance_before) || 0) +
+                                        (parseFloat(ex.virtual_balance_before) || 0);
+                                    const txBefore =
+                                        (parseFloat(tx.balance_before) || 0) +
+                                        (parseFloat(tx.virtual_balance_before) || 0);
                                     if (txBefore > exBefore) {
                                         ex.balance_before = tx.balance_before;
                                         ex.virtual_balance_before = tx.virtual_balance_before;
                                     }
-                                    if ((tx.note || '').length > (ex.note || '').length) ex.note = tx.note;
+                                    if ((tx.note || '').length > (ex.note || '').length)
+                                        ex.note = tx.note;
                                 }
                             }
                             return out;
-                        })().slice(0, 15).map(tx => {
-                            let cfg = walletTypeConfig[tx.type] || defaultConfig;
-                            let __suppressOperator = false;
-                            // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
-                            if (tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND') {
-                                cfg = { label: 'HOÀN', iconChar: '+', isCredit: true };
-                            }
-                            const amount = parseFloat(tx.amount) || 0;
-
-                            // ADJUSTMENT: dấu/màu theo dấu thật của amount (DB lưu âm khi trừ, dương khi cộng)
-                            const isAdjust = tx.type === 'ADJUSTMENT';
-                            const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
-
-                            const sign = isCredit ? '+' : '-';
-                            const amountColor = isCredit ? '#16a34a' : '#dc2626';
-                            const bgColor = isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
-                            const borderColor = isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
-                            const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
-                            const iconColor = isCredit ? '#16a34a' : '#dc2626';
-                            const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
-
-                            // Label động cho ADJUSTMENT
-                            let txLabel = cfg.label;
-                            if (isAdjust) {
-                                const cp = tx.counterparty_phone;
-                                if (isCredit) {
-                                    txLabel = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
-                                } else {
-                                    txLabel = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
+                        })()
+                            .slice(0, 15)
+                            .map((tx) => {
+                                let cfg = walletTypeConfig[tx.type] || defaultConfig;
+                                let __suppressOperator = false;
+                                // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
+                                if (tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND') {
+                                    cfg = { label: 'HOÀN', iconChar: '+', isCredit: true };
                                 }
-                            }
+                                const amount = parseFloat(tx.amount) || 0;
 
-                            const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                            const createdBy = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
-                                : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
+                                // ADJUSTMENT: dấu/màu theo dấu thật của amount (DB lưu âm khi trừ, dương khi cộng)
+                                const isAdjust = tx.type === 'ADJUSTMENT';
+                                const isCredit = isAdjust ? amount >= 0 : cfg.isCredit;
 
-                            // Extract image URL and clean note text
-                            const rawNote = tx.note || tx.source || '';
-                            const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
-                            const note = rawNote
-                                .replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '')
-                                .replace(/Nạp từ CK/gi, 'Khách CK')
-                                .trim();
-                            let detailParts = [];
-                            if (isAdjust) {
-                                const wp = tx.wrong_customer_phone || '';
-                                const cpPhone = tx.correct_customer_phone || '';
-                                const amtFmt = formatCurrency(Math.abs(amount));
-                                if (wp && cpPhone) {
-                                    detailParts.push(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`);
-                                } else if (wp) {
-                                    detailParts.push(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`);
+                                const sign = isCredit ? '+' : '-';
+                                const amountColor = isCredit ? '#16a34a' : '#dc2626';
+                                const bgColor = isCredit
+                                    ? 'rgba(22,163,74,0.08)'
+                                    : 'rgba(220,38,38,0.08)';
+                                const borderColor = isCredit
+                                    ? 'rgba(22,163,74,0.2)'
+                                    : 'rgba(220,38,38,0.2)';
+                                const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
+                                const iconColor = isCredit ? '#16a34a' : '#dc2626';
+                                const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
+
+                                // Label động cho ADJUSTMENT
+                                let txLabel = cfg.label;
+                                if (isAdjust) {
+                                    const cp = tx.counterparty_phone;
+                                    if (isCredit) {
+                                        txLabel = cp
+                                            ? `Nhận Điều Chỉnh Từ SĐT ${cp}`
+                                            : 'Nhận Điều Chỉnh Ví';
+                                    } else {
+                                        txLabel = cp
+                                            ? `Điều Chỉnh Chuyển Sang SĐT ${cp}`
+                                            : 'Điều Chỉnh Trừ Ví';
+                                    }
                                 }
-                                if (tx.adjustment_reason) detailParts.push('Lý do: ' + tx.adjustment_reason);
-                                if (date) detailParts.push(date);
-                            } else {
-                                // Tìm mã đơn NJD từ note (ưu tiên) hoặc reference_id
-                                const orderMatch = (rawNote.match(/#?(NJD\/\d{4}\/\d+)/i)
-                                    || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i));
-                                const orderCode = orderMatch ? orderMatch[1] : (tx.reference_id || '');
 
-                                const isCodPayment = tx.type === 'WITHDRAW'
-                                    && (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
-                                const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
+                                const date = tx.created_at
+                                    ? new Date(tx.created_at).toLocaleDateString('vi-VN', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                      })
+                                    : '';
+                                const createdBy =
+                                    tx.created_by && tx.created_by !== 'system'
+                                        ? tx.created_by
+                                        : tx.reference_id &&
+                                            tx.reference_id !== 'admin' &&
+                                            tx.reference_id.includes('@')
+                                          ? tx.reference_id
+                                          : '';
 
-                                if (isCodPayment) {
-                                    // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
-                                    const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                                    const rewritten = headRe.test(note)
-                                        ? note.replace(headRe, `Thanh Toán Đơn Hàng #${orderCode}`)
-                                        : `Thanh Toán Đơn Hàng #${orderCode}`;
-                                    detailParts.push(rewritten);
-                                    if (date) detailParts.push(date);
-                                    if (createdBy) {
-                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Tạo ${createdBy}</span>`);
+                                // Extract image URL and clean note text
+                                const rawNote = tx.note || tx.source || '';
+                                const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
+                                const note = rawNote
+                                    .replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '')
+                                    .replace(/Nạp từ CK/gi, 'Khách CK')
+                                    .trim();
+                                let detailParts = [];
+                                if (isAdjust) {
+                                    const wp = tx.wrong_customer_phone || '';
+                                    const cpPhone = tx.correct_customer_phone || '';
+                                    const amtFmt = formatCurrency(Math.abs(amount));
+                                    if (wp && cpPhone) {
+                                        detailParts.push(
+                                            `Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`
+                                        );
+                                    } else if (wp) {
+                                        detailParts.push(
+                                            `Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`
+                                        );
                                     }
-                                    __suppressOperator = true;
-                                } else if (isCancelRefund) {
-                                    detailParts.push(`Hoàn Tiền Hủy Đơn Công Nợ #${orderCode}`);
+                                    if (tx.adjustment_reason)
+                                        detailParts.push('Lý do: ' + tx.adjustment_reason);
                                     if (date) detailParts.push(date);
-                                    if (createdBy) {
-                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Hủy ${createdBy}</span>`);
-                                    }
-                                    __suppressOperator = true;
                                 } else {
-                                    // Tách "(Duyệt bởi X)" cuối note → đưa ra sau date
-                                    const approverMatch = note.match(/\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i);
-                                    if (approverMatch) {
-                                        const head = note.slice(0, approverMatch.index).trim();
-                                        if (head) detailParts.push(head);
+                                    // Tìm mã đơn NJD từ note (ưu tiên) hoặc reference_id
+                                    const orderMatch =
+                                        rawNote.match(/#?(NJD\/\d{4}\/\d+)/i) ||
+                                        (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+                                    const orderCode = orderMatch
+                                        ? orderMatch[1]
+                                        : tx.reference_id || '';
+
+                                    const isCodPayment =
+                                        tx.type === 'WITHDRAW' &&
+                                        (tx.source === 'SALE_ORDER' ||
+                                            /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
+                                    const isCancelRefund =
+                                        tx.type === 'DEPOSIT' &&
+                                        tx.source === 'ORDER_CANCEL_REFUND';
+
+                                    if (isCodPayment) {
+                                        // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
+                                        const headRe =
+                                            /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
+                                        const rewritten = headRe.test(note)
+                                            ? note.replace(
+                                                  headRe,
+                                                  `Thanh Toán Đơn Hàng #${orderCode}`
+                                              )
+                                            : `Thanh Toán Đơn Hàng #${orderCode}`;
+                                        detailParts.push(rewritten);
                                         if (date) detailParts.push(date);
-                                        detailParts.push(`<span style="color:#1e293b;font-weight:700;">(${approverMatch[1]} ${approverMatch[2].trim()})</span>`);
+                                        if (createdBy) {
+                                            detailParts.push(
+                                                `<span style="color:#ef4444;font-weight:700;">Người Tạo ${createdBy}</span>`
+                                            );
+                                        }
+                                        __suppressOperator = true;
+                                    } else if (isCancelRefund) {
+                                        detailParts.push(`Hoàn Tiền Hủy Đơn Công Nợ #${orderCode}`);
+                                        if (date) detailParts.push(date);
+                                        if (createdBy) {
+                                            detailParts.push(
+                                                `<span style="color:#ef4444;font-weight:700;">Người Hủy ${createdBy}</span>`
+                                            );
+                                        }
                                         __suppressOperator = true;
                                     } else {
-                                        if (note) detailParts.push(note);
-                                        if (date) detailParts.push(date);
+                                        // Tách "(Duyệt bởi X)" cuối note → đưa ra sau date
+                                        const approverMatch = note.match(
+                                            /\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i
+                                        );
+                                        if (approverMatch) {
+                                            const head = note.slice(0, approverMatch.index).trim();
+                                            if (head) detailParts.push(head);
+                                            if (date) detailParts.push(date);
+                                            detailParts.push(
+                                                `<span style="color:#1e293b;font-weight:700;">(${approverMatch[1]} ${approverMatch[2].trim()})</span>`
+                                            );
+                                            __suppressOperator = true;
+                                        } else {
+                                            if (note) detailParts.push(note);
+                                            if (date) detailParts.push(date);
+                                        }
                                     }
                                 }
-                            }
 
-                            // Operator label - all in RED
-                            let operatorHtml = '';
-                            if (isAdjust && tx.adjusted_by) {
-                                operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">Điều chỉnh bởi ${tx.adjusted_by}</span>`;
-                            } else if (createdBy && !__suppressOperator) {
-                                const isRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
-                                const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
-                                const isWithdraw = tx.type === 'WITHDRAW';
-                                const label = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
-                                operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
-                            }
+                                // Operator label - all in RED
+                                let operatorHtml = '';
+                                if (isAdjust && tx.adjusted_by) {
+                                    operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">Điều chỉnh bởi ${tx.adjusted_by}</span>`;
+                                } else if (createdBy && !__suppressOperator) {
+                                    const isRefund =
+                                        tx.type === 'DEPOSIT' &&
+                                        tx.source === 'ORDER_CANCEL_REFUND';
+                                    const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
+                                    const isWithdraw = tx.type === 'WITHDRAW';
+                                    const label = isDeposit
+                                        ? 'Duyệt bởi'
+                                        : isWithdraw
+                                          ? 'Tạo bởi'
+                                          : isRefund
+                                            ? 'Hoàn bởi'
+                                            : 'Bởi';
+                                    operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
+                                }
 
-                            // Balance before & after
-                            const balBefore = parseFloat(tx.balance_before) || 0;
-                            const vBalBefore = parseFloat(tx.virtual_balance_before) || 0;
-                            const totalBefore = balBefore + vBalBefore;
-                            const balAfter = parseFloat(tx.balance_after) || 0;
-                            const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
-                            const totalAfter = balAfter + vBalAfter;
+                                // Balance before & after
+                                const balBefore = parseFloat(tx.balance_before) || 0;
+                                const vBalBefore = parseFloat(tx.virtual_balance_before) || 0;
+                                const totalBefore = balBefore + vBalBefore;
+                                const balAfter = parseFloat(tx.balance_after) || 0;
+                                const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
+                                const totalAfter = balAfter + vBalAfter;
 
-                            const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
-                            const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
-                            return `
+                                const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
+                                const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
+                                return `
                                 <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
                                     <span style="font-size:17px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
                                     <span style="flex:1; font-size:15px; font-weight:700; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
@@ -785,7 +923,8 @@ export class CustomerProfileModule {
                                     <span style="font-size:16px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>
                             `;
-                        }).join('')}
+                            })
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -798,21 +937,35 @@ export class CustomerProfileModule {
                         <span class="text-xs font-semibold text-slate-500 uppercase">Hoạt động ví</span>
                     </div>
                     <div class="space-y-2">
-                        ${activities.slice(0, 10).map(act => {
-                            const style = activityStyleMap[act.activity_type] || defaultActivityStyle;
-                            const icon = style.icon;
-                            const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                            const createdBy = act.created_by && act.created_by !== 'system' ? act.created_by : '';
+                        ${activities
+                            .slice(0, 10)
+                            .map((act) => {
+                                const style =
+                                    activityStyleMap[act.activity_type] || defaultActivityStyle;
+                                const icon = style.icon;
+                                const date = act.created_at
+                                    ? new Date(act.created_at).toLocaleDateString('vi-VN', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                      })
+                                    : '';
+                                const createdBy =
+                                    act.created_by && act.created_by !== 'system'
+                                        ? act.created_by
+                                        : '';
 
-                            let operatorHtml = '';
-                            if (createdBy) {
-                                operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
-                            }
+                                let operatorHtml = '';
+                                if (createdBy) {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
+                                }
 
-                            let desc = act.description || '';
-                            desc = desc.replace(/Approved by\s*/gi, 'Duyệt bởi ');
+                                let desc = act.description || '';
+                                desc = desc.replace(/Approved by\s*/gi, 'Duyệt bởi ');
 
-                            return `
+                                return `
                                 <div class="flex items-start gap-3 p-2 rounded-lg ${style.bg} dark:bg-slate-800/50">
                                     <span class="material-symbols-outlined ${style.color}" style="font-size: 20px; margin-top: 2px;">${icon}</span>
                                     <div class="flex-1 min-w-0">
@@ -822,7 +975,8 @@ export class CustomerProfileModule {
                                     </div>
                                 </div>
                             `;
-                        }).join('')}
+                            })
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -874,12 +1028,14 @@ export class CustomerProfileModule {
 
         if (productList.length === 0) return '<span class="text-slate-400">-</span>';
 
-        return productList.map(p => {
-            const qty = p.quantity || p.qty || 1;
-            const name = p.name || p.product_name || p.sku || '';
-            const variant = p.variant || p.option || '';
-            return `<div class="text-xs truncate">${qty}x ${name}${variant ? ` (${variant})` : ''}</div>`;
-        }).join('');
+        return productList
+            .map((p) => {
+                const qty = p.quantity || p.qty || 1;
+                const name = p.name || p.product_name || p.sku || '';
+                const variant = p.variant || p.option || '';
+                return `<div class="text-xs truncate">${qty}x ${name}${variant ? ` (${variant})` : ''}</div>`;
+            })
+            .join('');
     }
 
     _formatNoteAndProducts(internalNote, products) {
@@ -887,7 +1043,9 @@ export class CustomerProfileModule {
 
         // Add internal note if exists
         if (internalNote && internalNote.trim()) {
-            parts.push(`<div class="text-xs text-slate-700 dark:text-slate-300 font-medium">${internalNote}</div>`);
+            parts.push(
+                `<div class="text-xs text-slate-700 dark:text-slate-300 font-medium">${internalNote}</div>`
+            );
         }
 
         // Add products if exists
@@ -907,12 +1065,14 @@ export class CustomerProfileModule {
             }
 
             if (productList.length > 0) {
-                const productLines = productList.map(p => {
-                    const qty = p.quantity || p.qty || 1;
-                    const name = p.name || p.product_name || p.sku || '';
-                    const variant = p.variant || p.option || '';
-                    return `${qty}x ${name}${variant ? ` (${variant})` : ''}`;
-                }).join(', ');
+                const productLines = productList
+                    .map((p) => {
+                        const qty = p.quantity || p.qty || 1;
+                        const name = p.name || p.product_name || p.sku || '';
+                        const variant = p.variant || p.option || '';
+                        return `${qty}x ${name}${variant ? ` (${variant})` : ''}`;
+                    })
+                    .join(', ');
                 parts.push(`<div class="text-xs text-slate-500 truncate">${productLines}</div>`);
             }
         }
@@ -926,13 +1086,13 @@ export class CustomerProfileModule {
 
     _getTypeColor(type) {
         const colors = {
-            'BOOM': 'bg-red-100 text-red-700',
-            'FIX_COD': 'bg-blue-100 text-blue-700',
-            'RETURN_CLIENT': 'bg-purple-100 text-purple-700',
-            'RETURN_SHIPPER': 'bg-amber-100 text-amber-700',
-            'SALE_ORDER': 'bg-green-100 text-green-700',
-            'RETURN_ORDER': 'bg-orange-100 text-orange-700',
-            'OTHER': 'bg-slate-100 text-slate-600'
+            BOOM: 'bg-red-100 text-red-700',
+            FIX_COD: 'bg-blue-100 text-blue-700',
+            RETURN_CLIENT: 'bg-purple-100 text-purple-700',
+            RETURN_SHIPPER: 'bg-amber-100 text-amber-700',
+            SALE_ORDER: 'bg-green-100 text-green-700',
+            RETURN_ORDER: 'bg-orange-100 text-orange-700',
+            OTHER: 'bg-slate-100 text-slate-600',
         };
         return colors[type] || 'bg-slate-100 text-slate-600';
     }
@@ -1005,10 +1165,10 @@ export class CustomerProfileModule {
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
+                    Authorization: `Bearer ${token}`,
+                },
             });
 
             loadingPopup.remove();
@@ -1039,13 +1199,13 @@ export class CustomerProfileModule {
                 decreaseAmount: data.DecreaseAmount || 0,
                 deliveryPrice: data.DeliveryPrice || 0,
                 paymentAmount: data.PaymentAmount || 0,
-                products: (data.OrderLines || []).map(line => ({
+                products: (data.OrderLines || []).map((line) => ({
                     code: line.ProductBarcode || line.ProductDefaultCode || '',
                     name: line.ProductName || '',
                     quantity: line.ProductUOMQty || 1,
                     price: line.PriceUnit || 0,
-                    note: line.Note || ''
-                }))
+                    note: line.Note || '',
+                })),
             };
 
             // Format currency
@@ -1055,9 +1215,12 @@ export class CustomerProfileModule {
             };
 
             // Products table HTML
-            const productsHtml = details.products.map(p => {
-                const noteDisplay = p.note ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>` : '';
-                return `
+            const productsHtml = details.products
+                .map((p) => {
+                    const noteDisplay = p.note
+                        ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">(${p.note})</div>`
+                        : '';
+                    return `
                     <tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:6px 8px;">
                             <div><strong>[${p.code || 'N/A'}]</strong> ${p.name || ''}</div>
@@ -1067,10 +1230,14 @@ export class CustomerProfileModule {
                         <td style="padding:6px 8px;text-align:right;">${formatCurrency(p.price)}</td>
                     </tr>
                 `;
-            }).join('');
+                })
+                .join('');
 
             const totalQty = details.products.reduce((sum, p) => sum + (p.quantity || 1), 0);
-            const finalTotal = (details.amountTotal || 0) - (details.decreaseAmount || 0) + (details.deliveryPrice || 0);
+            const finalTotal =
+                (details.amountTotal || 0) -
+                (details.decreaseAmount || 0) +
+                (details.deliveryPrice || 0);
 
             // Create popup
             const popup = document.createElement('div');
@@ -1145,7 +1312,6 @@ export class CustomerProfileModule {
                     popup.remove();
                 }
             });
-
         } catch (err) {
             console.error('Failed to load order details:', err);
             document.getElementById('order-detail-loading')?.remove();
@@ -1157,7 +1323,11 @@ export class CustomerProfileModule {
         const container = this.container.querySelector('#pancake-info-card');
         if (!container) return;
 
-        const hasPancakeData = customer.fb_id || customer.global_id || customer.pancake_id || customer.pancake_synced_at;
+        const hasPancakeData =
+            customer.fb_id ||
+            customer.global_id ||
+            customer.pancake_id ||
+            customer.pancake_synced_at;
 
         if (!hasPancakeData) {
             container.innerHTML = `
@@ -1172,18 +1342,22 @@ export class CustomerProfileModule {
             return;
         }
 
-        const escHtml = (s) => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+        const escHtml = (s) =>
+            s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
         const pancakeNotes = customer.pancake_notes || [];
         let notesHtml = '';
         if (pancakeNotes.length > 0) {
-            const noteItems = pancakeNotes.slice(0, 5).map(n => {
-                const text = n.message || n.content || '';
-                const by = n.created_by?.fb_name || 'Pancake';
-                return `<div class="p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg mb-1.5 border-l-2 border-orange-400">
+            const noteItems = pancakeNotes
+                .slice(0, 5)
+                .map((n) => {
+                    const text = n.message || n.content || '';
+                    const by = n.created_by?.fb_name || 'Pancake';
+                    return `<div class="p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg mb-1.5 border-l-2 border-orange-400">
                     <p class="text-xs text-slate-700 dark:text-slate-300">${escHtml(typeof text === 'string' ? text : JSON.stringify(text))}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">${escHtml(by)}</p>
                 </div>`;
-            }).join('');
+                })
+                .join('');
             notesHtml = `
                 <div class="mt-3">
                     <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Ghi chú Pancake (${pancakeNotes.length})</p>
@@ -1201,9 +1375,10 @@ export class CustomerProfileModule {
             ? new Date(customer.pancake_synced_at).toLocaleString('vi-VN')
             : 'N/A';
 
-        const copyBtn = (val) => val
-            ? `<button class="opacity-0 group-hover:opacity-100 text-orange-500 transition-opacity" onclick="navigator.clipboard.writeText('${escHtml(val)}')"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span></button>`
-            : '';
+        const copyBtn = (val) =>
+            val
+                ? `<button class="opacity-0 group-hover:opacity-100 text-orange-500 transition-opacity" onclick="navigator.clipboard.writeText('${escHtml(val)}')"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span></button>`
+                : '';
 
         container.innerHTML = `
             <div class="p-5 overflow-y-auto" style="flex: 1;">
@@ -1216,36 +1391,56 @@ export class CustomerProfileModule {
                 </div>
 
                 <div class="space-y-2.5">
-                    ${customer.fb_id ? `<div class="group flex items-center justify-between">
+                    ${
+                        customer.fb_id
+                            ? `<div class="group flex items-center justify-between">
                         <span class="text-xs text-slate-500">FB ID</span>
                         <div class="flex items-center gap-1">
                             <span class="text-xs font-mono text-slate-700 dark:text-slate-300 select-all">${escHtml(customer.fb_id)}</span>
                             ${copyBtn(customer.fb_id)}
                         </div>
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
 
-                    ${customer.global_id ? `<div class="group flex items-center justify-between">
+                    ${
+                        customer.global_id
+                            ? `<div class="group flex items-center justify-between">
                         <span class="text-xs text-slate-500">Global ID</span>
                         <div class="flex items-center gap-1">
                             <span class="text-xs font-mono text-slate-700 dark:text-slate-300 select-all">${escHtml(customer.global_id)}</span>
                             ${copyBtn(customer.global_id)}
                         </div>
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
 
-                    ${customer.gender ? `<div class="flex items-center justify-between">
+                    ${
+                        customer.gender
+                            ? `<div class="flex items-center justify-between">
                         <span class="text-xs text-slate-500">Giới tính</span>
                         <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.gender)}</span>
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
 
-                    ${customer.birthday ? `<div class="flex items-center justify-between">
+                    ${
+                        customer.birthday
+                            ? `<div class="flex items-center justify-between">
                         <span class="text-xs text-slate-500">Sinh nhật</span>
                         <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.birthday)}</span>
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
 
-                    ${customer.lives_in ? `<div class="flex items-center justify-between">
+                    ${
+                        customer.lives_in
+                            ? `<div class="flex items-center justify-between">
                         <span class="text-xs text-slate-500">Nơi sống</span>
                         <span class="text-xs text-slate-700 dark:text-slate-300">${escHtml(customer.lives_in)}</span>
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
 
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-slate-500">Đơn Pancake</span>
@@ -1279,16 +1474,18 @@ export class CustomerProfileModule {
                 </div>
             `;
         } else {
-            notesHtml = notes.slice(0, 5).map(note => {
-                const date = new Date(note.created_at).toLocaleString('vi-VN', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const initials = this._getInitials(note.created_by || 'Hệ thống');
+            notesHtml = notes
+                .slice(0, 5)
+                .map((note) => {
+                    const date = new Date(note.created_at).toLocaleString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    });
+                    const initials = this._getInitials(note.created_by || 'Hệ thống');
 
-                return `
+                    return `
                     <div style="display: flex; gap: 12px; margin-bottom: 12px;">
                         <div style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold">
                             ${initials}
@@ -1302,7 +1499,8 @@ export class CustomerProfileModule {
                         </div>
                     </div>
                 `;
-            }).join('');
+                })
+                .join('');
         }
 
         container.innerHTML = `
@@ -1318,7 +1516,9 @@ export class CustomerProfileModule {
             </div>
 
             <!-- Add Note Input -->
-            ${this.permissionHelper.hasPermission('customer-hub', 'addNote') ? `
+            ${
+                this.permissionHelper.hasPermission('customer-hub', 'addNote')
+                    ? `
                 <div class="p-4 border-t border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-800/50">
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="new-note-input"
@@ -1330,7 +1530,9 @@ export class CustomerProfileModule {
                         </button>
                     </div>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
         `;
 
         // Setup add note button
@@ -1361,8 +1563,14 @@ export class CustomerProfileModule {
     _getAvatarColor(name) {
         const colors = [
             { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
-            { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
-            { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+            {
+                bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+                text: 'text-emerald-600 dark:text-emerald-400',
+            },
+            {
+                bg: 'bg-purple-100 dark:bg-purple-900/30',
+                text: 'text-purple-600 dark:text-purple-400',
+            },
             { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
             { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400' },
             { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400' },
@@ -1374,10 +1582,14 @@ export class CustomerProfileModule {
     _getStatusBadge(status) {
         const statusLower = (status || 'active').toLowerCase();
         const statusMap = {
-            'active': { bg: 'bg-success-light', text: 'text-success', label: 'Active' },
-            'inactive': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', label: 'Inactive' },
-            'pending': { bg: 'bg-warning-light', text: 'text-warning', label: 'Pending' },
-            'blocked': { bg: 'bg-danger-light', text: 'text-danger', label: 'Blocked' },
+            active: { bg: 'bg-success-light', text: 'text-success', label: 'Active' },
+            inactive: {
+                bg: 'bg-slate-100 dark:bg-slate-700',
+                text: 'text-slate-600 dark:text-slate-400',
+                label: 'Inactive',
+            },
+            pending: { bg: 'bg-warning-light', text: 'text-warning', label: 'Pending' },
+            blocked: { bg: 'bg-danger-light', text: 'text-danger', label: 'Blocked' },
         };
         const s = statusMap[statusLower] || statusMap['active'];
         return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg ${s.bg} ${s.text} text-xs font-semibold">${s.label}</span>`;
@@ -1386,11 +1598,31 @@ export class CustomerProfileModule {
     _getTierBadge(tier) {
         const tierLower = (tier || 'new').toLowerCase();
         const tierMap = {
-            'gold': { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', label: 'Gold', icon: 'star' },
-            'silver': { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300', label: 'Silver', icon: 'star_half' },
-            'bronze': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', label: 'Bronze', icon: 'star_outline' },
-            'platinum': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', label: 'Platinum', icon: 'diamond' },
-            'new': { bg: 'bg-primary/10', text: 'text-primary', label: 'New', icon: 'person' },
+            gold: {
+                bg: 'bg-amber-100 dark:bg-amber-900/30',
+                text: 'text-amber-700 dark:text-amber-400',
+                label: 'Gold',
+                icon: 'star',
+            },
+            silver: {
+                bg: 'bg-slate-100 dark:bg-slate-700',
+                text: 'text-slate-600 dark:text-slate-300',
+                label: 'Silver',
+                icon: 'star_half',
+            },
+            bronze: {
+                bg: 'bg-orange-100 dark:bg-orange-900/30',
+                text: 'text-orange-700 dark:text-orange-400',
+                label: 'Bronze',
+                icon: 'star_outline',
+            },
+            platinum: {
+                bg: 'bg-purple-100 dark:bg-purple-900/30',
+                text: 'text-purple-700 dark:text-purple-400',
+                label: 'Platinum',
+                icon: 'diamond',
+            },
+            new: { bg: 'bg-primary/10', text: 'text-primary', label: 'New', icon: 'person' },
         };
         const t = tierMap[tierLower] || tierMap['new'];
         return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg ${t.bg} ${t.text} text-xs font-semibold">
@@ -1403,24 +1635,80 @@ export class CustomerProfileModule {
         if (!tags || tags.length === 0) {
             return `<span class="text-sm text-slate-400">Chưa có nhãn</span>`;
         }
-        return tags.map(tag => `
+        return tags
+            .map(
+                (tag) => `
             <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium border border-border-light dark:border-border-dark">${tag}</span>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     _getActivityIcon(type) {
         const typeMap = {
-            'purchase': { icon: 'shopping_cart', bgColor: 'bg-primary/10', borderColor: 'border-primary/20', iconColor: 'text-primary' },
-            'order': { icon: 'shopping_cart', bgColor: 'bg-primary/10', borderColor: 'border-primary/20', iconColor: 'text-primary' },
-            'login': { icon: 'login', bgColor: 'bg-slate-100 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' },
-            'email': { icon: 'mail', bgColor: 'bg-amber-100 dark:bg-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800', iconColor: 'text-amber-600' },
-            'wallet': { icon: 'account_balance_wallet', bgColor: 'bg-success-light', borderColor: 'border-success/20', iconColor: 'text-success' },
-            'deposit': { icon: 'add_circle', bgColor: 'bg-success-light', borderColor: 'border-success/20', iconColor: 'text-success' },
-            'withdraw': { icon: 'remove_circle', bgColor: 'bg-danger-light', borderColor: 'border-danger/20', iconColor: 'text-danger' },
-            'ticket': { icon: 'support_agent', bgColor: 'bg-purple-100 dark:bg-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800', iconColor: 'text-purple-600' },
-            'note': { icon: 'note', bgColor: 'bg-cyan-100 dark:bg-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800', iconColor: 'text-cyan-600' },
+            purchase: {
+                icon: 'shopping_cart',
+                bgColor: 'bg-primary/10',
+                borderColor: 'border-primary/20',
+                iconColor: 'text-primary',
+            },
+            order: {
+                icon: 'shopping_cart',
+                bgColor: 'bg-primary/10',
+                borderColor: 'border-primary/20',
+                iconColor: 'text-primary',
+            },
+            login: {
+                icon: 'login',
+                bgColor: 'bg-slate-100 dark:bg-slate-700',
+                borderColor: 'border-slate-200 dark:border-slate-600',
+                iconColor: 'text-slate-500',
+            },
+            email: {
+                icon: 'mail',
+                bgColor: 'bg-amber-100 dark:bg-amber-900/20',
+                borderColor: 'border-amber-200 dark:border-amber-800',
+                iconColor: 'text-amber-600',
+            },
+            wallet: {
+                icon: 'account_balance_wallet',
+                bgColor: 'bg-success-light',
+                borderColor: 'border-success/20',
+                iconColor: 'text-success',
+            },
+            deposit: {
+                icon: 'add_circle',
+                bgColor: 'bg-success-light',
+                borderColor: 'border-success/20',
+                iconColor: 'text-success',
+            },
+            withdraw: {
+                icon: 'remove_circle',
+                bgColor: 'bg-danger-light',
+                borderColor: 'border-danger/20',
+                iconColor: 'text-danger',
+            },
+            ticket: {
+                icon: 'support_agent',
+                bgColor: 'bg-purple-100 dark:bg-purple-900/20',
+                borderColor: 'border-purple-200 dark:border-purple-800',
+                iconColor: 'text-purple-600',
+            },
+            note: {
+                icon: 'note',
+                bgColor: 'bg-cyan-100 dark:bg-cyan-900/20',
+                borderColor: 'border-cyan-200 dark:border-cyan-800',
+                iconColor: 'text-cyan-600',
+            },
         };
-        return typeMap[type] || { icon: 'event', bgColor: 'bg-slate-100 dark:bg-slate-700', borderColor: 'border-slate-200 dark:border-slate-600', iconColor: 'text-slate-500' };
+        return (
+            typeMap[type] || {
+                icon: 'event',
+                bgColor: 'bg-slate-100 dark:bg-slate-700',
+                borderColor: 'border-slate-200 dark:border-slate-600',
+                iconColor: 'text-slate-500',
+            }
+        );
     }
 
     _translateActivityTitle(activity) {
@@ -1429,33 +1717,33 @@ export class CustomerProfileModule {
 
         // Ticket type translations (matching issue-tracking naming)
         const ticketTypeMap = {
-            'BOOM': 'Boom Hàng',
-            'FIX_COD': 'Sửa COD',
-            'RETURN_CLIENT': 'Khách Gửi',
-            'RETURN_SHIPPER': 'Thu Về',
-            'OTHER': 'Vấn đề khác'
+            BOOM: 'Boom Hàng',
+            FIX_COD: 'Sửa COD',
+            RETURN_CLIENT: 'Khách Gửi',
+            RETURN_SHIPPER: 'Thu Về',
+            OTHER: 'Vấn đề khác',
         };
 
         // Activity type translations
         const activityTypeMap = {
-            'purchase': 'Đơn hàng',
-            'order': 'Đơn hàng',
-            'ORDER_CREATED': 'Tạo đơn hàng',
-            'ORDER_CANCELLED': 'Hủy đơn hàng',
-            'ORDER_DELIVERED': 'Giao hàng',
-            'ORDER_RETURNED': 'Trả hàng',
-            'WALLET_DEPOSIT': 'Nạp tiền',
-            'WALLET_WITHDRAW': 'Trừ công nợ',
-            'WALLET_VIRTUAL_CREDIT': 'Cộng công nợ ảo',
-            'WALLET_REFUND': 'Hoàn công nợ',
-            'NOTE_ADDED': 'Ghi chú',
-            'login': 'Đăng nhập',
-            'email': 'Email',
-            'wallet': 'Ví',
-            'deposit': 'Nạp tiền',
-            'withdraw': 'Rút tiền',
-            'ticket': 'Ticket',
-            'note': 'Ghi chú'
+            purchase: 'Đơn hàng',
+            order: 'Đơn hàng',
+            ORDER_CREATED: 'Tạo đơn hàng',
+            ORDER_CANCELLED: 'Hủy đơn hàng',
+            ORDER_DELIVERED: 'Giao hàng',
+            ORDER_RETURNED: 'Trả hàng',
+            WALLET_DEPOSIT: 'Nạp tiền',
+            WALLET_WITHDRAW: 'Trừ công nợ',
+            WALLET_VIRTUAL_CREDIT: 'Cộng công nợ ảo',
+            WALLET_REFUND: 'Hoàn công nợ',
+            NOTE_ADDED: 'Ghi chú',
+            login: 'Đăng nhập',
+            email: 'Email',
+            wallet: 'Ví',
+            deposit: 'Nạp tiền',
+            withdraw: 'Rút tiền',
+            ticket: 'Ticket',
+            note: 'Ghi chú',
         };
 
         // Check if it's a ticket type first
@@ -1512,7 +1800,9 @@ export class CustomerProfileModule {
             // Get current user name from localStorage/sessionStorage
             let createdBy = 'Hệ thống';
             try {
-                const authData = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+                const authData =
+                    sessionStorage.getItem('loginindex_auth') ||
+                    localStorage.getItem('loginindex_auth');
                 if (authData) {
                     const auth = JSON.parse(authData);
                     createdBy = auth.userName || auth.userType || 'Hệ thống';
@@ -1521,7 +1811,9 @@ export class CustomerProfileModule {
                 console.warn('Could not get user name:', e);
             }
 
-            const response = await apiService.addCustomerNote(this.customerPhone, content.trim(), { created_by: createdBy });
+            const response = await apiService.addCustomerNote(this.customerPhone, content.trim(), {
+                created_by: createdBy,
+            });
             if (response) {
                 // Audit logging - ghi nhận thao tác cập nhật thông tin KH
                 try {
@@ -1531,9 +1823,11 @@ export class CustomerProfileModule {
                         oldData: null,
                         newData: { note: content.trim(), createdBy },
                         entityId: this.customerPhone,
-                        entityType: 'customer'
+                        entityType: 'customer',
                     });
-                } catch (e) { /* audit log error - ignore */ }
+                } catch (e) {
+                    /* audit log error - ignore */
+                }
 
                 // Reload profile to show new note
                 this.render(this.customerPhone);
@@ -1552,7 +1846,9 @@ export class CustomerProfileModule {
     }
 
     formatCurrency(amount) {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+            amount || 0
+        );
     }
 
     async _showAuditLogDialog() {
@@ -1563,7 +1859,8 @@ export class CustomerProfileModule {
 
         const popup = document.createElement('div');
         popup.id = 'audit-log-popup';
-        popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+        popup.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
         popup.innerHTML = `
             <div style="background:#fff;border-radius:12px;width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.3);">
                 <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
@@ -1586,17 +1883,21 @@ export class CustomerProfileModule {
         document.body.appendChild(popup);
 
         popup.querySelector('#audit-log-close').addEventListener('click', () => popup.remove());
-        popup.addEventListener('click', (e) => { if (e.target === popup) popup.remove(); });
+        popup.addEventListener('click', (e) => {
+            if (e.target === popup) popup.remove();
+        });
 
         const body = popup.querySelector('#audit-log-body');
 
         try {
-            const db = typeof window.initializeFirestore === 'function'
-                ? window.initializeFirestore({ enablePersistence: false })
-                : (window.firebase && window.firebase.firestore && window.firebase.firestore());
+            const db =
+                typeof window.initializeFirestore === 'function'
+                    ? window.initializeFirestore({ enablePersistence: false })
+                    : window.firebase && window.firebase.firestore && window.firebase.firestore();
             if (!db) throw new Error('Firestore chưa sẵn sàng');
 
-            const snapshot = await db.collection('edit_history')
+            const snapshot = await db
+                .collection('edit_history')
                 .where('entityId', '==', this.customerPhone)
                 .where('entityType', '==', 'customer')
                 .orderBy('timestamp', 'desc')
@@ -1608,15 +1909,21 @@ export class CustomerProfileModule {
                 return;
             }
 
-            const rows = snapshot.docs.map(doc => {
-                const d = doc.data();
-                const ts = d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : (d.timestamp ? new Date(d.timestamp) : null);
-                const when = ts ? ts.toLocaleString('vi-VN') : '—';
-                const user = d.performerUserName || d.performerUserId || 'Unknown';
-                const actionLabel = this._auditActionLabel(d.actionType);
-                const desc = this._escapeHtml(d.description || '');
-                const details = this._auditDetailsBlock(d);
-                return `
+            const rows = snapshot.docs
+                .map((doc) => {
+                    const d = doc.data();
+                    const ts =
+                        d.timestamp && d.timestamp.toDate
+                            ? d.timestamp.toDate()
+                            : d.timestamp
+                              ? new Date(d.timestamp)
+                              : null;
+                    const when = ts ? ts.toLocaleString('vi-VN') : '—';
+                    const user = d.performerUserName || d.performerUserId || 'Unknown';
+                    const actionLabel = this._auditActionLabel(d.actionType);
+                    const desc = this._escapeHtml(d.description || '');
+                    const details = this._auditDetailsBlock(d);
+                    return `
                     <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px;background:#fafafa;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;">
                             <div style="display:flex;align-items:center;gap:8px;">
@@ -1630,7 +1937,8 @@ export class CustomerProfileModule {
                         ${details}
                     </div>
                 `;
-            }).join('');
+                })
+                .join('');
 
             body.innerHTML = rows;
         } catch (error) {
@@ -1640,34 +1948,40 @@ export class CustomerProfileModule {
     }
 
     _escapeHtml(s) {
-        return s == null ? '' : String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+        return s == null
+            ? ''
+            : String(s)
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#39;');
     }
 
     _auditActionLabel(actionType) {
         const map = {
-            'wallet_add_debt': 'Cộng ví',
-            'wallet_subtract_debt': 'Trừ ví',
-            'wallet_adjust_debt': 'Điều chỉnh ví',
-            'wallet_transaction': 'Giao dịch ví',
-            'customer_info_update': 'Cập nhật KH',
-            'customer_info_update_bh': 'Cập nhật KH (BH)',
-            'ticket_create': 'Tạo ticket',
-            'ticket_add_debt': 'Ticket cộng nợ',
-            'ticket_receive_goods': 'Ticket nhận hàng',
-            'ticket_payment': 'Ticket thanh toán',
-            'ticket_update': 'Cập nhật ticket',
-            'transaction_assign': 'Gán giao dịch',
-            'transaction_approve': 'Duyệt giao dịch',
-            'transaction_adjust': 'Chỉnh giao dịch',
-            'transaction_verify': 'Verify giao dịch',
-            'livemode_confirm_customer': 'Xác nhận KH (live)',
-            'accountant_entry_create': 'Kế toán ghi nhận',
-            'add': 'Thêm', 'edit': 'Sửa', 'delete': 'Xóa', 'update': 'Cập nhật', 'mark': 'Đánh dấu'
+            wallet_add_debt: 'Cộng ví',
+            wallet_subtract_debt: 'Trừ ví',
+            wallet_adjust_debt: 'Điều chỉnh ví',
+            wallet_transaction: 'Giao dịch ví',
+            customer_info_update: 'Cập nhật KH',
+            customer_info_update_bh: 'Cập nhật KH (BH)',
+            ticket_create: 'Tạo ticket',
+            ticket_add_debt: 'Ticket cộng nợ',
+            ticket_receive_goods: 'Ticket nhận hàng',
+            ticket_payment: 'Ticket thanh toán',
+            ticket_update: 'Cập nhật ticket',
+            transaction_assign: 'Gán giao dịch',
+            transaction_approve: 'Duyệt giao dịch',
+            transaction_adjust: 'Chỉnh giao dịch',
+            transaction_verify: 'Verify giao dịch',
+            livemode_confirm_customer: 'Xác nhận KH (live)',
+            accountant_entry_create: 'Kế toán ghi nhận',
+            add: 'Thêm',
+            edit: 'Sửa',
+            delete: 'Xóa',
+            update: 'Cập nhật',
+            mark: 'Đánh dấu',
         };
         return map[actionType] || actionType || '—';
     }
@@ -1675,10 +1989,14 @@ export class CustomerProfileModule {
     _auditDetailsBlock(d) {
         const parts = [];
         if (d.oldData && Object.keys(d.oldData).length) {
-            parts.push(`<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Trước:</b> <code style="background:#fee2e2;color:#991b1b;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.oldData))}</code></div>`);
+            parts.push(
+                `<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Trước:</b> <code style="background:#fee2e2;color:#991b1b;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.oldData))}</code></div>`
+            );
         }
         if (d.newData && Object.keys(d.newData).length) {
-            parts.push(`<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Sau:</b> <code style="background:#dcfce7;color:#166534;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.newData))}</code></div>`);
+            parts.push(
+                `<div style="font-size:12px;color:#6b7280;margin-top:4px;"><b>Sau:</b> <code style="background:#dcfce7;color:#166534;padding:1px 4px;border-radius:3px;">${this._escapeHtml(JSON.stringify(d.newData))}</code></div>`
+            );
         }
         return parts.join('');
     }
@@ -1692,7 +2010,7 @@ export class CustomerProfileModule {
  * Show dialog to add a new alias
  * @param {string} phone - Customer phone
  */
-window.showAddAliasDialog = function(phone) {
+window.showAddAliasDialog = function (phone) {
     const alias = prompt('Nhập tên tham khảo mới (Facebook nickname):');
     if (alias && alias.trim()) {
         window.addCustomerAlias(phone, alias.trim());
@@ -1704,15 +2022,15 @@ window.showAddAliasDialog = function(phone) {
  * @param {string} phone - Customer phone
  * @param {string} alias - New alias name
  */
-window.addCustomerAlias = async function(phone, alias) {
+window.addCustomerAlias = async function (phone, alias) {
     try {
         const baseUrl = (window.ApiService && window.ApiService.RENDER_API_URL) || '/api';
         const response = await fetch(`${baseUrl}/sepay/customer/${phone}/alias`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ alias })
+            body: JSON.stringify({ alias }),
         });
 
         const result = await response.json();
@@ -1720,7 +2038,10 @@ window.addCustomerAlias = async function(phone, alias) {
         if (result.success) {
             console.log('[ALIAS] Added alias:', alias, 'for phone:', phone);
 
-            if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
+            if (
+                window.customerProfileModule &&
+                typeof window.customerProfileModule.render === 'function'
+            ) {
                 window.customerProfileModule.render(phone);
             } else {
                 location.reload();
@@ -1739,7 +2060,7 @@ window.addCustomerAlias = async function(phone, alias) {
  * @param {string} phone - Customer phone
  * @param {string} alias - Alias to remove
  */
-window.removeCustomerAlias = async function(phone, alias) {
+window.removeCustomerAlias = async function (phone, alias) {
     if (!confirm(`Xóa tên "${alias}" khỏi danh sách tham khảo?`)) {
         return;
     }
@@ -1749,9 +2070,9 @@ window.removeCustomerAlias = async function(phone, alias) {
         const response = await fetch(`${baseUrl}/sepay/customer/${phone}/alias`, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ alias })
+            body: JSON.stringify({ alias }),
         });
 
         const result = await response.json();
@@ -1759,7 +2080,10 @@ window.removeCustomerAlias = async function(phone, alias) {
         if (result.success) {
             console.log('[ALIAS] Removed alias:', alias, 'from phone:', phone);
 
-            if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
+            if (
+                window.customerProfileModule &&
+                typeof window.customerProfileModule.render === 'function'
+            ) {
                 window.customerProfileModule.render(phone);
             } else {
                 location.reload();

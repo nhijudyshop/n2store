@@ -31,7 +31,7 @@ window.notificationManager = {
     error: (message) => showToast(message, 'error'),
     success: (message) => showToast(message, 'success'),
     info: (message) => showToast(message, 'info'),
-    warning: (message) => showToast(message, 'warning')
+    warning: (message) => showToast(message, 'warning'),
 };
 
 /* =====================================================
@@ -41,7 +41,7 @@ window.notificationManager = {
 function initColumnResizer() {
     const handles = document.querySelectorAll('.resize-handle');
 
-    handles.forEach(handle => {
+    handles.forEach((handle) => {
         let startX = 0;
         let leftCol = null;
         let rightCol = null;
@@ -77,8 +77,10 @@ function initColumnResizer() {
             if (newLeftW < leftMin || newRightW < rightMin) return;
 
             // For col1 (fixed width) -> set width directly
-            if (leftCol.classList.contains('inbox-col-conversations') ||
-                leftCol.classList.contains('inbox-col-info')) {
+            if (
+                leftCol.classList.contains('inbox-col-conversations') ||
+                leftCol.classList.contains('inbox-col-info')
+            ) {
                 leftCol.style.width = newLeftW + 'px';
                 leftCol.style.minWidth = newLeftW + 'px';
             } else {
@@ -87,8 +89,10 @@ function initColumnResizer() {
                 leftCol.style.minWidth = '300px';
             }
 
-            if (rightCol.classList.contains('inbox-col-conversations') ||
-                rightCol.classList.contains('inbox-col-info')) {
+            if (
+                rightCol.classList.contains('inbox-col-conversations') ||
+                rightCol.classList.contains('inbox-col-info')
+            ) {
                 rightCol.style.width = newRightW + 'px';
                 rightCol.style.minWidth = newRightW + 'px';
             } else {
@@ -107,21 +111,25 @@ function initColumnResizer() {
         handle.addEventListener('mousedown', onMouseDown);
 
         // Touch support
-        handle.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            onMouseDown({ clientX: touch.clientX, preventDefault: () => e.preventDefault() });
+        handle.addEventListener(
+            'touchstart',
+            (e) => {
+                const touch = e.touches[0];
+                onMouseDown({ clientX: touch.clientX, preventDefault: () => e.preventDefault() });
 
-            function onTouchMove(e2) {
-                onMouseMove({ clientX: e2.touches[0].clientX });
-            }
-            function onTouchEnd() {
-                onMouseUp();
-                document.removeEventListener('touchmove', onTouchMove);
-                document.removeEventListener('touchend', onTouchEnd);
-            }
-            document.addEventListener('touchmove', onTouchMove, { passive: false });
-            document.addEventListener('touchend', onTouchEnd);
-        }, { passive: false });
+                function onTouchMove(e2) {
+                    onMouseMove({ clientX: e2.touches[0].clientX });
+                }
+                function onTouchEnd() {
+                    onMouseUp();
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.removeEventListener('touchend', onTouchEnd);
+                }
+                document.addEventListener('touchmove', onTouchMove, { passive: false });
+                document.addEventListener('touchend', onTouchEnd);
+            },
+            { passive: false }
+        );
     });
 }
 
@@ -176,20 +184,23 @@ async function initInboxApp() {
         window.inboxChat = chatController;
 
         // Refresh từ Pancake ở background — không block UI
-        dataManager.init().then(async () => {
-            console.log('[Inbox] ✅ Background refresh xong, re-render');
-            // Reset hasMore vì cursors (_lastConvId) giờ đã có data từ network
-            chatController.hasMoreConversations = true;
-            chatController._consecutiveEmptyLoads = 0;
-            chatController._loadMoreCooldownUntil = 0;
-            chatController.renderPageSelector();
-            chatController.renderConversationList();
-            chatController.renderGroupStats();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            await initPostNetwork();
-        }).catch(err => {
-            console.error('[Inbox] Background refresh failed:', err);
-        });
+        dataManager
+            .init()
+            .then(async () => {
+                console.log('[Inbox] ✅ Background refresh xong, re-render');
+                // Reset hasMore vì cursors (_lastConvId) giờ đã có data từ network
+                chatController.hasMoreConversations = true;
+                chatController._consecutiveEmptyLoads = 0;
+                chatController._loadMoreCooldownUntil = 0;
+                chatController.renderPageSelector();
+                chatController.renderConversationList();
+                chatController.renderGroupStats();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                await initPostNetwork();
+            })
+            .catch((err) => {
+                console.error('[Inbox] Background refresh failed:', err);
+            });
     } else {
         // Không có cache → chờ network như cũ
         await dataManager.init();
@@ -244,16 +255,22 @@ window.addEventListener('message', (e) => {
     if (!type) return;
 
     // Log ALL extension-related events (filter out noise)
-    const isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
-        type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
-        type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
-        type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
-        (e.data?.from === 'EXTENSION');
+    const isExtEvent =
+        type.includes('EXTENSION') ||
+        type.includes('REPLY_INBOX') ||
+        type.includes('UPLOAD_INBOX') ||
+        type.includes('PREINITIALIZE') ||
+        type.includes('BUSINESS_CONTEXT') ||
+        type.includes('GLOBAL_ID') ||
+        type.includes('BATCH_GET') ||
+        type.includes('CHECK_EXTENSION') ||
+        e.data?.from === 'EXTENSION';
 
     if (isExtEvent) {
         const logEntry = { type, time: new Date().toISOString(), data: e.data };
         window.pancakeExtension.lastEvents.push(logEntry);
-        if (window.pancakeExtension.lastEvents.length > 50) window.pancakeExtension.lastEvents.shift();
+        if (window.pancakeExtension.lastEvents.length > 50)
+            window.pancakeExtension.lastEvents.shift();
         console.log('[EXT-EVENT]', type, e.data);
     }
 
@@ -283,7 +300,7 @@ window.addEventListener('message', (e) => {
  * Debug Extension: test GET_BUSINESS_CONTEXT to check if fb_dtsg is available
  * Call from console: debugExtension() or debugExtension('YOUR_PAGE_ID')
  */
-window.debugExtension = function(pageId) {
+window.debugExtension = function (pageId) {
     if (!window.pancakeExtension?.connected) {
         console.error('[DEBUG] Extension not connected!');
         return;
@@ -306,7 +323,7 @@ window.debugExtension = function(pageId) {
     console.log('[DEBUG] Testing GET_BUSINESS_CONTEXT for pageId:', pageId);
     console.log('[DEBUG] Extension state:', {
         connected: window.pancakeExtension.connected,
-        recentEvents: window.pancakeExtension.lastEvents.slice(-10)
+        recentEvents: window.pancakeExtension.lastEvents.slice(-10),
     });
 
     // Test 1: GET_BUSINESS_CONTEXT - checks if extension can reach Facebook
@@ -358,12 +375,15 @@ window.debugExtension = function(pageId) {
         };
         window.addEventListener('message', handler3);
         setTimeout(() => window.removeEventListener('message', handler3), 15000);
-        window.postMessage({
-            type: 'GET_GLOBAL_ID_FOR_CONV',
-            pageId: pageId,
-            threadId: psid,
-            platform: 'facebook'
-        }, '*');
+        window.postMessage(
+            {
+                type: 'GET_GLOBAL_ID_FOR_CONV',
+                pageId: pageId,
+                threadId: psid,
+                platform: 'facebook',
+            },
+            '*'
+        );
     }
 
     console.log('[DEBUG] Sent 3 test requests. Watch for responses above (15s timeout)...');

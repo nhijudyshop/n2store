@@ -530,20 +530,30 @@ async function showFastSaleModal() {
             return saleOnlineId && window.WalletAdjustmentStore?.isPending(saleOnlineId);
         });
         if (pendingAdjOrders.length > 0) {
-            const adjDetails = pendingAdjOrders.map(o => {
-                const soId = o.SaleOnlineIds?.[0];
-                const soOrder = soId ? (window.OrderStore?.get(soId) || displayedData.find(d => d.Id === soId)) : null;
-                const stt = soOrder?.SessionIndex || '';
-                const name = soOrder?.Name || o.PartnerName || '';
-                const phone = soOrder?.Telephone || o.PartnerPhone || '';
-                return `STT ${stt} - ${name} (${phone})`;
-            }).join(', ');
+            const adjDetails = pendingAdjOrders
+                .map((o) => {
+                    const soId = o.SaleOnlineIds?.[0];
+                    const soOrder = soId
+                        ? window.OrderStore?.get(soId) || displayedData.find((d) => d.Id === soId)
+                        : null;
+                    const stt = soOrder?.SessionIndex || '';
+                    const name = soOrder?.Name || o.PartnerName || '';
+                    const phone = soOrder?.Telephone || o.PartnerPhone || '';
+                    return `STT ${stt} - ${name} (${phone})`;
+                })
+                .join(', ');
             showFastSaleStatus(
                 `<b style="font-size:14px;">Đơn ${adjDetails}</b> đang chờ điều chỉnh công nợ ví. <b>Liên hệ kế toán để điều chỉnh.</b>`,
                 'warning'
             );
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
-            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.title = 'Có đơn chờ điều chỉnh công nợ';
+            }
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.title = 'Có đơn chờ điều chỉnh công nợ';
+            }
         }
 
         // Render modal body
@@ -855,11 +865,7 @@ async function renderFastSaleModalBody() {
                     order.Ship_Receiver?.ExtraAddress ||
                     order.Partner?.ExtraAddress ||
                     null;
-                const _result = smartSelectCarrierForRow(
-                    rowCarrierSelect,
-                    address,
-                    _extraAddress
-                );
+                const _result = smartSelectCarrierForRow(rowCarrierSelect, address, _extraAddress);
                 _autoSelectStats.total++;
                 if (_result?.matched) _autoSelectStats.matched++;
                 else _autoSelectStats.fallback++;
@@ -992,9 +998,10 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         .join('');
 
     // Get default shipping fee from order or use 35000
-    const defaultShippingFee = order._userShippingFee !== undefined
-        ? order._userShippingFee
-        : (order.DeliveryPrice || 35000);
+    const defaultShippingFee =
+        order._userShippingFee !== undefined
+            ? order._userShippingFee
+            : order.DeliveryPrice || 35000;
 
     // Auto-detect discount from product notes (no tag gating)
     const { totalDiscount, discountedProducts } = calculateOrderDiscount(order);
@@ -1012,9 +1019,10 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                     if (vc.ticket_note) {
                         noteParts.push(vc.ticket_note);
                     } else {
-                        const vcAmountStr = vc.remaining_amount >= 1000
-                            ? `${Math.round(vc.remaining_amount / 1000)}K`
-                            : vc.remaining_amount.toLocaleString('vi-VN');
+                        const vcAmountStr =
+                            vc.remaining_amount >= 1000
+                                ? `${Math.round(vc.remaining_amount / 1000)}K`
+                                : vc.remaining_amount.toLocaleString('vi-VN');
                         noteParts.push(`TRỪ ${vcAmountStr} CÔNG NỢ ẢO THU VỀ`);
                     }
                 } else if (vc.note) {
@@ -1027,27 +1035,42 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         // 1b. RETURN_GOODS deposits (Khách Gửi) → "TRỪ [amount] TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN"
         if (walletData?.returnGoodsDeposits?.length > 0) {
             for (const dep of walletData.returnGoodsDeposits) {
-                const depAmountStr = dep.amount >= 1000
-                    ? `${Math.round(dep.amount / 1000)}K`
-                    : dep.amount.toLocaleString('vi-VN');
+                const depAmountStr =
+                    dep.amount >= 1000
+                        ? `${Math.round(dep.amount / 1000)}K`
+                        : dep.amount.toLocaleString('vi-VN');
                 noteParts.push(`TRỪ ${depAmountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
             }
         }
 
         // 1c. Real bank deposits (CK) → keep "CK [amount] ACB [date]"
-        const returnGoodsTotal = (walletData?.returnGoodsDeposits || [])
-            .reduce((sum, d) => sum + d.amount, 0);
-        const realCKBalance = Math.max(0, (parseFloat(walletData?.balance) || 0) - returnGoodsTotal);
-        const stripImg = (n) => n ? n.replace(/\n?\[Ảnh GD: [^\]]+\]/, '').trim() : n;
+        const returnGoodsTotal = (walletData?.returnGoodsDeposits || []).reduce(
+            (sum, d) => sum + d.amount,
+            0
+        );
+        const realCKBalance = Math.max(
+            0,
+            (parseFloat(walletData?.balance) || 0) - returnGoodsTotal
+        );
+        const stripImg = (n) => (n ? n.replace(/\n?\[Ảnh GD: [^\]]+\]/, '').trim() : n);
         if (realCKBalance > 0) {
             if (walletData?.lastDepositSource === 'MANUAL_ADJUSTMENT') {
-                noteParts.push(stripImg(walletData.lastDepositNote) || 'Kiểm tra lại ghi chú công nợ');
-            } else if (walletData?.lastDepositSource === 'ORDER_CANCEL_REFUND' && walletData?.lastDepositNote) {
+                noteParts.push(
+                    stripImg(walletData.lastDepositNote) || 'Kiểm tra lại ghi chú công nợ'
+                );
+            } else if (
+                walletData?.lastDepositSource === 'ORDER_CANCEL_REFUND' &&
+                walletData?.lastDepositNote
+            ) {
                 noteParts.push(stripImg(walletData.lastDepositNote));
             } else {
                 let ckAmount = realCKBalance;
                 let ckDateStr;
-                if (walletData?.lastDepositAmount && walletData?.lastDepositDate && walletData?.lastDepositSource !== 'RETURN_GOODS') {
+                if (
+                    walletData?.lastDepositAmount &&
+                    walletData?.lastDepositDate &&
+                    walletData?.lastDepositSource !== 'RETURN_GOODS'
+                ) {
                     ckAmount = walletData.lastDepositAmount;
                     const depositDate = new Date(walletData.lastDepositDate);
                     ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
@@ -1056,7 +1079,9 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                     ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
                 }
                 const amountStr =
-                    ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
+                    ckAmount >= 1000
+                        ? `${Math.round(ckAmount / 1000)}K`
+                        : ckAmount.toLocaleString('vi-VN');
                 noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
             }
         }
@@ -1098,9 +1123,8 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         }
     }
 
-    const autoGeneratedNote = order._userNote !== undefined
-        ? order._userNote
-        : noteParts.join(', ');
+    const autoGeneratedNote =
+        order._userNote !== undefined ? order._userNote : noteParts.join(', ');
 
     // Extract product codes for search (e.g., [N2687])
     const productCodes = products
@@ -1583,7 +1607,7 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
                 null;
             window.smartSelectDeliveryPartner(newAddress, _extraAddress, {
                 select: carrierSelect,
-                silent: false
+                silent: false,
             });
         }
 
@@ -1750,7 +1774,7 @@ function smartSelectCarrierForRow(select, address, extraAddress = null) {
     if (typeof window.smartSelectDeliveryPartner !== 'function') return null;
     return window.smartSelectDeliveryPartner(address, extraAddress, {
         select,
-        silent: true
+        silent: true,
     });
 }
 
@@ -2436,21 +2460,26 @@ async function saveFastSaleOrders(isApprove = false) {
             return saleOnlineId && window.WalletAdjustmentStore.isPending(saleOnlineId);
         });
         if (pendingAdjOrders.length > 0) {
-            const adjDetails = pendingAdjOrders.map(o => {
-                const soId = o.SaleOnlineIds?.[0];
-                const soOrder = soId ? (window.OrderStore?.get(soId) || displayedData.find(d => d.Id === soId)) : null;
-                const stt = soOrder?.SessionIndex || '';
-                const name = soOrder?.Name || o.PartnerName || '';
-                const phone = soOrder?.Telephone || o.PartnerPhone || '';
-                return `STT ${stt} - ${name} (${phone})`;
-            }).join(', ');
+            const adjDetails = pendingAdjOrders
+                .map((o) => {
+                    const soId = o.SaleOnlineIds?.[0];
+                    const soOrder = soId
+                        ? window.OrderStore?.get(soId) || displayedData.find((d) => d.Id === soId)
+                        : null;
+                    const stt = soOrder?.SessionIndex || '';
+                    const name = soOrder?.Name || o.PartnerName || '';
+                    const phone = soOrder?.Telephone || o.PartnerPhone || '';
+                    return `STT ${stt} - ${name} (${phone})`;
+                })
+                .join(', ');
             showFastSaleStatus(
                 `<b style="font-size:14px;">Đơn ${adjDetails}</b> đang chờ điều chỉnh công nợ ví. <b>Liên hệ kế toán để điều chỉnh.</b>`,
                 'error'
             );
             window.notificationManager?.error(
                 `<div style="font-size:15px;line-height:1.6;"><b style="font-size:16px;">Đơn ${adjDetails}</b><br>đang chờ điều chỉnh công nợ ví.<br><b>Liên hệ kế toán để điều chỉnh.</b></div>`,
-                10000, 'Chờ điều chỉnh công nợ'
+                10000,
+                'Chờ điều chỉnh công nợ'
             );
             return;
         }
@@ -2977,8 +3006,10 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             let noteDetails = `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`;
             noteDetails += ` (Hàng: ${amountTotal.toLocaleString('vi-VN')}đ`;
-            if (deliveryPrice > 0) noteDetails += ` + Ship: ${deliveryPrice.toLocaleString('vi-VN')}đ`;
-            if (decreaseAmount > 0) noteDetails += ` - Giảm: ${decreaseAmount.toLocaleString('vi-VN')}đ`;
+            if (deliveryPrice > 0)
+                noteDetails += ` + Ship: ${deliveryPrice.toLocaleString('vi-VN')}đ`;
+            if (decreaseAmount > 0)
+                noteDetails += ` - Giảm: ${decreaseAmount.toLocaleString('vi-VN')}đ`;
             noteDetails += ` = ${totalPayment.toLocaleString('vi-VN')}đ)`;
 
             console.log(

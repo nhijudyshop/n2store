@@ -49,7 +49,7 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         pendingMatchId,
         customer_id: selectedValue,
         customerName,
-        customerPhone
+        customerPhone,
     });
 
     try {
@@ -64,17 +64,21 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
 
         const requestBody = {
             customer_id: customerId,
-            resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+            resolved_by:
+                JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin',
         };
         console.log('[RESOLVE-MATCH] Request body:', requestBody);
 
-        const response = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
+        const response = await fetch(
+            `${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            }
+        );
 
         const result = await response.json();
         console.log('[RESOLVE-MATCH] Response:', result);
@@ -87,14 +91,28 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
                 if (window.AuditLogger) {
                     window.AuditLogger.logAction('transaction_assign', {
                         module: 'balance-history',
-                        description: 'Gan giao dich #' + transactionId + ' cho KH ' + customerName + ' (' + customerPhone + ')',
+                        description:
+                            'Gan giao dich #' +
+                            transactionId +
+                            ' cho KH ' +
+                            customerName +
+                            ' (' +
+                            customerPhone +
+                            ')',
                         oldData: null,
-                        newData: { txId: transactionId, customerId: selectedValue, customerName: customerName, customerPhone: customerPhone },
+                        newData: {
+                            txId: transactionId,
+                            customerId: selectedValue,
+                            customerName: customerName,
+                            customerPhone: customerPhone,
+                        },
                         entityId: String(transactionId),
-                        entityType: 'transaction'
+                        entityType: 'transaction',
                     });
                 }
-            } catch (e) { /* audit log error - ignore */ }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
 
             // Small delay to ensure DB is updated, then refresh table
             setTimeout(async () => {
@@ -165,16 +183,22 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
 
         // Update matched_customers in DB so resolve will work correctly
         try {
-            const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/customers`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ matched_customers: uniquePhones })
-            });
+            const updateResponse = await fetch(
+                `${API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/customers`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ matched_customers: uniquePhones }),
+                }
+            );
             const updateResult = await updateResponse.json();
             if (!updateResult.success) {
-                console.warn('[REFRESH-LIST] Failed to update matched_customers in DB:', updateResult.error);
+                console.warn(
+                    '[REFRESH-LIST] Failed to update matched_customers in DB:',
+                    updateResult.error
+                );
             } else {
                 console.log('[REFRESH-LIST] Updated matched_customers in DB successfully');
             }
@@ -183,17 +207,21 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
         }
 
         // Build new options HTML
-        const optionsHtml = uniquePhones.map(opt => {
-            const customers = opt.customers || [];
-            return customers.map(c => {
-                // Use phone as fallback ID for LOCAL_DB records that may have null id
-                const customerId = c.id || (c.phone ? `LOCAL_${c.phone}` : '');
-                const customerName = c.name || 'N/A';
-                const customerPhone = c.phone || opt.phone || 'N/A';
-                if (!customerId) return '';
-                return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
-            }).join('');
-        }).join('');
+        const optionsHtml = uniquePhones
+            .map((opt) => {
+                const customers = opt.customers || [];
+                return customers
+                    .map((c) => {
+                        // Use phone as fallback ID for LOCAL_DB records that may have null id
+                        const customerId = c.id || (c.phone ? `LOCAL_${c.phone}` : '');
+                        const customerName = c.name || 'N/A';
+                        const customerPhone = c.phone || opt.phone || 'N/A';
+                        if (!customerId) return '';
+                        return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${customerName}">${customerName} - ${customerPhone}</option>`;
+                    })
+                    .join('');
+            })
+            .join('');
 
         // Update dropdown
         dropdown.innerHTML = `
@@ -207,7 +235,6 @@ async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonEleme
         }
 
         showNotification(`Da tim thay ${uniquePhones.length} SDT khac nhau`, 'success');
-
     } catch (error) {
         console.error('[REFRESH-LIST] Error:', error);
         showNotification(`Loi: ${error.message}`, 'error');
@@ -260,7 +287,7 @@ async function pushRecentTransfer(phone, amount, button) {
         const response = await fetch(`${API_BASE_URL}/api/sepay/recent-transfers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, amount })
+            body: JSON.stringify({ phone, amount }),
         });
         const result = await response.json();
         if (result.success) {
@@ -311,7 +338,9 @@ function showQRModal(qrData, isNewQR = false) {
     const qrModalBody = document.getElementById('qrModalBody');
 
     // Get existing customer info if available
-    const customerInfo = window.CustomerInfoManager ? window.CustomerInfoManager.getCustomerInfo(qrData.uniqueCode) : null;
+    const customerInfo = window.CustomerInfoManager
+        ? window.CustomerInfoManager.getCustomerInfo(qrData.uniqueCode)
+        : null;
 
     qrModalBody.innerHTML = `
         <div style="padding: 20px;">
@@ -329,7 +358,9 @@ function showQRModal(qrData, isNewQR = false) {
                 ${qrData.amount > 0 ? `<div style="margin-top: 8px;"><strong>So tien:</strong> ${formatCurrency(qrData.amount)}</div>` : '<div style="margin-top: 8px; color: #6c757d;"><em>Khach hang tu dien so tien</em></div>'}
             </div>
 
-            ${isNewQR ? `
+            ${
+                isNewQR
+                    ? `
                 <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px; border: 1px solid #b3d9ff;">
                     <div style="margin-bottom: 10px; font-weight: 600; color: #0056b3;">
                         <i data-lucide="user-plus" style="width: 16px; height: 16px; vertical-align: middle;"></i> Thong tin khach hang (tuy chon)
@@ -342,7 +373,9 @@ function showQRModal(qrData, isNewQR = false) {
                         </button>
                     </div>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
 
             <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="copyQRUrl('${qrData.qrUrl}')">
@@ -354,11 +387,15 @@ function showQRModal(qrData, isNewQR = false) {
                 <button class="btn btn-secondary" onclick="downloadQR('${qrData.qrUrl}', '${qrData.uniqueCode}')">
                     <i data-lucide="download"></i> Tai QR
                 </button>
-                ${!isNewQR ? `
+                ${
+                    !isNewQR
+                        ? `
                     <button class="btn btn-info" onclick="editCustomerInfo('${qrData.uniqueCode}')">
                         <i data-lucide="pencil"></i> Sua TT Khach
                     </button>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 13px; color: #856404;">
@@ -531,7 +568,8 @@ copyInlineQRBtn?.addEventListener('click', async () => {
 
     try {
         // Fetch image via proxy to bypass CORS
-        const WORKER_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const WORKER_URL =
+            window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
         const response = await fetch(proxyUrl);
 
@@ -561,14 +599,12 @@ copyInlineQRBtn?.addEventListener('click', async () => {
         URL.revokeObjectURL(blobUrl);
 
         // Get PNG blob from canvas
-        const pngBlob = await new Promise(resolve => {
+        const pngBlob = await new Promise((resolve) => {
             canvas.toBlob(resolve, 'image/png');
         });
 
         // Copy to clipboard
-        await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': pngBlob })
-        ]);
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
 
         // Visual feedback
         copyInlineQRBtn.classList.remove('btn-primary');
@@ -586,7 +622,6 @@ copyInlineQRBtn?.addEventListener('click', async () => {
             }
         }
         hasCopiedCurrentQR = true;
-
     } catch (error) {
         console.error('Copy QR failed:', error);
         if (window.NotificationManager) {
@@ -615,7 +650,10 @@ async function generateDepositQRInline() {
     // Bat buoc nhap SĐT 10-11 so
     if (!isValidPhone(customerPhone)) {
         if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Vui lòng nhập SĐT khách hàng (10-11 số)', 'error');
+            window.NotificationManager.showNotification(
+                'Vui lòng nhập SĐT khách hàng (10-11 số)',
+                'error'
+            );
         }
         inlineCustomerPhone?.focus();
         return;
@@ -632,13 +670,13 @@ async function generateDepositQRInline() {
     if (window.CustomerInfoManager) {
         await window.CustomerInfoManager.saveCustomerInfo(qrData.uniqueCode, {
             name: customerName,
-            phone: customerPhone
+            phone: customerPhone,
         });
     }
 
     // Pancake customer validation (fire-and-forget)
     if (window.PancakeValidator && customerPhone) {
-        window.PancakeValidator.quickLookup(customerPhone).then(data => {
+        window.PancakeValidator.quickLookup(customerPhone).then((data) => {
             if (!data) return;
             const warningEl = document.getElementById('inlinePancakeWarning');
             if (warningEl) {
@@ -685,7 +723,10 @@ async function generateDepositQRInline() {
     // Show notification
     if (window.NotificationManager) {
         const displayName = customerName || 'Khách hàng mới';
-        window.NotificationManager.showNotification(`QR tạo cho ${displayName} (${customerPhone})`, 'success');
+        window.NotificationManager.showNotification(
+            `QR tạo cho ${displayName} (${customerPhone})`,
+            'success'
+        );
     }
 }
 
@@ -741,7 +782,10 @@ function editCustomerInfo(uniqueCode) {
     const editCustomerPhone = document.getElementById('editCustomerPhone');
 
     // Get existing customer info
-    const customerInfo = window.CustomerInfoManager.getCustomerInfo(uniqueCode) || { name: '', phone: '' };
+    const customerInfo = window.CustomerInfoManager.getCustomerInfo(uniqueCode) || {
+        name: '',
+        phone: '',
+    };
 
     // Fill form
     editCustomerUniqueCode.textContent = uniqueCode;
@@ -811,7 +855,11 @@ async function saveEditCustomerInfo(event) {
 
     // Handle accountant change flow (change SDT + auto approve)
     if (isAccountantChange && transactionId) {
-        console.log('[EDIT-TRANSACTION] Accountant change flow:', { transactionId, phone, name: customerName });
+        console.log('[EDIT-TRANSACTION] Accountant change flow:', {
+            transactionId,
+            phone,
+            name: customerName,
+        });
 
         // Clear flags before calling
         delete form.dataset.isTransactionEdit;
@@ -822,7 +870,11 @@ async function saveEditCustomerInfo(event) {
         if (typeof changeAndApproveTransaction === 'function') {
             await changeAndApproveTransaction(parseInt(transactionId), phone, customerName);
         } else if (window.VerificationModule?.changeAndApproveTransaction) {
-            await window.VerificationModule.changeAndApproveTransaction(parseInt(transactionId), phone, customerName);
+            await window.VerificationModule.changeAndApproveTransaction(
+                parseInt(transactionId),
+                phone,
+                customerName
+            );
         } else {
             showNotification('Khong tim thay ham xu ly thay doi', 'error');
         }
@@ -832,9 +884,16 @@ async function saveEditCustomerInfo(event) {
     if (isTransactionEdit && transactionId) {
         // Transaction-level edit: Update only this transaction's phone and name
         // This is a manual entry by staff, requires accountant approval
-        console.log('[EDIT-TRANSACTION] Saving manual entry:', { transactionId, phone, name: customerName });
+        console.log('[EDIT-TRANSACTION] Saving manual entry:', {
+            transactionId,
+            phone,
+            name: customerName,
+        });
 
-        const result = await saveTransactionCustomer(transactionId, phone, { isManualEntry: true, name: customerName });
+        const result = await saveTransactionCustomer(transactionId, phone, {
+            isManualEntry: true,
+            name: customerName,
+        });
 
         if (result.success) {
             // Mark as hidden so it moves to "DA XAC NHAN" in Live Mode
@@ -842,7 +901,7 @@ async function saveEditCustomerInfo(event) {
                 await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/hidden`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hidden: true })
+                    body: JSON.stringify({ hidden: true }),
                 });
                 console.log('[EDIT-TRANSACTION] Marked transaction as hidden for Live Mode');
             } catch (e) {
@@ -865,7 +924,10 @@ async function saveEditCustomerInfo(event) {
 
             // Sync Transfer Stats tab if it's active, or mark for reload
             const tsPanel = document.getElementById('transferStatsPanel');
-            if (tsPanel?.classList.contains('active') && typeof window.loadTransferStats === 'function') {
+            if (
+                tsPanel?.classList.contains('active') &&
+                typeof window.loadTransferStats === 'function'
+            ) {
                 window.loadTransferStats();
             } else {
                 // Mark for reload when tab becomes active
@@ -881,7 +943,6 @@ async function saveEditCustomerInfo(event) {
         }
         return;
     }
-
 
     // QR-code level edit (original logic)
     if (!window.CustomerInfoManager) return;
@@ -907,14 +968,23 @@ async function saveEditCustomerInfo(event) {
             if (window.AuditLogger) {
                 window.AuditLogger.logAction('customer_info_update_bh', {
                     module: 'balance-history',
-                    description: 'Cap nhat thong tin KH cho ma ' + uniqueCode + ': ' + name + ' (' + phone + ')',
+                    description:
+                        'Cap nhat thong tin KH cho ma ' +
+                        uniqueCode +
+                        ': ' +
+                        name +
+                        ' (' +
+                        phone +
+                        ')',
                     oldData: null,
                     newData: { name: name, phone: phone, uniqueCode: uniqueCode },
                     entityId: uniqueCode,
-                    entityType: 'customer'
+                    entityType: 'customer',
                 });
             }
-        } catch (e) { /* audit log error - ignore */ }
+        } catch (e) {
+            /* audit log error - ignore */
+        }
 
         // Close modal
         document.getElementById('editCustomerModal').style.display = 'none';
@@ -985,7 +1055,8 @@ function handlePhoneInputForTPOS() {
                     if (tposSingle) {
                         tposSingle.style.display = 'block';
                         const nameSpan = document.getElementById('tposLookupName');
-                        if (nameSpan) nameSpan.textContent = result.customers[0].name || 'Khong co ten';
+                        if (nameSpan)
+                            nameSpan.textContent = result.customers[0].name || 'Khong co ten';
                     }
                     // Auto-fill name field
                     const nameInput = document.getElementById('editCustomerName');
@@ -999,7 +1070,7 @@ function handlePhoneInputForTPOS() {
                         const dropdown = document.getElementById('tposCustomerDropdown');
                         if (dropdown) {
                             dropdown.innerHTML = '<option value="">-- Chon khach hang --</option>';
-                            result.customers.forEach(c => {
+                            result.customers.forEach((c) => {
                                 const opt = document.createElement('option');
                                 opt.value = c.name || '';
                                 opt.textContent = `${c.name || 'Khong ten'} (${c.phone})`;
@@ -1015,7 +1086,6 @@ function handlePhoneInputForTPOS() {
 
             // Re-render icons
             if (window.lucide) lucide.createIcons();
-
         } catch (error) {
             console.error('[TPOS-LOOKUP] Error:', error);
             if (tposLoading) tposLoading.style.display = 'none';
@@ -1106,11 +1176,15 @@ function editTransactionCustomer(transactionId, currentPhone, currentName) {
 // @param {string} options.name - Customer name (optional)
 // @param {boolean} options.isManualEntry - If true, triggers verification workflow (requires accountant approval)
 async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
-    const API_BASE = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE =
+        window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const { isManualEntry = false, name = '' } = options;
 
     // Check if user is accountant/admin - MUST use === true to prevent undefined becoming truthy
-    const hasApprovePermission = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
+    const hasApprovePermission = authManager?.hasDetailedPermission(
+        'balance-history',
+        'approveTransaction'
+    );
     const isAccountant = hasApprovePermission === true;
     const shouldRequireApproval = isManualEntry && !isAccountant;
 
@@ -1122,14 +1196,14 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
         const response = await fetch(`${API_BASE}/api/sepay/transaction/${transactionId}/phone`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 phone: newPhone,
                 name: name, // Send customer name too
                 is_manual_entry: shouldRequireApproval,
-                entered_by: currentUsername
-            })
+                entered_by: currentUsername,
+            }),
         });
 
         const result = await response.json();
@@ -1140,7 +1214,7 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
                 success: true,
                 requiresApproval: result.requires_approval || false,
                 customerName: result.customer_name,
-                verificationStatus: result.verification_status
+                verificationStatus: result.verification_status,
             };
         } else {
             console.error('[SAVE-TRANSACTION-PHONE] Error:', result.error);
@@ -1160,7 +1234,8 @@ window.saveTransactionCustomer = saveTransactionCustomer;
 // CUSTOMER LIST BY PHONE - MAPPING FEATURE
 // =====================================================
 
-const CUSTOMER_API_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const CUSTOMER_API_URL =
+    window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // Cache for customer data by phone
 const customerListCache = {};
@@ -1199,7 +1274,7 @@ async function fetchCustomersFromTpos(phone) {
         console.log('[CUSTOMER-LIST] TPOS API found', result.value.length, 'customers');
 
         // Transform TPOS response to match expected customer format
-        return result.value.map(tposCustomer => ({
+        return result.value.map((tposCustomer) => ({
             id: tposCustomer.Id,
             tpos_id: tposCustomer.Id,
             name: tposCustomer.Name || tposCustomer.DisplayName || '',
@@ -1213,9 +1288,8 @@ async function fetchCustomersFromTpos(phone) {
             facebook_id: tposCustomer.FacebookASIds || null,
             zalo: tposCustomer.Zalo || null,
             created_at: tposCustomer.DateCreated || null,
-            updated_at: tposCustomer.LastUpdated || null
+            updated_at: tposCustomer.LastUpdated || null,
         }));
-
     } catch (error) {
         console.error('[CUSTOMER-LIST] TPOS fallback error:', error);
         return [];
@@ -1242,7 +1316,10 @@ async function showCustomersByPhone(phone) {
 async function showCustomerQuickView(phone) {
     if (!phone || phone === 'N/A') {
         if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Khong co so dien thoai de tim kiem', 'warning');
+            window.NotificationManager.showNotification(
+                'Khong co so dien thoai de tim kiem',
+                'warning'
+            );
         }
         return;
     }
@@ -1287,7 +1364,6 @@ async function showCustomerQuickView(phone) {
         contentEl.innerHTML = renderCustomerQuickViewContent(result.data);
 
         if (window.lucide) lucide.createIcons();
-
     } catch (error) {
         console.error('[CUSTOMER-QUICK-VIEW] Error:', error);
         loadingEl.style.display = 'none';
@@ -1311,12 +1387,14 @@ function renderCustomerQuickViewContent(data) {
     const pendingTotal = pending_deposits?.total || 0;
 
     // Warning banner if not in Customer360
-    const tposWarning = isFromTpos ? `
+    const tposWarning = isFromTpos
+        ? `
         <div class="tpos-warning">
             <i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i>
             <span>Khach hang chua tao trong Customer360 (Thong tin tu TPOS)</span>
         </div>
-    ` : '';
+    `
+        : '';
 
     // Source badge
     const sourceBadge = isFromTpos
@@ -1340,13 +1418,17 @@ function renderCustomerQuickViewContent(data) {
                     <span class="amount-virtual">${formatCurrency(wallet.virtual_balance)}</span>
                 </div>
             </div>
-            ${pendingCount > 0 ? `
+            ${
+                pendingCount > 0
+                    ? `
             <div class="pending-deposits">
                 <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
                 <span>Cho duyet: <strong>${formatCurrency(pendingTotal)}</strong></span>
                 <span class="pending-note">(${pendingCount} GD - chua cong vao so du)</span>
             </div>
-            ` : ''}
+            `
+                    : ''
+            }
         `;
     } else {
         walletContent = `
@@ -1364,19 +1446,26 @@ function renderCustomerQuickViewContent(data) {
             <div class="quick-view-section">
                 <h4><i data-lucide="history"></i> Giao dich vi gan day</h4>
                 <div class="transactions-list">
-                    ${recent_transactions.map(tx => {
-                        const isPositive = tx.amount > 0;
-                        const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
-                        const icon = isPositive ? '\u2191' : '\u2193';
-                        const date = new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                        return `
+                    ${recent_transactions
+                        .map((tx) => {
+                            const isPositive = tx.amount > 0;
+                            const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
+                            const icon = isPositive ? '\u2191' : '\u2193';
+                            const date = new Date(tx.created_at).toLocaleDateString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                            });
+                            return `
                             <div class="transaction-row">
                                 <span class="tx-date">${date}</span>
                                 <span class="tx-amount ${amountClass}">${icon} ${formatCurrency(Math.abs(tx.amount))}</span>
                                 <span class="tx-note">${tx.note || tx.type || ''}</span>
                             </div>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
         `;
@@ -1415,12 +1504,16 @@ function renderCustomerQuickViewContent(data) {
                         <span class="badge ${getStatusBadgeClass(customer.status)}">${customer.status || 'Binh thuong'}</span>
                     </span>
                 </div>
-                ${customer.tpos_id ? `
+                ${
+                    customer.tpos_id
+                        ? `
                 <div class="info-row">
                     <span class="label">TPOS ID:</span>
                     <span class="value"><code style="background: #e0e7ff; padding: 2px 6px; border-radius: 4px;">${customer.tpos_id}</code></span>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         </div>
 
@@ -1458,7 +1551,7 @@ function getStatusBadgeClass(status) {
         'Bom hang': 'badge-danger',
         'Canh bao': 'badge-warning',
         'Nguy hiem': 'badge-danger',
-        'VIP': 'badge-success'
+        VIP: 'badge-success',
     };
     return statusMap[status] || 'badge-secondary';
 }
@@ -1509,13 +1602,17 @@ async function showPhoneDataModal(page = 1) {
     content.style.display = 'none';
 
     try {
-        console.log(`[PHONE-DATA] Fetching phone data... (page ${page}, size ${phoneDataPageSize})`);
+        console.log(
+            `[PHONE-DATA] Fetching phone data... (page ${page}, size ${phoneDataPageSize})`
+        );
 
         // Calculate offset
         const offset = (page - 1) * phoneDataPageSize;
 
         // Fetch with pagination
-        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=${phoneDataPageSize}&offset=${offset}&include_totals=false`);
+        const response = await fetch(
+            `${API_BASE_URL}/api/sepay/phone-data?limit=${phoneDataPageSize}&offset=${offset}&include_totals=false`
+        );
         const result = await response.json();
 
         if (!result.success) {
@@ -1550,62 +1647,68 @@ async function showPhoneDataModal(page = 1) {
         shownSpan.textContent = `${startRecord}-${endRecord}`;
 
         // Render table
-        tableBody.innerHTML = data.map((row, index) => {
-            const createdAt = new Date(row.created_at).toLocaleString('vi-VN');
-            const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
-            const customerName = row.customer_name || '<em style="color: #9ca3af;">Chua co</em>';
-            const rowNumber = offset + index + 1; // Correct row number with pagination
+        tableBody.innerHTML = data
+            .map((row, index) => {
+                const createdAt = new Date(row.created_at).toLocaleString('vi-VN');
+                const updatedAt = new Date(row.updated_at).toLocaleString('vi-VN');
+                const customerName =
+                    row.customer_name || '<em style="color: #9ca3af;">Chua co</em>';
+                const rowNumber = offset + index + 1; // Correct row number with pagination
 
-            // Format extraction_note with color coding
-            const extractionNote = row.extraction_note || '-';
-            let noteColor = '#6b7280';
-            let noteIcon = '';
-            if (extractionNote.startsWith('PHONE_EXTRACTED')) {
-                noteColor = '#10b981';
-                noteIcon = '\u2713';
-            } else if (extractionNote.startsWith('QR_CODE_FOUND')) {
-                noteColor = '#3b82f6';
-                noteIcon = '\uD83D\uDD17';
-            } else if (extractionNote.startsWith('INVALID_PHONE_LENGTH')) {
-                noteColor = '#f59e0b';
-                noteIcon = '\u26A0\uFE0F';
-            } else if (extractionNote.startsWith('NO_PHONE_FOUND')) {
-                noteColor = '#9ca3af';
-                noteIcon = '\u2717';
-            } else if (extractionNote.startsWith('MULTIPLE_PHONES_FOUND')) {
-                noteColor = '#8b5cf6';
-                noteIcon = '\uD83D\uDCDE';
-            }
+                // Format extraction_note with color coding
+                const extractionNote = row.extraction_note || '-';
+                let noteColor = '#6b7280';
+                let noteIcon = '';
+                if (extractionNote.startsWith('PHONE_EXTRACTED')) {
+                    noteColor = '#10b981';
+                    noteIcon = '\u2713';
+                } else if (extractionNote.startsWith('QR_CODE_FOUND')) {
+                    noteColor = '#3b82f6';
+                    noteIcon = '\uD83D\uDD17';
+                } else if (extractionNote.startsWith('INVALID_PHONE_LENGTH')) {
+                    noteColor = '#f59e0b';
+                    noteIcon = '\u26A0\uFE0F';
+                } else if (extractionNote.startsWith('NO_PHONE_FOUND')) {
+                    noteColor = '#9ca3af';
+                    noteIcon = '\u2717';
+                } else if (extractionNote.startsWith('MULTIPLE_PHONES_FOUND')) {
+                    noteColor = '#8b5cf6';
+                    noteIcon = '\uD83D\uDCDE';
+                }
 
-            // Format name_fetch_status with badges
-            const fetchStatus = row.name_fetch_status || '-';
-            let statusBadge = '';
-            if (fetchStatus === 'SUCCESS') {
-                statusBadge = `<span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u2713 SUCCESS</span>`;
-            } else if (fetchStatus === 'PENDING') {
-                statusBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u23F3 PENDING</span>`;
-            } else if (fetchStatus === 'NOT_FOUND_IN_TPOS') {
-                statusBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u2717 NOT FOUND</span>`;
-            } else if (fetchStatus === 'INVALID_PHONE') {
-                statusBadge = `<span style="background: #fed7aa; color: #9a3412; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u26A0 INVALID</span>`;
-            } else if (fetchStatus === 'NO_PHONE_TO_FETCH') {
-                statusBadge = `<span style="background: #e5e7eb; color: #4b5563; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">- N/A</span>`;
-            } else {
-                statusBadge = `<span style="color: #9ca3af;">${fetchStatus}</span>`;
-            }
+                // Format name_fetch_status with badges
+                const fetchStatus = row.name_fetch_status || '-';
+                let statusBadge = '';
+                if (fetchStatus === 'SUCCESS') {
+                    statusBadge = `<span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u2713 SUCCESS</span>`;
+                } else if (fetchStatus === 'PENDING') {
+                    statusBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u23F3 PENDING</span>`;
+                } else if (fetchStatus === 'NOT_FOUND_IN_TPOS') {
+                    statusBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u2717 NOT FOUND</span>`;
+                } else if (fetchStatus === 'INVALID_PHONE') {
+                    statusBadge = `<span style="background: #fed7aa; color: #9a3412; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">\u26A0 INVALID</span>`;
+                } else if (fetchStatus === 'NO_PHONE_TO_FETCH') {
+                    statusBadge = `<span style="background: #e5e7eb; color: #4b5563; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">- N/A</span>`;
+                } else {
+                    statusBadge = `<span style="color: #9ca3af;">${fetchStatus}</span>`;
+                }
 
-            return `
+                return `
                 <tr>
                     <td>${rowNumber}</td>
                     <td><code style="font-size: 11px; background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${row.unique_code}</code></td>
                     <td><strong style="color: #3b82f6;">${row.customer_phone || '-'}</strong></td>
                     <td>${customerName}</td>
                     <td>
-                        ${row.customer_phone ? `
+                        ${
+                            row.customer_phone
+                                ? `
                             <button class="btn btn-primary btn-sm" onclick="showDebtForPhone('${row.customer_phone}')" style="padding: 4px 8px; font-size: 12px;">
                                 <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Xem
                             </button>
-                        ` : '<span style="color: #9ca3af;">-</span>'}
+                        `
+                                : '<span style="color: #9ca3af;">-</span>'
+                        }
                     </td>
                     <td style="font-size: 12px; color: ${noteColor};">${noteIcon} ${extractionNote}</td>
                     <td>${statusBadge}</td>
@@ -1613,7 +1716,8 @@ async function showPhoneDataModal(page = 1) {
                     <td style="font-size: 12px; color: #6b7280;">${updatedAt}</td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         // Render pagination controls
         renderPhoneDataPagination();
@@ -1622,7 +1726,6 @@ async function showPhoneDataModal(page = 1) {
         if (window.lucide) {
             lucide.createIcons();
         }
-
     } catch (error) {
         console.error('[PHONE-DATA] Error:', error);
         loading.style.display = 'none';
@@ -1755,7 +1858,9 @@ async function showDebtForPhone(phone) {
         }
 
         // Fetch balance from wallet API
-        const response = await fetch(`${API_BASE_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(phone)}`);
+        const response = await fetch(
+            `${API_BASE_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(phone)}`
+        );
         const result = await response.json();
 
         if (!result.success) {
@@ -1767,7 +1872,7 @@ async function showDebtForPhone(phone) {
         // Format currency
         const balanceFormatted = new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
+            currency: 'VND',
         }).format(balance);
 
         // Show result
@@ -1778,7 +1883,6 @@ async function showDebtForPhone(phone) {
         } else {
             alert(message);
         }
-
     } catch (error) {
         console.error('[DEBT] Error fetching debt:', error);
         if (window.NotificationManager) {
@@ -1805,7 +1909,9 @@ window.showDebtForPhone = showDebtForPhone;
 async function fetchCustomerNamesFromTPOS() {
     try {
         // Fetch phone data from database (without totals for speed)
-        const response = await fetch(`${API_BASE_URL}/api/sepay/phone-data?limit=500&include_totals=false`);
+        const response = await fetch(
+            `${API_BASE_URL}/api/sepay/phone-data?limit=500&include_totals=false`
+        );
         const result = await response.json();
 
         if (!result.success || !result.data) {
@@ -1813,7 +1919,7 @@ async function fetchCustomerNamesFromTPOS() {
         }
 
         // Filter phones that are PENDING (valid 10-digit phones without names)
-        const phonesToFetch = result.data.filter(row => {
+        const phonesToFetch = result.data.filter((row) => {
             const phone = row.customer_phone || '';
             const status = row.name_fetch_status || '';
             // Only fetch if: has valid 10-digit phone AND status is PENDING
@@ -1825,7 +1931,11 @@ async function fetchCustomerNamesFromTPOS() {
             return;
         }
 
-        if (!confirm(`Tim thay ${phonesToFetch.length} phone numbers chua co ten.\n\nGoi TPOS API de lay ten?`)) {
+        if (
+            !confirm(
+                `Tim thay ${phonesToFetch.length} phone numbers chua co ten.\n\nGoi TPOS API de lay ten?`
+            )
+        ) {
             return;
         }
 
@@ -1842,7 +1952,9 @@ async function fetchCustomerNamesFromTPOS() {
                 console.log(`[FETCH-NAMES] Fetching name for: ${phone}`);
 
                 // Call backend API (uses automatic TPOS token from environment)
-                const tposResponse = await fetch(`${API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
+                const tposResponse = await fetch(
+                    `${API_BASE_URL}/api/sepay/tpos/customer/${phone}`
+                );
                 const tposData = await tposResponse.json();
 
                 if (!tposData.success || !tposData.data || tposData.data.length === 0) {
@@ -1854,8 +1966,8 @@ async function fetchCustomerNamesFromTPOS() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             customer_name: null,
-                            name_fetch_status: 'NOT_FOUND_IN_TPOS'
-                        })
+                            name_fetch_status: 'NOT_FOUND_IN_TPOS',
+                        }),
                     });
 
                     notFound++;
@@ -1869,15 +1981,18 @@ async function fetchCustomerNamesFromTPOS() {
                 console.log(`[FETCH-NAMES] Found: ${customerName} (${tposData.count} matches)`);
 
                 // Update database
-                const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        customer_name: customerName
-                    })
-                });
+                const updateResponse = await fetch(
+                    `${API_BASE_URL}/api/sepay/customer-info/${row.unique_code}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            customer_name: customerName,
+                        }),
+                    }
+                );
 
                 const updateResult = await updateResponse.json();
 
@@ -1890,8 +2005,7 @@ async function fetchCustomerNamesFromTPOS() {
                 }
 
                 // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 200));
-
+                await new Promise((resolve) => setTimeout(resolve, 200));
             } catch (error) {
                 console.error(`[FETCH-NAMES] Error for ${row.customer_phone}:`, error);
                 failed++;
@@ -1905,7 +2019,6 @@ async function fetchCustomerNamesFromTPOS() {
         if (document.getElementById('phoneDataModal').style.display === 'flex') {
             showPhoneDataModal(phoneDataCurrentPage); // Refresh phone data modal at current page
         }
-
     } catch (error) {
         console.error('[FETCH-NAMES] Error:', error);
         alert('Loi: ' + error.message);
@@ -1938,17 +2051,19 @@ async function reprocessOldTransactions() {
     // Ask if user wants to force reprocess (including already processed transactions)
     const forceReprocess = confirm(
         `Xu ly lai ${limitNum} giao dich cu?\n\n` +
-        `BAM "OK" = Xu ly LAI TAT CA (ke ca da xu ly truoc do)\n` +
-        `BAM "Cancel" = Chi xu ly GD chua duoc xu ly\n\n` +
-        `He thong se:\n` +
-        `- Extract phone tu noi dung (>= 5 so hoac 10 so)\n` +
-        `- Tim kiem TPOS de lay SDT day du + ten KH\n` +
-        `- Luu thong tin khach hang\n` +
-        `- Hien thi trong bang`
+            `BAM "OK" = Xu ly LAI TAT CA (ke ca da xu ly truoc do)\n` +
+            `BAM "Cancel" = Chi xu ly GD chua duoc xu ly\n\n` +
+            `He thong se:\n` +
+            `- Extract phone tu noi dung (>= 5 so hoac 10 so)\n` +
+            `- Tim kiem TPOS de lay SDT day du + ten KH\n` +
+            `- Luu thong tin khach hang\n` +
+            `- Hien thi trong bang`
     );
 
     try {
-        console.log(`[REPROCESS] Starting batch reprocess for ${limitNum} transactions (force: ${forceReprocess})...`);
+        console.log(
+            `[REPROCESS] Starting batch reprocess for ${limitNum} transactions (force: ${forceReprocess})...`
+        );
 
         // Show loading indicator (reuse the button as status)
         const btn = document.getElementById('reprocessOldTransactionsBtn');
@@ -1960,12 +2075,12 @@ async function reprocessOldTransactions() {
         const response = await fetch(`${API_BASE_URL}/api/sepay/batch-update-phones`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 limit: limitNum,
-                force: forceReprocess  // TRUE = reprocess all, FALSE = only unprocessed
-            })
+                force: forceReprocess, // TRUE = reprocess all, FALSE = only unprocessed
+            }),
         });
 
         const result = await response.json();
@@ -1984,7 +2099,8 @@ async function reprocessOldTransactions() {
         const summary = result.data;
 
         // Build detailed message
-        let message = `Xu ly hoan tat!\n\n` +
+        let message =
+            `Xu ly hoan tat!\n\n` +
             `Tong so: ${summary.total}\n` +
             `Thanh cong: ${summary.success}\n` +
             `Pending (nhieu SDT): ${summary.pending_matches}\n` +
@@ -1994,7 +2110,7 @@ async function reprocessOldTransactions() {
 
         // If there are not_found items, show details
         if (summary.not_found > 0 && summary.details) {
-            const notFoundItems = summary.details.filter(d => d.status === 'not_found');
+            const notFoundItems = summary.details.filter((d) => d.status === 'not_found');
 
             if (notFoundItems.length > 0) {
                 message += `\n\nChi tiet KHONG TIM THAY TPOS (${notFoundItems.length}):\n`;
@@ -2002,9 +2118,11 @@ async function reprocessOldTransactions() {
                 // Show first 10 items in alert (to avoid too long message)
                 const itemsToShow = notFoundItems.slice(0, 10);
                 itemsToShow.forEach((item, index) => {
-                    const contentPreview = item.content ?
-                        (item.content.length > 40 ? item.content.substring(0, 40) + '...' : item.content) :
-                        'N/A';
+                    const contentPreview = item.content
+                        ? item.content.length > 40
+                            ? item.content.substring(0, 40) + '...'
+                            : item.content
+                        : 'N/A';
                     message += `\n${index + 1}. GD #${item.transaction_id}\n   Phone: ${item.partial_phone || 'N/A'}\n   ND: "${contentPreview}"\n`;
                 });
 
@@ -2014,12 +2132,14 @@ async function reprocessOldTransactions() {
 
                 // Also log full details to console
                 console.group('[REPROCESS] Chi tiet KHONG TIM THAY TPOS:');
-                console.table(notFoundItems.map(item => ({
-                    'GD #': item.transaction_id,
-                    'Partial Phone': item.partial_phone || 'N/A',
-                    'Noi dung': item.content || '',
-                    'Ly do': item.reason
-                })));
+                console.table(
+                    notFoundItems.map((item) => ({
+                        'GD #': item.transaction_id,
+                        'Partial Phone': item.partial_phone || 'N/A',
+                        'Noi dung': item.content || '',
+                        'Ly do': item.reason,
+                    }))
+                );
                 console.groupEnd();
 
                 message += `\n\nXem console (F12) de thay danh sach day du`;
@@ -2031,7 +2151,6 @@ async function reprocessOldTransactions() {
         // Reload data to show updated customer info
         loadData();
         loadStatistics();
-
     } catch (error) {
         console.error('[REPROCESS] Error:', error);
         alert('Loi: ' + error.message);
@@ -2059,7 +2178,16 @@ async function reprocessOldTransactions() {
  * @param {Array} aliases - Array of alias names from backend
  */
 function showNameSelector(transactionId, phone, currentName, aliases = []) {
-    console.log('[NAME-SELECTOR] Showing selector for TX:', transactionId, 'Phone:', phone, 'Current:', currentName, 'Aliases:', aliases);
+    console.log(
+        '[NAME-SELECTOR] Showing selector for TX:',
+        transactionId,
+        'Phone:',
+        phone,
+        'Current:',
+        currentName,
+        'Aliases:',
+        aliases
+    );
 
     // Remove any existing popup
     closeNameSelector();
@@ -2078,16 +2206,18 @@ function showNameSelector(transactionId, phone, currentName, aliases = []) {
 
     if (aliases.length > 0) {
         // Show alias options
-        optionsHtml = aliases.map((alias, index) => {
-            const isSelected = alias === currentName;
-            return `
+        optionsHtml = aliases
+            .map((alias, index) => {
+                const isSelected = alias === currentName;
+                return `
                 <div class="name-option ${isSelected ? 'selected' : ''}"
                      onclick="selectDisplayName(${transactionId}, '${alias.replace(/'/g, "\\'")}', '${phone}')">
                     <span class="name-text">${alias}</span>
                     ${isSelected ? '<i data-lucide="check" class="check-icon"></i>' : ''}
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     } else {
         optionsHtml = '<div class="no-aliases">Chua co ten tham khao nao</div>';
     }
@@ -2150,18 +2280,18 @@ function positionPopup(popup, event) {
     const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
     popup.style.position = 'absolute';
-    popup.style.top = (rect.bottom + scrollTop + 5) + 'px';
-    popup.style.left = (rect.left + scrollLeft) + 'px';
+    popup.style.top = rect.bottom + scrollTop + 5 + 'px';
+    popup.style.left = rect.left + scrollLeft + 'px';
     popup.style.zIndex = '10000';
 
     // Ensure popup doesn't go off-screen
     requestAnimationFrame(() => {
         const popupRect = popup.getBoundingClientRect();
         if (popupRect.right > window.innerWidth) {
-            popup.style.left = (window.innerWidth - popupRect.width - 10 + scrollLeft) + 'px';
+            popup.style.left = window.innerWidth - popupRect.width - 10 + scrollLeft + 'px';
         }
         if (popupRect.bottom > window.innerHeight) {
-            popup.style.top = (rect.top + scrollTop - popupRect.height - 5) + 'px';
+            popup.style.top = rect.top + scrollTop - popupRect.height - 5 + 'px';
         }
     });
 }
@@ -2197,16 +2327,19 @@ async function selectDisplayName(transactionId, newName, phone) {
     console.log('[NAME-SELECTOR] Selecting name:', newName, 'for TX:', transactionId);
 
     try {
-        const response = await fetch(`${API_BASE}/sepay/transaction/${transactionId}/display-name`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                display_name: newName,
-                add_to_aliases: true
-            })
-        });
+        const response = await fetch(
+            `${API_BASE}/sepay/transaction/${transactionId}/display-name`,
+            {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    display_name: newName,
+                    add_to_aliases: true,
+                }),
+            }
+        );
 
         const result = await response.json();
 

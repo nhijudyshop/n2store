@@ -5,7 +5,6 @@
  */
 
 const SettingsManager = (() => {
-
     // ---- TPOS Settings ----
 
     function _initTposSettings() {
@@ -31,7 +30,10 @@ const SettingsManager = (() => {
             debtToggle.checked = localStorage.getItem('tpos_show_debt') !== 'false';
             debtToggle.addEventListener('change', () => {
                 localStorage.setItem('tpos_show_debt', debtToggle.checked);
-                window.eventBus?.emit('layout:settingsChanged', { key: 'tpos_show_debt', value: debtToggle.checked });
+                window.eventBus?.emit('layout:settingsChanged', {
+                    key: 'tpos_show_debt',
+                    value: debtToggle.checked,
+                });
             });
         }
 
@@ -41,7 +43,10 @@ const SettingsManager = (() => {
             zeroDebtToggle.checked = localStorage.getItem('tpos_show_zero_debt') === 'true';
             zeroDebtToggle.addEventListener('change', () => {
                 localStorage.setItem('tpos_show_zero_debt', zeroDebtToggle.checked);
-                window.eventBus?.emit('layout:settingsChanged', { key: 'tpos_show_zero_debt', value: zeroDebtToggle.checked });
+                window.eventBus?.emit('layout:settingsChanged', {
+                    key: 'tpos_show_zero_debt',
+                    value: zeroDebtToggle.checked,
+                });
             });
         }
     }
@@ -50,7 +55,8 @@ const SettingsManager = (() => {
         const debtToggle = document.getElementById('tposShowDebt');
         const zeroDebtToggle = document.getElementById('tposShowZeroDebt');
         if (debtToggle) debtToggle.checked = localStorage.getItem('tpos_show_debt') !== 'false';
-        if (zeroDebtToggle) zeroDebtToggle.checked = localStorage.getItem('tpos_show_zero_debt') === 'true';
+        if (zeroDebtToggle)
+            zeroDebtToggle.checked = localStorage.getItem('tpos_show_zero_debt') === 'true';
     }
 
     // ---- Pancake Settings ----
@@ -83,7 +89,10 @@ const SettingsManager = (() => {
                 const mode = serverModeSwitch.checked ? 'n2store' : 'pancake';
                 localStorage.setItem('pancake_server_mode', mode);
                 _updateServerModeIndicator(mode);
-                window.eventBus?.emit('layout:settingsChanged', { key: 'pancake_server_mode', value: mode });
+                window.eventBus?.emit('layout:settingsChanged', {
+                    key: 'pancake_server_mode',
+                    value: mode,
+                });
             });
         }
 
@@ -110,13 +119,15 @@ const SettingsManager = (() => {
         const activeId = window.pancakeTokenManager.getActiveAccountId?.();
 
         if (accounts.length === 0) {
-            listEl.innerHTML = '<div class="empty-accounts">Chưa có tài khoản nào. Thêm JWT token để bắt đầu.</div>';
+            listEl.innerHTML =
+                '<div class="empty-accounts">Chưa có tài khoản nào. Thêm JWT token để bắt đầu.</div>';
             return;
         }
 
-        listEl.innerHTML = accounts.map(acc => {
-            const isActive = acc.id === activeId;
-            return `
+        listEl.innerHTML = accounts
+            .map((acc) => {
+                const isActive = acc.id === activeId;
+                return `
                 <div class="account-item ${isActive ? 'active' : ''}" data-id="${acc.id}">
                     <div class="account-info">
                         <span class="account-name">${SharedUtils.escapeHtml(acc.name || acc.fb_name || 'Unknown')}</span>
@@ -128,7 +139,8 @@ const SettingsManager = (() => {
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     async function _handleAddAccount() {
@@ -157,7 +169,10 @@ const SettingsManager = (() => {
             window.pancakeTokenManager.setActiveAccount(accountId);
             _loadPancakeAccounts();
             window.showNotification?.('Đã chuyển tài khoản!', 'success');
-            window.eventBus?.emit('layout:settingsChanged', { key: 'pancake_account_changed', value: accountId });
+            window.eventBus?.emit('layout:settingsChanged', {
+                key: 'pancake_account_changed',
+                value: accountId,
+            });
         }
     }
 
@@ -175,7 +190,7 @@ const SettingsManager = (() => {
     function _initModalCloseOnOutside() {
         document.addEventListener('click', (e) => {
             const modals = document.querySelectorAll('.settings-modal');
-            modals.forEach(modal => {
+            modals.forEach((modal) => {
                 if (modal.style.display === 'flex' && e.target === modal) {
                     modal.style.display = 'none';
                 }
@@ -194,7 +209,7 @@ const SettingsManager = (() => {
     return {
         initialize,
         selectAccount,
-        deleteAccount
+        deleteAccount,
     };
 })();
 

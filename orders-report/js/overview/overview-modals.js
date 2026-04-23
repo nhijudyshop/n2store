@@ -34,9 +34,10 @@ function renderTagList() {
     // Filter tags
     let filteredTags = availableTags;
     if (searchTerm) {
-        filteredTags = availableTags.filter(tag =>
-            (tag.Name || '').toLowerCase().includes(searchTerm) ||
-            (tag.NameNosign || '').toLowerCase().includes(searchTerm)
+        filteredTags = availableTags.filter(
+            (tag) =>
+                (tag.Name || '').toLowerCase().includes(searchTerm) ||
+                (tag.NameNosign || '').toLowerCase().includes(searchTerm)
         );
     }
 
@@ -46,20 +47,25 @@ function renderTagList() {
     }
 
     // Check which tags are already tracked
-    const trackedPatterns = trackedTags.map(t => t.pattern.toLowerCase());
+    const trackedPatterns = trackedTags.map((t) => t.pattern.toLowerCase());
 
-    container.innerHTML = filteredTags.slice(0, 50).map(tag => {
-        const tagName = tag.Name || '';
-        const isTracked = trackedPatterns.some(p => tagName.toLowerCase().startsWith(p) || tagName.toLowerCase() === p);
+    container.innerHTML = filteredTags
+        .slice(0, 50)
+        .map((tag) => {
+            const tagName = tag.Name || '';
+            const isTracked = trackedPatterns.some(
+                (p) => tagName.toLowerCase().startsWith(p) || tagName.toLowerCase() === p
+            );
 
-        return `
+            return `
             <div class="tag-list-item ${isTracked ? 'selected' : ''}" onclick="toggleTrackedTag('${tagName}', '${tag.Color || '#6b7280'}')">
                 <span class="tag-color-box" style="background-color: ${tag.Color || '#6b7280'}"></span>
                 <span class="tag-name">${tagName}</span>
                 <i class="fas fa-check tag-check"></i>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 /**
@@ -74,7 +80,7 @@ function filterTagList() {
  */
 async function toggleTrackedTag(tagName, color) {
     const pattern = tagName.toLowerCase().trim();
-    const existingIndex = trackedTags.findIndex(t => t.pattern === pattern);
+    const existingIndex = trackedTags.findIndex((t) => t.pattern === pattern);
 
     if (existingIndex >= 0) {
         trackedTags.splice(existingIndex, 1);
@@ -83,7 +89,7 @@ async function toggleTrackedTag(tagName, color) {
             pattern: pattern,
             type: 'exact',
             displayName: tagName,
-            color: color
+            color: color,
         });
     }
 
@@ -112,8 +118,8 @@ function calculateEmptyCartReasons(orders) {
     // Tags to exclude from counting (thẻ khách lạ variations)
     const excludedPatterns = ['thẻ khách lạ', 'the khach la', 'khách lạ'];
 
-    orders.forEach(order => {
-        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
+    orders.forEach((order) => {
+        const productCount = order.TotalQuantity ?? order.Details?.length ?? 0;
         if (productCount !== 0) return;
 
         totalEmptyCartOrders++;
@@ -121,13 +127,13 @@ function calculateEmptyCartReasons(orders) {
         const orderTags = parseOrderTags(order.Tags);
         if (!orderTags || orderTags.length === 0) return;
 
-        orderTags.forEach(tag => {
+        orderTags.forEach((tag) => {
             const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
             const originalTagName = tag.Name || tag.name || '';
 
             // Skip "giỏ trống" tag (nếu còn sót legacy) + excluded patterns
             if (tagName === 'giỏ trống' || tagName === 'gio trong') return;
-            if (excludedPatterns.some(p => tagName.includes(p))) return;
+            if (excludedPatterns.some((p) => tagName.includes(p))) return;
 
             const key = tagName;
             if (!reasonsMap.has(key)) {
@@ -136,7 +142,7 @@ function calculateEmptyCartReasons(orders) {
                     tagNameLower: tagName,
                     count: 0,
                     orders: [],
-                    color: tag.Color || tag.color || '#6b7280'
+                    color: tag.Color || tag.color || '#6b7280',
                 });
             }
             const reason = reasonsMap.get(key);
@@ -145,8 +151,7 @@ function calculateEmptyCartReasons(orders) {
         });
     });
 
-    const reasons = Array.from(reasonsMap.values())
-        .sort((a, b) => b.count - a.count);
+    const reasons = Array.from(reasonsMap.values()).sort((a, b) => b.count - a.count);
 
     return { totalEmptyCartOrders, reasons };
 }
@@ -179,15 +184,17 @@ function renderEmptyCartReasons(data) {
         return;
     }
 
-    tbody.innerHTML = data.reasons.map(reason => {
-        const percentage = data.totalEmptyCartOrders > 0
-            ? ((reason.count / data.totalEmptyCartOrders) * 100).toFixed(1)
-            : 0;
+    tbody.innerHTML = data.reasons
+        .map((reason) => {
+            const percentage =
+                data.totalEmptyCartOrders > 0
+                    ? ((reason.count / data.totalEmptyCartOrders) * 100).toFixed(1)
+                    : 0;
 
-        // Escape special characters for onclick handler
-        const escapedTagName = reason.tagNameLower.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            // Escape special characters for onclick handler
+            const escapedTagName = reason.tagNameLower.replace(/'/g, "\\'").replace(/"/g, '\\"');
 
-        return `
+            return `
         <tr>
             <td>
                 <div class="tag-cell">
@@ -203,7 +210,8 @@ function renderEmptyCartReasons(data) {
                 </button>
             </td>
         </tr>`;
-    }).join('');
+        })
+        .join('');
 }
 
 /**
@@ -241,14 +249,14 @@ function viewEmptyCartReasonOrders(tagNameLower) {
     const orders = cached?.orders || [];
 
     // (2026-04-18) Filter = đơn SL=0 AND có tag đích (thay cho "giỏ trống + tag đích")
-    const filteredOrders = orders.filter(order => {
-        const productCount = (order.TotalQuantity ?? order.Details?.length ?? 0);
+    const filteredOrders = orders.filter((order) => {
+        const productCount = order.TotalQuantity ?? order.Details?.length ?? 0;
         if (productCount !== 0) return false;
 
         const orderTags = parseOrderTags(order.Tags);
         if (!orderTags || orderTags.length === 0) return false;
 
-        return orderTags.some(tag => {
+        return orderTags.some((tag) => {
             const name = (tag.Name || tag.name || '').toLowerCase().trim();
             return name === tagNameLower;
         });
@@ -258,7 +266,7 @@ function viewEmptyCartReasonOrders(tagNameLower) {
     let displayName = tagNameLower;
     if (filteredOrders.length > 0) {
         const orderTags = parseOrderTags(filteredOrders[0].Tags);
-        const matchingTag = orderTags.find(tag => {
+        const matchingTag = orderTags.find((tag) => {
             const name = (tag.Name || tag.name || '').toLowerCase().trim();
             return name === tagNameLower;
         });
@@ -284,14 +292,14 @@ function viewTagOrders(pattern, type) {
     if (type === 'special') {
         if (pattern === 'ordered') {
             // Filter orders with "Đơn hàng" status
-            filteredOrders = orders.filter(order => {
+            filteredOrders = orders.filter((order) => {
                 const statusText = order.StatusText || order.Status || '';
                 return statusText === 'Đơn hàng';
             });
             displayName = 'ĐÃ RA ĐƠN';
         } else if (pattern === '__no_tags__') {
             // Filter orders without tags
-            filteredOrders = orders.filter(order => {
+            filteredOrders = orders.filter((order) => {
                 const orderTags = parseOrderTags(order.Tags);
                 return orderTags.length === 0;
             });
@@ -301,7 +309,7 @@ function viewTagOrders(pattern, type) {
         // Find orders with multiple tags from LIVE_STAT_TAGS
         // NOTE: Include "Đơn hàng" status as 'ordered' tag for duplicate checking (matching statistics logic)
         displayName = 'TAG TRÙNG';
-        filteredOrders = orders.filter(order => {
+        filteredOrders = orders.filter((order) => {
             const orderTags = parseOrderTags(order.Tags);
             const statusText = order.StatusText || order.Status || '';
             const matchedKeys = new Set();
@@ -311,14 +319,14 @@ function viewTagOrders(pattern, type) {
                 matchedKeys.add('ordered');
             }
 
-            orderTags.forEach(orderTag => {
+            orderTags.forEach((orderTag) => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                 if (!tagName) return;
 
-                LIVE_STAT_TAGS.forEach(liveTag => {
+                LIVE_STAT_TAGS.forEach((liveTag) => {
                     if (liveTag.isSpecial) return;
                     const patterns = liveTag.patterns || [];
-                    if (patterns.some(p => tagName.startsWith(p))) {
+                    if (patterns.some((p) => tagName.startsWith(p))) {
                         matchedKeys.add(liveTag.key);
                     }
                 });
@@ -329,7 +337,7 @@ function viewTagOrders(pattern, type) {
     } else if (type === 'wrong_tag') {
         // Find orders not matching any LIVE_STAT_TAGS
         displayName = 'GẮN SAI TAG';
-        filteredOrders = orders.filter(order => {
+        filteredOrders = orders.filter((order) => {
             const orderTags = parseOrderTags(order.Tags);
             const statusText = order.StatusText || order.Status || '';
 
@@ -338,14 +346,14 @@ function viewTagOrders(pattern, type) {
 
             // Check if any tag matches LIVE_STAT_TAGS
             let hasMatchingTag = false;
-            orderTags.forEach(orderTag => {
+            orderTags.forEach((orderTag) => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                 if (!tagName) return;
 
-                LIVE_STAT_TAGS.forEach(liveTag => {
+                LIVE_STAT_TAGS.forEach((liveTag) => {
                     if (liveTag.isSpecial) return;
                     const patterns = liveTag.patterns || [];
-                    if (patterns.some(p => tagName.startsWith(p))) {
+                    if (patterns.some((p) => tagName.startsWith(p))) {
                         hasMatchingTag = true;
                     }
                 });
@@ -355,28 +363,28 @@ function viewTagOrders(pattern, type) {
         });
     } else if (type === 'tag') {
         // Find the matching LIVE_STAT_TAGS definition
-        const liveTag = LIVE_STAT_TAGS.find(t => t.key === pattern);
+        const liveTag = LIVE_STAT_TAGS.find((t) => t.key === pattern);
         if (liveTag) {
             displayName = liveTag.displayName;
             if (pattern === 'gio_trong') {
                 // (2026-04-18) GIO_TRONG = đơn SL=0 (không còn match theo TPOS tag)
-                filteredOrders = orders.filter(o => (o.Details?.length || 0) === 0);
+                filteredOrders = orders.filter((o) => (o.Details?.length || 0) === 0);
             } else if (liveTag.patterns) {
                 // Filter orders matching any of the patterns
-                filteredOrders = orders.filter(order => {
+                filteredOrders = orders.filter((order) => {
                     const orderTags = parseOrderTags(order.Tags);
-                    return orderTags.some(tag => {
+                    return orderTags.some((tag) => {
                         const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-                        return liveTag.patterns.some(p => tagName.startsWith(p));
+                        return liveTag.patterns.some((p) => tagName.startsWith(p));
                     });
                 });
             }
         }
     } else {
         // Regular tag matching - match by exact tag name (case insensitive)
-        filteredOrders = orders.filter(order => {
+        filteredOrders = orders.filter((order) => {
             const orderTags = parseOrderTags(order.Tags);
-            return orderTags.some(tag => {
+            return orderTags.some((tag) => {
                 const tagName = (tag.Name || tag.name || '').toLowerCase();
                 return tagName === pattern.toLowerCase();
             });
@@ -385,7 +393,7 @@ function viewTagOrders(pattern, type) {
         // Find the original display name from any matching order
         for (const order of orders) {
             const orderTags = parseOrderTags(order.Tags);
-            const matchedTag = orderTags.find(tag => {
+            const matchedTag = orderTags.find((tag) => {
                 const tagName = (tag.Name || tag.name || '').toLowerCase();
                 return tagName === pattern.toLowerCase();
             });
@@ -407,7 +415,7 @@ function viewEmployeeOrders(name, start, end) {
     const cached = cachedOrderDetails[currentTableName];
     const orders = cached?.orders || [];
 
-    const filteredOrders = orders.filter(order => {
+    const filteredOrders = orders.filter((order) => {
         const stt = parseInt(order.SessionIndex || 0);
         return stt >= start && stt <= end;
     });
@@ -426,7 +434,7 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
     let displayName = tagKey;
 
     // Filter orders by employee first
-    const empOrders = orders.filter(order => {
+    const empOrders = orders.filter((order) => {
         const stt = parseInt(order.SessionIndex || 0);
         return stt >= start && stt <= end;
     });
@@ -434,7 +442,7 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
     // Handle TAG TRÙNG (duplicate tags) - includes 'ordered' status
     if (tagKey === 'tag_trung') {
         displayName = 'TAG TRÙNG';
-        filteredOrders = empOrders.filter(order => {
+        filteredOrders = empOrders.filter((order) => {
             const orderTags = parseOrderTags(order.Tags);
             const statusText = order.StatusText || order.Status || '';
             const matchedKeys = new Set();
@@ -444,14 +452,14 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
                 matchedKeys.add('ordered');
             }
 
-            orderTags.forEach(orderTag => {
+            orderTags.forEach((orderTag) => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                 if (!tagName) return;
 
-                LIVE_STAT_TAGS.forEach(liveTag => {
+                LIVE_STAT_TAGS.forEach((liveTag) => {
                     if (liveTag.isSpecial) return;
                     const patterns = liveTag.patterns || [];
-                    if (patterns.some(p => tagName.startsWith(p))) {
+                    if (patterns.some((p) => tagName.startsWith(p))) {
                         matchedKeys.add(liveTag.key);
                     }
                 });
@@ -467,7 +475,7 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
     } else if (tagKey === 'gan_sai_tag') {
         // Handle GẮN SAI TAG (orders not matching any LIVE_STAT_TAGS)
         displayName = 'GẮN SAI TAG';
-        filteredOrders = empOrders.filter(order => {
+        filteredOrders = empOrders.filter((order) => {
             const orderTags = parseOrderTags(order.Tags);
             const statusText = order.StatusText || order.Status || '';
 
@@ -476,14 +484,14 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
 
             // Check if any tag matches LIVE_STAT_TAGS
             let hasMatchingTag = false;
-            orderTags.forEach(orderTag => {
+            orderTags.forEach((orderTag) => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
                 if (!tagName) return;
 
-                LIVE_STAT_TAGS.forEach(liveTag => {
+                LIVE_STAT_TAGS.forEach((liveTag) => {
                     if (liveTag.isSpecial) return;
                     const patterns = liveTag.patterns || [];
-                    if (patterns.some(p => tagName.startsWith(p))) {
+                    if (patterns.some((p) => tagName.startsWith(p))) {
                         hasMatchingTag = true;
                     }
                 });
@@ -493,27 +501,27 @@ function viewEmployeeTagOrders(empName, start, end, tagKey) {
         });
     } else {
         // Find the matching LIVE_STAT_TAGS definition
-        const liveTag = LIVE_STAT_TAGS.find(t => t.key === tagKey);
+        const liveTag = LIVE_STAT_TAGS.find((t) => t.key === tagKey);
 
         if (liveTag) {
             displayName = liveTag.displayName;
 
             if (liveTag.isSpecial && tagKey === 'ordered') {
                 // Handle ĐÃ RA ĐƠN (Ordered status)
-                filteredOrders = empOrders.filter(order => {
+                filteredOrders = empOrders.filter((order) => {
                     const statusText = order.StatusText || order.Status || '';
                     return statusText === 'Đơn hàng';
                 });
             } else if (tagKey === 'gio_trong') {
                 // (2026-04-18) GIO_TRONG = đơn SL=0
-                filteredOrders = empOrders.filter(o => (o.Details?.length || 0) === 0);
+                filteredOrders = empOrders.filter((o) => (o.Details?.length || 0) === 0);
             } else if (liveTag.patterns) {
                 // Handle tag patterns
-                filteredOrders = empOrders.filter(order => {
+                filteredOrders = empOrders.filter((order) => {
                     const orderTags = parseOrderTags(order.Tags);
-                    return orderTags.some(tag => {
+                    return orderTags.some((tag) => {
                         const tagName = (tag.Name || tag.name || '').toLowerCase().trim();
-                        return liveTag.patterns.some(p => tagName.startsWith(p));
+                        return liveTag.patterns.some((p) => tagName.startsWith(p));
                     });
                 });
             }
@@ -561,16 +569,20 @@ function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
                     </tr>
                 </thead>
                 <tbody>
-                    ${normalOrders.map(order => `
+                    ${normalOrders
+                        .map(
+                            (order) => `
                         <tr>
                             <td>${order.SessionIndex || ''}</td>
                             <td class="order-code">${order.Code || ''}</td>
                             <td><div class="tags-cell">${parseOrderTagsHtml(order.Tags, order)}</div></td>
                             <td>${order.Name || order.PartnerName || ''}</td>
-                            <td>${(order.TotalQuantity ?? order.Details?.length ?? 0)}</td>
+                            <td>${order.TotalQuantity ?? order.Details?.length ?? 0}</td>
                             <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
                         </tr>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </tbody>
             </table>
         `;
@@ -593,17 +605,21 @@ function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
                     </tr>
                 </thead>
                 <tbody>
-                    ${invalidOrders.map(item => `
+                    ${invalidOrders
+                        .map(
+                            (item) => `
                         <tr style="background: rgba(239, 68, 68, 0.1);">
                             <td>${item.order.SessionIndex || ''}</td>
                             <td class="order-code">${item.order.Code || ''}</td>
                             <td><div class="tags-cell">${parseOrderTagsHtml(item.order.Tags)}</div></td>
                             <td>${item.order.Name || item.order.PartnerName || ''}</td>
-                            <td><strong style="color: #ef4444;">${(item.order.TotalQuantity ?? item.order.Details?.length ?? 0)}</strong></td>
+                            <td><strong style="color: #ef4444;">${item.order.TotalQuantity ?? item.order.Details?.length ?? 0}</strong></td>
                             <td class="amount">${(item.order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
                             <td style="color: #ef4444; font-size: 12px;">${item.reason}</td>
                         </tr>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </tbody>
             </table>
         `;
@@ -623,7 +639,7 @@ function viewMismatchOrders(empName, start, end) {
 
     // Calculate employee stats to get mismatch info
     const empStats = calculateEmployeeTagStats(orders);
-    const emp = empStats.find(e => e.name === empName && e.start === start && e.end === end);
+    const emp = empStats.find((e) => e.name === empName && e.start === start && e.end === end);
 
     if (!emp || !emp.mismatchReason || emp.mismatchReason.length === 0) {
         alert('Không tìm thấy thông tin đơn không khớp');
@@ -632,12 +648,12 @@ function viewMismatchOrders(empName, start, end) {
 
     // Collect all mismatch orders with reasons
     const mismatchOrders = [];
-    emp.mismatchReason.forEach(reason => {
-        reason.orders.forEach(order => {
+    emp.mismatchReason.forEach((reason) => {
+        reason.orders.forEach((order) => {
             mismatchOrders.push({
                 order: order,
                 reason: reason.text,
-                type: reason.type
+                type: reason.type,
             });
         });
     });
@@ -676,7 +692,7 @@ function showMismatchOrdersModal(empName, emp, mismatchOrders) {
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #fecaca;">
                 <strong>Nguyên nhân:</strong>
                 <ul style="margin: 5px 0 0 20px; padding: 0;">
-                    ${emp.mismatchReason.map(r => `<li>${r.text}</li>`).join('')}
+                    ${emp.mismatchReason.map((r) => `<li>${r.text}</li>`).join('')}
                 </ul>
             </div>
         </div>
@@ -696,12 +712,18 @@ function showMismatchOrdersModal(empName, emp, mismatchOrders) {
                 </tr>
             </thead>
             <tbody>
-                ${mismatchOrders.map((item, idx) => {
-        const order = item.order;
-        const tags = parseOrderTags(order.Tags);
-        const tagsHtml = tags.map(t => `<span class="order-tag" style="background: ${t.Color || '#6b7280'}; font-size: 11px;">${t.Name || ''}</span>`).join(' ');
+                ${mismatchOrders
+                    .map((item, idx) => {
+                        const order = item.order;
+                        const tags = parseOrderTags(order.Tags);
+                        const tagsHtml = tags
+                            .map(
+                                (t) =>
+                                    `<span class="order-tag" style="background: ${t.Color || '#6b7280'}; font-size: 11px;">${t.Name || ''}</span>`
+                            )
+                            .join(' ');
 
-        return `
+                        return `
                     <tr style="background: ${idx % 2 === 0 ? '#fff' : '#fef2f2'};">
                         <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${order.SessionIndex || '-'}</td>
                         <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">${order.Code || ''}</td>
@@ -713,7 +735,8 @@ function showMismatchOrdersModal(empName, emp, mismatchOrders) {
                         </td>
                     </tr>
                     `;
-    }).join('')}
+                    })
+                    .join('')}
             </tbody>
         </table>
     `;
@@ -757,7 +780,9 @@ function showOrdersDetailModal(title, orders) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${orders.map(order => `
+                    ${orders
+                        .map(
+                            (order) => `
                         <tr onclick="openCachedOrderDetailFromModal(${orders.indexOf(order)}, '${order.Code}')" style="cursor: pointer;">
                             <td>${order.SessionIndex || '-'}</td>
                             <td class="order-code">${order.Code || ''}</td>
@@ -767,7 +792,9 @@ function showOrdersDetailModal(title, orders) {
                             <td>${(order.Details || []).length}</td>
                             <td class="amount">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
                         </tr>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </tbody>
             </table>
         `;

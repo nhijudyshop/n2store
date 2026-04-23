@@ -139,13 +139,7 @@
      * @returns {{ close: Function, mute: Function }} Control object
      */
     function setupSSE(options) {
-        const {
-            sseUrl,
-            onReload,
-            onEvent,
-            ignoreActions = [],
-            debounceMs = 2000,
-        } = options;
+        const { sseUrl, onReload, onEvent, ignoreActions = [], debounceMs = 2000 } = options;
 
         let source = null;
         let reloadTimer = null;
@@ -153,7 +147,10 @@
         let lastPayload = null;
 
         function connect() {
-            if (source) { source.close(); source = null; }
+            if (source) {
+                source.close();
+                source = null;
+            }
 
             try {
                 source = new EventSource(sseUrl);
@@ -163,7 +160,9 @@
                     if (Date.now() < muteUntil) return;
 
                     let payload = null;
-                    try { payload = JSON.parse(e.data); } catch (_) {}
+                    try {
+                        payload = JSON.parse(e.data);
+                    } catch (_) {}
 
                     // Check for ignored actions
                     if (ignoreActions.length > 0 && payload) {
@@ -175,7 +174,11 @@
 
                     // Notify caller about the raw event before debounce
                     if (typeof onEvent === 'function') {
-                        try { onEvent(payload); } catch (err) { console.warn('[SSE] onEvent error:', err); }
+                        try {
+                            onEvent(payload);
+                        } catch (err) {
+                            console.warn('[SSE] onEvent error:', err);
+                        }
                     }
 
                     // Debounced reload
@@ -195,7 +198,10 @@
 
         return {
             close() {
-                if (source) { source.close(); source = null; }
+                if (source) {
+                    source.close();
+                    source = null;
+                }
                 if (reloadTimer) clearTimeout(reloadTimer);
             },
             mute(durationMs = 3000) {
@@ -203,7 +209,7 @@
             },
             unmute() {
                 muteUntil = 0;
-            }
+            },
         };
     }
 
@@ -230,7 +236,8 @@
 
         function positionZoom(e, el) {
             const offset = 16;
-            const w = 280, h = 280;
+            const w = 280,
+                h = 280;
             let x = e.clientX + offset;
             let y = e.clientY - h / 2;
 
@@ -245,26 +252,38 @@
         const container = document.querySelector(containerSelector);
         if (!container) return;
 
-        container.addEventListener('mouseenter', function (e) {
-            const thumb = e.target.closest(thumbSelector);
-            if (!thumb) return;
-            const zoom = getOrCreateZoom();
-            zoom.src = thumb.src;
-            zoom.classList.add('visible');
-            positionZoom(e, zoom);
-        }, true);
+        container.addEventListener(
+            'mouseenter',
+            function (e) {
+                const thumb = e.target.closest(thumbSelector);
+                if (!thumb) return;
+                const zoom = getOrCreateZoom();
+                zoom.src = thumb.src;
+                zoom.classList.add('visible');
+                positionZoom(e, zoom);
+            },
+            true
+        );
 
-        container.addEventListener('mousemove', function (e) {
-            const thumb = e.target.closest(thumbSelector);
-            if (!thumb || !zoomEl) return;
-            positionZoom(e, zoomEl);
-        }, true);
+        container.addEventListener(
+            'mousemove',
+            function (e) {
+                const thumb = e.target.closest(thumbSelector);
+                if (!thumb || !zoomEl) return;
+                positionZoom(e, zoomEl);
+            },
+            true
+        );
 
-        container.addEventListener('mouseleave', function (e) {
-            const thumb = e.target.closest(thumbSelector);
-            if (!thumb || !zoomEl) return;
-            zoomEl.classList.remove('visible');
-        }, true);
+        container.addEventListener(
+            'mouseleave',
+            function (e) {
+                const thumb = e.target.closest(thumbSelector);
+                if (!thumb || !zoomEl) return;
+                zoomEl.classList.remove('visible');
+            },
+            true
+        );
     }
 
     // =====================================================

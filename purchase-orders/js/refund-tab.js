@@ -109,14 +109,19 @@ window.PurchaseOrderRefunds = (function () {
             loadPage(1);
         };
 
-        document.getElementById('btnRefundReload').addEventListener('click', () => loadPage(currentPage));
+        document
+            .getElementById('btnRefundReload')
+            .addEventListener('click', () => loadPage(currentPage));
         document.getElementById('refundStateFilter').addEventListener('change', applyFilters);
         document.getElementById('refundStartDate').addEventListener('change', applyFilters);
         document.getElementById('refundEndDate').addEventListener('change', applyFilters);
 
         const searchInput = document.getElementById('refundSearchInput');
         searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyFilters();
+            }
         });
         searchInput.addEventListener('input', () => {
             if (searchInput.value === '' && searchTerm !== '') {
@@ -257,10 +262,11 @@ window.PurchaseOrderRefunds = (function () {
 
         const startIdx = (currentPage - 1) * PAGE_SIZE;
 
-        const rows = items.map((item, idx) => {
-            const rowNum = startIdx + idx + 1;
-            const isExpanded = !!expandedRows[item.Id];
-            return `
+        const rows = items
+            .map((item, idx) => {
+                const rowNum = startIdx + idx + 1;
+                const isExpanded = !!expandedRows[item.Id];
+                return `
                 <tr class="order-row ${idx === 0 ? 'order-row--first' : ''} ${isExpanded ? 'order-row--expanded' : ''}"
                     data-order-id="${item.Id}" style="border-top: ${idx > 0 ? '1px solid var(--color-border-light)' : 'none'}; cursor: pointer;">
                     <td style="width: 36px; text-align: center; color: var(--color-text-muted); font-size: 12px;">${rowNum}</td>
@@ -294,7 +300,8 @@ window.PurchaseOrderRefunds = (function () {
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         tableContainer.innerHTML = `
             <div class="table-wrapper">
@@ -320,14 +327,14 @@ window.PurchaseOrderRefunds = (function () {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Row click to expand
-        tableContainer.querySelectorAll('tr.order-row[data-order-id]').forEach(row => {
+        tableContainer.querySelectorAll('tr.order-row[data-order-id]').forEach((row) => {
             row.addEventListener('click', () => {
                 toggleExpandRow(parseInt(row.dataset.orderId, 10));
             });
         });
 
         // Print button click
-        tableContainer.querySelectorAll('.btn-print-refund').forEach(btn => {
+        tableContainer.querySelectorAll('.btn-print-refund').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
@@ -351,7 +358,8 @@ window.PurchaseOrderRefunds = (function () {
 
         expandRow.style.display = 'table-row';
         mainRow?.classList.add('order-row--expanded');
-        contentDiv.innerHTML = '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">\u0110ang t\u1EA3i chi ti\u1EBFt...</div>';
+        contentDiv.innerHTML =
+            '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">\u0110ang t\u1EA3i chi ti\u1EBFt...</div>';
 
         try {
             const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account`;
@@ -360,7 +368,11 @@ window.PurchaseOrderRefunds = (function () {
             const data = await response.json();
             const lines = data.value || [];
             expandedRows[orderId] = lines;
-            contentDiv.innerHTML = renderExpandedContent(orderId, currentData.find(d => d.Id === orderId), lines);
+            contentDiv.innerHTML = renderExpandedContent(
+                orderId,
+                currentData.find((d) => d.Id === orderId),
+                lines
+            );
         } catch (error) {
             console.error('[Refunds] Expand failed:', error);
             contentDiv.innerHTML = `<div style="padding: 12px 16px; color: var(--color-danger); font-size: 13px;">L\u1ED7i: ${escapeHtml(error.message)}</div>`;
@@ -373,7 +385,9 @@ window.PurchaseOrderRefunds = (function () {
             return '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Kh\u00F4ng c\u00F3 chi ti\u1EBFt s\u1EA3n ph\u1EA9m</div>';
         }
 
-        const lineRows = lines.map((line, idx) => `
+        const lineRows = lines
+            .map(
+                (line, idx) => `
             <tr>
                 <td style="text-align: center; width: 40px;">${idx + 1}</td>
                 <td style="font-weight: 500;">${escapeHtml(line.Name || line.ProductNameGet || line.ProductName || '')}</td>
@@ -381,9 +395,11 @@ window.PurchaseOrderRefunds = (function () {
                 <td style="text-align: right; width: 120px;">${formatMoney(line.PriceUnit)}</td>
                 <td style="text-align: right; width: 120px;">${formatMoney(line.PriceSubTotal)}</td>
             </tr>`
-        ).join('');
+            )
+            .join('');
 
-        const totalAmount = item?.AmountTotal || lines.reduce((s, l) => s + (l.PriceSubTotal || 0), 0);
+        const totalAmount =
+            item?.AmountTotal || lines.reduce((s, l) => s + (l.PriceSubTotal || 0), 0);
 
         return `
             <div style="padding: 8px 16px 12px;">
@@ -415,10 +431,10 @@ window.PurchaseOrderRefunds = (function () {
 
     function renderState(showState, state) {
         const colors = {
-            'open': { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
-            'paid': { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
-            'draft': { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
-            'cancel': { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }
+            open: { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
+            paid: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
+            draft: { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
+            cancel: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' },
         };
         const c = colors[state] || colors['draft'];
         return `<span class="status-badge" style="background: ${c.bg}; color: ${c.text}; border: 1px solid ${c.border};">${escapeHtml(showState || state || '')}</span>`;
@@ -427,7 +443,10 @@ window.PurchaseOrderRefunds = (function () {
     function renderPagination() {
         if (!paginationContainer) return;
         const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-        if (totalPages <= 0) { paginationContainer.innerHTML = ''; return; }
+        if (totalPages <= 0) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
 
         const startItem = totalCount > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
         const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
@@ -437,25 +456,32 @@ window.PurchaseOrderRefunds = (function () {
             <div class="pagination">
                 <div class="pagination__info">Hi\u1EC3n th\u1ECB ${startItem} - ${endItem} trong ${totalCount} phi\u1EBFu tr\u1EA3 h\u00E0ng</div>
                 <div class="pagination__controls">
-                    ${totalPages > 1 ? `
+                    ${
+                        totalPages > 1
+                            ? `
                         <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        ${pages.map(p => {
-                            if (p === '...') return '<span class="pagination__ellipsis">...</span>';
-                            const isActive = p === currentPage;
-                            return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}" data-page="${p}" ${isActive ? 'disabled' : ''}>${p}</button>`;
-                        }).join('')}
+                        ${pages
+                            .map((p) => {
+                                if (p === '...')
+                                    return '<span class="pagination__ellipsis">...</span>';
+                                const isActive = p === currentPage;
+                                return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}" data-page="${p}" ${isActive ? 'disabled' : ''}>${p}</button>`;
+                            })
+                            .join('')}
                         <button class="pagination__btn pagination__btn--next ${currentPage >= totalPages ? 'disabled' : ''}" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>
                             <i data-lucide="chevron-right"></i>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach(btn => {
+        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const page = parseInt(btn.dataset.page, 10);
                 if (!isNaN(page) && page >= 1 && page <= totalPages) loadPage(page);
@@ -471,9 +497,17 @@ window.PurchaseOrderRefunds = (function () {
         let end = Math.min(total, current + half);
         if (start === 1) end = Math.min(total, maxVisible);
         if (end === total) start = Math.max(1, total - maxVisible + 1);
-        if (start > 1) { pages.push(1); if (start > 2) pages.push('...'); }
-        for (let i = start; i <= end; i++) { if (!pages.includes(i)) pages.push(i); }
-        if (end < total) { if (end < total - 1) pages.push('...'); if (!pages.includes(total)) pages.push(total); }
+        if (start > 1) {
+            pages.push(1);
+            if (start > 2) pages.push('...');
+        }
+        for (let i = start; i <= end; i++) {
+            if (!pages.includes(i)) pages.push(i);
+        }
+        if (end < total) {
+            if (end < total - 1) pages.push('...');
+            if (!pages.includes(total)) pages.push(total);
+        }
         return pages;
     }
 
@@ -515,17 +549,29 @@ window.PurchaseOrderRefunds = (function () {
         if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
             return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
         }
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\u0111/g, 'd')
+            .replace(/\u0110/g, 'D');
     }
 
-    function encodeODataString(str) { return str.replace(/'/g, "''"); }
+    function encodeODataString(str) {
+        return str.replace(/'/g, "''");
+    }
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
-    function reload() { loadPage(currentPage); }
+    function reload() {
+        loadPage(currentPage);
+    }
 
     function destroy() {
         currentData = [];
@@ -533,7 +579,7 @@ window.PurchaseOrderRefunds = (function () {
         totalCount = 0;
         searchTerm = '';
         filterState = '';
-        Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
+        Object.keys(expandedRows).forEach((k) => delete expandedRows[k]);
         // Remove summary bar
         const existingSummary = document.getElementById('refundSummaryBar');
         if (existingSummary) existingSummary.remove();

@@ -6,7 +6,12 @@
 
 function removeDiacritics(str) {
     if (!str) return '';
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
 }
 
 // Cache for order search fields to avoid recomputing removeDiacritics on every keystroke
@@ -38,7 +43,7 @@ function getOrderSearchFields(order) {
 // re-render toàn bộ rows chỉ vì index shift.
 function _rowRenderKey(order, index) {
     const selected = SocialOrderState.selectedOrders.has(order.id) ? 1 : 0;
-    const displayStt = order.stt || (index + 1);
+    const displayStt = order.stt || index + 1;
     return `${order.id}|${order.updatedAt || 0}|${selected}|${displayStt}`;
 }
 
@@ -184,17 +189,15 @@ function renderTableRow(order, index) {
     let tagsHtml = '';
     if (order.tags && order.tags.length > 0) {
         tagsHtml = order.tags
-            .map(
-                (tag) => {
-                    // Look up the full tag from state to get image
-                    const fullTag = SocialOrderState.tags.find(t => t.id === tag.id);
-                    const hasImage = fullTag?.image || tag.image;
-                    const hoverAttrs = hasImage
-                        ? `onmouseenter="showTagImageHover(this, '${tag.id}')" onmouseleave="hideTagImageHover()"`
-                        : '';
-                    return `<span class="order-tag ${hasImage ? 'has-image' : ''}" style="background: ${tag.color};" ${hoverAttrs}>${tag.name}</span>`;
-                }
-            )
+            .map((tag) => {
+                // Look up the full tag from state to get image
+                const fullTag = SocialOrderState.tags.find((t) => t.id === tag.id);
+                const hasImage = fullTag?.image || tag.image;
+                const hoverAttrs = hasImage
+                    ? `onmouseenter="showTagImageHover(this, '${tag.id}')" onmouseleave="hideTagImageHover()"`
+                    : '';
+                return `<span class="order-tag ${hasImage ? 'has-image' : ''}" style="background: ${tag.color};" ${hoverAttrs}>${tag.name}</span>`;
+            })
             .join(' ');
     }
 
@@ -205,10 +208,10 @@ function renderTableRow(order, index) {
             order.source === 'facebook_post'
                 ? 'fa-facebook-f'
                 : order.source === 'instagram'
-                    ? 'fa-instagram'
-                    : order.source === 'tiktok'
-                        ? 'fa-tiktok'
-                        : 'fa-link';
+                  ? 'fa-instagram'
+                  : order.source === 'tiktok'
+                    ? 'fa-tiktok'
+                    : 'fa-link';
         postHtml = `
             <a href="${order.postUrl}" target="_blank" class="post-link" title="${order.postUrl}">
                 <i class="fab ${icon}"></i>
@@ -247,14 +250,17 @@ function renderTableRow(order, index) {
             </td>
             <td data-column="actions">
                 <div class="action-buttons">
-                    ${order.status === 'cancelled' ? `
+                    ${
+                        order.status === 'cancelled'
+                            ? `
                         <button class="btn-edit-icon" data-action="restore" title="Khôi phục đơn" style="color: #10b981;">
                             <i class="fas fa-undo"></i>
                         </button>
                         <button class="tag-icon-btn-red" data-action="permanent-delete" title="Xóa vĩnh viễn">
                             <i class="fas fa-trash-alt"></i>
                         </button>
-                    ` : `
+                    `
+                            : `
                         <button class="btn-edit-icon" data-action="edit" title="Sửa đơn">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -264,7 +270,8 @@ function renderTableRow(order, index) {
                         <button class="btn-edit-icon" data-action="sale" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
                             <i class="fas fa-receipt"></i>
                         </button>
-                    `}
+                    `
+                    }
                 </div>
             </td>
             <td data-column="stt" style="text-align: center;">${order.stt || index + 1}</td>
@@ -285,15 +292,16 @@ function renderTableRow(order, index) {
             <td data-column="phone">
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.phone || '—'}</span>
-                    ${order.phone
-            ? `
+                    ${
+                        order.phone
+                            ? `
                         <button class="copy-phone-btn" data-action="copy-phone" data-phone="${order.phone}"
                                 style="background: none; border: none; cursor: pointer; color: #9ca3af; padding: 2px;">
                             <i class="fas fa-copy" style="font-size: 11px;"></i>
                         </button>
                     `
-            : ''
-        }
+                            : ''
+                    }
                 </div>
             </td>
             <td data-column="chat" style="text-align: center;">
@@ -362,7 +370,8 @@ function showNoteImageHover(thumbEl, src) {
     hideNoteImageHover();
     const rect = thumbEl.getBoundingClientRect();
     _noteHoverEl = document.createElement('div');
-    _noteHoverEl.style.cssText = 'position: fixed; z-index: 99998; pointer-events: none; padding: 4px; background: white; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); border: 1px solid #e5e7eb; transition: opacity 0.15s;';
+    _noteHoverEl.style.cssText =
+        'position: fixed; z-index: 99998; pointer-events: none; padding: 4px; background: white; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); border: 1px solid #e5e7eb; transition: opacity 0.15s;';
 
     const img = document.createElement('img');
     img.src = src;
@@ -378,14 +387,14 @@ function showNoteImageHover(thumbEl, src) {
         if (top < 8) {
             top = rect.bottom + 8;
         }
-        let left = rect.left + (rect.width / 2) - (hoverRect.width / 2);
+        let left = rect.left + rect.width / 2 - hoverRect.width / 2;
         left = Math.max(8, Math.min(left, window.innerWidth - hoverRect.width - 8));
         _noteHoverEl.style.top = top + 'px';
         _noteHoverEl.style.left = left + 'px';
     };
 
     // Initial position (before image loads)
-    _noteHoverEl.style.top = (rect.top - 200) + 'px';
+    _noteHoverEl.style.top = rect.top - 200 + 'px';
     _noteHoverEl.style.left = rect.left + 'px';
 }
 
@@ -399,11 +408,13 @@ function hideNoteImageHover() {
 function openNoteImagePreview(src) {
     hideNoteImageHover();
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99999; display: flex; align-items: center; justify-content: center; cursor: pointer;';
+    overlay.style.cssText =
+        'position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99999; display: flex; align-items: center; justify-content: center; cursor: pointer;';
     overlay.onclick = () => overlay.remove();
     const img = document.createElement('img');
     img.src = src;
-    img.style.cssText = 'max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);';
+    img.style.cssText =
+        'max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);';
     overlay.appendChild(img);
     document.body.appendChild(overlay);
 }
@@ -578,7 +589,11 @@ function performTableSearch() {
     updateSearchClearButton();
 
     // Update tag panel counts only if panel is open
-    if (typeof renderTagPanelCards === 'function' && typeof isTagPanelOpen !== 'undefined' && isTagPanelOpen) {
+    if (
+        typeof renderTagPanelCards === 'function' &&
+        typeof isTagPanelOpen !== 'undefined' &&
+        isTagPanelOpen
+    ) {
         renderTagPanelCards();
     }
 }
@@ -697,7 +712,18 @@ let pendingAction = null; // { type, ids, single }
  * Configure the confirm modal UI based on action type.
  * Optional reasonInput=true shows a textarea pre-filled with "HẾT HÀNG".
  */
-function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning, info, btnText, btnIcon, btnColor, reasonInput }) {
+function _showConfirmModal({
+    titleText,
+    titleColor,
+    titleIcon,
+    message,
+    warning,
+    info,
+    btnText,
+    btnIcon,
+    btnColor,
+    reasonInput,
+}) {
     const modal = document.getElementById('confirmDeleteModal');
     if (!modal) return;
 
@@ -728,7 +754,10 @@ function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning,
     if (reasonInput && reasonInputEl) {
         reasonInputEl.value = 'HẾT HÀNG';
         // Focus + select after modal opens
-        setTimeout(() => { reasonInputEl.focus(); reasonInputEl.select(); }, 50);
+        setTimeout(() => {
+            reasonInputEl.focus();
+            reasonInputEl.select();
+        }, 50);
     }
 
     modal.classList.add('show');
@@ -753,7 +782,7 @@ function confirmCancelOrder(orderId) {
         stt: order.stt,
         customerName: order.customerName,
         status: order.status,
-        existingNote: order.note
+        existingNote: order.note,
     });
     pendingAction = { type: 'cancel', ids: [orderId], single: true };
     console.log('[CANCEL-DEBUG] 3️⃣ pendingAction set:', pendingAction);
@@ -768,7 +797,7 @@ function confirmCancelOrder(orderId) {
         btnText: 'Hủy đơn',
         btnIcon: 'fa-ban',
         btnColor: '#f59e0b',
-        reasonInput: true
+        reasonInput: true,
     });
     console.log('[CANCEL-DEBUG] 4️⃣ Modal opened, waiting for user confirm...');
 }
@@ -788,7 +817,7 @@ function confirmPermanentDeleteOrder(orderId) {
         info: false,
         btnText: 'Xóa vĩnh viễn',
         btnIcon: 'fa-trash-alt',
-        btnColor: '#ef4444'
+        btnColor: '#ef4444',
     });
 }
 
@@ -847,7 +876,7 @@ function confirmPendingAction() {
             console.log('[CANCEL-DEBUG] 6️⃣ Reason read from textarea:', {
                 rawValue,
                 cleaned: reason,
-                textareaFound: !!reasonEl
+                textareaFound: !!reasonEl,
             });
         }
 
@@ -899,7 +928,7 @@ function _doCancel(ids, reason) {
         console.log('[CANCEL-DEBUG] 🔟 Note transform for order', id, {
             before: existingNote,
             stripped,
-            after: newNote
+            after: newNote,
         });
 
         order.status = 'cancelled';
@@ -908,11 +937,14 @@ function _doCancel(ids, reason) {
 
         if (typeof updateSocialOrder === 'function') {
             console.log('[CANCEL-DEBUG] 📡 Calling updateSocialOrder (fire-and-forget)', {
-                id, payload: { status: 'cancelled', note: newNote }
+                id,
+                payload: { status: 'cancelled', note: newNote },
             });
             updateSocialOrder(id, { status: 'cancelled', note: newNote })
                 .then((r) => console.log('[CANCEL-DEBUG] ✅ updateSocialOrder resolved for', id, r))
-                .catch((e) => console.error('[CANCEL-DEBUG] ❌ updateSocialOrder FAILED for', id, e));
+                .catch((e) =>
+                    console.error('[CANCEL-DEBUG] ❌ updateSocialOrder FAILED for', id, e)
+                );
         } else {
             console.warn('[CANCEL-DEBUG] ⚠️ updateSocialOrder is not a function');
         }
@@ -936,7 +968,9 @@ function _doCancel(ids, reason) {
 }
 
 function _doPermanentDelete(ids) {
-    const removed = SocialOrderState.orders.filter((o) => ids.includes(o.id)).map((o) => ({ ...o }));
+    const removed = SocialOrderState.orders
+        .filter((o) => ids.includes(o.id))
+        .map((o) => ({ ...o }));
     SocialOrderState.orders = SocialOrderState.orders.filter((o) => !ids.includes(o.id));
     SocialOrderState.selectedOrders.clear();
     saveSocialOrdersToStorage();
@@ -957,7 +991,10 @@ function _doPermanentDelete(ids) {
         }
     }
 
-    showNotification(ids.length > 1 ? `Đã xóa vĩnh viễn ${ids.length} đơn` : 'Đã xóa vĩnh viễn đơn hàng', 'success');
+    showNotification(
+        ids.length > 1 ? `Đã xóa vĩnh viễn ${ids.length} đơn` : 'Đã xóa vĩnh viễn đơn hàng',
+        'success'
+    );
     performTableSearch();
     if (typeof updateSelectionUI === 'function') updateSelectionUI();
 }
@@ -978,7 +1015,7 @@ function cancelSelectedOrders() {
         btnText: `Hủy ${count} đơn`,
         btnIcon: 'fa-ban',
         btnColor: '#f59e0b',
-        reasonInput: true
+        reasonInput: true,
     });
 }
 
@@ -997,7 +1034,7 @@ function permanentDeleteSelectedOrders() {
         info: false,
         btnText: `Xóa ${count} đơn`,
         btnIcon: 'fa-trash-alt',
-        btnColor: '#ef4444'
+        btnColor: '#ef4444',
     });
 }
 
@@ -1101,7 +1138,7 @@ async function changeSocialOrderStatus(orderId, newStatus) {
         return;
     }
 
-    const order = SocialOrderState.orders.find(o => o.id === orderId);
+    const order = SocialOrderState.orders.find((o) => o.id === orderId);
     if (!order) return;
 
     const oldStatus = order.status;

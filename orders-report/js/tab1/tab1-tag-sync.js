@@ -9,7 +9,7 @@
 //   - Guard flags kép tránh loop vô hạn
 // =====================================================
 
-(function() {
+(function () {
     'use strict';
 
     // Module guard — chống IIFE chạy 2 lần
@@ -19,7 +19,8 @@
     window.__tab1TagSyncV3Loaded = true;
 
     const LOG = '[TAG-SYNC-V3]';
-    const ASSIGN_TAG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag';
+    const ASSIGN_TAG_URL =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag';
     const CREATE_TAG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag';
 
     // =====================================================
@@ -32,7 +33,7 @@
         1: 'CHỜ ĐI ĐƠN (OKE)',
         2: 'MỤC XỬ LÝ',
         3: 'KHÔNG CẦN CHỐT',
-        4: 'KHÁCH XÃ SAU CHỐT'
+        4: 'KHÁCH XÃ SAU CHỐT',
     };
 
     // Subtag (XL subtag id → TPOS tag name). 1 chiều XL→TPOS cho subtag thường,
@@ -41,46 +42,44 @@
     // xem tab1-empty-cart-auto-sync.js (cleanup-only mode).
     const SUBTAG_TO_TPOS = {
         // Cat 2 — MỤC XỬ LÝ
-        CHUA_PHAN_HOI:     'ĐƠN CHƯA PHẢN HỒI',
-        BAN_HANG:          'BÁN HÀNG',
+        CHUA_PHAN_HOI: 'ĐƠN CHƯA PHẢN HỒI',
+        BAN_HANG: 'BÁN HÀNG',
         // Cat 3 — KHÔNG CẦN CHỐT  (⚠ bidirectional REMOVE)
         DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KO CHỐT',
         // Cat 4 — KHÁCH XÃ SAU CHỐT  (⚠ bidirectional REMOVE: NCC_HET_HANG)
-        NCC_HET_HANG:      'NCC HẾT HÀNG',
-        KHACH_HUY_DON:     'KHÁCH HỦY NGUYÊN ĐƠN',
-        KHACH_KO_LIEN_LAC: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC'
+        NCC_HET_HANG: 'NCC HẾT HÀNG',
+        KHACH_HUY_DON: 'KHÁCH HỦY NGUYÊN ĐƠN',
+        KHACH_KO_LIEN_LAC: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC',
     };
 
-    const BIDIRECTIONAL_REMOVE_SUBTAGS = new Set([
-        'DA_GOP_KHONG_CHOT', 'NCC_HET_HANG'
-    ]);
+    const BIDIRECTIONAL_REMOVE_SUBTAGS = new Set(['DA_GOP_KHONG_CHOT', 'NCC_HET_HANG']);
 
     // Flag (XL flag id → TPOS tag name). Bidirectional ADD + REMOVE.
     // KHAC flag không map (nội bộ XL only).
     const FLAG_TO_TPOS = {
-        TRU_CONG_NO:      'TRỪ CÔNG NỢ',
-        CHUYEN_KHOAN:     'CHUYỂN KHOẢN',
-        GIAM_GIA:         'GIẢM GIÁ',
-        CHO_LIVE:         'CHỜ LIVE',
-        GIU_DON:          'GIỮ ĐƠN',
-        QUA_LAY:          'QUA LẤY',
+        TRU_CONG_NO: 'TRỪ CÔNG NỢ',
+        CHUYEN_KHOAN: 'CHUYỂN KHOẢN',
+        GIAM_GIA: 'GIẢM GIÁ',
+        CHO_LIVE: 'CHỜ LIVE',
+        GIU_DON: 'GIỮ ĐƠN',
+        QUA_LAY: 'QUA LẤY',
         GOI_BAO_KHACH_HH: 'GỌI BÁO KHÁCH HH',
-        KHACH_BOOM:       'KHÁCH BOOM',
-        THE_KHACH_LA:     'THẺ KHÁCH LẠ',
-        DA_DI_DON_GAP:    'ĐÃ ĐI ĐƠN GẤP'
+        KHACH_BOOM: 'KHÁCH BOOM',
+        THE_KHACH_LA: 'THẺ KHÁCH LẠ',
+        DA_DI_DON_GAP: 'ĐÃ ĐI ĐƠN GẤP',
     };
 
     // T-tag hardcoded (default T-tag). Bidirectional.
     // Dynamic T-tags: match theo def.name (uppercase), pattern /^T\d+\s+/.
     const TTAG_HARDCODED = {
-        T_MY: 'MY THÊM CHỜ VỀ'
+        T_MY: 'MY THÊM CHỜ VỀ',
     };
 
     // Reverse aliases — chỉ dùng khi TPOS → XL (TPOS tag name → XL key).
     const TPOS_ALIASES = {
         'TRỪ THU VỀ': 'flag:TRU_CONG_NO',
-        'KHÁCH CK':   'flag:CHUYEN_KHOAN',
-        'CK':         'flag:CHUYEN_KHOAN'
+        'KHÁCH CK': 'flag:CHUYEN_KHOAN',
+        CK: 'flag:CHUYEN_KHOAN',
     };
 
     // Pattern aliases — match TPOS tag bằng regex thay vì exact name.
@@ -90,7 +89,10 @@
     function _matchTPOSAliasPattern(name) {
         const upper = _normalizeName(name);
         // Strip Vietnamese diacritics for permissive match
-        const stripped = upper.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D');
+        const stripped = upper
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/Đ/g, 'D');
         // "CỌC 100K", "CỌC 200K", "CỌC 50K", "COC500K"... → flag CHUYEN_KHOAN
         if (/^COC\s*\d+\s*K?$/.test(stripped)) {
             return 'flag:CHUYEN_KHOAN';
@@ -102,12 +104,12 @@
     // tag do XL quản lý và tag ngoài mapping (giữ nguyên).
     function _buildManagedNameSet() {
         const set = new Set();
-        Object.values(CAT_TO_TPOS).forEach(n => set.add(_normalizeName(n)));
-        Object.values(SUBTAG_TO_TPOS).forEach(n => set.add(_normalizeName(n)));
-        Object.values(FLAG_TO_TPOS).forEach(n => set.add(_normalizeName(n)));
-        Object.values(TTAG_HARDCODED).forEach(n => set.add(_normalizeName(n)));
+        Object.values(CAT_TO_TPOS).forEach((n) => set.add(_normalizeName(n)));
+        Object.values(SUBTAG_TO_TPOS).forEach((n) => set.add(_normalizeName(n)));
+        Object.values(FLAG_TO_TPOS).forEach((n) => set.add(_normalizeName(n)));
+        Object.values(TTAG_HARDCODED).forEach((n) => set.add(_normalizeName(n)));
         // Aliases: cũng đánh dấu là managed (để forward sync xóa nếu XL không còn)
-        Object.keys(TPOS_ALIASES).forEach(n => set.add(_normalizeName(n)));
+        Object.keys(TPOS_ALIASES).forEach((n) => set.add(_normalizeName(n)));
         return set;
     }
 
@@ -132,7 +134,9 @@
     // =====================================================
 
     function _normalizeName(s) {
-        return String(s || '').trim().toUpperCase();
+        return String(s || '')
+            .trim()
+            .toUpperCase();
     }
 
     function _setEqual(a, b) {
@@ -145,14 +149,14 @@
         if (typeof window._ptagResolveCode === 'function') {
             return window._ptagResolveCode(orderId);
         }
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const order = allOrders.find(o => String(o.Id) === String(orderId));
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+        const order = allOrders.find((o) => String(o.Id) === String(orderId));
         return order?.Code ? String(order.Code) : null;
     }
 
     function _findOrderByCode(orderCode) {
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        return allOrders.find(o => String(o.Code) === String(orderCode)) || null;
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+        return allOrders.find((o) => String(o.Code) === String(orderCode)) || null;
     }
 
     function _getTPOSTagsFromOrder(order) {
@@ -191,14 +195,14 @@
             const url = `${CREATE_TAG_URL}?$format=json&$filter=${encodeURIComponent(filterExpr)}&$top=5`;
             const resp = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { ...headers, accept: 'application/json' }
+                headers: { ...headers, accept: 'application/json' },
             });
             if (!resp.ok) return null;
             const data = await resp.json();
             const list = Array.isArray(data?.value) ? data.value : [];
             if (list.length === 0) return null;
             const upperName = _normalizeName(name);
-            return list.find(t => _normalizeName(t.Name) === upperName) || list[0];
+            return list.find((t) => _normalizeName(t.Name) === upperName) || list[0];
         } catch (e) {
             console.warn(`${LOG} _queryTPOSTagByName error for "${name}":`, e.message);
             return null;
@@ -219,16 +223,20 @@
         const upperName = _normalizeName(name);
 
         // 1. Cache lookup
-        let tag = tags.find(t => _normalizeName(t.Name) === upperName);
+        let tag = tags.find((t) => _normalizeName(t.Name) === upperName);
         if (tag) return tag;
 
         // 2. OData $filter query — targeted, không bị pagination
         const filtered = await _queryTPOSTagByName(name);
         if (filtered) {
             // Sync vào cache
-            if (Array.isArray(window.availableTags) && !window.availableTags.find(t => t.Id === filtered.Id)) {
+            if (
+                Array.isArray(window.availableTags) &&
+                !window.availableTags.find((t) => t.Id === filtered.Id)
+            ) {
                 window.availableTags.push(filtered);
-                if (window.cacheManager) window.cacheManager.set('tags', window.availableTags, 'tags');
+                if (window.cacheManager)
+                    window.cacheManager.set('tags', window.availableTags, 'tags');
             }
             return filtered;
         }
@@ -245,7 +253,7 @@
                 if (window.cacheManager) window.cacheManager.set('tags', fresh, 'tags');
             }
             const reloaded = window.availableTags || [];
-            tag = reloaded.find(t => _normalizeName(t.Name) === upperName);
+            tag = reloaded.find((t) => _normalizeName(t.Name) === upperName);
             if (tag) return tag;
         } catch (e) {
             console.warn(`${LOG} Reload tags failed:`, e.message);
@@ -255,24 +263,31 @@
         console.log(`${LOG} Creating new TPOS tag "${name}"...`);
         try {
             const headers = await window.tokenManager.getAuthHeader();
-            const color = (typeof window.generateRandomColor === 'function') ? window.generateRandomColor() : '#6b7280';
+            const color =
+                typeof window.generateRandomColor === 'function'
+                    ? window.generateRandomColor()
+                    : '#6b7280';
             const response = await window.API_CONFIG.smartFetch(CREATE_TAG_URL, {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'accept': 'application/json',
-                    'content-type': 'application/json;charset=UTF-8'
+                    accept: 'application/json',
+                    'content-type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ Name: name, Color: color })
+                body: JSON.stringify({ Name: name, Color: color }),
             });
             if (!response.ok) {
                 // 400 = tag đã tồn tại race condition → re-query bằng $filter để recover
                 if (response.status === 400) {
                     const recovered = await _queryTPOSTagByName(name);
                     if (recovered) {
-                        if (Array.isArray(window.availableTags) && !window.availableTags.find(t => t.Id === recovered.Id)) {
+                        if (
+                            Array.isArray(window.availableTags) &&
+                            !window.availableTags.find((t) => t.Id === recovered.Id)
+                        ) {
                             window.availableTags.push(recovered);
-                            if (window.cacheManager) window.cacheManager.set('tags', window.availableTags, 'tags');
+                            if (window.cacheManager)
+                                window.cacheManager.set('tags', window.availableTags, 'tags');
                         }
                         return recovered;
                     }
@@ -283,7 +298,8 @@
             if (newTag['@odata.context']) delete newTag['@odata.context'];
             if (window.availableTags) {
                 window.availableTags.push(newTag);
-                if (window.cacheManager) window.cacheManager.set('tags', window.availableTags, 'tags');
+                if (window.cacheManager)
+                    window.cacheManager.set('tags', window.availableTags, 'tags');
             }
             console.log(`${LOG} Created TPOS tag: ${newTag.Name} (ID: ${newTag.Id})`);
             return newTag;
@@ -303,12 +319,12 @@
             headers: {
                 ...headers,
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                Accept: 'application/json',
             },
             body: JSON.stringify({
-                Tags: tagObjects.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                OrderId: orderId
-            })
+                Tags: tagObjects.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                OrderId: orderId,
+            }),
         });
         if (!response.ok) throw new Error(`AssignTag HTTP ${response.status}`);
         return response;
@@ -333,7 +349,7 @@
         }
 
         // 3. Flags
-        const flagIds = (data.flags || []).map(f => f?.id || f);
+        const flagIds = (data.flags || []).map((f) => f?.id || f);
         for (const flagId of flagIds) {
             if (FLAG_TO_TPOS[flagId]) {
                 desired.add(_normalizeName(FLAG_TO_TPOS[flagId]));
@@ -341,14 +357,14 @@
         }
 
         // 4. T-tags
-        const tTagIds = (data.tTags || []).map(t => t?.id || t);
+        const tTagIds = (data.tTags || []).map((t) => t?.id || t);
         const defs = window.ProcessingTagState?.getTTagDefinitions?.() || [];
         for (const ttagId of tTagIds) {
             if (TTAG_HARDCODED[ttagId]) {
                 desired.add(_normalizeName(TTAG_HARDCODED[ttagId]));
                 continue;
             }
-            const def = defs.find(d => d.id === ttagId);
+            const def = defs.find((d) => d.id === ttagId);
             if (def && def.name) {
                 desired.add(_normalizeName(def.name));
             }
@@ -385,11 +401,13 @@
 
             // Current TPOS tags
             const currentTags = _getTPOSTagsFromOrder(order);
-            const currentNamesUpper = new Set(currentTags.map(t => _normalizeName(t.Name)));
+            const currentNamesUpper = new Set(currentTags.map((t) => _normalizeName(t.Name)));
 
             // Dynamic T-tag names set (cho _isManagedTPOSTag check)
             const defs = window.ProcessingTagState?.getTTagDefinitions?.() || [];
-            const dynTTagNames = new Set(defs.map(d => _normalizeName(d.name || '')).filter(Boolean));
+            const dynTTagNames = new Set(
+                defs.map((d) => _normalizeName(d.name || '')).filter(Boolean)
+            );
 
             // Build final tag name set: preserve tag unmanaged + thêm desired managed
             const finalNamesUpper = new Set();
@@ -417,7 +435,7 @@
             const finalTagObjs = [...keptObjects];
             for (const n of desired) {
                 // Nếu đã có trong keptObjects → skip
-                if (keptObjects.some(k => _normalizeName(k.Name) === n)) continue;
+                if (keptObjects.some((k) => _normalizeName(k.Name) === n)) continue;
                 // Tìm display name gốc (để giữ diacritics) từ mapping
                 const displayName = _findDisplayNameFromManaged(n);
                 const tag = await _findOrCreateTPOSTag(displayName || n);
@@ -426,7 +444,9 @@
                 }
             }
 
-            console.log(`${LOG} [XL→TPOS] ${reason || ''} ${orderCode}: ${finalTagObjs.length} tags (${finalTagObjs.map(t => t.Name).join(', ')})`);
+            console.log(
+                `${LOG} [XL→TPOS] ${reason || ''} ${orderCode}: ${finalTagObjs.length} tags (${finalTagObjs.map((t) => t.Name).join(', ')})`
+            );
 
             // Call API
             await _callAssignTag(order.Id, finalTagObjs);
@@ -465,7 +485,7 @@
         }
         // Dynamic T-tag: tìm def
         const defs = window.ProcessingTagState?.getTTagDefinitions?.() || [];
-        const def = defs.find(d => _normalizeName(d.name || '') === upperName);
+        const def = defs.find((d) => _normalizeName(d.name || '') === upperName);
         if (def) return def.name;
         return null;
     }
@@ -494,25 +514,24 @@
         const lastForward = _recentForwardSyncAt.get(orderCode) || 0;
         const cooldownRemaining = FORWARD_SYNC_COOLDOWN_MS - (Date.now() - lastForward);
         if (cooldownRemaining > 0) {
-            console.log(`${LOG} [TPOS→XL] Skip ${orderCode} — cooldown ${cooldownRemaining}ms sau forward sync`);
+            console.log(
+                `${LOG} [TPOS→XL] Skip ${orderCode} — cooldown ${cooldownRemaining}ms sau forward sync`
+            );
             return;
         }
         if (_syncingReverse.has(orderCode)) return;
 
         _syncingReverse.add(orderCode);
         try {
-
             // Đọc XL data mới nhất
             const data = window.ProcessingTagState?.getOrderData?.(orderCode) || null;
-            const currentFlags = (data?.flags || []).map(f => f?.id || f);
-            const currentTTags = (data?.tTags || []).map(t => t?.id || t);
+            const currentFlags = (data?.flags || []).map((f) => f?.id || f);
+            const currentTTags = (data?.tTags || []).map((t) => t?.id || t);
             const currentSubTag = data?.subTag || null;
-            const currentCategory = (data?.category != null) ? data.category : null;
+            const currentCategory = data?.category != null ? data.category : null;
 
             // Build TPOS tag name set (uppercase)
-            const tposNamesUpper = new Set(
-                (newTPOSTags || []).map(t => _normalizeName(t.Name))
-            );
+            const tposNamesUpper = new Set((newTPOSTags || []).map((t) => _normalizeName(t.Name)));
 
             // (a) Flags bidirectional
             for (const [flagKey, tposName] of Object.entries(FLAG_TO_TPOS)) {
@@ -540,7 +559,7 @@
                 matchedAliasFlags.add(xlKey.split(':')[1]);
             }
             // Pattern alias: iterate TPOS tag names, check pattern matchers
-            for (const tag of (newTPOSTags || [])) {
+            for (const tag of newTPOSTags || []) {
                 const xlKey = _matchTPOSAliasPattern(tag?.Name || '');
                 if (xlKey && xlKey.startsWith('flag:')) {
                     matchedAliasFlags.add(xlKey.split(':')[1]);
@@ -548,7 +567,7 @@
             }
             for (const flagKey of matchedAliasFlags) {
                 const latestData = window.ProcessingTagState?.getOrderData?.(orderCode);
-                const latestFlags = (latestData?.flags || []).map(f => f?.id || f);
+                const latestFlags = (latestData?.flags || []).map((f) => f?.id || f);
                 if (!latestFlags.includes(flagKey)) {
                     console.log(`${LOG} [TPOS→XL] ALIAS ADD flag ${flagKey} → ${orderCode}`);
                     if (typeof window.toggleOrderFlag === 'function') {
@@ -562,11 +581,16 @@
             if (currentSubTag && BIDIRECTIONAL_REMOVE_SUBTAGS.has(currentSubTag)) {
                 const tposName = SUBTAG_TO_TPOS[currentSubTag];
                 if (tposName && !tposNamesUpper.has(_normalizeName(tposName))) {
-                    console.log(`${LOG} [TPOS→XL] REMOVE subtag ${currentSubTag} (giữ Cat ${currentCategory}) → ${orderCode}`);
-                    if (typeof window.assignOrderCategory === 'function' && currentCategory != null) {
+                    console.log(
+                        `${LOG} [TPOS→XL] REMOVE subtag ${currentSubTag} (giữ Cat ${currentCategory}) → ${orderCode}`
+                    );
+                    if (
+                        typeof window.assignOrderCategory === 'function' &&
+                        currentCategory != null
+                    ) {
                         await window.assignOrderCategory(orderCode, currentCategory, {
                             subTag: null,
-                            source: 'TPOS-SYNC-REMOVE-SUBTAG'
+                            source: 'TPOS-SYNC-REMOVE-SUBTAG',
                         });
                     }
                 }
@@ -591,17 +615,22 @@
             // (e) T-tag Tx pattern bidirectional (auto-create def)
             const defs = window.ProcessingTagState?.getTTagDefinitions?.() || [];
             // e1. ADD: TPOS có tag match /^T\d+\s+/ mà XL chưa có
-            for (const tag of (newTPOSTags || [])) {
+            for (const tag of newTPOSTags || []) {
                 const tagName = String(tag?.Name || '').trim();
                 if (!/^T\d+\s+/i.test(tagName)) continue;
                 const upperName = tagName.toUpperCase();
                 if (upperName === tposNameTMY) continue; // T_MY đã xử lý ở (d)
 
                 // Tìm def theo name (không phải id)
-                let def = defs.find(d => _normalizeName(d.name || '') === upperName);
+                let def = defs.find((d) => _normalizeName(d.name || '') === upperName);
                 if (!def) {
                     // Auto-create def: id = name uppercase (nhất quán với _ptagAutoCreateTTag)
-                    def = { id: upperName, name: upperName, productCode: '', createdAt: Date.now() };
+                    def = {
+                        id: upperName,
+                        name: upperName,
+                        productCode: '',
+                        createdAt: Date.now(),
+                    };
                     defs.push(def);
                     if (typeof window.ProcessingTagState?.setTTagDefinitions === 'function') {
                         window.ProcessingTagState.setTTagDefinitions(defs);
@@ -614,7 +643,7 @@
 
                 // Re-read latest tTags (có thể đã add ở loop trước)
                 const latestData = window.ProcessingTagState?.getOrderData?.(orderCode);
-                const latestTTagIds = (latestData?.tTags || []).map(t => t?.id || t);
+                const latestTTagIds = (latestData?.tTags || []).map((t) => t?.id || t);
                 if (!latestTTagIds.includes(def.id)) {
                     console.log(`${LOG} [TPOS→XL] ADD T-tag ${def.id} → ${orderCode}`);
                     if (typeof window.assignTTagToOrder === 'function') {
@@ -626,10 +655,10 @@
             // e2. REMOVE: XL có T-tag (khác T_MY) mà TPOS không còn
             // Re-read để tránh dựa vào state cũ
             const latestData2 = window.ProcessingTagState?.getOrderData?.(orderCode);
-            const latestTTagIds2 = (latestData2?.tTags || []).map(t => t?.id || t);
+            const latestTTagIds2 = (latestData2?.tTags || []).map((t) => t?.id || t);
             for (const ttagId of latestTTagIds2) {
                 if (ttagId === 'T_MY') continue;
-                const def = defs.find(d => d.id === ttagId);
+                const def = defs.find((d) => d.id === ttagId);
                 if (!def) continue;
                 if (!tposNamesUpper.has(_normalizeName(def.name || ''))) {
                     console.log(`${LOG} [TPOS→XL] REMOVE T-tag ${ttagId} → ${orderCode}`);
@@ -653,31 +682,34 @@
     window.handleTPOSTagsChanged = handleTPOSTagsChanged;
     // Expose managed-name lookup so other modules (vd Tag XL cell render)
     // có thể detect tag KHÁC = unmanaged TPOS tag.
-    window.isTPOSTagManaged = function(tagName) {
+    window.isTPOSTagManaged = function (tagName) {
         if (_buildManagedNameSet().has(_normalizeName(tagName))) return true;
         // Pattern alias (vd CỌC 100K) cũng coi là managed về mặt logical
         if (_matchTPOSAliasPattern(tagName)) return true;
         return false;
     };
     // Trả về flag key (vd 'CHUYEN_KHOAN') nếu tag match pattern alias, null nếu không.
-    window.matchTPOSAliasFlag = function(tagName) {
+    window.matchTPOSAliasFlag = function (tagName) {
         const xlKey = _matchTPOSAliasPattern(tagName);
         if (!xlKey || !xlKey.startsWith('flag:')) return null;
         return xlKey.split(':')[1];
     };
-    window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw, dynamicTTagNames) {
+    window.getUnmanagedTPOSTagsFromOrder = function (orderTagsRaw, dynamicTTagNames) {
         const set = _buildManagedNameSet();
         let arr = [];
         if (Array.isArray(orderTagsRaw)) arr = orderTagsRaw;
         else if (typeof orderTagsRaw === 'string' && orderTagsRaw) {
-            try { const p = JSON.parse(orderTagsRaw); if (Array.isArray(p)) arr = p; } catch (e) {}
+            try {
+                const p = JSON.parse(orderTagsRaw);
+                if (Array.isArray(p)) arr = p;
+            } catch (e) {}
         }
-        return arr.filter(t => {
+        return arr.filter((t) => {
             const name = t?.Name || '';
             const upper = _normalizeName(name);
-            if (set.has(upper)) return false;                          // hardcoded mapping
-            if (_matchTPOSAliasPattern(name)) return false;            // pattern alias
-            if (/^T\d+\s+/i.test(name)) return false;                  // dynamic Tx tag (đồng bộ _isManagedTPOSTag)
+            if (set.has(upper)) return false; // hardcoded mapping
+            if (_matchTPOSAliasPattern(name)) return false; // pattern alias
+            if (/^T\d+\s+/i.test(name)) return false; // dynamic Tx tag (đồng bộ _isManagedTPOSTag)
             if (dynamicTTagNames && dynamicTTagNames.has(upper)) return false; // khớp XL T-tag def hiện có
             return true;
         });

@@ -9,7 +9,7 @@
  */
 const DEFAULT_PERMISSIONS = {
     // Tab permissions
-    tab_datHang: true,      // Tab Đặt Hàng - mặc định mở cho tất cả
+    tab_datHang: true, // Tab Đặt Hàng - mặc định mở cho tất cả
     tab_tracking: true,
     tab_congNo: false,
 
@@ -149,7 +149,10 @@ class InventoryPermissionHelper {
                         }
                     }
                 } catch (apiErr) {
-                    console.warn('[PERMISSION] Failed to load permissions from API, using defaults:', apiErr.message);
+                    console.warn(
+                        '[PERMISSION] Failed to load permissions from API, using defaults:',
+                        apiErr.message
+                    );
                 }
             }
 
@@ -175,14 +178,14 @@ class InventoryPermissionHelper {
      * Check multiple permissions (AND logic)
      */
     canAll(...permissionKeys) {
-        return permissionKeys.every(key => this.can(key));
+        return permissionKeys.every((key) => this.can(key));
     }
 
     /**
      * Check multiple permissions (OR logic)
      */
     canAny(...permissionKeys) {
-        return permissionKeys.some(key => this.can(key));
+        return permissionKeys.some((key) => this.can(key));
     }
 
     /**

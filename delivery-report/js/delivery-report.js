@@ -41,7 +41,7 @@
         filters: {
             fromDate: '',
             toDate: '',
-            keyword: ''
+            keyword: '',
         },
 
         // Column visibility (default: only key columns visible)
@@ -58,8 +58,8 @@
             shipWeight: false,
             trackingRef: false,
             showShipStatus: false,
-            forControlStatus: false
-        }
+            forControlStatus: false,
+        },
     };
 
     // =====================================================
@@ -160,7 +160,9 @@
     function saveFiltersToStorage() {
         try {
             localStorage.setItem('dr_filters', JSON.stringify(DeliveryReportState.filters));
-        } catch (e) { /* ignore quota errors */ }
+        } catch (e) {
+            /* ignore quota errors */
+        }
     }
 
     function loadFiltersFromStorage() {
@@ -174,7 +176,9 @@
                     document.getElementById('drFilterKeyword').value = f.keyword;
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     // =====================================================
@@ -197,7 +201,7 @@
         });
 
         // Column checkboxes
-        dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        dropdown.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
             cb.addEventListener('change', () => {
                 DeliveryReportState.columns[cb.dataset.col] = cb.checked;
                 applyColumnVisibility();
@@ -207,9 +211,9 @@
 
     function applyColumnVisibility() {
         const cols = DeliveryReportState.columns;
-        Object.keys(cols).forEach(colKey => {
+        Object.keys(cols).forEach((colKey) => {
             const cells = document.querySelectorAll(`[data-col="${colKey}"]`);
-            cells.forEach(cell => {
+            cells.forEach((cell) => {
                 cell.style.display = cols[colKey] ? '' : 'none';
             });
         });
@@ -236,10 +240,10 @@
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
             });
 
             if (!response.ok) {
@@ -248,13 +252,23 @@
 
             const result = await response.json();
             const raw = result.value || [];
-            DeliveryReportState.allData = raw.filter(i => !DeliveryReportState.hiddenNumbers.has(i.Number));
+            DeliveryReportState.allData = raw.filter(
+                (i) => !DeliveryReportState.hiddenNumbers.has(i.Number)
+            );
 
             // Debug: check DeliveryNote field
-            const withNote = DeliveryReportState.allData.filter(i => i.DeliveryNote);
-            console.log('[DELIVERY-REPORT] Items with DeliveryNote:', withNote.length, withNote.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
-            const returnItems = DeliveryReportState.allData.filter(i => isReturnItem(i));
-            console.log('[DELIVERY-REPORT] Return items (THU VE):', returnItems.length, returnItems.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
+            const withNote = DeliveryReportState.allData.filter((i) => i.DeliveryNote);
+            console.log(
+                '[DELIVERY-REPORT] Items with DeliveryNote:',
+                withNote.length,
+                withNote.map((i) => ({ Number: i.Number, DeliveryNote: i.DeliveryNote }))
+            );
+            const returnItems = DeliveryReportState.allData.filter((i) => isReturnItem(i));
+            console.log(
+                '[DELIVERY-REPORT] Return items (THU VE):',
+                returnItems.length,
+                returnItems.map((i) => ({ Number: i.Number, DeliveryNote: i.DeliveryNote }))
+            );
 
             // Reset DB assignment cache on each fetch (date may have changed)
             DeliveryReportState._dbAssignmentsLoaded = false;
@@ -296,7 +310,9 @@
                 const data = JSON.parse(stored);
                 if (data.access_token) return data.access_token;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         return null;
     }
@@ -335,7 +351,6 @@
         return name;
     }
 
-
     // =====================================================
     // CLIENT-SIDE FILTER (carrier + tra soát)
     // =====================================================
@@ -346,9 +361,9 @@
             // In tra soát mode: use tab filter + scan filter
             let data = getTabFilteredData();
             if (state.scanFilter === 'unscanned') {
-                data = data.filter(item => !state.scannedNumbers.has(item.Number));
+                data = data.filter((item) => !state.scannedNumbers.has(item.Number));
             } else {
-                data = data.filter(item => state.scannedNumbers.has(item.Number));
+                data = data.filter((item) => state.scannedNumbers.has(item.Number));
             }
             return data;
         }
@@ -366,7 +381,10 @@
             renderProvinceView();
             return;
         }
-        if (DeliveryReportState.traSoatMode && (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero')) {
+        if (
+            DeliveryReportState.traSoatMode &&
+            (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero')
+        ) {
             renderAllGroupsView();
             return;
         }
@@ -441,22 +459,27 @@
         // Pancake enrichment — async, non-blocking
         if (window.PancakeValidator) {
             const cells = tbody.querySelectorAll('td[data-col="customer"][data-phone]');
-            const uniquePhones = [...new Set([...cells].map(c => c.dataset.phone).filter(Boolean))];
-            uniquePhones.slice(0, 50).forEach(phone => {
-                window.PancakeValidator.quickLookup(phone).then(data => {
+            const uniquePhones = [
+                ...new Set([...cells].map((c) => c.dataset.phone).filter(Boolean)),
+            ];
+            uniquePhones.slice(0, 50).forEach((phone) => {
+                window.PancakeValidator.quickLookup(phone).then((data) => {
                     if (!data) return;
-                    cells.forEach(cell => {
+                    cells.forEach((cell) => {
                         if (cell.dataset.phone !== phone) return;
                         const badge = cell.querySelector('.dr-pancake-badge');
-                        if (badge) badge.innerHTML = window.PancakeValidator.renderCustomerBadge(data);
+                        if (badge)
+                            badge.innerHTML = window.PancakeValidator.renderCustomerBadge(data);
                     });
                 });
             });
         }
 
         // Footer totals (from ALL data, not just current page)
-        let allTotalAmount = 0, allTotalCOD = 0, allTotalShipPrice = 0;
-        allData.forEach(item => {
+        let allTotalAmount = 0,
+            allTotalCOD = 0,
+            allTotalShipPrice = 0;
+        allData.forEach((item) => {
             allTotalAmount += item.AmountTotal || 0;
             allTotalCOD += item.CashOnDelivery || 0;
             allTotalShipPrice += item.DeliveryPrice || 0;
@@ -501,7 +524,7 @@
         let failControlAmount = 0;
 
         // Stats from ALL data (accurate)
-        data.forEach(item => {
+        data.forEach((item) => {
             totalCOD += item.CashOnDelivery || 0;
             if (item.ShipStatus === 'done') {
                 paidCount++;
@@ -560,7 +583,7 @@
 
         // Page numbers
         const range = getPageRange(currentPage, totalPages);
-        range.forEach(p => {
+        range.forEach((p) => {
             if (p === '...') {
                 pagesHtml += `<span style="padding: 0 6px; color: #9ca3af;">...</span>`;
             } else {
@@ -627,20 +650,22 @@
 
     function getShipStatusClass(status) {
         const map = {
-            'none': 'none',
-            'picking': 'picking',
-            'shipping': 'shipping',
-            'done': 'done',
-            'returned': 'returned',
-            'cancel': 'cancel'
+            none: 'none',
+            picking: 'picking',
+            shipping: 'shipping',
+            done: 'done',
+            returned: 'returned',
+            cancel: 'cancel',
         };
         return map[status] || 'none';
     }
 
     function getForControlText(item) {
         if (!item.ShipPaymentStatus && !item.CrossCheckTimes) return '';
-        if (item.ShipPaymentStatus === 'done') return '<span style="color:#22c55e;font-weight:600;">Đã đối soát</span>';
-        if (item.ShipPaymentStatus === 'fail') return '<span style="color:#ef4444;font-weight:600;">Không thành công</span>';
+        if (item.ShipPaymentStatus === 'done')
+            return '<span style="color:#22c55e;font-weight:600;">Đã đối soát</span>';
+        if (item.ShipPaymentStatus === 'fail')
+            return '<span style="color:#ef4444;font-weight:600;">Không thành công</span>';
         return escapeHtml(item.ShipPaymentStatus || '');
     }
 
@@ -689,7 +714,7 @@
         shop: { name: 'SHOP', sheet: 'Bán hàng shop' },
         return: { name: 'THUVE', sheet: 'Thu về' },
         zero: { name: 'DON0D', sheet: 'ĐƠN 0đ' },
-        all: { name: 'TATCA', sheet: 'Tất cả' }
+        all: { name: 'TATCA', sheet: 'Tất cả' },
     };
 
     function buildExcelRows(items) {
@@ -701,7 +726,7 @@
                 item.PartnerDisplayName || '',
                 item.Phone || '',
                 item.Address || '',
-                item.CashOnDelivery || 0
+                item.CashOnDelivery || 0,
             ]);
         });
         const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
@@ -724,7 +749,7 @@
 
     function makeFileName(label) {
         const now = new Date();
-        return `${label}_${now.getDate()}_${now.getMonth()+1}.xlsx`;
+        return `${label}_${now.getDate()}_${now.getMonth() + 1}.xlsx`;
     }
 
     async function exportExcel() {
@@ -734,7 +759,10 @@
         }
 
         const btn = document.getElementById('drBtnExport');
-        if (btn) { btn.disabled = true; btn.textContent = 'Đang xuất...'; }
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Đang xuất...';
+        }
 
         try {
             const state = DeliveryReportState;
@@ -759,7 +787,7 @@
                 return;
             }
 
-            const items = state.traSoatMode ? getTabFilteredData() : (state.allData || []);
+            const items = state.traSoatMode ? getTabFilteredData() : state.allData || [];
             const wsData = buildExcelRows(items);
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -771,15 +799,18 @@
             console.error('[DELIVERY-REPORT] Export error:', error);
             alert('Lỗi khi xuất Excel: ' + error.message);
         } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-excel"></i> Xuất excel'; }
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-excel"></i> Xuất excel';
+            }
         }
     }
 
     function exportExcelProvinceAll() {
         const provinceData = getTabFilteredData();
         const groups = DeliveryReportState.provinceGroups;
-        const tomatoItems = provinceData.filter(item => groups[item.Number] === 'tomato');
-        const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
+        const tomatoItems = provinceData.filter((item) => groups[item.Number] === 'tomato');
+        const napItems = provinceData.filter((item) => groups[item.Number] === 'nap');
 
         const wb = XLSX.utils.book_new();
         const tomatoRows = buildExcelRows(tomatoItems);
@@ -801,7 +832,7 @@
 
         const provinceData = getTabFilteredData();
         const groups = DeliveryReportState.provinceGroups;
-        const items = provinceData.filter(item => groups[item.Number] === group);
+        const items = provinceData.filter((item) => groups[item.Number] === group);
         const label = GROUP_LABELS[group] || group.toUpperCase();
 
         const wsData = buildExcelRows(items);
@@ -817,8 +848,8 @@
         const wb = XLSX.utils.book_new();
         const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
 
-        groupKeys.forEach(key => {
-            const items = allData.filter(item => getItemGroup(item) === key);
+        groupKeys.forEach((key) => {
+            const items = allData.filter((item) => getItemGroup(item) === key);
             if (items.length === 0) return;
             const rows = buildExcelRows(items);
             const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -835,7 +866,7 @@
             return;
         }
         const allData = DeliveryReportState.allData || [];
-        const items = allData.filter(item => getItemGroup(item) === group);
+        const items = allData.filter((item) => getItemGroup(item) === group);
         const label = GROUP_LABELS[group] || group.toUpperCase();
 
         const wsData = buildExcelRows(items);
@@ -847,13 +878,13 @@
     }
 
     function exportExcelZeroDong() {
-        const allData = (DeliveryReportState.allData || []).filter(item => isZeroCOD(item));
+        const allData = (DeliveryReportState.allData || []).filter((item) => isZeroCOD(item));
         const wb = XLSX.utils.book_new();
         const groupKeys = ['nap', 'city', 'shop', 'return'];
         let hasData = false;
 
-        groupKeys.forEach(key => {
-            const items = allData.filter(item => getItemGroup(item) === key);
+        groupKeys.forEach((key) => {
+            const items = allData.filter((item) => getItemGroup(item) === key);
             if (items.length === 0) return;
             hasData = true;
             const rows = buildExcelRows(items);
@@ -882,7 +913,7 @@
     function playZeroDongSound() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            [0, 0.15].forEach(delay => {
+            [0, 0.15].forEach((delay) => {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sine';
@@ -893,11 +924,16 @@
                 osc.start(ctx.currentTime + delay);
                 osc.stop(ctx.currentTime + delay + 0.1);
             });
-        } catch (e) { /* fallback: no sound */ }
+        } catch (e) {
+            /* fallback: no sound */
+        }
     }
 
     async function traSoat() {
-        if (!canTraSoat()) { alert('Bạn không có quyền sử dụng chức năng tra soát.'); return; }
+        if (!canTraSoat()) {
+            alert('Bạn không có quyền sử dụng chức năng tra soát.');
+            return;
+        }
         const state = DeliveryReportState;
         state.traSoatMode = !state.traSoatMode;
 
@@ -941,7 +977,6 @@
             const tableWrapper = document.getElementById('drTableWrapper');
             if (tableWrapper) tableWrapper.style.display = '';
 
-
             stopSyncPolling();
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
@@ -978,13 +1013,16 @@
     function updateProvinceExportButtons() {
         const tomatoBtn = document.getElementById('drBtnExportTomato');
         const napBtn = document.getElementById('drBtnExportNap');
-        const isProvince = DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode;
+        const isProvince =
+            DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode;
         if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
 
         // All-groups export buttons
-        const isAll = (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') && DeliveryReportState.traSoatMode;
-        document.querySelectorAll('.dr-btn-group-export').forEach(btn => {
+        const isAll =
+            (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') &&
+            DeliveryReportState.traSoatMode;
+        document.querySelectorAll('.dr-btn-group-export').forEach((btn) => {
             btn.style.display = isAll ? '' : 'none';
         });
     }
@@ -995,7 +1033,7 @@
         DeliveryReportState._focusedGroup = null;
 
         // Update scan filter tab UI
-        document.querySelectorAll('.dr-scan-filter-tab').forEach(btn => {
+        document.querySelectorAll('.dr-scan-filter-tab').forEach((btn) => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
         });
 
@@ -1005,7 +1043,10 @@
 
         if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
-        } else if ((DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') && DeliveryReportState.traSoatMode) {
+        } else if (
+            (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') &&
+            DeliveryReportState.traSoatMode
+        ) {
             renderAllGroupsView();
         } else {
             renderTable();
@@ -1016,7 +1057,7 @@
 
     function updateTabUI() {
         const tabs = document.querySelectorAll('.dr-trasoat-tab');
-        tabs.forEach(t => {
+        tabs.forEach((t) => {
             t.classList.toggle('active', t.dataset.tab === DeliveryReportState.activeTab);
         });
     }
@@ -1028,7 +1069,9 @@
         if (!countEl || !totalEl) return;
 
         const tabData = getTabFilteredData();
-        const scannedItems = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number));
+        const scannedItems = tabData.filter((item) =>
+            DeliveryReportState.scannedNumbers.has(item.Number)
+        );
         countEl.textContent = `Đã quét: ${formatNumber(scannedItems.length)}`;
         totalEl.textContent = formatNumber(tabData.length);
 
@@ -1037,18 +1080,24 @@
             const showScanned = DeliveryReportState.scanFilter === 'scanned';
             const viewItems = showScanned
                 ? scannedItems
-                : tabData.filter(item => !DeliveryReportState.scannedNumbers.has(item.Number));
+                : tabData.filter((item) => !DeliveryReportState.scannedNumbers.has(item.Number));
             const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
             amountEl.textContent = `CN: ${formatMoney(totalCOD)}`;
         }
     }
 
     function removeTones(str) {
-        return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        return (str || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
     }
 
     function isReturnItem(item) {
-        return removeTones(item.DeliveryNote || '').toUpperCase().includes('THU VE');
+        return removeTones(item.DeliveryNote || '')
+            .toUpperCase()
+            .includes('THU VE');
     }
 
     function isZeroCOD(item) {
@@ -1071,24 +1120,35 @@
     }
 
     const GROUP_COL_MAP = {
-        tomato: 'drColTomato', nap: 'drColNap',
-        city: 'drColCity', shop: 'drColShop', return: 'drColReturn'
+        tomato: 'drColTomato',
+        nap: 'drColNap',
+        city: 'drColCity',
+        shop: 'drColShop',
+        return: 'drColReturn',
     };
 
     const GROUP_LABELS = {
-        tomato: 'TOMATO', nap: 'TỈNH NAP',
-        city: 'THÀNH PHỐ', shop: 'BÁN HÀNG SHOP', return: 'THU VỀ'
+        tomato: 'TOMATO',
+        nap: 'TỈNH NAP',
+        city: 'THÀNH PHỐ',
+        shop: 'BÁN HÀNG SHOP',
+        return: 'THU VỀ',
     };
 
     const GROUP_FILE_NAMES = {
-        tomato: 'TOMATO', nap: 'NAP',
-        city: 'THANHPHO', shop: 'SHOP', return: 'THUVE'
+        tomato: 'TOMATO',
+        nap: 'NAP',
+        city: 'THANHPHO',
+        shop: 'SHOP',
+        return: 'THUVE',
     };
 
     const GROUP_HEADER_CLASS = {
-        tomato: 'dr-province-header-tomato', nap: 'dr-province-header-nap',
-        city: 'dr-province-header-city', shop: 'dr-province-header-shop',
-        return: 'dr-province-header-return'
+        tomato: 'dr-province-header-tomato',
+        nap: 'dr-province-header-nap',
+        city: 'dr-province-header-city',
+        shop: 'dr-province-header-shop',
+        return: 'dr-province-header-return',
     };
 
     function getTabFilteredData() {
@@ -1096,18 +1156,23 @@
         // Apply tab filter
         const tab = DeliveryReportState.activeTab;
         if (tab === 'city') {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ' && !isReturnItem(item));
+            data = data.filter(
+                (item) => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ' && !isReturnItem(item)
+            );
         } else if (tab === 'province') {
-            data = data.filter(item => {
+            data = data.filter((item) => {
                 const nc = normalizeCarrier(item.CarrierName);
                 return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP' && !isReturnItem(item);
             });
         } else if (tab === 'shop') {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP' && !isReturnItem(item));
+            data = data.filter(
+                (item) =>
+                    normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP' && !isReturnItem(item)
+            );
         } else if (tab === 'return') {
-            data = data.filter(item => isReturnItem(item));
+            data = data.filter((item) => isReturnItem(item));
         } else if (tab === 'zero') {
-            data = data.filter(item => isZeroCOD(item));
+            data = data.filter((item) => isZeroCOD(item));
         }
         return data;
     }
@@ -1118,7 +1183,7 @@
     function getProvinceData() {
         const data = DeliveryReportState.allData || [];
         // Province = everything NOT city, NOT shop, NOT return
-        return data.filter(item => {
+        return data.filter((item) => {
             const nc = normalizeCarrier(item.CarrierName);
             return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP' && !isReturnItem(item);
         });
@@ -1128,10 +1193,12 @@
     // ĐƠN 0đ (CashOnDelivery === 0) KHÔNG BAO GIỜ vào TOMATO → luôn vào NAP
     function assignTomatoNap(unassignedItems, groups) {
         // Separate 0đ items — always go to NAP
-        const zeroItems = unassignedItems.filter(i => isZeroCOD(i));
-        const nonZeroItems = unassignedItems.filter(i => !isZeroCOD(i));
+        const zeroItems = unassignedItems.filter((i) => isZeroCOD(i));
+        const nonZeroItems = unassignedItems.filter((i) => !isZeroCOD(i));
 
-        zeroItems.forEach(item => { groups[item.Number] = 'nap'; });
+        zeroItems.forEach((item) => {
+            groups[item.Number] = 'nap';
+        });
 
         // Calculate based on ALL province items (assigned + unassigned)
         const allProvinceData = getProvinceData();
@@ -1140,7 +1207,7 @@
 
         // Sum of existing TOMATO assignments
         const existingTomatoSum = allProvinceData
-            .filter(i => groups[i.Number] === 'tomato')
+            .filter((i) => groups[i.Number] === 'tomato')
             .reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
 
         // Remaining budget for new TOMATO assignments
@@ -1150,9 +1217,13 @@
         const shuffled = [...nonZeroItems].sort(() => Math.random() - 0.5);
         let newTomatoSum = 0;
 
-        shuffled.forEach(item => {
+        shuffled.forEach((item) => {
             const amt = item.AmountTotal || 0;
-            if (remainingBudget > 0 && (newTomatoSum + amt <= remainingBudget || (newTomatoSum === 0 && existingTomatoSum === 0))) {
+            if (
+                remainingBudget > 0 &&
+                (newTomatoSum + amt <= remainingBudget ||
+                    (newTomatoSum === 0 && existingTomatoSum === 0))
+            ) {
                 groups[item.Number] = 'tomato';
                 newTomatoSum += amt;
             } else {
@@ -1187,7 +1258,9 @@
                 DeliveryReportState.scannedNumbers = new Set(result.data.scannedNumbers || []);
                 DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
 
-                console.log(`[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${date}`);
+                console.log(
+                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${date}`
+                );
                 return result.data.assignments;
             }
         } catch (e) {
@@ -1198,12 +1271,12 @@
 
     async function saveAssignmentsToDB(items, groups) {
         const date = getAssignmentDate();
-        const assignments = items.map(item => ({
+        const assignments = items.map((item) => ({
             orderNumber: item.Number,
             groupName: groups[item.Number] || getItemGroup(item),
             amountTotal: item.AmountTotal || 0,
             cashOnDelivery: item.CashOnDelivery || 0,
-            carrierName: item.CarrierName || ''
+            carrierName: item.CarrierName || '',
         }));
 
         if (assignments.length === 0) return { inserted: 0, skipped: 0 };
@@ -1214,15 +1287,19 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user }))))
+                    'x-auth-data': btoa(
+                        unescape(encodeURIComponent(JSON.stringify({ userName: user })))
+                    ),
                 },
-                body: JSON.stringify({ date, assignments })
+                body: JSON.stringify({ date, assignments }),
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
             if (result.success) {
                 DeliveryReportState._dbNewCount = result.data.inserted || 0;
-                console.log(`[DELIVERY-REPORT] DB: saved ${result.data.inserted} new, ${result.data.skipped} already locked`);
+                console.log(
+                    `[DELIVERY-REPORT] DB: saved ${result.data.inserted} new, ${result.data.skipped} already locked`
+                );
                 return result.data;
             }
         } catch (e) {
@@ -1252,15 +1329,24 @@
         const date = getAssignmentDate();
         DeliveryReportState.hiddenNumbers.add(number);
         DeliveryReportState.scannedNumbers.delete(number);
-        DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(i => i.Number !== number);
+        DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(
+            (i) => i.Number !== number
+        );
 
         // Save to DB
         try {
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
-            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}?date=${date}`, {
-                method: 'PATCH',
-                headers: { 'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user })))) }
-            });
+            await fetch(
+                `${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}?date=${date}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'x-auth-data': btoa(
+                            unescape(encodeURIComponent(JSON.stringify({ userName: user })))
+                        ),
+                    },
+                }
+            );
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to hide order in DB:', e.message);
         }
@@ -1275,10 +1361,17 @@
         const date = getAssignmentDate();
         try {
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
-            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}?date=${date}`, {
-                method: 'PATCH',
-                headers: { 'x-auth-data': btoa(unescape(encodeURIComponent(JSON.stringify({ userName: user })))) }
-            });
+            await fetch(
+                `${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}?date=${date}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'x-auth-data': btoa(
+                            unescape(encodeURIComponent(JSON.stringify({ userName: user })))
+                        ),
+                    },
+                }
+            );
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to save scan to DB:', e.message);
         }
@@ -1287,9 +1380,12 @@
     async function unscanNumberInDB(orderNumber) {
         const date = getAssignmentDate();
         try {
-            await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}?date=${date}`, {
-                method: 'PATCH'
-            });
+            await fetch(
+                `${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}?date=${date}`,
+                {
+                    method: 'PATCH',
+                }
+            );
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to unscan in DB:', e.message);
         }
@@ -1301,7 +1397,7 @@
             await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan-bulk`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, orderNumbers })
+                body: JSON.stringify({ date, orderNumbers }),
             });
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to bulk unscan in DB:', e.message);
@@ -1309,7 +1405,10 @@
     }
 
     async function unscanItem(number) {
-        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
+        if (!canTraSoat()) {
+            alert('Bạn không có quyền xóa quét.');
+            return;
+        }
         if (!confirm(`Chắc chắn đơn ${number} đã được đưa vào kho xử lý?`)) return;
         DeliveryReportState.scannedNumbers.delete(number);
         await unscanNumberInDB(number);
@@ -1317,26 +1416,46 @@
     }
 
     async function unscanAllTab() {
-        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
+        if (!canTraSoat()) {
+            alert('Bạn không có quyền xóa quét.');
+            return;
+        }
         const tabData = getTabFilteredData();
-        const scannedInTab = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number));
+        const scannedInTab = tabData.filter((item) =>
+            DeliveryReportState.scannedNumbers.has(item.Number)
+        );
         if (scannedInTab.length === 0) return;
-        if (!confirm(`⚠️ Xóa tất cả ${scannedInTab.length} đơn đã quét?\n\nHành động này KHÔNG THỂ hoàn tác!`)) return;
-        const numbers = scannedInTab.map(item => item.Number);
-        numbers.forEach(n => DeliveryReportState.scannedNumbers.delete(n));
+        if (
+            !confirm(
+                `⚠️ Xóa tất cả ${scannedInTab.length} đơn đã quét?\n\nHành động này KHÔNG THỂ hoàn tác!`
+            )
+        )
+            return;
+        const numbers = scannedInTab.map((item) => item.Number);
+        numbers.forEach((n) => DeliveryReportState.scannedNumbers.delete(n));
         await unscanBulkInDB(numbers);
         refreshTraSoatView();
     }
 
     function unscanGroup(groupKey) {
-        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
+        if (!canTraSoat()) {
+            alert('Bạn không có quyền xóa quét.');
+            return;
+        }
         const allData = DeliveryReportState.allData || [];
         const scanned = DeliveryReportState.scannedNumbers;
-        const items = allData.filter(item => getItemGroup(item) === groupKey && scanned.has(item.Number));
+        const items = allData.filter(
+            (item) => getItemGroup(item) === groupKey && scanned.has(item.Number)
+        );
         if (items.length === 0) return;
-        if (!confirm(`Xóa tất cả ${items.length} đơn đã quét trong nhóm ${GROUP_LABELS[groupKey] || groupKey}?`)) return;
-        const numbers = items.map(item => item.Number);
-        numbers.forEach(n => scanned.delete(n));
+        if (
+            !confirm(
+                `Xóa tất cả ${items.length} đơn đã quét trong nhóm ${GROUP_LABELS[groupKey] || groupKey}?`
+            )
+        )
+            return;
+        const numbers = items.map((item) => item.Number);
+        numbers.forEach((n) => scanned.delete(n));
         unscanBulkInDB(numbers);
         refreshTraSoatView();
     }
@@ -1362,13 +1481,18 @@
                 const oldScanned = DeliveryReportState.scannedNumbers;
 
                 // Only refresh if scanned set changed
-                if (newScanned.size !== oldScanned.size || [...newScanned].some(n => !oldScanned.has(n))) {
+                if (
+                    newScanned.size !== oldScanned.size ||
+                    [...newScanned].some((n) => !oldScanned.has(n))
+                ) {
                     DeliveryReportState.scannedNumbers = newScanned;
                     DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
                     refreshTraSoatView();
                     console.log('[DELIVERY-REPORT] Sync: updated from DB');
                 }
-            } catch (_) { /* silent fail for polling */ }
+            } catch (_) {
+                /* silent fail for polling */
+            }
         }, 5000);
     }
 
@@ -1383,7 +1507,10 @@
         if (!DeliveryReportState.traSoatMode) return;
         if (DeliveryReportState.activeTab === 'province') {
             renderProvinceView();
-        } else if (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') {
+        } else if (
+            DeliveryReportState.activeTab === 'all' ||
+            DeliveryReportState.activeTab === 'zero'
+        ) {
             renderAllGroupsView();
         } else {
             renderTable();
@@ -1411,7 +1538,7 @@
         }
 
         // Step 2: Assign TOMATO/NAP for new province items not in DB
-        const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
+        const unassigned = provinceData.filter((item) => !state.provinceGroups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, state.provinceGroups);
         }
@@ -1433,7 +1560,12 @@
             for (const item of itemsToSave) {
                 state.dbAssignments[item.Number] = allGroups[item.Number];
             }
-            updateAssignmentStatus(Object.keys(state.dbAssignments).length - itemsToSave.length + (result.inserted || 0), result.inserted || 0);
+            updateAssignmentStatus(
+                Object.keys(state.dbAssignments).length -
+                    itemsToSave.length +
+                    (result.inserted || 0),
+                result.inserted || 0
+            );
         } else {
             updateAssignmentStatus(Object.keys(state.dbAssignments).length, 0);
         }
@@ -1467,7 +1599,7 @@
         if (grid) grid.classList.remove('all-groups');
         if (tableWrapper) tableWrapper.style.display = 'none';
         // Hide city/shop/return columns (only used in "all" tab)
-        ['drColCity', 'drColShop', 'drColReturn'].forEach(id => {
+        ['drColCity', 'drColShop', 'drColReturn'].forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
@@ -1477,26 +1609,32 @@
         const scanned = DeliveryReportState.scannedNumbers;
 
         // Auto-assign items without group (fallback if ensureProvinceGroups didn't run)
-        const unassigned = provinceData.filter(item => !groups[item.Number]);
+        const unassigned = provinceData.filter((item) => !groups[item.Number]);
         if (unassigned.length > 0) {
             assignTomatoNap(unassigned, groups);
             // Save to DB in background
             const allGroups = {};
-            unassigned.forEach(item => { allGroups[item.Number] = groups[item.Number]; });
+            unassigned.forEach((item) => {
+                allGroups[item.Number] = groups[item.Number];
+            });
             saveAssignmentsToDB(unassigned, allGroups);
         }
 
-        const allTomato = provinceData.filter(item => groups[item.Number] === 'tomato');
-        const allNap = provinceData.filter(item => groups[item.Number] === 'nap');
+        const allTomato = provinceData.filter((item) => groups[item.Number] === 'tomato');
+        const allNap = provinceData.filter((item) => groups[item.Number] === 'nap');
 
         // Count scanned for display
-        const tomatoScannedCount = allTomato.filter(i => scanned.has(i.Number)).length;
-        const napScannedCount = allNap.filter(i => scanned.has(i.Number)).length;
+        const tomatoScannedCount = allTomato.filter((i) => scanned.has(i.Number)).length;
+        const napScannedCount = allNap.filter((i) => scanned.has(i.Number)).length;
 
         // Apply scan filter
         const showScanned = DeliveryReportState.scanFilter === 'scanned';
-        const tomatoItems = allTomato.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
-        const napItems = allNap.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
+        const tomatoItems = allTomato.filter((item) =>
+            showScanned ? scanned.has(item.Number) : !scanned.has(item.Number)
+        );
+        const napItems = allNap.filter((item) =>
+            showScanned ? scanned.has(item.Number) : !scanned.has(item.Number)
+        );
 
         // Calculate COD totals for current view (filtered by scan status)
         const tomatoCOD = tomatoItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
@@ -1510,7 +1648,7 @@
                 ${showScanned && tomatoItems.length > 0 ? `<button class="dr-btn-unscan-all" onclick="DeliveryReport.unscanGroup('tomato')" title="Xóa tất cả TOMATO"><i class="fas fa-trash"></i> Xóa</button>` : ''}
             </div>
         </div>`;
-        tomatoItems.forEach(item => {
+        tomatoItems.forEach((item) => {
             const isScanned = scanned.has(item.Number);
             const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
             tomatoHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}${zeroClass}">
@@ -1538,7 +1676,7 @@
                 ${showScanned && napItems.length > 0 ? `<button class="dr-btn-unscan-all" onclick="DeliveryReport.unscanGroup('nap')" title="Xóa tất cả TỈNH NAP"><i class="fas fa-trash"></i> Xóa</button>` : ''}
             </div>
         </div>`;
-        napItems.forEach(item => {
+        napItems.forEach((item) => {
             const isScanned = scanned.has(item.Number);
             const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
             napHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}${zeroClass}">
@@ -1578,29 +1716,29 @@
         // Use tab-filtered data (respects 'zero' tab to show only 0đ items)
         const isZeroTab = DeliveryReportState.activeTab === 'zero';
         const allData = isZeroTab
-            ? (DeliveryReportState.allData || []).filter(item => isZeroCOD(item))
-            : (DeliveryReportState.allData || []);
+            ? (DeliveryReportState.allData || []).filter((item) => isZeroCOD(item))
+            : DeliveryReportState.allData || [];
         const groups = DeliveryReportState.provinceGroups;
         const scanned = DeliveryReportState.scannedNumbers;
         const showScanned = DeliveryReportState.scanFilter === 'scanned';
 
         // Classify all items into 5 groups
         const grouped = { tomato: [], nap: [], city: [], shop: [], return: [] };
-        allData.forEach(item => {
+        allData.forEach((item) => {
             const g = getItemGroup(item);
             if (grouped[g]) grouped[g].push(item);
         });
 
         // Render each column
         const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
-        groupKeys.forEach(key => {
+        groupKeys.forEach((key) => {
             const colEl = document.getElementById(GROUP_COL_MAP[key]);
             if (!colEl) return;
             colEl.style.display = '';
 
             const allItems = grouped[key];
-            const scannedItems = allItems.filter(i => scanned.has(i.Number));
-            const viewItems = allItems.filter(item =>
+            const scannedItems = allItems.filter((i) => scanned.has(i.Number));
+            const viewItems = allItems.filter((item) =>
                 showScanned ? scanned.has(item.Number) : !scanned.has(item.Number)
             );
             const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
@@ -1613,7 +1751,7 @@
                 </div>
             </div>`;
 
-            viewItems.forEach(item => {
+            viewItems.forEach((item) => {
                 const isItemScanned = scanned.has(item.Number);
                 const zeroClass = isZeroCOD(item) ? ' zero-dong' : '';
                 html += `<div class="dr-province-item ${isItemScanned ? 'scanned' : ''}${zeroClass}">
@@ -1662,15 +1800,17 @@
 
     function showAllGroupColumns() {
         DeliveryReportState._focusedGroup = null;
-        Object.values(GROUP_COL_MAP).forEach(id => {
+        Object.values(GROUP_COL_MAP).forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.style.display = '';
         });
-        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('active-scan'));
+        document
+            .querySelectorAll('.dr-province-col')
+            .forEach((el) => el.classList.remove('active-scan'));
     }
 
     function hideAllGroupColumns() {
-        Object.values(GROUP_COL_MAP).forEach(id => {
+        Object.values(GROUP_COL_MAP).forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
@@ -1678,7 +1818,9 @@
 
     function highlightProvinceColumn(column) {
         // Remove from all columns
-        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('active-scan'));
+        document
+            .querySelectorAll('.dr-province-col')
+            .forEach((el) => el.classList.remove('active-scan'));
 
         // Add persistent highlight to the scanned column
         const colId = GROUP_COL_MAP[column] || (column === 'tomato' ? 'drColTomato' : 'drColNap');
@@ -1707,7 +1849,9 @@
         if (e.key.length === 1) {
             barcodeBuffer += e.key;
             clearTimeout(barcodeTimeout);
-            barcodeTimeout = setTimeout(() => { barcodeBuffer = ''; }, 500);
+            barcodeTimeout = setTimeout(() => {
+                barcodeBuffer = '';
+            }, 500);
         }
     }
 
@@ -1718,10 +1862,10 @@
             const url = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?&$top=1&$filter=(Type+eq+'invoice'+and+contains(Number,'${orderNumber}'))&$select=Number,StateCode`;
             const res = await fetch(url, {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
             });
             if (!res.ok) return null;
             const data = await res.json();
@@ -1744,15 +1888,19 @@
         }
 
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
-        const isAllTab = (state.activeTab === 'all' || state.activeTab === 'zero') && state.traSoatMode;
+        const isAllTab =
+            (state.activeTab === 'all' || state.activeTab === 'zero') && state.traSoatMode;
         const isMultiColView = isProvinceTab || isAllTab;
 
         // Find matching item by Number (case-insensitive)
         const upperValue = value.toUpperCase();
-        const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
+        const match = (state.allData || []).find(
+            (item) => (item.Number || '').toUpperCase() === upperValue
+        );
         if (!match) {
             if (isMultiColView) isAllTab ? hideAllGroupColumns() : hideProvinceColumns();
-            soundError.currentTime = 0; soundError.play();
+            soundError.currentTime = 0;
+            soundError.play();
             showScanFeedback(false, `Không tìm thấy: ${value}`, true);
             return;
         }
@@ -1770,8 +1918,13 @@
                     showProvinceColumn(group);
                 }
             }
-            soundDuplicate.currentTime = 0; soundDuplicate.play();
-            showScanFeedback('warning', `Đã quét rồi: ${match.Number} - ${match.PartnerDisplayName || ''}`, true);
+            soundDuplicate.currentTime = 0;
+            soundDuplicate.play();
+            showScanFeedback(
+                'warning',
+                `Đã quét rồi: ${match.Number} - ${match.PartnerDisplayName || ''}`,
+                true
+            );
             return;
         }
 
@@ -1787,7 +1940,8 @@
 
             if (state.activeTab === 'return' && matchIsReturn) belongsToTab = true;
             else if (state.activeTab === 'city' && isCity && !matchIsReturn) belongsToTab = true;
-            else if (state.activeTab === 'province' && isProvince && !matchIsReturn) belongsToTab = true;
+            else if (state.activeTab === 'province' && isProvince && !matchIsReturn)
+                belongsToTab = true;
             else if (state.activeTab === 'shop' && isShop && !matchIsReturn) belongsToTab = true;
 
             if (!belongsToTab) {
@@ -1798,8 +1952,13 @@
                 else if (isShop) correctTab = 'Bán hàng shop';
 
                 if (isProvinceTab) hideProvinceColumns();
-                soundError.currentTime = 0; soundError.play();
-                showScanFeedback('wrong-tab', `${match.Number} - ${match.PartnerDisplayName || ''} thuộc tab "${correctTab}"!`, true);
+                soundError.currentTime = 0;
+                soundError.play();
+                showScanFeedback(
+                    'wrong-tab',
+                    `${match.Number} - ${match.PartnerDisplayName || ''} thuộc tab "${correctTab}"!`,
+                    true
+                );
                 return;
             }
         }
@@ -1809,8 +1968,13 @@
         const stateCode = await checkCrossCheckStatus(match.Number);
         if (stateCode !== 'CrossCheckComplete') {
             if (isMultiColView) isAllTab ? hideAllGroupColumns() : hideProvinceColumns();
-            soundError.currentTime = 0; soundError.play();
-            showScanFeedback(false, `${match.Number} - ${match.PartnerDisplayName || ''} chưa đối soát (${stateCode || 'không rõ'})`, true);
+            soundError.currentTime = 0;
+            soundError.play();
+            showScanFeedback(
+                false,
+                `${match.Number} - ${match.PartnerDisplayName || ''} chưa đối soát (${stateCode || 'không rõ'})`,
+                true
+            );
             return;
         }
 
@@ -1836,7 +2000,11 @@
             renderAllGroupsView();
             showGroupColumn(group);
             updateScanCount();
-            showScanFeedback(feedbackType, `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group]}`, false);
+            showScanFeedback(
+                feedbackType,
+                `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group]}`,
+                false
+            );
         } else if (isProvinceTab) {
             renderProvinceView();
             const group = state.provinceGroups[match.Number];
@@ -1844,7 +2012,11 @@
                 showProvinceColumn(group);
             }
             updateScanCount();
-            showScanFeedback(feedbackType, `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group] || (group || '').toUpperCase()}`, false);
+            showScanFeedback(
+                feedbackType,
+                `${match.Number} - ${customerName}${zeroBadge} → ${GROUP_LABELS[group] || (group || '').toUpperCase()}`,
+                false
+            );
         } else {
             renderTable();
             renderPagination();
@@ -1932,7 +2104,12 @@
         const state = DeliveryReportState;
 
         // Tra soát mode: multi-column groups
-        if (state.traSoatMode && (state.activeTab === 'all' || state.activeTab === 'zero' || state.activeTab === 'province')) {
+        if (
+            state.traSoatMode &&
+            (state.activeTab === 'all' ||
+                state.activeTab === 'zero' ||
+                state.activeTab === 'province')
+        ) {
             return buildPrintGroups();
         }
 
@@ -1950,26 +2127,30 @@
         const isZeroTab = state.activeTab === 'zero';
         const isProvinceTab = state.activeTab === 'province';
         const allData = isZeroTab
-            ? (state.allData || []).filter(item => isZeroCOD(item))
-            : (state.allData || []);
+            ? (state.allData || []).filter((item) => isZeroCOD(item))
+            : state.allData || [];
         const showScanned = state.scanFilter === 'scanned';
 
         // Classify
         const grouped = { tomato: [], nap: [], city: [], shop: [], return: [] };
-        allData.forEach(item => {
+        allData.forEach((item) => {
             const g = getItemGroup(item);
             if (grouped[g]) grouped[g].push(item);
         });
 
-        const groupKeys = isProvinceTab ? ['tomato', 'nap'] : ['tomato', 'nap', 'city', 'shop', 'return'];
+        const groupKeys = isProvinceTab
+            ? ['tomato', 'nap']
+            : ['tomato', 'nap', 'city', 'shop', 'return'];
         let html = '<div class="drp-grid">';
 
-        groupKeys.forEach(key => {
+        groupKeys.forEach((key) => {
             const allItems = grouped[key];
             if (!allItems || allItems.length === 0) return;
-            const scannedItems = allItems.filter(i => state.scannedNumbers.has(i.Number));
-            const viewItems = allItems.filter(item =>
-                showScanned ? state.scannedNumbers.has(item.Number) : !state.scannedNumbers.has(item.Number)
+            const scannedItems = allItems.filter((i) => state.scannedNumbers.has(i.Number));
+            const viewItems = allItems.filter((item) =>
+                showScanned
+                    ? state.scannedNumbers.has(item.Number)
+                    : !state.scannedNumbers.has(item.Number)
             );
             const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
 
@@ -1992,7 +2173,8 @@
             });
 
             if (viewItems.length === 0) {
-                html += '<div class="drp-row" style="color:#999;text-align:center;">Không có dữ liệu</div>';
+                html +=
+                    '<div class="drp-row" style="color:#999;text-align:center;">Không có dữ liệu</div>';
             }
             html += '</div>';
         });
@@ -2002,7 +2184,8 @@
     }
 
     function buildPrintList(items) {
-        let html = '<table class="drp-table"><thead><tr><th>#</th><th>Số</th><th>Khách hàng</th><th>ĐT</th><th>Địa chỉ</th><th>Công nợ</th></tr></thead><tbody>';
+        let html =
+            '<table class="drp-table"><thead><tr><th>#</th><th>Số</th><th>Khách hàng</th><th>ĐT</th><th>Địa chỉ</th><th>Công nợ</th></tr></thead><tbody>';
         items.forEach((item, i) => {
             const zeroClass = isZeroCOD(item) ? ' class="drp-zero"' : '';
             html += `<tr${zeroClass}>
@@ -2074,7 +2257,9 @@
         </head><body>${paper.innerHTML}</body></html>`);
         printWin.document.close();
         printWin.focus();
-        setTimeout(() => { printWin.print(); }, 300);
+        setTimeout(() => {
+            printWin.print();
+        }, 300);
     }
 
     function getPrintCSS() {
@@ -2124,7 +2309,8 @@
             saveFiltersToStorage();
 
             // Only re-fetch from API if date/keyword changed
-            const needRefetch = oldFromDate !== DeliveryReportState.filters.fromDate ||
+            const needRefetch =
+                oldFromDate !== DeliveryReportState.filters.fromDate ||
                 oldToDate !== DeliveryReportState.filters.toDate ||
                 oldKeyword !== DeliveryReportState.filters.keyword;
 
@@ -2138,13 +2324,17 @@
             }
         },
         goToPage: (page) => {
-            const totalPages = Math.ceil(DeliveryReportState.totalCount / DeliveryReportState.pageSize);
+            const totalPages = Math.ceil(
+                DeliveryReportState.totalCount / DeliveryReportState.pageSize
+            );
             if (page < 1 || page > totalPages) return;
             DeliveryReportState.currentPage = page;
             // Client-side pagination: just re-render, no API call
             renderTable();
             renderPagination();
-            document.getElementById('drTableWrapper')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document
+                .getElementById('drTableWrapper')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         },
         changePageSize: (size) => {
             DeliveryReportState.pageSize = parseInt(size, 10) || 200;
@@ -2164,6 +2354,6 @@
         hideOrder: hideOrder,
         printView: printView,
         confirmPrint: confirmPrint,
-        getState: () => DeliveryReportState
+        getState: () => DeliveryReportState,
     };
 })();

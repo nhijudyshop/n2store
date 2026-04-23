@@ -73,7 +73,7 @@ const PancakeState = {
         { label: 'XU LY BC', color: 'purple', template: '' },
         { label: 'BOOM', color: 'red', template: '' },
         { label: 'CHECK IB', color: 'green', template: '' },
-        { label: 'Nv My', color: 'blue', template: '' }
+        { label: 'Nv My', color: 'blue', template: '' },
     ],
 
     // Emoji data
@@ -120,7 +120,7 @@ const PancakeState = {
     loadSelectedPage() {
         try {
             const saved = localStorage.getItem('tpos_pancake_selected_page');
-            if (saved && this.pages.some(p => p.id === saved)) {
+            if (saved && this.pages.some((p) => p.id === saved)) {
                 this.selectedPageId = saved;
             }
         } catch (e) {
@@ -133,9 +133,11 @@ const PancakeState = {
      */
     setDebtCache(phone, amount) {
         if (this.debtCache.size >= this.debtCacheConfig.maxSize) {
-            const entries = Array.from(this.debtCache.entries())
-                .sort((a, b) => a[1].timestamp - b[1].timestamp);
-            entries.slice(0, Math.floor(this.debtCacheConfig.maxSize * 0.2))
+            const entries = Array.from(this.debtCache.entries()).sort(
+                (a, b) => a[1].timestamp - b[1].timestamp
+            );
+            entries
+                .slice(0, Math.floor(this.debtCacheConfig.maxSize * 0.2))
                 .forEach(([key]) => this.debtCache.delete(key));
         }
         this.debtCache.set(phone, { amount, timestamp: Date.now() });
@@ -170,7 +172,7 @@ const PancakeState = {
         this.searchQuery = '';
         this.searchResults = null;
         this.isSearching = false;
-    }
+    },
 };
 
 // Export

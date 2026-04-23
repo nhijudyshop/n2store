@@ -12,8 +12,13 @@ const PhoneWidget = (() => {
         pbx_domain: 'pbx-ucaas.oncallcx.vn',
         ws_url: 'wss://45-76-155-207.sslip.io/ws',
         sip_extensions: [
-            { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY', label: 'Ext 101' }
-        ]
+            {
+                ext: '101',
+                authId: 'gOcQD5CWCYFuDSh2',
+                password: 'iuPj7ZTT2dKoOSoY',
+                label: 'Ext 101',
+            },
+        ],
     };
     const MAX_RECONNECT_DELAY = 30000;
     const MAX_HISTORY = 50;
@@ -44,16 +49,41 @@ const PhoneWidget = (() => {
     let missedCount = loadMissed();
 
     function loadHistory() {
-        try { const s = localStorage.getItem(HISTORY_KEY); if (s) return JSON.parse(s); } catch {}
+        try {
+            const s = localStorage.getItem(HISTORY_KEY);
+            if (s) return JSON.parse(s);
+        } catch {}
         return [];
     }
-    function saveHistory() { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(callHistory.slice(0, MAX_HISTORY))); } catch {} }
-    function loadMissed() { try { return parseInt(localStorage.getItem(MISSED_KEY) || '0', 10) || 0; } catch { return 0; } }
-    function saveMissed() { try { localStorage.setItem(MISSED_KEY, String(missedCount)); } catch {} }
+    function saveHistory() {
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(callHistory.slice(0, MAX_HISTORY)));
+        } catch {}
+    }
+    function loadMissed() {
+        try {
+            return parseInt(localStorage.getItem(MISSED_KEY) || '0', 10) || 0;
+        } catch {
+            return 0;
+        }
+    }
+    function saveMissed() {
+        try {
+            localStorage.setItem(MISSED_KEY, String(missedCount));
+        } catch {}
+    }
 
     function loadConfig() {
-        try { const s = localStorage.getItem(STORAGE_KEY); if (s) return JSON.parse(s); } catch {}
-        return { wsUrl: DEFAULTS.ws_url, extension: DEFAULTS.sip_extensions[0].ext, authId: DEFAULTS.sip_extensions[0].authId, password: DEFAULTS.sip_extensions[0].password };
+        try {
+            const s = localStorage.getItem(STORAGE_KEY);
+            if (s) return JSON.parse(s);
+        } catch {}
+        return {
+            wsUrl: DEFAULTS.ws_url,
+            extension: DEFAULTS.sip_extensions[0].ext,
+            authId: DEFAULTS.sip_extensions[0].authId,
+            password: DEFAULTS.sip_extensions[0].password,
+        };
     }
 
     // Try override config with assigned ext (from PhoneExtAssignment). Returns true if config changed.
@@ -64,52 +94,92 @@ const PhoneWidget = (() => {
             const myExt = assign.getMyExt();
             if (!myExt) return false;
             if (config.extension === myExt) return false;
-            const ext = getExtensions().find(e => String(e.ext) === String(myExt));
+            const ext = getExtensions().find((e) => String(e.ext) === String(myExt));
             if (!ext) return false;
-            config = { wsUrl: getWsUrl(), extension: ext.ext, authId: ext.authId, password: ext.password };
+            config = {
+                wsUrl: getWsUrl(),
+                extension: ext.ext,
+                authId: ext.authId,
+                password: ext.password,
+            };
             saveConfig();
             updateExtChipLabel();
             return true;
-        } catch { return false; }
+        } catch {
+            return false;
+        }
     }
-    function saveConfig() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {} }
+    function saveConfig() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        } catch {}
+    }
 
     async function loadFromDB() {
         try {
-            const r = await fetch(RENDER_API); const d = await r.json();
-            if (d.success && d.config) { dbConfig = d.config; try { localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig)); } catch {} return dbConfig; }
+            const r = await fetch(RENDER_API);
+            const d = await r.json();
+            if (d.success && d.config) {
+                dbConfig = d.config;
+                try {
+                    localStorage.setItem('phoneWidget_dbConfig', JSON.stringify(dbConfig));
+                } catch {}
+                return dbConfig;
+            }
         } catch {}
-        try { const c = localStorage.getItem('phoneWidget_dbConfig'); if (c) { dbConfig = JSON.parse(c); return dbConfig; } } catch {}
+        try {
+            const c = localStorage.getItem('phoneWidget_dbConfig');
+            if (c) {
+                dbConfig = JSON.parse(c);
+                return dbConfig;
+            }
+        } catch {}
         return null;
     }
-    function getPbxDomain() { return dbConfig?.pbx_domain || DEFAULTS.pbx_domain; }
-    function getExtensions() { return dbConfig?.sip_extensions || DEFAULTS.sip_extensions; }
-    function getWsUrl() { return dbConfig?.ws_url || DEFAULTS.ws_url; }
-    function getIceServers() { return [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]; }
+    function getPbxDomain() {
+        return dbConfig?.pbx_domain || DEFAULTS.pbx_domain;
+    }
+    function getExtensions() {
+        return dbConfig?.sip_extensions || DEFAULTS.sip_extensions;
+    }
+    function getWsUrl() {
+        return dbConfig?.ws_url || DEFAULTS.ws_url;
+    }
+    function getIceServers() {
+        return [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+        ];
+    }
 
     // === HELPERS: phone formatting + name lookup ===
-    function stripPhone(s) { return (s || '').toString().replace(/[^\d+]/g, ''); }
+    function stripPhone(s) {
+        return (s || '').toString().replace(/[^\d+]/g, '');
+    }
     function formatVNPhone(s) {
         const d = stripPhone(s);
         if (!d) return '';
         // Local 10-digit: 090 123 4567 / 090 12345 67? — use 3-3-4
-        if (d.length === 10 && d.startsWith('0')) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
-        if (d.length === 11 && d.startsWith('0')) return d.replace(/(\d{4})(\d{3})(\d{4})/, '$1 $2 $3');
-        if (d.startsWith('+84') && d.length === 12) return d.replace(/(\+84)(\d{3})(\d{3})(\d{3})/, '$1 $2 $3 $4');
+        if (d.length === 10 && d.startsWith('0'))
+            return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        if (d.length === 11 && d.startsWith('0'))
+            return d.replace(/(\d{4})(\d{3})(\d{4})/, '$1 $2 $3');
+        if (d.startsWith('+84') && d.length === 12)
+            return d.replace(/(\+84)(\d{3})(\d{3})(\d{3})/, '$1 $2 $3 $4');
         // Fallback: group every 3
         return d.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
     }
     function lookupCustomerName(phone) {
         const d = stripPhone(phone);
         if (!d || !window.allOrders || !Array.isArray(window.allOrders)) return '';
-        const match = window.allOrders.find(o => stripPhone(o.Telephone) === d);
-        return match ? (match.Name || '') : '';
+        const match = window.allOrders.find((o) => stripPhone(o.Telephone) === d);
+        return match ? match.Name || '' : '';
     }
     function lookupOrderCode(phone) {
         const d = stripPhone(phone);
         if (!d || !window.allOrders || !Array.isArray(window.allOrders)) return '';
-        const match = window.allOrders.find(o => stripPhone(o.Telephone) === d);
-        return match ? (match.Code || '') : '';
+        const match = window.allOrders.find((o) => stripPhone(o.Telephone) === d);
+        return match ? match.Code || '' : '';
     }
 
     // === CALL HISTORY ===
@@ -120,7 +190,7 @@ const PhoneWidget = (() => {
             direction: entry.direction || 'out', // 'out' | 'in' | 'missed'
             duration: entry.duration || 0,
             timestamp: entry.timestamp || Date.now(),
-            orderCode: entry.orderCode || ''
+            orderCode: entry.orderCode || '',
         };
         if (!e.phone) return;
         callHistory.unshift(e);
@@ -135,16 +205,17 @@ const PhoneWidget = (() => {
     }
     function formatDuration(sec) {
         if (!sec) return '';
-        const m = Math.floor(sec / 60), s = sec % 60;
+        const m = Math.floor(sec / 60),
+            s = sec % 60;
         return `${m}:${String(s).padStart(2, '0')}`;
     }
     function relativeTime(ts) {
         const diff = Date.now() - ts;
         if (diff < 60000) return 'Vừa xong';
-        if (diff < 3600000) return `${Math.floor(diff/60000)} phút`;
-        if (diff < 86400000) return `${Math.floor(diff/3600000)} giờ`;
+        if (diff < 3600000) return `${Math.floor(diff / 60000)} phút`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ`;
         const d = new Date(ts);
-        return `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
     function directionIcon(dir) {
         if (dir === 'in') return '<span class="pw-dir in" title="Đã nhận">↙</span>';
@@ -182,14 +253,26 @@ const PhoneWidget = (() => {
     // === AUDIO TONES (Web Audio API) ===
     function getAudioCtx() {
         if (!audioCtx) {
-            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch {
+                return null;
+            }
         }
         if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
         return audioCtx;
     }
 
-    function playBeep({ freq = 440, freqEnd = null, duration = 0.2, volume = 0.18, type = 'sine', delay = 0 } = {}) {
-        const ctx = getAudioCtx(); if (!ctx) return;
+    function playBeep({
+        freq = 440,
+        freqEnd = null,
+        duration = 0.2,
+        volume = 0.18,
+        type = 'sine',
+        delay = 0,
+    } = {}) {
+        const ctx = getAudioCtx();
+        if (!ctx) return;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         const t0 = ctx.currentTime + delay;
@@ -200,8 +283,10 @@ const PhoneWidget = (() => {
         gain.gain.exponentialRampToValueAtTime(volume, t0 + 0.015);
         gain.gain.setValueAtTime(volume, t0 + duration - 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(t0); osc.stop(t0 + duration + 0.05);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration + 0.05);
     }
 
     // Vietnam ringback: 425Hz, 1s on / 4s off
@@ -212,7 +297,10 @@ const PhoneWidget = (() => {
         ringbackInterval = setInterval(tick, 5000);
     }
     function stopRingback() {
-        if (ringbackInterval) { clearInterval(ringbackInterval); ringbackInterval = null; }
+        if (ringbackInterval) {
+            clearInterval(ringbackInterval);
+            ringbackInterval = null;
+        }
     }
 
     // Incoming ring: two-tone loop (similar to phone ring)
@@ -228,12 +316,15 @@ const PhoneWidget = (() => {
         incomingRingInterval = setInterval(tick, 3000);
     }
     function stopIncomingRing() {
-        if (incomingRingInterval) { clearInterval(incomingRingInterval); incomingRingInterval = null; }
+        if (incomingRingInterval) {
+            clearInterval(incomingRingInterval);
+            incomingRingInterval = null;
+        }
     }
 
     // Rising beep: call answered / connected
     function playAnsweredTone() {
-        playBeep({ freq: 600, freqEnd: 1000, duration: 0.18, volume: 0.10, type: 'sine' });
+        playBeep({ freq: 600, freqEnd: 1000, duration: 0.18, volume: 0.1, type: 'sine' });
         playBeep({ freq: 1000, duration: 0.12, volume: 0.08, type: 'sine', delay: 0.22 });
     }
 
@@ -258,7 +349,10 @@ const PhoneWidget = (() => {
         if (!('speechSynthesis' in window)) return;
         const voices = window.speechSynthesis.getVoices();
         if (voices.length) {
-            _ttsVoice = voices.find(v => v.lang?.startsWith('vi')) || voices.find(v => v.default) || voices[0];
+            _ttsVoice =
+                voices.find((v) => v.lang?.startsWith('vi')) ||
+                voices.find((v) => v.default) ||
+                voices[0];
         }
     }
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -282,10 +376,12 @@ const PhoneWidget = (() => {
         if (direction !== 'out') return; // chỉ announce cho cuộc gọi đi
         const c = String(cause || '').toLowerCase();
         let msg = '';
-        if (c.includes('no answer') || c === 'timer b' || c.includes('timeout')) msg = 'Khách không nhấc máy';
+        if (c.includes('no answer') || c === 'timer b' || c.includes('timeout'))
+            msg = 'Khách không nhấc máy';
         else if (c.includes('busy')) msg = 'Máy bận';
         else if (c.includes('rejected')) msg = 'Khách từ chối cuộc gọi';
-        else if (c.includes('unavailable') || c.includes('not found')) msg = 'Thuê bao không liên lạc được';
+        else if (c.includes('unavailable') || c.includes('not found'))
+            msg = 'Thuê bao không liên lạc được';
         else if (c.includes('canceled')) return; // user đã bấm cúp, không cần announce
         if (msg) setTimeout(() => speakVN(msg), 500); // sau hangup tone
     }
@@ -295,9 +391,13 @@ const PhoneWidget = (() => {
         if (widgetEl) return;
 
         const extensions = getExtensions();
-        const extOpts = extensions.map(e =>
-            `<option value="${e.ext}" ${config.extension === e.ext ? 'selected' : ''}>${e.label || 'Ext ' + e.ext}</option>`
-        ).join('') + '<option value="_custom">Tuỳ chỉnh...</option>';
+        const extOpts =
+            extensions
+                .map(
+                    (e) =>
+                        `<option value="${e.ext}" ${config.extension === e.ext ? 'selected' : ''}>${e.label || 'Ext ' + e.ext}</option>`
+                )
+                .join('') + '<option value="_custom">Tuỳ chỉnh...</option>';
 
         const html = `
         <div id="phoneWidget" class="pw hidden">
@@ -655,13 +755,21 @@ const PhoneWidget = (() => {
                 dialInput.value = formatted;
                 // keep caret approximately in place
                 const newLen = formatted.length;
-                try { dialInput.setSelectionRange(caret + (newLen - oldLen), caret + (newLen - oldLen)); } catch {}
+                try {
+                    dialInput.setSelectionRange(
+                        caret + (newLen - oldLen),
+                        caret + (newLen - oldLen)
+                    );
+                } catch {}
             }
             updateDialSubInfo();
         });
 
         // Unlock AudioContext on first interaction + clear missed counter
-        const unlock = () => { getAudioCtx(); widgetEl.removeEventListener('click', unlock); };
+        const unlock = () => {
+            getAudioCtx();
+            widgetEl.removeEventListener('click', unlock);
+        };
         widgetEl.addEventListener('click', unlock);
 
         // Global keyboard shortcuts
@@ -669,20 +777,44 @@ const PhoneWidget = (() => {
             window.__pwShortcutsBound = true;
             document.addEventListener('keydown', (e) => {
                 const tag = (e.target?.tagName || '').toLowerCase();
-                const isInput = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
+                const isInput =
+                    tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
                 // Ctrl+Shift+C — toggle widget
-                if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') { e.preventDefault(); toggle(); return; }
+                if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+                    e.preventDefault();
+                    toggle();
+                    return;
+                }
                 // Esc — if incoming ringing, reject; else if in call, hangup
                 if (e.key === 'Escape') {
-                    if (incomingSession) { e.preventDefault(); rejectIncoming(); return; }
-                    if (currentSession) { e.preventDefault(); hangup(); return; }
+                    if (incomingSession) {
+                        e.preventDefault();
+                        rejectIncoming();
+                        return;
+                    }
+                    if (currentSession) {
+                        e.preventDefault();
+                        hangup();
+                        return;
+                    }
                     return;
                 }
                 // Enter — accept incoming when ringing (not while typing in another input)
-                if (e.key === 'Enter' && incomingSession && !isInput) { e.preventDefault(); acceptIncoming(); return; }
+                if (e.key === 'Enter' && incomingSession && !isInput) {
+                    e.preventDefault();
+                    acceptIncoming();
+                    return;
+                }
                 // Space — toggle mute during active call (not while typing)
-                if (e.code === 'Space' && currentSession && currentSession.isEstablished && currentSession.isEstablished() && !isInput) {
-                    e.preventDefault(); toggleMute();
+                if (
+                    e.code === 'Space' &&
+                    currentSession &&
+                    currentSession.isEstablished &&
+                    currentSession.isEstablished() &&
+                    !isInput
+                ) {
+                    e.preventDefault();
+                    toggleMute();
                 }
             });
         }
@@ -692,21 +824,35 @@ const PhoneWidget = (() => {
     }
 
     function updateDialSubInfo() {
-        const sub = document.getElementById('pwSub'); if (!sub) return;
+        const sub = document.getElementById('pwSub');
+        if (!sub) return;
         const raw = document.getElementById('pwDialInput')?.value || '';
-        if (!raw || currentSession) { sub.textContent = ''; sub.classList.remove('has-order'); return; }
+        if (!raw || currentSession) {
+            sub.textContent = '';
+            sub.classList.remove('has-order');
+            return;
+        }
         const name = lookupCustomerName(raw);
         const code = lookupOrderCode(raw);
-        if (name && code) { sub.textContent = `${name} • Đơn ${code}`; sub.classList.add('has-order'); }
-        else if (name) { sub.textContent = name; sub.classList.remove('has-order'); }
-        else { sub.textContent = ''; sub.classList.remove('has-order'); }
+        if (name && code) {
+            sub.textContent = `${name} • Đơn ${code}`;
+            sub.classList.add('has-order');
+        } else if (name) {
+            sub.textContent = name;
+            sub.classList.remove('has-order');
+        } else {
+            sub.textContent = '';
+            sub.classList.remove('has-order');
+        }
     }
 
     // === DRAG ===
     function initDrag() {
         const head = document.getElementById('pwHead');
         if (!head) return;
-        let dragging = false, offsetX = 0, offsetY = 0;
+        let dragging = false,
+            offsetX = 0,
+            offsetY = 0;
         head.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'BUTTON') return;
             dragging = true;
@@ -717,12 +863,15 @@ const PhoneWidget = (() => {
         });
         document.addEventListener('mousemove', (e) => {
             if (!dragging) return;
-            widgetEl.style.left = (e.clientX - offsetX) + 'px';
-            widgetEl.style.top = (e.clientY - offsetY) + 'px';
+            widgetEl.style.left = e.clientX - offsetX + 'px';
+            widgetEl.style.top = e.clientY - offsetY + 'px';
             widgetEl.style.right = 'auto';
             widgetEl.style.bottom = 'auto';
         });
-        document.addEventListener('mouseup', () => { dragging = false; widgetEl.style.transition = ''; });
+        document.addEventListener('mouseup', () => {
+            dragging = false;
+            widgetEl.style.transition = '';
+        });
     }
 
     // === TOGGLE / SHOW / HIDE ===
@@ -737,32 +886,48 @@ const PhoneWidget = (() => {
             fabEl.classList.remove('active');
         }
     }
-    function show() { createWidget(); widgetEl.classList.remove('hidden'); if (fabEl) fabEl.classList.add('active'); clearMissed(); }
-    function hide() { if (widgetEl) widgetEl.classList.add('hidden'); if (fabEl) fabEl.classList.remove('active'); }
+    function show() {
+        createWidget();
+        widgetEl.classList.remove('hidden');
+        if (fabEl) fabEl.classList.add('active');
+        clearMissed();
+    }
+    function hide() {
+        if (widgetEl) widgetEl.classList.add('hidden');
+        if (fabEl) fabEl.classList.remove('active');
+    }
     function toggleMinimize() {
         if (!widgetEl) return;
         widgetEl.classList.toggle('minimized');
-        document.getElementById('pwMinBtn').innerHTML = widgetEl.classList.contains('minimized') ? '▢' : '−';
+        document.getElementById('pwMinBtn').innerHTML = widgetEl.classList.contains('minimized')
+            ? '▢'
+            : '−';
     }
 
     // === QUICK EXT PICKER ===
     function renderExtPickerList() {
-        const list = document.getElementById('pwExtPickerList'); if (!list) return;
+        const list = document.getElementById('pwExtPickerList');
+        if (!list) return;
         const extensions = getExtensions();
         const assign = window.PhoneExtAssignment;
-        list.innerHTML = extensions.map(e => {
-            const assignedUser = assign?.getUserForExt?.(e.ext) || '';
-            const userLabel = assignedUser ? `<span class="pw-ext-item-label">· ${assignedUser}</span>` : '';
-            return `
+        list.innerHTML = extensions
+            .map((e) => {
+                const assignedUser = assign?.getUserForExt?.(e.ext) || '';
+                const userLabel = assignedUser
+                    ? `<span class="pw-ext-item-label">· ${assignedUser}</span>`
+                    : '';
+                return `
             <div class="pw-ext-item ${config.extension === e.ext ? 'active' : ''}" onclick="PhoneWidget.switchExt('${e.ext}')">
                 <span><span class="pw-ext-item-num">${e.ext}</span>${userLabel}</span>
             </div>
         `;
-        }).join('');
+            })
+            .join('');
     }
     function toggleExtPicker(ev) {
         if (ev) ev.stopPropagation();
-        const p = document.getElementById('pwExtPicker'); if (!p) return;
+        const p = document.getElementById('pwExtPicker');
+        if (!p) return;
         if (p.style.display === 'none') {
             renderExtPickerList();
             p.style.display = 'block';
@@ -781,9 +946,15 @@ const PhoneWidget = (() => {
         }
     }
     function switchExt(ext) {
-        const f = getExtensions().find(e => e.ext === ext);
-        if (!f) { addLog(`Không tìm thấy ext ${ext}`, 'error'); return; }
-        if (currentSession) { addLog('Đang có cuộc gọi — không đổi ext', 'error'); return; }
+        const f = getExtensions().find((e) => e.ext === ext);
+        if (!f) {
+            addLog(`Không tìm thấy ext ${ext}`, 'error');
+            return;
+        }
+        if (currentSession) {
+            addLog('Đang có cuộc gọi — không đổi ext', 'error');
+            return;
+        }
         if (config.extension === ext && isRegistered) {
             document.getElementById('pwExtPicker').style.display = 'none';
             return;
@@ -805,7 +976,8 @@ const PhoneWidget = (() => {
             const assignedUser = window.PhoneExtAssignment?.getUserForExt?.(config.extension);
             if (assignedUser) {
                 // Trim long names to keep chip compact
-                const short = assignedUser.length > 10 ? assignedUser.slice(0, 10) + '…' : assignedUser;
+                const short =
+                    assignedUser.length > 10 ? assignedUser.slice(0, 10) + '…' : assignedUser;
                 label = `Ext ${config.extension} · ${short}`;
             }
         } catch {}
@@ -841,15 +1013,20 @@ const PhoneWidget = (() => {
         }
     }
     function renderHistory() {
-        const list = document.getElementById('pwHistoryList'); if (!list) return;
+        const list = document.getElementById('pwHistoryList');
+        if (!list) return;
         if (callHistory.length === 0) {
             list.innerHTML = '<div class="pw-hist-empty">Chưa có cuộc gọi nào</div>';
             return;
         }
-        list.innerHTML = callHistory.map((h, i) => {
-            const display = h.name || lookupCustomerName(h.phone) || 'Không rõ';
-            const dur = h.direction !== 'missed' && h.duration ? ` • ${formatDuration(h.duration)}` : '';
-            return `
+        list.innerHTML = callHistory
+            .map((h, i) => {
+                const display = h.name || lookupCustomerName(h.phone) || 'Không rõ';
+                const dur =
+                    h.direction !== 'missed' && h.duration
+                        ? ` • ${formatDuration(h.duration)}`
+                        : '';
+                return `
                 <div class="pw-hist-item" onclick="PhoneWidget.callFromHistory(${i})">
                     ${directionIcon(h.direction)}
                     <div class="pw-hist-main">
@@ -862,11 +1039,18 @@ const PhoneWidget = (() => {
                     </div>
                     <button class="pw-hist-call" onclick="event.stopPropagation(); PhoneWidget.callFromHistory(${i})" title="Gọi lại">📞</button>
                 </div>`;
-        }).join('');
+            })
+            .join('');
     }
-    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+    function escapeHtml(s) {
+        return String(s).replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+    }
     function callFromHistory(i) {
-        const h = callHistory[i]; if (!h) return;
+        const h = callHistory[i];
+        if (!h) return;
         toggleHistory();
         makeCall(h.phone, h.name);
     }
@@ -897,10 +1081,17 @@ const PhoneWidget = (() => {
         const adminBtn = document.getElementById('pwAdminBtn');
         if (adminBtn) adminBtn.style.display = isAdmin && show ? 'block' : 'none';
         const autoBtn = document.getElementById('pwAutoRegBtn');
-        if (autoBtn) { autoBtn.style.display = isAdmin && show ? 'block' : 'none'; if (show) _refreshAutoRegisterUI(); }
+        if (autoBtn) {
+            autoBtn.style.display = isAdmin && show ? 'block' : 'none';
+            if (show) _refreshAutoRegisterUI();
+        }
     }
     function openExtAssignment() {
-        try { window.PhoneExtAssignment?.openModal?.(); } catch (err) { addLog('Không mở được modal: ' + err.message, 'error'); }
+        try {
+            window.PhoneExtAssignment?.openModal?.();
+        } catch (err) {
+            addLog('Không mở được modal: ' + err.message, 'error');
+        }
     }
 
     async function _refreshAutoRegisterUI() {
@@ -913,20 +1104,31 @@ const PhoneWidget = (() => {
         if (s.started && mine) {
             btn.innerHTML = `■ Tắt treo 10 line (${s.registered}/${s.total})`;
             btn.style.background = 'linear-gradient(135deg,#22c55e,#15803d)';
-            if (st) { st.style.display = 'block'; st.textContent = `Đang giữ lock trên máy này`; }
+            if (st) {
+                st.style.display = 'block';
+                st.textContent = `Đang giữ lock trên máy này`;
+            }
         } else if (lock && lock.locked) {
             btn.innerHTML = `📡 Chuyển treo 10 line về máy này`;
             btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
-            if (st) { st.style.display = 'block'; st.textContent = `Đang bật ở: ${lock.holder_user || '?'} · ${lock.holder_device ? lock.holder_device.split(';')[0] : ''}`; }
+            if (st) {
+                st.style.display = 'block';
+                st.textContent = `Đang bật ở: ${lock.holder_user || '?'} · ${lock.holder_device ? lock.holder_device.split(';')[0] : ''}`;
+            }
         } else {
             btn.innerHTML = `📡 Bật treo 10 line (trên máy này)`;
             btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
-            if (st) { st.style.display = 'none'; }
+            if (st) {
+                st.style.display = 'none';
+            }
         }
     }
 
     async function toggleAutoRegister() {
-        if (!window.PhoneAutoRegister) { addLog('Module auto-register chưa load', 'error'); return; }
+        if (!window.PhoneAutoRegister) {
+            addLog('Module auto-register chưa load', 'error');
+            return;
+        }
         const s = window.PhoneAutoRegister.getStatus();
         const lock = await window.PhoneAutoRegister.getRemoteLock?.();
         const mine = lock && lock.holder_session === s.sessionId;
@@ -941,11 +1143,23 @@ const PhoneWidget = (() => {
                 const r = await window.PhoneAutoRegister.enable();
                 if (r.conflict) {
                     const who = r.holder_user || '?';
-                    const dev = r.holder_device ? ' (' + r.holder_device.split(';')[0].trim() + ')' : '';
-                    const since = r.started_at ? Math.round((Date.now() - r.started_at) / 60000) + ' phút trước' : '';
-                    if (!confirm(`Máy "${who}"${dev} đang treo 10 line${since ? ' từ ' + since : ''}.\n\nChuyển về máy này? (Máy kia sẽ tự ngắt trong vài giây)`)) return;
+                    const dev = r.holder_device
+                        ? ' (' + r.holder_device.split(';')[0].trim() + ')'
+                        : '';
+                    const since = r.started_at
+                        ? Math.round((Date.now() - r.started_at) / 60000) + ' phút trước'
+                        : '';
+                    if (
+                        !confirm(
+                            `Máy "${who}"${dev} đang treo 10 line${since ? ' từ ' + since : ''}.\n\nChuyển về máy này? (Máy kia sẽ tự ngắt trong vài giây)`
+                        )
+                    )
+                        return;
                     const r2 = await window.PhoneAutoRegister.enable({ force: true });
-                    if (r2.conflict) { addLog('Không chuyển được: ' + (r2.error || 'unknown'), 'error'); return; }
+                    if (r2.conflict) {
+                        addLog('Không chuyển được: ' + (r2.error || 'unknown'), 'error');
+                        return;
+                    }
                     addLog('Đã chuyển treo 10 line về máy này', 'success');
                 } else {
                     addLog('Đã bật treo 10 line trên máy này', 'success');
@@ -959,9 +1173,12 @@ const PhoneWidget = (() => {
     function onExtChange() {
         const sel = document.getElementById('pwExtSelect');
         const custom = document.getElementById('pwCustomFields');
-        if (sel.value === '_custom') { custom.style.display = 'block'; return; }
+        if (sel.value === '_custom') {
+            custom.style.display = 'block';
+            return;
+        }
         custom.style.display = 'none';
-        const ext = getExtensions().find(e => e.ext === sel.value);
+        const ext = getExtensions().find((e) => e.ext === sel.value);
         if (ext) {
             document.getElementById('pwExtInput').value = ext.ext;
             document.getElementById('pwAuthInput').value = ext.authId;
@@ -976,11 +1193,19 @@ const PhoneWidget = (() => {
             authId = document.getElementById('pwAuthInput').value.trim();
             password = document.getElementById('pwPassInput').value.trim();
         } else {
-            const f = getExtensions().find(e => e.ext === sel.value);
-            if (!f) { addLog('Extension not found', 'error'); return; }
-            ext = f.ext; authId = f.authId; password = f.password;
+            const f = getExtensions().find((e) => e.ext === sel.value);
+            if (!f) {
+                addLog('Extension not found', 'error');
+                return;
+            }
+            ext = f.ext;
+            authId = f.authId;
+            password = f.password;
         }
-        if (!ext || !authId || !password) { addLog('Thiếu thông tin', 'error'); return; }
+        if (!ext || !authId || !password) {
+            addLog('Thiếu thông tin', 'error');
+            return;
+        }
         config = { wsUrl: getWsUrl(), extension: ext, authId, password };
         saveConfig();
         updateExtChipLabel();
@@ -992,10 +1217,27 @@ const PhoneWidget = (() => {
 
     function disconnect() {
         stopAllTones();
-        if (currentSession) { try { currentSession.terminate(); } catch {} currentSession = null; }
-        if (incomingSession) { try { incomingSession.terminate(); } catch {} incomingSession = null; }
-        if (phone) { try { phone.stop(); } catch {} phone = null; }
-        isRegistered = false; isMuted = false; stopTimer();
+        if (currentSession) {
+            try {
+                currentSession.terminate();
+            } catch {}
+            currentSession = null;
+        }
+        if (incomingSession) {
+            try {
+                incomingSession.terminate();
+            } catch {}
+            incomingSession = null;
+        }
+        if (phone) {
+            try {
+                phone.stop();
+            } catch {}
+            phone = null;
+        }
+        isRegistered = false;
+        isMuted = false;
+        stopTimer();
     }
 
     // === RECONNECT ===
@@ -1003,19 +1245,30 @@ const PhoneWidget = (() => {
         if (reconnectTimer) return;
         reconnectAttempt++;
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), MAX_RECONNECT_DELAY);
-        addLog(`Reconnect in ${Math.round(delay/1000)}s (lần ${reconnectAttempt}) — ${reason}`, 'error');
-        setStatus('error', `Đang thử lại (${reconnectAttempt})... ${Math.round(delay/1000)}s`);
+        addLog(
+            `Reconnect in ${Math.round(delay / 1000)}s (lần ${reconnectAttempt}) — ${reason}`,
+            'error'
+        );
+        setStatus('error', `Đang thử lại (${reconnectAttempt})... ${Math.round(delay / 1000)}s`);
         reconnectTimer = setTimeout(async () => {
             reconnectTimer = null;
             // Fully tear down before re-init
-            if (phone) { try { phone.stop(); } catch {} phone = null; }
+            if (phone) {
+                try {
+                    phone.stop();
+                } catch {}
+                phone = null;
+            }
             isRegistered = false;
             addLog(`Đang kết nối lại ext ${config.extension}...`);
             init();
         }, delay);
     }
     function cancelReconnect() {
-        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         reconnectAttempt = 0;
     }
 
@@ -1028,7 +1281,7 @@ const PhoneWidget = (() => {
             if (window.PhoneExtAssignment) {
                 await Promise.race([
                     window.PhoneExtAssignment.init(),
-                    new Promise(r => setTimeout(r, 2000))
+                    new Promise((r) => setTimeout(r, 2000)),
                 ]);
                 applyAssignedExt();
             }
@@ -1046,8 +1299,12 @@ const PhoneWidget = (() => {
                 authorization_user: config.authId,
                 password: config.password,
                 display_name: config.extension,
-                register: true, register_expires: 120, session_timers: false,
-                connection_recovery_min_interval: 2, connection_recovery_max_interval: 30, no_answer_timeout: 60
+                register: true,
+                register_expires: 120,
+                session_timers: false,
+                connection_recovery_min_interval: 2,
+                connection_recovery_max_interval: 30,
+                no_answer_timeout: 60,
             });
             phone.on('connected', () => addLog('WS connected', 'success'));
             phone.on('disconnected', (e) => {
@@ -1064,8 +1321,16 @@ const PhoneWidget = (() => {
                 try {
                     window.PhoneCloudSync?.setPresence?.('registered', { ext: config.extension });
                     window.PhoneCloudSync?.startHeartbeat?.(() => ({
-                        state: currentSession ? 'in-call' : (incomingSession ? 'ringing' : 'registered'),
-                        extra: { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '' }
+                        state: currentSession
+                            ? 'in-call'
+                            : incomingSession
+                              ? 'ringing'
+                              : 'registered',
+                        extra: {
+                            ext: config.extension,
+                            callPhone: activeCallMeta?.phone || '',
+                            callName: activeCallMeta?.name || '',
+                        },
                     }));
                 } catch {}
             });
@@ -1080,7 +1345,9 @@ const PhoneWidget = (() => {
                 addLog(`Reg failed: ${e.cause}`, 'error');
                 scheduleReconnect(`Reg failed: ${e.cause}`);
             });
-            phone.on('newRTCSession', (e) => { if (e.originator === 'remote') handleIncoming(e.session); });
+            phone.on('newRTCSession', (e) => {
+                if (e.originator === 'remote') handleIncoming(e.session);
+            });
             phone.start();
         } catch (err) {
             setStatus('error', 'Init Error');
@@ -1093,7 +1360,9 @@ const PhoneWidget = (() => {
     function handleIncoming(session) {
         // If already in a call, auto-reject
         if (currentSession) {
-            try { session.terminate({ status_code: 486, reason_phrase: 'Busy Here' }); } catch {}
+            try {
+                session.terminate({ status_code: 486, reason_phrase: 'Busy Here' });
+            } catch {}
             addLog('Busy — incoming call rejected', 'error');
             return;
         }
@@ -1105,7 +1374,9 @@ const PhoneWidget = (() => {
 
         // Show incoming banner, hide normal UI
         document.getElementById('pwIncoming').style.display = 'block';
-        document.getElementById('pwIncomingNum').textContent = callerName ? `${callerName} • ${formatVNPhone(caller)}` : formatVNPhone(caller);
+        document.getElementById('pwIncomingNum').textContent = callerName
+            ? `${callerName} • ${formatVNPhone(caller)}`
+            : formatVNPhone(caller);
         document.getElementById('pwCaller').style.display = 'none';
         document.getElementById('pwPad').style.display = 'none';
         document.querySelector('.pw-actions').style.display = 'none';
@@ -1114,8 +1385,12 @@ const PhoneWidget = (() => {
         startIncomingRing();
 
         let answered = false;
-        session.on('accepted', () => { answered = true; });
-        session.on('confirmed', () => { answered = true; });
+        session.on('accepted', () => {
+            answered = true;
+        });
+        session.on('confirmed', () => {
+            answered = true;
+        });
         session.on('failed', (e) => {
             stopIncomingRing();
             addLog(`Missed/failed: ${e.cause}`, 'error');
@@ -1141,16 +1416,24 @@ const PhoneWidget = (() => {
         hideIncomingBanner();
         const caller = incomingSession.remote_identity.uri.user || '';
         const callerName = lookupCustomerName(caller);
-        activeCallMeta = { phone: caller, name: callerName, direction: 'in', startedAt: Date.now(), orderCode: lookupOrderCode(caller) };
+        activeCallMeta = {
+            phone: caller,
+            name: callerName,
+            direction: 'in',
+            startedAt: Date.now(),
+            orderCode: lookupOrderCode(caller),
+        };
         document.getElementById('pwName').textContent = callerName || 'Đang trả lời...';
         document.getElementById('pwDialInput').value = formatVNPhone(caller);
         handleSession(incomingSession);
         try {
             incomingSession.answer({
                 mediaConstraints: { audio: true, video: false },
-                pcConfig: { iceServers: getIceServers() }
+                pcConfig: { iceServers: getIceServers() },
             });
-        } catch (err) { addLog(`Answer error: ${err.message}`, 'error'); }
+        } catch (err) {
+            addLog(`Answer error: ${err.message}`, 'error');
+        }
         incomingSession = null;
     }
 
@@ -1159,7 +1442,9 @@ const PhoneWidget = (() => {
         const caller = incomingSession.remote_identity.uri.user || '';
         const callerName = lookupCustomerName(caller);
         stopIncomingRing();
-        try { incomingSession.terminate({ status_code: 486, reason_phrase: 'Busy Here' }); } catch {}
+        try {
+            incomingSession.terminate({ status_code: 486, reason_phrase: 'Busy Here' });
+        } catch {}
         incomingSession = null;
         playHangupTone();
         hideIncomingBanner();
@@ -1168,12 +1453,14 @@ const PhoneWidget = (() => {
     }
 
     function hideIncomingBanner() {
-        const el = document.getElementById('pwIncoming'); if (el) el.style.display = 'none';
+        const el = document.getElementById('pwIncoming');
+        if (el) el.style.display = 'none';
         document.getElementById('pwCaller').style.display = 'block';
         document.getElementById('pwPad').style.display = 'grid';
         document.querySelector('.pw-actions').style.display = 'flex';
         if (fabEl) fabEl.classList.remove('incoming');
-        if (isRegistered && !currentSession) setStatus('registered', `Ext ${config.extension} • Sẵn sàng`);
+        if (isRegistered && !currentSession)
+            setStatus('registered', `Ext ${config.extension} • Sẵn sàng`);
     }
 
     // === DIAL ===
@@ -1185,8 +1472,15 @@ const PhoneWidget = (() => {
     function press(key) {
         playKeypadClick();
         const input = document.getElementById('pwDialInput');
-        if (input && !currentSession) { input.value += key; input.focus(); }
-        if (currentSession && currentSession.isEstablished()) { try { currentSession.sendDTMF(key); } catch {} }
+        if (input && !currentSession) {
+            input.value += key;
+            input.focus();
+        }
+        if (currentSession && currentSession.isEstablished()) {
+            try {
+                currentSession.sendDTMF(key);
+            } catch {}
+        }
     }
     function backspace() {
         const input = document.getElementById('pwDialInput');
@@ -1200,37 +1494,62 @@ const PhoneWidget = (() => {
         const name = customerName || lookupCustomerName(target);
         const code = orderCode || lookupOrderCode(target);
         pendingCall = { phone: target, name: name || '', orderCode: code || '' };
-        activeCallMeta = { phone: target, name: name || '', direction: 'out', startedAt: Date.now(), orderCode: code || '' };
+        activeCallMeta = {
+            phone: target,
+            name: name || '',
+            direction: 'out',
+            startedAt: Date.now(),
+            orderCode: code || '',
+        };
         show();
         if (isHistoryOpen()) toggleHistory(); // close history panel when calling
         document.getElementById('pwName').textContent = name || 'Đang quay số...';
         document.getElementById('pwDialInput').value = formatVNPhone(target);
         const sub = document.getElementById('pwSub');
-        if (sub) { sub.textContent = code ? `Đơn ${code}` : ''; sub.classList.toggle('has-order', !!code); }
-        if (phone && isRegistered) { dialPending(); return; }
+        if (sub) {
+            sub.textContent = code ? `Đơn ${code}` : '';
+            sub.classList.toggle('has-order', !!code);
+        }
+        if (phone && isRegistered) {
+            dialPending();
+            return;
+        }
         if (!phone) await init();
-        const waitReg = setInterval(() => { if (isRegistered) { clearInterval(waitReg); dialPending(); } }, 200);
-        setTimeout(() => { clearInterval(waitReg); if (!isRegistered) addLog('Registration timeout', 'error'); }, 15000);
+        const waitReg = setInterval(() => {
+            if (isRegistered) {
+                clearInterval(waitReg);
+                dialPending();
+            }
+        }, 200);
+        setTimeout(() => {
+            clearInterval(waitReg);
+            if (!isRegistered) addLog('Registration timeout', 'error');
+        }, 15000);
     }
 
     async function dialPending() {
         if (!pendingCall || !phone || !isRegistered) return;
-        if (currentSession) { addLog('Already in call', 'error'); return; }
+        if (currentSession) {
+            addLog('Already in call', 'error');
+            return;
+        }
         const target = pendingCall.phone;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(t => t.stop());
+            stream.getTracks().forEach((t) => t.stop());
         } catch {
             addLog('Mic bị chặn! Cho phép Microphone trong trình duyệt', 'error');
             setStatus('error', 'Mic bị chặn');
-            pendingCall = null; return;
+            pendingCall = null;
+            return;
         }
         addLog(`Calling ${target}...`);
         setStatus('calling', `Đang gọi ${target}...`);
         const session = phone.call(`sip:${target}@${getPbxDomain()}`, {
             mediaConstraints: { audio: true, video: false },
             pcConfig: { iceServers: getIceServers(), iceTransportPolicy: 'all' },
-            rtcOfferConstraints: { offerToReceiveAudio: true }, sessionTimersExpires: 120
+            rtcOfferConstraints: { offerToReceiveAudio: true },
+            sessionTimersExpires: 120,
         });
         handleSession(session);
         pendingCall = null;
@@ -1248,7 +1567,10 @@ const PhoneWidget = (() => {
         session.on('progress', () => {
             setStatus('calling', 'Đang đổ chuông...');
             addLog('Ringing...');
-            if (caller) { caller.classList.add('ringing'); caller.classList.remove('active'); }
+            if (caller) {
+                caller.classList.add('ringing');
+                caller.classList.remove('active');
+            }
             document.getElementById('pwName').textContent = 'Đang đổ chuông...';
             startRingback();
         });
@@ -1256,11 +1578,22 @@ const PhoneWidget = (() => {
             stopRingback();
             setStatus('connected', 'Đã kết nối');
             addLog('Connected', 'success');
-            if (caller) { caller.classList.add('active'); caller.classList.remove('ringing'); }
-            document.getElementById('pwName').textContent = activeCallMeta?.name || 'Đang nói chuyện';
+            if (caller) {
+                caller.classList.add('active');
+                caller.classList.remove('ringing');
+            }
+            document.getElementById('pwName').textContent =
+                activeCallMeta?.name || 'Đang nói chuyện';
             playAnsweredTone();
             startTimer();
-            try { window.PhoneCloudSync?.setPresence?.('in-call', { ext: config.extension, callPhone: activeCallMeta?.phone || '', callName: activeCallMeta?.name || '', direction: activeCallMeta?.direction || '' }); } catch {}
+            try {
+                window.PhoneCloudSync?.setPresence?.('in-call', {
+                    ext: config.extension,
+                    callPhone: activeCallMeta?.phone || '',
+                    callName: activeCallMeta?.name || '',
+                    direction: activeCallMeta?.direction || '',
+                });
+            } catch {}
             // Always-on recording: thu âm mọi cuộc gọi (local IndexedDB + auto-upload Render DB)
             try {
                 if (window.PhoneRecording && activeCallMeta?.phone) {
@@ -1274,11 +1607,13 @@ const PhoneWidget = (() => {
                             name: activeCallMeta.name,
                             direction: activeCallMeta.direction,
                             orderCode: activeCallMeta.orderCode,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
                         });
                     }, 400);
                 }
-            } catch (err) { addLog('Ghi âm lỗi: ' + err.message, 'error'); }
+            } catch (err) {
+                addLog('Ghi âm lỗi: ' + err.message, 'error');
+            }
         });
         session.on('confirmed', () => attachAudio(session));
         session.on('ended', (e) => {
@@ -1298,7 +1633,8 @@ const PhoneWidget = (() => {
             e.peerconnection.addEventListener('track', (ev) => {
                 if (ev.track.kind === 'audio') {
                     const a = document.getElementById('pwRemoteAudio');
-                    a.srcObject = new MediaStream([ev.track]); a.play().catch(() => {});
+                    a.srcObject = new MediaStream([ev.track]);
+                    a.play().catch(() => {});
                 }
             });
         });
@@ -1306,11 +1642,13 @@ const PhoneWidget = (() => {
 
     function attachAudio(session) {
         try {
-            const pc = session.connection; if (!pc) return;
-            pc.getReceivers().forEach(r => {
+            const pc = session.connection;
+            if (!pc) return;
+            pc.getReceivers().forEach((r) => {
                 if (r.track?.kind === 'audio') {
                     const a = document.getElementById('pwRemoteAudio');
-                    a.srcObject = new MediaStream([r.track]); a.play().catch(() => {});
+                    a.srcObject = new MediaStream([r.track]);
+                    a.play().catch(() => {});
                 }
             });
         } catch {}
@@ -1318,7 +1656,9 @@ const PhoneWidget = (() => {
 
     function hangup() {
         if (currentSession) {
-            try { currentSession.terminate(); } catch {}
+            try {
+                currentSession.terminate();
+            } catch {}
             playHangupTone();
         }
         endCall();
@@ -1335,10 +1675,12 @@ const PhoneWidget = (() => {
                 duration: durSec,
                 orderCode: activeCallMeta.orderCode,
                 timestamp: Date.now(),
-                ext: config.extension
+                ext: config.extension,
             };
             addHistoryEntry(entry);
-            try { window.PhoneCloudSync?.logCall?.(entry); } catch {}
+            try {
+                window.PhoneCloudSync?.logCall?.(entry);
+            } catch {}
             // Stop local recording & save with duration
             try {
                 if (window.PhoneRecording) {
@@ -1347,8 +1689,14 @@ const PhoneWidget = (() => {
             } catch {}
             activeCallMeta = null;
         }
-        try { window.PhoneCloudSync?.setPresence?.(isRegistered ? 'registered' : 'offline', { ext: config.extension }); } catch {}
-        currentSession = null; isMuted = false; stopTimer();
+        try {
+            window.PhoneCloudSync?.setPresence?.(isRegistered ? 'registered' : 'offline', {
+                ext: config.extension,
+            });
+        } catch {}
+        currentSession = null;
+        isMuted = false;
+        stopTimer();
         const caller = document.getElementById('pwCaller');
         if (caller) caller.classList.remove('active', 'ringing');
         document.getElementById('pwCall').style.display = 'flex';
@@ -1360,14 +1708,21 @@ const PhoneWidget = (() => {
         document.getElementById('pwTimer').style.display = 'none';
         document.getElementById('pwName').textContent = 'Sẵn sàng gọi';
         document.getElementById('pwDialInput').value = '';
-        const sub = document.getElementById('pwSub'); if (sub) { sub.textContent = ''; sub.classList.remove('has-order'); }
+        const sub = document.getElementById('pwSub');
+        if (sub) {
+            sub.textContent = '';
+            sub.classList.remove('has-order');
+        }
         if (isRegistered) setStatus('registered', `Ext ${config.extension} • Sẵn sàng`);
     }
 
     function toggleMute() {
         if (!currentSession) return;
         isMuted = !isMuted;
-        if (currentSession.connection) currentSession.connection.getSenders().forEach(s => { if (s.track?.kind === 'audio') s.track.enabled = !isMuted; });
+        if (currentSession.connection)
+            currentSession.connection.getSenders().forEach((s) => {
+                if (s.track?.kind === 'audio') s.track.enabled = !isMuted;
+            });
         const btn = document.getElementById('pwMute');
         btn.classList.toggle('active', isMuted);
         btn.innerHTML = isMuted ? '🔇' : '🔊';
@@ -1376,13 +1731,19 @@ const PhoneWidget = (() => {
     function startTimer() {
         callStartTime = Date.now();
         const el = document.getElementById('pwTimer');
-        el.style.display = 'block'; el.textContent = '00:00';
+        el.style.display = 'block';
+        el.textContent = '00:00';
         callTimerInterval = setInterval(() => {
             const s = Math.floor((Date.now() - callStartTime) / 1000);
-            el.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+            el.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
         }, 1000);
     }
-    function stopTimer() { if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; } }
+    function stopTimer() {
+        if (callTimerInterval) {
+            clearInterval(callTimerInterval);
+            callTimerInterval = null;
+        }
+    }
 
     function setStatus(t, text) {
         const dot = document.getElementById('pwStatusDot');
@@ -1393,10 +1754,18 @@ const PhoneWidget = (() => {
         if (txt) txt.textContent = text;
     }
     function addLog(msg, type) {
-        const log = document.getElementById('pwLog'); if (!log) return;
-        const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const div = document.createElement('div'); if (type) div.className = type;
-        div.textContent = `[${time}] ${msg}`; log.appendChild(div); log.scrollTop = log.scrollHeight;
+        const log = document.getElementById('pwLog');
+        if (!log) return;
+        const time = new Date().toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+        const div = document.createElement('div');
+        if (type) div.className = type;
+        div.textContent = `[${time}] ${msg}`;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
         // keep last 30 entries
         while (log.children.length > 30) log.removeChild(log.firstChild);
     }
@@ -1415,7 +1784,7 @@ const PhoneWidget = (() => {
             const myExt = assign.getMyExt();
             if (myExt && String(myExt) !== String(config.extension) && !currentSession) {
                 addLog(`Ext mới được phân chia: ${myExt} — đang kết nối lại`, 'success');
-                const f = getExtensions().find(e => String(e.ext) === String(myExt));
+                const f = getExtensions().find((e) => String(e.ext) === String(myExt));
                 if (f) switchExt(f.ext);
             }
         });
@@ -1425,18 +1794,41 @@ const PhoneWidget = (() => {
     function _initFabBadgeOnLoad() {
         // Defer until FAB exists
         const check = setInterval(() => {
-            if (fabEl) { updateMissedBadge(); clearInterval(check); }
+            if (fabEl) {
+                updateMissedBadge();
+                clearInterval(check);
+            }
         }, 500);
         setTimeout(() => clearInterval(check), 15000);
     }
     _initFabBadgeOnLoad();
 
     return {
-        init, makeCall, hangup, toggleMute, toggleSettings, applySettings, onExtChange,
-        show, hide, toggle, toggleMinimize, dialFromInput, press, backspace,
-        acceptIncoming, rejectIncoming,
-        toggleExtPicker, switchExt, openExtAssignment, toggleAutoRegister,
-        toggleHistory, clearHistory, callFromHistory, pasteFromClipboard,
-        callCurrent: dialFromInput, isReady: () => isRegistered
+        init,
+        makeCall,
+        hangup,
+        toggleMute,
+        toggleSettings,
+        applySettings,
+        onExtChange,
+        show,
+        hide,
+        toggle,
+        toggleMinimize,
+        dialFromInput,
+        press,
+        backspace,
+        acceptIncoming,
+        rejectIncoming,
+        toggleExtPicker,
+        switchExt,
+        openExtAssignment,
+        toggleAutoRegister,
+        toggleHistory,
+        clearHistory,
+        callFromHistory,
+        pasteFromClipboard,
+        callCurrent: dialFromInput,
+        isReady: () => isRegistered,
     };
 })();

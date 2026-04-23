@@ -42,7 +42,6 @@ class InventoryTrackingApp {
 
             this.isInitialized = true;
             console.log('[APP] Initialization complete');
-
         } catch (error) {
             console.error('[APP] Initialization error:', error);
             window.notificationManager?.error('Khong the khoi tao ung dung');
@@ -143,7 +142,7 @@ class InventoryTrackingApp {
     setupTabs() {
         const tabBtns = document.querySelectorAll('.tab-btn');
 
-        tabBtns.forEach(btn => {
+        tabBtns.forEach((btn) => {
             btn.addEventListener('click', () => {
                 const tabId = btn.dataset.tab;
 
@@ -158,11 +157,11 @@ class InventoryTrackingApp {
                 }
 
                 // Update active tab button
-                tabBtns.forEach(b => b.classList.remove('active'));
+                tabBtns.forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
 
                 // Update active tab content
-                document.querySelectorAll('.tab-content').forEach(content => {
+                document.querySelectorAll('.tab-content').forEach((content) => {
                     content.classList.remove('active');
                 });
 
@@ -194,7 +193,9 @@ class InventoryTrackingApp {
                 if (tabId === 'booking') {
                     // Re-render order bookings
                     if (typeof renderOrderBookings === 'function') {
-                        renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
+                        renderOrderBookings(
+                            globalState.filteredOrderBookings || globalState.orderBookings
+                        );
                     }
                 } else if (tabId === 'tracking') {
                     // Re-render shipments
@@ -316,7 +317,11 @@ class InventoryTrackingApp {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const slideOver = document.getElementById('paymentSlideOver');
-                if (slideOver && !slideOver.classList.contains('hidden') && typeof closePaymentSlideOver === 'function') {
+                if (
+                    slideOver &&
+                    !slideOver.classList.contains('hidden') &&
+                    typeof closePaymentSlideOver === 'function'
+                ) {
                     closePaymentSlideOver();
                 }
             }
@@ -403,7 +408,7 @@ class InventoryTrackingApp {
      */
     setupModalCloseListeners() {
         // Close modals when clicking overlay or close button
-        document.querySelectorAll('.modal').forEach(modal => {
+        document.querySelectorAll('.modal').forEach((modal) => {
             const overlay = modal.querySelector('.modal-overlay');
             const closeBtn = modal.querySelector('.modal-close');
 
@@ -432,10 +437,10 @@ class InventoryTrackingApp {
             'btnCancelExpense',
             'btnCancelShortage',
             'btnCloseInvoiceDetail',
-            'btnCloseShippingDetail'
+            'btnCloseShippingDetail',
         ];
 
-        cancelButtons.forEach(btnId => {
+        cancelButtons.forEach((btnId) => {
             const btn = document.getElementById(btnId);
             if (btn) {
                 btn.addEventListener('click', () => {
@@ -503,7 +508,6 @@ class InventoryTrackingApp {
             if (globalState.currentTab === 'finance' && typeof loadFinanceData === 'function') {
                 await loadFinanceData();
             }
-
         } catch (error) {
             console.error('[APP] Error loading data:', error);
             window.notificationManager?.error('Khong the tai du lieu');
@@ -649,11 +653,13 @@ function formatDateDisplay(dateStr) {
 function todayVN() {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Ho_Chi_Minh',
-        year: 'numeric', month: '2-digit', day: '2-digit'
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
     }).formatToParts(new Date());
-    const y = parts.find(p => p.type === 'year').value;
-    const m = parts.find(p => p.type === 'month').value;
-    const d = parts.find(p => p.type === 'day').value;
+    const y = parts.find((p) => p.type === 'year').value;
+    const m = parts.find((p) => p.type === 'month').value;
+    const d = parts.find((p) => p.type === 'day').value;
     return `${y}-${m}-${d}`;
 }
 
@@ -662,14 +668,16 @@ function todayVN() {
  */
 function dateToVNStr(date) {
     if (!date) return '';
-    const d = (date instanceof Date) ? date : new Date(date);
+    const d = date instanceof Date ? date : new Date(date);
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Ho_Chi_Minh',
-        year: 'numeric', month: '2-digit', day: '2-digit'
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
     }).formatToParts(d);
-    const y = parts.find(p => p.type === 'year').value;
-    const m = parts.find(p => p.type === 'month').value;
-    const dd = parts.find(p => p.type === 'day').value;
+    const y = parts.find((p) => p.type === 'year').value;
+    const m = parts.find((p) => p.type === 'month').value;
+    const dd = parts.find((p) => p.type === 'day').value;
     return `${y}-${m}-${dd}`;
 }
 

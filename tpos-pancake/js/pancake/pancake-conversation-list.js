@@ -4,7 +4,6 @@
 // =====================================================
 
 const PancakeConversationList = {
-
     /**
      * Render full conversation list into #pkConversations
      */
@@ -42,41 +41,49 @@ const PancakeConversationList = {
 
         // Filter by selected page
         if (state.selectedPageId && state.searchResults === null) {
-            const selectedPage = state.pages.find(p => p.id === state.selectedPageId);
+            const selectedPage = state.pages.find((p) => p.id === state.selectedPageId);
             const ids = selectedPage
                 ? [selectedPage.id, selectedPage.fb_page_id, selectedPage.page_id].filter(Boolean)
                 : [state.selectedPageId];
-            filtered = filtered.filter(conv => ids.includes(conv.page_id));
+            filtered = filtered.filter((conv) => ids.includes(conv.page_id));
         }
 
         // Local search filter
         if (state.searchQuery && state.searchResults === null) {
             const q = state.searchQuery.toLowerCase();
-            filtered = filtered.filter(conv => {
+            filtered = filtered.filter((conv) => {
                 const customer = conv.customers?.[0] || {};
                 const name = (conv.from?.name || customer.name || '').toLowerCase();
                 const phone = (customer.phone || customer.phone_number || '').toLowerCase();
                 const snippet = (conv.snippet || '').toLowerCase();
                 const fbId = (customer.fb_id || conv.from?.id || '').toLowerCase();
-                return name.includes(q) || snippet.includes(q) || phone.includes(q) || fbId.includes(q);
+                return (
+                    name.includes(q) || snippet.includes(q) || phone.includes(q) || fbId.includes(q)
+                );
             });
         }
 
         // Filter by type
         if (state.activeFilter === 'tpos-saved') {
-            filtered = filtered.filter(conv => {
+            filtered = filtered.filter((conv) => {
                 const customer = conv.customers?.[0] || {};
-                const possibleIds = [conv.from?.id, conv.from_psid, customer.psid, customer.id].filter(Boolean);
-                return possibleIds.some(id => state.tposSavedIds.has(id));
+                const possibleIds = [
+                    conv.from?.id,
+                    conv.from_psid,
+                    customer.psid,
+                    customer.id,
+                ].filter(Boolean);
+                return possibleIds.some((id) => state.tposSavedIds.has(id));
             });
         } else if (state.activeFilter === 'inbox') {
-            filtered = filtered.filter(conv => conv.type === 'INBOX');
+            filtered = filtered.filter((conv) => conv.type === 'INBOX');
         } else if (state.activeFilter === 'comment') {
-            filtered = filtered.filter(conv => conv.type === 'COMMENT');
+            filtered = filtered.filter((conv) => conv.type === 'COMMENT');
         }
 
         if (filtered.length === 0) {
-            const pageName = state.pages.find(p => p.id === state.selectedPageId)?.name || 'page này';
+            const pageName =
+                state.pages.find((p) => p.id === state.selectedPageId)?.name || 'page này';
             container.innerHTML = `
                 <div class="pk-empty-state" style="padding: 40px 20px;">
                     <i data-lucide="inbox"></i><h3>Không có hội thoại</h3>
@@ -86,7 +93,7 @@ const PancakeConversationList = {
             return;
         }
 
-        container.innerHTML = filtered.map(conv => this.renderConversationItem(conv)).join('');
+        container.innerHTML = filtered.map((conv) => this.renderConversationItem(conv)).join('');
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
@@ -109,12 +116,18 @@ const PancakeConversationList = {
         const isInbox = convType === 'INBOX';
 
         const customer = conv.customers?.[0] || conv.from || {};
-        const hasPhone = customer.phone_numbers?.length > 0 || customer.phone || conv.recent_phone_numbers?.length > 0 || conv.has_phone === true;
+        const hasPhone =
+            customer.phone_numbers?.length > 0 ||
+            customer.phone ||
+            conv.recent_phone_numbers?.length > 0 ||
+            conv.has_phone === true;
 
         // Debt badge
         const phone = this._getPhoneFromConv(conv);
         const debt = phone ? state.getDebtCache(phone) : null;
-        const hasDebt = state.showDebt && ((debt && debt > 0) || (state.showZeroDebt && debt !== null && debt !== undefined));
+        const hasDebt =
+            state.showDebt &&
+            ((debt && debt > 0) || (state.showZeroDebt && debt !== null && debt !== undefined));
         const debtDisplay = hasDebt ? window.SharedUtils.formatDebt(debt) : '';
 
         return `
@@ -140,10 +153,14 @@ const PancakeConversationList = {
                         <span class="pk-icon-indicator ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}">
                             <i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i>
                         </span>
-                        ${state.activeFilter === 'tpos-saved' ? `
+                        ${
+                            state.activeFilter === 'tpos-saved'
+                                ? `
                         <button class="pk-remove-tpos-btn" title="Xóa khỏi Lưu Tpos" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromTposSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
                             <i data-lucide="minus"></i>
-                        </button>` : ''}
+                        </button>`
+                                : ''
+                        }
                     </div>
                 </div>
             </div>`;
@@ -154,8 +171,8 @@ const PancakeConversationList = {
      */
     selectConversation(convId) {
         const state = window.PancakeState;
-        let conv = state.conversations.find(c => c.id === convId);
-        if (!conv && state.searchResults) conv = state.searchResults.find(c => c.id === convId);
+        let conv = state.conversations.find((c) => c.id === convId);
+        if (!conv && state.searchResults) conv = state.searchResults.find((c) => c.id === convId);
         if (!conv) return;
         state.activeConversation = conv;
         this.renderConversationList();
@@ -229,7 +246,10 @@ const PancakeConversationList = {
         if (el) {
             const previewEl = el.querySelector('.pk-conversation-preview');
             const timeEl = el.querySelector('.pk-conversation-time');
-            if (previewEl) { previewEl.textContent = conv.snippet || ''; previewEl.classList.add('unread'); }
+            if (previewEl) {
+                previewEl.textContent = conv.snippet || '';
+                previewEl.classList.add('unread');
+            }
             if (timeEl) timeEl.textContent = window.SharedUtils.formatTime(conv.updated_at);
 
             const avatarContainer = el.querySelector('.pk-avatar');
@@ -288,7 +308,8 @@ const PancakeConversationList = {
         const ok = await window.PancakeAPI.removeFromTposSaved(customerId);
         if (ok) {
             if (window.PancakeState.activeFilter === 'tpos-saved') this.renderConversationList();
-            if (window.notificationManager) window.notificationManager.show('Đã xóa khỏi Lưu Tpos', 'success');
+            if (window.notificationManager)
+                window.notificationManager.show('Đã xóa khỏi Lưu Tpos', 'success');
         }
     },
 
@@ -303,8 +324,14 @@ const PancakeConversationList = {
         const pageId = conv.page_id;
         const fbId = customer?.fb_id || customer?.id || conv.from?.id;
 
-        let directUrl = customer?.avatar || customer?.picture?.data?.url || customer?.profile_pic ||
-            customer?.image_url || conv.from?.picture?.data?.url || conv.from?.profile_pic || null;
+        let directUrl =
+            customer?.avatar ||
+            customer?.picture?.data?.url ||
+            customer?.profile_pic ||
+            customer?.image_url ||
+            conv.from?.picture?.data?.url ||
+            conv.from?.profile_pic ||
+            null;
         let avatarUrl = directUrl;
         if (fbId) avatarUrl = window.SharedUtils.getAvatarUrl(fbId, pageId, null, directUrl);
 
@@ -316,7 +343,7 @@ const PancakeConversationList = {
             'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
             'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
             'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-            'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
+            'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
         ];
         const gradient = colors[name.charCodeAt(0) % colors.length];
 
@@ -331,16 +358,19 @@ const PancakeConversationList = {
         const tags = conv.tags || [];
         if (tags.length === 0) return '';
         const palette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
-        return tags.map((tag, i) => {
-            const tagName = tag.name || tag.tag_name || tag;
-            const tagColor = tag.color || tag.tag_color || palette[i % palette.length];
-            return `<span class="pk-tag-badge ${tagColor}">${window.SharedUtils.escapeHtml(tagName)}</span>`;
-        }).join('');
+        return tags
+            .map((tag, i) => {
+                const tagName = tag.name || tag.tag_name || tag;
+                const tagColor = tag.color || tag.tag_color || palette[i % palette.length];
+                return `<span class="pk-tag-badge ${tagColor}">${window.SharedUtils.escapeHtml(tagName)}</span>`;
+            })
+            .join('');
     },
 
     _getPhoneFromConv(conv) {
         const customer = conv.customers?.[0] || conv.from || {};
-        const phone = customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || null;
+        const phone =
+            customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || null;
         return phone ? window.SharedUtils.normalizePhone(phone) : null;
     },
 
@@ -349,13 +379,19 @@ const PancakeConversationList = {
         try {
             const temp = document.createElement('div');
             temp.innerHTML = html;
-            let text = temp.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>/gi, '\n').replace(/<\/p>/gi, '\n');
+            let text = temp.innerHTML
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/div>/gi, '\n')
+                .replace(/<\/p>/gi, '\n');
             temp.innerHTML = text;
             return (temp.textContent || temp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
         } catch {
-            return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            return html
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
         }
-    }
+    },
 };
 
 // Export

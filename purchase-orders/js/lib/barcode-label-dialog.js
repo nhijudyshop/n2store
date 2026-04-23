@@ -16,14 +16,59 @@ window.BarcodeLabelDialog = (function () {
 
     // Paper presets matching TPOS /odata/ProductLabelPaper exactly
     const PAPERS = [
-        { id: 7, name: '2 Tem (66×21mm)', sheetW: 66, sheetH: 21, labelW: 25, labelH: 21, cols: 2, fontSize: 6, topMargin: 0.5, leftMargin: 0.5, bottomMargin: 0.5, rightMargin: 0.5, hSpacing: 0, vSpacing: 0 },
-        { id: 8, name: '1 Tem (65×22mm)', sheetW: 65, sheetH: 22, labelW: 27, labelH: 21, cols: 2, fontSize: 7, topMargin: 0, leftMargin: 0, bottomMargin: 0, rightMargin: 0, hSpacing: 0, vSpacing: 0 },
-        { id: 9, name: 'Tem 35×22mm', sheetW: 70, sheetH: 22, labelW: 35, labelH: 22, cols: 2, fontSize: 8, topMargin: 0, leftMargin: 0, bottomMargin: 0, rightMargin: 0, hSpacing: 0, vSpacing: 0 }
+        {
+            id: 7,
+            name: '2 Tem (66×21mm)',
+            sheetW: 66,
+            sheetH: 21,
+            labelW: 25,
+            labelH: 21,
+            cols: 2,
+            fontSize: 6,
+            topMargin: 0.5,
+            leftMargin: 0.5,
+            bottomMargin: 0.5,
+            rightMargin: 0.5,
+            hSpacing: 0,
+            vSpacing: 0,
+        },
+        {
+            id: 8,
+            name: '1 Tem (65×22mm)',
+            sheetW: 65,
+            sheetH: 22,
+            labelW: 27,
+            labelH: 21,
+            cols: 2,
+            fontSize: 7,
+            topMargin: 0,
+            leftMargin: 0,
+            bottomMargin: 0,
+            rightMargin: 0,
+            hSpacing: 0,
+            vSpacing: 0,
+        },
+        {
+            id: 9,
+            name: 'Tem 35×22mm',
+            sheetW: 70,
+            sheetH: 22,
+            labelW: 35,
+            labelH: 22,
+            cols: 2,
+            fontSize: 8,
+            topMargin: 0,
+            leftMargin: 0,
+            bottomMargin: 0,
+            rightMargin: 0,
+            hSpacing: 0,
+            vSpacing: 0,
+        },
     ];
 
     const PRINT_TYPES = [
         { id: 'default', name: 'Mặc định (dọc)' },
-        { id: 'new', name: '2 cột (ngang)' }
+        { id: 'new', name: '2 cột (ngang)' },
     ];
 
     function open(order) {
@@ -39,7 +84,7 @@ window.BarcodeLabelDialog = (function () {
             purchasePrice: item.purchasePrice || 0,
             tposProductId: item.tposProductId || null,
             tposProductTmplId: item.tposProductTmplId || null,
-            checked: true
+            checked: true,
         }));
 
         showSelectionModal(order, items);
@@ -56,16 +101,17 @@ window.BarcodeLabelDialog = (function () {
         let showCurrency = false;
         let hideBarcode = false;
 
-        const withBarcode = items.filter(i => i.code);
-        const withoutBarcode = items.filter(i => !i.code);
+        const withBarcode = items.filter((i) => i.code);
+        const withoutBarcode = items.filter((i) => !i.code);
         let activeTab = 0; // 0 = có mã vạch, 1 = không có mã vạch
 
         overlay = document.createElement('div');
         overlay.className = 'bld-overlay';
 
-        const warningHTML = withoutBarcode.length > 0
-            ? `<div class="bld-warning"><span class="bld-warning-icon">⚠</span> Sản phẩm không có mã vạch sẽ không được in${withoutBarcode.length > 0 ? ': ' + withoutBarcode.map(i => stripBrackets(i.name)).join(', ') : ''}</div>`
-            : '';
+        const warningHTML =
+            withoutBarcode.length > 0
+                ? `<div class="bld-warning"><span class="bld-warning-icon">⚠</span> Sản phẩm không có mã vạch sẽ không được in${withoutBarcode.length > 0 ? ': ' + withoutBarcode.map((i) => stripBrackets(i.name)).join(', ') : ''}</div>`
+                : '';
 
         overlay.innerHTML = `
 <style>
@@ -267,7 +313,8 @@ window.BarcodeLabelDialog = (function () {
                     tbody.appendChild(tr);
                 });
                 if (withBarcode.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
                 }
             } else {
                 // Tab: Sản phẩm không có mã vạch — columns: Sản phẩm | Mã vạch (input) | (empty)
@@ -286,7 +333,8 @@ window.BarcodeLabelDialog = (function () {
                     tbody.appendChild(tr);
                 });
                 if (withoutBarcode.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
+                    tbody.innerHTML =
+                        '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
                 }
             }
         }
@@ -294,7 +342,7 @@ window.BarcodeLabelDialog = (function () {
 
         // Update print button count
         function updateCount() {
-            const checked = items.filter(i => i.code && i.quantity > 0);
+            const checked = items.filter((i) => i.code && i.quantity > 0);
             const totalLabels = checked.reduce((sum, it) => sum + it.quantity, 0);
             btnPrint.textContent = totalLabels > 0 ? `In bằng pdf (${totalLabels})` : 'In bằng pdf';
         }
@@ -313,17 +361,31 @@ window.BarcodeLabelDialog = (function () {
         });
 
         // Settings events
-        overlay.querySelector('#bld-paper').addEventListener('change', (e) => { selectedPaper = PAPERS[parseInt(e.target.value)]; });
-        overlay.querySelector('#bld-show-price').addEventListener('change', (e) => { showPrice = e.target.checked; });
-        overlay.querySelector('#bld-show-bold').addEventListener('change', (e) => { showBold = e.target.checked; });
-        overlay.querySelector('#bld-show-name').addEventListener('change', (e) => { showProductName = e.target.checked; });
-        overlay.querySelector('#bld-show-currency').addEventListener('change', (e) => { showCurrency = e.target.checked; });
-        overlay.querySelector('#bld-hide-barcode').addEventListener('change', (e) => { hideBarcode = e.target.checked; });
+        overlay.querySelector('#bld-paper').addEventListener('change', (e) => {
+            selectedPaper = PAPERS[parseInt(e.target.value)];
+        });
+        overlay.querySelector('#bld-show-price').addEventListener('change', (e) => {
+            showPrice = e.target.checked;
+        });
+        overlay.querySelector('#bld-show-bold').addEventListener('change', (e) => {
+            showBold = e.target.checked;
+        });
+        overlay.querySelector('#bld-show-name').addEventListener('change', (e) => {
+            showProductName = e.target.checked;
+        });
+        overlay.querySelector('#bld-show-currency').addEventListener('change', (e) => {
+            showCurrency = e.target.checked;
+        });
+        overlay.querySelector('#bld-hide-barcode').addEventListener('change', (e) => {
+            hideBarcode = e.target.checked;
+        });
 
         // Quick apply qty
         overlay.querySelector('#bld-apply-qty').addEventListener('click', () => {
             const qty = Math.max(1, parseInt(overlay.querySelector('#bld-quick-qty').value) || 1);
-            items.forEach(it => { it.quantity = qty; });
+            items.forEach((it) => {
+                it.quantity = qty;
+            });
             renderTableRows();
             updateCount();
         });
@@ -347,7 +409,9 @@ window.BarcodeLabelDialog = (function () {
                 items.splice(idx, 1);
                 withBarcode.length = 0;
                 withoutBarcode.length = 0;
-                items.forEach(i => { (i.code ? withBarcode : withoutBarcode).push(i); });
+                items.forEach((i) => {
+                    (i.code ? withBarcode : withoutBarcode).push(i);
+                });
                 renderTableRows();
                 updateCount();
             }
@@ -360,7 +424,9 @@ window.BarcodeLabelDialog = (function () {
                 // Update barcodes: move items with new barcodes to withBarcode
                 withBarcode.length = 0;
                 withoutBarcode.length = 0;
-                items.forEach(i => { (i.code ? withBarcode : withoutBarcode).push(i); });
+                items.forEach((i) => {
+                    (i.code ? withBarcode : withoutBarcode).push(i);
+                });
                 activeTab = 0;
                 overlay.querySelectorAll('#bld-tab-bar li').forEach((li, i) => {
                     li.className = i === 0 ? 'active' : '';
@@ -371,21 +437,34 @@ window.BarcodeLabelDialog = (function () {
         });
 
         // Close
-        const closeModal = () => { overlay.remove(); overlay = null; };
+        const closeModal = () => {
+            overlay.remove();
+            overlay = null;
+        };
         overlay.querySelector('#bld-close').addEventListener('click', closeModal);
         btnCancel.addEventListener('click', closeModal);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
 
         // Print via TPOS API
         btnPrint.addEventListener('click', async () => {
-            const printItems = items.filter(it => it.code && it.quantity > 0);
+            const printItems = items.filter((it) => it.code && it.quantity > 0);
             if (!printItems.length) return;
 
             if (window.TPOSClient?.authenticatedFetch) {
                 btnPrint.disabled = true;
                 btnPrint.textContent = 'Đang tạo PDF...';
                 try {
-                    await printViaTPOS(printItems, selectedPaper, showPrice, showBold, showCurrency, showProductName, hideBarcode);
+                    await printViaTPOS(
+                        printItems,
+                        selectedPaper,
+                        showPrice,
+                        showBold,
+                        showCurrency,
+                        showProductName,
+                        hideBarcode
+                    );
                     closeModal();
                     return;
                 } catch (err) {
@@ -398,7 +477,16 @@ window.BarcodeLabelDialog = (function () {
 
             // Fallback: local HTML print
             closeModal();
-            generateAndPrint(printItems, selectedPaper, selectedPrintType.id, showPrice, showBold, showProductName, showCurrency, hideBarcode);
+            generateAndPrint(
+                printItems,
+                selectedPaper,
+                selectedPrintType.id,
+                showPrice,
+                showBold,
+                showProductName,
+                showCurrency,
+                hideBarcode
+            );
         });
     }
 
@@ -415,19 +503,27 @@ window.BarcodeLabelDialog = (function () {
      * TPOS requires Lines[].Product with at least Id, DefaultCode, Barcode, NameGet, ProductTmplId.
      * BarcodeTemplateIds must contain the ProductTmplIds (template, not variant).
      */
-    async function printViaTPOS(items, paper, showPrice, showBold, showCurrency, showProductName, hideBarcode) {
+    async function printViaTPOS(
+        items,
+        paper,
+        showPrice,
+        showBold,
+        showCurrency,
+        showProductName,
+        hideBarcode
+    ) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
 
-        const validItems = items.filter(it => it.code);
+        const validItems = items.filter((it) => it.code);
         if (!validItems.length) throw new Error('No items with product code');
 
         // Step 1: Batch lookup from web-warehouse (has real TPOS product data)
-        const uniqueCodes = [...new Set(validItems.map(it => it.code))];
+        const uniqueCodes = [...new Set(validItems.map((it) => it.code))];
         const whResp = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codes: uniqueCodes })
+            body: JSON.stringify({ codes: uniqueCodes }),
         });
         const whData = await whResp.json();
         const whProducts = whData.success ? whData.data : [];
@@ -446,36 +542,88 @@ window.BarcodeLabelDialog = (function () {
             if (!p || !p.tpos_product_id) continue;
             tmplIdSet.add(p.tpos_template_id);
             lines.push({
-                Id: 0, ProductId: p.tpos_product_id, ProductTmplId: 0, Quantity: it.quantity, Price: 0,
+                Id: 0,
+                ProductId: p.tpos_product_id,
+                ProductTmplId: 0,
+                Quantity: it.quantity,
+                Price: 0,
                 Product: {
-                    Id: p.tpos_product_id, EAN13: null,
-                    DefaultCode: p.product_code, NameTemplate: p.product_name, NameNoSign: null,
+                    Id: p.tpos_product_id,
+                    EAN13: null,
+                    DefaultCode: p.product_code,
+                    NameTemplate: p.product_name,
+                    NameNoSign: null,
                     ProductTmplId: p.tpos_template_id || 0,
-                    UOMId: 1, UOMName: p.uom_name || 'Cái', UOMPOId: 0,
-                    QtyAvailable: 0, VirtualAvailable: 0, OutgoingQty: null, IncomingQty: null,
+                    UOMId: 1,
+                    UOMName: p.uom_name || 'Cái',
+                    UOMPOId: 0,
+                    QtyAvailable: 0,
+                    VirtualAvailable: 0,
+                    OutgoingQty: null,
+                    IncomingQty: null,
                     NameGet: p.name_get || `[${p.product_code}] ${p.product_name}`,
-                    POSCategId: null, Price: null, Barcode: p.barcode || p.product_code,
-                    Image: null, ImageUrl: p.image_url || null, Thumbnails: [],
+                    POSCategId: null,
+                    Price: null,
+                    Barcode: p.barcode || p.product_code,
+                    Image: null,
+                    ImageUrl: p.image_url || null,
+                    Thumbnails: [],
                     PriceVariant: parseFloat(p.selling_price) || 0,
-                    SaleOK: true, PurchaseOK: true, DisplayAttributeValues: null,
-                    LstPrice: 0, Active: true, ListPrice: 0,
-                    PurchasePrice: null, DiscountSale: null, DiscountPurchase: null,
-                    StandardPrice: parseFloat(p.standard_price) || parseFloat(p.purchase_price) || 0,
-                    Weight: 0, Volume: null, OldPrice: null, IsDiscount: false,
-                    ProductTmplEnableAll: false, Version: 0, Description: null, LastUpdated: null,
-                    Type: 'product', CategId: 0, CostMethod: null,
-                    InvoicePolicy: 'order', Variant_TeamId: 0, Name: p.product_name,
-                    PropertyCostMethod: null, PropertyValuation: null,
-                    PurchaseMethod: 'receive', SaleDelay: 0, Tracking: null, Valuation: null,
-                    AvailableInPOS: true, CompanyId: null, IsCombo: null,
-                    NameTemplateNoSign: null, TaxesIds: [],
-                    StockValue: null, SaleValue: null, PosSalesCount: null,
-                    Factor: null, CategName: null, AmountTotal: null, NameCombos: [],
-                    RewardName: null, Product_UOMId: null, Tags: null,
-                    DateCreated: null, InitInventory: null, OrderTag: null,
-                    StringExtraProperties: null, CreatedById: null,
-                    TaxAmount: null, YearOfManufacture: null, Error: null
-                }
+                    SaleOK: true,
+                    PurchaseOK: true,
+                    DisplayAttributeValues: null,
+                    LstPrice: 0,
+                    Active: true,
+                    ListPrice: 0,
+                    PurchasePrice: null,
+                    DiscountSale: null,
+                    DiscountPurchase: null,
+                    StandardPrice:
+                        parseFloat(p.standard_price) || parseFloat(p.purchase_price) || 0,
+                    Weight: 0,
+                    Volume: null,
+                    OldPrice: null,
+                    IsDiscount: false,
+                    ProductTmplEnableAll: false,
+                    Version: 0,
+                    Description: null,
+                    LastUpdated: null,
+                    Type: 'product',
+                    CategId: 0,
+                    CostMethod: null,
+                    InvoicePolicy: 'order',
+                    Variant_TeamId: 0,
+                    Name: p.product_name,
+                    PropertyCostMethod: null,
+                    PropertyValuation: null,
+                    PurchaseMethod: 'receive',
+                    SaleDelay: 0,
+                    Tracking: null,
+                    Valuation: null,
+                    AvailableInPOS: true,
+                    CompanyId: null,
+                    IsCombo: null,
+                    NameTemplateNoSign: null,
+                    TaxesIds: [],
+                    StockValue: null,
+                    SaleValue: null,
+                    PosSalesCount: null,
+                    Factor: null,
+                    CategName: null,
+                    AmountTotal: null,
+                    NameCombos: [],
+                    RewardName: null,
+                    Product_UOMId: null,
+                    Tags: null,
+                    DateCreated: null,
+                    InitInventory: null,
+                    OrderTag: null,
+                    StringExtraProperties: null,
+                    CreatedById: null,
+                    TaxAmount: null,
+                    YearOfManufacture: null,
+                    Error: null,
+                },
             });
         }
 
@@ -485,30 +633,78 @@ window.BarcodeLabelDialog = (function () {
         // Step 2: Build payload (exact TPOS format from network capture)
         const companyId = window.ShopConfig?.getConfig()?.CompanyId || 1;
         const whMap = {
-            1: { Id: 1, Code: 'WH', Name: 'Nhi Judy Store', CompanyId: 0, LocationId: 0, NameGet: '[WH] Nhi Judy Store', CompanyName: null, LocationActive: true },
-            2: { Id: 2, Code: 'WH2', Name: 'Shop NJD', CompanyId: 0, LocationId: 0, NameGet: '[WH2] Shop NJD', CompanyName: null, LocationActive: true }
+            1: {
+                Id: 1,
+                Code: 'WH',
+                Name: 'Nhi Judy Store',
+                CompanyId: 0,
+                LocationId: 0,
+                NameGet: '[WH] Nhi Judy Store',
+                CompanyName: null,
+                LocationActive: true,
+            },
+            2: {
+                Id: 2,
+                Code: 'WH2',
+                Name: 'Shop NJD',
+                CompanyId: 0,
+                LocationId: 0,
+                NameGet: '[WH2] Shop NJD',
+                CompanyName: null,
+                LocationActive: true,
+            },
         };
 
         const payload = {
-            '@odata.context': 'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
-            Id: 0, PaperId: paper.id, PriceListId: 1,
-            ShowCurrency: showCurrency, ShowBold: showBold, ShowPrice: showPrice, ShowProductName: showProductName,
-            IsInventory: null, ShowCompany: null,
+            '@odata.context':
+                'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
+            Id: 0,
+            PaperId: paper.id,
+            PriceListId: 1,
+            ShowCurrency: showCurrency,
+            ShowBold: showBold,
+            ShowPrice: showPrice,
+            ShowProductName: showProductName,
+            IsInventory: null,
+            ShowCompany: null,
             BarcodeTemplateIds: tmplIds,
-            FastPurchaseOrderId: null, IsHideBarcode: hideBarcode || null, ExtraProperty: null,
+            FastPurchaseOrderId: null,
+            IsHideBarcode: hideBarcode || null,
+            ExtraProperty: null,
             Warehouse: whMap[companyId] || whMap[1],
-            PriceList: { Id: 1, Name: 'Bảng giá mặc định', CurrencyId: 1, CurrencyName: 'VND', Active: true, CompanyId: null, PartnerCateName: null, Sequence: 1, DateStart: null, DateEnd: null, CreatedById: null },
-            Paper: {
-                Id: paper.id, Name: paper.name,
-                SheetWidth: paper.sheetW, SheetHeight: paper.sheetH,
-                LabelWidth: paper.labelW, LabelHeight: paper.labelH,
-                LabelsPerSheet: paper.cols,
-                TopMargin: paper.topMargin, LeftMargin: paper.leftMargin,
-                BottomMargin: paper.bottomMargin, RightMargin: paper.rightMargin,
-                HSpacing: null, VSpacing: null,
-                TypePrint: 'Default', FontSize: paper.fontSize, TypePrintText: null, LabelsPerRow: 3
+            PriceList: {
+                Id: 1,
+                Name: 'Bảng giá mặc định',
+                CurrencyId: 1,
+                CurrencyName: 'VND',
+                Active: true,
+                CompanyId: null,
+                PartnerCateName: null,
+                Sequence: 1,
+                DateStart: null,
+                DateEnd: null,
+                CreatedById: null,
             },
-            Lines: lines
+            Paper: {
+                Id: paper.id,
+                Name: paper.name,
+                SheetWidth: paper.sheetW,
+                SheetHeight: paper.sheetH,
+                LabelWidth: paper.labelW,
+                LabelHeight: paper.labelH,
+                LabelsPerSheet: paper.cols,
+                TopMargin: paper.topMargin,
+                LeftMargin: paper.leftMargin,
+                BottomMargin: paper.bottomMargin,
+                RightMargin: paper.rightMargin,
+                HSpacing: null,
+                VSpacing: null,
+                TypePrint: 'Default',
+                FontSize: paper.fontSize,
+                TypePrintText: null,
+                LabelsPerRow: 3,
+            },
+            Lines: lines,
         };
 
         console.log('[Barcode] TPOS payload:', { items: lines.length, tmplIds, paperId: paper.id });
@@ -517,7 +713,7 @@ window.BarcodeLabelDialog = (function () {
         const saveResp = await tposFetch(`${PROXY}/api/odata/BarcodeProductLabel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
         const saveData = await saveResp.json();
         if (!saveData.Id) {
@@ -527,26 +723,49 @@ window.BarcodeLabelDialog = (function () {
         console.log('[Barcode] TPOS label saved, Id:', saveData.Id);
 
         // Step 4: GET PDF
-        const pdfResp = await tposFetch(`${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${saveData.Id}`);
+        const pdfResp = await tposFetch(
+            `${PROXY}/api/BarcodeProductLabel/PrintBarcodePDF?id=${saveData.Id}`
+        );
         if (!pdfResp.ok) throw new Error('PDF generation failed: ' + pdfResp.status);
 
         const pdfBlob = await pdfResp.blob();
-        window.open(URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' })), '_blank');
+        window.open(
+            URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' })),
+            '_blank'
+        );
         console.log('[Barcode] TPOS PDF opened, size:', pdfBlob.size);
     }
 
-    function generateAndPrint(items, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
+    function generateAndPrint(
+        items,
+        paper,
+        printType,
+        showPrice,
+        showBold,
+        showProductName,
+        showCurrency,
+        hideBarcode
+    ) {
         const labels = [];
         for (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
                 labels.push({
                     name: stripBrackets(item.name),
                     code: item.code,
-                    price: item.price
+                    price: item.price,
                 });
             }
         }
-        const html = buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode);
+        const html = buildLabelHTML(
+            labels,
+            paper,
+            printType,
+            showPrice,
+            showBold,
+            showProductName,
+            showCurrency,
+            hideBarcode
+        );
         showPrintOverlay(html);
     }
 
@@ -557,7 +776,16 @@ window.BarcodeLabelDialog = (function () {
      * - Dynamic styles from BarcodeProducLabelPrintController
      * - Barcode: JsBarcode CODE128 (instead of TPOS server /Web/Barcode)
      */
-    function buildLabelHTML(labels, paper, printType, showPrice, showBold, showProductName, showCurrency, hideBarcode) {
+    function buildLabelHTML(
+        labels,
+        paper,
+        printType,
+        showPrice,
+        showBold,
+        showProductName,
+        showCurrency,
+        hideBarcode
+    ) {
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
 
         // TPOS style_label() only sets padding/margin when value is not null
@@ -574,11 +802,12 @@ window.BarcodeLabelDialog = (function () {
             `font-size:${fs}px`,
             `line-height:${lineH}px`,
             `text-align:center`,
-            `margin-top:1px`
+            `margin-top:1px`,
         ];
         if (paper.topMargin != null) labelStyleParts.push(`padding-top:${paper.topMargin}mm`);
         if (paper.leftMargin != null) labelStyleParts.push(`padding-left:${paper.leftMargin}mm`);
-        if (paper.bottomMargin != null) labelStyleParts.push(`padding-bottom:${paper.bottomMargin}mm`);
+        if (paper.bottomMargin != null)
+            labelStyleParts.push(`padding-bottom:${paper.bottomMargin}mm`);
         if (paper.rightMargin != null) labelStyleParts.push(`padding-right:${paper.rightMargin}mm`);
         if (paper.hSpacing != null) labelStyleParts.push(`margin-right:${paper.hSpacing}mm`);
         if (paper.vSpacing != null) labelStyleParts.push(`margin-bottom:${paper.vSpacing}mm`);
@@ -714,18 +943,22 @@ ${sheetsHTML}
 
     function showPrintOverlay(html) {
         const printOverlay = document.createElement('div');
-        printOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
+        printOverlay.style.cssText =
+            'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
 
         const toolbar = document.createElement('div');
-        toolbar.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;background:#1f2937;';
+        toolbar.style.cssText =
+            'display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;background:#1f2937;';
 
         const btnPrint = document.createElement('button');
         btnPrint.textContent = 'In bằng pdf';
-        btnPrint.style.cssText = 'padding:8px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;';
+        btnPrint.style.cssText =
+            'padding:8px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;';
 
         const btnClose = document.createElement('button');
         btnClose.textContent = 'Đóng';
-        btnClose.style.cssText = 'padding:8px 20px;background:#4b5563;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;';
+        btnClose.style.cssText =
+            'padding:8px 20px;background:#4b5563;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;';
 
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'flex:1;border:none;background:#e5e7eb;';
@@ -735,11 +968,20 @@ ${sheetsHTML}
         iframe.src = blobUrl;
 
         btnPrint.onclick = () => {
-            try { iframe.contentWindow.print(); } catch (e) { console.error('Print error:', e); }
+            try {
+                iframe.contentWindow.print();
+            } catch (e) {
+                console.error('Print error:', e);
+            }
         };
-        const closePrint = () => { printOverlay.remove(); URL.revokeObjectURL(blobUrl); };
+        const closePrint = () => {
+            printOverlay.remove();
+            URL.revokeObjectURL(blobUrl);
+        };
         btnClose.onclick = closePrint;
-        printOverlay.onclick = (e) => { if (e.target === printOverlay) closePrint(); };
+        printOverlay.onclick = (e) => {
+            if (e.target === printOverlay) closePrint();
+        };
 
         toolbar.append(btnPrint, btnClose);
         printOverlay.append(toolbar, iframe);

@@ -4,7 +4,7 @@
 // Replaces direct Firebase Firestore calls
 // =====================================================
 
-(function() {
+(function () {
     'use strict';
 
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
@@ -13,7 +13,7 @@
         const url = `${API_BASE}${path}`;
         const res = await fetch(url, {
             headers: { 'Content-Type': 'application/json' },
-            ...options
+            ...options,
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -43,7 +43,7 @@
         async create(campaignData) {
             const data = await _fetch('', {
                 method: 'POST',
-                body: JSON.stringify(campaignData)
+                body: JSON.stringify(campaignData),
             });
             return data.campaign;
         },
@@ -52,7 +52,7 @@
         async update(id, updates) {
             const data = await _fetch(`/${encodeURIComponent(id)}`, {
                 method: 'PUT',
-                body: JSON.stringify(updates)
+                body: JSON.stringify(updates),
             });
             return data.campaign;
         },
@@ -76,7 +76,7 @@
         async setActiveCampaign(userId, activeCampaignId) {
             return _fetch(`/user-pref/${encodeURIComponent(userId)}`, {
                 method: 'PUT',
-                body: JSON.stringify({ activeCampaignId })
+                body: JSON.stringify({ activeCampaignId }),
             });
         },
 
@@ -84,14 +84,14 @@
         async saveFilterPreferences(userId, filterPreferences) {
             return _fetch(`/user-pref/${encodeURIComponent(userId)}`, {
                 method: 'PUT',
-                body: JSON.stringify({ filterPreferences })
+                body: JSON.stringify({ filterPreferences }),
             });
         },
 
         /** Clear active campaign for user */
         async clearActiveCampaign(userId) {
             return _fetch(`/user-pref/${encodeURIComponent(userId)}/active`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
         },
 
@@ -121,7 +121,7 @@
         async saveReport(tableName, reportData) {
             return _fetch(`/reports/${encodeURIComponent(tableName)}`, {
                 method: 'PUT',
-                body: JSON.stringify(reportData)
+                body: JSON.stringify(reportData),
             });
         },
 
@@ -134,7 +134,7 @@
         async renameReport(oldName, newName) {
             return _fetch(`/reports/${encodeURIComponent(oldName)}/rename`, {
                 method: 'PUT',
-                body: JSON.stringify({ newName })
+                body: JSON.stringify({ newName }),
             });
         },
 
@@ -158,7 +158,7 @@
         async saveEmployeeRanges(campaignName, employeeRanges) {
             return _fetch(`/employee-ranges/${encodeURIComponent(campaignName)}`, {
                 method: 'PUT',
-                body: JSON.stringify({ employeeRanges })
+                body: JSON.stringify({ employeeRanges }),
             });
         },
     };

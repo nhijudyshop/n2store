@@ -52,9 +52,14 @@
             if (global_AttributeValuesLoader()) {
                 _attrValuesPromise = global_AttributeValuesLoader().load();
             } else {
-                console.warn('[KPI] AttributeValuesLoader chưa sẵn sàng, dùng set rỗng — tên SP sẽ không được strip theo attribute.');
+                console.warn(
+                    '[KPI] AttributeValuesLoader chưa sẵn sàng, dùng set rỗng — tên SP sẽ không được strip theo attribute.'
+                );
                 _attrValuesPromise = Promise.resolve({
-                    colors: new Set(), sizes: new Set(), all: new Set(), _source: 'empty'
+                    colors: new Set(),
+                    sizes: new Set(),
+                    all: new Set(),
+                    _source: 'empty',
                 });
             }
         }
@@ -62,7 +67,9 @@
     }
 
     function global_AttributeValuesLoader() {
-        return (typeof window !== 'undefined' && window.AttributeValuesLoader) ? window.AttributeValuesLoader : null;
+        return typeof window !== 'undefined' && window.AttributeValuesLoader
+            ? window.AttributeValuesLoader
+            : null;
     }
 
     /**
@@ -91,7 +98,7 @@
         s = s.replace(/^\[[^\]]+\]\s*/, '');
 
         const colors = attrs && attrs.colors ? attrs.colors : new Set();
-        const sizes  = attrs && attrs.sizes  ? attrs.sizes  : new Set();
+        const sizes = attrs && attrs.sizes ? attrs.sizes : new Set();
 
         // 2) Strip mọi trailing (...)
         let prev;
@@ -137,8 +144,14 @@
      */
     async function fetchTemplateIdMap(codes) {
         if (!Array.isArray(codes) || codes.length === 0) return {};
-        if (typeof window === 'undefined' || !window.WarehouseAPI || !window.WarehouseAPI.getTemplateIdMap) {
-            console.warn('[KPI] WarehouseAPI.getTemplateIdMap chưa sẵn sàng — bỏ qua match theo template.');
+        if (
+            typeof window === 'undefined' ||
+            !window.WarehouseAPI ||
+            !window.WarehouseAPI.getTemplateIdMap
+        ) {
+            console.warn(
+                '[KPI] WarehouseAPI.getTemplateIdMap chưa sẵn sàng — bỏ qua match theo template.'
+            );
             return {};
         }
         try {
@@ -150,7 +163,7 @@
     }
 
     function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     function getCurrentDateString() {
@@ -193,17 +206,19 @@
             const headers = await window.tokenManager.getAuthHeader();
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
             const response = await fetch(apiUrl, {
-                headers: { ...headers, 'accept': 'application/json' }
+                headers: { ...headers, accept: 'application/json' },
             });
             if (!response.ok) return [];
             const data = await response.json();
-            return (data.Details || []).map(d => ({
-                ProductId: d.ProductId || null,
-                ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
-                ProductName: d.ProductNameGet || d.ProductName || d.Name || '',
-                Quantity: d.Quantity || 1,
-                Price: d.Price || 0
-            })).filter(p => p.ProductCode);
+            return (data.Details || [])
+                .map((d) => ({
+                    ProductId: d.ProductId || null,
+                    ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
+                    ProductName: d.ProductNameGet || d.ProductName || d.Name || '',
+                    Quantity: d.Quantity || 1,
+                    Price: d.Price || 0,
+                }))
+                .filter((p) => p.ProductCode);
         } catch (e) {
             console.error('[KPI] fetchProductsFromTPOS failed:', e);
             return [];
@@ -229,7 +244,9 @@
             campaignId = window.campaignManager.activeCampaignId;
         }
         if (!campaignName && window.campaignManager?.activeCampaign) {
-            campaignName = window.campaignManager.activeCampaign.name || window.campaignManager.activeCampaign.displayName;
+            campaignName =
+                window.campaignManager.activeCampaign.name ||
+                window.campaignManager.activeCampaign.displayName;
         }
 
         // Load report_order_details for product data + STT + Code (from Render PostgreSQL)
@@ -237,9 +254,12 @@
         try {
             if (campaignName) {
                 const safeTable = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                const result = await kpiAPI('GET', `/report-order-details/${encodeURIComponent(safeTable)}`);
+                const result = await kpiAPI(
+                    'GET',
+                    `/report-order-details/${encodeURIComponent(safeTable)}`
+                );
                 if (result.exists && Array.isArray(result.orders)) {
-                    result.orders.forEach(o => {
+                    result.orders.forEach((o) => {
                         const oid = o.Id || o.id;
                         if (oid) reportOrdersMap[oid] = o;
                     });
@@ -260,8 +280,11 @@
             const reportOrder = reportOrdersMap[orderId];
 
             // Get orderCode (primary key)
-            const orderCode = order.Code || order.code
-                || (reportOrder && (reportOrder.Code || reportOrder.code)) || '';
+            const orderCode =
+                order.Code ||
+                order.code ||
+                (reportOrder && (reportOrder.Code || reportOrder.code)) ||
+                '';
             if (!orderCode) continue;
 
             orderCodes.push(orderCode);
@@ -269,51 +292,82 @@
             // Get STT - try multiple sources
             // successOrders doesn't have STT, so fallback to reportOrder and OrderStore
             const storeOrder = window.OrderStore ? window.OrderStore.get(orderId) : null;
-            const stt = parseInt(
-                order.STT || order.stt
-                || (reportOrder && (reportOrder.STT || reportOrder.SessionIndex || reportOrder.stt))
-                || (storeOrder && (storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt))
-                || 0) || 0;
+            const stt =
+                parseInt(
+                    order.STT ||
+                        order.stt ||
+                        (reportOrder &&
+                            (reportOrder.STT || reportOrder.SessionIndex || reportOrder.stt)) ||
+                        (storeOrder &&
+                            (storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt)) ||
+                        0
+                ) || 0;
             if (!stt) {
                 console.warn(`[KPI] STT=0 for order ${orderCode} (orderId=${orderId})`);
-                console.warn('[KPI] Debug: reportOrder keys=', reportOrder ? Object.keys(reportOrder) : 'NULL');
-                console.warn('[KPI] Debug: storeOrder keys=', storeOrder ? Object.keys(storeOrder).slice(0, 10) : 'NULL');
-                if (reportOrder) console.warn('[KPI] reportOrder STT fields:', { STT: reportOrder.STT, SessionIndex: reportOrder.SessionIndex, stt: reportOrder.stt });
-                if (storeOrder) console.warn('[KPI] storeOrder STT fields:', { SessionIndex: storeOrder.SessionIndex, STT: storeOrder.STT, stt: storeOrder.stt });
+                console.warn(
+                    '[KPI] Debug: reportOrder keys=',
+                    reportOrder ? Object.keys(reportOrder) : 'NULL'
+                );
+                console.warn(
+                    '[KPI] Debug: storeOrder keys=',
+                    storeOrder ? Object.keys(storeOrder).slice(0, 10) : 'NULL'
+                );
+                if (reportOrder)
+                    console.warn('[KPI] reportOrder STT fields:', {
+                        STT: reportOrder.STT,
+                        SessionIndex: reportOrder.SessionIndex,
+                        stt: reportOrder.stt,
+                    });
+                if (storeOrder)
+                    console.warn('[KPI] storeOrder STT fields:', {
+                        SessionIndex: storeOrder.SessionIndex,
+                        STT: storeOrder.STT,
+                        stt: storeOrder.stt,
+                    });
             }
 
             // Get products (3-tier fallback)
             let products = [];
             if (reportOrder?.Details?.length > 0) {
-                products = reportOrder.Details.map(d => ({
+                products = reportOrder.Details.map((d) => ({
                     ProductId: d.ProductId || null,
                     ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
                     ProductName: d.ProductName || d.Name || '',
                     Quantity: d.Quantity || 1,
-                    Price: d.Price || 0
-                })).filter(p => p.ProductCode);
+                    Price: d.Price || 0,
+                })).filter((p) => p.ProductCode);
             }
 
             if (products.length === 0) {
                 const local = order.Details || order.products || order.mainProducts || [];
-                products = local.map(p => ({
-                    ProductId: p.ProductId || null,
-                    ProductCode: p.ProductCode || p.Code || p.DefaultCode || '',
-                    ProductName: p.ProductName || p.Name || '',
-                    Quantity: p.Quantity || 1,
-                    Price: p.Price || 0
-                })).filter(p => p.ProductCode);
+                products = local
+                    .map((p) => ({
+                        ProductId: p.ProductId || null,
+                        ProductCode: p.ProductCode || p.Code || p.DefaultCode || '',
+                        ProductName: p.ProductName || p.Name || '',
+                        Quantity: p.Quantity || 1,
+                        Price: p.Price || 0,
+                    }))
+                    .filter((p) => p.ProductCode);
             }
 
             if (products.length === 0) {
-                try { products = await fetchProductsFromTPOS(orderId); } catch (e) {}
+                try {
+                    products = await fetchProductsFromTPOS(orderId);
+                } catch (e) {}
             }
 
             if (products.length === 0) continue;
 
             basesToSave.push({
-                orderCode, orderId, campaignId, campaignName,
-                userId, userName, stt, products
+                orderCode,
+                orderId,
+                campaignId,
+                campaignName,
+                userId,
+                userName,
+                stt,
+                products,
             });
         }
 
@@ -328,11 +382,12 @@
             console.warn('[KPI] check-exists failed:', e.message);
         }
 
-        const newBases = basesToSave.filter(b => !existingSet.has(b.orderCode));
+        const newBases = basesToSave.filter((b) => !existingSet.has(b.orderCode));
         if (newBases.length === 0) return { saved: 0, skipped: basesToSave.length, failed: 0 };
 
         // Batch save with retry
-        let saved = 0, failed = 0;
+        let saved = 0,
+            failed = 0;
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
                 const result = await kpiAPI('POST', '/kpi-base/batch', { bases: newBases });
@@ -354,8 +409,13 @@
     // ========================================
     async function calculateNetKPI(orderCode) {
         const emptyResult = {
-            netProducts: 0, kpiAmount: 0, details: {}, baseProductCount: 0,
-            perUserNet: {}, perUserKPI: {}, perUserNames: {}
+            netProducts: 0,
+            kpiAmount: 0,
+            details: {},
+            baseProductCount: 0,
+            perUserNet: {},
+            perUserKPI: {},
+            perUserNames: {},
         };
         if (!orderCode) return emptyResult;
 
@@ -372,7 +432,7 @@
             // Filter logs after BASE creation
             const baseTime = base.createdAt ? new Date(base.createdAt) : null;
             const relevantLogs = baseTime
-                ? logs.filter(l => new Date(l.createdAt) >= baseTime)
+                ? logs.filter((l) => new Date(l.createdAt) >= baseTime)
                 : logs;
 
             // Gom tất cả product codes (BASE + audit) → tra template id 1 lần
@@ -382,14 +442,14 @@
 
             const [attrs, templateMap] = await Promise.all([
                 getAttributeValues(),
-                fetchTemplateIdMap(allCodes)
+                fetchTemplateIdMap(allCodes),
             ]);
 
             // Build BASE sets: productId / tpos_template_id / normalized name.
             // Skip null ProductId để tránh Number(null)===0 gây false match.
-            const baseProductIds  = new Set();
+            const baseProductIds = new Set();
             const baseTemplateIds = new Set();
-            const baseNameSet     = new Set();
+            const baseNameSet = new Set();
             for (const p of base.products) {
                 if (p.ProductId != null) baseProductIds.add(Number(p.ProductId));
                 const tpl = p.ProductCode ? templateMap[p.ProductCode] : null;
@@ -405,7 +465,7 @@
             // (2) match ProductId với BASE (SP có sẵn, không phải upsell)
             // (3) match tpos_template_id với BASE (biến thể cùng template)
             // (4) match tên đã normalize với BASE (đổi cùng loại khác màu/size)
-            const newProductLogs = relevantLogs.filter(l => {
+            const newProductLogs = relevantLogs.filter((l) => {
                 if (l.outOfRange === true || l.out_of_range === true) return false;
                 if (l.productId != null && baseProductIds.has(Number(l.productId))) return false;
                 const tpl = l.productCode ? templateMap[l.productCode] : null;
@@ -433,9 +493,13 @@
 
                 if (!netPerProduct[pid]) {
                     netPerProduct[pid] = {
-                        code: log.productCode, name: log.productName,
-                        added: 0, removed: 0, net: 0, price: 0,
-                        perUser: {}
+                        code: log.productCode,
+                        name: log.productName,
+                        added: 0,
+                        removed: 0,
+                        net: 0,
+                        price: 0,
+                        perUser: {},
                     };
                     stackPerProduct[pid] = [];
                 }
@@ -446,7 +510,7 @@
                     stackPerProduct[pid].push({
                         userId: log.userId || 'unknown',
                         userName: log.userName || 'Unknown',
-                        qty
+                        qty,
                     });
                 } else if (log.action === 'remove') {
                     netPerProduct[pid].removed += qty;
@@ -487,15 +551,16 @@
             let totalKPIAmount = 0;
 
             for (const [pid, data] of Object.entries(netPerProduct)) {
-                const unitKPI = (KPI_MODE === 'value' && data.price > 0)
-                    ? data.price : KPI_AMOUNT_PER_DIFFERENCE;
+                const unitKPI =
+                    KPI_MODE === 'value' && data.price > 0 ? data.price : KPI_AMOUNT_PER_DIFFERENCE;
 
                 let productNet = 0;
                 for (const entry of stackPerProduct[pid]) {
                     if (entry.qty <= 0) continue;
                     productNet += entry.qty;
                     perUserNet[entry.userId] = (perUserNet[entry.userId] || 0) + entry.qty;
-                    perUserKPI[entry.userId] = (perUserKPI[entry.userId] || 0) + entry.qty * unitKPI;
+                    perUserKPI[entry.userId] =
+                        (perUserKPI[entry.userId] || 0) + entry.qty * unitKPI;
                     data.perUser[entry.userId] = (data.perUser[entry.userId] || 0) + entry.qty;
                 }
                 data.net = productNet;
@@ -510,7 +575,7 @@
                 baseProductCount: baseProductIds.size,
                 perUserNet,
                 perUserKPI,
-                perUserNames
+                perUserNames,
             };
         } catch (e) {
             console.error('[KPI] calculateNetKPI error:', e);
@@ -530,8 +595,12 @@
             let userName = statistics.userName || null;
             if (!userName) {
                 try {
-                    const assigned = await getAssignedEmployeeForSTT(statistics.stt, statistics.campaignName);
-                    if (assigned.userName && assigned.userName !== 'Chưa phân') userName = assigned.userName;
+                    const assigned = await getAssignedEmployeeForSTT(
+                        statistics.stt,
+                        statistics.campaignName
+                    );
+                    if (assigned.userName && assigned.userName !== 'Chưa phân')
+                        userName = assigned.userName;
                 } catch (e) {}
             }
 
@@ -545,7 +614,7 @@
                 kpi: statistics.kpi || 0,
                 hasDiscrepancy: statistics.hasDiscrepancy || false,
                 details: statistics.details || {},
-                userName
+                userName,
             });
         } catch (e) {
             console.error('[KPI] saveKPIStatistics error:', e);
@@ -568,9 +637,17 @@
             if (!stt && base.orderId && window.OrderStore) {
                 const storeOrder = window.OrderStore.get(base.orderId);
                 if (storeOrder) {
-                    stt = parseInt(storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt || 0) || 0;
+                    stt =
+                        parseInt(
+                            storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt || 0
+                        ) || 0;
                     if (stt) {
-                        try { await kpiAPI('PUT', `/kpi-base/${encodeURIComponent(orderCode)}`, { ...base, stt }); } catch (e) {}
+                        try {
+                            await kpiAPI('PUT', `/kpi-base/${encodeURIComponent(orderCode)}`, {
+                                ...base,
+                                stt,
+                            });
+                        } catch (e) {}
                         console.log(`[KPI] Recovered STT=${stt} for ${orderCode}`);
                     }
                 }
@@ -608,7 +685,7 @@
                     kpi: userKPI,
                     hasDiscrepancy: false,
                     details: result.details,
-                    userName: result.perUserNames[userId] || null
+                    userName: result.perUserNames[userId] || null,
                 });
             }
 
@@ -622,7 +699,7 @@
                 netProducts: result.netProducts,
                 kpiAmount: result.kpiAmount,
                 perUserKPI: result.perUserKPI,
-                perUserNames: result.perUserNames
+                perUserNames: result.perUserNames,
             };
         } catch (e) {
             console.error('[KPI] recalculateAndSaveKPI error:', e);
@@ -649,8 +726,14 @@
             if (campaignName) {
                 try {
                     const safeName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(safeName)}`).then(r => r.json());
-                    if (result.success && Array.isArray(result.employeeRanges) && result.employeeRanges.length > 0) {
+                    const result = await fetch(
+                        `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(safeName)}`
+                    ).then((r) => r.json());
+                    if (
+                        result.success &&
+                        Array.isArray(result.employeeRanges) &&
+                        result.employeeRanges.length > 0
+                    ) {
                         const found = _findInRanges(result.employeeRanges, sttNum);
                         if (found) return found;
                     }
@@ -660,8 +743,10 @@
             // 2. General ranges (all campaigns, cached)
             try {
                 const now = Date.now();
-                if (!_employeeRangesCache || (now - _employeeRangesCacheTime) > RANGES_CACHE_TTL) {
-                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges`).then(r => r.json());
+                if (!_employeeRangesCache || now - _employeeRangesCacheTime > RANGES_CACHE_TTL) {
+                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges`).then((r) =>
+                        r.json()
+                    );
                     if (result.success) {
                         _employeeRangesCache = result.rangesByCampaign || {};
                         _employeeRangesCacheTime = now;
@@ -690,7 +775,7 @@
                 if (sttNum >= from && sttNum <= to) {
                     return {
                         userId: r.userId || r.id || 'unassigned',
-                        userName: r.userName || r.name || r.userId || r.id || 'Chưa phân'
+                        userName: r.userName || r.name || r.userId || r.id || 'Chưa phân',
                     };
                 }
             }
@@ -723,13 +808,17 @@
             container.style.display = 'block';
             if (!hasBase) {
                 badge.textContent = 'Chưa có BASE';
-                badge.style.background = '#f1f5f9'; badge.style.color = '#94a3b8';
+                badge.style.background = '#f1f5f9';
+                badge.style.color = '#94a3b8';
             } else if (netProducts > 0) {
-                badge.textContent = 'KPI: +' + netProducts + ' SP = ' + formatKPICurrency(kpiAmount);
-                badge.style.background = '#dcfce7'; badge.style.color = '#16a34a';
+                badge.textContent =
+                    'KPI: +' + netProducts + ' SP = ' + formatKPICurrency(kpiAmount);
+                badge.style.background = '#dcfce7';
+                badge.style.color = '#16a34a';
             } else {
                 badge.textContent = 'KPI: 0';
-                badge.style.background = '#f1f5f9'; badge.style.color = '#94a3b8';
+                badge.style.background = '#f1f5f9';
+                badge.style.color = '#94a3b8';
             }
         } catch (e) {}
     }
@@ -741,15 +830,24 @@
             if (!c) {
                 c = document.createElement('div');
                 c.id = 'kpi-toast-container';
-                c.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+                c.style.cssText =
+                    'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
                 document.body.appendChild(c);
             }
             const t = document.createElement('div');
-            t.style.cssText = 'background:#16a34a;color:white;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;opacity:0;transform:translateY(12px);transition:all 0.3s ease;';
+            t.style.cssText =
+                'background:#16a34a;color:white;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;opacity:0;transform:translateY(12px);transition:all 0.3s ease;';
             t.textContent = 'KPI: +' + netProducts + ' SP = ' + formatKPICurrency(kpiAmount);
             c.appendChild(t);
-            requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
-            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(12px)'; setTimeout(() => t.remove(), 300); }, 3000);
+            requestAnimationFrame(() => {
+                t.style.opacity = '1';
+                t.style.transform = 'translateY(0)';
+            });
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transform = 'translateY(12px)';
+                setTimeout(() => t.remove(), 300);
+            }, 3000);
         } catch (e) {}
     }
 
@@ -771,8 +869,12 @@
     // ========================================
     async function reconcileKPI(orderId, campaignName, orderCodeHint) {
         const result = {
-            orderId, hasDiscrepancy: false, actualNet: null,
-            actualPerUser: {}, actualPerUserNames: {}, discrepancies: []
+            orderId,
+            hasDiscrepancy: false,
+            actualNet: null,
+            actualPerUser: {},
+            actualPerUserNames: {},
+            discrepancies: [],
         };
         if (!orderId) return result;
 
@@ -820,17 +922,23 @@
             }
 
             // Count actual new products on TPOS (not in BASE)
-            const tposNewProducts = [...currentProductIds].filter(pid => !baseProductIds.has(pid));
-            const auditNewProductIds = new Set(Object.keys(kpiResult.details).map(Number).filter(n => !isNaN(n)));
+            const tposNewProducts = [...currentProductIds].filter(
+                (pid) => !baseProductIds.has(pid)
+            );
+            const auditNewProductIds = new Set(
+                Object.keys(kpiResult.details)
+                    .map(Number)
+                    .filter((n) => !isNaN(n))
+            );
 
             // Products in TPOS but missing from audit
             for (const pid of tposNewProducts) {
                 if (!auditNewProductIds.has(pid)) {
-                    const p = currentProducts.find(cp => Number(cp.ProductId) === pid);
+                    const p = currentProducts.find((cp) => Number(cp.ProductId) === pid);
                     result.hasDiscrepancy = true;
                     result.discrepancies.push({
                         type: 'missing_audit',
-                        message: `SP ${p?.ProductCode || pid} có trên TPOS nhưng thiếu audit log`
+                        message: `SP ${p?.ProductCode || pid} có trên TPOS nhưng thiếu audit log`,
                     });
                 }
             }
@@ -843,7 +951,7 @@
                         result.hasDiscrepancy = true;
                         result.discrepancies.push({
                             type: 'removed_from_tpos',
-                            message: `SP ${detail.code || pid} có KPI nhưng đã bị xóa khỏi TPOS`
+                            message: `SP ${detail.code || pid} có KPI nhưng đã bị xóa khỏi TPOS`,
                         });
                     }
                 }
@@ -867,7 +975,9 @@
         }
     }
 
-    function getKPIMode() { return KPI_MODE; }
+    function getKPIMode() {
+        return KPI_MODE;
+    }
 
     window.kpiManager = {
         checkKPIBaseExists,
@@ -886,7 +996,6 @@
         setKPIMode,
         getKPIMode,
         KPI_AMOUNT_PER_DIFFERENCE,
-        kpiAPI
+        kpiAPI,
     };
-
 })();

@@ -26,7 +26,7 @@ class PurchaseOrderDataManager {
             totalValue: 0,
             todayOrders: 0,
             todayValue: 0,
-            tposSyncRate: 0
+            tposSyncRate: 0,
         };
         this.statusCounts = {};
 
@@ -36,7 +36,7 @@ class PurchaseOrderDataManager {
             endDate: null,
             searchTerm: '',
             quickFilter: 'all',
-            statusFilter: ''
+            statusFilter: '',
         };
 
         // Cache
@@ -81,7 +81,7 @@ class PurchaseOrderDataManager {
     emit(event, data) {
         const callbacks = this.listeners.get(event);
         if (callbacks) {
-            callbacks.forEach(callback => {
+            callbacks.forEach((callback) => {
                 try {
                     callback(data);
                 } catch (error) {
@@ -148,7 +148,7 @@ class PurchaseOrderDataManager {
                 pageSize: config.PAGINATION_CONFIG.pageSize,
                 startDate: this.filters.startDate,
                 endDate: this.filters.endDate,
-                searchTerm: this.filters.searchTerm
+                searchTerm: this.filters.searchTerm,
             };
 
             const result = await service.getOrdersByStatus(status, options);
@@ -163,7 +163,6 @@ class PurchaseOrderDataManager {
             this.hasMore = result.hasMore;
 
             this.emit('ordersChange', this.orders);
-
         } catch (error) {
             console.error('[DataManager] Load orders failed:', error);
             this.setError(error);
@@ -186,10 +185,7 @@ class PurchaseOrderDataManager {
      * @returns {Promise<void>}
      */
     async refresh() {
-        await Promise.all([
-            this.loadOrders(this.currentStatus, true),
-            this.loadStatsAndCounts()
-        ]);
+        await Promise.all([this.loadOrders(this.currentStatus, true), this.loadStatsAndCounts()]);
     }
 
     /**
@@ -211,10 +207,14 @@ class PurchaseOrderDataManager {
     }
 
     /** @deprecated Use loadStatsAndCounts() */
-    async loadStats() { await this.loadStatsAndCounts(); }
+    async loadStats() {
+        await this.loadStatsAndCounts();
+    }
 
     /** @deprecated Use loadStatsAndCounts() */
-    async loadStatusCounts() { await this.loadStatsAndCounts(); }
+    async loadStatusCounts() {
+        await this.loadStatsAndCounts();
+    }
 
     // ========================================
     // FILTER MANAGEMENT
@@ -292,7 +292,7 @@ class PurchaseOrderDataManager {
             endDate: null,
             searchTerm: '',
             quickFilter: 'all',
-            statusFilter: ''
+            statusFilter: '',
         };
         this.emit('filtersChange', this.filters);
         this.loadOrders(this.currentStatus, true);
@@ -318,7 +318,7 @@ class PurchaseOrderDataManager {
         this.emit('pageChange', {
             currentPage: this.currentPage,
             totalItems: this.orders.length,
-            pageSize
+            pageSize,
         });
     }
 
@@ -426,7 +426,7 @@ class PurchaseOrderDataManager {
             await service.deleteOrder(orderId);
 
             // Remove from local state immediately
-            this.orders = this.orders.filter(o => o.id !== orderId);
+            this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
@@ -454,7 +454,7 @@ class PurchaseOrderDataManager {
             await service.restoreOrder(orderId);
 
             // Remove from local state
-            this.orders = this.orders.filter(o => o.id !== orderId);
+            this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
@@ -482,7 +482,7 @@ class PurchaseOrderDataManager {
             await service.permanentDeleteOrder(orderId);
 
             // Remove from local state
-            this.orders = this.orders.filter(o => o.id !== orderId);
+            this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
             // Refresh counts
@@ -538,7 +538,7 @@ class PurchaseOrderDataManager {
      */
     async getOrder(orderId) {
         // Check local state first
-        const localOrder = this.orders.find(o => o.id === orderId);
+        const localOrder = this.orders.find((o) => o.id === orderId);
         if (localOrder) return localOrder;
 
         // Check cache
@@ -556,7 +556,7 @@ class PurchaseOrderDataManager {
         if (order) {
             this.cache.set(cacheKey, {
                 data: order,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
         }
 
@@ -636,7 +636,7 @@ class PurchaseOrderDataManager {
      * Select all current orders
      */
     selectAll() {
-        this.selectedIds = new Set(this.orders.map(o => o.id));
+        this.selectedIds = new Set(this.orders.map((o) => o.id));
         this.emit('selectionChange', Array.from(this.selectedIds));
     }
 
@@ -662,7 +662,7 @@ class PurchaseOrderDataManager {
      * @returns {Array}
      */
     getSelectedOrders() {
-        return this.orders.filter(o => this.selectedIds.has(o.id));
+        return this.orders.filter((o) => this.selectedIds.has(o.id));
     }
 
     // ========================================
@@ -693,7 +693,7 @@ class PurchaseOrderDataManager {
             endDate: null,
             searchTerm: '',
             quickFilter: 'all',
-            statusFilter: ''
+            statusFilter: '',
         };
         this.selectedIds.clear();
         this.clearCache();

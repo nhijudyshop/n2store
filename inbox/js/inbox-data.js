@@ -11,7 +11,12 @@
  */
 function removeDiacritics(str) {
     if (!str) return '';
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
 }
 
 /**
@@ -49,12 +54,48 @@ function isPhoneQuery(query) {
 
 // Default group labels for categorizing conversations
 const DEFAULT_GROUPS = [
-    { id: 'new', name: 'Inbox Mới', color: '#3b82f6', count: 0, note: 'Các tin nhắn mới từ khách hàng chưa được xử lý, cần phản hồi sớm.' },
-    { id: 'processing', name: 'Đang Xử Lý', color: '#f59e0b', count: 0, note: 'Các cuộc hội thoại đang được nhân viên xử lý, chưa hoàn tất.' },
-    { id: 'waiting', name: 'Chờ Phản Hồi', color: '#f97316', count: 0, note: 'Đã trả lời khách, đang chờ khách phản hồi lại.' },
-    { id: 'ordered', name: 'Đã Đặt Hàng', color: '#10b981', count: 0, note: 'Khách đã chốt đơn và đặt hàng thành công.' },
-    { id: 'urgent', name: 'Cần Gấp', color: '#ef4444', count: 0, note: 'Các trường hợp cần xử lý gấp: khiếu nại, đổi trả, lỗi đơn hàng.' },
-    { id: 'done', name: 'Hoàn Tất', color: '#6b7280', count: 0, note: 'Cuộc hội thoại đã xử lý xong, không cần theo dõi thêm.' },
+    {
+        id: 'new',
+        name: 'Inbox Mới',
+        color: '#3b82f6',
+        count: 0,
+        note: 'Các tin nhắn mới từ khách hàng chưa được xử lý, cần phản hồi sớm.',
+    },
+    {
+        id: 'processing',
+        name: 'Đang Xử Lý',
+        color: '#f59e0b',
+        count: 0,
+        note: 'Các cuộc hội thoại đang được nhân viên xử lý, chưa hoàn tất.',
+    },
+    {
+        id: 'waiting',
+        name: 'Chờ Phản Hồi',
+        color: '#f97316',
+        count: 0,
+        note: 'Đã trả lời khách, đang chờ khách phản hồi lại.',
+    },
+    {
+        id: 'ordered',
+        name: 'Đã Đặt Hàng',
+        color: '#10b981',
+        count: 0,
+        note: 'Khách đã chốt đơn và đặt hàng thành công.',
+    },
+    {
+        id: 'urgent',
+        name: 'Cần Gấp',
+        color: '#ef4444',
+        count: 0,
+        note: 'Các trường hợp cần xử lý gấp: khiếu nại, đổi trả, lỗi đơn hàng.',
+    },
+    {
+        id: 'done',
+        name: 'Hoàn Tất',
+        color: '#6b7280',
+        count: 0,
+        note: 'Cuộc hội thoại đã xử lý xong, không cần theo dõi thêm.',
+    },
 ];
 
 /**
@@ -62,18 +103,18 @@ const DEFAULT_GROUPS = [
  */
 class InboxDataManager {
     constructor() {
-        this.conversations = [];  // Mapped conversations from Pancake
+        this.conversations = []; // Mapped conversations from Pancake
         this.groups = [];
-        this.pages = [];          // Pancake pages
-        this.livestreamPostMap = {};    // { post_id: [{ conv_id, name, ... }] } from server
-        this.livestreamPostNames = {};  // { post_id: "post name text" } from server
+        this.pages = []; // Pancake pages
+        this.livestreamPostMap = {}; // { post_id: [{ conv_id, name, ... }] } from server
+        this.livestreamPostNames = {}; // { post_id: "post name text" } from server
         this.livestreamConvIdSet = new Set(); // derived from livestreamPostMap for O(1) lookup
-        this.labelMap = {};       // convId -> labelId (saved to localStorage)
+        this.labelMap = {}; // convId -> labelId (saved to localStorage)
         this.isInitialized = false;
 
         // Conversation maps for O(1) lookup (like tpos-pancake)
-        this.conversationMap = new Map();           // id -> conversation
-        this.conversationByPsidMap = new Map();     // psid -> conversation
+        this.conversationMap = new Map(); // id -> conversation
+        this.conversationByPsidMap = new Map(); // psid -> conversation
         this.conversationByCustomerIdMap = new Map(); // customerId -> conversation
         // Customer index: normalizedName → Set<fb_id> (for name → customer ID search)
         this.customerNameIndex = new Map();
@@ -105,11 +146,17 @@ class InboxDataManager {
         try {
             // Initialize Pancake token manager (orders-report version - no timeout)
             await window.inboxTokenManager.initialize();
-            console.log('[InboxData] Pancake token manager initialized, accounts:', Object.keys(window.inboxTokenManager.accounts || {}).length);
+            console.log(
+                '[InboxData] Pancake token manager initialized, accounts:',
+                Object.keys(window.inboxTokenManager.accounts || {}).length
+            );
 
             // Initialize Pancake API (fetches pages)
             await window.inboxPancakeAPI.initialize();
-            console.log('[InboxData] Pancake API initialized, pages:', window.inboxPancakeAPI.pageIds?.length);
+            console.log(
+                '[InboxData] Pancake API initialized, pages:',
+                window.inboxPancakeAPI.pageIds?.length
+            );
 
             // Load conversations (refresh from network)
             await this.loadConversations(true);
@@ -149,7 +196,9 @@ class InboxDataManager {
                 return false;
             }
             this.conversations = parsed.conversations;
-            console.log(`[InboxData] ⚡ Loaded ${this.conversations.length} conversations from cache (age=${Math.round(age/1000)}s)`);
+            console.log(
+                `[InboxData] ⚡ Loaded ${this.conversations.length} conversations from cache (age=${Math.round(age / 1000)}s)`
+            );
             return this.conversations.length > 0;
         } catch (e) {
             console.warn('[InboxData] Failed to load conversations cache:', e);
@@ -161,10 +210,13 @@ class InboxDataManager {
         try {
             // Cap at 500 conversations to keep localStorage healthy
             const convs = this.conversations.slice(0, 500);
-            localStorage.setItem('inbox_conversations_cache_v1', JSON.stringify({
-                ts: Date.now(),
-                conversations: convs
-            }));
+            localStorage.setItem(
+                'inbox_conversations_cache_v1',
+                JSON.stringify({
+                    ts: Date.now(),
+                    conversations: convs,
+                })
+            );
         } catch (e) {
             console.warn('[InboxData] Failed to save conversations cache:', e);
         }
@@ -199,12 +251,12 @@ class InboxDataManager {
         try {
             const saved = localStorage.getItem('inbox_groups');
             if (saved) {
-                this.groups = JSON.parse(saved).map(g => ({ note: '', ...g }));
+                this.groups = JSON.parse(saved).map((g) => ({ note: '', ...g }));
             } else {
-                this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
+                this.groups = DEFAULT_GROUPS.map((g) => ({ ...g }));
             }
         } catch {
-            this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
+            this.groups = DEFAULT_GROUPS.map((g) => ({ ...g }));
         }
     }
 
@@ -225,7 +277,8 @@ class InboxDataManager {
             return true;
         } catch (err) {
             console.error('[InboxData] Failed to save groups to server:', err.message);
-            if (typeof showToast === 'function') showToast('Lỗi lưu nhóm lên server: ' + err.message, 'error');
+            if (typeof showToast === 'function')
+                showToast('Lỗi lưu nhóm lên server: ' + err.message, 'error');
             return false;
         }
     }
@@ -243,9 +296,15 @@ class InboxDataManager {
         // If some pages succeeded and some failed, keep the successful conversations
         // Only report full error if ALL pages failed (0 conversations)
         if (result.error) {
-            const errCode = Array.isArray(result.error) ? result.error[0]?.code : result.error?.code;
-            const errMsg = Array.isArray(result.error) ? result.error[0]?.message : result.error?.message;
-            console.warn(`[InboxData] Pancake API partial error: code=${errCode}, message="${errMsg}", convs=${result.conversations?.length || 0}`);
+            const errCode = Array.isArray(result.error)
+                ? result.error[0]?.code
+                : result.error?.code;
+            const errMsg = Array.isArray(result.error)
+                ? result.error[0]?.message
+                : result.error?.message;
+            console.warn(
+                `[InboxData] Pancake API partial error: code=${errCode}, message="${errMsg}", convs=${result.conversations?.length || 0}`
+            );
             if (result.conversations && result.conversations.length > 0) {
                 // Some pages succeeded — use what we got
                 return { conversations: result.conversations, error: null };
@@ -278,24 +337,36 @@ class InboxDataManager {
             return [];
         }
 
-        console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages (parallel)...`);
+        console.log(
+            `[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages (parallel)...`
+        );
         let allConversations = [];
         const workingPageIds = [];
 
         const fetchOne = async (pageId) => {
             try {
-                const baseUrl = InboxApiConfig.buildUrl.pancakeDirect(`pages/${pageId}/conversations`, pageId, token, token);
+                const baseUrl = InboxApiConfig.buildUrl.pancakeDirect(
+                    `pages/${pageId}/conversations`,
+                    pageId,
+                    token,
+                    token
+                );
                 const extraParams = `&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&cursor_mode=true&from_platform=web`;
                 const url = baseUrl + extraParams;
 
-                const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                });
                 if (!response.ok) {
                     console.warn(`[InboxData] Page ${pageId}: HTTP ${response.status}`);
                     return null;
                 }
                 const data = await response.json();
                 if (data.success === false) {
-                    console.warn(`[InboxData] Page ${pageId}: error ${data.error_code} - ${data.message}`);
+                    console.warn(
+                        `[InboxData] Page ${pageId}: error ${data.error_code} - ${data.message}`
+                    );
                     return null;
                 }
                 const convs = data.conversations || [];
@@ -327,8 +398,8 @@ class InboxDataManager {
         allConversations.sort((a, b) => {
             const aCustomerLast = a.last_sent_by?.id && a.last_sent_by.id !== a.page_id;
             const bCustomerLast = b.last_sent_by?.id && b.last_sent_by.id !== b.page_id;
-            const aUnread = ((a.unread_count || 0) > 0 && aCustomerLast) ? 1 : 0;
-            const bUnread = ((b.unread_count || 0) > 0 && bCustomerLast) ? 1 : 0;
+            const aUnread = (a.unread_count || 0) > 0 && aCustomerLast ? 1 : 0;
+            const bUnread = (b.unread_count || 0) > 0 && bCustomerLast ? 1 : 0;
             if (aUnread !== bUnread) return bUnread - aUnread;
             const ta = new Date(a.updated_at || 0).getTime();
             const tb = new Date(b.updated_at || 0).getTime();
@@ -355,17 +426,25 @@ class InboxDataManager {
             }
 
             // Try multi-page endpoint first
-            let { conversations: rawConversations, error, message } = await this.fetchConversationsWithErrorCheck(forceRefresh);
+            let {
+                conversations: rawConversations,
+                error,
+                message,
+            } = await this.fetchConversationsWithErrorCheck(forceRefresh);
 
             // If multi-page fails with permission error, try per-page with current account first
             // (account may have access to SOME pages, just not all)
             if (error === 105) {
-                console.log(`[InboxData] Error 105 (no permission on some pages), trying per-page with current account...`);
+                console.log(
+                    `[InboxData] Error 105 (no permission on some pages), trying per-page with current account...`
+                );
                 rawConversations = await this.fetchConversationsPerPage();
 
                 // If current account per-page also fails, try other accounts
                 if (rawConversations.length === 0) {
-                    console.log('[InboxData] Current account per-page failed, trying other accounts...');
+                    console.log(
+                        '[InboxData] Current account per-page failed, trying other accounts...'
+                    );
                     rawConversations = await this.tryOtherAccounts();
                     if (rawConversations.length === 0) {
                         rawConversations = await this.tryOtherAccountsPerPage();
@@ -374,7 +453,9 @@ class InboxDataManager {
             } else if (error === 122) {
                 // Subscription expired on some page(s) - this is page-level, not account-level
                 // Go directly to per-page fetch (skips expired pages automatically)
-                console.log(`[InboxData] Error 122 (page subscription expired), fetching per-page...`);
+                console.log(
+                    `[InboxData] Error 122 (page subscription expired), fetching per-page...`
+                );
                 rawConversations = await this.fetchConversationsPerPage();
 
                 if (rawConversations.length === 0) {
@@ -396,7 +477,7 @@ class InboxDataManager {
             this.pages = pdm.pages || [];
 
             // Map Pancake conversations to inbox format
-            this.conversations = rawConversations.map(conv => this.mapConversation(conv));
+            this.conversations = rawConversations.map((conv) => this.mapConversation(conv));
 
             this.recalculateGroupCounts();
             this.buildMaps();
@@ -431,18 +512,24 @@ class InboxDataManager {
             }
             if (items.length === 0) return;
 
-            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const workerUrl =
+                InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             fetch(`${workerUrl}/api/v2/customers/link-fb-ids`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(items),
-            }).then(r => r.json()).then(data => {
-                if (data.linked > 0 || data.created > 0) {
-                    console.log(`[InboxData] Linked ${data.linked} + created ${data.created} customer fb_ids`);
-                }
-            }).catch(e => {
-                console.warn('[InboxData] link-fb-ids failed:', e.message);
-            });
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.linked > 0 || data.created > 0) {
+                        console.log(
+                            `[InboxData] Linked ${data.linked} + created ${data.created} customer fb_ids`
+                        );
+                    }
+                })
+                .catch((e) => {
+                    console.warn('[InboxData] link-fb-ids failed:', e.message);
+                });
         } catch (e) {
             console.warn('[InboxData] _linkFbIdsToCustomerDB error:', e);
         }
@@ -462,17 +549,19 @@ class InboxDataManager {
             const moreRaw = await pdm.fetchMoreConversations();
             if (!moreRaw || moreRaw.length === 0) return [];
 
-            const moreMapped = moreRaw.map(conv => this.mapConversation(conv));
+            const moreMapped = moreRaw.map((conv) => this.mapConversation(conv));
 
             // Deduplicate
-            const existingIds = new Set(this.conversations.map(c => c.id));
-            const newConvs = moreMapped.filter(c => !existingIds.has(c.id));
+            const existingIds = new Set(this.conversations.map((c) => c.id));
+            const newConvs = moreMapped.filter((c) => !existingIds.has(c.id));
 
             this.conversations.push(...newConvs);
             this.recalculateGroupCounts();
             this.buildMaps();
 
-            console.log(`[InboxData] Loaded ${newConvs.length} more conversations (total: ${this.conversations.length})`);
+            console.log(
+                `[InboxData] Loaded ${newConvs.length} more conversations (total: ${this.conversations.length})`
+            );
             return newConvs;
         } catch (error) {
             console.error('[InboxData] Error loading more conversations:', error);
@@ -490,7 +579,9 @@ class InboxDataManager {
         const currentId = ptm.activeAccountId;
         const accountIds = Object.keys(ptm.accounts);
 
-        console.log(`[InboxData] Per-page failed for active account, trying ${accountIds.length - 1} others...`);
+        console.log(
+            `[InboxData] Per-page failed for active account, trying ${accountIds.length - 1} others...`
+        );
 
         for (const accountId of accountIds) {
             if (accountId === currentId) continue;
@@ -505,7 +596,9 @@ class InboxDataManager {
             try {
                 const convs = await this.fetchConversationsPerPage();
                 if (convs.length > 0) {
-                    console.log(`[InboxData] ✅ Account "${account.name}" works! ${convs.length} conversations`);
+                    console.log(
+                        `[InboxData] ✅ Account "${account.name}" works! ${convs.length} conversations`
+                    );
                     showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
                     return convs;
                 }
@@ -532,7 +625,9 @@ class InboxDataManager {
         const currentId = ptm.activeAccountId;
         const accountIds = Object.keys(ptm.accounts);
 
-        console.log(`[InboxData] Active account returned 0 conversations, trying ${accountIds.length - 1} other accounts...`);
+        console.log(
+            `[InboxData] Active account returned 0 conversations, trying ${accountIds.length - 1} other accounts...`
+        );
 
         for (const accountId of accountIds) {
             if (accountId === currentId) continue;
@@ -545,13 +640,21 @@ class InboxDataManager {
             if (!switched) continue;
 
             try {
-                const { conversations: convs, error, message } = await this.fetchConversationsWithErrorCheck(true);
+                const {
+                    conversations: convs,
+                    error,
+                    message,
+                } = await this.fetchConversationsWithErrorCheck(true);
                 if (error) {
-                    console.warn(`[InboxData] Account "${account.name}" API error (${error}): ${message}`);
+                    console.warn(
+                        `[InboxData] Account "${account.name}" API error (${error}): ${message}`
+                    );
                     continue;
                 }
                 if (convs.length > 0) {
-                    console.log(`[InboxData] Account "${account.name}" works! ${convs.length} conversations`);
+                    console.log(
+                        `[InboxData] Account "${account.name}" works! ${convs.length} conversations`
+                    );
                     showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
                     return convs;
                 }
@@ -577,45 +680,57 @@ class InboxDataManager {
      * Map a Pancake conversation to inbox format
      */
     mapConversation(conv) {
-        const customerName = conv.from?.name
-            || (conv.customers && conv.customers.length > 0 ? conv.customers[0].name : '')
-            || 'Khách hàng';
+        const customerName =
+            conv.from?.name ||
+            (conv.customers && conv.customers.length > 0 ? conv.customers[0].name : '') ||
+            'Khách hàng';
 
         const pageName = this.getPageName(conv.page_id);
 
         // Extract phone numbers from recent_phone_numbers for search
-        const phones = (conv.recent_phone_numbers || []).map(p => p.phone_number || p.captured).filter(Boolean);
+        const phones = (conv.recent_phone_numbers || [])
+            .map((p) => p.phone_number || p.captured)
+            .filter(Boolean);
 
         // Check if last message was from customer (not from page/admin)
         const lastSentById = conv.last_sent_by?.id;
         const isCustomerLast = lastSentById && lastSentById !== conv.page_id;
 
-        const lastMessage = this._filterSystemMessage((conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, ''));
+        const lastMessage = this._filterSystemMessage(
+            (conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(
+                /<[^>]*>/g,
+                ''
+            )
+        );
 
         // Pre-compute search index — avoids re-running removeDiacritics() and
         // normalizePhone() on every keystroke (huge speedup for large lists).
-        const searchPhones = phones.map(p => normalizePhone(p)).filter(Boolean);
+        const searchPhones = phones.map((p) => normalizePhone(p)).filter(Boolean);
 
         return {
             id: conv.id,
             name: customerName,
             avatar: conv.from?.avatar || null,
             lastMessage,
-            time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
+            time:
+                this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) ||
+                new Date(),
             unread: conv.unread_count || 0,
             online: false,
             phone: phones.join(', '),
             labels: this.getLabelArray(conv.id),
-            isLivestream: this.livestreamConvIdSet.has(conv.id) || (conv.type === 'COMMENT' && !!conv.post_id),
+            isLivestream:
+                this.livestreamConvIdSet.has(conv.id) ||
+                (conv.type === 'COMMENT' && !!conv.post_id),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
             pageName: pageName,
             psid: conv.from_psid || conv.from?.id || '',
-            customerId: (conv.customers && conv.customers.length > 0) ? conv.customers[0].id : null,
+            customerId: conv.customers && conv.customers.length > 0 ? conv.customers[0].id : null,
             conversationId: conv.id,
             isCustomerLast, // true = customer sent last message (unanswered)
             messages: [], // Messages loaded on demand
-            _raw: conv,   // Keep raw data for reference
+            _raw: conv, // Keep raw data for reference
             // Pre-normalized search fields (lowercase, no diacritics)
             _sName: removeDiacritics(customerName),
             _sLastMsg: removeDiacritics(lastMessage),
@@ -632,7 +747,11 @@ class InboxDataManager {
         try {
             let date;
             if (typeof timestamp === 'string') {
-                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                if (
+                    !timestamp.includes('Z') &&
+                    !timestamp.includes('+') &&
+                    !timestamp.includes('-', 10)
+                ) {
                     date = new Date(timestamp + 'Z');
                 } else {
                     date = new Date(timestamp);
@@ -652,7 +771,7 @@ class InboxDataManager {
      * Get page name by pageId
      */
     getPageName(pageId) {
-        const page = this.pages.find(p => p.id === pageId || p.page_id === pageId);
+        const page = this.pages.find((p) => p.id === pageId || p.page_id === pageId);
         return page?.name || '';
     }
 
@@ -674,15 +793,17 @@ class InboxDataManager {
     }
 
     recalculateGroupCounts(typeFilter = 'all') {
-        this.groups.forEach(g => { g.count = 0; });
+        this.groups.forEach((g) => {
+            g.count = 0;
+        });
 
         // Count from loaded conversations (supports type filter)
         const countedConvIds = new Set();
-        this.conversations.forEach(conv => {
+        this.conversations.forEach((conv) => {
             if (typeFilter !== 'all' && conv.type !== typeFilter) return;
             const labels = conv.labels || ['new'];
             for (const labelId of labels) {
-                const group = this.groups.find(g => g.id === labelId);
+                const group = this.groups.find((g) => g.id === labelId);
                 if (group) group.count++;
             }
             countedConvIds.add(conv.id);
@@ -695,7 +816,7 @@ class InboxDataManager {
                 const labelArr = Array.isArray(labels) ? labels : [labels];
                 for (const labelId of labelArr) {
                     if (labelId === 'new') continue;
-                    const group = this.groups.find(g => g.id === labelId);
+                    const group = this.groups.find((g) => g.id === labelId);
                     if (group) group.count++;
                 }
             }
@@ -706,17 +827,17 @@ class InboxDataManager {
         let result = [...this.conversations];
 
         if (filter === 'unread') {
-            result = result.filter(c => c.unread > 0);
+            result = result.filter((c) => c.unread > 0);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream);
+            result = result.filter((c) => c.isLivestream);
         } else if (filter === 'inbox_my') {
-            result = result.filter(c => !c.isLivestream);
+            result = result.filter((c) => !c.isLivestream);
         }
 
         if (groupFilters && groupFilters.size > 0) {
-            result = result.filter(c => {
+            result = result.filter((c) => {
                 const labels = c.labels || ['new'];
-                return labels.some(l => groupFilters.has(l));
+                return labels.some((l) => groupFilters.has(l));
             });
         }
 
@@ -725,7 +846,7 @@ class InboxDataManager {
             const q = removeDiacritics(search);
             const phoneQ = isPhoneQuery(search) ? normalizePhone(search) : '';
 
-            result = result.filter(c => {
+            result = result.filter((c) => {
                 // Use pre-normalized fields cached in mapConversation() — no per-item regex.
                 // Falls back to live normalization for legacy conv objects without cache.
                 const sName = c._sName ?? removeDiacritics(c.name);
@@ -751,8 +872,8 @@ class InboxDataManager {
         // Sort: unread first (only if customer sent last — awaiting reply), then by time desc
         // Matches the display condition in _buildConvItemHtml so UI and sort stay in sync.
         result.sort((a, b) => {
-            const aUnread = (a.unread > 0 && a.isCustomerLast !== false) ? 1 : 0;
-            const bUnread = (b.unread > 0 && b.isCustomerLast !== false) ? 1 : 0;
+            const aUnread = a.unread > 0 && a.isCustomerLast !== false ? 1 : 0;
+            const bUnread = b.unread > 0 && b.isCustomerLast !== false ? 1 : 0;
             if (aUnread !== bUnread) return bUnread - aUnread;
             return b.time - a.time;
         });
@@ -772,7 +893,8 @@ class InboxDataManager {
             if (conv.psid) this.conversationByPsidMap.set(conv.psid, conv);
             if (conv.customerId) this.conversationByCustomerIdMap.set(conv.customerId, conv);
             // Build name → fb_id index
-            const fbId = conv._raw?.customers?.[0]?.fb_id || conv._raw?.from_id || conv._raw?.from?.id;
+            const fbId =
+                conv._raw?.customers?.[0]?.fb_id || conv._raw?.from_id || conv._raw?.from?.id;
             if (fbId && conv._sName) {
                 if (!this.customerNameIndex.has(conv._sName)) {
                     this.customerNameIndex.set(conv._sName, new Set());
@@ -801,7 +923,7 @@ class InboxDataManager {
     }
 
     getConversation(id) {
-        return this.conversationMap.get(id) || this.conversations.find(c => c.id === id);
+        return this.conversationMap.get(id) || this.conversations.find((c) => c.id === id);
     }
 
     getConversationByPsid(psid) {
@@ -869,14 +991,14 @@ class InboxDataManager {
         if (labelId === 'done') {
             labels = ['done'];
         } else {
-            labels = labels.filter(l => l !== 'done');
+            labels = labels.filter((l) => l !== 'done');
             if (labels.includes(labelId)) {
-                labels = labels.filter(l => l !== labelId);
+                labels = labels.filter((l) => l !== labelId);
             } else {
                 labels.push(labelId);
             }
             if (labels.length === 0) labels = ['new'];
-            if (labels.length > 1) labels = labels.filter(l => l !== 'new');
+            if (labels.length > 1) labels = labels.filter((l) => l !== 'new');
         }
 
         conv.labels = labels;
@@ -897,7 +1019,7 @@ class InboxDataManager {
             conv.unread = 0;
             // Also mark as read on Pancake API
             if (conv.pageId && window.inboxPancakeAPI) {
-                window.inboxPancakeAPI.markConversationAsRead(conv.pageId, convId).catch(err => {
+                window.inboxPancakeAPI.markConversationAsRead(conv.pageId, convId).catch((err) => {
                     console.warn('[InboxData] Error marking as read on Pancake:', err);
                 });
             }
@@ -914,15 +1036,26 @@ class InboxDataManager {
             conv.unread = Math.max(conv.unread || 0, 1);
             // Mark as unread on Pancake API
             if (conv.pageId && window.inboxPancakeAPI) {
-                window.inboxTokenManager.getOrGeneratePageAccessToken(conv.pageId).then(token => {
-                    if (!token) return;
-                    const url = InboxApiConfig.buildUrl.pancakeOfficial(
-                        `pages/${conv.pageId}/conversations/${convId}/unread`, token
-                    );
-                    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-                        .then(r => { if (r.ok) console.log('[InboxData] Marked as unread:', convId); })
-                        .catch(err => console.warn('[InboxData] Error marking as unread:', err));
-                }).catch(() => {});
+                window.inboxTokenManager
+                    .getOrGeneratePageAccessToken(conv.pageId)
+                    .then((token) => {
+                        if (!token) return;
+                        const url = InboxApiConfig.buildUrl.pancakeOfficial(
+                            `pages/${conv.pageId}/conversations/${convId}/unread`,
+                            token
+                        );
+                        fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                        })
+                            .then((r) => {
+                                if (r.ok) console.log('[InboxData] Marked as unread:', convId);
+                            })
+                            .catch((err) =>
+                                console.warn('[InboxData] Error marking as unread:', err)
+                            );
+                    })
+                    .catch(() => {});
             }
         }
     }
@@ -941,7 +1074,8 @@ class InboxDataManager {
         // Render server has no endpoint — skip
         return;
         try {
-            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const workerUrl =
+                InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const response = await fetch(`${workerUrl}/api/realtime/pending-customers?limit=500`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
@@ -952,9 +1086,11 @@ class InboxDataManager {
             let changed = false;
             for (const pending of data.customers) {
                 // Find matching conversations by psid + page_id (may have INBOX + COMMENT)
-                const matchingConvs = this.conversations.filter(c =>
-                    c.psid === pending.psid && c.pageId === pending.page_id
-                    && (!pending.type || c.type === pending.type)
+                const matchingConvs = this.conversations.filter(
+                    (c) =>
+                        c.psid === pending.psid &&
+                        c.pageId === pending.page_id &&
+                        (!pending.type || c.type === pending.type)
                 );
                 for (const conv of matchingConvs) {
                     // Update unread count if server has newer data
@@ -963,7 +1099,9 @@ class InboxDataManager {
                         changed = true;
                     }
                     // Update preview from actual last message (pending = customer sent, not replied)
-                    const snippet = (pending.last_message_snippet || '').replace(/<[^>]*>/g, '').trim();
+                    const snippet = (pending.last_message_snippet || '')
+                        .replace(/<[^>]*>/g, '')
+                        .trim();
                     if (snippet && snippet !== conv.lastMessage) {
                         conv.lastMessage = this._filterSystemMessage(snippet) || conv.lastMessage;
                         conv.isCustomerLast = true;
@@ -982,7 +1120,6 @@ class InboxDataManager {
         }
     }
 
-
     /**
      * Fetch livestream conversations from server (single source of truth)
      * Returns { post_id: [{ conv_id, name, ... }] }
@@ -990,7 +1127,8 @@ class InboxDataManager {
     async fetchLivestreamFromServer() {
         // Render server has no endpoint — skip
         return;
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const workerUrl =
+            InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         try {
             const response = await fetch(`${workerUrl}/api/realtime/livestream-conversations`);
@@ -1007,7 +1145,7 @@ class InboxDataManager {
             }
 
             // Mark existing conversations + add virtual entries for server-only ones
-            const existingIds = new Set(this.conversations.map(c => c.id));
+            const existingIds = new Set(this.conversations.map((c) => c.id));
             for (const conv of this.conversations) {
                 conv.isLivestream = this.livestreamConvIdSet.has(conv.id);
             }
@@ -1049,7 +1187,9 @@ class InboxDataManager {
             if (virtualCount > 0) this.buildMaps();
             this.recalculateGroupCounts();
             if (window.inboxChat) window.inboxChat.renderConversationList();
-            console.log(`[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs (${virtualCount} virtual) across ${Object.keys(this.livestreamPostMap).length} posts`);
+            console.log(
+                `[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs (${virtualCount} virtual) across ${Object.keys(this.livestreamPostMap).length} posts`
+            );
         } catch (error) {
             // Silently fall back to local data (Render server may not have this endpoint)
         }
@@ -1068,15 +1208,24 @@ class InboxDataManager {
         // Add to local postMap
         const pid = postId || conv._raw?.post_id || 'unknown';
         if (!this.livestreamPostMap[pid]) this.livestreamPostMap[pid] = [];
-        if (!this.livestreamPostMap[pid].find(c => c.conv_id === convId)) {
-            this.livestreamPostMap[pid].push({ conv_id: convId, name: conv.name, type: conv.type, psid: conv.psid });
+        if (!this.livestreamPostMap[pid].find((c) => c.conv_id === convId)) {
+            this.livestreamPostMap[pid].push({
+                conv_id: convId,
+                name: conv.name,
+                type: conv.type,
+                psid: conv.psid,
+            });
         }
 
         // Also mark this customer's NEWEST INBOX conversation only
         if (conv.psid) {
             let newestInbox = null;
             for (const inboxConv of this.conversations) {
-                if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
+                if (
+                    inboxConv.psid === conv.psid &&
+                    inboxConv.type === 'INBOX' &&
+                    !inboxConv.isLivestream
+                ) {
                     if (!newestInbox || inboxConv.time > newestInbox.time) {
                         newestInbox = inboxConv;
                     }
@@ -1166,7 +1315,7 @@ class InboxDataManager {
     }
 
     updateGroup(id, updates) {
-        const group = this.groups.find(g => g.id === id);
+        const group = this.groups.find((g) => g.id === id);
         if (group) {
             if (updates.name !== undefined) group.name = updates.name;
             if (updates.color !== undefined) group.color = updates.color;
@@ -1176,9 +1325,9 @@ class InboxDataManager {
     }
 
     deleteGroup(id) {
-        const idx = this.groups.findIndex(g => g.id === id);
+        const idx = this.groups.findIndex((g) => g.id === id);
         if (idx !== -1) {
-            this.conversations.forEach(c => {
+            this.conversations.forEach((c) => {
                 if (c.label === id) {
                     c.label = 'new';
                     this.labelMap[c.id] = 'new';
@@ -1192,9 +1341,9 @@ class InboxDataManager {
 
     getStats() {
         const total = this.conversations.length;
-        const processing = this.conversations.filter(c => c.label === 'processing').length;
-        const waiting = this.conversations.filter(c => c.label === 'waiting').length;
-        const urgent = this.conversations.filter(c => c.label === 'urgent').length;
+        const processing = this.conversations.filter((c) => c.label === 'processing').length;
+        const waiting = this.conversations.filter((c) => c.label === 'waiting').length;
+        const urgent = this.conversations.filter((c) => c.label === 'urgent').length;
         return { total, processing, waiting, urgent };
     }
 }

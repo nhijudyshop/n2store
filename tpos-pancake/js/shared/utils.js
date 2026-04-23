@@ -27,7 +27,8 @@ const SharedUtils = {
         if (!phone) return '';
         let normalized = phone.toString().trim().replace(/[\s-]/g, '');
         if (normalized.startsWith('+84')) normalized = '0' + normalized.slice(3);
-        if (normalized.startsWith('84') && normalized.length > 9) normalized = '0' + normalized.slice(2);
+        if (normalized.startsWith('84') && normalized.length > 9)
+            normalized = '0' + normalized.slice(2);
         return normalized;
     },
 
@@ -53,7 +54,11 @@ const SharedUtils = {
         try {
             let date;
             if (typeof timestamp === 'string') {
-                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                if (
+                    !timestamp.includes('Z') &&
+                    !timestamp.includes('+') &&
+                    !timestamp.includes('-', 10)
+                ) {
                     date = new Date(timestamp + 'Z');
                 } else {
                     date = new Date(timestamp);
@@ -84,11 +89,16 @@ const SharedUtils = {
             const now = new Date();
             const vnFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Ho_Chi_Minh',
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', hour12: false
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
             });
 
-            const getPartValue = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+            const getPartValue = (parts, type) =>
+                parseInt(parts.find((p) => p.type === type)?.value || '0');
             const dateParts = vnFormatter.formatToParts(date);
             const nowParts = vnFormatter.formatToParts(now);
 
@@ -103,8 +113,10 @@ const SharedUtils = {
 
             if (isSameDay) {
                 return new Intl.DateTimeFormat('vi-VN', {
-                    hour: '2-digit', minute: '2-digit',
-                    timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour12: false,
                 }).format(date);
             }
 
@@ -114,15 +126,25 @@ const SharedUtils = {
 
             if (diffDays > 0 && diffDays < 7) {
                 const dayOfWeek = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short'
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    weekday: 'short',
                 }).format(date);
-                const days = { Sun: 'CN', Mon: 'T2', Tue: 'T3', Wed: 'T4', Thu: 'T5', Fri: 'T6', Sat: 'T7' };
+                const days = {
+                    Sun: 'CN',
+                    Mon: 'T2',
+                    Tue: 'T3',
+                    Wed: 'T4',
+                    Thu: 'T5',
+                    Fri: 'T6',
+                    Sat: 'T7',
+                };
                 return days[dayOfWeek] || dayOfWeek;
             }
 
             return new Intl.DateTimeFormat('vi-VN', {
-                day: '2-digit', month: '2-digit',
-                timeZone: 'Asia/Ho_Chi_Minh'
+                day: '2-digit',
+                month: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh',
             }).format(date);
         } catch {
             return '';
@@ -139,9 +161,13 @@ const SharedUtils = {
         const date = this.parseTimestamp(timestamp);
         if (!date) return '';
         return new Intl.DateTimeFormat('vi-VN', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-            timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour12: false,
         }).format(date);
     },
 
@@ -163,11 +189,14 @@ const SharedUtils = {
         }
 
         if (!fbId) {
-            return 'data:image/svg+xml,' + encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">' +
-                '<circle cx="20" cy="20" r="20" fill="#e5e7eb"/>' +
-                '<circle cx="20" cy="15" r="7" fill="#9ca3af"/>' +
-                '<ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>'
+            return (
+                'data:image/svg+xml,' +
+                encodeURIComponent(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">' +
+                        '<circle cx="20" cy="20" r="20" fill="#e5e7eb"/>' +
+                        '<circle cx="20" cy="15" r="7" fill="#9ca3af"/>' +
+                        '<ellipse cx="20" cy="32" rx="11" ry="8" fill="#9ca3af"/></svg>'
+                )
             );
         }
 
@@ -186,10 +215,14 @@ const SharedUtils = {
     getAvatarPlaceholder(name, size = 40) {
         const initial = (name || '?').charAt(0).toUpperCase();
         const colors = [
-            ['#667eea', '#764ba2'], ['#f093fb', '#f5576c'],
-            ['#4facfe', '#00f2fe'], ['#43e97b', '#38f9d7'],
-            ['#fa709a', '#fee140'], ['#a18cd1', '#fbc2eb'],
-            ['#fccb90', '#d57eeb'], ['#e0c3fc', '#8ec5fc']
+            ['#667eea', '#764ba2'],
+            ['#f093fb', '#f5576c'],
+            ['#4facfe', '#00f2fe'],
+            ['#43e97b', '#38f9d7'],
+            ['#fa709a', '#fee140'],
+            ['#a18cd1', '#fbc2eb'],
+            ['#fccb90', '#d57eeb'],
+            ['#e0c3fc', '#8ec5fc'],
         ];
         const hash = (name || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
         const [c1, c2] = colors[hash % colors.length];
@@ -223,7 +256,9 @@ const SharedUtils = {
             if (!inThrottle) {
                 fn.apply(this, args);
                 inThrottle = true;
-                setTimeout(() => { inThrottle = false; }, limit);
+                setTimeout(() => {
+                    inThrottle = false;
+                }, limit);
             }
         };
     },
@@ -237,7 +272,7 @@ const SharedUtils = {
     truncate(text, maxLength) {
         if (!text || text.length <= maxLength) return text || '';
         return text.substring(0, maxLength) + '...';
-    }
+    },
 };
 
 // Export for script-tag usage

@@ -9,8 +9,8 @@
     // =====================================================
     // STATE
     // =====================================================
-    let currentOrder = null;       // Current order data from API
-    let checkedQuantities = {};    // { productBarcode: checkedQty }
+    let currentOrder = null; // Current order data from API
+    let checkedQuantities = {}; // { productBarcode: checkedQty }
 
     // =====================================================
     // SOUND
@@ -89,7 +89,7 @@
                 userName: userName || 'Không rõ',
                 note: note || '',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             });
         } catch (e) {
             console.error('[DOI-SOAT] Failed to save manual log:', e);
@@ -104,7 +104,7 @@
             const snap = await col.where('expireAt', '<=', cutoff).limit(50).get();
             if (snap.empty) return;
             const batch = firebase.firestore().batch();
-            snap.docs.forEach(doc => batch.delete(doc.ref));
+            snap.docs.forEach((doc) => batch.delete(doc.ref));
             await batch.commit();
             console.log(`[DOI-SOAT] Cleaned up ${snap.size} expired manual logs`);
         } catch (e) {
@@ -116,7 +116,11 @@
     // REMOVE VIETNAMESE DIACRITICS
     // =====================================================
     function removeDiacritics(str) {
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
     }
 
     // =====================================================
@@ -154,7 +158,9 @@
                 const data = JSON.parse(stored);
                 if (data.access_token) return data.access_token;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         return null;
     }
@@ -166,20 +172,23 @@
         }
 
         const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-        const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
+        const baseUrl =
+            (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
-        const url = `${baseUrl}/odata/FastSaleOrder/ODataService.GetDataCrossCheck` +
+        const url =
+            `${baseUrl}/odata/FastSaleOrder/ODataService.GetDataCrossCheck` +
             `?$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,Team` +
             `&number=${encodeURIComponent(number)}&companyId=${companyId}`;
 
         const resp = await fetch(url, {
             method: 'GET',
             headers: {
-                'accept': 'application/json, text/plain, */*',
+                accept: 'application/json, text/plain, */*',
                 'content-type': 'application/json;charset=utf-8',
-                'authorization': `Bearer ${token}`,
-                'cache-control': 'no-cache'
-            }
+                authorization: `Bearer ${token}`,
+                'cache-control': 'no-cache',
+            },
         });
 
         if (!resp.ok) {
@@ -190,7 +199,9 @@
                 else if (errBody.error?.message) errMsg = errBody.error.message;
                 else if (errBody.Error) errMsg = errBody.Error;
                 else if (errBody.message) errMsg = errBody.message;
-            } catch (e) { /* ignore parse error */ }
+            } catch (e) {
+                /* ignore parse error */
+            }
             throw new Error(errMsg);
         }
 
@@ -234,7 +245,7 @@
         const custPhone = data.Partner?.Phone || data.ReceiverPhone || '';
         if (window.PancakeValidator && custPhone) {
             const pancakeBadgeEl = document.getElementById('pancakeCustomerBadge');
-            window.PancakeValidator.quickLookup(custPhone).then(pData => {
+            window.PancakeValidator.quickLookup(custPhone).then((pData) => {
                 if (!pData || !pancakeBadgeEl) return;
                 const badge = window.PancakeValidator.renderCustomerBadge(pData);
                 pancakeBadgeEl.innerHTML = badge;
@@ -244,7 +255,7 @@
 
         // Init checked quantities to 0
         if (data.OrderLines) {
-            data.OrderLines.forEach(line => {
+            data.OrderLines.forEach((line) => {
                 const barcode = extractBarcode(line);
                 if (barcode) {
                     checkedQuantities[barcode] = 0;
@@ -273,33 +284,43 @@
     const overlayImg = imageOverlay.querySelector('img');
 
     // Hover events on product name cells — use cached blob URL, no repeated network requests
-    productTableBody.addEventListener('mouseenter', (e) => {
-        const cell = e.target.closest('.product-name-cell');
-        if (!cell) return;
-        const pid = cell.dataset.productId;
-        const blobUrl = productImageCache[pid];
-        if (!blobUrl) return;
-        overlayImg.src = blobUrl;
-        imageOverlay.classList.add('visible');
-    }, true);
+    productTableBody.addEventListener(
+        'mouseenter',
+        (e) => {
+            const cell = e.target.closest('.product-name-cell');
+            if (!cell) return;
+            const pid = cell.dataset.productId;
+            const blobUrl = productImageCache[pid];
+            if (!blobUrl) return;
+            overlayImg.src = blobUrl;
+            imageOverlay.classList.add('visible');
+        },
+        true
+    );
 
-    productTableBody.addEventListener('mouseleave', (e) => {
-        const cell = e.target.closest('.product-name-cell');
-        if (!cell) return;
-        imageOverlay.classList.remove('visible');
-    }, true);
+    productTableBody.addEventListener(
+        'mouseleave',
+        (e) => {
+            const cell = e.target.closest('.product-name-cell');
+            if (!cell) return;
+            imageOverlay.classList.remove('visible');
+        },
+        true
+    );
 
     async function loadProductImages(orderLines) {
         if (!orderLines) return;
         const token = await getToken();
         if (!token) return;
         const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const headers = { 'authorization': `Bearer ${token}`, 'accept': 'application/json' };
+        const headers = { authorization: `Bearer ${token}`, accept: 'application/json' };
 
         orderLines.forEach(async (line) => {
             if (!line.ProductId || productImageCache[line.ProductId]) return;
             try {
-                const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, { headers });
+                const resp = await fetch(`${proxyUrl}/api/odata/Product(${line.ProductId})`, {
+                    headers,
+                });
                 if (!resp.ok) return;
                 const product = await resp.json();
 
@@ -307,7 +328,10 @@
 
                 // Variant has no image — fetch parent template
                 if (!imageUrl && product.ProductTmplId) {
-                    const tmplResp = await fetch(`${proxyUrl}/api/odata/ProductTemplate(${product.ProductTmplId})`, { headers });
+                    const tmplResp = await fetch(
+                        `${proxyUrl}/api/odata/ProductTemplate(${product.ProductTmplId})`,
+                        { headers }
+                    );
                     if (tmplResp.ok) {
                         const tmpl = await tmplResp.json();
                         imageUrl = tmpl.ImageUrl;
@@ -322,7 +346,9 @@
                 if (!imgResp.ok) return;
                 const blob = await imgResp.blob();
                 productImageCache[line.ProductId] = URL.createObjectURL(blob);
-            } catch (e) { /* skip */ }
+            } catch (e) {
+                /* skip */
+            }
         });
     }
 
@@ -336,7 +362,8 @@
 
     function renderProductTable() {
         if (!currentOrder || !currentOrder.OrderLines) {
-            productTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>';
+            productTableBody.innerHTML =
+                '<tr><td colspan="6" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>';
             return;
         }
 
@@ -347,10 +374,10 @@
         const rows = currentOrder.OrderLines.map((line, idx) => {
             const barcode = extractBarcode(line);
             const totalQty = line.ProductUOMQty || 1;
-            const checkedQty = barcode ? (checkedQuantities[barcode] || 0) : 0;
+            const checkedQty = barcode ? checkedQuantities[barcode] || 0 : 0;
             const isDone = checkedQty >= totalQty;
             const price = line.PriceUnit || 0;
-            const lineTotal = line.PriceTotal || (price * totalQty);
+            const lineTotal = line.PriceTotal || price * totalQty;
 
             totalChecked += checkedQty;
             totalRequired += Math.floor(totalQty);
@@ -398,7 +425,7 @@
 
     function isAllChecked() {
         if (!currentOrder || !currentOrder.OrderLines) return false;
-        return currentOrder.OrderLines.every(line => {
+        return currentOrder.OrderLines.every((line) => {
             const barcode = extractBarcode(line);
             if (!barcode) return true;
             const totalQty = line.ProductUOMQty || 1;
@@ -436,12 +463,15 @@
 
         detailContent.innerHTML = rows
             .filter(([, val]) => val !== null && val !== undefined && val !== '')
-            .map(([label, val]) => `
+            .map(
+                ([label, val]) => `
                 <div class="detail-row">
                     <div class="detail-label">${label}</div>
                     <div class="detail-value">${val}</div>
                 </div>
-            `).join('');
+            `
+            )
+            .join('');
     }
 
     // =====================================================
@@ -454,7 +484,7 @@
         productBarcodeInput.value = '';
 
         // Find matching order line by barcode
-        const matchedLine = currentOrder.OrderLines.find(line => {
+        const matchedLine = currentOrder.OrderLines.find((line) => {
             const lineBarcode = extractBarcode(line);
             return lineBarcode === barcodeUpper;
         });
@@ -471,7 +501,10 @@
 
         if (currentQty >= totalQty) {
             playSound('excess');
-            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - Đã đủ số lượng!`, 'warning');
+            showInlineMsg(
+                `${matchedLine.ProductNameGet || matchedLine.Name} - Đã đủ số lượng!`,
+                'warning'
+            );
             return;
         }
 
@@ -494,9 +527,15 @@
         }
 
         if (newQty >= totalQty) {
-            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - Đủ! (${newQty}/${Math.floor(totalQty)})`, 'success');
+            showInlineMsg(
+                `${matchedLine.ProductNameGet || matchedLine.Name} - Đủ! (${newQty}/${Math.floor(totalQty)})`,
+                'success'
+            );
         } else {
-            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - ${newQty}/${Math.floor(totalQty)}`, 'info');
+            showInlineMsg(
+                `${matchedLine.ProductNameGet || matchedLine.Name} - ${newQty}/${Math.floor(totalQty)}`,
+                'info'
+            );
         }
 
         renderProductTable();
@@ -592,7 +631,7 @@
                 note: 'Sản phẩm sai mã - đã xử lý',
                 userName: (document.getElementById('manualUserName') || {}).value || '',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             });
         } catch (e) {
             console.error('[DOI-SOAT] Failed to save mismatch log:', e);
@@ -615,30 +654,32 @@
             }
 
             // Build contents array: "[CODE] PRODUCT_NAME: checked/total"
-            const contents = currentOrder.OrderLines.map(line => {
+            const contents = currentOrder.OrderLines.map((line) => {
                 const barcode = extractBarcode(line);
                 const totalQty = Math.floor(line.ProductUOMQty || 1);
-                const checkedQty = barcode ? (checkedQuantities[barcode] || 0) : 0;
+                const checkedQty = barcode ? checkedQuantities[barcode] || 0 : 0;
                 const name = line.Name || line.ProductNameGet || '';
                 return `${name}: ${checkedQty}/${totalQty}`;
             });
 
-            const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
+            const baseUrl =
+                (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api';
             const url = `${baseUrl}/odata/FastSaleOrder/ODataService.CrossCheckAndOpenOrder?fastSaleOrderId=${currentOrder.Id}`;
 
             const resp = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'accept': 'application/json, text/plain, */*',
+                    accept: 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
-                    'authorization': `Bearer ${token}`,
+                    authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     model: {
                         IsOk: true,
-                        Contents: contents
-                    }
-                })
+                        Contents: contents,
+                    },
+                }),
             });
 
             if (!resp.ok) {
@@ -649,7 +690,9 @@
                     else if (errBody.error?.message) errMsg = errBody.error.message;
                     else if (errBody.Error) errMsg = errBody.Error;
                     else if (errBody.message) errMsg = errBody.message;
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
                 throw new Error(errMsg);
             }
 
@@ -661,19 +704,26 @@
 
                 // Trừ số lượng sản phẩm trong Web Warehouse (non-blocking)
                 try {
-                    const subtractItems = currentOrder.OrderLines.map(line => ({
+                    const subtractItems = currentOrder.OrderLines.map((line) => ({
                         product_code: extractBarcode(line) || '',
-                        quantity: Math.floor(line.ProductUOMQty || 1)
-                    })).filter(i => i.product_code);
+                        quantity: Math.floor(line.ProductUOMQty || 1),
+                    })).filter((i) => i.product_code);
 
                     if (subtractItems.length > 0) {
-                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/subtract', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ items: subtractItems })
-                        }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[WebWarehouse] Trừ kho:', res.message);
-                        }).catch(err => console.warn('[WebWarehouse] Trừ kho lỗi:', err));
+                        fetch(
+                            'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/subtract',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ items: subtractItems }),
+                            }
+                        )
+                            .then((r) => r.json())
+                            .then((res) => {
+                                if (res.success)
+                                    console.log('[WebWarehouse] Trừ kho:', res.message);
+                            })
+                            .catch((err) => console.warn('[WebWarehouse] Trừ kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[WebWarehouse] Subtract error:', err);
@@ -732,11 +782,13 @@
     // TABS
     // =====================================================
     function initTabs() {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
+        document.querySelectorAll('.tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 // Remove active from all tabs
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+                document
+                    .querySelectorAll('.tab-content')
+                    .forEach((c) => c.classList.remove('active'));
 
                 btn.classList.add('active');
                 const targetId = btn.getAttribute('data-tab');
@@ -785,7 +837,7 @@
     let bannerTimer = null;
     function showSuccessBanner(orderNum, productList) {
         const banner = $('#successBanner');
-        const items = productList.map(p => `<li>${p}</li>`).join('');
+        const items = productList.map((p) => `<li>${p}</li>`).join('');
         banner.innerHTML = `<div class="banner-title">Đối soát thành công đơn ${orderNum}</div>
             <ul class="banner-products">${items}</ul>`;
         banner.style.display = '';
@@ -841,7 +893,9 @@
 
         // Auto-clear: start 3s timer after input changes
         invoiceCodeInput.addEventListener('input', () => startAutoClearTimer(invoiceCodeInput));
-        productBarcodeInput.addEventListener('input', () => startAutoClearTimer(productBarcodeInput));
+        productBarcodeInput.addEventListener('input', () =>
+            startAutoClearTimer(productBarcodeInput)
+        );
 
         // Scanner mode toggle
         const autoClearToggle = $('#autoClearToggle');

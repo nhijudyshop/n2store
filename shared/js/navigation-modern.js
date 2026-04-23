@@ -7,40 +7,44 @@
 // =====================================================
 // SHOP CONFIG - Multi-company selector (NJD LIVE / NJD SHOP)
 // =====================================================
-window.ShopConfig = window.ShopConfig || (function() {
-    'use strict';
+window.ShopConfig =
+    window.ShopConfig ||
+    (function () {
+        'use strict';
 
-    const STORAGE_KEY = 'n2store_selected_shop';
+        const STORAGE_KEY = 'n2store_selected_shop';
 
-    const SHOPS = {
-        'njd-live': { id: 'njd-live', label: 'NJD LIVE', CompanyId: 1 },
-        'njd-shop': { id: 'njd-shop', label: 'NJD SHOP', CompanyId: 2 }
-    };
+        const SHOPS = {
+            'njd-live': { id: 'njd-live', label: 'NJD LIVE', CompanyId: 1 },
+            'njd-shop': { id: 'njd-shop', label: 'NJD SHOP', CompanyId: 2 },
+        };
 
-    function getSelectedShopId() {
-        return localStorage.getItem(STORAGE_KEY) || 'njd-live';
-    }
+        function getSelectedShopId() {
+            return localStorage.getItem(STORAGE_KEY) || 'njd-live';
+        }
 
-    function getConfig() {
-        return SHOPS[getSelectedShopId()] || SHOPS['njd-live'];
-    }
+        function getConfig() {
+            return SHOPS[getSelectedShopId()] || SHOPS['njd-live'];
+        }
 
-    function setShop(shopId) {
-        if (!SHOPS[shopId]) return;
-        const prev = getSelectedShopId();
-        if (prev === shopId) return;
-        localStorage.setItem(STORAGE_KEY, shopId);
-        window.dispatchEvent(new CustomEvent('shopChanged', {
-            detail: { shopId, config: SHOPS[shopId], previousShopId: prev }
-        }));
-    }
+        function setShop(shopId) {
+            if (!SHOPS[shopId]) return;
+            const prev = getSelectedShopId();
+            if (prev === shopId) return;
+            localStorage.setItem(STORAGE_KEY, shopId);
+            window.dispatchEvent(
+                new CustomEvent('shopChanged', {
+                    detail: { shopId, config: SHOPS[shopId], previousShopId: prev },
+                })
+            );
+        }
 
-    function getShops() {
-        return Object.values(SHOPS).map(s => ({ id: s.id, label: s.label }));
-    }
+        function getShops() {
+            return Object.values(SHOPS).map((s) => ({ id: s.id, label: s.label }));
+        }
 
-    return { getSelectedShopId, getConfig, setShop, getShops };
-})();
+        return { getSelectedShopId, getConfig, setShop, getShops };
+    })();
 
 // Menu Configuration with Permissions
 const MENU_CONFIG = [
@@ -48,257 +52,257 @@ const MENU_CONFIG = [
     // REMOVED: livestream nav item (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive nav item (module deleted - cleanup task 9.1)
     {
-        href: "../doi-soat/index.html",
-        icon: "scan-barcode",
-        text: "Quét Mã Đối Soát",
-        shortText: "Đối Soát",
-        pageIdentifier: "doi-soat",
-        permissionRequired: "doi-soat",
+        href: '../doi-soat/index.html',
+        icon: 'scan-barcode',
+        text: 'Quét Mã Đối Soát',
+        shortText: 'Đối Soát',
+        pageIdentifier: 'doi-soat',
+        permissionRequired: 'doi-soat',
     },
     {
-        href: "../nhanhang/index.html",
-        icon: "scale",
-        text: "Cân Nặng Hàng",
-        shortText: "Cân Hàng",
-        pageIdentifier: "nhanhang",
-        permissionRequired: "nhanhang",
+        href: '../nhanhang/index.html',
+        icon: 'scale',
+        text: 'Cân Nặng Hàng',
+        shortText: 'Cân Hàng',
+        pageIdentifier: 'nhanhang',
+        permissionRequired: 'nhanhang',
     },
     {
-        href: "../inventory-tracking/index.html",
-        icon: "package-search",
-        text: "Theo Dõi Nhập Hàng SL",
-        shortText: "Nhập Hàng",
-        pageIdentifier: "inventory-tracking",
-        permissionRequired: "inventoryTracking",
+        href: '../inventory-tracking/index.html',
+        icon: 'package-search',
+        text: 'Theo Dõi Nhập Hàng SL',
+        shortText: 'Nhập Hàng',
+        pageIdentifier: 'inventory-tracking',
+        permissionRequired: 'inventoryTracking',
     },
     {
-        href: "../purchase-orders/index.html",
-        icon: "clipboard-list",
-        text: "Quản Lý Đặt Hàng NCC",
-        shortText: "Đặt Hàng",
-        pageIdentifier: "purchase-orders",
+        href: '../purchase-orders/index.html',
+        icon: 'clipboard-list',
+        text: 'Quản Lý Đặt Hàng NCC',
+        shortText: 'Đặt Hàng',
+        pageIdentifier: 'purchase-orders',
         adminOnly: true,
-        permissionRequired: "purchase-orders",
+        permissionRequired: 'purchase-orders',
     },
     {
-        href: "../inbox/index.html",
-        icon: "messages-square",
-        text: "Inbox Chat",
-        shortText: "Chat",
-        pageIdentifier: "inbox",
-        permissionRequired: "inbox",
+        href: '../inbox/index.html',
+        icon: 'messages-square',
+        text: 'Inbox Chat',
+        shortText: 'Chat',
+        pageIdentifier: 'inbox',
+        permissionRequired: 'inbox',
         publicAccess: true,
     },
     {
-        href: "../hanghoan/index.html",
-        icon: "corner-up-left",
-        text: "Hàng Hoàn",
-        shortText: "Hoàn",
-        pageIdentifier: "hanghoan",
-        permissionRequired: "hanghoan",
+        href: '../hanghoan/index.html',
+        icon: 'corner-up-left',
+        text: 'Hàng Hoàn',
+        shortText: 'Hoàn',
+        pageIdentifier: 'hanghoan',
+        permissionRequired: 'hanghoan',
     },
     {
-        href: "../issue-tracking/index.html",
-        icon: "headphones",
-        text: "CSKH + Hàng Hoàn Bưu Cục",
-        shortText: "CSKH",
-        pageIdentifier: "issue-tracking",
-        permissionRequired: "issue-tracking",
+        href: '../issue-tracking/index.html',
+        icon: 'headphones',
+        text: 'CSKH + Hàng Hoàn Bưu Cục',
+        shortText: 'CSKH',
+        pageIdentifier: 'issue-tracking',
+        permissionRequired: 'issue-tracking',
     },
     {
-        href: "../customer-hub/index.html",
-        icon: "users",
-        text: "Customer 360°",
-        shortText: "KH 360",
-        pageIdentifier: "customer-hub",
-        permissionRequired: "customer-hub",
+        href: '../customer-hub/index.html',
+        icon: 'users',
+        text: 'Customer 360°',
+        shortText: 'KH 360',
+        pageIdentifier: 'customer-hub',
+        permissionRequired: 'customer-hub',
         adminOnly: true,
     },
     {
-        href: "../orders-report/main.html",
-        icon: "shopping-cart",
-        text: "Báo Cáo Sale-Online",
-        shortText: "SaleOnline",
-        pageIdentifier: "orders-report",
-        permissionRequired: "baocaosaleonline",
+        href: '../orders-report/main.html',
+        icon: 'shopping-cart',
+        text: 'Báo Cáo Sale-Online',
+        shortText: 'SaleOnline',
+        pageIdentifier: 'orders-report',
+        permissionRequired: 'baocaosaleonline',
     },
     {
-        href: "../don-inbox/index.html",
-        icon: "inbox",
-        text: "Đơn Inbox",
-        shortText: "Đơn Inbox",
-        pageIdentifier: "don-inbox",
-        permissionRequired: "don-inbox",
+        href: '../don-inbox/index.html',
+        icon: 'inbox',
+        text: 'Đơn Inbox',
+        shortText: 'Đơn Inbox',
+        pageIdentifier: 'don-inbox',
+        permissionRequired: 'don-inbox',
     },
     {
-        href: "../tpos-pancake/index.html",
-        icon: "columns",
-        text: "Tpos - Pancake",
-        shortText: "Tpos-Pancake",
-        pageIdentifier: "tpos-pancake",
-        permissionRequired: "tpos-pancake",
+        href: '../tpos-pancake/index.html',
+        icon: 'columns',
+        text: 'Tpos - Pancake',
+        shortText: 'Tpos-Pancake',
+        pageIdentifier: 'tpos-pancake',
+        permissionRequired: 'tpos-pancake',
     },
     {
-        href: "../delivery-report/index.html",
-        icon: "truck",
-        text: "Thống Kê Giao Hàng",
-        shortText: "Giao Hàng",
-        pageIdentifier: "delivery-report",
-        permissionRequired: "delivery-report",
+        href: '../delivery-report/index.html',
+        icon: 'truck',
+        text: 'Thống Kê Giao Hàng',
+        shortText: 'Giao Hàng',
+        pageIdentifier: 'delivery-report',
+        permissionRequired: 'delivery-report',
         publicAccess: true,
     },
     {
-        href: "../order-management/index.html",
-        icon: "package-check",
-        text: "Quản Lý Order",
-        shortText: "Order",
-        pageIdentifier: "order-management",
-        permissionRequired: "order-management",
+        href: '../order-management/index.html',
+        icon: 'package-check',
+        text: 'Quản Lý Order',
+        shortText: 'Order',
+        pageIdentifier: 'order-management',
+        permissionRequired: 'order-management',
     },
     {
-        href: "../soorder/index.html",
-        icon: "book-open",
-        text: "Sổ Order",
-        shortText: "Sổ Order",
-        pageIdentifier: "order-log",
-        permissionRequired: "order-log",
+        href: '../soorder/index.html',
+        icon: 'book-open',
+        text: 'Sổ Order',
+        shortText: 'Sổ Order',
+        pageIdentifier: 'order-log',
+        permissionRequired: 'order-log',
     },
     // REMOVED: order-live-tracking nav item (module deleted - cleanup task 9.1)
     {
-        href: "../soluong-live/index.html",
-        icon: "bar-chart",
-        text: "Quản Lý Số Lượng",
-        shortText: "Số Lượng",
-        pageIdentifier: "soluong-live",
-        permissionRequired: "soluong-live",
+        href: '../soluong-live/index.html',
+        icon: 'bar-chart',
+        text: 'Quản Lý Số Lượng',
+        shortText: 'Số Lượng',
+        pageIdentifier: 'soluong-live',
+        permissionRequired: 'soluong-live',
     },
     {
-        href: "../user-management/index.html",
-        icon: "users",
-        text: "Quản Lý Tài Khoản",
-        shortText: "Users",
-        pageIdentifier: "user-management",
+        href: '../user-management/index.html',
+        icon: 'users',
+        text: 'Quản Lý Tài Khoản',
+        shortText: 'Users',
+        pageIdentifier: 'user-management',
         adminOnly: true,
-        permissionRequired: "user-management",
+        permissionRequired: 'user-management',
     },
     {
-        href: "../phone-management/index.html",
-        icon: "phone-call",
-        text: "Quản Lý Tổng Đài",
-        shortText: "Tổng đài",
-        pageIdentifier: "phone-management",
+        href: '../phone-management/index.html',
+        icon: 'phone-call',
+        text: 'Quản Lý Tổng Đài',
+        shortText: 'Tổng đài',
+        pageIdentifier: 'phone-management',
         adminOnly: true,
-        permissionRequired: "phone-management",
+        permissionRequired: 'phone-management',
     },
     {
-        href: "../balance-history/index.html",
-        icon: "wallet",
-        text: "Lịch Sử Biến Động Số Dư",
-        shortText: "Số Dư",
-        pageIdentifier: "balance-history",
+        href: '../balance-history/index.html',
+        icon: 'wallet',
+        text: 'Lịch Sử Biến Động Số Dư',
+        shortText: 'Số Dư',
+        pageIdentifier: 'balance-history',
         adminOnly: true,
-        permissionRequired: "balance-history",
+        permissionRequired: 'balance-history',
     },
     {
-        href: "../supplier-debt/index.html",
-        icon: "receipt",
-        text: "NCC",
-        shortText: "NCC",
-        pageIdentifier: "supplier-debt",
-        permissionRequired: "supplier-debt",
+        href: '../supplier-debt/index.html',
+        icon: 'receipt',
+        text: 'NCC',
+        shortText: 'NCC',
+        pageIdentifier: 'supplier-debt',
+        permissionRequired: 'supplier-debt',
     },
     {
-        href: "../invoice-compare/index.html",
-        icon: "file-check-2",
-        text: "So Sánh Đơn Hàng",
-        shortText: "So Sánh",
-        pageIdentifier: "invoice-compare",
+        href: '../invoice-compare/index.html',
+        icon: 'file-check-2',
+        text: 'So Sánh Đơn Hàng',
+        shortText: 'So Sánh',
+        pageIdentifier: 'invoice-compare',
         adminOnly: true,
-        permissionRequired: "invoice-compare",
+        permissionRequired: 'invoice-compare',
     },
     {
-        href: "../quy-trinh/index.html",
-        icon: "book-open",
-        text: "Quy Trình Nghiệp Vụ",
-        shortText: "Quy Trình",
-        pageIdentifier: "quy-trinh",
-        permissionRequired: "quy-trinh",
+        href: '../quy-trinh/index.html',
+        icon: 'book-open',
+        text: 'Quy Trình Nghiệp Vụ',
+        shortText: 'Quy Trình',
+        pageIdentifier: 'quy-trinh',
+        permissionRequired: 'quy-trinh',
     },
     {
-        href: "../soquy/index.html",
-        icon: "banknote",
-        text: "Sổ Quỹ",
-        shortText: "Sổ Quỹ",
-        pageIdentifier: "soquy",
+        href: '../soquy/index.html',
+        icon: 'banknote',
+        text: 'Sổ Quỹ',
+        shortText: 'Sổ Quỹ',
+        pageIdentifier: 'soquy',
         adminOnly: true,
-        permissionRequired: "soquy",
+        permissionRequired: 'soquy',
     },
     {
-        href: "../AI/gemini.html",
-        icon: "bot",
-        text: "Gemini AI Assistant",
-        shortText: "AI",
-        pageIdentifier: "gemini-ai",
+        href: '../AI/gemini.html',
+        icon: 'bot',
+        text: 'Gemini AI Assistant',
+        shortText: 'AI',
+        pageIdentifier: 'gemini-ai',
     },
     {
-        href: "../lichsuchinhsua/index.html",
-        icon: "history",
-        text: "Lịch Sử Chỉnh Sửa",
-        shortText: "Lịch Sử",
-        pageIdentifier: "lichsuchinhsua",
+        href: '../lichsuchinhsua/index.html',
+        icon: 'history',
+        text: 'Lịch Sử Chỉnh Sửa',
+        shortText: 'Lịch Sử',
+        pageIdentifier: 'lichsuchinhsua',
         publicAccess: true,
     },
     {
-        href: "../render-data-manager/index.html",
-        icon: "database",
-        text: "Render Data Manager",
-        shortText: "DB Data",
-        pageIdentifier: "render-data-manager",
+        href: '../render-data-manager/index.html',
+        icon: 'database',
+        text: 'Render Data Manager',
+        shortText: 'DB Data',
+        pageIdentifier: 'render-data-manager',
         adminOnly: true,
-        permissionRequired: "render-data-manager",
+        permissionRequired: 'render-data-manager',
     },
     {
-        href: "../project-tracker/index.html",
-        icon: "list-checks",
-        text: "Theo Dõi Dự Án",
-        shortText: "Dự Án",
-        pageIdentifier: "project-tracker",
+        href: '../project-tracker/index.html',
+        icon: 'list-checks',
+        text: 'Theo Dõi Dự Án',
+        shortText: 'Dự Án',
+        pageIdentifier: 'project-tracker',
         adminOnly: true,
-        permissionRequired: "project-tracker",
+        permissionRequired: 'project-tracker',
     },
     {
-        href: "../facebook-services/index.html",
-        icon: "thumbs-up",
-        text: "Dịch Vụ Facebook",
-        shortText: "FB Dịch Vụ",
-        pageIdentifier: "facebook-services",
+        href: '../facebook-services/index.html',
+        icon: 'thumbs-up',
+        text: 'Dịch Vụ Facebook',
+        shortText: 'FB Dịch Vụ',
+        pageIdentifier: 'facebook-services',
         adminOnly: true,
-        permissionRequired: "facebook-services",
+        permissionRequired: 'facebook-services',
     },
     {
-        href: "../fb-ads/index.html",
-        icon: "megaphone",
-        text: "Facebook Ads Manager",
-        shortText: "FB Ads",
-        pageIdentifier: "fb-ads",
+        href: '../fb-ads/index.html',
+        icon: 'megaphone',
+        text: 'Facebook Ads Manager',
+        shortText: 'FB Ads',
+        pageIdentifier: 'fb-ads',
         adminOnly: true,
-        permissionRequired: "fb-ads",
+        permissionRequired: 'fb-ads',
     },
     {
-        href: "../service-costs/index.html",
-        icon: "wallet",
-        text: "Chi Phí Dịch Vụ",
-        shortText: "Chi Phí",
-        pageIdentifier: "service-costs",
+        href: '../service-costs/index.html',
+        icon: 'wallet',
+        text: 'Chi Phí Dịch Vụ',
+        shortText: 'Chi Phí',
+        pageIdentifier: 'service-costs',
         adminOnly: true,
-        permissionRequired: "service-costs",
+        permissionRequired: 'service-costs',
     },
     {
-        href: "../product-warehouse/index.html",
-        icon: "warehouse",
-        text: "Kho Sản Phẩm",
-        shortText: "Kho SP",
-        pageIdentifier: "product-warehouse",
+        href: '../product-warehouse/index.html',
+        icon: 'warehouse',
+        text: 'Kho Sản Phẩm',
+        shortText: 'Kho SP',
+        pageIdentifier: 'product-warehouse',
         publicAccess: true,
     },
 ];
@@ -320,14 +324,13 @@ function selectiveLogoutStorage() {
         'auth',
         'n2shop_current_user',
         'currentUser',
-        'n2shop_auth_cache'  // CacheManager storage from login.js - must stay in sync
+        'n2shop_auth_cache', // CacheManager storage from login.js - must stay in sync
     ];
 
-    authKeys.forEach(function(key) {
+    authKeys.forEach(function (key) {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);
     });
-
 }
 
 // localStorage key for custom menu names (cache)
@@ -335,9 +338,10 @@ const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
 const CUSTOM_MENU_NAMES_TIMESTAMP_KEY = 'n2shop_custom_menu_names_timestamp';
 
 // API URL for settings
-const SETTINGS_API_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:10000/api/users/settings'
-    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users/settings';
+const SETTINGS_API_URL =
+    window.location.hostname === 'localhost'
+        ? 'http://localhost:10000/api/users/settings'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users/settings';
 
 // Cache expiry time: 24 hours in milliseconds
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -371,7 +375,7 @@ function isCacheValid() {
 
         const cacheTime = parseInt(timestamp, 10);
         const now = Date.now();
-        const isValid = (now - cacheTime) < CACHE_EXPIRY_MS;
+        const isValid = now - cacheTime < CACHE_EXPIRY_MS;
 
         if (isValid) {
         }
@@ -397,7 +401,7 @@ async function loadCustomMenuNamesFromFirebase() {
         const token = authData.token;
 
         const resp = await fetch(`${SETTINGS_API_URL}/custom_menu_names`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
         if (resp.ok) {
@@ -436,14 +440,14 @@ async function saveCustomMenuNames(customNames) {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
                 value: {
                     names: customNames,
-                    updatedBy: localStorage.getItem('currentUser') || 'admin'
-                }
-            })
+                    updatedBy: localStorage.getItem('currentUser') || 'admin',
+                },
+            }),
         });
 
         if (resp.ok) {
@@ -463,7 +467,7 @@ function getMenuDisplayName(menuItem) {
     if (customNames[menuItem.pageIdentifier]) {
         return {
             text: customNames[menuItem.pageIdentifier].text || menuItem.text,
-            shortText: customNames[menuItem.pageIdentifier].shortText || menuItem.shortText
+            shortText: customNames[menuItem.pageIdentifier].shortText || menuItem.shortText,
         };
     }
     return { text: menuItem.text, shortText: menuItem.shortText };
@@ -476,7 +480,7 @@ window.MenuNameUtils = {
     loadCustomMenuNamesFromFirebase,
     getMenuDisplayName,
     MENU_CONFIG,
-    CUSTOM_MENU_NAMES_KEY
+    CUSTOM_MENU_NAMES_KEY,
 };
 
 // =====================================================
@@ -489,40 +493,55 @@ const MENU_LAYOUT_TIMESTAMP_KEY = 'n2shop_menu_layout_timestamp';
 // Default groups configuration by icon type
 const DEFAULT_GROUPS_CONFIG = [
     {
-        name: "Live & Streaming",
-        icon: "video",
-        items: ["soluong-live"]
+        name: 'Live & Streaming',
+        icon: 'video',
+        items: ['soluong-live'],
     },
     {
-        name: "Đơn Hàng",
-        icon: "shopping-cart",
-        items: ["orders-report", "order-management", "order-log", "tpos-pancake"]
+        name: 'Đơn Hàng',
+        icon: 'shopping-cart',
+        items: ['orders-report', 'order-management', 'order-log', 'tpos-pancake'],
     },
     {
-        name: "Kho & Nhập Hàng",
-        icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat", "product-warehouse", "hang-qq"]
+        name: 'Kho & Nhập Hàng',
+        icon: 'package',
+        items: [
+            'inventory-tracking',
+            'purchase-orders',
+            'nhanhang',
+            'doi-soat',
+            'product-warehouse',
+            'hang-qq',
+        ],
     },
     {
-        name: "Khách Hàng",
-        icon: "users",
-        items: ["customer-hub", "ib"]
+        name: 'Khách Hàng',
+        icon: 'users',
+        items: ['customer-hub', 'ib'],
     },
     {
-        name: "Hoàn & CSKH",
-        icon: "corner-up-left",
-        items: ["hanghoan", "issue-tracking"]
+        name: 'Hoàn & CSKH',
+        icon: 'corner-up-left',
+        items: ['hanghoan', 'issue-tracking'],
     },
     {
-        name: "Quản Trị",
-        icon: "settings",
-        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh", "lichsuchinhsua", "project-tracker"]
+        name: 'Quản Trị',
+        icon: 'settings',
+        items: [
+            'user-management',
+            'balance-history',
+            'soquy',
+            'invoice-compare',
+            'quy-trinh',
+            'lichsuchinhsua',
+            'project-tracker',
+        ],
     },
     {
-        name: "Khác",
-        icon: "grid",
-        items: ["gemini-ai", "supplier-debt"]
-    }
+        name: 'Khác',
+        icon: 'grid',
+        items: ['gemini-ai', 'supplier-debt'],
+    },
 ];
 
 const MenuLayoutStore = {
@@ -558,7 +577,7 @@ const MenuLayoutStore = {
             const timestamp = localStorage.getItem(MENU_LAYOUT_TIMESTAMP_KEY);
             if (!timestamp) return false;
             const cacheTime = parseInt(timestamp, 10);
-            return (Date.now() - cacheTime) < CACHE_EXPIRY_MS;
+            return Date.now() - cacheTime < CACHE_EXPIRY_MS;
         } catch (e) {
             return false;
         }
@@ -598,14 +617,15 @@ const MenuLayoutStore = {
             const token = authData.token;
 
             const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
 
             if (resp.ok) {
                 const data = await resp.json();
                 const val = data.value;
                 // Check if value has actual layout data (groups array)
-                this._layout = (val && val.groups && val.groups.length > 0) ? val : this.getDefaultLayout();
+                this._layout =
+                    val && val.groups && val.groups.length > 0 ? val : this.getDefaultLayout();
                 this._saveToLocalStorage();
             } else if (resp.status === 404) {
                 this._layout = this.getDefaultLayout();
@@ -629,50 +649,52 @@ const MenuLayoutStore = {
     _startPolling() {
         if (this._pollInterval) return;
 
-        this._pollInterval = setInterval(async () => {
-            if (this._isEditing) return;
+        this._pollInterval = setInterval(
+            async () => {
+                if (this._isEditing) return;
 
-            try {
-                const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
-                const token = authData.token;
+                try {
+                    const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+                    const token = authData.token;
 
-                const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
-                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-                });
+                    const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    });
 
-                if (resp.ok) {
-                    const data = await resp.json();
-                    const newLayout = data.value;
-                    if (!newLayout || !newLayout.groups) return;
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const newLayout = data.value;
+                        if (!newLayout || !newLayout.groups) return;
 
-                    const currentTime = this._layout?.lastUpdated || 0;
-                    const newTime = newLayout.lastUpdated || 0;
+                        const currentTime = this._layout?.lastUpdated || 0;
+                        const newTime = newLayout.lastUpdated || 0;
 
-                    if (newTime > currentTime) {
-                        this._layout = newLayout;
-                        this._saveToLocalStorage();
-                        if (window.navigationManager && !this._isEditing) {
-                            window.navigationManager.renderNavigation();
+                        if (newTime > currentTime) {
+                            this._layout = newLayout;
+                            this._saveToLocalStorage();
+                            if (window.navigationManager && !this._isEditing) {
+                                window.navigationManager.renderNavigation();
+                            }
                         }
                     }
+                } catch (e) {
+                    // Silent fail for polling
                 }
-            } catch (e) {
-                // Silent fail for polling
-            }
-        }, 5 * 60 * 1000); // Poll every 5 minutes
-
+            },
+            5 * 60 * 1000
+        ); // Poll every 5 minutes
     },
 
     /**
      * Generate default layout from MENU_CONFIG grouped by icon
      */
     getDefaultLayout() {
-        const allPageIds = new Set(MENU_CONFIG.map(m => m.pageIdentifier));
+        const allPageIds = new Set(MENU_CONFIG.map((m) => m.pageIdentifier));
         const assignedPageIds = new Set();
 
         const groups = DEFAULT_GROUPS_CONFIG.map((groupConfig, index) => {
             // Filter items that exist in MENU_CONFIG
-            const validItems = groupConfig.items.filter(pageId => {
+            const validItems = groupConfig.items.filter((pageId) => {
                 if (allPageIds.has(pageId)) {
                     assignedPageIds.add(pageId);
                     return true;
@@ -685,19 +707,19 @@ const MenuLayoutStore = {
                 name: groupConfig.name,
                 icon: groupConfig.icon,
                 collapsed: false,
-                items: validItems
+                items: validItems,
             };
-        }).filter(g => g.items.length > 0);
+        }).filter((g) => g.items.length > 0);
 
         // Find unassigned items
-        const ungroupedItems = MENU_CONFIG
-            .filter(m => !assignedPageIds.has(m.pageIdentifier))
-            .map(m => m.pageIdentifier);
+        const ungroupedItems = MENU_CONFIG.filter(
+            (m) => !assignedPageIds.has(m.pageIdentifier)
+        ).map((m) => m.pageIdentifier);
 
         return {
             version: 1,
             groups: groups,
-            ungroupedItems: ungroupedItems
+            ungroupedItems: ungroupedItems,
         };
     },
 
@@ -721,22 +743,24 @@ const MenuLayoutStore = {
         // Ensure we have latest items from MENU_CONFIG
         const layoutWithNewItems = this._addNewMenuItems(layout);
 
-        const filteredGroups = layoutWithNewItems.groups.map(group => ({
-            ...group,
-            items: group.items
-                .filter(pageId => this._canAccessPage(pageId, accessiblePageIds))
-                .map(pageId => this._getMenuItemByPageId(pageId))
-                .filter(item => item !== null)
-        })).filter(group => group.items.length > 0);
+        const filteredGroups = layoutWithNewItems.groups
+            .map((group) => ({
+                ...group,
+                items: group.items
+                    .filter((pageId) => this._canAccessPage(pageId, accessiblePageIds))
+                    .map((pageId) => this._getMenuItemByPageId(pageId))
+                    .filter((item) => item !== null),
+            }))
+            .filter((group) => group.items.length > 0);
 
         const filteredUngrouped = (layoutWithNewItems.ungroupedItems || [])
-            .filter(pageId => this._canAccessPage(pageId, accessiblePageIds))
-            .map(pageId => this._getMenuItemByPageId(pageId))
-            .filter(item => item !== null);
+            .filter((pageId) => this._canAccessPage(pageId, accessiblePageIds))
+            .map((pageId) => this._getMenuItemByPageId(pageId))
+            .filter((item) => item !== null);
 
         return {
             groups: filteredGroups,
-            ungroupedItems: filteredUngrouped
+            ungroupedItems: filteredUngrouped,
         };
     },
 
@@ -745,18 +769,18 @@ const MenuLayoutStore = {
      */
     _addNewMenuItems(layout) {
         const layoutPageIds = new Set([
-            ...layout.groups.flatMap(g => g.items),
-            ...(layout.ungroupedItems || [])
+            ...layout.groups.flatMap((g) => g.items),
+            ...(layout.ungroupedItems || []),
         ]);
 
-        const newItems = MENU_CONFIG
-            .filter(item => !layoutPageIds.has(item.pageIdentifier))
-            .map(item => item.pageIdentifier);
+        const newItems = MENU_CONFIG.filter((item) => !layoutPageIds.has(item.pageIdentifier)).map(
+            (item) => item.pageIdentifier
+        );
 
         if (newItems.length > 0) {
             return {
                 ...layout,
-                ungroupedItems: [...(layout.ungroupedItems || []), ...newItems]
+                ungroupedItems: [...(layout.ungroupedItems || []), ...newItems],
             };
         }
 
@@ -771,7 +795,7 @@ const MenuLayoutStore = {
         // Admin bypass - grant access to all pages
         if (this.isAdminTemplate) return true;
 
-        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+        const menuItem = MENU_CONFIG.find((m) => m.pageIdentifier === pageId);
         if (!menuItem) return false;
         if (!menuItem.permissionRequired) return true; // Public pages
         if (menuItem.publicAccess) return true;
@@ -782,7 +806,7 @@ const MenuLayoutStore = {
      * Get full menu item object by pageIdentifier
      */
     _getMenuItemByPageId(pageId) {
-        const item = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+        const item = MENU_CONFIG.find((m) => m.pageIdentifier === pageId);
         if (!item) return null;
 
         // Apply custom display names
@@ -790,7 +814,7 @@ const MenuLayoutStore = {
         return {
             ...item,
             text: displayName.text,
-            shortText: displayName.shortText
+            shortText: displayName.shortText,
         };
     },
 
@@ -809,21 +833,22 @@ const MenuLayoutStore = {
             try {
                 const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
                 const token = authData.token;
-                const username = localStorage.getItem('currentUser') || authData.username || 'admin';
+                const username =
+                    localStorage.getItem('currentUser') || authData.username || 'admin';
 
                 const layoutToSave = {
                     ...this._layout,
                     lastUpdated: Date.now(),
-                    updatedBy: username
+                    updatedBy: username,
                 };
 
                 const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     },
-                    body: JSON.stringify({ value: layoutToSave })
+                    body: JSON.stringify({ value: layoutToSave }),
                 });
 
                 if (resp.ok) {
@@ -852,7 +877,7 @@ const MenuLayoutStore = {
             this._pollInterval = null;
         }
         clearTimeout(this._saveTimeout);
-    }
+    },
 };
 
 // Export for external use
@@ -864,7 +889,7 @@ window.MenuLayoutStore = MenuLayoutStore;
  */
 function getDefaultAdminPermissions() {
     const defaultPerms = {};
-    MENU_CONFIG.forEach(item => {
+    MENU_CONFIG.forEach((item) => {
         if (item.permissionRequired) {
             // Default admin permissions for each page
             defaultPerms[item.permissionRequired] = {
@@ -872,7 +897,7 @@ function getDefaultAdminPermissions() {
                 create: true,
                 edit: true,
                 delete: true,
-                export: true
+                export: true,
             };
         }
     });
@@ -887,7 +912,7 @@ function mergeAdminPermissions(existingPerms) {
     const defaultPerms = getDefaultAdminPermissions();
     const merged = { ...existingPerms };
 
-    Object.keys(defaultPerms).forEach(pageId => {
+    Object.keys(defaultPerms).forEach((pageId) => {
         if (!merged[pageId]) {
             merged[pageId] = defaultPerms[pageId];
         }
@@ -915,19 +940,25 @@ class UnifiedNavigationManager {
         if (!auth || !auth.isAuthenticated()) {
             selectiveLogoutStorage();
             sessionStorage.clear();
-            window.location.href = "../index.html";
+            window.location.href = '../index.html';
             return;
         }
 
         try {
             // Get user info and determine admin status
             // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
-            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authDataStr =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}';
             const authData = JSON.parse(authDataStr);
             // isAdminTemplate: used for admin bypass in permission checks and UI display
             // Check isAdmin flag, roleTemplate, and legacy userType
-            const userType = localStorage.getItem("userType") || "";
-            this.isAdminTemplate = authData.isAdmin === true || authData.roleTemplate === 'admin' || userType.startsWith("admin");
+            const userType = localStorage.getItem('userType') || '';
+            this.isAdminTemplate =
+                authData.isAdmin === true ||
+                authData.roleTemplate === 'admin' ||
+                userType.startsWith('admin');
             // Load permissions
             await this.loadUserPermissions();
             // Get current page
@@ -956,10 +987,9 @@ class UnifiedNavigationManager {
             this.showBillingAlertBanner();
 
             // Handle resize
-            window.addEventListener("resize", () => this.handleResize());
-
+            window.addEventListener('resize', () => this.handleResize());
         } catch (error) {
-            console.error("[Unified Nav] Initialization error:", error);
+            console.error('[Unified Nav] Initialization error:', error);
         }
     }
 
@@ -975,7 +1005,7 @@ class UnifiedNavigationManager {
         if (wasMobile !== this.isMobile) {
             this.renderNavigation();
             this.setupEventListeners();
-            if (typeof lucide !== "undefined") {
+            if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
         } else if (!this.isMobile) {
@@ -991,7 +1021,9 @@ class UnifiedNavigationManager {
 
         // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            const authData =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth');
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
@@ -1003,12 +1035,12 @@ class UnifiedNavigationManager {
                     // Merge with any existing permissions (to preserve extra keys)
                     const merged = { ...fullPermissions, ...(userAuth.detailedPermissions || {}) };
                     // Ensure all default pages are covered
-                    Object.keys(fullPermissions).forEach(pageId => {
+                    Object.keys(fullPermissions).forEach((pageId) => {
                         if (!merged[pageId]) {
                             merged[pageId] = fullPermissions[pageId];
                         } else {
                             // Ensure all default actions are true for admin
-                            Object.keys(fullPermissions[pageId]).forEach(action => {
+                            Object.keys(fullPermissions[pageId]).forEach((action) => {
                                 merged[pageId][action] = true;
                             });
                         }
@@ -1019,45 +1051,48 @@ class UnifiedNavigationManager {
 
                     // Update stored auth data with full admin permissions
                     userAuth.detailedPermissions = merged;
-                    const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
-                    storage.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    const storage = localStorage.getItem('loginindex_auth')
+                        ? localStorage
+                        : sessionStorage;
+                    storage.setItem('loginindex_auth', JSON.stringify(userAuth));
 
                     return;
                 }
 
                 // Non-admin: load detailedPermissions normally
-                if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
+                if (
+                    userAuth.detailedPermissions &&
+                    Object.keys(userAuth.detailedPermissions).length > 0
+                ) {
                     this.userDetailedPermissions = userAuth.detailedPermissions;
                     // Derive userPermissions from detailedPermissions for menu display
-                    this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(
+                        userAuth.detailedPermissions
+                    );
                     return;
                 }
             }
         } catch (error) {
-            console.error(
-                "[Permission Load] Error loading cached permissions:",
-                error,
-            );
+            console.error('[Permission Load] Error loading cached permissions:', error);
         }
 
         // Try to load from Firebase if not in cache
         try {
-            if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            if (typeof firebase !== 'undefined' && firebase.firestore) {
+                const authDataStr =
+                    localStorage.getItem('loginindex_auth') ||
+                    sessionStorage.getItem('loginindex_auth');
                 const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
-                    console.error("[Permission Load] No username in auth data");
+                    console.error('[Permission Load] No username in auth data');
                     this.userPermissions = [];
                     this.userDetailedPermissions = null;
                     return;
                 }
 
                 const db = firebase.firestore();
-                const userDoc = await db
-                    .collection("users")
-                    .doc(authData.username)
-                    .get();
+                const userDoc = await db.collection('users').doc(authData.username).get();
 
                 if (userDoc.exists) {
                     const userData = userDoc.data();
@@ -1069,11 +1104,11 @@ class UnifiedNavigationManager {
                         const fullPermissions = getDefaultAdminPermissions();
                         const existing = userData.detailedPermissions || {};
                         const merged = { ...fullPermissions, ...existing };
-                        Object.keys(fullPermissions).forEach(pageId => {
+                        Object.keys(fullPermissions).forEach((pageId) => {
                             if (!merged[pageId]) {
                                 merged[pageId] = fullPermissions[pageId];
                             } else {
-                                Object.keys(fullPermissions[pageId]).forEach(action => {
+                                Object.keys(fullPermissions[pageId]).forEach((action) => {
                                     merged[pageId][action] = true;
                                 });
                             }
@@ -1085,37 +1120,34 @@ class UnifiedNavigationManager {
                         authData.detailedPermissions = merged;
                         authData.roleTemplate = roleTemplate;
                         authData.isAdmin = true;
-                        localStorage.setItem("loginindex_auth", JSON.stringify(authData));
+                        localStorage.setItem('loginindex_auth', JSON.stringify(authData));
 
                         return;
                     }
 
                     // Non-admin: load detailedPermissions
-                    if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
+                    if (
+                        userData.detailedPermissions &&
+                        Object.keys(userData.detailedPermissions).length > 0
+                    ) {
                         this.userDetailedPermissions = userData.detailedPermissions;
-                        this.userPermissions = this._getAccessiblePagesFromDetailed(userData.detailedPermissions);
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(
+                            userData.detailedPermissions
+                        );
 
                         // Cache to localStorage
                         authData.detailedPermissions = userData.detailedPermissions;
                         authData.roleTemplate = roleTemplate;
-                        localStorage.setItem(
-                            "loginindex_auth",
-                            JSON.stringify(authData),
-                        );
+                        localStorage.setItem('loginindex_auth', JSON.stringify(authData));
 
                         return;
                     }
                 } else {
-                    console.error(
-                        "[Permission Load] User document not found in Firebase",
-                    );
+                    console.error('[Permission Load] User document not found in Firebase');
                 }
             }
         } catch (error) {
-            console.error(
-                "[Permission Load] Error loading Firebase permissions:",
-                error,
-            );
+            console.error('[Permission Load] Error loading Firebase permissions:', error);
         }
 
         this.userPermissions = [];
@@ -1134,13 +1166,17 @@ class UnifiedNavigationManager {
         const accessible = Object.entries(detailedPermissions)
             .filter(([pageId, perms]) => {
                 // Check if any permission in this page is true
-                return Object.values(perms).some(value => value === true);
+                return Object.values(perms).some((value) => value === true);
             })
             .map(([pageId]) => pageId);
 
         // Always include publicAccess pages
-        MENU_CONFIG.forEach(item => {
-            if (item.publicAccess && item.permissionRequired && !accessible.includes(item.permissionRequired)) {
+        MENU_CONFIG.forEach((item) => {
+            if (
+                item.publicAccess &&
+                item.permissionRequired &&
+                !accessible.includes(item.permissionRequired)
+            ) {
                 accessible.push(item.permissionRequired);
             }
         });
@@ -1170,19 +1206,19 @@ class UnifiedNavigationManager {
     getCurrentPageIdentifier() {
         const path = window.location.pathname;
 
-        const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+        const normalizedPath = path.toLowerCase().replace(/\/$/, '');
 
         const sortedMenu = [...MENU_CONFIG].sort(
-            (a, b) => b.pageIdentifier.length - a.pageIdentifier.length,
+            (a, b) => b.pageIdentifier.length - a.pageIdentifier.length
         );
 
         for (const item of sortedMenu) {
             const identifier = item.pageIdentifier.toLowerCase();
 
             const patterns = [
-                new RegExp(`/${identifier}/`, "i"),
-                new RegExp(`/${identifier}/index\\.html$`, "i"),
-                new RegExp(`/${identifier}$`, "i"),
+                new RegExp(`/${identifier}/`, 'i'),
+                new RegExp(`/${identifier}/index\\.html$`, 'i'),
+                new RegExp(`/${identifier}$`, 'i'),
             ];
 
             for (const pattern of patterns) {
@@ -1205,9 +1241,7 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        const pageInfo = MENU_CONFIG.find(
-            (item) => item.pageIdentifier === this.currentPage,
-        );
+        const pageInfo = MENU_CONFIG.find((item) => item.pageIdentifier === this.currentPage);
 
         if (!pageInfo) {
             return true;
@@ -1218,9 +1252,7 @@ class UnifiedNavigationManager {
         }
 
         // Non-admin: check detailedPermissions
-        const hasPermission = this.userPermissions.includes(
-            pageInfo.permissionRequired,
-        );
+        const hasPermission = this.userPermissions.includes(pageInfo.permissionRequired);
 
         return hasPermission;
     }
@@ -1244,46 +1276,46 @@ class UnifiedNavigationManager {
     renderMobileNavigation() {
         this.injectMobileStyles();
 
-        const sidebar = document.getElementById("sidebar");
+        const sidebar = document.getElementById('sidebar');
         if (sidebar) {
-            sidebar.style.display = "none";
+            sidebar.style.display = 'none';
         }
 
-        const existingTopBar = document.querySelector(".mobile-top-bar");
-        const existingBottomNav = document.querySelector(".mobile-bottom-nav");
+        const existingTopBar = document.querySelector('.mobile-top-bar');
+        const existingBottomNav = document.querySelector('.mobile-bottom-nav');
         if (existingTopBar) existingTopBar.remove();
         if (existingBottomNav) existingBottomNav.remove();
 
         this.createMobileTopBar();
         this.createMobileBottomNav();
 
-        const mainContent = document.querySelector(".main-content");
+        const mainContent = document.querySelector('.main-content');
         if (mainContent) {
-            mainContent.style.paddingTop = "60px";
-            mainContent.style.paddingBottom = "70px";
-            mainContent.style.position = "relative";
+            mainContent.style.paddingTop = '60px';
+            mainContent.style.paddingBottom = '70px';
+            mainContent.style.position = 'relative';
         }
 
-        document.body.style.paddingTop = "60px";
-        document.body.style.paddingBottom = "65px";
+        document.body.style.paddingTop = '60px';
+        document.body.style.paddingBottom = '65px';
 
-        const bottomNavCheck = document.querySelector(".mobile-bottom-nav");
+        const bottomNavCheck = document.querySelector('.mobile-bottom-nav');
         if (!bottomNavCheck) {
-            console.error("[Unified Nav] Mobile bottom nav NOT found in DOM!");
+            console.error('[Unified Nav] Mobile bottom nav NOT found in DOM!');
         }
     }
 
     createMobileTopBar() {
-        const existingBar = document.querySelector(".mobile-top-bar");
+        const existingBar = document.querySelector('.mobile-top-bar');
         if (existingBar) existingBar.remove();
 
-        const topBar = document.createElement("div");
-        topBar.className = "mobile-top-bar";
+        const topBar = document.createElement('div');
+        topBar.className = 'mobile-top-bar';
 
         const userInfo = window.authManager?.getUserInfo();
-        const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
-        const checkLogin = localStorage.getItem("checkLogin");
-        const roleName = roleMap[checkLogin] || "User";
+        const roleMap = { 0: 'Admin', 1: 'Manager', 3: 'Staff', 777: 'Guest' };
+        const checkLogin = localStorage.getItem('checkLogin');
+        const roleName = roleMap[checkLogin] || 'User';
 
         topBar.innerHTML = `
             <div class="mobile-top-content">
@@ -1293,7 +1325,7 @@ class UnifiedNavigationManager {
                     </div>
                     <div class="mobile-user-details">
                         <div class="mobile-user-name-wrapper">
-                            <div class="mobile-user-name">${userInfo?.displayName || "User"}</div>
+                            <div class="mobile-user-name">${userInfo?.displayName || 'User'}</div>
                             <button class="edit-displayname-btn" id="editDisplayNameMobile" title="Chỉnh sửa tên hiển thị">
                                 <i data-lucide="edit-2"></i>
                             </button>
@@ -1302,9 +1334,12 @@ class UnifiedNavigationManager {
                     </div>
                 </div>
                 <select class="shop-selector mobile-shop-selector" id="mobileShopSelector">
-                    ${window.ShopConfig.getShops().map(s =>
-                        `<option value="${s.id}"${s.id === window.ShopConfig.getSelectedShopId() ? ' selected' : ''}>${s.label}</option>`
-                    ).join('')}
+                    ${window.ShopConfig.getShops()
+                        .map(
+                            (s) =>
+                                `<option value="${s.id}"${s.id === window.ShopConfig.getSelectedShopId() ? ' selected' : ''}>${s.label}</option>`
+                        )
+                        .join('')}
                 </select>
                 <button class="mobile-menu-btn" id="mobileMenuBtn">
                     <i data-lucide="menu"></i>
@@ -1314,14 +1349,14 @@ class UnifiedNavigationManager {
 
         document.body.insertBefore(topBar, document.body.firstChild);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
         // Add event listener for edit button
-        const editBtn = topBar.querySelector("#editDisplayNameMobile");
+        const editBtn = topBar.querySelector('#editDisplayNameMobile');
         if (editBtn) {
-            editBtn.addEventListener("click", (e) => {
+            editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.showEditDisplayNameModal();
             });
@@ -1343,23 +1378,23 @@ class UnifiedNavigationManager {
     }
 
     createMobileBottomNav() {
-        const existingNav = document.querySelector(".mobile-bottom-nav");
+        const existingNav = document.querySelector('.mobile-bottom-nav');
         if (existingNav) existingNav.remove();
 
-        const bottomNav = document.createElement("div");
-        bottomNav.className = "mobile-bottom-nav";
+        const bottomNav = document.createElement('div');
+        bottomNav.className = 'mobile-bottom-nav';
 
         const accessiblePages = this.getAccessiblePages();
 
         const bottomNavPages = accessiblePages.slice(0, 5);
 
         bottomNavPages.forEach((item) => {
-            const navItem = document.createElement("a");
+            const navItem = document.createElement('a');
             navItem.href = item.href;
-            navItem.className = "mobile-nav-item";
+            navItem.className = 'mobile-nav-item';
 
             if (item.pageIdentifier === this.currentPage) {
-                navItem.classList.add("active");
+                navItem.classList.add('active');
             }
 
             navItem.innerHTML = `
@@ -1371,13 +1406,13 @@ class UnifiedNavigationManager {
         });
 
         if (accessiblePages.length > 5) {
-            const moreBtn = document.createElement("button");
-            moreBtn.className = "mobile-nav-item mobile-more-btn";
+            const moreBtn = document.createElement('button');
+            moreBtn.className = 'mobile-nav-item mobile-more-btn';
             moreBtn.innerHTML = `
                 <i data-lucide="more-horizontal"></i>
                 <span>Thêm</span>
             `;
-            moreBtn.addEventListener("click", (e) => {
+            moreBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.showMobileMenu();
             });
@@ -1386,17 +1421,17 @@ class UnifiedNavigationManager {
 
         document.body.appendChild(bottomNav);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
     }
 
     showMobileMenu() {
-        const overlay = document.createElement("div");
-        overlay.className = "mobile-menu-overlay";
+        const overlay = document.createElement('div');
+        overlay.className = 'mobile-menu-overlay';
 
-        const menu = document.createElement("div");
-        menu.className = "mobile-menu-panel";
+        const menu = document.createElement('div');
+        menu.className = 'mobile-menu-panel';
 
         // Get filtered layout based on user permissions
         const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
@@ -1408,7 +1443,9 @@ class UnifiedNavigationManager {
         let menuContentHtml = '';
 
         filteredLayout.groups.forEach((group) => {
-            const hasActivePage = group.items.some(item => item.pageIdentifier === this.currentPage);
+            const hasActivePage = group.items.some(
+                (item) => item.pageIdentifier === this.currentPage
+            );
             const isCollapsed = !hasActivePage;
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${group.id}">
@@ -1419,14 +1456,18 @@ class UnifiedNavigationManager {
                         <span class="mobile-group-count">${group.items.length}</span>
                     </div>
                     <div class="mobile-group-items">
-                        ${group.items.map(item => `
+                        ${group.items
+                            .map(
+                                (item) => `
                             <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
                                 <i data-lucide="${item.icon}"></i>
                                 <span>${item.text}</span>
                                 ${item.pageIdentifier === 'service-costs' && this.getBillingAlerts().length > 0 ? `<span class="billing-alert-badge mobile">${this.getBillingAlerts().length}</span>` : ''}
                                 ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
                             </a>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -1434,7 +1475,9 @@ class UnifiedNavigationManager {
 
         // Add ungrouped items if any
         if (filteredLayout.ungroupedItems && filteredLayout.ungroupedItems.length > 0) {
-            const hasActivePage = filteredLayout.ungroupedItems.some(item => item.pageIdentifier === this.currentPage);
+            const hasActivePage = filteredLayout.ungroupedItems.some(
+                (item) => item.pageIdentifier === this.currentPage
+            );
             const isCollapsed = !hasActivePage;
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="ungrouped">
@@ -1445,14 +1488,18 @@ class UnifiedNavigationManager {
                         <span class="mobile-group-count">${filteredLayout.ungroupedItems.length}</span>
                     </div>
                     <div class="mobile-group-items">
-                        ${filteredLayout.ungroupedItems.map(item => `
+                        ${filteredLayout.ungroupedItems
+                            .map(
+                                (item) => `
                             <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
                                 <i data-lucide="${item.icon}"></i>
                                 <span>${item.text}</span>
                                 ${item.pageIdentifier === 'service-costs' && this.getBillingAlerts().length > 0 ? `<span class="billing-alert-badge mobile">${this.getBillingAlerts().length}</span>` : ''}
                                 ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
                             </a>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -1483,18 +1530,18 @@ class UnifiedNavigationManager {
         overlay.appendChild(menu);
         document.body.appendChild(overlay);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
-        const closeBtn = menu.querySelector("#closeMobileMenu");
-        closeBtn.addEventListener("click", () => overlay.remove());
-        overlay.addEventListener("click", (e) => {
+        const closeBtn = menu.querySelector('#closeMobileMenu');
+        closeBtn.addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.remove();
         });
 
         // Mobile group collapse/expand handlers
-        menu.querySelectorAll('.mobile-group-header').forEach(header => {
+        menu.querySelectorAll('.mobile-group-header').forEach((header) => {
             header.addEventListener('click', (e) => {
                 const groupEl = header.closest('.mobile-menu-group');
                 const groupId = groupEl.dataset.groupId;
@@ -1503,14 +1550,14 @@ class UnifiedNavigationManager {
             });
         });
 
-        const settingsBtn = menu.querySelector("#mobileSettingsBtn");
-        settingsBtn.addEventListener("click", () => {
+        const settingsBtn = menu.querySelector('#mobileSettingsBtn');
+        settingsBtn.addEventListener('click', () => {
             overlay.remove();
             this.showSettings();
         });
 
-        const logoutBtn = menu.querySelector("#mobileLogoutBtn");
-        logoutBtn.addEventListener("click", () => {
+        const logoutBtn = menu.querySelector('#mobileLogoutBtn');
+        logoutBtn.addEventListener('click', () => {
             overlay.remove();
             this.showLogoutConfirmDialog();
         });
@@ -1642,20 +1689,20 @@ class UnifiedNavigationManager {
         // Auto-create sidebar + main-content wrapper if page doesn't have them
         this.ensureDesktopStructure();
 
-        const sidebar = document.getElementById("sidebar");
+        const sidebar = document.getElementById('sidebar');
         if (sidebar) {
-            sidebar.style.display = "";
+            sidebar.style.display = '';
         }
 
-        const topBar = document.querySelector(".mobile-top-bar");
-        const bottomNav = document.querySelector(".mobile-bottom-nav");
+        const topBar = document.querySelector('.mobile-top-bar');
+        const bottomNav = document.querySelector('.mobile-bottom-nav');
         if (topBar) topBar.remove();
         if (bottomNav) bottomNav.remove();
 
-        const mainContent = document.querySelector(".main-content");
+        const mainContent = document.querySelector('.main-content');
         if (mainContent) {
-            mainContent.style.paddingTop = "";
-            mainContent.style.paddingBottom = "";
+            mainContent.style.paddingTop = '';
+            mainContent.style.paddingBottom = '';
         }
 
         this.updateSidebarLogo();
@@ -1669,7 +1716,7 @@ class UnifiedNavigationManager {
      * Makes navigation-modern.js plug-and-play: just add <script defer src="navigation-modern.js">
      */
     ensureDesktopStructure() {
-        if (document.getElementById("sidebar")) return; // Already has sidebar
+        if (document.getElementById('sidebar')) return; // Already has sidebar
 
         // Inject sidebar CSS (with hardcoded fallbacks for pages without modern.css)
         this.injectSidebarStyles();
@@ -1732,7 +1779,6 @@ class UnifiedNavigationManager {
         } else {
             document.body.insertBefore(sidebar, document.body.firstChild);
         }
-
     }
 
     /**
@@ -1933,7 +1979,7 @@ class UnifiedNavigationManager {
         select.className = 'shop-selector';
         select.id = 'shopSelector';
 
-        window.ShopConfig.getShops().forEach(shop => {
+        window.ShopConfig.getShops().forEach((shop) => {
             const opt = document.createElement('option');
             opt.value = shop.id;
             opt.textContent = shop.label;
@@ -2011,13 +2057,13 @@ class UnifiedNavigationManager {
     }
 
     renderDesktopSidebar() {
-        const sidebarNav = document.querySelector(".sidebar-nav");
+        const sidebarNav = document.querySelector('.sidebar-nav');
         if (!sidebarNav) {
-            console.error("[Unified Nav] Sidebar nav element not found!");
+            console.error('[Unified Nav] Sidebar nav element not found!');
             return;
         }
 
-        sidebarNav.innerHTML = "";
+        sidebarNav.innerHTML = '';
 
         // Inject grouped menu styles
         this.injectGroupedMenuStyles();
@@ -2027,9 +2073,9 @@ class UnifiedNavigationManager {
         let renderedCount = 0;
 
         // Create groups container
-        const groupsContainer = document.createElement("div");
-        groupsContainer.className = "menu-groups-container";
-        groupsContainer.id = "menuGroupsContainer";
+        const groupsContainer = document.createElement('div');
+        groupsContainer.className = 'menu-groups-container';
+        groupsContainer.id = 'menuGroupsContainer';
 
         // Render each group
         filteredLayout.groups.forEach((group) => {
@@ -2045,7 +2091,7 @@ class UnifiedNavigationManager {
                 name: 'Chưa phân nhóm',
                 icon: 'more-horizontal',
                 collapsed: false,
-                items: filteredLayout.ungroupedItems
+                items: filteredLayout.ungroupedItems,
             };
             const ungroupedEl = this.createGroupElement(ungroupedGroup, true);
             groupsContainer.appendChild(ungroupedEl);
@@ -2056,20 +2102,19 @@ class UnifiedNavigationManager {
 
         this.addSettingsToNavigation(sidebarNav);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
         // Setup event listeners
         this.setupGroupCollapseListeners();
-
     }
 
     /**
      * Setup group collapse/expand listeners
      */
     setupGroupCollapseListeners() {
-        document.querySelectorAll('.menu-group-header').forEach(header => {
+        document.querySelectorAll('.menu-group-header').forEach((header) => {
             header.addEventListener('click', (e) => {
                 const groupEl = header.closest('.menu-group');
                 const groupId = groupEl.dataset.groupId;
@@ -2083,20 +2128,20 @@ class UnifiedNavigationManager {
      * Create a group element with header and items (for sidebar display only)
      */
     createGroupElement(group, isUngrouped = false) {
-        const groupEl = document.createElement("div");
+        const groupEl = document.createElement('div');
         groupEl.className = `menu-group`;
         groupEl.dataset.groupId = group.id;
 
         // Always start collapsed on page load
         groupEl.classList.add('collapsed');
-        
+
         // But expand the group containing the active page
-        const hasActivePage = group.items.some(item => item.pageIdentifier === this.currentPage);
+        const hasActivePage = group.items.some((item) => item.pageIdentifier === this.currentPage);
         if (hasActivePage) groupEl.classList.remove('collapsed');
 
         // Group header
-        const header = document.createElement("div");
-        header.className = "menu-group-header";
+        const header = document.createElement('div');
+        header.className = 'menu-group-header';
         header.innerHTML = `
             <span class="group-collapse-icon"><i data-lucide="chevron-down"></i></span>
             <i data-lucide="${group.icon}" class="group-icon"></i>
@@ -2106,16 +2151,16 @@ class UnifiedNavigationManager {
         groupEl.appendChild(header);
 
         // Group items container
-        const itemsContainer = document.createElement("div");
-        itemsContainer.className = "menu-group-items";
+        const itemsContainer = document.createElement('div');
+        itemsContainer.className = 'menu-group-items';
 
         group.items.forEach((menuItem) => {
-            const navItem = document.createElement("a");
+            const navItem = document.createElement('a');
             navItem.href = menuItem.href;
-            navItem.className = "nav-item";
+            navItem.className = 'nav-item';
 
             if (menuItem.pageIdentifier === this.currentPage) {
-                navItem.classList.add("active");
+                navItem.classList.add('active');
             }
 
             // Check billing alerts for service-costs menu item
@@ -2123,7 +2168,7 @@ class UnifiedNavigationManager {
             if (menuItem.pageIdentifier === 'service-costs') {
                 const alerts = this.getBillingAlerts();
                 if (alerts.length > 0) {
-                    badgeHtml = `<span class="billing-alert-badge" title="${alerts.map(a => a.label).join(', ')}">${alerts.length}</span>`;
+                    badgeHtml = `<span class="billing-alert-badge" title="${alerts.map((a) => a.label).join(', ')}">${alerts.length}</span>`;
                 }
             }
 
@@ -2343,24 +2388,24 @@ class UnifiedNavigationManager {
     }
 
     addSettingsToNavigation(sidebarNav) {
-        const divider = document.createElement("div");
-        divider.className = "nav-divider";
+        const divider = document.createElement('div');
+        divider.className = 'nav-divider';
         divider.innerHTML =
             '<hr style="border: none; border-top: 1px solid var(--border, rgba(0,0,0,0.1)); margin: 16px 0;">';
         sidebarNav.appendChild(divider);
 
-        const settingsBtn = document.createElement("button");
-        settingsBtn.id = "btnSettings";
-        settingsBtn.className = "nav-item nav-settings-btn";
+        const settingsBtn = document.createElement('button');
+        settingsBtn.id = 'btnSettings';
+        settingsBtn.className = 'nav-item nav-settings-btn';
         settingsBtn.innerHTML = `
             <i data-lucide="settings"></i>
             <span>Cài Đặt</span>
         `;
         sidebarNav.appendChild(settingsBtn);
 
-        if (!document.getElementById("settingsNavStyles")) {
-            const style = document.createElement("style");
-            style.id = "settingsNavStyles";
+        if (!document.getElementById('settingsNavStyles')) {
+            const style = document.createElement('style');
+            style.id = 'settingsNavStyles';
             style.textContent = `
                 .nav-settings-btn {
                     background: none !important;
@@ -2379,7 +2424,6 @@ class UnifiedNavigationManager {
             `;
             document.head.insertBefore(style, document.head.firstChild);
         }
-
     }
 
     // =====================================================
@@ -2424,7 +2468,9 @@ class UnifiedNavigationManager {
         modal.id = 'menuEditModal';
 
         // Build groups HTML
-        const groupsHtml = layout.groups.map(group => `
+        const groupsHtml = layout.groups
+            .map(
+                (group) => `
             <div class="edit-group" data-group-id="${group.id}">
                 <div class="edit-group-header">
                     <span class="edit-group-drag-handle"><i data-lucide="grip-vertical"></i></span>
@@ -2441,20 +2487,24 @@ class UnifiedNavigationManager {
                     </div>
                 </div>
                 <div class="edit-group-items" data-group-id="${group.id}">
-                    ${group.items.map(pageId => {
-                        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
-                        if (!menuItem) return '';
-                        return `
+                    ${group.items
+                        .map((pageId) => {
+                            const menuItem = MENU_CONFIG.find((m) => m.pageIdentifier === pageId);
+                            if (!menuItem) return '';
+                            return `
                             <div class="edit-item" data-page-id="${pageId}">
                                 <span class="edit-item-drag-handle"><i data-lucide="grip-vertical"></i></span>
                                 <i data-lucide="${menuItem.icon}"></i>
                                 <span>${menuItem.text}</span>
                             </div>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
 
         // Build ungrouped items HTML - always show as drop target
         const ungroupedItems = layout.ungroupedItems || [];
@@ -2466,17 +2516,19 @@ class UnifiedNavigationManager {
                     <span class="edit-group-count">${ungroupedItems.length}</span>
                 </div>
                 <div class="edit-group-items" data-group-id="ungrouped">
-                    ${ungroupedItems.map(pageId => {
-                        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
-                        if (!menuItem) return '';
-                        return `
+                    ${ungroupedItems
+                        .map((pageId) => {
+                            const menuItem = MENU_CONFIG.find((m) => m.pageIdentifier === pageId);
+                            if (!menuItem) return '';
+                            return `
                             <div class="edit-item" data-page-id="${pageId}">
                                 <span class="edit-item-drag-handle"><i data-lucide="grip-vertical"></i></span>
                                 <i data-lucide="${menuItem.icon}"></i>
                                 <span>${menuItem.text}</span>
                             </div>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>
             </div>
         `;
@@ -2540,14 +2592,14 @@ class UnifiedNavigationManager {
         });
 
         // Rename/Delete buttons
-        modal.querySelectorAll('.rename-btn').forEach(btn => {
+        modal.querySelectorAll('.rename-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const groupId = btn.dataset.groupId;
                 this.showRenameGroupModalInEdit(groupId);
             });
         });
 
-        modal.querySelectorAll('.delete-btn').forEach(btn => {
+        modal.querySelectorAll('.delete-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const groupId = btn.dataset.groupId;
                 this.deleteGroupInEdit(groupId);
@@ -2570,20 +2622,20 @@ class UnifiedNavigationManager {
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
                 filter: '.edit-group-ungrouped',
-                onEnd: (evt) => this.handleGroupReorderInEdit(evt)
+                onEnd: (evt) => this.handleGroupReorderInEdit(evt),
             });
         }
 
         // Make items within each group sortable
         this.itemSortables = [];
-        document.querySelectorAll('.edit-group-items').forEach(container => {
+        document.querySelectorAll('.edit-group-items').forEach((container) => {
             const sortable = new Sortable(container, {
                 group: 'edit-menu-items',
                 animation: 150,
                 handle: '.edit-item-drag-handle',
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
-                onEnd: (evt) => this.handleItemMoveInEdit(evt)
+                onEnd: (evt) => this.handleItemMoveInEdit(evt),
             });
             this.itemSortables.push(sortable);
         });
@@ -2597,7 +2649,7 @@ class UnifiedNavigationManager {
             this.groupSortable.destroy();
             this.groupSortable = null;
         }
-        this.itemSortables.forEach(s => s.destroy());
+        this.itemSortables.forEach((s) => s.destroy());
         this.itemSortables = [];
     }
 
@@ -2624,10 +2676,10 @@ class UnifiedNavigationManager {
 
         // Remove from source
         if (fromGroupId === 'ungrouped') {
-            layout.ungroupedItems = layout.ungroupedItems.filter(id => id !== pageId);
+            layout.ungroupedItems = layout.ungroupedItems.filter((id) => id !== pageId);
         } else {
-            const fromGroup = layout.groups.find(g => g.id === fromGroupId);
-            if (fromGroup) fromGroup.items = fromGroup.items.filter(id => id !== pageId);
+            const fromGroup = layout.groups.find((g) => g.id === fromGroupId);
+            if (fromGroup) fromGroup.items = fromGroup.items.filter((id) => id !== pageId);
         }
 
         // Add to target
@@ -2635,7 +2687,7 @@ class UnifiedNavigationManager {
             layout.ungroupedItems = layout.ungroupedItems || [];
             layout.ungroupedItems.splice(evt.newIndex, 0, pageId);
         } else {
-            const toGroup = layout.groups.find(g => g.id === toGroupId);
+            const toGroup = layout.groups.find((g) => g.id === toGroupId);
             if (toGroup) toGroup.items.splice(evt.newIndex, 0, pageId);
         }
 
@@ -2650,8 +2702,10 @@ class UnifiedNavigationManager {
      */
     updateGroupCountsInModal() {
         const layout = MenuLayoutStore.getLayout();
-        layout.groups.forEach(group => {
-            const countEl = document.querySelector(`.edit-group[data-group-id="${group.id}"] .edit-group-count`);
+        layout.groups.forEach((group) => {
+            const countEl = document.querySelector(
+                `.edit-group[data-group-id="${group.id}"] .edit-group-count`
+            );
             if (countEl) countEl.textContent = group.items.length;
         });
         const ungroupedCountEl = document.querySelector('.edit-group-ungrouped .edit-group-count');
@@ -2671,7 +2725,7 @@ class UnifiedNavigationManager {
             name: name.trim(),
             icon: 'folder',
             collapsed: false,
-            items: []
+            items: [],
         };
         layout.groups.push(newGroup);
         MenuLayoutStore.saveLayout(layout);
@@ -2686,7 +2740,7 @@ class UnifiedNavigationManager {
      */
     showRenameGroupModalInEdit(groupId) {
         const layout = MenuLayoutStore.getLayout();
-        const group = layout.groups.find(g => g.id === groupId);
+        const group = layout.groups.find((g) => g.id === groupId);
         if (!group) return;
 
         const newName = prompt('Nhập tên mới cho nhóm:', group.name);
@@ -2696,7 +2750,9 @@ class UnifiedNavigationManager {
         MenuLayoutStore.saveLayout(layout);
 
         // Update name in modal
-        const nameEl = document.querySelector(`.edit-group[data-group-id="${groupId}"] .edit-group-name`);
+        const nameEl = document.querySelector(
+            `.edit-group[data-group-id="${groupId}"] .edit-group-name`
+        );
         if (nameEl) nameEl.textContent = newName.trim();
     }
 
@@ -2707,7 +2763,7 @@ class UnifiedNavigationManager {
         if (!confirm('Xóa nhóm này? Các menu sẽ được chuyển sang "Chưa phân nhóm".')) return;
 
         const layout = MenuLayoutStore.getLayout();
-        const groupIndex = layout.groups.findIndex(g => g.id === groupId);
+        const groupIndex = layout.groups.findIndex((g) => g.id === groupId);
         if (groupIndex === -1) return;
 
         const group = layout.groups[groupIndex];
@@ -2953,29 +3009,28 @@ class UnifiedNavigationManager {
     // =====================================================
 
     initializeSidebarToggle() {
-        const sidebar = document.getElementById("sidebar");
-        const sidebarToggle = document.getElementById("sidebarToggle");
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
 
         if (!sidebar || !sidebarToggle) {
-            console.warn("[Unified Nav] Sidebar toggle elements not found");
+            console.warn('[Unified Nav] Sidebar toggle elements not found');
             return;
         }
 
-        sidebarToggle.addEventListener("click", (e) => {
+        sidebarToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleSidebar();
         });
 
         this.createFixedToggleButton();
         this.restoreSidebarState();
-
     }
 
     toggleSidebar() {
-        const sidebar = document.getElementById("sidebar");
+        const sidebar = document.getElementById('sidebar');
         if (!sidebar) return;
 
-        if (sidebar.classList.contains("collapsed")) {
+        if (sidebar.classList.contains('collapsed')) {
             this.showSidebar();
         } else {
             this.hideSidebar();
@@ -2983,62 +3038,59 @@ class UnifiedNavigationManager {
     }
 
     hideSidebar() {
-        const sidebar = document.getElementById("sidebar");
+        const sidebar = document.getElementById('sidebar');
         if (!sidebar) return;
 
-        sidebar.classList.add("collapsed");
-        localStorage.setItem("sidebarCollapsed", "true");
+        sidebar.classList.add('collapsed');
+        localStorage.setItem('sidebarCollapsed', 'true');
 
-        const sidebarToggle = document.getElementById("sidebarToggle");
-        const icon = sidebarToggle?.querySelector("i");
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const icon = sidebarToggle?.querySelector('i');
         if (icon) {
-            icon.setAttribute("data-lucide", "panel-left-open");
-            if (typeof lucide !== "undefined") {
+            icon.setAttribute('data-lucide', 'panel-left-open');
+            if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
         }
-
     }
 
     showSidebar() {
-        const sidebar = document.getElementById("sidebar");
+        const sidebar = document.getElementById('sidebar');
         if (!sidebar) return;
 
-        sidebar.classList.remove("collapsed");
-        localStorage.setItem("sidebarCollapsed", "false");
+        sidebar.classList.remove('collapsed');
+        localStorage.setItem('sidebarCollapsed', 'false');
 
-        const sidebarToggle = document.getElementById("sidebarToggle");
-        const icon = sidebarToggle?.querySelector("i");
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const icon = sidebarToggle?.querySelector('i');
         if (icon) {
-            icon.setAttribute("data-lucide", "panel-left-close");
-            if (typeof lucide !== "undefined") {
+            icon.setAttribute('data-lucide', 'panel-left-close');
+            if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
         }
-
     }
 
     createFixedToggleButton() {
-        const mainContent = document.querySelector(".main-content");
+        const mainContent = document.querySelector('.main-content');
         if (!mainContent) return;
 
-        if (document.querySelector(".sidebar-toggle-fixed")) return;
+        if (document.querySelector('.sidebar-toggle-fixed')) return;
 
-        const fixedBtn = document.createElement("button");
-        fixedBtn.className = "sidebar-toggle-fixed";
+        const fixedBtn = document.createElement('button');
+        fixedBtn.className = 'sidebar-toggle-fixed';
         fixedBtn.innerHTML = '<i data-lucide="panel-left-open"></i>';
-        fixedBtn.title = "Mở sidebar";
+        fixedBtn.title = 'Mở sidebar';
 
-        fixedBtn.addEventListener("click", () => {
+        fixedBtn.addEventListener('click', () => {
             this.showSidebar();
         });
 
         mainContent.appendChild(fixedBtn);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
-
     }
 
     /**
@@ -3051,14 +3103,21 @@ class UnifiedNavigationManager {
         // Render + Firebase auto-pay → chỉ warning khi downgrade (check riêng via API)
         // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         const BILLING_SCHEDULE = [
-            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
+            {
+                name: 'SePay VIP (589K đ)',
+                amount: 589000,
+                amountVND: true,
+                billingDay: 27,
+                warnBefore: 3,
+                showDays: 3,
+            },
         ];
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const alerts = [];
 
-        BILLING_SCHEDULE.forEach(bill => {
+        BILLING_SCHEDULE.forEach((bill) => {
             // Current month's billing date
             let billingThisMonth = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
 
@@ -3083,13 +3142,15 @@ class UnifiedNavigationManager {
             if (shouldAlert) {
                 let label;
                 if (isOverdue) {
-                    label = daysDiff === 0
-                        ? `${bill.name}: HÔM NAY là ngày thanh toán`
-                        : `${bill.name}: quá hạn ${Math.abs(daysDiff)} ngày`;
+                    label =
+                        daysDiff === 0
+                            ? `${bill.name}: HÔM NAY là ngày thanh toán`
+                            : `${bill.name}: quá hạn ${Math.abs(daysDiff)} ngày`;
                 } else {
-                    label = daysDiff === 0
-                        ? `${bill.name}: HÔM NAY`
-                        : `${bill.name}: còn ${daysDiff} ngày`;
+                    label =
+                        daysDiff === 0
+                            ? `${bill.name}: HÔM NAY`
+                            : `${bill.name}: còn ${daysDiff} ngày`;
                 }
 
                 alerts.push({
@@ -3125,14 +3186,15 @@ class UnifiedNavigationManager {
         if (!mainContent) return;
 
         // Build payment detail panels for alerts that have payment info
-        const paymentAlerts = alerts.filter(a => a.payment);
+        const paymentAlerts = alerts.filter((a) => a.payment);
         let paymentDetailsHTML = '';
         if (paymentAlerts.length > 0) {
             paymentDetailsHTML = `
                 <div class="nav-billing-details" id="navBillingDetails" style="display:none">
-                    ${paymentAlerts.map(a => {
-                        const p = a.payment;
-                        return `
+                    ${paymentAlerts
+                        .map((a) => {
+                            const p = a.payment;
+                            return `
                         <div class="nav-billing-payment">
                             <div class="nav-billing-payment-qr">
                                 <img src="${p.qrUrl}" alt="QR thanh toán" />
@@ -3147,7 +3209,8 @@ class UnifiedNavigationManager {
                                 <a href="${p.invoiceUrl}" target="_blank" class="nav-billing-invoice-link">Xem trên SePay →</a>
                             </div>
                         </div>`;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>`;
         }
 
@@ -3159,17 +3222,27 @@ class UnifiedNavigationManager {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
                 </div>
                 <div class="nav-billing-text">
-                    ${alerts.map(a => {
-                        const amountStr = a.amount > 0 ? (a.amountVND ? ` ${a.amount.toLocaleString('vi-VN')}đ` : ` $${a.amount}`) : '';
-                        let timeStr;
-                        if (a.isOverdue) {
-                            timeStr = a.daysLeft === 0 ? 'hôm nay' : `quá hạn ${Math.abs(a.daysLeft)} ngày`;
-                        } else {
-                            timeStr = a.daysLeft === 0 ? 'hôm nay' : `còn ${a.daysLeft} ngày`;
-                        }
-                        const noteStr = a.note ? ` (${a.note})` : '';
-                        return `<span><b>${a.name}</b>${amountStr} — ${timeStr}${noteStr}</span>`;
-                    }).join('<span class="nav-billing-sep">|</span>')}
+                    ${alerts
+                        .map((a) => {
+                            const amountStr =
+                                a.amount > 0
+                                    ? a.amountVND
+                                        ? ` ${a.amount.toLocaleString('vi-VN')}đ`
+                                        : ` $${a.amount}`
+                                    : '';
+                            let timeStr;
+                            if (a.isOverdue) {
+                                timeStr =
+                                    a.daysLeft === 0
+                                        ? 'hôm nay'
+                                        : `quá hạn ${Math.abs(a.daysLeft)} ngày`;
+                            } else {
+                                timeStr = a.daysLeft === 0 ? 'hôm nay' : `còn ${a.daysLeft} ngày`;
+                            }
+                            const noteStr = a.note ? ` (${a.note})` : '';
+                            return `<span><b>${a.name}</b>${amountStr} — ${timeStr}${noteStr}</span>`;
+                        })
+                        .join('<span class="nav-billing-sep">|</span>')}
                 </div>
                 ${paymentAlerts.length > 0 ? '<button class="nav-billing-link" id="navBillingToggle">Chi tiết ▼</button>' : `<a href="${this.getServiceCostsUrl()}" class="nav-billing-link">Chi tiết →</a>`}
                 <button class="nav-billing-close" title="Đóng">✕</button>
@@ -3192,13 +3265,15 @@ class UnifiedNavigationManager {
         }
 
         // Copy to clipboard
-        banner.querySelectorAll('.nav-billing-copy').forEach(el => {
+        banner.querySelectorAll('.nav-billing-copy').forEach((el) => {
             el.addEventListener('click', () => {
                 const text = el.dataset.copy;
                 navigator.clipboard.writeText(text).then(() => {
                     const orig = el.innerHTML;
                     el.innerHTML = '<span style="color:#4ade80">Đã copy!</span>';
-                    setTimeout(() => { el.innerHTML = orig; }, 1500);
+                    setTimeout(() => {
+                        el.innerHTML = orig;
+                    }, 1500);
                 });
             });
         });
@@ -3364,33 +3439,31 @@ class UnifiedNavigationManager {
     }
 
     restoreSidebarState() {
-        const sidebar = document.getElementById("sidebar");
-        const mainContent = document.querySelector(".main-content");
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.querySelector('.main-content');
 
         if (!sidebar || !mainContent) return;
 
         if (window.innerWidth > 768) {
-            const storedState = localStorage.getItem("sidebarCollapsed");
-            const isCollapsed =
-                storedState === null ? true : storedState === "true";
+            const storedState = localStorage.getItem('sidebarCollapsed');
+            const isCollapsed = storedState === null ? true : storedState === 'true';
 
             if (storedState === null) {
-                localStorage.setItem("sidebarCollapsed", "true");
+                localStorage.setItem('sidebarCollapsed', 'true');
             }
 
             if (isCollapsed) {
-                sidebar.classList.add("collapsed");
-                mainContent.classList.add("expanded");
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
 
-                const sidebarToggle = document.getElementById("sidebarToggle");
-                const icon = sidebarToggle?.querySelector("i");
+                const sidebarToggle = document.getElementById('sidebarToggle');
+                const icon = sidebarToggle?.querySelector('i');
                 if (icon) {
-                    icon.setAttribute("data-lucide", "panel-left-open");
-                    if (typeof lucide !== "undefined") {
+                    icon.setAttribute('data-lucide', 'panel-left-open');
+                    if (typeof lucide !== 'undefined') {
                         lucide.createIcons();
                     }
                 }
-
             }
         }
     }
@@ -3403,7 +3476,7 @@ class UnifiedNavigationManager {
         const userInfo = window.authManager?.getUserInfo();
         if (!userInfo) return;
 
-        const userName = document.getElementById("userName");
+        const userName = document.getElementById('userName');
         if (userName) {
             // Check if edit button already exists
             const existingEditBtn = userName.parentElement.querySelector('.edit-displayname-btn');
@@ -3417,7 +3490,7 @@ class UnifiedNavigationManager {
                 // Create name span
                 const nameSpan = document.createElement('span');
                 nameSpan.id = 'userName';
-                nameSpan.textContent = userInfo.displayName || "User";
+                nameSpan.textContent = userInfo.displayName || 'User';
 
                 // Create edit button
                 const editBtn = document.createElement('button');
@@ -3435,79 +3508,75 @@ class UnifiedNavigationManager {
                 nameWrapper.appendChild(nameSpan);
                 nameWrapper.appendChild(editBtn);
 
-                if (typeof lucide !== "undefined") {
+                if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
             } else {
-                userName.textContent = userInfo.displayName || "User";
+                userName.textContent = userInfo.displayName || 'User';
             }
         }
 
-        const userRole = document.querySelector(".user-role");
+        const userRole = document.querySelector('.user-role');
         if (userRole) {
             const roleMap = {
-                0: "Admin",
-                1: "Manager",
-                3: "Staff",
-                777: "Guest",
+                0: 'Admin',
+                1: 'Manager',
+                3: 'Staff',
+                777: 'Guest',
             };
-            const checkLogin = localStorage.getItem("checkLogin");
-            userRole.textContent = roleMap[checkLogin] || "User";
+            const checkLogin = localStorage.getItem('checkLogin');
+            userRole.textContent = roleMap[checkLogin] || 'User';
         }
-
     }
 
     setupEventListeners() {
-        const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         if (mobileMenuBtn) {
-            mobileMenuBtn.addEventListener("click", () =>
-                this.showMobileMenu(),
-            );
+            mobileMenuBtn.addEventListener('click', () => this.showMobileMenu());
         }
 
-        const menuToggle = document.getElementById("menuToggle");
-        const sidebar = document.getElementById("sidebar");
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
 
         if (menuToggle && sidebar && !this.isMobile) {
-            menuToggle.addEventListener("click", () => {
-                sidebar.classList.toggle("active");
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
             });
         }
 
-        document.addEventListener("click", (e) => {
+        document.addEventListener('click', (e) => {
             if (window.innerWidth <= 768 && sidebar) {
                 if (
                     !sidebar.contains(e.target) &&
                     menuToggle &&
                     !menuToggle.contains(e.target) &&
-                    sidebar.classList.contains("active")
+                    sidebar.classList.contains('active')
                 ) {
-                    sidebar.classList.remove("active");
+                    sidebar.classList.remove('active');
                 }
             }
         });
 
-        const btnLogout = document.getElementById("btnLogout");
+        const btnLogout = document.getElementById('btnLogout');
         if (btnLogout) {
-            btnLogout.addEventListener("click", () => {
+            btnLogout.addEventListener('click', () => {
                 this.showLogoutConfirmDialog();
             });
         }
 
-        const btnPermissions = document.getElementById("btnPermissions");
+        const btnPermissions = document.getElementById('btnPermissions');
         if (btnPermissions) {
-            btnPermissions.addEventListener("click", () => {
+            btnPermissions.addEventListener('click', () => {
                 this.showPermissionsSummary();
             });
         }
 
-        const btnSettings = document.getElementById("btnSettings");
+        const btnSettings = document.getElementById('btnSettings');
         if (btnSettings) {
-            btnSettings.addEventListener("click", () => {
+            btnSettings.addEventListener('click', () => {
                 this.showSettings();
             });
         }
-
     }
 
     getAccessiblePages() {
@@ -3529,12 +3598,12 @@ class UnifiedNavigationManager {
 
     showEditDisplayNameModal() {
         const userInfo = window.authManager?.getUserInfo();
-        const currentDisplayName = userInfo?.displayName || "";
+        const currentDisplayName = userInfo?.displayName || '';
 
         // For mobile: show modal
         if (this.isMobile) {
-            const modal = document.createElement("div");
-            modal.className = "settings-modal-overlay";
+            const modal = document.createElement('div');
+            modal.className = 'settings-modal-overlay';
             modal.innerHTML = `
                 <div class="settings-modal" style="max-width: 450px;">
                     <div class="settings-header">
@@ -3599,18 +3668,18 @@ class UnifiedNavigationManager {
 
             document.body.appendChild(modal);
 
-            if (typeof lucide !== "undefined") {
+            if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
 
-            const input = modal.querySelector("#newDisplayNameInput");
-            const closeBtn = modal.querySelector("#closeEditModal");
-            const cancelBtn = modal.querySelector("#cancelEditBtn");
-            const saveBtn = modal.querySelector("#saveDisplayNameBtn");
+            const input = modal.querySelector('#newDisplayNameInput');
+            const closeBtn = modal.querySelector('#closeEditModal');
+            const cancelBtn = modal.querySelector('#cancelEditBtn');
+            const saveBtn = modal.querySelector('#saveDisplayNameBtn');
             const emojiButtons = modal.querySelectorAll('.emoji-btn');
 
             // Add emoji button listeners
-            emojiButtons.forEach(btn => {
+            emojiButtons.forEach((btn) => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     const emoji = btn.getAttribute('data-emoji');
@@ -3625,35 +3694,35 @@ class UnifiedNavigationManager {
 
             const closeModal = () => modal.remove();
 
-            closeBtn.addEventListener("click", closeModal);
-            cancelBtn.addEventListener("click", closeModal);
-            modal.addEventListener("click", (e) => {
+            closeBtn.addEventListener('click', closeModal);
+            cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeModal();
             });
 
-            saveBtn.addEventListener("click", async () => {
+            saveBtn.addEventListener('click', async () => {
                 const newDisplayName = input.value.trim();
 
                 if (!newDisplayName) {
-                    this.showToast("Vui lòng nhập tên hiển thị!", "error");
+                    this.showToast('Vui lòng nhập tên hiển thị!', 'error');
                     input.focus();
                     return;
                 }
 
                 if (newDisplayName === currentDisplayName) {
-                    this.showToast("Tên hiển thị không thay đổi!", "error");
+                    this.showToast('Tên hiển thị không thay đổi!', 'error');
                     return;
                 }
 
                 if (newDisplayName.length < 2) {
-                    this.showToast("Tên hiển thị phải có ít nhất 2 ký tự!", "error");
+                    this.showToast('Tên hiển thị phải có ít nhất 2 ký tự!', 'error');
                     input.focus();
                     return;
                 }
 
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
-                if (typeof lucide !== "undefined") {
+                if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
 
@@ -3661,12 +3730,12 @@ class UnifiedNavigationManager {
 
                 if (success) {
                     closeModal();
-                    this.showToast("Đã cập nhật tên hiển thị thành công!", "success");
+                    this.showToast('Đã cập nhật tên hiển thị thành công!', 'success');
                     this.refreshUserInfo();
                 } else {
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu';
-                    if (typeof lucide !== "undefined") {
+                    if (typeof lucide !== 'undefined') {
                         lucide.createIcons();
                     }
                 }
@@ -3680,9 +3749,9 @@ class UnifiedNavigationManager {
         }
 
         // Add styles for input
-        if (!document.getElementById("editDisplayNameStyles")) {
-            const style = document.createElement("style");
-            style.id = "editDisplayNameStyles";
+        if (!document.getElementById('editDisplayNameStyles')) {
+            const style = document.createElement('style');
+            style.id = 'editDisplayNameStyles';
             style.textContent = `
                 .displayname-input {
                     width: 100%;
@@ -3838,7 +3907,7 @@ class UnifiedNavigationManager {
 
     showInlineEditDisplayName() {
         const userInfo = window.authManager?.getUserInfo();
-        const currentDisplayName = userInfo?.displayName || "";
+        const currentDisplayName = userInfo?.displayName || '';
 
         // Find the user info container
         const userInfoContainer = document.querySelector('.user-info');
@@ -3850,8 +3919,8 @@ class UnifiedNavigationManager {
         }
 
         // Hide the userName display and edit button
-        const userName = document.getElementById("userName");
-        const editBtn = document.getElementById("editDisplayNameDesktop");
+        const userName = document.getElementById('userName');
+        const editBtn = document.getElementById('editDisplayNameDesktop');
         if (userName) userName.style.display = 'none';
         if (editBtn) editBtn.style.display = 'none';
 
@@ -3893,7 +3962,7 @@ class UnifiedNavigationManager {
         const nameWrapper = userName?.parentElement || userInfoContainer;
         nameWrapper.appendChild(editForm);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
@@ -3903,7 +3972,7 @@ class UnifiedNavigationManager {
         const emojiButtons = editForm.querySelectorAll('.emoji-btn');
 
         // Add emoji button listeners
-        emojiButtons.forEach(btn => {
+        emojiButtons.forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const emoji = btn.getAttribute('data-emoji');
@@ -3928,26 +3997,26 @@ class UnifiedNavigationManager {
             const newDisplayName = input.value.trim();
 
             if (!newDisplayName) {
-                this.showToast("Vui lòng nhập tên hiển thị!", "error");
+                this.showToast('Vui lòng nhập tên hiển thị!', 'error');
                 input.focus();
                 return;
             }
 
             if (newDisplayName === currentDisplayName) {
-                this.showToast("Tên hiển thị không thay đổi!", "error");
+                this.showToast('Tên hiển thị không thay đổi!', 'error');
                 closeEdit();
                 return;
             }
 
             if (newDisplayName.length < 2) {
-                this.showToast("Tên hiển thị phải có ít nhất 2 ký tự!", "error");
+                this.showToast('Tên hiển thị phải có ít nhất 2 ký tự!', 'error');
                 input.focus();
                 return;
             }
 
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
-            if (typeof lucide !== "undefined") {
+            if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
 
@@ -3955,12 +4024,12 @@ class UnifiedNavigationManager {
 
             if (success) {
                 closeEdit();
-                this.showToast("Đã cập nhật tên hiển thị!", "success");
+                this.showToast('Đã cập nhật tên hiển thị!', 'success');
                 this.refreshUserInfo();
             } else {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu';
-                if (typeof lucide !== "undefined") {
+                if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
             }
@@ -3984,37 +4053,40 @@ class UnifiedNavigationManager {
     async updateDisplayName(newDisplayName) {
         try {
             // Get auth data from storage (supporting both localStorage and sessionStorage)
-            let authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            let authDataStr =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth');
 
             if (!authDataStr) {
-                this.showToast("Không tìm thấy thông tin người dùng!", "error");
+                this.showToast('Không tìm thấy thông tin người dùng!', 'error');
                 return false;
             }
 
             const authData = JSON.parse(authDataStr);
 
             if (!authData || !authData.username) {
-                this.showToast("Không tìm thấy thông tin người dùng!", "error");
+                this.showToast('Không tìm thấy thông tin người dùng!', 'error');
                 return false;
             }
 
             // Save to PostgreSQL via API (source of truth for login)
-            const apiBase = window.location.hostname === 'localhost'
-                ? 'http://localhost:3000/api/users'
-                : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
+            const apiBase =
+                window.location.hostname === 'localhost'
+                    ? 'http://localhost:3000/api/users'
+                    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
 
             const response = await fetch(`${apiBase}/me/display-name`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authData.token}`
+                    Authorization: `Bearer ${authData.token}`,
                 },
-                body: JSON.stringify({ displayName: newDisplayName })
+                body: JSON.stringify({ displayName: newDisplayName }),
             });
 
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                this.showToast(errData.error || "Lỗi khi cập nhật tên!", "error");
+                this.showToast(errData.error || 'Lỗi khi cập nhật tên!', 'error');
                 return false;
             }
 
@@ -4022,19 +4094,19 @@ class UnifiedNavigationManager {
             authData.displayName = newDisplayName;
             const authDataString = JSON.stringify(authData);
 
-            if (localStorage.getItem("loginindex_auth")) {
-                localStorage.setItem("loginindex_auth", authDataString);
-                localStorage.setItem("displayName", newDisplayName);
+            if (localStorage.getItem('loginindex_auth')) {
+                localStorage.setItem('loginindex_auth', authDataString);
+                localStorage.setItem('displayName', newDisplayName);
             }
 
-            if (sessionStorage.getItem("loginindex_auth")) {
-                sessionStorage.setItem("loginindex_auth", authDataString);
+            if (sessionStorage.getItem('loginindex_auth')) {
+                sessionStorage.setItem('loginindex_auth', authDataString);
             }
 
             return true;
         } catch (error) {
-            console.error("[Edit DisplayName] Error:", error);
-            this.showToast("Có lỗi xảy ra khi cập nhật. Vui lòng thử lại!", "error");
+            console.error('[Edit DisplayName] Error:', error);
+            this.showToast('Có lỗi xảy ra khi cập nhật. Vui lòng thử lại!', 'error');
             return false;
         }
     }
@@ -4044,17 +4116,16 @@ class UnifiedNavigationManager {
         if (!userInfo) return;
 
         // Update mobile top bar
-        const mobileUserName = document.querySelector(".mobile-user-name");
+        const mobileUserName = document.querySelector('.mobile-user-name');
         if (mobileUserName) {
-            mobileUserName.textContent = userInfo.displayName || "User";
+            mobileUserName.textContent = userInfo.displayName || 'User';
         }
 
         // Update desktop sidebar
-        const userName = document.getElementById("userName");
+        const userName = document.getElementById('userName');
         if (userName) {
-            userName.textContent = userInfo.displayName || "User";
+            userName.textContent = userInfo.displayName || 'User';
         }
-
     }
 
     // =====================================================
@@ -4062,50 +4133,44 @@ class UnifiedNavigationManager {
     // =====================================================
 
     loadSettings() {
-        const savedFontSize = localStorage.getItem("appFontSize") || "14";
+        const savedFontSize = localStorage.getItem('appFontSize') || '14';
         this.applyFontSize(parseInt(savedFontSize));
 
-        const savedTheme = localStorage.getItem("appTheme") || "light";
+        const savedTheme = localStorage.getItem('appTheme') || 'light';
         this.applyTheme(savedTheme);
-
     }
 
     applyFontSize(size) {
         const limitedSize = Math.max(12, Math.min(20, size));
-        document.documentElement.style.setProperty(
-            "--base-font-size",
-            `${limitedSize}px`,
-        );
+        document.documentElement.style.setProperty('--base-font-size', `${limitedSize}px`);
         document.body.style.fontSize = `${limitedSize}px`;
     }
 
     saveFontSize(size) {
-        localStorage.setItem("appFontSize", size.toString());
+        localStorage.setItem('appFontSize', size.toString());
         this.applyFontSize(size);
     }
 
     applyTheme(theme) {
-        if (theme === "dark") {
-            document.documentElement.classList.add("dark-mode");
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark-mode');
         } else {
-            document.documentElement.classList.remove("dark-mode");
+            document.documentElement.classList.remove('dark-mode');
         }
     }
 
     saveTheme(theme) {
-        localStorage.setItem("appTheme", theme);
+        localStorage.setItem('appTheme', theme);
         this.applyTheme(theme);
     }
 
     showSettings() {
-        const currentFontSize =
-            parseInt(localStorage.getItem("appFontSize")) || 14;
-        const currentTableFontSize =
-            parseInt(localStorage.getItem("ordersTableFontSize")) || 14;
-        const currentTheme = localStorage.getItem("appTheme") || "light";
+        const currentFontSize = parseInt(localStorage.getItem('appFontSize')) || 14;
+        const currentTableFontSize = parseInt(localStorage.getItem('ordersTableFontSize')) || 14;
+        const currentTheme = localStorage.getItem('appTheme') || 'light';
 
-        const modal = document.createElement("div");
-        modal.className = "settings-modal-overlay";
+        const modal = document.createElement('div');
+        modal.className = 'settings-modal-overlay';
         modal.innerHTML = `
             <div class="settings-modal">
                 <div class="settings-header">
@@ -4125,11 +4190,11 @@ class UnifiedNavigationManager {
                             Chế Độ Hiển Thị
                         </label>
                         <div class="theme-toggle-container">
-                            <button class="theme-option ${currentTheme === "light" ? "active" : ""}" data-theme="light">
+                            <button class="theme-option ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
                                 <i data-lucide="sun"></i>
                                 <span>Sáng</span>
                             </button>
-                            <button class="theme-option ${currentTheme === "dark" ? "active" : ""}" data-theme="dark">
+                            <button class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
                                 <i data-lucide="moon"></i>
                                 <span>Tối</span>
                             </button>
@@ -4213,7 +4278,9 @@ class UnifiedNavigationManager {
                             </div>
                         </div>
                     </div>
-                    ${this.isAdminTemplate ? `
+                    ${
+                        this.isAdminTemplate
+                            ? `
                     <div class="setting-group">
                         <label class="setting-label">
                             <i data-lucide="layout-grid"></i>
@@ -4225,7 +4292,9 @@ class UnifiedNavigationManager {
                             <i data-lucide="chevron-right" style="margin-left: auto; width: 16px; height: 16px; opacity: 0.5;"></i>
                         </button>
                     </div>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
                     <div class="setting-group">
                         <label class="setting-label">
@@ -4249,12 +4318,16 @@ class UnifiedNavigationManager {
                                     <tr><td colspan="3" style="text-align:center; color:#999;">Đang tải...</td></tr>
                                 </tbody>
                             </table>
-                            ${this.isAdminTemplate ? `
+                            ${
+                                this.isAdminTemplate
+                                    ? `
                             <button class="btn-add-prefix-rule" id="addPrefixRule">
                                 <i data-lucide="plus" style="width:14px;height:14px;"></i>
                                 Thêm quy tắc
                             </button>
-                            ` : ''}
+                            `
+                                    : ''
+                            }
                         </div>
                     </div>
 
@@ -4303,20 +4376,20 @@ class UnifiedNavigationManager {
 
         document.body.appendChild(modal);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
         this.addSettingsStyles();
 
-        const closeBtn = modal.querySelector("#closeSettings");
-        const saveBtn = modal.querySelector("#saveSettings");
-        const resetBtn = modal.querySelector("#resetSettings");
-        const fontSlider = modal.querySelector("#fontSizeSlider");
-        const currentSizeLabel = modal.querySelector("#currentFontSize");
-        const tableFontSlider = modal.querySelector("#tableFontSizeSlider");
-        const currentTableSizeLabel = modal.querySelector("#currentTableFontSize");
-        const themeButtons = modal.querySelectorAll(".theme-option");
+        const closeBtn = modal.querySelector('#closeSettings');
+        const saveBtn = modal.querySelector('#saveSettings');
+        const resetBtn = modal.querySelector('#resetSettings');
+        const fontSlider = modal.querySelector('#fontSizeSlider');
+        const currentSizeLabel = modal.querySelector('#currentFontSize');
+        const tableFontSlider = modal.querySelector('#tableFontSizeSlider');
+        const currentTableSizeLabel = modal.querySelector('#currentTableFontSize');
+        const themeButtons = modal.querySelectorAll('.theme-option');
 
         let selectedFontSize = currentFontSize;
         let selectedTableFontSize = currentTableFontSize;
@@ -4324,62 +4397,62 @@ class UnifiedNavigationManager {
 
         const closeModal = () => modal.remove();
 
-        closeBtn.addEventListener("click", closeModal);
-        modal.addEventListener("click", (e) => {
+        closeBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
 
-        fontSlider.addEventListener("input", (e) => {
+        fontSlider.addEventListener('input', (e) => {
             selectedFontSize = parseInt(e.target.value);
             currentSizeLabel.textContent = `${selectedFontSize}px`;
             this.applyFontSize(selectedFontSize);
         });
 
-        tableFontSlider.addEventListener("input", (e) => {
+        tableFontSlider.addEventListener('input', (e) => {
             selectedTableFontSize = parseInt(e.target.value);
             currentTableSizeLabel.textContent = `${selectedTableFontSize}px`;
         });
 
         themeButtons.forEach((btn) => {
-            btn.addEventListener("click", () => {
-                themeButtons.forEach((b) => b.classList.remove("active"));
-                btn.classList.add("active");
+            btn.addEventListener('click', () => {
+                themeButtons.forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
                 selectedTheme = btn.dataset.theme;
                 this.applyTheme(selectedTheme);
             });
         });
 
-        resetBtn.addEventListener("click", () => {
+        resetBtn.addEventListener('click', () => {
             selectedFontSize = 14;
             selectedTableFontSize = 14;
-            selectedTheme = "light";
+            selectedTheme = 'light';
 
             fontSlider.value = 14;
-            currentSizeLabel.textContent = "14px";
+            currentSizeLabel.textContent = '14px';
 
             tableFontSlider.value = 14;
-            currentTableSizeLabel.textContent = "14px";
+            currentTableSizeLabel.textContent = '14px';
 
-            themeButtons.forEach((b) => b.classList.remove("active"));
+            themeButtons.forEach((b) => b.classList.remove('active'));
             const lightBtn = modal.querySelector('[data-theme="light"]');
-            if (lightBtn) lightBtn.classList.add("active");
+            if (lightBtn) lightBtn.classList.add('active');
 
             this.applyFontSize(14);
-            this.applyTheme("light");
+            this.applyTheme('light');
         });
 
-        saveBtn.addEventListener("click", () => {
+        saveBtn.addEventListener('click', () => {
             this.saveFontSize(selectedFontSize);
             this.saveTheme(selectedTheme);
-            localStorage.setItem("ordersTableFontSize", selectedTableFontSize.toString());
+            localStorage.setItem('ordersTableFontSize', selectedTableFontSize.toString());
             closeModal();
-            this.showToast("Đã lưu cài đặt thành công!", "success");
+            this.showToast('Đã lưu cài đặt thành công!', 'success');
         });
 
         // Edit menu button (admin only)
-        const editMenuBtn = modal.querySelector("#settingsEditMenuBtn");
+        const editMenuBtn = modal.querySelector('#settingsEditMenuBtn');
         if (editMenuBtn) {
-            editMenuBtn.addEventListener("click", () => {
+            editMenuBtn.addEventListener('click', () => {
                 closeModal();
                 this.showMenuEditModal();
             });
@@ -4401,7 +4474,7 @@ class UnifiedNavigationManager {
         const SWITCH_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
         const CREDENTIALS = {
             1: { username: 'nvktlive1', password: 'Aa@28612345678' },
-            2: { username: 'nvktshop1', password: 'Aa@28612345678' }
+            2: { username: 'nvktshop1', password: 'Aa@28612345678' },
         };
 
         const statusEl = modal.querySelector('#tposSwitchStatus');
@@ -4417,7 +4490,7 @@ class UnifiedNavigationManager {
                 const loginResp = await fetch(TOKEN_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `grant_type=password&username=${creds.username}&password=${encodeURIComponent(creds.password)}&client_id=tmtWebApp`
+                    body: `grant_type=password&username=${creds.username}&password=${encodeURIComponent(creds.password)}&client_id=tmtWebApp`,
                 });
                 if (!loginResp.ok) throw new Error(`Login failed: ${loginResp.status}`);
                 const loginData = await loginResp.json();
@@ -4426,13 +4499,13 @@ class UnifiedNavigationManager {
                 const switchResp = await fetch(SWITCH_URL, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${loginData.access_token}`,
+                        Authorization: `Bearer ${loginData.access_token}`,
                         'Content-Type': 'application/json;charset=UTF-8',
-                        'Accept': 'application/json',
+                        Accept: 'application/json',
                         'feature-version': '2',
-                        'tposappversion': '6.2.6.1'
+                        tposappversion: '6.2.6.1',
                     },
-                    body: JSON.stringify({ companyId: targetCompanyId })
+                    body: JSON.stringify({ companyId: targetCompanyId }),
                 });
                 if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
 
@@ -4441,9 +4514,9 @@ class UnifiedNavigationManager {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        'Authorization': `Bearer ${loginData.access_token}`
+                        Authorization: `Bearer ${loginData.access_token}`,
                     },
-                    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(loginData.refresh_token)}&client_id=tmtWebApp`
+                    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(loginData.refresh_token)}&client_id=tmtWebApp`,
                 });
                 if (!refreshResp.ok) throw new Error(`Token refresh failed: ${refreshResp.status}`);
 
@@ -4455,8 +4528,8 @@ class UnifiedNavigationManager {
                     refresh_token: newToken.refresh_token || null,
                     token_type: 'Bearer',
                     expires_in: newToken.expires_in,
-                    expires_at: Date.now() + (newToken.expires_in * 1000),
-                    issued_at: Date.now()
+                    expires_at: Date.now() + newToken.expires_in * 1000,
+                    issued_at: Date.now(),
                 };
                 localStorage.setItem(storageKey, JSON.stringify(dataToSave));
 
@@ -4498,8 +4571,11 @@ class UnifiedNavigationManager {
         let defaultPrefix = 'N';
         try {
             if (window.firebase && window.firebase.firestore) {
-                const doc = await firebase.firestore()
-                    .collection('settings').doc('product_code_rules').get();
+                const doc = await firebase
+                    .firestore()
+                    .collection('settings')
+                    .doc('product_code_rules')
+                    .get();
                 if (doc.exists) {
                     const data = doc.data();
                     rules = data.rules || [];
@@ -4540,7 +4616,7 @@ class UnifiedNavigationManager {
 
             // Bind input change events
             if (isAdmin) {
-                tbody.querySelectorAll('input.prefix-input').forEach(input => {
+                tbody.querySelectorAll('input.prefix-input').forEach((input) => {
                     input.addEventListener('input', (e) => {
                         const idx = parseInt(e.target.dataset.idx);
                         const field = e.target.dataset.field;
@@ -4548,7 +4624,7 @@ class UnifiedNavigationManager {
                     });
                 });
 
-                tbody.querySelectorAll('.btn-delete-rule').forEach(btn => {
+                tbody.querySelectorAll('.btn-delete-rule').forEach((btn) => {
                     btn.addEventListener('click', (e) => {
                         const idx = parseInt(e.currentTarget.dataset.idx);
                         rules.splice(idx, 1);
@@ -4566,7 +4642,9 @@ class UnifiedNavigationManager {
                 rules.push({ match: '', codePrefix: '' });
                 renderRules();
                 // Focus the new match input
-                const lastInput = tbody.querySelector(`input[data-idx="${rules.length - 1}"][data-field="match"]`);
+                const lastInput = tbody.querySelector(
+                    `input[data-idx="${rules.length - 1}"][data-field="match"]`
+                );
                 if (lastInput) lastInput.focus();
             });
         }
@@ -4577,16 +4655,18 @@ class UnifiedNavigationManager {
             saveBtn.addEventListener('click', async () => {
                 // Save prefix rules to Firestore
                 try {
-                    const validRules = rules.filter(r => r.match && r.codePrefix);
+                    const validRules = rules.filter((r) => r.match && r.codePrefix);
                     const newDefaultPrefix = (defaultInput?.value || 'N').trim().toUpperCase();
 
                     if (window.firebase && window.firebase.firestore) {
-                        await firebase.firestore()
-                            .collection('settings').doc('product_code_rules')
+                        await firebase
+                            .firestore()
+                            .collection('settings')
+                            .doc('product_code_rules')
                             .set({
                                 rules: validRules,
                                 defaultPrefix: newDefaultPrefix,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                             });
                     }
 
@@ -4602,10 +4682,10 @@ class UnifiedNavigationManager {
     }
 
     addSettingsStyles() {
-        if (document.getElementById("settingsStyles")) return;
+        if (document.getElementById('settingsStyles')) return;
 
-        const style = document.createElement("style");
-        style.id = "settingsStyles";
+        const style = document.createElement('style');
+        style.id = 'settingsStyles';
         style.textContent = `
             :root {
                 --bg-primary: #ffffff;
@@ -5205,18 +5285,18 @@ class UnifiedNavigationManager {
         document.head.insertBefore(style, document.head.firstChild);
     }
 
-    showToast(message, type = "success") {
-        const toast = document.createElement("div");
+    showToast(message, type = 'success') {
+        const toast = document.createElement('div');
         toast.className = `toast-notification ${type}`;
 
         const iconMap = {
-            success: "check-circle",
-            error: "alert-circle",
-            warning: "alert-triangle",
-            info: "info"
+            success: 'check-circle',
+            error: 'alert-circle',
+            warning: 'alert-triangle',
+            info: 'info',
         };
 
-        const icon = iconMap[type] || "check-circle";
+        const icon = iconMap[type] || 'check-circle';
 
         toast.innerHTML = `
             <i data-lucide="${icon}"></i>
@@ -5225,12 +5305,12 @@ class UnifiedNavigationManager {
 
         document.body.appendChild(toast);
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
         setTimeout(() => {
-            toast.style.animation = "toastSlideIn 0.3s ease-out reverse";
+            toast.style.animation = 'toastSlideIn 0.3s ease-out reverse';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
@@ -5241,8 +5321,8 @@ class UnifiedNavigationManager {
 
     showLogoutConfirmDialog() {
         // Create overlay
-        const overlay = document.createElement("div");
-        overlay.className = "logout-confirm-overlay";
+        const overlay = document.createElement('div');
+        overlay.className = 'logout-confirm-overlay';
         overlay.innerHTML = `
             <div class="logout-confirm-dialog">
                 <div class="logout-confirm-icon">
@@ -5270,38 +5350,38 @@ class UnifiedNavigationManager {
 
         // Animate in
         requestAnimationFrame(() => {
-            overlay.classList.add("show");
+            overlay.classList.add('show');
         });
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
         // Event handlers
-        const cancelBtn = overlay.querySelector("#logoutCancelBtn");
-        const okBtn = overlay.querySelector("#logoutOkBtn");
+        const cancelBtn = overlay.querySelector('#logoutCancelBtn');
+        const okBtn = overlay.querySelector('#logoutOkBtn');
 
         const closeDialog = () => {
-            overlay.classList.remove("show");
+            overlay.classList.remove('show');
             setTimeout(() => overlay.remove(), 300);
         };
 
-        cancelBtn.addEventListener("click", closeDialog);
-        overlay.addEventListener("click", (e) => {
+        cancelBtn.addEventListener('click', closeDialog);
+        overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeDialog();
         });
 
-        okBtn.addEventListener("click", () => {
+        okBtn.addEventListener('click', () => {
             selectiveLogoutStorage();
             window.authManager?.logout();
         });
     }
 
     injectLogoutConfirmStyles() {
-        if (document.getElementById("logoutConfirmStyles")) return;
+        if (document.getElementById('logoutConfirmStyles')) return;
 
-        const style = document.createElement("style");
-        style.id = "logoutConfirmStyles";
+        const style = document.createElement('style');
+        style.id = 'logoutConfirmStyles';
         style.textContent = `
             .logout-confirm-overlay {
                 position: fixed;
@@ -5427,10 +5507,10 @@ class UnifiedNavigationManager {
     // =====================================================
 
     injectMobileStyles() {
-        if (document.getElementById("mobileNavStyles")) return;
+        if (document.getElementById('mobileNavStyles')) return;
 
-        const style = document.createElement("style");
-        style.id = "mobileNavStyles";
+        const style = document.createElement('style');
+        style.id = 'mobileNavStyles';
         style.textContent = `
             .mobile-top-bar {
                 position: fixed;
@@ -5733,36 +5813,27 @@ class UnifiedNavigationManager {
     // =====================================================
 
     showAccessDenied() {
-        const pageInfo = MENU_CONFIG.find(
-            (item) => item.pageIdentifier === this.currentPage,
-        );
+        const pageInfo = MENU_CONFIG.find((item) => item.pageIdentifier === this.currentPage);
         const pageName = pageInfo ? pageInfo.text : this.currentPage;
-        const requiredPermission = pageInfo
-            ? pageInfo.permissionRequired
-            : "unknown";
+        const requiredPermission = pageInfo ? pageInfo.permissionRequired : 'unknown';
 
         const accessiblePages = this.getAccessiblePages();
-        const firstAccessiblePage =
-            accessiblePages.length > 0 ? accessiblePages[0] : null;
+        const firstAccessiblePage = accessiblePages.length > 0 ? accessiblePages[0] : null;
 
-        console.error("[Access Denied]", {
+        console.error('[Access Denied]', {
             page: this.currentPage,
             pageName: pageName,
             requiredPermission: requiredPermission,
             userPermissions: this.userPermissions,
             roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
-            firstAccessiblePage: firstAccessiblePage
-                ? firstAccessiblePage.pageIdentifier
-                : "none",
+            firstAccessiblePage: firstAccessiblePage ? firstAccessiblePage.pageIdentifier : 'none',
         });
 
         if (!firstAccessiblePage) {
-            console.error(
-                "[Access Denied] No accessible pages found, redirecting to login",
-            );
+            console.error('[Access Denied] No accessible pages found, redirecting to login');
             selectiveLogoutStorage();
             sessionStorage.clear();
-            window.location.href = "../index.html";
+            window.location.href = '../index.html';
             return;
         }
 
@@ -5772,25 +5843,25 @@ class UnifiedNavigationManager {
         document.body.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; 
                     background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px;">
-            <div style="background: white; padding: ${this.isMobile ? "32px 20px" : "40px"}; border-radius: 16px; 
-                        max-width: ${this.isMobile ? "400px" : "500px"}; text-align: center; 
+            <div style="background: white; padding: ${this.isMobile ? '32px 20px' : '40px'}; border-radius: 16px; 
+                        max-width: ${this.isMobile ? '400px' : '500px'}; text-align: center; 
                         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%;">
-                <i data-lucide="alert-circle" style="width: ${this.isMobile ? "56px" : "64px"}; 
-                                                     height: ${this.isMobile ? "56px" : "64px"}; color: #ef4444; 
-                                                     margin: 0 auto ${this.isMobile ? "16px" : "20px"}; display: block;"></i>
-                <h1 style="color: #ef4444; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
-                           font-size: ${this.isMobile ? "20px" : "24px"}; font-weight: 600;">
+                <i data-lucide="alert-circle" style="width: ${this.isMobile ? '56px' : '64px'}; 
+                                                     height: ${this.isMobile ? '56px' : '64px'}; color: #ef4444; 
+                                                     margin: 0 auto ${this.isMobile ? '16px' : '20px'}; display: block;"></i>
+                <h1 style="color: #ef4444; margin-bottom: ${this.isMobile ? '12px' : '16px'}; 
+                           font-size: ${this.isMobile ? '20px' : '24px'}; font-weight: 600;">
                     Truy Cập Bị Từ Chối
                 </h1>
-                <p style="color: #6b7280; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
-                          line-height: ${this.isMobile ? "1.5" : "1.6"}; font-size: ${this.isMobile ? "14px" : "16px"};">
+                <p style="color: #6b7280; margin-bottom: ${this.isMobile ? '12px' : '16px'}; 
+                          line-height: ${this.isMobile ? '1.5' : '1.6'}; font-size: ${this.isMobile ? '14px' : '16px'};">
                     Bạn không có quyền truy cập: <strong style="color: #111827;">${pageName}</strong>
                 </p>
-                <p style="color: #9ca3af; margin-bottom: ${this.isMobile ? "20px" : "24px"}; font-size: 13px;">
+                <p style="color: #9ca3af; margin-bottom: ${this.isMobile ? '20px' : '24px'}; font-size: 13px;">
                     Quyền yêu cầu: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${requiredPermission}</code>
                 </p>
                 <button onclick="window.location.href='${redirectUrl}'" 
-                        style="${this.isMobile ? "width: 100%" : ""}; padding: 12px 24px; background: #6366f1; 
+                        style="${this.isMobile ? 'width: 100%' : ''}; padding: 12px 24px; background: #6366f1; 
                                color: white; border: none; border-radius: 8px; cursor: pointer; 
                                font-weight: 600; font-size: 14px; transition: all 0.2s;"
                         onmouseover="this.style.background='#4f46e5'"
@@ -5801,7 +5872,7 @@ class UnifiedNavigationManager {
         </div>
     `;
 
-        if (typeof lucide !== "undefined") {
+        if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
     }
@@ -5810,19 +5881,19 @@ class UnifiedNavigationManager {
         const accessiblePages = this.getAccessiblePages();
         const userInfo = window.authManager?.getUserInfo();
 
-        const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
-        const checkLogin = localStorage.getItem("checkLogin");
-        const roleName = roleMap[checkLogin] || "Unknown";
+        const roleMap = { 0: 'Admin', 1: 'Manager', 3: 'Staff', 777: 'Guest' };
+        const checkLogin = localStorage.getItem('checkLogin');
+        const roleName = roleMap[checkLogin] || 'Unknown';
 
         const summary = `
 QUYỀN TRUY CẬP CỦA BẠN
 
-Tài khoản: ${userInfo?.displayName || "Unknown"}
+Tài khoản: ${userInfo?.displayName || 'Unknown'}
 Vai trò: ${roleName}
 Tổng quyền: ${accessiblePages.length}/${MENU_CONFIG.length} trang
 
 CÁC TRANG ĐƯỢC PHÉP TRUY CẬP:
-${accessiblePages.map((item) => `• ${item.text}`).join("\n")}
+${accessiblePages.map((item) => `• ${item.text}`).join('\n')}
 
 Liên hệ Administrator nếu cần thêm quyền truy cập.
         `.trim();
@@ -5846,11 +5917,15 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     };
 
     // Listen for sharedModulesLoaded event from compat.js
-    window.addEventListener('sharedModulesLoaded', () => {
-        if (window.authManager) {
-            resolve();
-        }
-    }, { once: true });
+    window.addEventListener(
+        'sharedModulesLoaded',
+        () => {
+            if (window.authManager) {
+                resolve();
+            }
+        },
+        { once: true }
+    );
 
     const check = () => {
         if (resolved) return;
@@ -5863,11 +5938,18 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             // Debug: show what's available on first retry
             setTimeout(check, delay);
         } else {
-            console.error("[Unified Nav] Dependencies failed, redirecting...");
-            console.error("[Unified Nav] Final state - _esmLoaded:", window._esmLoaded, "_authReady:", window._authReady, "authManager:", typeof window.authManager);
+            console.error('[Unified Nav] Dependencies failed, redirecting...');
+            console.error(
+                '[Unified Nav] Final state - _esmLoaded:',
+                window._esmLoaded,
+                '_authReady:',
+                window._authReady,
+                'authManager:',
+                typeof window.authManager
+            );
             selectiveLogoutStorage();
             sessionStorage.clear();
-            window.location.href = "../index.html";
+            window.location.href = '../index.html';
         }
     };
 
@@ -5876,7 +5958,7 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
 
 let unifiedNavigationManager;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
     waitForDependencies(() => {
         unifiedNavigationManager = new UnifiedNavigationManager();
         window.navigationManager = unifiedNavigationManager;
@@ -5894,7 +5976,7 @@ window.APP_VERSION = {
     version: '1.0.0',
     build: 9,
     timestamp: '2026-01-08T12:00:00.000Z',
-    branch: 'main'
+    branch: 'main',
 };
 
 // console.log(`[VERSION] App version: ${window.APP_VERSION.version} (build ${window.APP_VERSION.build})`);
@@ -5934,7 +6016,6 @@ class VersionChecker {
 
             // Listen for version changes
             this.setupVersionListener();
-
         } catch (error) {
             console.error('[VERSION] Error initializing version checker:', error);
         }
@@ -5956,11 +6037,18 @@ class VersionChecker {
         let retries = 0;
 
         while (retries < maxRetries) {
-            if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
-                this.firebaseRef = window.firebase.firestore().collection('app_config').doc('version');
+            if (
+                window.firebase &&
+                window.firebase.firestore &&
+                typeof window.firebase.firestore === 'function'
+            ) {
+                this.firebaseRef = window.firebase
+                    .firestore()
+                    .collection('app_config')
+                    .doc('version');
                 return;
             }
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             retries++;
         }
 
@@ -5978,11 +6066,9 @@ class VersionChecker {
         this.isChecking = true;
 
         try {
-
             // Get version from Firestore
             const doc = await this.firebaseRef.get();
             const firebaseVersion = doc.exists ? doc.data() : null;
-
 
             // If Firestore has no version, publish local version
             if (!firebaseVersion) {
@@ -6006,7 +6092,6 @@ class VersionChecker {
                 this.forceLogout();
             } else {
             }
-
         } catch (error) {
             console.error('[VERSION] Error checking version:', error);
         } finally {
@@ -6067,7 +6152,6 @@ class VersionChecker {
                 this.forceLogout();
             }
         });
-
     }
 
     /**
@@ -6075,7 +6159,6 @@ class VersionChecker {
      * CHANGED: Now only shows notification, user must manually reload
      */
     forceLogout() {
-
         // Show notification for user to manually reload
         if (window.notificationManager) {
             window.notificationManager.warning(
@@ -6132,7 +6215,10 @@ setTimeout(() => {
     // Handle different directory depths
     if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
         // Find the depth from n2store root
-        const parts = currentPath.split('/n2store/')[1]?.split('/').filter(p => p && !p.includes('.html'));
+        const parts = currentPath
+            .split('/n2store/')[1]
+            ?.split('/')
+            .filter((p) => p && !p.includes('.html'));
         if (parts && parts.length > 1) {
             basePath = '../'.repeat(parts.length) + 'js/';
         }
@@ -6144,5 +6230,4 @@ setTimeout(() => {
     script.async = true;
     script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
     document.head.appendChild(script);
-
 })();

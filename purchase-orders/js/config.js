@@ -21,7 +21,7 @@ const OrderStatus = {
     RECEIVED: 'RECEIVED',
     COMPLETED: 'COMPLETED',
     CANCELLED: 'CANCELLED',
-    DELETED: 'DELETED'
+    DELETED: 'DELETED',
 };
 
 // ========================================
@@ -34,7 +34,7 @@ const STATUS_LABELS = {
     [OrderStatus.RECEIVED]: 'Đã nhận',
     [OrderStatus.COMPLETED]: 'Hoàn thành',
     [OrderStatus.CANCELLED]: 'Đã hủy',
-    [OrderStatus.DELETED]: 'Đã xóa'
+    [OrderStatus.DELETED]: 'Đã xóa',
 };
 
 // ========================================
@@ -47,7 +47,7 @@ const STATUS_COLORS = {
     [OrderStatus.RECEIVED]: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
     [OrderStatus.COMPLETED]: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
     [OrderStatus.CANCELLED]: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' },
-    [OrderStatus.DELETED]: { bg: '#fef2f2', text: '#991b1b', border: '#fecaca' }
+    [OrderStatus.DELETED]: { bg: '#fef2f2', text: '#991b1b', border: '#fecaca' },
 };
 
 // ========================================
@@ -55,12 +55,16 @@ const STATUS_COLORS = {
 // ========================================
 const ALLOWED_TRANSITIONS = {
     [OrderStatus.DRAFT]: [OrderStatus.AWAITING_PURCHASE, OrderStatus.CANCELLED],
-    [OrderStatus.AWAITING_PURCHASE]: [OrderStatus.AWAITING_DELIVERY, OrderStatus.DRAFT, OrderStatus.CANCELLED],
+    [OrderStatus.AWAITING_PURCHASE]: [
+        OrderStatus.AWAITING_DELIVERY,
+        OrderStatus.DRAFT,
+        OrderStatus.CANCELLED,
+    ],
     [OrderStatus.AWAITING_DELIVERY]: [OrderStatus.RECEIVED, OrderStatus.CANCELLED],
     [OrderStatus.RECEIVED]: [OrderStatus.COMPLETED],
     [OrderStatus.COMPLETED]: [], // Final state - no transitions
-    [OrderStatus.CANCELLED]: [],  // Final state - no transitions
-    [OrderStatus.DELETED]: []     // Restore handled separately, not via status transition
+    [OrderStatus.CANCELLED]: [], // Final state - no transitions
+    [OrderStatus.DELETED]: [], // Restore handled separately, not via status transition
 };
 
 // ========================================
@@ -68,13 +72,29 @@ const ALLOWED_TRANSITIONS = {
 // ========================================
 const TAB_CONFIG = [
     { id: 'draft', label: 'Nháp', status: OrderStatus.DRAFT, icon: 'file-edit' },
-    { id: 'awaiting-purchase', label: 'Chờ mua', status: OrderStatus.AWAITING_PURCHASE, icon: 'shopping-cart' },
-    { id: 'awaiting-delivery', label: 'Chờ hàng', status: OrderStatus.AWAITING_DELIVERY, icon: 'truck' },
+    {
+        id: 'awaiting-purchase',
+        label: 'Chờ mua',
+        status: OrderStatus.AWAITING_PURCHASE,
+        icon: 'shopping-cart',
+    },
+    {
+        id: 'awaiting-delivery',
+        label: 'Chờ hàng',
+        status: OrderStatus.AWAITING_DELIVERY,
+        icon: 'truck',
+    },
     { id: 'history', label: 'Lịch sử', status: 'HISTORY', icon: 'history', isSpecial: true },
     { id: 'refunds', label: 'Trả hàng NCC', status: 'REFUNDS', icon: 'undo-2', isSpecial: true },
     { id: 'products', label: 'Kho SP', status: 'PRODUCTS', icon: 'package', isSpecial: true },
     { id: 'notes', label: 'Hàng bán dùm', status: 'NOTES', icon: 'sticky-note', isSpecial: true },
-    { id: 'trash', label: 'Thùng rác', status: OrderStatus.DELETED, icon: 'trash-2', isTrash: true }
+    {
+        id: 'trash',
+        label: 'Thùng rác',
+        status: OrderStatus.DELETED,
+        icon: 'trash-2',
+        isTrash: true,
+    },
 ];
 
 // ========================================
@@ -87,7 +107,7 @@ const QUICK_FILTERS = [
     { id: 'week', label: '7 ngày qua', days: 7 },
     { id: 'month', label: '30 ngày qua', days: 30 },
     { id: 'this-month', label: 'Tháng này', days: 'this-month' },
-    { id: 'last-month', label: 'Tháng trước', days: 'last-month' }
+    { id: 'last-month', label: 'Tháng trước', days: 'last-month' },
 ];
 
 // ========================================
@@ -95,7 +115,7 @@ const QUICK_FILTERS = [
 // ========================================
 const PAGINATION_CONFIG = {
     pageSize: 20,
-    pageSizeOptions: [10, 20, 50, 100]
+    pageSizeOptions: [10, 20, 50, 100],
 };
 
 // ========================================
@@ -110,7 +130,7 @@ const TposSyncStatus = {
     PENDING: 'pending',
     PROCESSING: 'processing',
     SUCCESS: 'success',
-    FAILED: 'failed'
+    FAILED: 'failed',
 };
 
 // ========================================
@@ -155,7 +175,12 @@ function canEditOrder(status) {
  * @returns {boolean}
  */
 function canDeleteOrder(status) {
-    return status === OrderStatus.DRAFT || status === OrderStatus.AWAITING_PURCHASE || status === OrderStatus.AWAITING_DELIVERY || status === OrderStatus.CANCELLED;
+    return (
+        status === OrderStatus.DRAFT ||
+        status === OrderStatus.AWAITING_PURCHASE ||
+        status === OrderStatus.AWAITING_DELIVERY ||
+        status === OrderStatus.CANCELLED
+    );
 }
 
 /**
@@ -168,9 +193,9 @@ const TRASH_RETENTION_DAYS = 7;
  * @returns {string}
  */
 function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
         return v.toString(16);
     });
 }
@@ -182,11 +207,13 @@ function generateUUID() {
  */
 function formatVND(value) {
     if (value === null || value === undefined || isNaN(value)) return '0 đ';
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'decimal',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(value) + ' đ';
+    return (
+        new Intl.NumberFormat('vi-VN', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(value) + ' đ'
+    );
 }
 
 /**
@@ -386,7 +413,7 @@ window.PurchaseOrderConfig = {
     formatRelativeTime,
     generateOrderNumber,
     parseVietnameseDate,
-    getDateRangeForQuickFilter
+    getDateRangeForQuickFilter,
 };
 
 console.log('[Purchase Orders] Config loaded successfully');

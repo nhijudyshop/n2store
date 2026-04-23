@@ -11,9 +11,7 @@ function handleTableSearch(query) {
     if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
         searchQuery = query.trim().toLowerCase();
-        document
-            .getElementById("searchClearBtn")
-            .classList.toggle("active", !!searchQuery);
+        document.getElementById('searchClearBtn').classList.toggle('active', !!searchQuery);
         performTableSearch();
         window.FilterPersistence?.scheduleSave();
         // Sync to sticky search
@@ -44,7 +42,7 @@ function mergeOrdersByPhone(orders) {
     // Group orders by normalized phone number
     const phoneGroups = new Map();
 
-    orders.forEach(order => {
+    orders.forEach((order) => {
         const normalizedPhone = normalizePhone(order.Telephone);
         if (!normalizedPhone) {
             // If no phone number, treat as individual order
@@ -91,14 +89,14 @@ function mergeOrdersByPhone(orders) {
             const allIds = [];
             let earliestDate = targetOrder.DateCreated;
 
-            groupOrders.forEach(order => {
+            groupOrders.forEach((order) => {
                 allCodes.push(order.Code);
                 if (order.Name && order.Name.trim()) allNames.add(order.Name.trim());
                 if (order.Address && order.Address.trim()) allAddresses.add(order.Address.trim());
                 if (order.Note && order.Note.trim()) allNotes.push(order.Note.trim());
                 if (order.SessionIndex) allSTTs.push(order.SessionIndex);
-                totalAmount += (order.TotalAmount || 0);
-                totalQuantity += (order.TotalQuantity || 0);
+                totalAmount += order.TotalAmount || 0;
+                totalQuantity += order.TotalQuantity || 0;
                 allIds.push(order.Id);
 
                 // Keep earliest date
@@ -109,7 +107,7 @@ function mergeOrdersByPhone(orders) {
 
             // Group orders by customer name to handle single vs multi-customer scenarios
             const customerGroups = new Map();
-            groupOrders.forEach(order => {
+            groupOrders.forEach((order) => {
                 const name = order.Name?.trim() || 'Unknown';
                 if (!customerGroups.has(name)) {
                     customerGroups.set(name, []);
@@ -122,7 +120,7 @@ function mergeOrdersByPhone(orders) {
             const isSingleCustomer = uniqueCustomerCount === 1;
 
             // Store original orders with necessary chat info AND amount/quantity for display
-            const originalOrders = groupOrders.map(order => ({
+            const originalOrders = groupOrders.map((order) => ({
                 Id: order.Id,
                 Name: order.Name,
                 Code: order.Code,
@@ -131,30 +129,34 @@ function mergeOrdersByPhone(orders) {
                 Facebook_PostId: order.Facebook_PostId,
                 Telephone: order.Telephone,
                 TotalAmount: order.TotalAmount || 0,
-                TotalQuantity: order.TotalQuantity || 0
+                TotalQuantity: order.TotalQuantity || 0,
             }));
 
             // Create customer groups info for rendering
-            const customerGroupsInfo = Array.from(customerGroups.entries()).map(([name, orders]) => {
-                // Sort orders by STT to get largest
-                const sortedOrders = [...orders].sort((a, b) => {
-                    const sttA = parseInt(a.SessionIndex) || 0;
-                    const sttB = parseInt(b.SessionIndex) || 0;
-                    return sttB - sttA; // Descending order (largest first)
-                });
+            const customerGroupsInfo = Array.from(customerGroups.entries()).map(
+                ([name, orders]) => {
+                    // Sort orders by STT to get largest
+                    const sortedOrders = [...orders].sort((a, b) => {
+                        const sttA = parseInt(a.SessionIndex) || 0;
+                        const sttB = parseInt(b.SessionIndex) || 0;
+                        return sttB - sttA; // Descending order (largest first)
+                    });
 
-                return {
-                    name,
-                    orderCount: orders.length,
-                    orders: sortedOrders.map(o => ({
-                        id: o.Id,
-                        stt: o.SessionIndex,
-                        psid: o.Facebook_ASUserId,
-                        channelId: window.chatDataManager ? window.chatDataManager.parseChannelId(o.Facebook_PostId) : null,
-                        code: o.Code
-                    }))
-                };
-            });
+                    return {
+                        name,
+                        orderCount: orders.length,
+                        orders: sortedOrders.map((o) => ({
+                            id: o.Id,
+                            stt: o.SessionIndex,
+                            psid: o.Facebook_ASUserId,
+                            channelId: window.chatDataManager
+                                ? window.chatDataManager.parseChannelId(o.Facebook_PostId)
+                                : null,
+                            code: o.Code,
+                        })),
+                    };
+                }
+            );
 
             // Create merged order
             const mergedOrder = {
@@ -169,19 +171,20 @@ function mergeOrdersByPhone(orders) {
                 Id: allIds.join('_'), // Combine IDs for checkbox handling
                 OriginalIds: allIds, // Store original IDs for reference
                 MergedCount: groupOrders.length, // Track how many orders were merged
-                SessionIndex: allSTTs.length > 1 ? allSTTs.join(' + ') : (targetOrder.SessionIndex || ''),
+                SessionIndex:
+                    allSTTs.length > 1 ? allSTTs.join(' + ') : targetOrder.SessionIndex || '',
                 AllSTTs: allSTTs, // Store all STT for reference
                 // NEW: Store merge info for product transfer
                 TargetOrderId: targetOrder.Id, // Order with largest STT (will receive products)
-                SourceOrderIds: sourceOrders.map(o => o.Id), // Orders with smaller STT (will lose products)
+                SourceOrderIds: sourceOrders.map((o) => o.Id), // Orders with smaller STT (will lose products)
                 TargetSTT: targetOrder.SessionIndex,
-                SourceSTTs: sourceOrders.map(o => o.SessionIndex),
+                SourceSTTs: sourceOrders.map((o) => o.SessionIndex),
                 IsMerged: true, // Flag to identify merged orders
                 // NEW: Customer grouping info for message/comment rendering
                 OriginalOrders: originalOrders, // Store original orders with chat info
                 IsSingleCustomer: isSingleCustomer, // true if all orders have same customer name
                 UniqueCustomerCount: uniqueCustomerCount, // Number of unique customers
-                CustomerGroups: customerGroupsInfo // Grouped by customer with sorted orders
+                CustomerGroups: customerGroupsInfo, // Grouped by customer with sorted orders
             };
 
             mergedOrders.push(mergedOrder);
@@ -211,36 +214,41 @@ function _applyFiltersExceptProcessingTag() {
         const currentUserType = auth?.userType || null;
 
         let userRange = null;
-        if (currentUserId) userRange = employeeRanges.find(r => r.id === currentUserId);
-        if (!userRange && currentDisplayName) userRange = employeeRanges.find(r => r.name === currentDisplayName);
-        if (!userRange && currentUserType) userRange = employeeRanges.find(r => r.name === currentUserType);
+        if (currentUserId) userRange = employeeRanges.find((r) => r.id === currentUserId);
+        if (!userRange && currentDisplayName)
+            userRange = employeeRanges.find((r) => r.name === currentDisplayName);
+        if (!userRange && currentUserType)
+            userRange = employeeRanges.find((r) => r.name === currentUserType);
         if (!userRange && currentUserType) {
             const shortName = currentUserType.split('-')[0].trim();
-            userRange = employeeRanges.find(r => r.name === shortName);
+            userRange = employeeRanges.find((r) => r.name === shortName);
         }
 
         if (userRange) {
-            tempData = tempData.filter(order => {
+            tempData = tempData.filter((order) => {
                 const stt = parseInt(order.SessionIndex);
                 return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
             });
 
             // Disable toggle button — user already sees only their assigned orders
-            if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(true);
+            if (typeof _setEmployeeToggleBtnDisabled === 'function')
+                _setEmployeeToggleBtnDisabled(true);
         } else {
             // User not in any range → show all, enable toggle
-            if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(false);
+            if (typeof _setEmployeeToggleBtnDisabled === 'function')
+                _setEmployeeToggleBtnDisabled(false);
         }
     } else {
         // Admin or no ranges configured → enable toggle button
-        if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(false);
+        if (typeof _setEmployeeToggleBtnDisabled === 'function')
+            _setEmployeeToggleBtnDisabled(false);
     }
 
     // Apply conversation status filter (Merged Messages & Comments)
     const conversationFilter = document.getElementById('conversationFilter')?.value || 'all';
 
     if (window.pancakeDataManager && conversationFilter !== 'all') {
-        tempData = tempData.filter(order => {
+        tempData = tempData.filter((order) => {
             const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
             const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
 
@@ -259,7 +267,7 @@ function _applyFiltersExceptProcessingTag() {
     // Apply Status Filter
     const statusFilter = document.getElementById('statusFilter')?.value || 'all';
     if (statusFilter !== 'all') {
-        tempData = tempData.filter(order => {
+        tempData = tempData.filter((order) => {
             const status = order.StatusText || order.Status;
             return status === statusFilter;
         });
@@ -270,7 +278,7 @@ function _applyFiltersExceptProcessingTag() {
     if (fulfillmentFilter !== 'all') {
         const fd = window.parent?.FulfillmentData || window.FulfillmentData;
         if (fd && fd.isReady()) {
-            tempData = tempData.filter(order => {
+            tempData = tempData.filter((order) => {
                 const orderId = order.Id || order.id;
                 if (!orderId) return false;
                 const { status } = fd.getStatus(orderId);
@@ -311,7 +319,7 @@ function _applyFiltersExceptProcessingTag() {
             }
         }
 
-        tempData = tempData.filter(order => {
+        tempData = tempData.filter((order) => {
             // GIỎ TRỐNG selected → match đơn SL=0 (OR với các tag khác)
             if (gioTrongSelected && Number(order.TotalQuantity || 0) === 0) {
                 return true;
@@ -323,7 +331,7 @@ function _applyFiltersExceptProcessingTag() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
                 // OR logic: show order if it has ANY of the selected tags
-                return orderTags.some(tag => selectedTagSet.has(String(tag.Id)));
+                return orderTags.some((tag) => selectedTagSet.has(String(tag.Id)));
             } catch (e) {
                 return false;
             }
@@ -346,7 +354,7 @@ function _applyFiltersExceptProcessingTag() {
             }
         }
 
-        tempData = tempData.filter(order => {
+        tempData = tempData.filter((order) => {
             // Ẩn đơn SL=0 nếu Ẩn GIỎ TRỐNG đang active
             if (gioTrongExcluded && Number(order.TotalQuantity || 0) === 0) {
                 return false;
@@ -358,7 +366,7 @@ function _applyFiltersExceptProcessingTag() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return true;
 
                 // Check if the order has ANY of the excluded tags
-                const hasExcludedTag = orderTags.some(tag => excludedSet.has(String(tag.Id)));
+                const hasExcludedTag = orderTags.some((tag) => excludedSet.has(String(tag.Id)));
                 return !hasExcludedTag; // Return false if order has excluded tag (to hide it)
             } catch (e) {
                 return true;
@@ -366,10 +374,11 @@ function _applyFiltersExceptProcessingTag() {
         });
     }
 
-
     // Apply Stock Status filter
     if (window.StockStatusEngine?._checked && window.StockStatusEngine._activeFilter) {
-        tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
+        tempData = tempData.filter((order) =>
+            window.StockStatusEngine.passesStockFilter(String(order.Id))
+        );
     }
 
     return tempData;
@@ -382,15 +391,25 @@ function performTableSearch() {
     // Apply Processing Tag filter (base filter OR flag checkboxes)
     // Use order.Code (orderCode) as primary key since ProcessingTagState is keyed by orderCode,
     // fallback to order.Id for backward compatibility with old data
-    if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
-        tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(String(order.Code || order.Id)));
+    if (
+        typeof window.hasActiveProcessingTagFilters === 'function' &&
+        window.hasActiveProcessingTagFilters()
+    ) {
+        tempData = tempData.filter((order) =>
+            window.orderPassesProcessingTagFilter(String(order.Code || order.Id))
+        );
     }
 
     // Apply Excluded Tag XL filter (hide orders whose Tag XL matches any excluded key).
     // Đặt SAU _applyFiltersExceptProcessingTag để _ptagComputeCounts không thấy exclude
     // → dropdown "Ẩn Tag XL" hiển thị tổng count (gồm cả đơn đang bị ẩn).
-    if (typeof window.hasExcludedPtagXlFilters === 'function' && window.hasExcludedPtagXlFilters()) {
-        tempData = tempData.filter(order => !window.orderHasExcludedPtagXl(String(order.Code || order.Id)));
+    if (
+        typeof window.hasExcludedPtagXlFilters === 'function' &&
+        window.hasExcludedPtagXlFilters()
+    ) {
+        tempData = tempData.filter(
+            (order) => !window.orderHasExcludedPtagXl(String(order.Code || order.Id))
+        );
     }
 
     // Re-render Chốt Đơn panel counts để phản ánh các filter hiện tại (search/TAG/status/...)
@@ -489,8 +508,8 @@ window.schedulePerformTableSearch = schedulePerformTableSearch;
 
 // Returns orders filtered by employee assignment (for non-admin users)
 // Used by sidebar panel to show correct counts per user
-window.getEmployeeFilteredOrders = function() {
-    const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+window.getEmployeeFilteredOrders = function () {
+    const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     if (!isAdmin && employeeRanges.length > 0) {
         const auth = window.authManager ? window.authManager.getAuthState() : null;
@@ -499,16 +518,18 @@ window.getEmployeeFilteredOrders = function() {
         const currentUserType = auth?.userType || null;
 
         let userRange = null;
-        if (currentUserId) userRange = employeeRanges.find(r => r.id === currentUserId);
-        if (!userRange && currentDisplayName) userRange = employeeRanges.find(r => r.name === currentDisplayName);
-        if (!userRange && currentUserType) userRange = employeeRanges.find(r => r.name === currentUserType);
+        if (currentUserId) userRange = employeeRanges.find((r) => r.id === currentUserId);
+        if (!userRange && currentDisplayName)
+            userRange = employeeRanges.find((r) => r.name === currentDisplayName);
+        if (!userRange && currentUserType)
+            userRange = employeeRanges.find((r) => r.name === currentUserType);
         if (!userRange && currentUserType) {
             const shortName = currentUserType.split('-')[0].trim();
-            userRange = employeeRanges.find(r => r.name === shortName);
+            userRange = employeeRanges.find((r) => r.name === shortName);
         }
 
         if (userRange) {
-            return allOrders.filter(order => {
+            return allOrders.filter((order) => {
                 const stt = parseInt(order.SessionIndex);
                 return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
             });
@@ -527,34 +548,31 @@ function matchesSearchQuery(order, query) {
         order.Note,
         order.StatusText,
     ]
-        .join(" ")
+        .join(' ')
         .toLowerCase();
     const normalizedText = removeVietnameseTones(searchableText);
     const normalizedQuery = removeVietnameseTones(query);
-    return (
-        searchableText.includes(query) ||
-        normalizedText.includes(normalizedQuery)
-    );
+    return searchableText.includes(query) || normalizedText.includes(normalizedQuery);
 }
 
 function removeVietnameseTones(str) {
-    if (!str) return "";
+    if (!str) return '';
     return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/đ/g, "d")
-        .replace(/Đ/g, "D");
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
 }
 
 function updateSearchResultCount() {
-    document.getElementById("searchResultCount").textContent =
-        filteredData.length.toLocaleString("vi-VN");
+    document.getElementById('searchResultCount').textContent =
+        filteredData.length.toLocaleString('vi-VN');
 }
 
 // Copy phone number to clipboard
 function copyPhoneNumber(phone) {
     if (!phone) return;
-    navigator.clipboard.writeText(phone).catch(err => {
+    navigator.clipboard.writeText(phone).catch((err) => {
         console.error('Failed to copy phone number:', err);
     });
 }
@@ -577,15 +595,18 @@ function initiateCall(phone, customerName, orderCode) {
 
     // Log call via extension bridge
     try {
-        window.postMessage({
-            type: 'ADD_CALL_LOG',
-            entry: {
-                phone: normalized,
-                customerName: customerName || '',
-                orderCode: orderCode || '',
-                timestamp: Date.now()
-            }
-        }, '*');
+        window.postMessage(
+            {
+                type: 'ADD_CALL_LOG',
+                entry: {
+                    phone: normalized,
+                    customerName: customerName || '',
+                    orderCode: orderCode || '',
+                    timestamp: Date.now(),
+                },
+            },
+            '*'
+        );
     } catch (e) {
         // Extension not available — ignore
     }
@@ -593,12 +614,12 @@ function initiateCall(phone, customerName, orderCode) {
 
 function highlightSearchText(text, query) {
     if (!query || !text) return text;
-    const regex = new RegExp(`(${escapeRegex(query)})`, "gi");
+    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
 function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // =====================================================
@@ -606,23 +627,23 @@ function escapeRegex(string) {
 // =====================================================
 function formatDateTimeLocal(date) {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function convertToUTC(dateTimeLocal) {
     if (!dateTimeLocal) {
-        console.error("[DATE] Empty date value provided to convertToUTC");
-        throw new Error("Date value is required");
+        console.error('[DATE] Empty date value provided to convertToUTC');
+        throw new Error('Date value is required');
     }
 
     const date = new Date(dateTimeLocal);
 
     if (isNaN(date.getTime())) {
-        console.error("[DATE] Invalid date value:", dateTimeLocal);
+        console.error('[DATE] Invalid date value:', dateTimeLocal);
         throw new Error(`Invalid date value: ${dateTimeLocal}`);
     }
 
@@ -631,23 +652,31 @@ function convertToUTC(dateTimeLocal) {
 
 async function handleLoadCampaigns() {
     // Validate dates
-    const startDateValue = document.getElementById("startDate").value;
-    const endDateValue = document.getElementById("endDate").value;
+    const startDateValue = document.getElementById('startDate').value;
+    const endDateValue = document.getElementById('endDate').value;
 
     if (!startDateValue || !endDateValue) {
         if (window.notificationManager) {
-            window.notificationManager.error("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)", 3000);
+            window.notificationManager.error(
+                'Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)',
+                3000
+            );
         } else {
-            alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
+            alert('Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)');
         }
         return;
     }
 
-    const skip = parseInt(document.getElementById("skipRangeFilter").value) || 0;
+    const skip = parseInt(document.getElementById('skipRangeFilter').value) || 0;
     await loadCampaignList(skip, startDateValue, endDateValue);
 }
 
-async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = null, autoLoad = false) {
+async function loadCampaignList(
+    skip = 0,
+    startDateLocal = null,
+    endDateLocal = null,
+    autoLoad = false
+) {
     try {
         showLoading(true);
 
@@ -659,23 +688,20 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
             // OPTIMIZATION: Only fetch necessary fields for campaign list
             url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
-
         } else {
             // Fallback: không có date filter - Tải 3000 đơn hàng
             // OPTIMIZATION: Only fetch necessary fields for campaign list
             url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
-
         }
 
         const headers = await window.tokenManager.getAuthHeader();
         const response = await API_CONFIG.smartFetch(url, {
-            headers: { ...headers, accept: "application/json" },
+            headers: { ...headers, accept: 'application/json' },
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const orders = data.value || [];
-        const totalCount = data["@odata.count"] || 0;
-
+        const totalCount = data['@odata.count'] || 0;
 
         // 🎯 BƯỚC 1: GỘP CÁC CHIẾN DỊCH THEO LiveCampaignId
         const campaignsByCampaignId = new Map(); // key: LiveCampaignId, value: { name, dates: Set }
@@ -690,9 +716,9 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             if (!campaignsByCampaignId.has(order.LiveCampaignId)) {
                 campaignsByCampaignId.set(order.LiveCampaignId, {
                     campaignId: order.LiveCampaignId,
-                    campaignName: order.LiveCampaignName || "Không có tên",
+                    campaignName: order.LiveCampaignName || 'Không có tên',
                     dates: new Set(),
-                    latestDate: order.DateCreated
+                    latestDate: order.DateCreated,
                 });
             }
 
@@ -728,7 +754,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
         // Ví dụ: "HOUSE 11/11/25" + "STORE 11/11/25" → "11/11/25 - HOUSE + STORE"
         const campaignsByDateKey = new Map(); // key: ngày từ tên (ví dụ: "11/11/25")
 
-        Array.from(campaignsByCampaignId.values()).forEach(campaign => {
+        Array.from(campaignsByCampaignId.values()).forEach((campaign) => {
             const dateKey = extractCampaignDate(campaign.campaignName);
 
             // Sử dụng dateKey hoặc tên gốc nếu không parse được
@@ -740,14 +766,14 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                     campaignNames: [],
                     dates: new Set(),
                     latestDate: campaign.latestDate,
-                    dateKey: dateKey
+                    dateKey: dateKey,
                 });
             }
 
             const merged = campaignsByDateKey.get(groupKey);
             merged.campaignIds.push(campaign.campaignId);
             merged.campaignNames.push(campaign.campaignName);
-            campaign.dates.forEach(d => merged.dates.add(d));
+            campaign.dates.forEach((d) => merged.dates.add(d));
 
             // Keep latest date
             if (new Date(campaign.latestDate) > new Date(merged.latestDate)) {
@@ -759,10 +785,11 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
         const mergedCampaigns = [];
 
         // Sort by latest date descending
-        const sortedCampaigns = Array.from(campaignsByDateKey.values())
-            .sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
+        const sortedCampaigns = Array.from(campaignsByDateKey.values()).sort(
+            (a, b) => new Date(b.latestDate) - new Date(a.latestDate)
+        );
 
-        sortedCampaigns.forEach(campaign => {
+        sortedCampaigns.forEach((campaign) => {
             const dates = Array.from(campaign.dates).sort((a, b) => b.localeCompare(a));
 
             // Tạo display name
@@ -771,11 +798,13 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
             if (campaign.dateKey) {
                 // Có ngày từ tên → hiển thị ngày + danh sách loại chiến dịch
-                const types = uniqueNames.map(name => {
-                    // Extract prefix (HOUSE, STORE, etc.) - lấy phần trước dấu cách đầu tiên
-                    const prefix = name.split(' ')[0];
-                    return prefix;
-                }).filter((v, i, a) => a.indexOf(v) === i); // unique types
+                const types = uniqueNames
+                    .map((name) => {
+                        // Extract prefix (HOUSE, STORE, etc.) - lấy phần trước dấu cách đầu tiên
+                        const prefix = name.split(' ')[0];
+                        return prefix;
+                    })
+                    .filter((v, i, a) => a.indexOf(v) === i); // unique types
 
                 const typeStr = types.join(' + ');
 
@@ -800,10 +829,9 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 displayName: displayName,
                 dates: dates,
                 latestDate: campaign.latestDate,
-                count: dates.length
+                count: dates.length,
             });
         });
-
 
         showLoading(false);
 
@@ -818,35 +846,39 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                     3000
                 );
             } else {
-                showInfoBanner(`✅ Tải thành công ${mergedCampaigns.length} chiến dịch từ ${orders.length} đơn hàng`);
+                showInfoBanner(
+                    `✅ Tải thành công ${mergedCampaigns.length} chiến dịch từ ${orders.length} đơn hàng`
+                );
             }
         }
-
     } catch (error) {
-        console.error("[CAMPAIGNS] Error loading campaigns:", error);
+        console.error('[CAMPAIGNS] Error loading campaigns:', error);
         showLoading(false);
 
         if (window.notificationManager) {
-            window.notificationManager.error(`Lỗi khi tải danh sách chiến dịch: ${error.message}`, 4000);
+            window.notificationManager.error(
+                `Lỗi khi tải danh sách chiến dịch: ${error.message}`,
+                4000
+            );
         } else {
-            alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
+            alert('Lỗi khi tải danh sách chiến dịch: ' + error.message);
         }
     }
 }
 
 async function populateCampaignFilter(campaigns, autoLoad = false) {
-    const select = document.getElementById("campaignFilter");
+    const select = document.getElementById('campaignFilter');
     select.innerHTML = '<option value="">-- Chọn chiến dịch --</option>';
 
     // 🎯 Add Custom option for filtering by order creation date
-    const customOption = document.createElement("option");
-    customOption.value = "custom";
-    customOption.textContent = "🔮 Custom (lọc theo ngày tạo đơn)";
+    const customOption = document.createElement('option');
+    customOption.value = 'custom';
+    customOption.textContent = '🔮 Custom (lọc theo ngày tạo đơn)';
     customOption.dataset.campaign = JSON.stringify({ isCustom: true });
     select.appendChild(customOption);
 
     campaigns.forEach((campaign, index) => {
-        const option = document.createElement("option");
+        const option = document.createElement('option');
         // Sử dụng index làm value vì campaignId giờ là array
         option.value = index;
         option.textContent = campaign.displayName;
@@ -857,8 +889,8 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     if (campaigns.length > 0) {
         // 🔥 Load saved preferences from PostgreSQL
         const savedPrefs = await loadFilterPreferencesFromFirebase();
-        const customDateContainer = document.getElementById("customDateFilterContainer");
-        const customStartDateInput = document.getElementById("customStartDate");
+        const customDateContainer = document.getElementById('customDateFilterContainer');
+        const customStartDateInput = document.getElementById('customStartDate');
 
         if (savedPrefs && savedPrefs.isCustomMode) {
             // 🎯 Restore CUSTOM mode from Firebase
@@ -868,7 +900,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             if (savedPrefs.customStartDate) {
                 customStartDateInput.value = savedPrefs.customStartDate;
             }
-            customDateContainer.style.display = "flex";
+            customDateContainer.style.display = 'flex';
 
             // Update selectedCampaign
             selectedCampaign = { isCustom: true };
@@ -893,7 +925,11 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                     window.realtimeManager.connectServerMode();
                 }
             }
-        } else if (savedPrefs && savedPrefs.selectedCampaignValue !== undefined && savedPrefs.selectedCampaignValue !== 'custom') {
+        } else if (
+            savedPrefs &&
+            savedPrefs.selectedCampaignValue !== undefined &&
+            savedPrefs.selectedCampaignValue !== 'custom'
+        ) {
             // 🎯 Restore saved campaign selection from Firebase
             // ⭐ FIX: Ưu tiên tìm theo displayName thay vì index để tránh lỗi khi thứ tự campaigns thay đổi
             const savedValue = savedPrefs.selectedCampaignValue;
@@ -912,7 +948,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                                 foundOptionIndex = i;
                                 break;
                             }
-                        } catch (e) { }
+                        } catch (e) {}
                     }
                 }
             }
@@ -929,11 +965,11 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             if (foundOptionIndex !== -1) {
                 select.selectedIndex = foundOptionIndex;
-                customDateContainer.style.display = "none";
+                customDateContainer.style.display = 'none';
             } else {
                 // Saved campaign not in current list, use first campaign
                 select.value = 0;
-                customDateContainer.style.display = "none";
+                customDateContainer.style.display = 'none';
             }
 
             // Manually update selectedCampaign state
@@ -952,7 +988,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             }
 
             if (autoLoad) {
-
                 if (window.notificationManager) {
                     window.notificationManager.info(
                         `Đang tải dữ liệu chiến dịch: ${selectedCampaign?.displayName || campaigns[0].displayName}`,
@@ -976,7 +1011,9 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             if (activeCampaign?.name) {
                 autoSelectedIndex = _findFilterOptionByDbCampaignName(activeCampaign.name);
                 if (autoSelectedIndex !== -1) {
-                    console.log(`[SYNC] 🔄 Auto-selected campaignFilter from activeCampaign: "${activeCampaign.name}"`);
+                    console.log(
+                        `[SYNC] 🔄 Auto-selected campaignFilter from activeCampaign: "${activeCampaign.name}"`
+                    );
                 }
             }
 
@@ -985,7 +1022,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             } else {
                 select.value = 0;
             }
-            customDateContainer.style.display = "none";
+            customDateContainer.style.display = 'none';
 
             // Manually update selectedCampaign state
             const selectedOption = select.options[select.selectedIndex];
@@ -1022,19 +1059,19 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 }
 
 async function handleCampaignChange() {
-    const select = document.getElementById("campaignFilter");
+    const select = document.getElementById('campaignFilter');
     const selectedOption = select.options[select.selectedIndex];
     selectedCampaign = selectedOption?.dataset.campaign
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
 
     // 🎯 Handle Custom mode - show/hide custom date input
-    const customDateContainer = document.getElementById("customDateFilterContainer");
+    const customDateContainer = document.getElementById('customDateFilterContainer');
     if (selectedCampaign?.isCustom) {
-        customDateContainer.style.display = "flex";
+        customDateContainer.style.display = 'flex';
 
         // Set default custom date to start of today if empty
-        const customStartDateInput = document.getElementById("customStartDate");
+        const customStartDateInput = document.getElementById('customStartDate');
         if (!customStartDateInput.value) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1045,7 +1082,7 @@ async function handleCampaignChange() {
         saveFilterPreferencesToFirebase({
             selectedCampaignValue: 'custom',
             isCustomMode: true,
-            customStartDate: customStartDateInput.value
+            customStartDate: customStartDateInput.value,
         });
 
         // Custom mode: no campaign selected, clear employee ranges
@@ -1054,7 +1091,7 @@ async function handleCampaignChange() {
         // Don't auto-search yet, wait for user to confirm custom date
         return;
     } else {
-        customDateContainer.style.display = "none";
+        customDateContainer.style.display = 'none';
 
         // 🔥 Save campaign selection + sync activeCampaignId
         if (select.value && select.value !== '' && selectedCampaign?.displayName) {
@@ -1062,7 +1099,7 @@ async function handleCampaignChange() {
                 selectedCampaignValue: select.value,
                 selectedCampaignName: selectedCampaign.displayName,
                 isCustomMode: false,
-                customStartDate: null
+                customStartDate: null,
             });
 
             // 🔄 SYNC: Update activeCampaignId to match selected Shopify campaign
@@ -1095,17 +1132,24 @@ async function handleCampaignChange() {
         setupTagRealtimeListeners();
 
         // Notify Tab 3 about campaign change
-        window.parent.postMessage({
-            type: 'CAMPAIGN_CHANGED_FOR_TAB3',
-            campaignNames: selectedCampaign?.campaignNames || []
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'CAMPAIGN_CHANGED_FOR_TAB3',
+                campaignNames: selectedCampaign?.campaignNames || [],
+            },
+            '*'
+        );
     }
 }
 
 // 🔄 SYNC HELPERS: Match between Shopify campaigns and DB campaigns
 // Normalize name for fuzzy matching (remove dates, special chars)
 function _normalizeCampaignName(name) {
-    return name.replace(/[\d\/\\_.\-]+/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
+    return name
+        .replace(/[\d\/\\_.\-]+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
 }
 
 // Find DB campaign ID that matches Shopify campaign names
@@ -1114,7 +1158,7 @@ function _findMatchingDbCampaignId(shopifyCampaignNames) {
     for (const [id, campaign] of Object.entries(allCampaigns)) {
         const dbNorm = _normalizeCampaignName(campaign.name);
         if (!dbNorm) continue;
-        for (const shopifyName of (shopifyCampaignNames || [])) {
+        for (const shopifyName of shopifyCampaignNames || []) {
             const shopNorm = _normalizeCampaignName(shopifyName);
             if (dbNorm === shopNorm || dbNorm.includes(shopNorm) || shopNorm.includes(dbNorm)) {
                 return id;
@@ -1136,13 +1180,13 @@ function _findFilterOptionByDbCampaignName(dbCampaignName) {
         if (!optData) continue;
         try {
             const c = JSON.parse(optData);
-            for (const name of (c.campaignNames || [])) {
+            for (const name of c.campaignNames || []) {
                 const shopNorm = _normalizeCampaignName(name);
                 if (dbNorm === shopNorm || dbNorm.includes(shopNorm) || shopNorm.includes(dbNorm)) {
                     return i;
                 }
             }
-        } catch (e) { }
+        } catch (e) {}
     }
     return -1;
 }
@@ -1155,7 +1199,10 @@ async function _syncActiveCampaignFromFilter(campaign) {
         window.campaignManager.activeCampaignId = matchedId;
         window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[matchedId];
         try {
-            await window.CampaignAPI.setActiveCampaign(window.campaignManager.currentUserId, matchedId);
+            await window.CampaignAPI.setActiveCampaign(
+                window.campaignManager.currentUserId,
+                matchedId
+            );
             console.log(`[SYNC] 🔄 activeCampaignId updated to "${matchedId}" from campaignFilter`);
         } catch (e) {
             console.warn('[SYNC] Failed to save activeCampaignId:', e);
@@ -1165,8 +1212,8 @@ async function _syncActiveCampaignFromFilter(campaign) {
 
 // 🎯 Handle custom start date change - auto-fill end date (+3 days) and trigger search
 async function handleCustomDateChange() {
-    const customStartDateInput = document.getElementById("customStartDate");
-    const customEndDateInput = document.getElementById("customEndDate");
+    const customStartDateInput = document.getElementById('customStartDate');
+    const customEndDateInput = document.getElementById('customEndDate');
 
     if (!customStartDateInput.value) {
         return;
@@ -1178,7 +1225,6 @@ async function handleCustomDateChange() {
     endDate.setHours(0, 0, 0, 0);
     customEndDateInput.value = formatDateTimeLocal(endDate);
 
-
     // Ensure custom mode is set
     selectedCampaign = { isCustom: true };
 
@@ -1187,7 +1233,7 @@ async function handleCustomDateChange() {
         selectedCampaignValue: 'custom',
         isCustomMode: true,
         customStartDate: customStartDateInput.value,
-        customEndDate: customEndDateInput.value
+        customEndDate: customEndDateInput.value,
     });
 
     // Cleanup old listeners and data
@@ -1197,10 +1243,7 @@ async function handleCustomDateChange() {
     if (window.notificationManager) {
         const startDisplay = new Date(customStartDateInput.value).toLocaleDateString('vi-VN');
         const endDisplay = new Date(customEndDateInput.value).toLocaleDateString('vi-VN');
-        window.notificationManager.info(
-            `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
-            2000
-        );
+        window.notificationManager.info(`Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`, 2000);
     }
 
     // Trigger search
@@ -1212,13 +1255,12 @@ async function handleCustomDateChange() {
 
 // 🎯 Handle custom end date change - just trigger search (no auto-fill)
 async function handleCustomEndDateChange() {
-    const customStartDateInput = document.getElementById("customStartDate");
-    const customEndDateInput = document.getElementById("customEndDate");
+    const customStartDateInput = document.getElementById('customStartDate');
+    const customEndDateInput = document.getElementById('customEndDate');
 
     if (!customStartDateInput.value || !customEndDateInput.value) {
         return;
     }
-
 
     // Ensure custom mode is set
     selectedCampaign = { isCustom: true };
@@ -1228,7 +1270,7 @@ async function handleCustomEndDateChange() {
         selectedCampaignValue: 'custom',
         isCustomMode: true,
         customStartDate: customStartDateInput.value,
-        customEndDate: customEndDateInput.value
+        customEndDate: customEndDateInput.value,
     });
 
     // Cleanup old listeners and data
@@ -1253,14 +1295,14 @@ async function reloadTableData() {
         await handleSearch();
 
         if (window.notificationManager) {
-            window.notificationManager.success("Đã tải lại dữ liệu bảng thành công");
+            window.notificationManager.success('Đã tải lại dữ liệu bảng thành công');
         }
     } catch (error) {
-        console.error("Error reloading table:", error);
+        console.error('Error reloading table:', error);
         if (window.notificationManager) {
-            window.notificationManager.error("Lỗi khi tải lại dữ liệu: " + error.message);
+            window.notificationManager.error('Lỗi khi tải lại dữ liệu: ' + error.message);
         } else {
-            alert("Lỗi khi tải lại dữ liệu: " + error.message);
+            alert('Lỗi khi tải lại dữ liệu: ' + error.message);
         }
     } finally {
         if (btn) btn.disabled = false;
@@ -1271,23 +1313,23 @@ async function reloadTableData() {
 async function handleSearch() {
     // 🎯 SIMPLIFIED: Always use Custom Mode
     // Validate custom date range
-    const customStartDateValue = document.getElementById("customStartDate").value;
-    const customEndDateValue = document.getElementById("customEndDate").value;
+    const customStartDateValue = document.getElementById('customStartDate').value;
+    const customEndDateValue = document.getElementById('customEndDate').value;
 
     if (!customStartDateValue) {
         if (window.notificationManager) {
-            window.notificationManager.error("Vui lòng chọn Từ ngày", 3000);
+            window.notificationManager.error('Vui lòng chọn Từ ngày', 3000);
         } else {
-            alert("Vui lòng chọn Từ ngày");
+            alert('Vui lòng chọn Từ ngày');
         }
         return;
     }
 
     if (!customEndDateValue) {
         if (window.notificationManager) {
-            window.notificationManager.error("Vui lòng chọn Đến ngày", 3000);
+            window.notificationManager.error('Vui lòng chọn Đến ngày', 3000);
         } else {
-            alert("Vui lòng chọn Đến ngày");
+            alert('Vui lòng chọn Đến ngày');
         }
         return;
     }
@@ -1307,13 +1349,13 @@ async function handleSearch() {
     if (isLoadingInBackground) {
         loadingAborted = true;
         // Wait a bit for background loading to stop
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
     }
 
-    window.cacheManager.clear("orders");
-    searchQuery = "";
-    document.getElementById("tableSearchInput").value = "";
-    document.getElementById("searchClearBtn").classList.remove("active");
+    window.cacheManager.clear('orders');
+    searchQuery = '';
+    document.getElementById('tableSearchInput').value = '';
+    document.getElementById('searchClearBtn').classList.remove('active');
     allData = [];
     renderedCount = 0; // Reset rendered count to prevent duplicate rows
     await fetchOrders();
@@ -1380,11 +1422,13 @@ async function fetchOrders() {
         let filter;
 
         // 🎯 SIMPLIFIED: Always use Custom Mode with customStartDate and customEndDate
-        const customStartDateValue = document.getElementById("customStartDate").value;
-        const customEndDateValue = document.getElementById("customEndDate").value || document.getElementById("endDate").value;
+        const customStartDateValue = document.getElementById('customStartDate').value;
+        const customEndDateValue =
+            document.getElementById('customEndDate').value ||
+            document.getElementById('endDate').value;
 
         if (!customStartDateValue || !customEndDateValue) {
-            throw new Error("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
+            throw new Error('Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)');
         }
 
         const customStartDate = convertToUTC(customStartDateValue);
@@ -1408,17 +1452,16 @@ async function fetchOrders() {
         // ===== PHASE 1: Quick count request (top=1) =====
         const countUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=1&$skip=0&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const countResponse = await fetch(countUrl, {
-            headers: { ...headers, accept: "application/json" },
+            headers: { ...headers, accept: 'application/json' },
         });
         if (!countResponse.ok) throw new Error(`HTTP ${countResponse.status}`);
         const countData = await countResponse.json();
-        totalCount = countData["@odata.count"] || 0;
-
+        totalCount = countData['@odata.count'] || 0;
 
         // Show UI with loading state
-        document.getElementById("statsBar").style.display = "flex";
-        document.getElementById("tableContainer").style.display = "block";
-        document.getElementById("searchSection").classList.add("active");
+        document.getElementById('statsBar').style.display = 'flex';
+        document.getElementById('tableContainer').style.display = 'block';
+        document.getElementById('searchSection').classList.add('active');
         showInfoBanner(`⏳ Đang tải ${totalCount} đơn hàng...`);
 
         // ===== PHASE 2: Parallel fetch ALL batches =====
@@ -1428,54 +1471,81 @@ async function fetchOrders() {
         }
 
         // Hàm fetch 1 batch với retry (tự động retry khi 429/502/503/network error)
-        async function fetchBatchWithRetry(batchUrl, batchHeaders, skipValue, index, maxRetries = 2) {
+        async function fetchBatchWithRetry(
+            batchUrl,
+            batchHeaders,
+            skipValue,
+            index,
+            maxRetries = 2
+        ) {
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
                 try {
                     // Nếu retry, lấy token mới phòng trường hợp token expire
-                    const fetchHeaders = attempt > 0
-                        ? { ...(await window.tokenManager.getAuthHeader()), accept: "application/json" }
-                        : { ...batchHeaders, accept: "application/json" };
+                    const fetchHeaders =
+                        attempt > 0
+                            ? {
+                                  ...(await window.tokenManager.getAuthHeader()),
+                                  accept: 'application/json',
+                              }
+                            : { ...batchHeaders, accept: 'application/json' };
 
-                    const response = await API_CONFIG.smartFetch(batchUrl, { headers: fetchHeaders });
+                    const response = await API_CONFIG.smartFetch(batchUrl, {
+                        headers: fetchHeaders,
+                    });
 
                     if (response.status === 429) {
                         if (attempt < maxRetries) {
                             const waitMs = 1000 * (attempt + 1);
-                            console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got 429, retry sau ${waitMs}ms...`);
-                            await new Promise(r => setTimeout(r, waitMs));
+                            console.warn(
+                                `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got 429, retry sau ${waitMs}ms...`
+                            );
+                            await new Promise((r) => setTimeout(r, waitMs));
                             continue;
                         }
-                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: 429 sau ${maxRetries} retries`);
+                        console.error(
+                            `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: 429 sau ${maxRetries} retries`
+                        );
                         return { skipValue, orders: [], error: true, status: 429 };
                     }
 
                     if (response.status === 502 || response.status === 503) {
                         if (attempt < maxRetries) {
                             const waitMs = 1500 * (attempt + 1);
-                            console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got ${response.status}, retry sau ${waitMs}ms...`);
-                            await new Promise(r => setTimeout(r, waitMs));
+                            console.warn(
+                                `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got ${response.status}, retry sau ${waitMs}ms...`
+                            );
+                            await new Promise((r) => setTimeout(r, waitMs));
                             continue;
                         }
-                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: ${response.status} sau ${maxRetries} retries`);
+                        console.error(
+                            `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: ${response.status} sau ${maxRetries} retries`
+                        );
                         return { skipValue, orders: [], error: true, status: response.status };
                     }
 
                     if (!response.ok) {
-                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) failed: HTTP ${response.status}`);
+                        console.error(
+                            `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) failed: HTTP ${response.status}`
+                        );
                         return { skipValue, orders: [], error: true, status: response.status };
                     }
 
                     const data = await response.json();
                     const orders = data.value || [];
                     return { skipValue, orders, error: false };
-
                 } catch (err) {
                     if (attempt < maxRetries) {
-                        console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) error, retry #${attempt + 1}:`, err.message);
-                        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                        console.warn(
+                            `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) error, retry #${attempt + 1}:`,
+                            err.message
+                        );
+                        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
                         continue;
                     }
-                    console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED sau ${maxRetries} retries:`, err);
+                    console.error(
+                        `[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED sau ${maxRetries} retries:`,
+                        err
+                    );
                     return { skipValue, orders: [], error: true };
                 }
             }
@@ -1493,7 +1563,7 @@ async function fetchOrders() {
         const resultPromises = [];
         const executing = new Set();
         for (const task of tasks) {
-            const p = task().then(result => {
+            const p = task().then((result) => {
                 executing.delete(p);
                 return result;
             });
@@ -1548,42 +1618,42 @@ async function fetchOrders() {
         const PTAG_LOAD_TIMEOUT_MS = 3000;
         const ptagLoadPromise = window.loadProcessingTags
             ? Promise.race([
-                window.loadProcessingTags(),
-                new Promise(resolve => setTimeout(resolve, PTAG_LOAD_TIMEOUT_MS))
-            ])
+                  window.loadProcessingTags(),
+                  new Promise((resolve) => setTimeout(resolve, PTAG_LOAD_TIMEOUT_MS)),
+              ])
             : Promise.resolve();
 
         // Save to IndexedDB for cross-tab access (Tab3, Overview, etc.)
         // Transform to Tab3-compatible format (stt, customerName, etc.)
         const idbSavePromise = window.indexedDBStorage
             ? (() => {
-                const ordersForTabs = allData.map((order, index) => ({
-                    stt: order.SessionIndex || (index + 1).toString(),
-                    orderId: order.Id,
-                    orderCode: order.Code,
-                    customerName: order.PartnerName || order.Name,
-                    phone: order.PartnerPhone || order.Telephone,
-                    address: order.PartnerAddress || order.Address,
-                    totalAmount: order.TotalAmount || order.AmountTotal || 0,
-                    quantity: order.TotalQuantity || 0,
-                    note: order.Note,
-                    state: order.Status || order.State,
-                    dateOrder: order.DateCreated || order.DateOrder,
-                    Tags: order.Tags,
-                    liveCampaignName: order.LiveCampaignName
-                }));
-                return Promise.all([
-                    window.indexedDBStorage.setItem('allOrders', {
-                        orders: ordersForTabs,
-                        timestamp: Date.now(),
-                        activeCampaignNames: selectedCampaign?.campaignNames || []
-                    }),
-                    window.indexedDBStorage.setItem('allOrdersRaw', {
-                        orders: allData,
-                        timestamp: Date.now()
-                    })
-                ]).catch(err => console.error('[TAB1] IndexedDB save error:', err));
-            })()
+                  const ordersForTabs = allData.map((order, index) => ({
+                      stt: order.SessionIndex || (index + 1).toString(),
+                      orderId: order.Id,
+                      orderCode: order.Code,
+                      customerName: order.PartnerName || order.Name,
+                      phone: order.PartnerPhone || order.Telephone,
+                      address: order.PartnerAddress || order.Address,
+                      totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                      quantity: order.TotalQuantity || 0,
+                      note: order.Note,
+                      state: order.Status || order.State,
+                      dateOrder: order.DateCreated || order.DateOrder,
+                      Tags: order.Tags,
+                      liveCampaignName: order.LiveCampaignName,
+                  }));
+                  return Promise.all([
+                      window.indexedDBStorage.setItem('allOrders', {
+                          orders: ordersForTabs,
+                          timestamp: Date.now(),
+                          activeCampaignNames: selectedCampaign?.campaignNames || [],
+                      }),
+                      window.indexedDBStorage.setItem('allOrdersRaw', {
+                          orders: allData,
+                          timestamp: Date.now(),
+                      }),
+                  ]).catch((err) => console.error('[TAB1] IndexedDB save error:', err));
+              })()
             : Promise.resolve();
 
         // Đợi CẢ HAI xong (tag load + idb save) rồi mới render lần duy nhất.
@@ -1611,11 +1681,15 @@ async function fetchOrders() {
         // ⚡ Load conversations in BACKGROUND (non-blocking)
         // Chat columns will update incrementally, no full table re-render
         if (window.chatDataManager) {
-            const channelIds = [...new Set(
-                allData
-                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
-                    .filter(id => id)
-            )];
+            const channelIds = [
+                ...new Set(
+                    allData
+                        .map((order) =>
+                            window.chatDataManager.parseChannelId(order.Facebook_PostId)
+                        )
+                        .filter((id) => id)
+                ),
+            ];
 
             // Run in background - no await, no re-render
             (async () => {
@@ -1634,10 +1708,12 @@ async function fetchOrders() {
         }
 
         // Load tags in background
-        loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
+        loadAvailableTags().catch((err) => console.error('[TAGS] Error loading tags:', err));
 
         // Load user identifier for quick tag feature
-        loadCurrentUserIdentifier().catch(err => console.error('[QUICK-TAG] Error loading identifier:', err));
+        loadCurrentUserIdentifier().catch((err) =>
+            console.error('[QUICK-TAG] Error loading identifier:', err)
+        );
 
         // NOTE-TRACKER disabled - uncomment to re-enable
         // detectEditedNotes().then(() => {
@@ -1647,16 +1723,15 @@ async function fetchOrders() {
 
         // Hide loading overlay
         showLoading(false);
-
     } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error('Error fetching data:', error);
 
         // Better error messages
-        let errorMessage = "Lỗi khi tải dữ liệu: ";
-        if (error.message.includes("Invalid date")) {
-            errorMessage += "Ngày tháng không hợp lệ. Vui lòng kiểm tra lại khoảng thời gian.";
-        } else if (error.message.includes("Date value is required")) {
-            errorMessage += "Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày).";
+        let errorMessage = 'Lỗi khi tải dữ liệu: ';
+        if (error.message.includes('Invalid date')) {
+            errorMessage += 'Ngày tháng không hợp lệ. Vui lòng kiểm tra lại khoảng thời gian.';
+        } else if (error.message.includes('Date value is required')) {
+            errorMessage += 'Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày).';
         } else {
             errorMessage += error.message;
         }
@@ -1673,5 +1748,3 @@ async function fetchOrders() {
         isFetchingOrders = false;
     }
 }
-
-

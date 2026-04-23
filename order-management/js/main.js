@@ -1,473 +1,489 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-        let orderProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
-        let filteredProductsInList = []; // For search in product list
-        let listSearchKeyword = ''; // Current search keyword for product list
-        let filteredHiddenProducts = []; // For search in hidden product list
-        let hiddenListSearchKeyword = ''; // Current search keyword for hidden product list
-        let isSyncMode = false;
-        let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
-        let currentCampaignId = null; // Current live campaign ID for tagging products
-        let currentCampaignName = null; // Current live campaign display name
+let orderProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
+let filteredProductsInList = []; // For search in product list
+let listSearchKeyword = ''; // Current search keyword for product list
+let filteredHiddenProducts = []; // For search in hidden product list
+let hiddenListSearchKeyword = ''; // Current search keyword for hidden product list
+let isSyncMode = false;
+let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
+let currentCampaignId = null; // Current live campaign ID for tagging products
+let currentCampaignName = null; // Current live campaign display name
 
-        // Initialize Firebase using shared config
-        const database = initializeRealtimeDB();
+// Initialize Firebase using shared config
+const database = initializeRealtimeDB();
 
-        let isSyncingFromFirebase = false;
+let isSyncingFromFirebase = false;
 
-        function checkSyncMode() {
-            const hash = window.location.hash.substring(1);
-            isSyncMode = hash.includes('sync') || hash.includes('admin');
-            updateExpandListLink();
+function checkSyncMode() {
+    const hash = window.location.hash.substring(1);
+    isSyncMode = hash.includes('sync') || hash.includes('admin');
+    updateExpandListLink();
+}
+
+function updateExpandListLink() {
+    const btnExpandList = document.getElementById('btnExpandList');
+    if (btnExpandList) {
+        if (isSyncMode) {
+            btnExpandList.href = 'order-list.html#sync';
+        } else {
+            btnExpandList.href = 'order-list.html';
+        }
+    }
+}
+
+function sortVariants(variants) {
+    // Define size order
+    const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+    return [...variants].sort((a, b) => {
+        const nameA = a.NameGet || '';
+        const nameB = b.NameGet || '';
+
+        // Extract number in parentheses (1), (2), (3), etc.
+        const numberMatchA = nameA.match(/\((\d+)\)/);
+        const numberMatchB = nameB.match(/\((\d+)\)/);
+
+        // If both have numbers, sort by number
+        if (numberMatchA && numberMatchB) {
+            return parseInt(numberMatchA[1]) - parseInt(numberMatchB[1]);
         }
 
-        function updateExpandListLink() {
-            const btnExpandList = document.getElementById('btnExpandList');
-            if (btnExpandList) {
-                if (isSyncMode) {
-                    btnExpandList.href = 'order-list.html#sync';
-                } else {
-                    btnExpandList.href = 'order-list.html';
-                }
+        // Extract size in parentheses (S), (M), (L), etc.
+        const sizeMatchA = nameA.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+        const sizeMatchB = nameB.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+
+        // If both have sizes, sort by size order
+        if (sizeMatchA && sizeMatchB) {
+            const sizeA = sizeMatchA[1].toUpperCase();
+            const sizeB = sizeMatchB[1].toUpperCase();
+            const indexA = sizeOrder.indexOf(sizeA);
+            const indexB = sizeOrder.indexOf(sizeB);
+
+            // If both sizes are in the order list
+            if (indexA !== -1 && indexB !== -1) {
+                return indexA - indexB;
             }
+            // If only one is in the list, prioritize it
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
         }
 
-        function sortVariants(variants) {
-            // Define size order
-            const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+        // If one has number and other has size, number comes first
+        if (numberMatchA && sizeMatchB) return -1;
+        if (sizeMatchA && numberMatchB) return 1;
 
-            return [...variants].sort((a, b) => {
-                const nameA = a.NameGet || '';
-                const nameB = b.NameGet || '';
+        // If one has pattern and other doesn't, pattern comes first
+        if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
+        if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
 
-                // Extract number in parentheses (1), (2), (3), etc.
-                const numberMatchA = nameA.match(/\((\d+)\)/);
-                const numberMatchB = nameB.match(/\((\d+)\)/);
+        // Default: alphabetical sort
+        return nameA.localeCompare(nameB);
+    });
+}
 
-                // If both have numbers, sort by number
-                if (numberMatchA && numberMatchB) {
-                    return parseInt(numberMatchA[1]) - parseInt(numberMatchB[1]);
+function cleanProductForFirebase(product) {
+    const cleanProduct = {
+        Id: typeof product.Id === 'object' ? product.Id?.Id : product.Id,
+        NameGet: String(product.NameGet || ''),
+        QtyAvailable: Number(product.QtyAvailable) || 0,
+        soldQty: Number(product.soldQty) || 0,
+        remainingQty: Number(product.remainingQty) || 0,
+        imageUrl: product.imageUrl ? String(product.imageUrl) : null,
+        ProductTmplId:
+            typeof product.ProductTmplId === 'object'
+                ? product.ProductTmplId?.Id
+                : product.ProductTmplId,
+        ListPrice: Number(product.ListPrice) || 0, // Price for display
+        PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
+        addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
+        isHidden: product.isHidden || false, // Hidden status
+        lastRefreshed: product.lastRefreshed || null, // Timestamp for image cache-busting
+        campaignId: product.campaignId || currentCampaignId || null, // Live campaign tag
+        campaignName: product.campaignName || currentCampaignName || null, // Live campaign name
+    };
+    return cleanProduct;
+}
+
+function cleanProductsArray(products) {
+    if (!Array.isArray(products)) return [];
+    return products.map((p) => cleanProductForFirebase(p));
+}
+
+// =====================================================
+// CAMPAIGN SELECTOR (Đợt Live)
+// =====================================================
+
+/**
+ * Load available campaigns from Firestore report_order_details collection
+ * Same source as tab-overview's loadAvailableTables()
+ */
+async function loadCampaigns() {
+    try {
+        const firestore = firebase.firestore();
+        const selector = document.getElementById('campaignSelector');
+        if (!selector) return;
+
+        selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
+
+        // Load campaigns from PostgreSQL API (same source as Tab 1)
+        const list =
+            window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function'
+                ? await window.CampaignAPI.loadAll()
+                : [];
+        const campaigns = list.map((c) => ({
+            id: c.id,
+            name: c.name || c.id,
+            createdAt: c.createdAt || '',
+            customStartDate: c.customStartDate || '',
+            customEndDate: c.customEndDate || '',
+        }));
+
+        // Also load order counts from report_order_details for display
+        const orderCountMap = {};
+        try {
+            const reportSnapshot = await firestore.collection('report_order_details').get();
+            reportSnapshot.forEach((doc) => {
+                const data = doc.data();
+                if (!data.isSavedCopy) {
+                    const name = data.tableName || doc.id.replace(/_/g, ' ');
+                    orderCountMap[name] = data.totalOrders || 0;
                 }
-
-                // Extract size in parentheses (S), (M), (L), etc.
-                const sizeMatchA = nameA.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
-                const sizeMatchB = nameB.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
-
-                // If both have sizes, sort by size order
-                if (sizeMatchA && sizeMatchB) {
-                    const sizeA = sizeMatchA[1].toUpperCase();
-                    const sizeB = sizeMatchB[1].toUpperCase();
-                    const indexA = sizeOrder.indexOf(sizeA);
-                    const indexB = sizeOrder.indexOf(sizeB);
-
-                    // If both sizes are in the order list
-                    if (indexA !== -1 && indexB !== -1) {
-                        return indexA - indexB;
-                    }
-                    // If only one is in the list, prioritize it
-                    if (indexA !== -1) return -1;
-                    if (indexB !== -1) return 1;
-                }
-
-                // If one has number and other has size, number comes first
-                if (numberMatchA && sizeMatchB) return -1;
-                if (sizeMatchA && numberMatchB) return 1;
-
-                // If one has pattern and other doesn't, pattern comes first
-                if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
-                if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
-
-                // Default: alphabetical sort
-                return nameA.localeCompare(nameB);
             });
+        } catch (e) {
+            console.warn('[CAMPAIGN] Could not load order counts:', e);
         }
 
-        function cleanProductForFirebase(product) {
-            const cleanProduct = {
-                Id: typeof product.Id === 'object' ? product.Id?.Id : product.Id,
-                NameGet: String(product.NameGet || ''),
-                QtyAvailable: Number(product.QtyAvailable) || 0,
-                soldQty: Number(product.soldQty) || 0,
-                remainingQty: Number(product.remainingQty) || 0,
-                imageUrl: product.imageUrl ? String(product.imageUrl) : null,
-                ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
-                ListPrice: Number(product.ListPrice) || 0, // Price for display
-                PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
-                addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
-                isHidden: product.isHidden || false, // Hidden status
-                lastRefreshed: product.lastRefreshed || null, // Timestamp for image cache-busting
-                campaignId: product.campaignId || currentCampaignId || null, // Live campaign tag
-                campaignName: product.campaignName || currentCampaignName || null // Live campaign name
-            };
-            return cleanProduct;
-        }
+        // Sort by createdAt descending (newest first)
+        campaigns.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+        });
 
-        function cleanProductsArray(products) {
-            if (!Array.isArray(products)) return [];
-            return products.map(p => cleanProductForFirebase(p));
-        }
+        campaigns.forEach((c) => {
+            const opt = document.createElement('option');
+            opt.value = c.id; // Use Firestore doc ID as campaign ID
+            opt.dataset.campaignName = c.name;
+            const orderCount = orderCountMap[c.name] || 0;
+            opt.textContent = orderCount > 0 ? `${c.name} (${orderCount} đơn)` : c.name;
+            selector.appendChild(opt);
+        });
 
-        // =====================================================
-        // CAMPAIGN SELECTOR (Đợt Live)
-        // =====================================================
-
-        /**
-         * Load available campaigns from Firestore report_order_details collection
-         * Same source as tab-overview's loadAvailableTables()
-         */
-        async function loadCampaigns() {
-            try {
-                const firestore = firebase.firestore();
-                const selector = document.getElementById('campaignSelector');
-                if (!selector) return;
-
-                selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
-
-                // Load campaigns from PostgreSQL API (same source as Tab 1)
-                const list = (window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function')
-                    ? await window.CampaignAPI.loadAll()
-                    : [];
-                const campaigns = list.map(c => ({
-                    id: c.id,
-                    name: c.name || c.id,
-                    createdAt: c.createdAt || '',
-                    customStartDate: c.customStartDate || '',
-                    customEndDate: c.customEndDate || ''
-                }));
-
-                // Also load order counts from report_order_details for display
-                const orderCountMap = {};
-                try {
-                    const reportSnapshot = await firestore.collection('report_order_details').get();
-                    reportSnapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (!data.isSavedCopy) {
-                            const name = data.tableName || doc.id.replace(/_/g, ' ');
-                            orderCountMap[name] = data.totalOrders || 0;
-                        }
-                    });
-                } catch (e) {
-                    console.warn('[CAMPAIGN] Could not load order counts:', e);
-                }
-
-                // Sort by createdAt descending (newest first)
-                campaigns.sort((a, b) => {
-                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return dateB - dateA;
-                });
-
-                campaigns.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.id; // Use Firestore doc ID as campaign ID
-                    opt.dataset.campaignName = c.name;
-                    const orderCount = orderCountMap[c.name] || 0;
-                    opt.textContent = orderCount > 0 ? `${c.name} (${orderCount} đơn)` : c.name;
-                    selector.appendChild(opt);
-                });
-
-                // Restore last selected campaign
-                const savedCampaignId = localStorage.getItem('om_current_campaign_id');
-                if (savedCampaignId) {
-                    selector.value = savedCampaignId;
-                    const selectedOpt = selector.options[selector.selectedIndex];
-                    if (selectedOpt && selectedOpt.value) {
-                        currentCampaignId = selectedOpt.value;
-                        currentCampaignName = selectedOpt.dataset.campaignName || '';
-                        updateCampaignBadgeOM();
-                    }
-                }
-
-                console.log(`[CAMPAIGN] Loaded ${campaigns.length} campaigns`);
-            } catch (error) {
-                console.error('[CAMPAIGN] Error loading campaigns:', error);
-            }
-        }
-
-        function handleCampaignChange() {
-            const selector = document.getElementById('campaignSelector');
+        // Restore last selected campaign
+        const savedCampaignId = localStorage.getItem('om_current_campaign_id');
+        if (savedCampaignId) {
+            selector.value = savedCampaignId;
             const selectedOpt = selector.options[selector.selectedIndex];
-
             if (selectedOpt && selectedOpt.value) {
                 currentCampaignId = selectedOpt.value;
                 currentCampaignName = selectedOpt.dataset.campaignName || '';
-                localStorage.setItem('om_current_campaign_id', currentCampaignId);
                 updateCampaignBadgeOM();
-                console.log(`[CAMPAIGN] Selected: ${currentCampaignName} (${currentCampaignId})`);
-                // Reload products for the new campaign
-                switchToCampaign(currentCampaignId);
-            } else {
-                currentCampaignId = null;
-                currentCampaignName = null;
-                localStorage.removeItem('om_current_campaign_id');
-                updateCampaignBadgeOM();
-                // Clear products when no campaign selected
-                if (firebaseListenerHandle) { firebaseListenerHandle.detach(); firebaseListenerHandle = null; }
-                orderProducts = {};
-                updateProductListPreview();
-                updateHiddenProductListPreview();
-                refreshCartHistory();
             }
         }
 
-        let firebaseListenerHandle = null;
+        console.log(`[CAMPAIGN] Loaded ${campaigns.length} campaigns`);
+    } catch (error) {
+        console.error('[CAMPAIGN] Error loading campaigns:', error);
+    }
+}
 
-        async function switchToCampaign(campaignId) {
-            if (!campaignId) return;
+function handleCampaignChange() {
+    const selector = document.getElementById('campaignSelector');
+    const selectedOpt = selector.options[selector.selectedIndex];
 
-            // Detach old listeners
-            if (firebaseListenerHandle) { firebaseListenerHandle.detach(); firebaseListenerHandle = null; }
+    if (selectedOpt && selectedOpt.value) {
+        currentCampaignId = selectedOpt.value;
+        currentCampaignName = selectedOpt.dataset.campaignName || '';
+        localStorage.setItem('om_current_campaign_id', currentCampaignId);
+        updateCampaignBadgeOM();
+        console.log(`[CAMPAIGN] Selected: ${currentCampaignName} (${currentCampaignId})`);
+        // Reload products for the new campaign
+        switchToCampaign(currentCampaignId);
+    } else {
+        currentCampaignId = null;
+        currentCampaignName = null;
+        localStorage.removeItem('om_current_campaign_id');
+        updateCampaignBadgeOM();
+        // Clear products when no campaign selected
+        if (firebaseListenerHandle) {
+            firebaseListenerHandle.detach();
+            firebaseListenerHandle = null;
+        }
+        orderProducts = {};
+        updateProductListPreview();
+        updateHiddenProductListPreview();
+        refreshCartHistory();
+    }
+}
 
-            // Clear current products
-            orderProducts = {};
+let firebaseListenerHandle = null;
 
-            // Load products for this campaign
-            orderProducts = await loadAllProductsFromFirebase(database, campaignId);
-            console.log(`🔥 Loaded ${Object.keys(orderProducts).length} products for campaign: ${campaignId}`);
+async function switchToCampaign(campaignId) {
+    if (!campaignId) return;
 
-            // Setup realtime listeners for this campaign
-            firebaseListenerHandle = setupFirebaseChildListeners(database, campaignId, orderProducts, {
-                onProductAdded: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product added from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onProductChanged: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product updated from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onProductRemoved: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product removed from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onInitialLoadComplete: () => {
-                    console.log('✅ Firebase listeners setup complete');
-                }
-            });
+    // Detach old listeners
+    if (firebaseListenerHandle) {
+        firebaseListenerHandle.detach();
+        firebaseListenerHandle = null;
+    }
 
+    // Clear current products
+    orderProducts = {};
+
+    // Load products for this campaign
+    orderProducts = await loadAllProductsFromFirebase(database, campaignId);
+    console.log(
+        `🔥 Loaded ${Object.keys(orderProducts).length} products for campaign: ${campaignId}`
+    );
+
+    // Setup realtime listeners for this campaign
+    firebaseListenerHandle = setupFirebaseChildListeners(database, campaignId, orderProducts, {
+        onProductAdded: (product) => {
+            if (!isSyncingFromFirebase) {
+                console.log('🔥 Product added from Firebase:', product.NameGet);
+                updateProductListPreview();
+            }
+        },
+        onProductChanged: (product) => {
+            if (!isSyncingFromFirebase) {
+                console.log('🔥 Product updated from Firebase:', product.NameGet);
+                updateProductListPreview();
+            }
+        },
+        onProductRemoved: (product) => {
+            if (!isSyncingFromFirebase) {
+                console.log('🔥 Product removed from Firebase:', product.NameGet);
+                updateProductListPreview();
+            }
+        },
+        onInitialLoadComplete: () => {
+            console.log('✅ Firebase listeners setup complete');
+        },
+    });
+
+    updateProductListPreview();
+    updateHiddenProductListPreview();
+    updateExpandListLink();
+    refreshCartHistory();
+}
+
+function updateCampaignBadgeOM() {
+    const badge = document.getElementById('campaignBadgeOM');
+    if (!badge) return;
+    if (currentCampaignName) {
+        badge.style.display = 'inline-block';
+        badge.textContent = `✓ ${currentCampaignName}`;
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+async function cleanupOldProductsLocal() {
+    const initialCount = Object.keys(orderProducts).length;
+
+    try {
+        const result = await cleanupOldProducts(database, currentCampaignId, orderProducts);
+
+        if (result.removed > 0) {
+            console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
             updateProductListPreview();
-            updateHiddenProductListPreview();
-            updateExpandListLink();
-            refreshCartHistory();
+            showNotificationMessage(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
         }
+    } catch (error) {
+        console.error('❌ Lỗi cleanup:', error);
+    }
+}
 
-        function updateCampaignBadgeOM() {
-            const badge = document.getElementById('campaignBadgeOM');
-            if (!badge) return;
-            if (currentCampaignName) {
-                badge.style.display = 'inline-block';
-                badge.textContent = `✓ ${currentCampaignName}`;
-            } else {
-                badge.style.display = 'none';
-            }
+async function clearAllProductsLocal() {
+    const count = Object.keys(orderProducts).length;
+
+    if (count === 0) {
+        showNotificationMessage('⚠️ Danh sách đã trống');
+        return;
+    }
+
+    if (confirm(`Bạn có chắc muốn xóa tất cả ${count} sản phẩm không?`)) {
+        try {
+            await clearAllProducts(database, currentCampaignId, orderProducts);
+            updateProductListPreview();
+            showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
+        } catch (error) {
+            console.error('❌ Lỗi xóa tất cả:', error);
+            showNotificationMessage('❌ Lỗi: ' + error.message);
         }
+    }
+}
 
-        async function cleanupOldProductsLocal() {
-            const initialCount = Object.keys(orderProducts).length;
+// ============================================================================
+// CART HISTORY / SNAPSHOT FUNCTIONS
+// ============================================================================
 
-            try {
-                const result = await cleanupOldProducts(database, currentCampaignId, orderProducts);
+// Global variables for cart history
+let cartHistorySnapshots = [];
+let pendingRestoreSnapshotId = null;
 
-                if (result.removed > 0) {
-                    console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
-                    updateProductListPreview();
-                    showNotificationMessage(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
-                }
-            } catch (error) {
-                console.error('❌ Lỗi cleanup:', error);
-            }
+/**
+ * Calculate cart statistics
+ */
+function calculateCartStats(products) {
+    const productArray = Object.values(products);
+
+    return {
+        productCount: productArray.length,
+        totalItems: productArray.reduce((sum, p) => sum + (p.QtyAvailable || 0), 0),
+        visibleCount: productArray.filter((p) => !p.isHidden).length,
+        hiddenCount: productArray.filter((p) => p.isHidden).length,
+        soldItemsCount: productArray.reduce((sum, p) => sum + (p.soldQty || 0), 0),
+        remainingItemsCount: productArray.reduce(
+            (sum, p) => sum + (p.remainingQty || p.QtyAvailable || 0),
+            0
+        ),
+    };
+}
+
+/**
+ * Format date time for display
+ */
+function formatDateTime(date) {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} - ${hours}:${minutes}`;
+}
+
+/**
+ * Save current cart and refresh
+ */
+async function saveCartAndRefresh() {
+    if (!currentCampaignId) {
+        showNotificationMessage('⚠️ Vui lòng chọn đợt live trước');
+        return;
+    }
+    const productCount = Object.keys(orderProducts).length;
+
+    if (productCount === 0) {
+        showNotificationMessage('⚠️ Giỏ hàng đang trống, không có gì để lưu');
+        return;
+    }
+
+    const defaultName = `Giỏ hàng ${formatDateTime(new Date())}`;
+    const customName = prompt('Đặt tên cho giỏ hàng này:', defaultName);
+
+    if (customName === null) return; // User cancelled
+
+    const snapshotName = customName.trim() || defaultName;
+    const description = prompt('Mô tả (tùy chọn):', '') || '';
+
+    if (!confirm(`Lưu giỏ hàng với ${productCount} sản phẩm và làm mới?`)) {
+        return;
+    }
+
+    try {
+        const stats = calculateCartStats(orderProducts);
+        const snapshot = {
+            metadata: {
+                savedAt: Date.now(),
+                name: snapshotName,
+                description: description,
+                productCount: stats.productCount,
+                totalItems: stats.totalItems,
+                visibleCount: stats.visibleCount,
+                hiddenCount: stats.hiddenCount,
+                soldItemsCount: stats.soldItemsCount,
+                remainingItemsCount: stats.remainingItemsCount,
+            },
+            products: { ...orderProducts },
+        };
+
+        await saveCartSnapshot(database, currentCampaignId, snapshot);
+        await clearAllProducts(database, currentCampaignId, orderProducts);
+
+        updateProductListPreview();
+        await refreshCartHistory();
+
+        showNotificationMessage('✅ Đã lưu giỏ hàng và làm mới thành công!');
+    } catch (error) {
+        console.error('Error saving cart:', error);
+        showNotificationMessage('❌ Lỗi: ' + error.message);
+    }
+}
+
+/**
+ * Refresh cart history list
+ */
+async function refreshCartHistory() {
+    try {
+        const snapshots = await getAllCartSnapshots(database, currentCampaignId);
+        cartHistorySnapshots = snapshots;
+        renderCartHistoryList(snapshots); // Show all snapshots
+    } catch (error) {
+        console.error('Error loading cart history:', error);
+    }
+}
+
+/**
+ * Filter cart history by selected date
+ */
+function filterCartHistoryByDate() {
+    const dateInput = document.getElementById('snapshotDateFilter');
+    if (!dateInput || !dateInput.value) {
+        renderCartHistoryList(cartHistorySnapshots);
+        return;
+    }
+
+    const selectedDate = new Date(dateInput.value);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const filtered = cartHistorySnapshots.filter((snapshot) => {
+        const snapshotDate = new Date(snapshot.metadata.savedAt);
+        snapshotDate.setHours(0, 0, 0, 0);
+        return snapshotDate.getTime() === selectedDate.getTime();
+    });
+
+    renderCartHistoryList(filtered);
+
+    if (filtered.length === 0) {
+        const container = document.getElementById('cartHistoryList');
+        if (container) {
+            container.innerHTML =
+                '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
         }
+    }
+}
 
-        async function clearAllProductsLocal() {
-            const count = Object.keys(orderProducts).length;
+/**
+ * Clear date filter and show all snapshots
+ */
+function clearDateFilter() {
+    const dateInput = document.getElementById('snapshotDateFilter');
+    if (dateInput) {
+        dateInput.value = '';
+    }
+    renderCartHistoryList(cartHistorySnapshots);
+}
 
-            if (count === 0) {
-                showNotificationMessage('⚠️ Danh sách đã trống');
-                return;
-            }
+/**
+ * Render cart history list
+ */
+function renderCartHistoryList(snapshots) {
+    const container = document.getElementById('cartHistoryList');
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${count} sản phẩm không?`)) {
-                try {
-                    await clearAllProducts(database, currentCampaignId, orderProducts);
-                    updateProductListPreview();
-                    showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
-                } catch (error) {
-                    console.error('❌ Lỗi xóa tất cả:', error);
-                    showNotificationMessage('❌ Lỗi: ' + error.message);
-                }
-            }
-        }
+    if (!container) return;
 
-        // ============================================================================
-        // CART HISTORY / SNAPSHOT FUNCTIONS
-        // ============================================================================
+    if (snapshots.length === 0) {
+        container.innerHTML = '<div class="no-history">Chưa có lịch sử giỏ hàng</div>';
+        return;
+    }
 
-        // Global variables for cart history
-        let cartHistorySnapshots = [];
-        let pendingRestoreSnapshotId = null;
+    container.innerHTML = snapshots
+        .map((snapshot) => {
+            const snapshotId = snapshot.id;
+            const meta = snapshot.metadata;
 
-        /**
-         * Calculate cart statistics
-         */
-        function calculateCartStats(products) {
-            const productArray = Object.values(products);
-
-            return {
-                productCount: productArray.length,
-                totalItems: productArray.reduce((sum, p) => sum + (p.QtyAvailable || 0), 0),
-                visibleCount: productArray.filter(p => !p.isHidden).length,
-                hiddenCount: productArray.filter(p => p.isHidden).length,
-                soldItemsCount: productArray.reduce((sum, p) => sum + (p.soldQty || 0), 0),
-                remainingItemsCount: productArray.reduce((sum, p) => sum + (p.remainingQty || p.QtyAvailable || 0), 0)
-            };
-        }
-
-        /**
-         * Format date time for display
-         */
-        function formatDateTime(date) {
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            return `${day}/${month}/${year} - ${hours}:${minutes}`;
-        }
-
-        /**
-         * Save current cart and refresh
-         */
-        async function saveCartAndRefresh() {
-            if (!currentCampaignId) {
-                showNotificationMessage('⚠️ Vui lòng chọn đợt live trước');
-                return;
-            }
-            const productCount = Object.keys(orderProducts).length;
-
-            if (productCount === 0) {
-                showNotificationMessage('⚠️ Giỏ hàng đang trống, không có gì để lưu');
-                return;
-            }
-
-            const defaultName = `Giỏ hàng ${formatDateTime(new Date())}`;
-            const customName = prompt('Đặt tên cho giỏ hàng này:', defaultName);
-
-            if (customName === null) return; // User cancelled
-
-            const snapshotName = customName.trim() || defaultName;
-            const description = prompt('Mô tả (tùy chọn):', '') || '';
-
-            if (!confirm(`Lưu giỏ hàng với ${productCount} sản phẩm và làm mới?`)) {
-                return;
-            }
-
-            try {
-                const stats = calculateCartStats(orderProducts);
-                const snapshot = {
-                    metadata: {
-                        savedAt: Date.now(),
-                        name: snapshotName,
-                        description: description,
-                        productCount: stats.productCount,
-                        totalItems: stats.totalItems,
-                        visibleCount: stats.visibleCount,
-                        hiddenCount: stats.hiddenCount,
-                        soldItemsCount: stats.soldItemsCount,
-                        remainingItemsCount: stats.remainingItemsCount
-                    },
-                    products: { ...orderProducts }
-                };
-
-                await saveCartSnapshot(database, currentCampaignId, snapshot);
-                await clearAllProducts(database, currentCampaignId, orderProducts);
-
-                updateProductListPreview();
-                await refreshCartHistory();
-
-                showNotificationMessage('✅ Đã lưu giỏ hàng và làm mới thành công!');
-
-            } catch (error) {
-                console.error('Error saving cart:', error);
-                showNotificationMessage('❌ Lỗi: ' + error.message);
-            }
-        }
-
-        /**
-         * Refresh cart history list
-         */
-        async function refreshCartHistory() {
-            try {
-                const snapshots = await getAllCartSnapshots(database, currentCampaignId);
-                cartHistorySnapshots = snapshots;
-                renderCartHistoryList(snapshots); // Show all snapshots
-            } catch (error) {
-                console.error('Error loading cart history:', error);
-            }
-        }
-
-        /**
-         * Filter cart history by selected date
-         */
-        function filterCartHistoryByDate() {
-            const dateInput = document.getElementById('snapshotDateFilter');
-            if (!dateInput || !dateInput.value) {
-                renderCartHistoryList(cartHistorySnapshots);
-                return;
-            }
-
-            const selectedDate = new Date(dateInput.value);
-            selectedDate.setHours(0, 0, 0, 0);
-
-            const filtered = cartHistorySnapshots.filter(snapshot => {
-                const snapshotDate = new Date(snapshot.metadata.savedAt);
-                snapshotDate.setHours(0, 0, 0, 0);
-                return snapshotDate.getTime() === selectedDate.getTime();
-            });
-
-            renderCartHistoryList(filtered);
-
-            if (filtered.length === 0) {
-                const container = document.getElementById('cartHistoryList');
-                if (container) {
-                    container.innerHTML = '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
-                }
-            }
-        }
-
-        /**
-         * Clear date filter and show all snapshots
-         */
-        function clearDateFilter() {
-            const dateInput = document.getElementById('snapshotDateFilter');
-            if (dateInput) {
-                dateInput.value = '';
-            }
-            renderCartHistoryList(cartHistorySnapshots);
-        }
-
-        /**
-         * Render cart history list
-         */
-        function renderCartHistoryList(snapshots) {
-            const container = document.getElementById('cartHistoryList');
-
-            if (!container) return;
-
-            if (snapshots.length === 0) {
-                container.innerHTML = '<div class="no-history">Chưa có lịch sử giỏ hàng</div>';
-                return;
-            }
-
-            container.innerHTML = snapshots.map(snapshot => {
-                const snapshotId = snapshot.id;
-                const meta = snapshot.metadata;
-
-                return `
+            return `
                     <div class="snapshot-card" data-snapshot-id="${snapshotId}">
                         <div class="snapshot-header">
                             <div class="snapshot-name">${meta.name}</div>
@@ -489,24 +505,25 @@
                         </div>
                     </div>
                 `;
-            }).join('');
+        })
+        .join('');
+}
+
+/**
+ * View snapshot details
+ */
+async function viewSnapshot(snapshotId) {
+    try {
+        const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
+
+        if (!snapshot) {
+            showNotificationMessage('❌ Không tìm thấy giỏ hàng này');
+            return;
         }
 
-        /**
-         * View snapshot details
-         */
-        async function viewSnapshot(snapshotId) {
-            try {
-                const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
-
-                if (!snapshot) {
-                    showNotificationMessage('❌ Không tìm thấy giỏ hàng này');
-                    return;
-                }
-
-                // Populate modal
-                document.getElementById('snapshotModalTitle').textContent = snapshot.metadata.name;
-                document.getElementById('snapshotModalInfo').innerHTML = `
+        // Populate modal
+        document.getElementById('snapshotModalTitle').textContent = snapshot.metadata.name;
+        document.getElementById('snapshotModalInfo').innerHTML = `
                     <div>📅 Lưu lúc: ${formatDateTime(snapshot.metadata.savedAt)}</div>
                     <div>📦 Tổng sản phẩm: ${snapshot.metadata.productCount}</div>
                     <div>🛒 Đã bán: ${snapshot.metadata.soldItemsCount}</div>
@@ -514,34 +531,36 @@
                     ${snapshot.metadata.description ? `<div>📝 Mô tả: ${snapshot.metadata.description}</div>` : ''}
                 `;
 
-                // Render products
-                renderSnapshotProducts(snapshot.products);
+        // Render products
+        renderSnapshotProducts(snapshot.products);
 
-                // Show modal
-                const modal = document.getElementById('snapshotViewModal');
-                modal.style.display = 'flex';
-                modal.dataset.snapshotId = snapshotId;
+        // Show modal
+        const modal = document.getElementById('snapshotViewModal');
+        modal.style.display = 'flex';
+        modal.dataset.snapshotId = snapshotId;
+    } catch (error) {
+        console.error('Error viewing snapshot:', error);
+        showNotificationMessage('❌ Lỗi: ' + error.message);
+    }
+}
 
-            } catch (error) {
-                console.error('Error viewing snapshot:', error);
-                showNotificationMessage('❌ Lỗi: ' + error.message);
-            }
-        }
+/**
+ * Render snapshot products in modal
+ */
+function renderSnapshotProducts(products) {
+    const grid = document.getElementById('snapshotProductsGrid');
+    if (!grid) return;
 
-        /**
-         * Render snapshot products in modal
-         */
-        function renderSnapshotProducts(products) {
-            const grid = document.getElementById('snapshotProductsGrid');
-            if (!grid) return;
+    const productArray = Object.values(products);
 
-            const productArray = Object.values(products);
+    grid.innerHTML = productArray
+        .map((product) => {
+            const price = Math.round((product.PriceVariant || product.ListPrice || 0) / 1000);
+            const imageUrl =
+                product.imageUrl ||
+                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
 
-            grid.innerHTML = productArray.map(product => {
-                const price = Math.round((product.PriceVariant || product.ListPrice || 0) / 1000);
-                const imageUrl = product.imageUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
-
-                return `
+            return `
                     <div class="snapshot-product-card">
                         <img src="${imageUrl}" alt="${product.NameGet}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3ENo Image%3C/text%3E%3C/svg%3E'">
                         <div class="product-name">${product.NameGet} ${price}K</div>
@@ -553,365 +572,372 @@
                         ${product.isHidden ? '<div class="hidden-badge">Đã ẩn</div>' : ''}
                     </div>
                 `;
-            }).join('');
+        })
+        .join('');
+}
+
+/**
+ * Close snapshot view modal
+ */
+function closeSnapshotModal() {
+    const modal = document.getElementById('snapshotViewModal');
+    if (modal) {
+        modal.style.display = 'none';
+        delete modal.dataset.snapshotId;
+    }
+}
+
+/**
+ * Restore snapshot from modal (safer wrapper)
+ */
+async function restoreSnapshotFromModal() {
+    const modal = document.getElementById('snapshotViewModal');
+    const snapshotId = modal?.dataset?.snapshotId;
+
+    console.log('DEBUG: Restore from modal, snapshotId:', snapshotId);
+
+    if (!snapshotId) {
+        console.error('DEBUG: No snapshotId found in modal dataset');
+        showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng');
+        return;
+    }
+
+    await restoreSnapshot(snapshotId);
+}
+
+/**
+ * Restore snapshot with auto-save protection
+ */
+async function restoreSnapshot(snapshotId) {
+    console.log('DEBUG: restoreSnapshot() called with snapshotId:', snapshotId);
+
+    const currentProductCount = Object.keys(orderProducts).length;
+    console.log('DEBUG: Current cart has', currentProductCount, 'products');
+
+    // Validate snapshotId
+    if (!snapshotId) {
+        console.error('DEBUG: snapshotId is null/undefined in restoreSnapshot()!');
+        showNotificationMessage('❌ Lỗi: ID giỏ hàng không hợp lệ');
+        return;
+    }
+
+    // Store snapshot ID for later use
+    pendingRestoreSnapshotId = snapshotId;
+    console.log('DEBUG: Set pendingRestoreSnapshotId to:', pendingRestoreSnapshotId);
+
+    // If current cart is empty, restore directly
+    if (currentProductCount === 0) {
+        console.log('DEBUG: Cart is empty, restore directly');
+        if (confirm('Khôi phục giỏ hàng này?')) {
+            await performRestore(snapshotId, false, null);
+        }
+        return;
+    }
+
+    // Show smart restore dialog
+    console.log('DEBUG: Cart has products, showing restore dialog');
+    showRestoreConfirmDialog(snapshotId, currentProductCount);
+}
+
+/**
+ * Show restore confirmation dialog
+ */
+function showRestoreConfirmDialog(snapshotId, currentProductCount) {
+    // Update current cart count
+    document.getElementById('currentCartCount').textContent = currentProductCount;
+
+    // Generate default auto-save name
+    const defaultName = `Giỏ hàng trước khi khôi phục - ${formatDateTime(new Date())}`;
+    document.getElementById('autoSaveName').value = defaultName;
+
+    // Reset checkbox to checked (default behavior)
+    const checkbox = document.getElementById('autoSaveBeforeRestore');
+    checkbox.checked = true;
+
+    // Show name input
+    document.getElementById('autoSaveNameInput').style.display = 'block';
+
+    // Show modal
+    document.getElementById('restoreConfirmModal').style.display = 'flex';
+}
+
+/**
+ * Toggle auto-save name input visibility
+ */
+function toggleAutoSaveInput() {
+    const checkbox = document.getElementById('autoSaveBeforeRestore');
+    const nameInput = document.getElementById('autoSaveNameInput');
+    nameInput.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+/**
+ * Confirm and execute restore
+ */
+async function confirmRestore() {
+    const shouldAutoSave = document.getElementById('autoSaveBeforeRestore').checked;
+    const autoSaveName = shouldAutoSave
+        ? document.getElementById('autoSaveName').value.trim()
+        : null;
+
+    console.log('DEBUG: confirmRestore() called');
+    console.log('DEBUG: pendingRestoreSnapshotId:', pendingRestoreSnapshotId);
+    console.log('DEBUG: shouldAutoSave:', shouldAutoSave);
+    console.log('DEBUG: autoSaveName:', autoSaveName);
+
+    // Validate pendingRestoreSnapshotId exists
+    if (!pendingRestoreSnapshotId) {
+        console.error('DEBUG: pendingRestoreSnapshotId is null/undefined!');
+        showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng cần khôi phục');
+        closeRestoreConfirmModal();
+        return;
+    }
+
+    // Validate auto-save name if needed
+    if (shouldAutoSave && !autoSaveName) {
+        showNotificationMessage('⚠️ Vui lòng nhập tên cho giỏ hàng sẽ lưu');
+        return;
+    }
+
+    // IMPORTANT: Save snapshotId to local variable BEFORE closing modal
+    // Because closeRestoreConfirmModal() sets pendingRestoreSnapshotId = null
+    const snapshotIdToRestore = pendingRestoreSnapshotId;
+    console.log('DEBUG: Saved snapshotIdToRestore:', snapshotIdToRestore);
+
+    // Close modal
+    closeRestoreConfirmModal();
+
+    // Perform restore with auto-save (use local variable)
+    await performRestore(snapshotIdToRestore, shouldAutoSave, autoSaveName);
+}
+
+/**
+ * Close restore confirm modal
+ */
+function closeRestoreConfirmModal() {
+    document.getElementById('restoreConfirmModal').style.display = 'none';
+    pendingRestoreSnapshotId = null;
+}
+
+/**
+ * Perform the actual restore operation
+ */
+async function performRestore(snapshotId, shouldAutoSave, autoSaveName) {
+    try {
+        // Step 1: Auto-save current cart if needed
+        if (shouldAutoSave && Object.keys(orderProducts).length > 0) {
+            showNotificationMessage('💾 Đang lưu giỏ hàng hiện tại...');
+
+            const stats = calculateCartStats(orderProducts);
+            const currentSnapshot = {
+                metadata: {
+                    savedAt: Date.now(),
+                    name: autoSaveName,
+                    description: '(Tự động lưu trước khi khôi phục)',
+                    productCount: stats.productCount,
+                    totalItems: stats.totalItems,
+                    visibleCount: stats.visibleCount,
+                    hiddenCount: stats.hiddenCount,
+                    soldItemsCount: stats.soldItemsCount,
+                    remainingItemsCount: stats.remainingItemsCount,
+                },
+                products: { ...orderProducts },
+            };
+
+            await saveCartSnapshot(database, currentCampaignId, currentSnapshot);
+            showNotificationMessage('✅ Đã lưu giỏ hàng hiện tại');
+
+            // Refresh history to show the new snapshot
+            await refreshCartHistory();
         }
 
-        /**
-         * Close snapshot view modal
-         */
-        function closeSnapshotModal() {
-            const modal = document.getElementById('snapshotViewModal');
-            if (modal) {
-                modal.style.display = 'none';
-                delete modal.dataset.snapshotId;
-            }
+        // Step 2: Load snapshot to restore
+        showNotificationMessage('🔄 Đang tải giỏ hàng...');
+
+        console.log('DEBUG: Restoring snapshot ID:', snapshotId);
+        const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
+        console.log('DEBUG: Snapshot loaded:', snapshot);
+
+        if (!snapshot) {
+            console.error('DEBUG: Snapshot is null or undefined');
+            showNotificationMessage('❌ Không tìm thấy giỏ hàng');
+            return;
         }
 
-        /**
-         * Restore snapshot from modal (safer wrapper)
-         */
-        async function restoreSnapshotFromModal() {
-            const modal = document.getElementById('snapshotViewModal');
-            const snapshotId = modal?.dataset?.snapshotId;
-
-            console.log('DEBUG: Restore from modal, snapshotId:', snapshotId);
-
-            if (!snapshotId) {
-                console.error('DEBUG: No snapshotId found in modal dataset');
-                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng');
-                return;
-            }
-
-            await restoreSnapshot(snapshotId);
+        if (!snapshot.products) {
+            console.error('DEBUG: Snapshot.products is missing. Snapshot structure:', snapshot);
+            showNotificationMessage('❌ Dữ liệu giỏ hàng không hợp lệ (thiếu products)');
+            return;
         }
 
-        /**
-         * Restore snapshot with auto-save protection
-         */
-        async function restoreSnapshot(snapshotId) {
-            console.log('DEBUG: restoreSnapshot() called with snapshotId:', snapshotId);
-
-            const currentProductCount = Object.keys(orderProducts).length;
-            console.log('DEBUG: Current cart has', currentProductCount, 'products');
-
-            // Validate snapshotId
-            if (!snapshotId) {
-                console.error('DEBUG: snapshotId is null/undefined in restoreSnapshot()!');
-                showNotificationMessage('❌ Lỗi: ID giỏ hàng không hợp lệ');
-                return;
-            }
-
-            // Store snapshot ID for later use
-            pendingRestoreSnapshotId = snapshotId;
-            console.log('DEBUG: Set pendingRestoreSnapshotId to:', pendingRestoreSnapshotId);
-
-            // If current cart is empty, restore directly
-            if (currentProductCount === 0) {
-                console.log('DEBUG: Cart is empty, restore directly');
-                if (confirm('Khôi phục giỏ hàng này?')) {
-                    await performRestore(snapshotId, false, null);
-                }
-                return;
-            }
-
-            // Show smart restore dialog
-            console.log('DEBUG: Cart has products, showing restore dialog');
-            showRestoreConfirmDialog(snapshotId, currentProductCount);
+        const productCount = Object.keys(snapshot.products).length;
+        if (productCount === 0) {
+            console.error('DEBUG: Snapshot.products is empty');
+            showNotificationMessage('❌ Giỏ hàng không có sản phẩm');
+            return;
         }
 
-        /**
-         * Show restore confirmation dialog
-         */
-        function showRestoreConfirmDialog(snapshotId, currentProductCount) {
-            // Update current cart count
-            document.getElementById('currentCartCount').textContent = currentProductCount;
+        console.log('DEBUG: Snapshot has', productCount, 'products');
 
-            // Generate default auto-save name
-            const defaultName = `Giỏ hàng trước khi khôi phục - ${formatDateTime(new Date())}`;
-            document.getElementById('autoSaveName').value = defaultName;
+        // Step 3: Clear current products
+        showNotificationMessage('🗑️ Đang xóa giỏ hàng hiện tại...');
+        await clearAllProducts(database, currentCampaignId, orderProducts);
 
-            // Reset checkbox to checked (default behavior)
-            const checkbox = document.getElementById('autoSaveBeforeRestore');
-            checkbox.checked = true;
+        // Step 4: Restore products from snapshot
+        showNotificationMessage('♻️ Đang khôi phục sản phẩm...');
+        await restoreProductsFromSnapshot(
+            database,
+            currentCampaignId,
+            snapshot.products,
+            orderProducts
+        );
 
-            // Show name input
-            document.getElementById('autoSaveNameInput').style.display = 'block';
+        // Step 5: Update UI
+        updateProductListPreview();
 
-            // Show modal
-            document.getElementById('restoreConfirmModal').style.display = 'flex';
-        }
+        // Close any open modals
+        closeSnapshotModal();
 
-        /**
-         * Toggle auto-save name input visibility
-         */
-        function toggleAutoSaveInput() {
-            const checkbox = document.getElementById('autoSaveBeforeRestore');
-            const nameInput = document.getElementById('autoSaveNameInput');
-            nameInput.style.display = checkbox.checked ? 'block' : 'none';
-        }
+        // Show success message
+        const successMsg = shouldAutoSave
+            ? `✅ Đã lưu giỏ cũ và khôi phục ${snapshot.metadata.productCount} sản phẩm`
+            : `✅ Đã khôi phục ${snapshot.metadata.productCount} sản phẩm`;
 
-        /**
-         * Confirm and execute restore
-         */
-        async function confirmRestore() {
-            const shouldAutoSave = document.getElementById('autoSaveBeforeRestore').checked;
-            const autoSaveName = shouldAutoSave ? document.getElementById('autoSaveName').value.trim() : null;
+        showNotificationMessage(successMsg);
+    } catch (error) {
+        console.error('Error restoring snapshot:', error);
+        showNotificationMessage('❌ Lỗi: ' + error.message);
+    }
+}
 
-            console.log('DEBUG: confirmRestore() called');
-            console.log('DEBUG: pendingRestoreSnapshotId:', pendingRestoreSnapshotId);
-            console.log('DEBUG: shouldAutoSave:', shouldAutoSave);
-            console.log('DEBUG: autoSaveName:', autoSaveName);
+/**
+ * Delete snapshot
+ */
+async function deleteSnapshot(snapshotId) {
+    if (!confirm('⚠️ Xóa giỏ hàng đã lưu này?\n\nHành động này không thể hoàn tác.')) {
+        return;
+    }
 
-            // Validate pendingRestoreSnapshotId exists
-            if (!pendingRestoreSnapshotId) {
-                console.error('DEBUG: pendingRestoreSnapshotId is null/undefined!');
-                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng cần khôi phục');
-                closeRestoreConfirmModal();
-                return;
-            }
+    try {
+        await deleteCartSnapshot(database, currentCampaignId, snapshotId);
+        await refreshCartHistory();
+        showNotificationMessage('🗑️ Đã xóa giỏ hàng đã lưu');
+    } catch (error) {
+        console.error('Error deleting snapshot:', error);
+        showNotificationMessage('❌ Lỗi: ' + error.message);
+    }
+}
 
-            // Validate auto-save name if needed
-            if (shouldAutoSave && !autoSaveName) {
-                showNotificationMessage('⚠️ Vui lòng nhập tên cho giỏ hàng sẽ lưu');
-                return;
-            }
+/**
+ * Toggle cart history section collapse/expand
+ */
+function toggleCartHistory() {
+    const list = document.getElementById('cartHistoryList');
+    const icon = document.getElementById('cartHistoryToggleIcon');
+    const dateFilter = document.getElementById('dateFilterContainer');
 
-            // IMPORTANT: Save snapshotId to local variable BEFORE closing modal
-            // Because closeRestoreConfirmModal() sets pendingRestoreSnapshotId = null
-            const snapshotIdToRestore = pendingRestoreSnapshotId;
-            console.log('DEBUG: Saved snapshotIdToRestore:', snapshotIdToRestore);
+    if (!list || !icon) return;
 
-            // Close modal
-            closeRestoreConfirmModal();
+    const isCollapsed = list.classList.contains('collapsed');
 
-            // Perform restore with auto-save (use local variable)
-            await performRestore(snapshotIdToRestore, shouldAutoSave, autoSaveName);
-        }
+    if (isCollapsed) {
+        // Expand
+        list.classList.remove('collapsed');
+        icon.classList.add('expanded');
+        if (dateFilter) dateFilter.style.display = 'block';
+        // Save state to localStorage
+        localStorage.setItem('cartHistoryExpanded', 'true');
+    } else {
+        // Collapse
+        list.classList.add('collapsed');
+        icon.classList.remove('expanded');
+        if (dateFilter) dateFilter.style.display = 'none';
+        // Save state to localStorage
+        localStorage.setItem('cartHistoryExpanded', 'false');
+    }
+}
 
-        /**
-         * Close restore confirm modal
-         */
-        function closeRestoreConfirmModal() {
-            document.getElementById('restoreConfirmModal').style.display = 'none';
-            pendingRestoreSnapshotId = null;
-        }
+/**
+ * Initialize cart history collapse state from localStorage
+ */
+function initCartHistoryState() {
+    const list = document.getElementById('cartHistoryList');
+    const icon = document.getElementById('cartHistoryToggleIcon');
+    const dateFilter = document.getElementById('dateFilterContainer');
 
-        /**
-         * Perform the actual restore operation
-         */
-        async function performRestore(snapshotId, shouldAutoSave, autoSaveName) {
-            try {
-                // Step 1: Auto-save current cart if needed
-                if (shouldAutoSave && Object.keys(orderProducts).length > 0) {
-                    showNotificationMessage('💾 Đang lưu giỏ hàng hiện tại...');
+    if (!list || !icon) return;
 
-                    const stats = calculateCartStats(orderProducts);
-                    const currentSnapshot = {
-                        metadata: {
-                            savedAt: Date.now(),
-                            name: autoSaveName,
-                            description: '(Tự động lưu trước khi khôi phục)',
-                            productCount: stats.productCount,
-                            totalItems: stats.totalItems,
-                            visibleCount: stats.visibleCount,
-                            hiddenCount: stats.hiddenCount,
-                            soldItemsCount: stats.soldItemsCount,
-                            remainingItemsCount: stats.remainingItemsCount
-                        },
-                        products: { ...orderProducts }
-                    };
+    // Check saved state (default is collapsed)
+    const isExpanded = localStorage.getItem('cartHistoryExpanded') === 'true';
 
-                    await saveCartSnapshot(database, currentCampaignId, currentSnapshot);
-                    showNotificationMessage('✅ Đã lưu giỏ hàng hiện tại');
+    if (isExpanded) {
+        list.classList.remove('collapsed');
+        icon.classList.add('expanded');
+        if (dateFilter) dateFilter.style.display = 'block';
+    } else {
+        list.classList.add('collapsed');
+        icon.classList.remove('expanded');
+        if (dateFilter) dateFilter.style.display = 'none';
+    }
+}
 
-                    // Refresh history to show the new snapshot
-                    await refreshCartHistory();
-                }
+function logoutUser() {
+    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+        // Clear all auth data
+        localStorage.removeItem('bearerToken');
+        localStorage.removeItem('tokenExpiry');
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('loginindex_auth');
 
-                // Step 2: Load snapshot to restore
-                showNotificationMessage('🔄 Đang tải giỏ hàng...');
+        // Redirect to home page
+        window.location.href = 'https://nhijudyshop.github.io/n2store/';
+    }
+}
 
-                console.log('DEBUG: Restoring snapshot ID:', snapshotId);
-                const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
-                console.log('DEBUG: Snapshot loaded:', snapshot);
+function removeVietnameseTones(str) {
+    if (!str) return '';
+    str = str.toLowerCase();
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+    str = str.replace(/đ/g, 'd');
+    return str;
+}
 
-                if (!snapshot) {
-                    console.error('DEBUG: Snapshot is null or undefined');
-                    showNotificationMessage('❌ Không tìm thấy giỏ hàng');
-                    return;
-                }
+// --- Product search via Render DB (WarehouseAPI) ---
+let _searchDebounceTimer = null;
 
-                if (!snapshot.products) {
-                    console.error('DEBUG: Snapshot.products is missing. Snapshot structure:', snapshot);
-                    showNotificationMessage('❌ Dữ liệu giỏ hàng không hợp lệ (thiếu products)');
-                    return;
-                }
+async function searchProductsFromAPI(searchText) {
+    if (!searchText || searchText.length < 1) return [];
+    const rows = await WarehouseAPI.search(searchText, 10);
+    return rows.map((row) => WarehouseAPI.toSearchSuggestion(row));
+}
 
-                const productCount = Object.keys(snapshot.products).length;
-                if (productCount === 0) {
-                    console.error('DEBUG: Snapshot.products is empty');
-                    showNotificationMessage('❌ Giỏ hàng không có sản phẩm');
-                    return;
-                }
+function debouncedSearch(searchText, callback, delay = 300) {
+    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(async () => {
+        const results = await searchProductsFromAPI(searchText);
+        callback(results);
+    }, delay);
+}
 
-                console.log('DEBUG: Snapshot has', productCount, 'products');
+function displaySuggestions(suggestions) {
+    const suggestionsDiv = document.getElementById('suggestions');
 
-                // Step 3: Clear current products
-                showNotificationMessage('🗑️ Đang xóa giỏ hàng hiện tại...');
-                await clearAllProducts(database, currentCampaignId, orderProducts);
+    if (suggestions.length === 0) {
+        suggestionsDiv.classList.remove('show');
+        return;
+    }
 
-                // Step 4: Restore products from snapshot
-                showNotificationMessage('♻️ Đang khôi phục sản phẩm...');
-                await restoreProductsFromSnapshot(database, currentCampaignId, snapshot.products, orderProducts);
-
-                // Step 5: Update UI
-                updateProductListPreview();
-
-                // Close any open modals
-                closeSnapshotModal();
-
-                // Show success message
-                const successMsg = shouldAutoSave
-                    ? `✅ Đã lưu giỏ cũ và khôi phục ${snapshot.metadata.productCount} sản phẩm`
-                    : `✅ Đã khôi phục ${snapshot.metadata.productCount} sản phẩm`;
-
-                showNotificationMessage(successMsg);
-
-            } catch (error) {
-                console.error('Error restoring snapshot:', error);
-                showNotificationMessage('❌ Lỗi: ' + error.message);
-            }
-        }
-
-        /**
-         * Delete snapshot
-         */
-        async function deleteSnapshot(snapshotId) {
-            if (!confirm('⚠️ Xóa giỏ hàng đã lưu này?\n\nHành động này không thể hoàn tác.')) {
-                return;
-            }
-
-            try {
-                await deleteCartSnapshot(database, currentCampaignId, snapshotId);
-                await refreshCartHistory();
-                showNotificationMessage('🗑️ Đã xóa giỏ hàng đã lưu');
-
-            } catch (error) {
-                console.error('Error deleting snapshot:', error);
-                showNotificationMessage('❌ Lỗi: ' + error.message);
-            }
-        }
-
-        /**
-         * Toggle cart history section collapse/expand
-         */
-        function toggleCartHistory() {
-            const list = document.getElementById('cartHistoryList');
-            const icon = document.getElementById('cartHistoryToggleIcon');
-            const dateFilter = document.getElementById('dateFilterContainer');
-
-            if (!list || !icon) return;
-
-            const isCollapsed = list.classList.contains('collapsed');
-
-            if (isCollapsed) {
-                // Expand
-                list.classList.remove('collapsed');
-                icon.classList.add('expanded');
-                if (dateFilter) dateFilter.style.display = 'block';
-                // Save state to localStorage
-                localStorage.setItem('cartHistoryExpanded', 'true');
-            } else {
-                // Collapse
-                list.classList.add('collapsed');
-                icon.classList.remove('expanded');
-                if (dateFilter) dateFilter.style.display = 'none';
-                // Save state to localStorage
-                localStorage.setItem('cartHistoryExpanded', 'false');
-            }
-        }
-
-        /**
-         * Initialize cart history collapse state from localStorage
-         */
-        function initCartHistoryState() {
-            const list = document.getElementById('cartHistoryList');
-            const icon = document.getElementById('cartHistoryToggleIcon');
-            const dateFilter = document.getElementById('dateFilterContainer');
-
-            if (!list || !icon) return;
-
-            // Check saved state (default is collapsed)
-            const isExpanded = localStorage.getItem('cartHistoryExpanded') === 'true';
-
-            if (isExpanded) {
-                list.classList.remove('collapsed');
-                icon.classList.add('expanded');
-                if (dateFilter) dateFilter.style.display = 'block';
-            } else {
-                list.classList.add('collapsed');
-                icon.classList.remove('expanded');
-                if (dateFilter) dateFilter.style.display = 'none';
-            }
-        }
-
-        function logoutUser() {
-            if (confirm('Bạn có chắc muốn đăng xuất?')) {
-                // Clear all auth data
-                localStorage.removeItem('bearerToken');
-                localStorage.removeItem('tokenExpiry');
-                sessionStorage.removeItem('loginindex_auth');
-                localStorage.removeItem('loginindex_auth');
-
-                // Redirect to home page
-                window.location.href = 'https://nhijudyshop.github.io/n2store/';
-            }
-        }
-
-        function removeVietnameseTones(str) {
-            if (!str) return '';
-            str = str.toLowerCase();
-            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
-            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
-            str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
-            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
-            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
-            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
-            str = str.replace(/đ/g, 'd');
-            return str;
-        }
-
-        // --- Product search via Render DB (WarehouseAPI) ---
-        let _searchDebounceTimer = null;
-
-        async function searchProductsFromAPI(searchText) {
-            if (!searchText || searchText.length < 1) return [];
-            const rows = await WarehouseAPI.search(searchText, 10);
-            return rows.map(row => WarehouseAPI.toSearchSuggestion(row));
-        }
-
-        function debouncedSearch(searchText, callback, delay = 300) {
-            if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
-            _searchDebounceTimer = setTimeout(async () => {
-                const results = await searchProductsFromAPI(searchText);
-                callback(results);
-            }, delay);
-        }
-
-        function displaySuggestions(suggestions) {
-            const suggestionsDiv = document.getElementById('suggestions');
-
-            if (suggestions.length === 0) {
-                suggestionsDiv.classList.remove('show');
-                return;
-            }
-
-            suggestionsDiv.innerHTML = suggestions.map(product => {
-                const imgHtml = product.image
-                    ? `<img class="suggestion-img" src="${product.image}" alt="" loading="lazy">`
-                    : `<span class="suggestion-img-empty"></span>`;
-                const qtyClass = (product.qty || 0) <= 0 ? ' suggestion-qty-zero' : '';
-                return `<div class="suggestion-item" data-id="${product.id}">
+    suggestionsDiv.innerHTML = suggestions
+        .map((product) => {
+            const imgHtml = product.image
+                ? `<img class="suggestion-img" src="${product.image}" alt="" loading="lazy">`
+                : `<span class="suggestion-img-empty"></span>`;
+            const qtyClass = (product.qty || 0) <= 0 ? ' suggestion-qty-zero' : '';
+            return `<div class="suggestion-item" data-id="${product.id}">
                     ${imgHtml}
                     <div class="suggestion-info">
                         <div class="suggestion-name"><strong>${product.code || ''}</strong> — ${product.name}</div>
@@ -920,113 +946,52 @@
                         </div>
                     </div>
                 </div>`;
-            }).join('');
+        })
+        .join('');
 
-            suggestionsDiv.classList.add('show');
+    suggestionsDiv.classList.add('show');
 
-            suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const productId = parseInt(item.dataset.id);
-                    loadProductDetails(productId);
-                    suggestionsDiv.classList.remove('show');
-                    document.getElementById('productSearch').value = '';
-                });
-            });
+    suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item) => {
+        item.addEventListener('click', () => {
+            const productId = parseInt(item.dataset.id);
+            loadProductDetails(productId);
+            suggestionsDiv.classList.remove('show');
+            document.getElementById('productSearch').value = '';
+        });
+    });
+}
+
+async function loadProductDetails(productId) {
+    try {
+        // Fetch product + variants from Render DB (replaces 2 TPOS OData calls)
+        const result = await WarehouseAPI.getProductAsTpos(productId);
+
+        if (!result || !result.product) {
+            throw new Error('Không tìm thấy sản phẩm');
         }
 
-        async function loadProductDetails(productId) {
-            try {
-                // Fetch product + variants from Render DB (replaces 2 TPOS OData calls)
-                const result = await WarehouseAPI.getProductAsTpos(productId);
+        const productData = result.product;
+        const imageUrl = productData.imageUrl || productData.ImageUrl || '';
 
-                if (!result || !result.product) {
-                    throw new Error('Không tìm thấy sản phẩm');
-                }
+        // Check if auto-add variants is enabled and variants exist
+        if (autoAddVariants && result.variants && result.variants.length > 0) {
+            // Filter only active variants (Active === true)
+            const activeVariants = result.variants.filter((v) => v.Active === true);
 
-                const productData = result.product;
-                const imageUrl = productData.imageUrl || productData.ImageUrl || '';
+            // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
+            const sortedVariants = sortVariants(activeVariants);
 
-                // Check if auto-add variants is enabled and variants exist
-                if (autoAddVariants && result.variants && result.variants.length > 0) {
-                    // Filter only active variants (Active === true)
-                    const activeVariants = result.variants.filter(v => v.Active === true);
-
-                    // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
-                    const sortedVariants = sortVariants(activeVariants);
-
-                    // Check if there are active variants after filtering
-                    if (sortedVariants.length === 0) {
-                        // No active variants, fallback to single product
-                        const tposQty = productData.QtyAvailable || 0;
-                        const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
-                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
-                        const addSuccess = await addProductToList({
-                            Id: productData.Id,
-                            NameGet: productData.NameGet,
-                            QtyAvailable: qtyAvailable,
-                            ProductTmplId: productData.ProductTmplId,
-                            ListPrice: productData.ListPrice || 0,
-                            PriceVariant: productData.PriceVariant || 0,
-                            imageUrl: imageUrl,
-                            soldQty: 0,
-                            remainingQty: 0
-                        }, true);
-
-                        if (addSuccess) {
-                            document.getElementById('productSearch').value = '';
-                        }
-                        return;
-                    }
-
-                    // Prepare all variants for batch add
-                    const variantsToAdd = sortedVariants.map(variant => {
-                        const tposQty = variant.QtyAvailable || 0;
-                        const userInput = prompt(`Nhập số lượng tồn kho cho ${variant.NameGet}:`, tposQty);
-                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
-                        const variantImageUrl = variant.imageUrl || variant.ImageUrl || imageUrl;
-
-                        return cleanProductForFirebase({
-                            Id: variant.Id,
-                            NameGet: variant.NameGet,
-                            QtyAvailable: qtyAvailable,
-                            ProductTmplId: productData.ProductTmplId,
-                            ListPrice: variant.ListPrice || 0,
-                            PriceVariant: variant.PriceVariant || 0,
-                            imageUrl: variantImageUrl,
-                            soldQty: 0,
-                            remainingQty: 0,
-                            isHidden: false
-                        });
-                    });
-
-                    // Use batch add helper (only variants, no main product)
-                    try {
-                        const batchResult = await addProductsToFirebase(database, currentCampaignId, variantsToAdd, orderProducts);
-
-                        updateProductListPreview();
-
-                        const totalAdded = batchResult.added;
-                        const totalUpdated = batchResult.updated;
-
-                        if (totalAdded > 0 && totalUpdated > 0) {
-                            showNotificationMessage(`Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else if (totalUpdated > 0) {
-                            showNotificationMessage(`Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else if (totalAdded > 0) {
-                            showNotificationMessage(`Đã thêm ${totalAdded} biến thể sản phẩm`);
-                        }
-
-                        document.getElementById('productSearch').value = '';
-                    } catch (error) {
-                        console.error('Error saving variants to Firebase:', error);
-                        showNotificationMessage('Lỗi đồng bộ Firebase: ' + error.message);
-                    }
-                } else {
-                    // Add single product (original behavior)
-                    const tposQty = productData.QtyAvailable || 0;
-                    const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
-                    const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
-                    const addSuccess = addProductToList({
+            // Check if there are active variants after filtering
+            if (sortedVariants.length === 0) {
+                // No active variants, fallback to single product
+                const tposQty = productData.QtyAvailable || 0;
+                const userInput = prompt(
+                    `Nhập số lượng tồn kho cho ${productData.NameGet}:`,
+                    tposQty
+                );
+                const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                const addSuccess = await addProductToList(
+                    {
                         Id: productData.Id,
                         NameGet: productData.NameGet,
                         QtyAvailable: qtyAvailable,
@@ -1035,121 +1000,209 @@
                         PriceVariant: productData.PriceVariant || 0,
                         imageUrl: imageUrl,
                         soldQty: 0,
-                        remainingQty: qtyAvailable
-                    }, true);
+                        remainingQty: 0,
+                    },
+                    true
+                );
 
-                    if (addSuccess) {
-                        document.getElementById('productSearch').value = '';
-                    }
+                if (addSuccess) {
+                    document.getElementById('productSearch').value = '';
                 }
-            } catch (error) {
-                console.error('Error loading product:', error);
-                showNotificationMessage('Lỗi: ' + error.message);
+                return;
             }
-        }
 
-        async function addProductToList(product, showNotification = true) {
-            if (!currentCampaignId) {
-                showNotificationMessage('⚠️ Vui lòng chọn đợt live trước khi thêm sản phẩm');
-                return false;
-            }
+            // Prepare all variants for batch add
+            const variantsToAdd = sortedVariants.map((variant) => {
+                const tposQty = variant.QtyAvailable || 0;
+                const userInput = prompt(`Nhập số lượng tồn kho cho ${variant.NameGet}:`, tposQty);
+                const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                const variantImageUrl = variant.imageUrl || variant.ImageUrl || imageUrl;
+
+                return cleanProductForFirebase({
+                    Id: variant.Id,
+                    NameGet: variant.NameGet,
+                    QtyAvailable: qtyAvailable,
+                    ProductTmplId: productData.ProductTmplId,
+                    ListPrice: variant.ListPrice || 0,
+                    PriceVariant: variant.PriceVariant || 0,
+                    imageUrl: variantImageUrl,
+                    soldQty: 0,
+                    remainingQty: 0,
+                    isHidden: false,
+                });
+            });
+
+            // Use batch add helper (only variants, no main product)
             try {
-                const cleanProduct = cleanProductForFirebase(product);
-
-                if (!isSyncingFromFirebase) {
-                    const result = await addProductToFirebase(database, currentCampaignId, cleanProduct, orderProducts);
-
-                    if (showNotification) {
-                        if (result.action === 'updated') {
-                            showNotificationMessage('🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)');
-                        } else {
-                            showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
-                        }
-                    }
-                } else {
-                    // During sync from Firebase, just add to local object
-                    const productKey = `product_${cleanProduct.Id}`;
-                    const existingProduct = orderProducts[productKey];
-
-                    if (existingProduct) {
-                        orderProducts[productKey] = {
-                            ...cleanProduct,
-                            soldQty: existingProduct.soldQty || 0,
-                            remainingQty: existingProduct.remainingQty || cleanProduct.remainingQty || 0,
-                            addedAt: existingProduct.addedAt || cleanProduct.addedAt,
-                            lastRefreshed: Date.now()
-                        };
-                    } else {
-                        orderProducts[productKey] = cleanProduct;
-                    }
-                }
+                const batchResult = await addProductsToFirebase(
+                    database,
+                    currentCampaignId,
+                    variantsToAdd,
+                    orderProducts
+                );
 
                 updateProductListPreview();
 
-                return true;
+                const totalAdded = batchResult.added;
+                const totalUpdated = batchResult.updated;
+
+                if (totalAdded > 0 && totalUpdated > 0) {
+                    showNotificationMessage(
+                        `Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`
+                    );
+                } else if (totalUpdated > 0) {
+                    showNotificationMessage(
+                        `Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`
+                    );
+                } else if (totalAdded > 0) {
+                    showNotificationMessage(`Đã thêm ${totalAdded} biến thể sản phẩm`);
+                }
+
+                document.getElementById('productSearch').value = '';
             } catch (error) {
-                console.error('❌ Lỗi thêm sản phẩm:', error);
-                showNotificationMessage('❌ Lỗi: ' + error.message);
-                return false;
+                console.error('Error saving variants to Firebase:', error);
+                showNotificationMessage('Lỗi đồng bộ Firebase: ' + error.message);
+            }
+        } else {
+            // Add single product (original behavior)
+            const tposQty = productData.QtyAvailable || 0;
+            const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
+            const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+            const addSuccess = addProductToList(
+                {
+                    Id: productData.Id,
+                    NameGet: productData.NameGet,
+                    QtyAvailable: qtyAvailable,
+                    ProductTmplId: productData.ProductTmplId,
+                    ListPrice: productData.ListPrice || 0,
+                    PriceVariant: productData.PriceVariant || 0,
+                    imageUrl: imageUrl,
+                    soldQty: 0,
+                    remainingQty: qtyAvailable,
+                },
+                true
+            );
+
+            if (addSuccess) {
+                document.getElementById('productSearch').value = '';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading product:', error);
+        showNotificationMessage('Lỗi: ' + error.message);
+    }
+}
+
+async function addProductToList(product, showNotification = true) {
+    if (!currentCampaignId) {
+        showNotificationMessage('⚠️ Vui lòng chọn đợt live trước khi thêm sản phẩm');
+        return false;
+    }
+    try {
+        const cleanProduct = cleanProductForFirebase(product);
+
+        if (!isSyncingFromFirebase) {
+            const result = await addProductToFirebase(
+                database,
+                currentCampaignId,
+                cleanProduct,
+                orderProducts
+            );
+
+            if (showNotification) {
+                if (result.action === 'updated') {
+                    showNotificationMessage(
+                        '🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)'
+                    );
+                } else {
+                    showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
+                }
+            }
+        } else {
+            // During sync from Firebase, just add to local object
+            const productKey = `product_${cleanProduct.Id}`;
+            const existingProduct = orderProducts[productKey];
+
+            if (existingProduct) {
+                orderProducts[productKey] = {
+                    ...cleanProduct,
+                    soldQty: existingProduct.soldQty || 0,
+                    remainingQty: existingProduct.remainingQty || cleanProduct.remainingQty || 0,
+                    addedAt: existingProduct.addedAt || cleanProduct.addedAt,
+                    lastRefreshed: Date.now(),
+                };
+            } else {
+                orderProducts[productKey] = cleanProduct;
             }
         }
 
-        function updateProductListPreview() {
-            const productListSection = document.getElementById('productListSection');
-            const productListPreview = document.getElementById('productListPreview');
-            const productCount = document.getElementById('productCount');
+        updateProductListPreview();
 
-            // Filter visible (not hidden) products
-            const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
+        return true;
+    } catch (error) {
+        console.error('❌ Lỗi thêm sản phẩm:', error);
+        showNotificationMessage('❌ Lỗi: ' + error.message);
+        return false;
+    }
+}
 
-            if (visibleProducts.length === 0) {
-                productListSection.style.display = 'none';
-            } else {
-                productListSection.style.display = 'block';
-            }
+function updateProductListPreview() {
+    const productListSection = document.getElementById('productListSection');
+    const productListPreview = document.getElementById('productListPreview');
+    const productCount = document.getElementById('productCount');
 
-            // Use filtered products if searching, otherwise use all visible products
-            const productsToDisplay = listSearchKeyword ? filteredProductsInList : visibleProducts;
+    // Filter visible (not hidden) products
+    const visibleProducts = Object.values(orderProducts).filter((p) => !p.isHidden);
 
-            productCount.textContent = listSearchKeyword
-                ? `${productsToDisplay.length}/${visibleProducts.length}`
-                : visibleProducts.length;
+    if (visibleProducts.length === 0) {
+        productListSection.style.display = 'none';
+    } else {
+        productListSection.style.display = 'block';
+    }
 
-            // Group products by ProductTmplId to keep variants together
-            const groupedProducts = {};
-            productsToDisplay.forEach(product => {
-                const tmplId = product.ProductTmplId || product.Id;
-                if (!groupedProducts[tmplId]) {
-                    groupedProducts[tmplId] = {
-                        products: [],
-                        maxAddedAt: 0
-                    };
-                }
-                groupedProducts[tmplId].products.push(product);
-                // Track latest addedAt for sorting groups
-                groupedProducts[tmplId].maxAddedAt = Math.max(
-                    groupedProducts[tmplId].maxAddedAt,
-                    product.addedAt || 0
-                );
-            });
+    // Use filtered products if searching, otherwise use all visible products
+    const productsToDisplay = listSearchKeyword ? filteredProductsInList : visibleProducts;
 
-            // Sort each group's variants, then sort groups by addedAt (recent first)
-            const sortedGroups = Object.values(groupedProducts)
-                .map(group => ({
-                    products: sortVariants(group.products),
-                    maxAddedAt: group.maxAddedAt
-                }))
-                .sort((a, b) => b.maxAddedAt - a.maxAddedAt);
+    productCount.textContent = listSearchKeyword
+        ? `${productsToDisplay.length}/${visibleProducts.length}`
+        : visibleProducts.length;
 
-            // Flatten groups to get final sorted product list
-            const recentProducts = sortedGroups.flatMap(group => group.products);
+    // Group products by ProductTmplId to keep variants together
+    const groupedProducts = {};
+    productsToDisplay.forEach((product) => {
+        const tmplId = product.ProductTmplId || product.Id;
+        if (!groupedProducts[tmplId]) {
+            groupedProducts[tmplId] = {
+                products: [],
+                maxAddedAt: 0,
+            };
+        }
+        groupedProducts[tmplId].products.push(product);
+        // Track latest addedAt for sorting groups
+        groupedProducts[tmplId].maxAddedAt = Math.max(
+            groupedProducts[tmplId].maxAddedAt,
+            product.addedAt || 0
+        );
+    });
 
-            productListPreview.innerHTML = recentProducts.map(product => {
-                const imageHtml = product.imageUrl
-                    ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
-                    : `<div class="preview-image no-image">📦</div>`;
+    // Sort each group's variants, then sort groups by addedAt (recent first)
+    const sortedGroups = Object.values(groupedProducts)
+        .map((group) => ({
+            products: sortVariants(group.products),
+            maxAddedAt: group.maxAddedAt,
+        }))
+        .sort((a, b) => b.maxAddedAt - a.maxAddedAt);
 
-                return `
+    // Flatten groups to get final sorted product list
+    const recentProducts = sortedGroups.flatMap((group) => group.products);
+
+    productListPreview.innerHTML = recentProducts
+        .map((product) => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                : `<div class="preview-image no-image">📦</div>`;
+
+            return `
                     <div class="preview-item">
                         ${imageHtml}
                         <div class="preview-info">
@@ -1170,42 +1223,44 @@
                         </div>
                     </div>
                 `;
-            }).join('');
+        })
+        .join('');
 
-            // Update hidden products list
-            updateHiddenProductListPreview();
-        }
+    // Update hidden products list
+    updateHiddenProductListPreview();
+}
 
-        function updateHiddenProductListPreview() {
-            const hiddenProductsSection = document.getElementById('hiddenProductsSection');
-            const hiddenProductListPreview = document.getElementById('hiddenProductListPreview');
-            const hiddenProductCount = document.getElementById('hiddenProductCount');
+function updateHiddenProductListPreview() {
+    const hiddenProductsSection = document.getElementById('hiddenProductsSection');
+    const hiddenProductListPreview = document.getElementById('hiddenProductListPreview');
+    const hiddenProductCount = document.getElementById('hiddenProductCount');
 
-            // Filter hidden products
-            const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden);
+    // Filter hidden products
+    const hiddenProducts = Object.values(orderProducts).filter((p) => p.isHidden);
 
-            if (hiddenProducts.length === 0) {
-                hiddenProductsSection.style.display = 'none';
-                return;
-            }
+    if (hiddenProducts.length === 0) {
+        hiddenProductsSection.style.display = 'none';
+        return;
+    }
 
-            hiddenProductsSection.style.display = 'block';
+    hiddenProductsSection.style.display = 'block';
 
-            // Use filtered products if searching, otherwise use all hidden products
-            const productsToDisplay = hiddenListSearchKeyword ? filteredHiddenProducts : hiddenProducts;
+    // Use filtered products if searching, otherwise use all hidden products
+    const productsToDisplay = hiddenListSearchKeyword ? filteredHiddenProducts : hiddenProducts;
 
-            hiddenProductCount.textContent = hiddenListSearchKeyword
-                ? `${productsToDisplay.length}/${hiddenProducts.length}`
-                : hiddenProducts.length;
+    hiddenProductCount.textContent = hiddenListSearchKeyword
+        ? `${productsToDisplay.length}/${hiddenProducts.length}`
+        : hiddenProducts.length;
 
-            const recentProducts = [...productsToDisplay].reverse();
+    const recentProducts = [...productsToDisplay].reverse();
 
-            hiddenProductListPreview.innerHTML = recentProducts.map(product => {
-                const imageHtml = product.imageUrl
-                    ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
-                    : `<div class="preview-image no-image">📦</div>`;
+    hiddenProductListPreview.innerHTML = recentProducts
+        .map((product) => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                : `<div class="preview-image no-image">📦</div>`;
 
-                return `
+            return `
                     <div class="preview-item">
                         ${imageHtml}
                         <div class="preview-info">
@@ -1227,685 +1282,711 @@
                         </div>
                     </div>
                 `;
-            }).join('');
+        })
+        .join('');
+}
+
+async function unhideProduct(productId) {
+    if (!isSyncingFromFirebase) {
+        try {
+            await updateProductVisibility(
+                database,
+                currentCampaignId,
+                productId,
+                false,
+                orderProducts
+            );
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+            showNotificationMessage('👁️ Đã hiện sản phẩm');
+        } catch (error) {
+            console.error('❌ Lỗi hiện sản phẩm:', error);
         }
+    }
+}
 
-        async function unhideProduct(productId) {
-            if (!isSyncingFromFirebase) {
-                try {
-                    await updateProductVisibility(database, currentCampaignId, productId, false, orderProducts);
-                    updateProductListPreview();
-                    updateHiddenProductListPreview();
-                    showNotificationMessage('👁️ Đã hiện sản phẩm');
-                } catch (error) {
-                    console.error('❌ Lỗi hiện sản phẩm:', error);
-                }
-            }
+async function updateProductQty(productId, change) {
+    if (!isSyncingFromFirebase) {
+        try {
+            await updateProductQtyInFirebase(
+                database,
+                currentCampaignId,
+                productId,
+                change,
+                orderProducts
+            );
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+        } catch (error) {
+            console.error('❌ Lỗi cập nhật số lượng:', error);
         }
+    }
+}
 
-        async function updateProductQty(productId, change) {
-            if (!isSyncingFromFirebase) {
-                try {
-                    await updateProductQtyInFirebase(database, currentCampaignId, productId, change, orderProducts);
-                    updateProductListPreview();
-                    updateHiddenProductListPreview();
-                } catch (error) {
-                    console.error('❌ Lỗi cập nhật số lượng:', error);
-                }
-            }
-        }
-
-        async function updateProductTotalInput(productId, newValue) {
-            if (!isSyncingFromFirebase) {
-                try {
-                    const productKey = `product_${productId}`;
-                    const product = orderProducts[productKey];
-                    if (!product) return;
-
-                    const newQtyAvailable = Math.max(0, parseInt(newValue) || 0);
-                    if (newQtyAvailable === product.QtyAvailable) return;
-
-                    product.QtyAvailable = newQtyAvailable;
-
-                    // Ensure soldQty doesn't exceed new total
-                    if (product.soldQty > product.QtyAvailable) {
-                        product.soldQty = product.QtyAvailable;
-                    }
-
-                    await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
-                        QtyAvailable: product.QtyAvailable,
-                        soldQty: product.soldQty
-                    });
-
-                    updateProductListPreview();
-                    updateHiddenProductListPreview();
-                } catch (error) {
-                    console.error('❌ Lỗi cập nhật tổng số lượng:', error);
-                }
-            }
-        }
-
-        async function updateProductOrderedInput(productId, newValue) {
-            if (!isSyncingFromFirebase) {
-                try {
-                    const productKey = `product_${productId}`;
-                    const product = orderProducts[productKey];
-                    if (!product) return;
-
-                    const newOrderedQty = Math.max(0, parseInt(newValue) || 0);
-
-                    if (newOrderedQty === product.remainingQty) return;
-
-                    // Update remainingQty independently (now represents "Đã đặt" - ordered quantity)
-                    product.remainingQty = newOrderedQty;
-
-                    await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
-                        remainingQty: product.remainingQty
-                    });
-
-                    updateProductListPreview();
-                    updateHiddenProductListPreview();
-                } catch (error) {
-                    console.error('❌ Lỗi cập nhật số lượng đã đặt:', error);
-                }
-            }
-        }
-
-        async function removeProduct(productId) {
-            if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-                try {
-                    if (!isSyncingFromFirebase) {
-                        await removeProductFromFirebase(database, currentCampaignId, productId, orderProducts);
-                    }
-
-                    // Re-apply search if active
-                    if (listSearchKeyword) {
-                        performListSearch(listSearchKeyword);
-                    } else {
-                        updateProductListPreview();
-                    }
-
-                    // Also update hidden products list
-                    if (hiddenListSearchKeyword) {
-                        performHiddenListSearch(hiddenListSearchKeyword);
-                    } else {
-                        updateHiddenProductListPreview();
-                    }
-
-                    showNotificationMessage('🗑️ Đã xóa sản phẩm');
-                } catch (error) {
-                    console.error('❌ Lỗi xóa sản phẩm:', error);
-                    showNotificationMessage('❌ Lỗi: ' + error.message);
-                }
-            }
-        }
-
-        // Image Modal State
-        let currentEditingProductId = null;
-        let currentImageData = null; // Store base64 or URL
-
-        function changeProductImage(productId) {
+async function updateProductTotalInput(productId, newValue) {
+    if (!isSyncingFromFirebase) {
+        try {
             const productKey = `product_${productId}`;
             const product = orderProducts[productKey];
-            if (!product) {
-                showNotificationMessage('❌ Không tìm thấy sản phẩm');
-                return;
+            if (!product) return;
+
+            const newQtyAvailable = Math.max(0, parseInt(newValue) || 0);
+            if (newQtyAvailable === product.QtyAvailable) return;
+
+            product.QtyAvailable = newQtyAvailable;
+
+            // Ensure soldQty doesn't exceed new total
+            if (product.soldQty > product.QtyAvailable) {
+                product.soldQty = product.QtyAvailable;
             }
 
-            currentEditingProductId = productId;
-            currentImageData = null;
-
-            // Pre-fill link input if product has existing image
-            const linkInput = document.getElementById('linkInput');
-            if (linkInput && product.imageUrl) {
-                linkInput.value = product.imageUrl;
-                handleLinkInput({ target: linkInput });
-            }
-
-            // Open modal
-            const modal = document.getElementById('imageModalOverlay');
-            modal.classList.add('show');
-
-            // Focus on paste area by default
-            setTimeout(() => {
-                document.getElementById('pasteArea').focus();
-            }, 100);
-        }
-
-        function closeImageModal() {
-            const modal = document.getElementById('imageModalOverlay');
-            modal.classList.remove('show');
-
-            // Reset state
-            currentEditingProductId = null;
-            currentImageData = null;
-
-            // Reset all tabs
-            resetPasteTab();
-            resetUploadTab();
-            resetCameraTab();
-            resetLinkTab();
-
-            // Switch back to paste tab
-            switchImageTab('paste');
-        }
-
-        function switchImageTab(tabName) {
-            // Update tab buttons
-            const tabs = document.querySelectorAll('.image-modal-tab');
-            tabs.forEach(tab => tab.classList.remove('active'));
-
-            // Update tab contents
-            const contents = document.querySelectorAll('.image-modal-content');
-            contents.forEach(content => content.classList.remove('active'));
-
-            // Activate selected tab
-            if (tabName === 'paste') {
-                tabs[0].classList.add('active');
-                document.getElementById('pasteTab').classList.add('active');
-            } else if (tabName === 'upload') {
-                tabs[1].classList.add('active');
-                document.getElementById('uploadTab').classList.add('active');
-            } else if (tabName === 'camera') {
-                tabs[2].classList.add('active');
-                document.getElementById('cameraTab').classList.add('active');
-            } else if (tabName === 'link') {
-                tabs[3].classList.add('active');
-                document.getElementById('linkTab').classList.add('active');
-            }
-        }
-
-        function resetPasteTab() {
-            const pasteArea = document.getElementById('pasteArea');
-            const pastePreview = document.getElementById('pastePreview');
-            pasteArea.classList.remove('has-image');
-            pastePreview.classList.remove('show');
-            pastePreview.src = '';
-        }
-
-        function resetUploadTab() {
-            const uploadArea = document.getElementById('fileUploadArea');
-            const uploadPreview = document.getElementById('uploadPreview');
-            const fileInput = document.getElementById('fileUploadInput');
-            uploadArea.classList.remove('has-image');
-            uploadPreview.classList.remove('show');
-            uploadPreview.src = '';
-            fileInput.value = '';
-        }
-
-        function resetLinkTab() {
-            const linkInput = document.getElementById('linkInput');
-            const linkPreviewContainer = document.getElementById('linkPreviewContainer');
-            const linkPreviewImage = document.getElementById('linkPreviewImage');
-            linkInput.value = '';
-            linkPreviewContainer.classList.remove('show');
-            linkPreviewImage.src = '';
-        }
-
-        function resetCameraTab() {
-            stopCamera();
-            const cameraPreview = document.getElementById('cameraPreview');
-            cameraPreview.classList.remove('show');
-            cameraPreview.src = '';
-        }
-
-        // Camera functionality
-        let cameraStream = null;
-        let currentFacingMode = 'environment'; // 'user' for front, 'environment' for back
-
-        async function startCamera() {
-            try {
-                // Request camera permission
-                const constraints = {
-                    video: {
-                        facingMode: currentFacingMode,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
-                };
-
-                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-                // Set video source
-                const video = document.getElementById('cameraVideo');
-                video.srcObject = cameraStream;
-
-                // Show video, hide message
-                const cameraMessage = document.getElementById('cameraMessage');
-                cameraMessage.style.display = 'none';
-                video.style.display = 'block';
-
-                // Update button visibility
-                document.getElementById('btnStartCamera').style.display = 'none';
-                document.getElementById('btnSwitchCamera').style.display = 'flex';
-                document.getElementById('btnCapturePhoto').style.display = 'flex';
-                document.getElementById('btnStopCamera').style.display = 'flex';
-
-                showNotificationMessage('✅ Đã bật camera');
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                showNotificationMessage('❌ Không thể truy cập camera: ' + error.message);
-            }
-        }
-
-        function stopCamera() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-
-                const video = document.getElementById('cameraVideo');
-                const cameraMessage = document.getElementById('cameraMessage');
-
-                video.style.display = 'none';
-                cameraMessage.style.display = 'flex';
-
-                // Update button visibility
-                document.getElementById('btnStartCamera').style.display = 'flex';
-                document.getElementById('btnSwitchCamera').style.display = 'none';
-                document.getElementById('btnCapturePhoto').style.display = 'none';
-                document.getElementById('btnStopCamera').style.display = 'none';
-            }
-        }
-
-        async function switchCamera() {
-            // Toggle facing mode
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-
-            // Restart camera with new facing mode
-            stopCamera();
-            await startCamera();
-        }
-
-        function capturePhoto() {
-            const video = document.getElementById('cameraVideo');
-            const canvas = document.getElementById('cameraCanvas');
-            const preview = document.getElementById('cameraPreview');
-
-            // Set canvas dimensions to match video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // Draw video frame to canvas
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Convert to base64
-            const base64 = canvas.toDataURL('image/jpeg', 0.9);
-            currentImageData = base64;
-
-            // Show preview
-            preview.src = base64;
-            preview.classList.add('show');
-
-            // Stop camera after capture
-            stopCamera();
-
-            showNotificationMessage('📸 Đã chụp ảnh thành công');
-        }
-
-        // Paste Image Handler
-        function focusPasteArea() {
-            const pasteArea = document.getElementById('pasteArea');
-            pasteArea.focus();
-        }
-
-        // Listen for paste events in the modal
-        document.addEventListener('DOMContentLoaded', () => {
-            const modal = document.getElementById('imageModalOverlay');
-
-            modal.addEventListener('paste', (e) => {
-                // Only handle if modal is open and paste tab is active
-                const isModalOpen = modal.classList.contains('show');
-                const isPasteTabActive = document.getElementById('pasteTab').classList.contains('active');
-
-                if (!isModalOpen || !isPasteTabActive) return;
-
-                handlePaste(e);
+            await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
+                QtyAvailable: product.QtyAvailable,
+                soldQty: product.soldQty,
             });
-        });
 
-        function handlePaste(e) {
-            e.preventDefault();
-
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-
-            for (let item of items) {
-                if (item.type.indexOf('image') !== -1) {
-                    const blob = item.getAsFile();
-                    const reader = new FileReader();
-
-                    reader.onload = (event) => {
-                        const base64 = event.target.result;
-                        currentImageData = base64;
-
-                        // Show preview
-                        const pastePreview = document.getElementById('pastePreview');
-                        const pasteArea = document.getElementById('pasteArea');
-
-                        pastePreview.src = base64;
-                        pastePreview.classList.add('show');
-                        pasteArea.classList.add('has-image');
-
-                        showNotificationMessage('✅ Đã paste ảnh thành công');
-                    };
-
-                    reader.readAsDataURL(blob);
-                    return;
-                }
-            }
-
-            showNotificationMessage('⚠️ Không tìm thấy ảnh trong clipboard');
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+        } catch (error) {
+            console.error('❌ Lỗi cập nhật tổng số lượng:', error);
         }
+    }
+}
 
-        // Upload File Handler
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+async function updateProductOrderedInput(productId, newValue) {
+    if (!isSyncingFromFirebase) {
+        try {
+            const productKey = `product_${productId}`;
+            const product = orderProducts[productKey];
+            if (!product) return;
 
-            if (!file.type.startsWith('image/')) {
-                showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
-                return;
+            const newOrderedQty = Math.max(0, parseInt(newValue) || 0);
+
+            if (newOrderedQty === product.remainingQty) return;
+
+            // Update remainingQty independently (now represents "Đã đặt" - ordered quantity)
+            product.remainingQty = newOrderedQty;
+
+            await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
+                remainingQty: product.remainingQty,
+            });
+
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+        } catch (error) {
+            console.error('❌ Lỗi cập nhật số lượng đã đặt:', error);
+        }
+    }
+}
+
+async function removeProduct(productId) {
+    if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
+        try {
+            if (!isSyncingFromFirebase) {
+                await removeProductFromFirebase(
+                    database,
+                    currentCampaignId,
+                    productId,
+                    orderProducts
+                );
             }
 
+            // Re-apply search if active
+            if (listSearchKeyword) {
+                performListSearch(listSearchKeyword);
+            } else {
+                updateProductListPreview();
+            }
+
+            // Also update hidden products list
+            if (hiddenListSearchKeyword) {
+                performHiddenListSearch(hiddenListSearchKeyword);
+            } else {
+                updateHiddenProductListPreview();
+            }
+
+            showNotificationMessage('🗑️ Đã xóa sản phẩm');
+        } catch (error) {
+            console.error('❌ Lỗi xóa sản phẩm:', error);
+            showNotificationMessage('❌ Lỗi: ' + error.message);
+        }
+    }
+}
+
+// Image Modal State
+let currentEditingProductId = null;
+let currentImageData = null; // Store base64 or URL
+
+function changeProductImage(productId) {
+    const productKey = `product_${productId}`;
+    const product = orderProducts[productKey];
+    if (!product) {
+        showNotificationMessage('❌ Không tìm thấy sản phẩm');
+        return;
+    }
+
+    currentEditingProductId = productId;
+    currentImageData = null;
+
+    // Pre-fill link input if product has existing image
+    const linkInput = document.getElementById('linkInput');
+    if (linkInput && product.imageUrl) {
+        linkInput.value = product.imageUrl;
+        handleLinkInput({ target: linkInput });
+    }
+
+    // Open modal
+    const modal = document.getElementById('imageModalOverlay');
+    modal.classList.add('show');
+
+    // Focus on paste area by default
+    setTimeout(() => {
+        document.getElementById('pasteArea').focus();
+    }, 100);
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('imageModalOverlay');
+    modal.classList.remove('show');
+
+    // Reset state
+    currentEditingProductId = null;
+    currentImageData = null;
+
+    // Reset all tabs
+    resetPasteTab();
+    resetUploadTab();
+    resetCameraTab();
+    resetLinkTab();
+
+    // Switch back to paste tab
+    switchImageTab('paste');
+}
+
+function switchImageTab(tabName) {
+    // Update tab buttons
+    const tabs = document.querySelectorAll('.image-modal-tab');
+    tabs.forEach((tab) => tab.classList.remove('active'));
+
+    // Update tab contents
+    const contents = document.querySelectorAll('.image-modal-content');
+    contents.forEach((content) => content.classList.remove('active'));
+
+    // Activate selected tab
+    if (tabName === 'paste') {
+        tabs[0].classList.add('active');
+        document.getElementById('pasteTab').classList.add('active');
+    } else if (tabName === 'upload') {
+        tabs[1].classList.add('active');
+        document.getElementById('uploadTab').classList.add('active');
+    } else if (tabName === 'camera') {
+        tabs[2].classList.add('active');
+        document.getElementById('cameraTab').classList.add('active');
+    } else if (tabName === 'link') {
+        tabs[3].classList.add('active');
+        document.getElementById('linkTab').classList.add('active');
+    }
+}
+
+function resetPasteTab() {
+    const pasteArea = document.getElementById('pasteArea');
+    const pastePreview = document.getElementById('pastePreview');
+    pasteArea.classList.remove('has-image');
+    pastePreview.classList.remove('show');
+    pastePreview.src = '';
+}
+
+function resetUploadTab() {
+    const uploadArea = document.getElementById('fileUploadArea');
+    const uploadPreview = document.getElementById('uploadPreview');
+    const fileInput = document.getElementById('fileUploadInput');
+    uploadArea.classList.remove('has-image');
+    uploadPreview.classList.remove('show');
+    uploadPreview.src = '';
+    fileInput.value = '';
+}
+
+function resetLinkTab() {
+    const linkInput = document.getElementById('linkInput');
+    const linkPreviewContainer = document.getElementById('linkPreviewContainer');
+    const linkPreviewImage = document.getElementById('linkPreviewImage');
+    linkInput.value = '';
+    linkPreviewContainer.classList.remove('show');
+    linkPreviewImage.src = '';
+}
+
+function resetCameraTab() {
+    stopCamera();
+    const cameraPreview = document.getElementById('cameraPreview');
+    cameraPreview.classList.remove('show');
+    cameraPreview.src = '';
+}
+
+// Camera functionality
+let cameraStream = null;
+let currentFacingMode = 'environment'; // 'user' for front, 'environment' for back
+
+async function startCamera() {
+    try {
+        // Request camera permission
+        const constraints = {
+            video: {
+                facingMode: currentFacingMode,
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+            },
+            audio: false,
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Set video source
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = cameraStream;
+
+        // Show video, hide message
+        const cameraMessage = document.getElementById('cameraMessage');
+        cameraMessage.style.display = 'none';
+        video.style.display = 'block';
+
+        // Update button visibility
+        document.getElementById('btnStartCamera').style.display = 'none';
+        document.getElementById('btnSwitchCamera').style.display = 'flex';
+        document.getElementById('btnCapturePhoto').style.display = 'flex';
+        document.getElementById('btnStopCamera').style.display = 'flex';
+
+        showNotificationMessage('✅ Đã bật camera');
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        showNotificationMessage('❌ Không thể truy cập camera: ' + error.message);
+    }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+
+        const video = document.getElementById('cameraVideo');
+        const cameraMessage = document.getElementById('cameraMessage');
+
+        video.style.display = 'none';
+        cameraMessage.style.display = 'flex';
+
+        // Update button visibility
+        document.getElementById('btnStartCamera').style.display = 'flex';
+        document.getElementById('btnSwitchCamera').style.display = 'none';
+        document.getElementById('btnCapturePhoto').style.display = 'none';
+        document.getElementById('btnStopCamera').style.display = 'none';
+    }
+}
+
+async function switchCamera() {
+    // Toggle facing mode
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+    // Restart camera with new facing mode
+    stopCamera();
+    await startCamera();
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    const preview = document.getElementById('cameraPreview');
+
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw video frame to canvas
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert to base64
+    const base64 = canvas.toDataURL('image/jpeg', 0.9);
+    currentImageData = base64;
+
+    // Show preview
+    preview.src = base64;
+    preview.classList.add('show');
+
+    // Stop camera after capture
+    stopCamera();
+
+    showNotificationMessage('📸 Đã chụp ảnh thành công');
+}
+
+// Paste Image Handler
+function focusPasteArea() {
+    const pasteArea = document.getElementById('pasteArea');
+    pasteArea.focus();
+}
+
+// Listen for paste events in the modal
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('imageModalOverlay');
+
+    modal.addEventListener('paste', (e) => {
+        // Only handle if modal is open and paste tab is active
+        const isModalOpen = modal.classList.contains('show');
+        const isPasteTabActive = document.getElementById('pasteTab').classList.contains('active');
+
+        if (!isModalOpen || !isPasteTabActive) return;
+
+        handlePaste(e);
+    });
+});
+
+function handlePaste(e) {
+    e.preventDefault();
+
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
             const reader = new FileReader();
 
-            reader.onload = (e) => {
-                const base64 = e.target.result;
+            reader.onload = (event) => {
+                const base64 = event.target.result;
                 currentImageData = base64;
 
                 // Show preview
-                const uploadPreview = document.getElementById('uploadPreview');
-                const uploadArea = document.getElementById('fileUploadArea');
+                const pastePreview = document.getElementById('pastePreview');
+                const pasteArea = document.getElementById('pasteArea');
 
-                uploadPreview.src = base64;
-                uploadPreview.classList.add('show');
-                uploadArea.classList.add('has-image');
+                pastePreview.src = base64;
+                pastePreview.classList.add('show');
+                pasteArea.classList.add('has-image');
 
-                showNotificationMessage('✅ Đã chọn file thành công');
+                showNotificationMessage('✅ Đã paste ảnh thành công');
             };
 
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(blob);
+            return;
+        }
+    }
+
+    showNotificationMessage('⚠️ Không tìm thấy ảnh trong clipboard');
+}
+
+// Upload File Handler
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+        const base64 = e.target.result;
+        currentImageData = base64;
+
+        // Show preview
+        const uploadPreview = document.getElementById('uploadPreview');
+        const uploadArea = document.getElementById('fileUploadArea');
+
+        uploadPreview.src = base64;
+        uploadPreview.classList.add('show');
+        uploadArea.classList.add('has-image');
+
+        showNotificationMessage('✅ Đã chọn file thành công');
+    };
+
+    reader.readAsDataURL(file);
+}
+
+// Drag and Drop for Upload
+document.addEventListener('DOMContentLoaded', () => {
+    const uploadArea = document.getElementById('fileUploadArea');
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
+            return;
         }
 
-        // Drag and Drop for Upload
-        document.addEventListener('DOMContentLoaded', () => {
-            const uploadArea = document.getElementById('fileUploadArea');
+        const reader = new FileReader();
 
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
-            });
-
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-
-                const file = e.dataTransfer.files[0];
-                if (!file) return;
-
-                if (!file.type.startsWith('image/')) {
-                    showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
-                    return;
-                }
-
-                const reader = new FileReader();
-
-                reader.onload = (event) => {
-                    const base64 = event.target.result;
-                    currentImageData = base64;
-
-                    // Show preview
-                    const uploadPreview = document.getElementById('uploadPreview');
-
-                    uploadPreview.src = base64;
-                    uploadPreview.classList.add('show');
-                    uploadArea.classList.add('has-image');
-
-                    showNotificationMessage('✅ Đã tải ảnh lên thành công');
-                };
-
-                reader.readAsDataURL(file);
-            });
-        });
-
-        // Link Input Handler
-        function handleLinkInput(event) {
-            const url = event.target.value.trim();
-            const linkPreviewContainer = document.getElementById('linkPreviewContainer');
-            const linkPreviewImage = document.getElementById('linkPreviewImage');
-
-            if (!url) {
-                linkPreviewContainer.classList.remove('show');
-                currentImageData = null;
-                return;
-            }
-
-            // Set current image data to URL
-            currentImageData = url;
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            currentImageData = base64;
 
             // Show preview
-            linkPreviewImage.src = url;
-            linkPreviewContainer.classList.add('show');
+            const uploadPreview = document.getElementById('uploadPreview');
 
-            // Handle image load errors
-            linkPreviewImage.onerror = () => {
-                showNotificationMessage('⚠️ Không thể tải ảnh từ URL này');
-                linkPreviewContainer.classList.remove('show');
-                currentImageData = null;
-            };
-        }
+            uploadPreview.src = base64;
+            uploadPreview.classList.add('show');
+            uploadArea.classList.add('has-image');
 
-        // Save Image Change
-        function saveImageChange() {
-            if (!currentEditingProductId) {
-                showNotificationMessage('❌ Không tìm thấy sản phẩm');
-                return;
+            showNotificationMessage('✅ Đã tải ảnh lên thành công');
+        };
+
+        reader.readAsDataURL(file);
+    });
+});
+
+// Link Input Handler
+function handleLinkInput(event) {
+    const url = event.target.value.trim();
+    const linkPreviewContainer = document.getElementById('linkPreviewContainer');
+    const linkPreviewImage = document.getElementById('linkPreviewImage');
+
+    if (!url) {
+        linkPreviewContainer.classList.remove('show');
+        currentImageData = null;
+        return;
+    }
+
+    // Set current image data to URL
+    currentImageData = url;
+
+    // Show preview
+    linkPreviewImage.src = url;
+    linkPreviewContainer.classList.add('show');
+
+    // Handle image load errors
+    linkPreviewImage.onerror = () => {
+        showNotificationMessage('⚠️ Không thể tải ảnh từ URL này');
+        linkPreviewContainer.classList.remove('show');
+        currentImageData = null;
+    };
+}
+
+// Save Image Change
+function saveImageChange() {
+    if (!currentEditingProductId) {
+        showNotificationMessage('❌ Không tìm thấy sản phẩm');
+        return;
+    }
+
+    const productKey = `product_${currentEditingProductId}`;
+    const product = orderProducts[productKey];
+    if (!product) {
+        showNotificationMessage('❌ Không tìm thấy sản phẩm');
+        return;
+    }
+
+    const newImageUrl = currentImageData || null;
+    const timestamp = Date.now();
+
+    // Update the image URL (can be null, base64, or URL)
+    product.imageUrl = newImageUrl;
+    product.lastRefreshed = timestamp;
+
+    // If product has a template (is a variant), update all products with same template
+    let updatedCount = 1;
+    const updates = {};
+    updates[`${getProductsPath(currentCampaignId)}/${productKey}/imageUrl`] = newImageUrl;
+    updates[`${getProductsPath(currentCampaignId)}/${productKey}/lastRefreshed`] = timestamp;
+
+    if (product.ProductTmplId) {
+        const templateId = product.ProductTmplId;
+
+        // Find and update all products with the same ProductTmplId (including main product and all variants)
+        Object.entries(orderProducts).forEach(([key, p]) => {
+            if (p.ProductTmplId === templateId && p.Id !== product.Id) {
+                p.imageUrl = newImageUrl;
+                p.lastRefreshed = timestamp;
+                updates[`${getProductsPath(currentCampaignId)}/${key}/imageUrl`] = newImageUrl;
+                updates[`${getProductsPath(currentCampaignId)}/${key}/lastRefreshed`] = timestamp;
+                updatedCount++;
             }
+        });
 
-            const productKey = `product_${currentEditingProductId}`;
-            const product = orderProducts[productKey];
-            if (!product) {
-                showNotificationMessage('❌ Không tìm thấy sản phẩm');
-                return;
-            }
+        console.log(`🖼️ Updated image for ${updatedCount} products with template ID ${templateId}`);
+    }
 
-            const newImageUrl = currentImageData || null;
-            const timestamp = Date.now();
-
-            // Update the image URL (can be null, base64, or URL)
-            product.imageUrl = newImageUrl;
-            product.lastRefreshed = timestamp;
-
-            // If product has a template (is a variant), update all products with same template
-            let updatedCount = 1;
-            const updates = {};
-            updates[`${getProductsPath(currentCampaignId)}/${productKey}/imageUrl`] = newImageUrl;
-            updates[`${getProductsPath(currentCampaignId)}/${productKey}/lastRefreshed`] = timestamp;
-
-            if (product.ProductTmplId) {
-                const templateId = product.ProductTmplId;
-
-                // Find and update all products with the same ProductTmplId (including main product and all variants)
-                Object.entries(orderProducts).forEach(([key, p]) => {
-                    if (p.ProductTmplId === templateId && p.Id !== product.Id) {
-                        p.imageUrl = newImageUrl;
-                        p.lastRefreshed = timestamp;
-                        updates[`${getProductsPath(currentCampaignId)}/${key}/imageUrl`] = newImageUrl;
-                        updates[`${getProductsPath(currentCampaignId)}/${key}/lastRefreshed`] = timestamp;
-                        updatedCount++;
-                    }
-                });
-
-                console.log(`🖼️ Updated image for ${updatedCount} products with template ID ${templateId}`);
-            }
-
-            // Sync to Firebase
-            if (!isSyncingFromFirebase) {
-                database.ref().update(updates).then(() => {
-                    console.log(`✅ Updated image for product ${product.NameGet}`);
-                    if (updatedCount > 1) {
-                        showNotificationMessage(`🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`);
-                    } else {
-                        showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
-                    }
-                    closeImageModal();
-                }).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                    showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
-                });
-            }
-
-            // Update UI
-            updateProductListPreview();
-            updateHiddenProductListPreview();
-        }
-
-        function performListSearch(keyword) {
-            listSearchKeyword = keyword.trim();
-
-            if (!listSearchKeyword) {
-                filteredProductsInList = [];
-                updateProductListPreview();
-                return;
-            }
-
-            const searchLower = listSearchKeyword.toLowerCase();
-            const searchNoSign = removeVietnameseTones(listSearchKeyword);
-
-            // Filter visible products that match
-            const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
-            const matchedProducts = visibleProducts.filter(product => {
-                // Match in product name (no Vietnamese tones)
-                const nameNoSign = removeVietnameseTones(product.NameGet || '');
-                const matchName = nameNoSign.includes(searchNoSign);
-
-                // Match in original name (lowercase, for special chars like [Q5X1])
-                const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
-
-                return matchName || matchNameOriginal;
-            });
-
-            // Sort by priority: match in [] first
-            matchedProducts.sort((a, b) => {
-                const extractBracket = (name) => {
-                    const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase().trim() : '';
-                };
-
-                const aBracket = extractBracket(a.NameGet);
-                const bBracket = extractBracket(b.NameGet);
-
-                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
-
-                if (aMatchInBracket && !bMatchInBracket) return -1;
-                if (!aMatchInBracket && bMatchInBracket) return 1;
-
-                if (aMatchInBracket && bMatchInBracket) {
-                    const aExactMatch = aBracket === searchLower;
-                    const bExactMatch = bBracket === searchLower;
-                    if (aExactMatch && !bExactMatch) return -1;
-                    if (!aExactMatch && bExactMatch) return 1;
-
-                    if (aBracket.length !== bBracket.length) {
-                        return aBracket.length - bBracket.length;
-                    }
-
-                    return aBracket.localeCompare(bBracket);
+    // Sync to Firebase
+    if (!isSyncingFromFirebase) {
+        database
+            .ref()
+            .update(updates)
+            .then(() => {
+                console.log(`✅ Updated image for product ${product.NameGet}`);
+                if (updatedCount > 1) {
+                    showNotificationMessage(
+                        `🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`
+                    );
+                } else {
+                    showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
                 }
-
-                return a.NameGet.localeCompare(b.NameGet);
+                closeImageModal();
+            })
+            .catch((error) => {
+                console.error('❌ Lỗi sync products lên Firebase:', error);
+                showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
             });
+    }
 
-            filteredProductsInList = matchedProducts;
-            updateProductListPreview();
-        }
+    // Update UI
+    updateProductListPreview();
+    updateHiddenProductListPreview();
+}
 
-        function clearListSearch() {
-            listSearchKeyword = '';
-            filteredProductsInList = [];
-            document.getElementById('listSearchInput').value = '';
-            document.getElementById('listSearchClear').classList.remove('show');
-            updateProductListPreview();
-        }
+function performListSearch(keyword) {
+    listSearchKeyword = keyword.trim();
 
-        function performHiddenListSearch(keyword) {
-            hiddenListSearchKeyword = keyword.trim();
+    if (!listSearchKeyword) {
+        filteredProductsInList = [];
+        updateProductListPreview();
+        return;
+    }
 
-            if (!hiddenListSearchKeyword) {
-                filteredHiddenProducts = [];
-                updateHiddenProductListPreview();
-                return;
+    const searchLower = listSearchKeyword.toLowerCase();
+    const searchNoSign = removeVietnameseTones(listSearchKeyword);
+
+    // Filter visible products that match
+    const visibleProducts = Object.values(orderProducts).filter((p) => !p.isHidden);
+    const matchedProducts = visibleProducts.filter((product) => {
+        // Match in product name (no Vietnamese tones)
+        const nameNoSign = removeVietnameseTones(product.NameGet || '');
+        const matchName = nameNoSign.includes(searchNoSign);
+
+        // Match in original name (lowercase, for special chars like [Q5X1])
+        const matchNameOriginal =
+            product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+        return matchName || matchNameOriginal;
+    });
+
+    // Sort by priority: match in [] first
+    matchedProducts.sort((a, b) => {
+        const extractBracket = (name) => {
+            const match = name?.match(/\[([^\]]+)\]/);
+            return match ? match[1].toLowerCase().trim() : '';
+        };
+
+        const aBracket = extractBracket(a.NameGet);
+        const bBracket = extractBracket(b.NameGet);
+
+        const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+        const bMatchInBracket = bBracket && bBracket.includes(searchLower);
+
+        if (aMatchInBracket && !bMatchInBracket) return -1;
+        if (!aMatchInBracket && bMatchInBracket) return 1;
+
+        if (aMatchInBracket && bMatchInBracket) {
+            const aExactMatch = aBracket === searchLower;
+            const bExactMatch = bBracket === searchLower;
+            if (aExactMatch && !bExactMatch) return -1;
+            if (!aExactMatch && bExactMatch) return 1;
+
+            if (aBracket.length !== bBracket.length) {
+                return aBracket.length - bBracket.length;
             }
 
-            const searchLower = hiddenListSearchKeyword.toLowerCase();
-            const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
-
-            // Filter hidden products that match
-            const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden);
-            const matchedProducts = hiddenProducts.filter(product => {
-                // Match in product name (no Vietnamese tones)
-                const nameNoSign = removeVietnameseTones(product.NameGet || '');
-                const matchName = nameNoSign.includes(searchNoSign);
-
-                // Match in original name (lowercase, for special chars like [Q5X1])
-                const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
-
-                return matchName || matchNameOriginal;
-            });
-
-            // Sort by priority: match in [] first
-            matchedProducts.sort((a, b) => {
-                const extractBracket = (name) => {
-                    const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase().trim() : '';
-                };
-
-                const aBracket = extractBracket(a.NameGet);
-                const bBracket = extractBracket(b.NameGet);
-
-                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
-
-                if (aMatchInBracket && !bMatchInBracket) return -1;
-                if (!aMatchInBracket && bMatchInBracket) return 1;
-
-                if (aMatchInBracket && bMatchInBracket) {
-                    const aExactMatch = aBracket === searchLower;
-                    const bExactMatch = bBracket === searchLower;
-                    if (aExactMatch && !bExactMatch) return -1;
-                    if (!aExactMatch && bExactMatch) return 1;
-
-                    if (aBracket.length !== bBracket.length) {
-                        return aBracket.length - bBracket.length;
-                    }
-
-                    return aBracket.localeCompare(bBracket);
-                }
-
-                return a.NameGet.localeCompare(b.NameGet);
-            });
-
-            filteredHiddenProducts = matchedProducts;
-            updateHiddenProductListPreview();
+            return aBracket.localeCompare(bBracket);
         }
 
-        function clearHiddenListSearch() {
-            hiddenListSearchKeyword = '';
-            filteredHiddenProducts = [];
-            document.getElementById('hiddenListSearchInput').value = '';
-            document.getElementById('hiddenListSearchClear').classList.remove('show');
-            updateHiddenProductListPreview();
+        return a.NameGet.localeCompare(b.NameGet);
+    });
+
+    filteredProductsInList = matchedProducts;
+    updateProductListPreview();
+}
+
+function clearListSearch() {
+    listSearchKeyword = '';
+    filteredProductsInList = [];
+    document.getElementById('listSearchInput').value = '';
+    document.getElementById('listSearchClear').classList.remove('show');
+    updateProductListPreview();
+}
+
+function performHiddenListSearch(keyword) {
+    hiddenListSearchKeyword = keyword.trim();
+
+    if (!hiddenListSearchKeyword) {
+        filteredHiddenProducts = [];
+        updateHiddenProductListPreview();
+        return;
+    }
+
+    const searchLower = hiddenListSearchKeyword.toLowerCase();
+    const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
+
+    // Filter hidden products that match
+    const hiddenProducts = Object.values(orderProducts).filter((p) => p.isHidden);
+    const matchedProducts = hiddenProducts.filter((product) => {
+        // Match in product name (no Vietnamese tones)
+        const nameNoSign = removeVietnameseTones(product.NameGet || '');
+        const matchName = nameNoSign.includes(searchNoSign);
+
+        // Match in original name (lowercase, for special chars like [Q5X1])
+        const matchNameOriginal =
+            product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+        return matchName || matchNameOriginal;
+    });
+
+    // Sort by priority: match in [] first
+    matchedProducts.sort((a, b) => {
+        const extractBracket = (name) => {
+            const match = name?.match(/\[([^\]]+)\]/);
+            return match ? match[1].toLowerCase().trim() : '';
+        };
+
+        const aBracket = extractBracket(a.NameGet);
+        const bBracket = extractBracket(b.NameGet);
+
+        const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+        const bMatchInBracket = bBracket && bBracket.includes(searchLower);
+
+        if (aMatchInBracket && !bMatchInBracket) return -1;
+        if (!aMatchInBracket && bMatchInBracket) return 1;
+
+        if (aMatchInBracket && bMatchInBracket) {
+            const aExactMatch = aBracket === searchLower;
+            const bExactMatch = bBracket === searchLower;
+            if (aExactMatch && !bExactMatch) return -1;
+            if (!aExactMatch && bExactMatch) return 1;
+
+            if (aBracket.length !== bBracket.length) {
+                return aBracket.length - bBracket.length;
+            }
+
+            return aBracket.localeCompare(bBracket);
         }
 
-        function showNotificationMessage(message) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
+        return a.NameGet.localeCompare(b.NameGet);
+    });
+
+    filteredHiddenProducts = matchedProducts;
+    updateHiddenProductListPreview();
+}
+
+function clearHiddenListSearch() {
+    hiddenListSearchKeyword = '';
+    filteredHiddenProducts = [];
+    document.getElementById('hiddenListSearchInput').value = '';
+    document.getElementById('hiddenListSearchClear').classList.remove('show');
+    updateHiddenProductListPreview();
+}
+
+function showNotificationMessage(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
@@ -1918,407 +1999,429 @@
                 font-weight: 600;
                 animation: slideIn 0.3s ease-out;
             `;
-            notification.textContent = message;
-            document.body.appendChild(notification);
+    notification.textContent = message;
+    document.body.appendChild(notification);
 
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, 2000);
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
+}
+
+// Barcode scanner detection
+let lastKeyTime = Date.now();
+let isBarcodeScan = false;
+let inputBuffer = '';
+let barcodeTimeout = null;
+
+document.getElementById('productSearch').addEventListener('input', (e) => {
+    const searchText = e.target.value.trim();
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastKeyTime;
+    lastKeyTime = currentTime;
+
+    // Detect barcode scanner (very fast typing, < 50ms between keys)
+    if (timeDiff < 50 && searchText.length > 2) {
+        isBarcodeScan = true;
+    } else if (timeDiff > 100) {
+        isBarcodeScan = false;
+    }
+
+    // Clear previous timeout
+    if (barcodeTimeout) {
+        clearTimeout(barcodeTimeout);
+    }
+
+    // If barcode scan detected, wait for completion then auto-search
+    if (isBarcodeScan) {
+        barcodeTimeout = setTimeout(() => {
+            autoSearchExactMatch(searchText);
+            isBarcodeScan = false;
+        }, 100);
+    } else {
+        // Manual typing - show suggestions via Render API
+        if (searchText.length >= 2) {
+            debouncedSearch(searchText, (results) => {
+                displaySuggestions(results);
+            });
+        } else {
+            document.getElementById('suggestions').classList.remove('show');
         }
+    }
+});
 
-        // Barcode scanner detection
-        let lastKeyTime = Date.now();
-        let isBarcodeScan = false;
-        let inputBuffer = '';
-        let barcodeTimeout = null;
+async function autoSearchExactMatch(searchText) {
+    const results = await searchProductsFromAPI(searchText);
 
-        document.getElementById('productSearch').addEventListener('input', (e) => {
-            const searchText = e.target.value.trim();
-            const currentTime = Date.now();
-            const timeDiff = currentTime - lastKeyTime;
-            lastKeyTime = currentTime;
+    // Try exact match by code first
+    const exactMatch = results.find(
+        (p) => p.code && p.code.toLowerCase() === searchText.toLowerCase()
+    );
 
-            // Detect barcode scanner (very fast typing, < 50ms between keys)
-            if (timeDiff < 50 && searchText.length > 2) {
-                isBarcodeScan = true;
-            } else if (timeDiff > 100) {
-                isBarcodeScan = false;
-            }
+    if (exactMatch) {
+        loadProductDetails(exactMatch.id);
+        document.getElementById('suggestions').classList.remove('show');
+        document.getElementById('productSearch').value = '';
+    } else if (results.length === 1) {
+        loadProductDetails(results[0].id);
+        document.getElementById('suggestions').classList.remove('show');
+        document.getElementById('productSearch').value = '';
+    } else if (results.length > 1) {
+        displaySuggestions(results);
+    }
+}
 
-            // Clear previous timeout
-            if (barcodeTimeout) {
-                clearTimeout(barcodeTimeout);
-            }
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrapper')) {
+        document.getElementById('suggestions').classList.remove('show');
+    }
+});
 
-            // If barcode scan detected, wait for completion then auto-search
-            if (isBarcodeScan) {
-                barcodeTimeout = setTimeout(() => {
-                    autoSearchExactMatch(searchText);
-                    isBarcodeScan = false;
-                }, 100);
-            } else {
-                // Manual typing - show suggestions via Render API
-                if (searchText.length >= 2) {
-                    debouncedSearch(searchText, (results) => {
-                        displaySuggestions(results);
-                    });
-                } else {
-                    document.getElementById('suggestions').classList.remove('show');
-                }
-            }
-        });
-
-        async function autoSearchExactMatch(searchText) {
+document.getElementById('productSearch').addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+        const searchText = e.target.value.trim();
+        if (searchText) {
             const results = await searchProductsFromAPI(searchText);
-
-            // Try exact match by code first
-            const exactMatch = results.find(p =>
-                p.code && p.code.toLowerCase() === searchText.toLowerCase()
+            const exactMatch = results.find(
+                (p) => p.code && p.code.toLowerCase() === searchText.toLowerCase()
             );
 
             if (exactMatch) {
                 loadProductDetails(exactMatch.id);
                 document.getElementById('suggestions').classList.remove('show');
-                document.getElementById('productSearch').value = '';
             } else if (results.length === 1) {
                 loadProductDetails(results[0].id);
                 document.getElementById('suggestions').classList.remove('show');
-                document.getElementById('productSearch').value = '';
-            } else if (results.length > 1) {
-                displaySuggestions(results);
             }
         }
+    }
+});
 
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-wrapper')) {
-                document.getElementById('suggestions').classList.remove('show');
-            }
-        });
+// Auto-focus search input for barcode scanner
+document.addEventListener('keydown', (e) => {
+    const productSearch = document.getElementById('productSearch');
+    const activeElement = document.activeElement;
 
-        document.getElementById('productSearch').addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter') {
-                const searchText = e.target.value.trim();
-                if (searchText) {
-                    const results = await searchProductsFromAPI(searchText);
-                    const exactMatch = results.find(p =>
-                        p.code && p.code.toLowerCase() === searchText.toLowerCase()
-                    );
+    // Ignore if already focused on an input/textarea or if modifier keys are pressed
+    if (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.metaKey
+    ) {
+        return;
+    }
 
-                    if (exactMatch) {
-                        loadProductDetails(exactMatch.id);
-                        document.getElementById('suggestions').classList.remove('show');
-                    } else if (results.length === 1) {
-                        loadProductDetails(results[0].id);
-                        document.getElementById('suggestions').classList.remove('show');
-                    }
-                }
-            }
-        });
+    // Ignore special keys (arrows, function keys, etc.)
+    if (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace') {
+        return;
+    }
 
-        // Auto-focus search input for barcode scanner
-        document.addEventListener('keydown', (e) => {
-            const productSearch = document.getElementById('productSearch');
-            const activeElement = document.activeElement;
+    // Auto-focus the search input
+    productSearch.focus();
+});
 
-            // Ignore if already focused on an input/textarea or if modifier keys are pressed
-            if (activeElement.tagName === 'INPUT' ||
-                activeElement.tagName === 'TEXTAREA' ||
-                e.ctrlKey ||
-                e.altKey ||
-                e.metaKey) {
-                return;
-            }
-
-            // Ignore special keys (arrows, function keys, etc.)
-            if (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace') {
-                return;
-            }
-
-            // Auto-focus the search input
-            productSearch.focus();
-        });
-
-        async function loadSettings() {
-            try {
-                const snapshot = await database.ref('orderDisplaySettings').once('value');
-                const settings = snapshot.val();
-                if (settings) {
-                    // Frame Display settings
-                    document.getElementById('settingNameLineClamp').value = settings.nameLineClamp || 1;
-
-                    // Layout settings
-                    document.getElementById('settingColumns').value = settings.columns || 4;
-                    document.getElementById('settingRows').value = settings.rows || 2;
-                    document.getElementById('settingGap').value = settings.gap || 15;
-                    document.getElementById('settingItemHeight').value = settings.itemHeight || 500;
-
-                    // Image settings
-                    document.getElementById('settingImageBorderRadius').value = settings.imageBorderRadius || 8;
-                    document.getElementById('settingImageBorderWidth').value = settings.imageBorderWidth || 2;
-                    document.getElementById('settingImageMarginBottom').value = settings.imageMarginBottom || 4;
-
-                    // Name settings
-                    document.getElementById('settingNameFontSize').value = settings.nameFontSize || 13;
-                    document.getElementById('settingNameFontWeight').value = settings.nameFontWeight || 700;
-                    document.getElementById('settingNameMargin').value = settings.nameMargin || 3;
-                    document.getElementById('settingNameLineHeight').value = settings.nameLineHeight || 1.2;
-
-                    // Stats settings
-                    document.getElementById('settingStatsValueSize').value = settings.statsValueSize || 16;
-                    document.getElementById('settingStatsLabelSize').value = settings.statsLabelSize || 9;
-                    document.getElementById('settingStatsPadding').value = settings.statsPadding || 3;
-                    document.getElementById('settingStatsGap').value = settings.statsGap || 4;
-                    document.getElementById('settingStatsBorderRadius').value = settings.statsBorderRadius || 6;
-                    document.getElementById('settingStatsMarginTop').value = settings.statsMarginTop || 4;
-
-                    // Load autoAddVariants setting
-                    autoAddVariants = settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
-                    document.getElementById('toggleAutoVariants').checked = autoAddVariants;
-                }
-
-                // Load Hidden Products Display Settings
-                const hiddenSnapshot = await database.ref('hiddenProductsDisplaySettings').once('value');
-                const hiddenSettings = hiddenSnapshot.val();
-                if (hiddenSettings) {
-                    document.getElementById('settingHiddenColumns').value = hiddenSettings.columns || 4;
-                    document.getElementById('settingHiddenRows').value = hiddenSettings.rows || 2;
-                    document.getElementById('settingHiddenGap').value = hiddenSettings.gap || 15;
-                }
-            } catch (error) {
-                console.error('❌ Error loading settings from Firebase:', error);
-            }
-        }
-
-        function applySettings() {
+async function loadSettings() {
+    try {
+        const snapshot = await database.ref('orderDisplaySettings').once('value');
+        const settings = snapshot.val();
+        if (settings) {
             // Frame Display settings
-            const nameLineClamp = parseInt(document.getElementById('settingNameLineClamp').value) || 1;
+            document.getElementById('settingNameLineClamp').value = settings.nameLineClamp || 1;
 
             // Layout settings
-            const columns = parseInt(document.getElementById('settingColumns').value) || 4;
-            const rows = parseInt(document.getElementById('settingRows').value) || 2;
-            const gap = parseInt(document.getElementById('settingGap').value) || 15;
-            const itemHeight = parseInt(document.getElementById('settingItemHeight').value) || 500;
+            document.getElementById('settingColumns').value = settings.columns || 4;
+            document.getElementById('settingRows').value = settings.rows || 2;
+            document.getElementById('settingGap').value = settings.gap || 15;
+            document.getElementById('settingItemHeight').value = settings.itemHeight || 500;
 
             // Image settings
-            const imageBorderRadius = parseInt(document.getElementById('settingImageBorderRadius').value) || 8;
-            const imageBorderWidth = parseInt(document.getElementById('settingImageBorderWidth').value) || 2;
-            const imageMarginBottom = parseInt(document.getElementById('settingImageMarginBottom').value) || 4;
+            document.getElementById('settingImageBorderRadius').value =
+                settings.imageBorderRadius || 8;
+            document.getElementById('settingImageBorderWidth').value =
+                settings.imageBorderWidth || 2;
+            document.getElementById('settingImageMarginBottom').value =
+                settings.imageMarginBottom || 4;
 
             // Name settings
-            const nameFontSize = parseInt(document.getElementById('settingNameFontSize').value) || 13;
-            const nameFontWeight = parseInt(document.getElementById('settingNameFontWeight').value) || 700;
-            const nameMargin = parseInt(document.getElementById('settingNameMargin').value) || 3;
-            const nameLineHeight = parseFloat(document.getElementById('settingNameLineHeight').value) || 1.2;
+            document.getElementById('settingNameFontSize').value = settings.nameFontSize || 13;
+            document.getElementById('settingNameFontWeight').value = settings.nameFontWeight || 700;
+            document.getElementById('settingNameMargin').value = settings.nameMargin || 3;
+            document.getElementById('settingNameLineHeight').value = settings.nameLineHeight || 1.2;
 
             // Stats settings
-            const statsValueSize = parseInt(document.getElementById('settingStatsValueSize').value) || 16;
-            const statsLabelSize = parseInt(document.getElementById('settingStatsLabelSize').value) || 9;
-            const statsPadding = parseInt(document.getElementById('settingStatsPadding').value) || 3;
-            const statsGap = parseInt(document.getElementById('settingStatsGap').value) || 4;
-            const statsBorderRadius = parseInt(document.getElementById('settingStatsBorderRadius').value) || 6;
-            const statsMarginTop = parseInt(document.getElementById('settingStatsMarginTop').value) || 4;
+            document.getElementById('settingStatsValueSize').value = settings.statsValueSize || 16;
+            document.getElementById('settingStatsLabelSize').value = settings.statsLabelSize || 9;
+            document.getElementById('settingStatsPadding').value = settings.statsPadding || 3;
+            document.getElementById('settingStatsGap').value = settings.statsGap || 4;
+            document.getElementById('settingStatsBorderRadius').value =
+                settings.statsBorderRadius || 6;
+            document.getElementById('settingStatsMarginTop').value = settings.statsMarginTop || 4;
 
-            const settings = {
-                // Frame Display
-                nameLineClamp: nameLineClamp,
+            // Load autoAddVariants setting
+            autoAddVariants =
+                settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
+            document.getElementById('toggleAutoVariants').checked = autoAddVariants;
+        }
 
-                // Layout
-                columns: columns,
-                rows: rows,
-                gap: gap,
-                itemHeight: itemHeight,
-                itemsPerPage: columns * rows,
+        // Load Hidden Products Display Settings
+        const hiddenSnapshot = await database.ref('hiddenProductsDisplaySettings').once('value');
+        const hiddenSettings = hiddenSnapshot.val();
+        if (hiddenSettings) {
+            document.getElementById('settingHiddenColumns').value = hiddenSettings.columns || 4;
+            document.getElementById('settingHiddenRows').value = hiddenSettings.rows || 2;
+            document.getElementById('settingHiddenGap').value = hiddenSettings.gap || 15;
+        }
+    } catch (error) {
+        console.error('❌ Error loading settings from Firebase:', error);
+    }
+}
 
-                // Image
-                imageBorderRadius: imageBorderRadius,
-                imageBorderWidth: imageBorderWidth,
-                imageMarginBottom: imageMarginBottom,
+function applySettings() {
+    // Frame Display settings
+    const nameLineClamp = parseInt(document.getElementById('settingNameLineClamp').value) || 1;
 
-                // Name
-                nameFontSize: nameFontSize,
-                nameFontWeight: nameFontWeight,
-                nameMargin: nameMargin,
-                nameLineHeight: nameLineHeight,
+    // Layout settings
+    const columns = parseInt(document.getElementById('settingColumns').value) || 4;
+    const rows = parseInt(document.getElementById('settingRows').value) || 2;
+    const gap = parseInt(document.getElementById('settingGap').value) || 15;
+    const itemHeight = parseInt(document.getElementById('settingItemHeight').value) || 500;
 
-                // Stats
-                statsValueSize: statsValueSize,
-                statsLabelSize: statsLabelSize,
-                statsPadding: statsPadding,
-                statsGap: statsGap,
-                statsBorderRadius: statsBorderRadius,
-                statsMarginTop: statsMarginTop,
+    // Image settings
+    const imageBorderRadius =
+        parseInt(document.getElementById('settingImageBorderRadius').value) || 8;
+    const imageBorderWidth =
+        parseInt(document.getElementById('settingImageBorderWidth').value) || 2;
+    const imageMarginBottom =
+        parseInt(document.getElementById('settingImageMarginBottom').value) || 4;
 
-                // Other
-                autoAddVariants: autoAddVariants
-            };
+    // Name settings
+    const nameFontSize = parseInt(document.getElementById('settingNameFontSize').value) || 13;
+    const nameFontWeight = parseInt(document.getElementById('settingNameFontWeight').value) || 700;
+    const nameMargin = parseInt(document.getElementById('settingNameMargin').value) || 3;
+    const nameLineHeight =
+        parseFloat(document.getElementById('settingNameLineHeight').value) || 1.2;
 
-            if (!isSyncingFromFirebase) {
-                database.ref('orderDisplaySettings').set(settings).catch(error => {
-                    console.error('❌ Lỗi sync settings lên Firebase:', error);
-                });
+    // Stats settings
+    const statsValueSize = parseInt(document.getElementById('settingStatsValueSize').value) || 16;
+    const statsLabelSize = parseInt(document.getElementById('settingStatsLabelSize').value) || 9;
+    const statsPadding = parseInt(document.getElementById('settingStatsPadding').value) || 3;
+    const statsGap = parseInt(document.getElementById('settingStatsGap').value) || 4;
+    const statsBorderRadius =
+        parseInt(document.getElementById('settingStatsBorderRadius').value) || 6;
+    const statsMarginTop = parseInt(document.getElementById('settingStatsMarginTop').value) || 4;
+
+    const settings = {
+        // Frame Display
+        nameLineClamp: nameLineClamp,
+
+        // Layout
+        columns: columns,
+        rows: rows,
+        gap: gap,
+        itemHeight: itemHeight,
+        itemsPerPage: columns * rows,
+
+        // Image
+        imageBorderRadius: imageBorderRadius,
+        imageBorderWidth: imageBorderWidth,
+        imageMarginBottom: imageMarginBottom,
+
+        // Name
+        nameFontSize: nameFontSize,
+        nameFontWeight: nameFontWeight,
+        nameMargin: nameMargin,
+        nameLineHeight: nameLineHeight,
+
+        // Stats
+        statsValueSize: statsValueSize,
+        statsLabelSize: statsLabelSize,
+        statsPadding: statsPadding,
+        statsGap: statsGap,
+        statsBorderRadius: statsBorderRadius,
+        statsMarginTop: statsMarginTop,
+
+        // Other
+        autoAddVariants: autoAddVariants,
+    };
+
+    if (!isSyncingFromFirebase) {
+        database
+            .ref('orderDisplaySettings')
+            .set(settings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync settings lên Firebase:', error);
+            });
+    }
+
+    if (window.settingsChannel) {
+        window.settingsChannel.postMessage({ type: 'settingsChanged', settings: settings });
+    }
+
+    showNotificationMessage('💾 Đã lưu cài đặt thành công!');
+}
+
+function toggleAutoVariants() {
+    autoAddVariants = document.getElementById('toggleAutoVariants').checked;
+
+    // Auto save when toggle changes
+    const settings = {
+        columns: parseInt(document.getElementById('settingColumns').value) || 4,
+        rows: parseInt(document.getElementById('settingRows').value) || 2,
+        gap: parseInt(document.getElementById('settingGap').value) || 15,
+        itemHeight: parseInt(document.getElementById('settingItemHeight').value) || 500,
+        nameMargin: parseInt(document.getElementById('settingNameMargin').value) || 3,
+        itemsPerPage:
+            (parseInt(document.getElementById('settingColumns').value) || 4) *
+            (parseInt(document.getElementById('settingRows').value) || 2),
+        autoAddVariants: autoAddVariants,
+    };
+
+    if (!isSyncingFromFirebase) {
+        database
+            .ref('orderDisplaySettings')
+            .set(settings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync settings lên Firebase:', error);
+            });
+    }
+
+    const status = autoAddVariants ? 'BẬT' : 'TẮT';
+    showNotificationMessage(`🔄 Đã ${status} chế độ tự động thêm tất cả biến thể`);
+}
+
+window.settingsChannel = new BroadcastChannel('order-settings');
+
+function setupFirebaseListeners() {
+    // Setup listeners for displaySettings
+    database.ref('orderDisplaySettings').on('value', (snapshot) => {
+        const settings = snapshot.val();
+        if (settings && !isSyncingFromFirebase) {
+            isSyncingFromFirebase = true;
+            console.log('🔥 Settings synced from Firebase');
+
+            // Update autoAddVariants from Firebase
+            if (settings.autoAddVariants !== undefined) {
+                autoAddVariants = settings.autoAddVariants;
+                document.getElementById('toggleAutoVariants').checked = autoAddVariants;
             }
 
             if (window.settingsChannel) {
                 window.settingsChannel.postMessage({ type: 'settingsChanged', settings: settings });
             }
 
-            showNotificationMessage('💾 Đã lưu cài đặt thành công!');
+            setTimeout(() => {
+                isSyncingFromFirebase = false;
+            }, 100);
         }
+    });
 
-        function toggleAutoVariants() {
-            autoAddVariants = document.getElementById('toggleAutoVariants').checked;
-            
-            // Auto save when toggle changes
-            const settings = {
-                columns: parseInt(document.getElementById('settingColumns').value) || 4,
-                rows: parseInt(document.getElementById('settingRows').value) || 2,
-                gap: parseInt(document.getElementById('settingGap').value) || 15,
-                itemHeight: parseInt(document.getElementById('settingItemHeight').value) || 500,
-                nameMargin: parseInt(document.getElementById('settingNameMargin').value) || 3,
-                itemsPerPage: (parseInt(document.getElementById('settingColumns').value) || 4) * (parseInt(document.getElementById('settingRows').value) || 2),
-                autoAddVariants: autoAddVariants
-            };
+    // Product listeners are now set up per-campaign in switchToCampaign()
+}
 
-            if (!isSyncingFromFirebase) {
-                database.ref('orderDisplaySettings').set(settings).catch(error => {
-                    console.error('❌ Lỗi sync settings lên Firebase:', error);
-                });
-            }
+async function loadInitialData() {
+    if (!currentCampaignId) {
+        console.log('⚠️ No campaign selected, skipping product load');
+        orderProducts = {};
+        updateProductListPreview();
+        return;
+    }
+    await switchToCampaign(currentCampaignId);
+}
 
-            const status = autoAddVariants ? 'BẬT' : 'TẮT';
-            showNotificationMessage(`🔄 Đã ${status} chế độ tự động thêm tất cả biến thể`);
-        }
+window.addEventListener('load', async () => {
+    checkSyncMode();
 
-        window.settingsChannel = new BroadcastChannel('order-settings');
+    try {
+        // Load campaign list from Firestore
+        await loadCampaigns();
 
-        function setupFirebaseListeners() {
-            // Setup listeners for displaySettings
-            database.ref('orderDisplaySettings').on('value', (snapshot) => {
-                const settings = snapshot.val();
-                if (settings && !isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-                    console.log('🔥 Settings synced from Firebase');
+        // Load initial data from Firebase FIRST
+        await loadInitialData();
 
-                    // Update autoAddVariants from Firebase
-                    if (settings.autoAddVariants !== undefined) {
-                        autoAddVariants = settings.autoAddVariants;
-                        document.getElementById('toggleAutoVariants').checked = autoAddVariants;
-                    }
+        // THEN setup Firebase listeners for realtime sync
+        setupFirebaseListeners();
 
-                    if (window.settingsChannel) {
-                        window.settingsChannel.postMessage({ type: 'settingsChanged', settings: settings });
-                    }
+        // Cleanup products older than 7 days
+        cleanupOldProductsLocal();
 
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+        // Always update preview to ensure correct visibility
+        updateProductListPreview();
+
+        loadSettings();
+
+        // Load cart history
+        refreshCartHistory();
+
+        // Initialize cart history collapse state
+        initCartHistoryState();
+
+        // Setup list search event listener
+        const listSearchInput = document.getElementById('listSearchInput');
+        const listSearchClear = document.getElementById('listSearchClear');
+
+        if (listSearchInput) {
+            listSearchInput.addEventListener('input', (e) => {
+                const value = e.target.value;
+
+                // Show/hide clear button
+                if (value) {
+                    listSearchClear.classList.add('show');
+                } else {
+                    listSearchClear.classList.remove('show');
                 }
+
+                // Perform search
+                performListSearch(value);
             });
 
-            // Product listeners are now set up per-campaign in switchToCampaign()
+            // Handle Escape key to clear search
+            listSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearListSearch();
+                }
+            });
         }
 
-        async function loadInitialData() {
-            if (!currentCampaignId) {
-                console.log('⚠️ No campaign selected, skipping product load');
-                orderProducts = {};
-                updateProductListPreview();
-                return;
-            }
-            await switchToCampaign(currentCampaignId);
+        // Setup hidden list search event listener
+        const hiddenListSearchInput = document.getElementById('hiddenListSearchInput');
+        const hiddenListSearchClear = document.getElementById('hiddenListSearchClear');
+
+        if (hiddenListSearchInput) {
+            hiddenListSearchInput.addEventListener('input', (e) => {
+                const value = e.target.value;
+
+                // Show/hide clear button
+                if (value) {
+                    hiddenListSearchClear.classList.add('show');
+                } else {
+                    hiddenListSearchClear.classList.remove('show');
+                }
+
+                // Perform search
+                performHiddenListSearch(value);
+            });
+
+            // Handle Escape key to clear search
+            hiddenListSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearHiddenListSearch();
+                }
+            });
         }
+    } catch (error) {
+        console.error('Lỗi khởi tạo:', error);
+        alert('Không thể kết nối đến hệ thống. Vui lòng thử lại sau.');
+    }
+});
 
-        window.addEventListener('load', async () => {
-            checkSyncMode();
+window.addEventListener('hashchange', () => {
+    checkSyncMode();
+});
 
-            try {
-                // Load campaign list from Firestore
-                await loadCampaigns();
-
-                // Load initial data from Firebase FIRST
-                await loadInitialData();
-
-                // THEN setup Firebase listeners for realtime sync
-                setupFirebaseListeners();
-
-                // Cleanup products older than 7 days
-                cleanupOldProductsLocal();
-
-                // Always update preview to ensure correct visibility
-                updateProductListPreview();
-
-                loadSettings();
-
-                // Load cart history
-                refreshCartHistory();
-
-                // Initialize cart history collapse state
-                initCartHistoryState();
-
-                // Setup list search event listener
-                const listSearchInput = document.getElementById('listSearchInput');
-                const listSearchClear = document.getElementById('listSearchClear');
-
-                if (listSearchInput) {
-                    listSearchInput.addEventListener('input', (e) => {
-                        const value = e.target.value;
-
-                        // Show/hide clear button
-                        if (value) {
-                            listSearchClear.classList.add('show');
-                        } else {
-                            listSearchClear.classList.remove('show');
-                        }
-
-                        // Perform search
-                        performListSearch(value);
-                    });
-
-                    // Handle Escape key to clear search
-                    listSearchInput.addEventListener('keydown', (e) => {
-                        if (e.key === 'Escape') {
-                            clearListSearch();
-                        }
-                    });
-                }
-
-                // Setup hidden list search event listener
-                const hiddenListSearchInput = document.getElementById('hiddenListSearchInput');
-                const hiddenListSearchClear = document.getElementById('hiddenListSearchClear');
-
-                if (hiddenListSearchInput) {
-                    hiddenListSearchInput.addEventListener('input', (e) => {
-                        const value = e.target.value;
-
-                        // Show/hide clear button
-                        if (value) {
-                            hiddenListSearchClear.classList.add('show');
-                        } else {
-                            hiddenListSearchClear.classList.remove('show');
-                        }
-
-                        // Perform search
-                        performHiddenListSearch(value);
-                    });
-
-                    // Handle Escape key to clear search
-                    hiddenListSearchInput.addEventListener('keydown', (e) => {
-                        if (e.key === 'Escape') {
-                            clearHiddenListSearch();
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Lỗi khởi tạo:', error);
-                alert('Không thể kết nối đến hệ thống. Vui lòng thử lại sau.');
-            }
-        });
-
-        window.addEventListener('hashchange', () => {
-            checkSyncMode();
-        });
-
-        const style = document.createElement('style');
-        style.textContent = `
+const style = document.createElement('style');
+style.textContent = `
             @keyframes slideIn {
                 from {
                     transform: translateX(100%);
@@ -2340,73 +2443,76 @@
                 }
             }
         `;
-        document.head.appendChild(style);
+document.head.appendChild(style);
 
-        function toggleSettingsSidebar() {
-            const sidebar = document.getElementById('settingsSidebar');
-            const overlay = document.getElementById('settingsSidebarOverlay');
+function toggleSettingsSidebar() {
+    const sidebar = document.getElementById('settingsSidebar');
+    const overlay = document.getElementById('settingsSidebarOverlay');
 
-            if (sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-                document.body.style.overflow = '';
-            } else {
-                sidebar.classList.add('open');
-                overlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    } else {
+        sidebar.classList.add('open');
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function toggleHiddenProductsSettings() {
+    const sidebar = document.getElementById('hiddenSettingsSidebar');
+    const overlay = document.getElementById('hiddenSettingsSidebarOverlay');
+
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    } else {
+        sidebar.classList.add('open');
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function openHiddenProductsSettings() {
+    toggleHiddenProductsSettings();
+}
+
+function applyHiddenProductsSettings() {
+    const hiddenColumns = parseInt(document.getElementById('settingHiddenColumns').value) || 4;
+    const hiddenRows = parseInt(document.getElementById('settingHiddenRows').value) || 2;
+    const hiddenGap = parseInt(document.getElementById('settingHiddenGap').value) || 15;
+
+    const hiddenSettings = {
+        columns: hiddenColumns,
+        rows: hiddenRows,
+        gap: hiddenGap,
+        itemsPerPage: hiddenColumns * hiddenRows,
+    };
+
+    if (!isSyncingFromFirebase) {
+        database
+            .ref('hiddenProductsDisplaySettings')
+            .set(hiddenSettings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
+            });
+    }
+
+    showNotificationMessage('💾 Đã lưu cài đặt Danh Sách Ẩn thành công!');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const sidebar = document.getElementById('settingsSidebar');
+        const hiddenSidebar = document.getElementById('hiddenSettingsSidebar');
+
+        if (sidebar.classList.contains('open')) {
+            toggleSettingsSidebar();
         }
-
-        function toggleHiddenProductsSettings() {
-            const sidebar = document.getElementById('hiddenSettingsSidebar');
-            const overlay = document.getElementById('hiddenSettingsSidebarOverlay');
-
-            if (sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-                document.body.style.overflow = '';
-            } else {
-                sidebar.classList.add('open');
-                overlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-        }
-
-        function openHiddenProductsSettings() {
+        if (hiddenSidebar && hiddenSidebar.classList.contains('open')) {
             toggleHiddenProductsSettings();
         }
-
-        function applyHiddenProductsSettings() {
-            const hiddenColumns = parseInt(document.getElementById('settingHiddenColumns').value) || 4;
-            const hiddenRows = parseInt(document.getElementById('settingHiddenRows').value) || 2;
-            const hiddenGap = parseInt(document.getElementById('settingHiddenGap').value) || 15;
-
-            const hiddenSettings = {
-                columns: hiddenColumns,
-                rows: hiddenRows,
-                gap: hiddenGap,
-                itemsPerPage: hiddenColumns * hiddenRows
-            };
-
-            if (!isSyncingFromFirebase) {
-                database.ref('hiddenProductsDisplaySettings').set(hiddenSettings).catch(error => {
-                    console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
-                });
-            }
-
-            showNotificationMessage('💾 Đã lưu cài đặt Danh Sách Ẩn thành công!');
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const sidebar = document.getElementById('settingsSidebar');
-                const hiddenSidebar = document.getElementById('hiddenSettingsSidebar');
-
-                if (sidebar.classList.contains('open')) {
-                    toggleSettingsSidebar();
-                }
-                if (hiddenSidebar && hiddenSidebar.classList.contains('open')) {
-                    toggleHiddenProductsSettings();
-                }
-            }
-        });
+    }
+});

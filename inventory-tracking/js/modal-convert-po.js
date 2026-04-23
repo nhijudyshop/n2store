@@ -14,16 +14,16 @@ const PO_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purcha
 const UPLOAD_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/upload/image';
 
 // -------- State --------
-let _convertCurrentInvoice = null;      // dotHang entry (flat)
-let _convertNccImages = [];             // productImages URLs cho NCC
-let _convertItems = [];                 // items working array
+let _convertCurrentInvoice = null; // dotHang entry (flat)
+let _convertNccImages = []; // productImages URLs cho NCC
+let _convertItems = []; // items working array
 let _convertDiscount = 0;
 let _convertShipping = 0;
 let _convertItemCounter = 0;
-let _selectedInvoiceImgs = new Set();   // URLs đã chọn làm ảnh hóa đơn (từ ảnh NCC)
+let _selectedInvoiceImgs = new Set(); // URLs đã chọn làm ảnh hóa đơn (từ ảnh NCC)
 
 // Nested variant modal state
-let _poVariantItemKey = null;           // item._key đang mở variant modal
+let _poVariantItemKey = null; // item._key đang mở variant modal
 let _poVariantSel = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
 
 // =====================================================
@@ -37,9 +37,12 @@ function openConvertToPurchaseOrderModal(invoiceId) {
 
     // Match d.id === invoiceId (dotHang entry in nccList)
     let found = null;
-    for (const ncc of (globalState.nccList || [])) {
-        const dot = (ncc.dotHang || []).find(d => String(d.id) === String(invoiceId));
-        if (dot) { found = dot; break; }
+    for (const ncc of globalState.nccList || []) {
+        const dot = (ncc.dotHang || []).find((d) => String(d.id) === String(invoiceId));
+        if (dot) {
+            found = dot;
+            break;
+        }
     }
     if (!found) {
         console.warn('[CONVERT-PO] Invoice not found. invoiceId=', invoiceId);
@@ -48,9 +51,10 @@ function openConvertToPurchaseOrderModal(invoiceId) {
     }
 
     _convertCurrentInvoice = found;
-    _convertNccImages = typeof getProductImagesForNcc === 'function'
-        ? getProductImagesForNcc(found.sttNCC, found.ngayDiHang, found.dotSo)
-        : [];
+    _convertNccImages =
+        typeof getProductImagesForNcc === 'function'
+            ? getProductImagesForNcc(found.sttNCC, found.ngayDiHang, found.dotSo)
+            : [];
     _convertItems = _explodeSanPhamToItems(found.sanPham || []);
     _convertDiscount = 0;
     _convertShipping = 0;
@@ -68,27 +72,31 @@ function _explodeSanPhamToItems(sanPhamArr) {
     // Purchase-orders stores full VND. Multiply ×1000 at load time.
     const INV_TO_VND = 1000;
     for (const p of sanPhamArr) {
-        const baseName = (p.moTa && p.moTa !== '-') ? p.moTa : (p.maSP || '');
+        const baseName = p.moTa && p.moTa !== '-' ? p.moTa : p.maSP || '';
         const mauSac = Array.isArray(p.mauSac) ? p.mauSac : [];
         const priceVnd = (parseFloat(p.giaDonVi) || 0) * INV_TO_VND;
         if (mauSac.length > 0) {
             for (const mv of mauSac) {
-                items.push(_mkItem({
-                    productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
-                    productName: baseName,
-                    variant: mv.mau || '',
-                    quantity: parseInt(mv.soLuong) || 0,
-                    purchasePrice: priceVnd
-                }));
+                items.push(
+                    _mkItem({
+                        productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
+                        productName: baseName,
+                        variant: mv.mau || '',
+                        quantity: parseInt(mv.soLuong) || 0,
+                        purchasePrice: priceVnd,
+                    })
+                );
             }
         } else {
-            items.push(_mkItem({
-                productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
-                productName: baseName,
-                variant: '',
-                quantity: parseInt(p.tongSoLuong || p.soLuong) || 0,
-                purchasePrice: priceVnd
-            }));
+            items.push(
+                _mkItem({
+                    productCode: '', // User tự sinh qua nút refresh hoặc nhập tay
+                    productName: baseName,
+                    variant: '',
+                    quantity: parseInt(p.tongSoLuong || p.soLuong) || 0,
+                    purchasePrice: priceVnd,
+                })
+            );
         }
     }
     return items;
@@ -102,7 +110,7 @@ function _mkItem(data = {}) {
         variant: data.variant || '',
         quantity: data.quantity ?? 1,
         purchasePrice: data.purchasePrice ?? 0,
-        sellingPrice: data.sellingPrice ?? ''
+        sellingPrice: data.sellingPrice ?? '',
     };
 }
 
@@ -187,14 +195,18 @@ function _renderConvertModal() {
                 </button>
             </div>
 
-            ${_convertNccImages.length > 0 ? `
+            ${
+                _convertNccImages.length > 0
+                    ? `
                 <div class="po-ncc-img-row">
                     <span class="po-ncc-img-label" title="Click vào ảnh để đưa lên Ảnh hóa đơn">Ảnh sản phẩm NCC (${_convertNccImages.length}) <span class="po-ncc-img-hint">— click để chọn làm ảnh hóa đơn</span></span>
                     <div class="po-ncc-img-preview" id="poNccImgPreview">
                         ${_renderNccThumbnails()}
                     </div>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
 
             <!-- Items Table -->
             <div class="po-items-wrap">
@@ -259,7 +271,9 @@ function _renderConvertModal() {
  * Render "Ảnh hóa đơn" slot — includes anhHoaDon (existing) + user-selected NCC images
  */
 function _renderInvoiceImgSlot() {
-    const anhHoaDon = Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? _convertCurrentInvoice.anhHoaDon : [];
+    const anhHoaDon = Array.isArray(_convertCurrentInvoice?.anhHoaDon)
+        ? _convertCurrentInvoice.anhHoaDon
+        : [];
     const selected = [..._selectedInvoiceImgs];
     const all = [...anhHoaDon, ...selected];
     if (all.length === 0) return `<span class="po-img-empty">—</span>`;
@@ -272,11 +286,18 @@ function _renderInvoiceImgSlot() {
  * Render NCC thumbnail row (click to toggle selection for invoice slot)
  */
 function _renderNccThumbnails() {
-    return _convertNccImages.slice(0, 10).map(u => {
-        const selected = _selectedInvoiceImgs.has(u);
-        return `<img src="${u}" alt="" class="po-ncc-thumb ${selected ? 'po-ncc-thumb--selected' : ''}" data-url="${_esc(u)}">`;
-    }).join('')
-    + (_convertNccImages.length > 10 ? `<span class="po-img-count">+${_convertNccImages.length - 10}</span>` : '');
+    return (
+        _convertNccImages
+            .slice(0, 10)
+            .map((u) => {
+                const selected = _selectedInvoiceImgs.has(u);
+                return `<img src="${u}" alt="" class="po-ncc-thumb ${selected ? 'po-ncc-thumb--selected' : ''}" data-url="${_esc(u)}">`;
+            })
+            .join('') +
+        (_convertNccImages.length > 10
+            ? `<span class="po-img-count">+${_convertNccImages.length - 10}</span>`
+            : '')
+    );
 }
 
 function _toggleNccImgSelection(url) {
@@ -355,19 +376,21 @@ function _bindMainEvents() {
     // Discount + shipping
     const discInput = document.getElementById('poDiscount');
     const shipInput = document.getElementById('poShipping');
-    if (discInput) discInput.addEventListener('input', (e) => {
-        _convertDiscount = _parseVND(e.target.value);
-        _recalcAll();
-    });
-    if (shipInput) shipInput.addEventListener('input', (e) => {
-        _convertShipping = _parseVND(e.target.value);
-        _recalcAll();
-    });
+    if (discInput)
+        discInput.addEventListener('input', (e) => {
+            _convertDiscount = _parseVND(e.target.value);
+            _recalcAll();
+        });
+    if (shipInput)
+        shipInput.addEventListener('input', (e) => {
+            _convertShipping = _parseVND(e.target.value);
+            _recalcAll();
+        });
 
     // Add item
     const addBtn1 = document.getElementById('poBtnAddItem');
     const addBtn2 = document.getElementById('poBtnAddItem2');
-    [addBtn1, addBtn2].forEach(btn => {
+    [addBtn1, addBtn2].forEach((btn) => {
         if (btn) btn.onclick = () => _addBlankItem();
     });
 
@@ -397,7 +420,7 @@ function _onItemInput(e) {
     const tr = input.closest('tr[data-key]');
     if (!tr) return;
     const key = tr.dataset.key;
-    const item = _convertItems.find(i => i._key === key);
+    const item = _convertItems.find((i) => i._key === key);
     if (!item) return;
     const field = input.dataset.field;
 
@@ -422,7 +445,7 @@ function _onItemClick(e) {
     const genBtn = e.target.closest('.po-btn-gen-code');
     if (delBtn) {
         const key = delBtn.dataset.key;
-        _convertItems = _convertItems.filter(i => i._key !== key);
+        _convertItems = _convertItems.filter((i) => i._key !== key);
         _rerenderItemsTable();
         _recalcAll();
         return;
@@ -456,8 +479,8 @@ async function _generateCodesForAll(btn) {
         return;
     }
 
-    const targets = _convertItems.filter(i =>
-        (i.productName || '').trim() && !(i.productCode || '').trim()
+    const targets = _convertItems.filter(
+        (i) => (i.productName || '').trim() && !(i.productCode || '').trim()
     );
     if (targets.length === 0) {
         window.notificationManager?.info('Tất cả sản phẩm đã có mã');
@@ -474,13 +497,14 @@ async function _generateCodesForAll(btn) {
     try {
         for (let i = 0; i < targets.length; i++) {
             const item = targets[i];
-            if (btn) btn.innerHTML = `<i data-lucide="loader"></i> Đang tạo... ${i + 1}/${targets.length}`;
+            if (btn)
+                btn.innerHTML = `<i data-lucide="loader"></i> Đang tạo... ${i + 1}/${targets.length}`;
             if (window.lucide) lucide.createIcons();
 
             try {
                 const existing = _convertItems
-                    .filter(x => x._key !== item._key)
-                    .map(x => ({ productCode: x.productCode || '' }));
+                    .filter((x) => x._key !== item._key)
+                    .map((x) => ({ productCode: x.productCode || '' }));
                 const code = await gen.generateProductCodeFromMax(item.productName, existing, 30);
                 if (code) {
                     item.productCode = code;
@@ -500,7 +524,9 @@ async function _generateCodesForAll(btn) {
         if (success > 0 && failed === 0) {
             window.notificationManager?.success(`Đã tạo mã cho ${success} sản phẩm`);
         } else if (success > 0 && failed > 0) {
-            window.notificationManager?.warning(`Tạo được ${success}/${targets.length} mã (${failed} lỗi)`);
+            window.notificationManager?.warning(
+                `Tạo được ${success}/${targets.length} mã (${failed} lỗi)`
+            );
         } else {
             window.notificationManager?.error('Không tạo được mã nào');
         }
@@ -514,7 +540,7 @@ async function _generateCodesForAll(btn) {
 }
 
 async function _generateCodeForItem(itemKey, btn) {
-    const item = _convertItems.find(i => i._key === itemKey);
+    const item = _convertItems.find((i) => i._key === itemKey);
     if (!item) return;
 
     const name = (item.productName || '').trim();
@@ -531,8 +557,8 @@ async function _generateCodeForItem(itemKey, btn) {
 
     // Build existingItems list ở format generator expects
     const existingItems = _convertItems
-        .filter(i => i._key !== itemKey)
-        .map(i => ({ productCode: i.productCode || '' }));
+        .filter((i) => i._key !== itemKey)
+        .map((i) => ({ productCode: i.productCode || '' }));
 
     // Lock button
     const originalIcon = btn?.innerHTML;
@@ -579,7 +605,7 @@ function _rerenderItemsTable() {
 }
 
 function _updateRowSubtotal(key) {
-    const item = _convertItems.find(i => i._key === key);
+    const item = _convertItems.find((i) => i._key === key);
     if (!item) return;
     const sub = (parseInt(item.quantity) || 0) * (_parseVND(item.purchasePrice) || 0);
     const el = document.querySelector(`.po-it-subtotal[data-key="${key}"]`);
@@ -588,7 +614,10 @@ function _updateRowSubtotal(key) {
 
 function _recalcAll() {
     const totalQty = _convertItems.reduce((s, i) => s + (parseInt(i.quantity) || 0), 0);
-    const totalAmt = _convertItems.reduce((s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0), 0);
+    const totalAmt = _convertItems.reduce(
+        (s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0),
+        0
+    );
     const final = totalAmt - (_convertDiscount || 0) + (_convertShipping || 0);
 
     const qEl = document.getElementById('poTotalQty');
@@ -608,12 +637,15 @@ function _openVariantModal(itemKey) {
     _poVariantSel = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
 
     // Parse existing variant to pre-select
-    const item = _convertItems.find(i => i._key === itemKey);
+    const item = _convertItems.find((i) => i._key === itemKey);
     if (item && item.variant) {
-        const parts = item.variant.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
-        const COLORS = (typeof VARIANT_COLORS !== 'undefined') ? VARIANT_COLORS : [];
-        const SNUM = (typeof VARIANT_SIZE_NUM !== 'undefined') ? VARIANT_SIZE_NUM : [];
-        const SCHAR = (typeof VARIANT_SIZE_CHAR !== 'undefined') ? VARIANT_SIZE_CHAR : [];
+        const parts = item.variant
+            .split(/\s*\/\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        const COLORS = typeof VARIANT_COLORS !== 'undefined' ? VARIANT_COLORS : [];
+        const SNUM = typeof VARIANT_SIZE_NUM !== 'undefined' ? VARIANT_SIZE_NUM : [];
+        const SCHAR = typeof VARIANT_SIZE_CHAR !== 'undefined' ? VARIANT_SIZE_CHAR : [];
         for (const part of parts) {
             if (COLORS.includes(part)) _poVariantSel.color.add(part);
             else if (SNUM.includes(part)) _poVariantSel.sizeNum.add(part);
@@ -631,9 +663,9 @@ function _renderVariantModal() {
     const body = document.getElementById('modalConvertVariantBody');
     if (!body) return;
 
-    const COLORS = (typeof VARIANT_COLORS !== 'undefined') ? VARIANT_COLORS : [];
-    const SNUM = (typeof VARIANT_SIZE_NUM !== 'undefined') ? VARIANT_SIZE_NUM : [];
-    const SCHAR = (typeof VARIANT_SIZE_CHAR !== 'undefined') ? VARIANT_SIZE_CHAR : [];
+    const COLORS = typeof VARIANT_COLORS !== 'undefined' ? VARIANT_COLORS : [];
+    const SNUM = typeof VARIANT_SIZE_NUM !== 'undefined' ? VARIANT_SIZE_NUM : [];
+    const SCHAR = typeof VARIANT_SIZE_CHAR !== 'undefined' ? VARIANT_SIZE_CHAR : [];
 
     body.innerHTML = `
         <div class="pov-summary" id="povSummary"></div>
@@ -661,17 +693,20 @@ function _renderVariantModal() {
     `;
 
     // Bind column search
-    body.querySelectorAll('.pov-search').forEach(inp => {
+    body.querySelectorAll('.pov-search').forEach((inp) => {
         inp.oninput = (e) => _poFilterVariantOptions(e.target.dataset.target, e.target.value);
     });
     // Bind option checkboxes (delegate)
-    body.querySelectorAll('.pov-options').forEach(col => {
+    body.querySelectorAll('.pov-options').forEach((col) => {
         col.addEventListener('change', (e) => {
             const cb = e.target.closest('input[type="checkbox"]');
             if (!cb) return;
-            const bucket = col.id === 'povColorList' ? 'color'
-                : col.id === 'povSizeNumList' ? 'sizeNum'
-                : 'sizeChar';
+            const bucket =
+                col.id === 'povColorList'
+                    ? 'color'
+                    : col.id === 'povSizeNumList'
+                      ? 'sizeNum'
+                      : 'sizeChar';
             const val = cb.value;
             const set = _poVariantSel[bucket];
             if (cb.checked) {
@@ -694,12 +729,16 @@ function _renderVariantModal() {
 
 function _poRenderVariantOptions(items, selectedSet) {
     if (!items || items.length === 0) return '<div class="pov-empty">Đang tải...</div>';
-    return items.map(v => `
+    return items
+        .map(
+            (v) => `
         <label class="pov-opt" data-value="${_esc(v)}">
             <input type="checkbox" value="${_esc(v)}" ${selectedSet.has(v) ? 'checked' : ''}>
             <span>${_esc(v)}</span>
         </label>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 function _rerenderOption(containerId, items, selectedSet) {
@@ -711,9 +750,9 @@ function _poFilterVariantOptions(containerId, query) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const q = query.toLowerCase().trim();
-    container.querySelectorAll('.pov-opt').forEach(el => {
+    container.querySelectorAll('.pov-opt').forEach((el) => {
         const val = (el.dataset.value || '').toLowerCase();
-        el.style.display = (!q || val.includes(q)) ? '' : 'none';
+        el.style.display = !q || val.includes(q) ? '' : 'none';
     });
 }
 
@@ -743,11 +782,12 @@ function _updateVariantCombos() {
     if (combos.length === 0) {
         el.innerHTML = '<div class="pov-empty">Chọn giá trị thuộc tính<br>để tạo biến thể</div>';
     } else {
-        el.innerHTML = combos.map(c => `<div class="pov-combo-item">${_esc(c)}</div>`).join('');
+        el.innerHTML = combos.map((c) => `<div class="pov-combo-item">${_esc(c)}</div>`).join('');
     }
     // Update footer button label
     const label = document.getElementById('btnApplyConvertVariantLabel');
-    if (label) label.textContent = combos.length > 0 ? `Tạo ${combos.length} biến thể` : 'Tạo 0 biến thể';
+    if (label)
+        label.textContent = combos.length > 0 ? `Tạo ${combos.length} biến thể` : 'Tạo 0 biến thể';
     const btn = document.getElementById('btnApplyConvertVariant');
     if (btn) btn.disabled = combos.length === 0;
 }
@@ -759,7 +799,7 @@ function _updateVariantCombos() {
 function _applyVariantToItem() {
     const combos = _generateVariantCombos();
     if (combos.length === 0) return;
-    const sourceItem = _convertItems.find(i => i._key === _poVariantItemKey);
+    const sourceItem = _convertItems.find((i) => i._key === _poVariantItemKey);
     if (!sourceItem) return;
 
     if (combos.length === 1) {
@@ -768,14 +808,18 @@ function _applyVariantToItem() {
         const idx = _convertItems.indexOf(sourceItem);
         sourceItem.variant = combos[0];
         for (let i = 1; i < combos.length; i++) {
-            _convertItems.splice(idx + i, 0, _mkItem({
-                productCode: sourceItem.productCode,
-                productName: sourceItem.productName,
-                variant: combos[i],
-                quantity: sourceItem.quantity,
-                purchasePrice: sourceItem.purchasePrice,
-                sellingPrice: sourceItem.sellingPrice
-            }));
+            _convertItems.splice(
+                idx + i,
+                0,
+                _mkItem({
+                    productCode: sourceItem.productCode,
+                    productName: sourceItem.productName,
+                    variant: combos[i],
+                    quantity: sourceItem.quantity,
+                    purchasePrice: sourceItem.purchasePrice,
+                    sellingPrice: sourceItem.sellingPrice,
+                })
+            );
         }
     }
 
@@ -797,17 +841,19 @@ async function _confirmConvertToPO() {
     }
 
     // Filter valid items (productName or productCode)
-    const validItems = _convertItems.filter(i => (i.productName || '').trim() || (i.productCode || '').trim());
+    const validItems = _convertItems.filter(
+        (i) => (i.productName || '').trim() || (i.productCode || '').trim()
+    );
 
     // Tất cả items (có tên SP) BẮT BUỘC có productCode — ép user bấm nút refresh sinh mã
-    const missingCodeItems = validItems.filter(i => !(i.productCode || '').trim());
+    const missingCodeItems = validItems.filter((i) => !(i.productCode || '').trim());
     if (missingCodeItems.length > 0) {
-        const stts = missingCodeItems.map(i => _convertItems.indexOf(i) + 1).join(', ');
+        const stts = missingCodeItems.map((i) => _convertItems.indexOf(i) + 1).join(', ');
         window.notificationManager?.warning(
             `Sản phẩm STT ${stts} chưa có Mã SP. Hãy bấm nút 🔄 cạnh ô Mã SP để tự tạo mã, hoặc nhập tay.`
         );
         // Highlight input để user dễ nhìn
-        missingCodeItems.forEach(it => {
+        missingCodeItems.forEach((it) => {
             const row = document.querySelector(`tr[data-key="${it._key}"]`);
             const input = row?.querySelector('input[data-field="productCode"]');
             if (input) {
@@ -823,11 +869,15 @@ async function _confirmConvertToPO() {
         return;
     }
 
-    const orderDateStr = document.getElementById('poOrderDate')?.value || new Date().toISOString().split('T')[0];
+    const orderDateStr =
+        document.getElementById('poOrderDate')?.value || new Date().toISOString().split('T')[0];
     const invoiceAmount = _parseVND(document.getElementById('poInvoiceAmount')?.value || 0);
     const notes = (document.getElementById('poNotes')?.value || '').trim();
 
-    const totalAmount = validItems.reduce((s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0), 0);
+    const totalAmount = validItems.reduce(
+        (s, i) => s + (parseInt(i.quantity) || 0) * (_parseVND(i.purchasePrice) || 0),
+        0
+    );
     const finalAmount = totalAmount - (_convertDiscount || 0) + (_convertShipping || 0);
 
     const btn = document.getElementById('btnConfirmConvertPO');
@@ -836,7 +886,9 @@ async function _confirmConvertToPO() {
     // Build image URLs — inventory stores images as base64 data URLs.
     // Backend rejects data: URLs (see render.com/routes/v2/purchase-orders.js:515).
     // → Upload base64 URLs to Firebase Storage first to get https URLs.
-    const anhHoaDonRaw = Array.isArray(_convertCurrentInvoice?.anhHoaDon) ? _convertCurrentInvoice.anhHoaDon : [];
+    const anhHoaDonRaw = Array.isArray(_convertCurrentInvoice?.anhHoaDon)
+        ? _convertCurrentInvoice.anhHoaDon
+        : [];
     const productImgsRaw = Array.isArray(_convertNccImages) ? _convertNccImages : [];
 
     if (btn) {
@@ -848,7 +900,7 @@ async function _confirmConvertToPO() {
     // user yêu cầu tiết kiệm bandwidth: PO chỉ cần ảnh hóa đơn, không cần ảnh SP.
     //   - anhHoaDon: ảnh hóa đơn có sẵn của dotHang (thường rỗng)
     //   - selectedFromNcc: ảnh user click chọn trong thumbnails NCC preview
-    const selectedFromNcc = productImgsRaw.filter(u => _selectedInvoiceImgs.has(u));
+    const selectedFromNcc = productImgsRaw.filter((u) => _selectedInvoiceImgs.has(u));
 
     let anhHoaDon = [];
     let selectedUploaded = [];
@@ -859,7 +911,7 @@ async function _confirmConvertToPO() {
             }),
             _normalizeImageUrls(selectedFromNcc, 'purchase-orders/invoices', (c, t) => {
                 if (btn && t > 0) btn.innerHTML = `Đang tải ảnh đã chọn... ${c}/${t}`;
-            })
+            }),
         ]);
     } catch (err) {
         console.error('[CONVERT-PO] Image upload failed:', err);
@@ -898,30 +950,40 @@ async function _confirmConvertToPO() {
                 tposProductId: '',
                 tposProductTmplId: '',
                 tposSynced: false,
-                tposImageUrl: ''
+                tposImageUrl: '',
             };
-        })
+        }),
     };
 
     console.log('[CONVERT-PO] Submit payload:', {
-        supplier, invoiceAmount, totalAmount, finalAmount,
+        supplier,
+        invoiceAmount,
+        totalAmount,
+        finalAmount,
         invoiceImages: orderData.invoiceImages,
         itemCount: orderData.items.length,
         selectedFromNcc: selectedFromNcc.length,
-        rawAnhHoaDon: anhHoaDonRaw.length
+        rawAnhHoaDon: anhHoaDonRaw.length,
     });
 
     if (btn) btn.innerHTML = 'Đang tạo đơn...';
 
     try {
         await _createPurchaseOrderDraft(orderData);
-        window.notificationManager?.success(`Đã tạo đơn Nháp với ${orderData.items.length} sản phẩm`);
+        window.notificationManager?.success(
+            `Đã tạo đơn Nháp với ${orderData.items.length} sản phẩm`
+        );
         closeModal('modalConvertPO');
     } catch (err) {
         console.error('[CONVERT-PO] Create failed:', err);
-        window.notificationManager?.error('Không thể tạo đơn Nháp: ' + (err.message || 'Lỗi không xác định'));
+        window.notificationManager?.error(
+            'Không thể tạo đơn Nháp: ' + (err.message || 'Lỗi không xác định')
+        );
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
     }
 }
 
@@ -941,7 +1003,7 @@ async function _uploadBase64Image(dataUrl, folder = 'purchase-orders/invoices') 
     const response = await fetch(UPLOAD_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, fileName, folderPath: folder, mimeType })
+        body: JSON.stringify({ image: dataUrl, fileName, folderPath: folder, mimeType }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.success === false || !data.url) {
@@ -956,28 +1018,31 @@ async function _uploadBase64Image(dataUrl, folder = 'purchase-orders/invoices') 
  */
 async function _normalizeImageUrls(urls, folder, onProgress) {
     if (!Array.isArray(urls) || urls.length === 0) return [];
-    const isHttp = u => typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
-    const isData = u => typeof u === 'string' && u.startsWith('data:');
+    const isHttp = (u) =>
+        typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+    const isData = (u) => typeof u === 'string' && u.startsWith('data:');
 
     let uploadedCount = 0;
     const total = urls.filter(isData).length;
     if (total > 0 && typeof onProgress === 'function') onProgress(0, total);
 
-    const results = await Promise.all(urls.map(async (u) => {
-        if (isHttp(u)) return u;
-        if (isData(u)) {
-            try {
-                const url = await _uploadBase64Image(u, folder);
-                uploadedCount++;
-                if (typeof onProgress === 'function') onProgress(uploadedCount, total);
-                return url;
-            } catch (err) {
-                console.warn('[CONVERT-PO] Upload failed, skipping image:', err.message);
-                return null;
+    const results = await Promise.all(
+        urls.map(async (u) => {
+            if (isHttp(u)) return u;
+            if (isData(u)) {
+                try {
+                    const url = await _uploadBase64Image(u, folder);
+                    uploadedCount++;
+                    if (typeof onProgress === 'function') onProgress(uploadedCount, total);
+                    return url;
+                } catch (err) {
+                    console.warn('[CONVERT-PO] Upload failed, skipping image:', err.message);
+                    return null;
+                }
             }
-        }
-        return null;
-    }));
+            return null;
+        })
+    );
     return results.filter(Boolean);
 }
 
@@ -989,15 +1054,17 @@ async function _createPurchaseOrderDraft(orderData) {
             headers['X-Auth-Data'] = JSON.stringify({
                 userId: userInfo.uid || userInfo.username || 'anonymous',
                 userName: userInfo.displayName || userInfo.username || 'User',
-                email: userInfo.email || ''
+                email: userInfo.email || '',
             });
         }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+        /* ignore */
+    }
 
     const response = await fetch(PO_API_URL, {
         method: 'POST',
         headers,
-        body: JSON.stringify(orderData)
+        body: JSON.stringify(orderData),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.success === false) {

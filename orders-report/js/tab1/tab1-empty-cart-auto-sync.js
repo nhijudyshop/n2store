@@ -12,7 +12,7 @@
 // để không vỡ caller cũ.
 // =====================================================
 
-(function() {
+(function () {
     'use strict';
 
     if (window.__tab1EmptyCartAutoSyncLoaded) {
@@ -21,7 +21,8 @@
     window.__tab1EmptyCartAutoSyncLoaded = true;
 
     const LOG = '[EMPTY-CART-CLEANUP]';
-    const ASSIGN_TAG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag';
+    const ASSIGN_TAG_URL =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag';
     const GIO_TRONG_NAME_UPPER = 'GIỎ TRỐNG';
     const BATCH_STAGGER_MS = 100;
     const BATCH_MAX_PARALLEL = 3;
@@ -38,8 +39,11 @@
     }
 
     function _hasGioTrongTag(order) {
-        return _parseTags(order?.Tags).some(t =>
-            String(t?.Name || '').trim().toUpperCase() === GIO_TRONG_NAME_UPPER
+        return _parseTags(order?.Tags).some(
+            (t) =>
+                String(t?.Name || '')
+                    .trim()
+                    .toUpperCase() === GIO_TRONG_NAME_UPPER
         );
     }
 
@@ -50,7 +54,12 @@
     function _clearXLGioTrong(orderCode) {
         if (!orderCode) return;
         const state = window.ProcessingTagState;
-        if (!state || typeof state.getOrderData !== 'function' || typeof state.setOrderData !== 'function') return;
+        if (
+            !state ||
+            typeof state.getOrderData !== 'function' ||
+            typeof state.setOrderData !== 'function'
+        )
+            return;
 
         const existing = state.getOrderData(orderCode);
         if (existing?.subTag !== 'GIO_TRONG') return;
@@ -60,7 +69,7 @@
             category: existing.category === 3 ? null : existing.category,
             subTag: null,
             subState: null,
-            assignedAt: Date.now()
+            assignedAt: Date.now(),
         };
 
         try {
@@ -86,14 +95,19 @@
     async function _removeGioTrongTagTPOS(order) {
         if (!order || !order.Id) return false;
         const tags = _parseTags(order.Tags);
-        const filtered = tags.filter(t =>
-            String(t?.Name || '').trim().toUpperCase() !== GIO_TRONG_NAME_UPPER
+        const filtered = tags.filter(
+            (t) =>
+                String(t?.Name || '')
+                    .trim()
+                    .toUpperCase() !== GIO_TRONG_NAME_UPPER
         );
         if (filtered.length === tags.length) return false;
 
         try {
             if (!window.tokenManager || !window.API_CONFIG?.smartFetch) {
-                console.warn(`${LOG} tokenManager/smartFetch unavailable, skip removal for ${order.Code}`);
+                console.warn(
+                    `${LOG} tokenManager/smartFetch unavailable, skip removal for ${order.Code}`
+                );
                 return false;
             }
             const headers = await window.tokenManager.getAuthHeader();
@@ -102,12 +116,12 @@
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({
-                    Tags: filtered.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                    OrderId: order.Id
-                })
+                    Tags: filtered.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: order.Id,
+                }),
             });
             if (!res.ok) {
                 console.warn(`${LOG} AssignTag HTTP ${res.status} for ${order.Code}`);
@@ -161,7 +175,7 @@
         }
 
         // Phase 2: Remove TPOS tag GIỎ TRỐNG on any order that still has it
-        const needRemoval = orders.filter(o => o?.Id && _hasGioTrongTag(o));
+        const needRemoval = orders.filter((o) => o?.Id && _hasGioTrongTag(o));
         if (needRemoval.length === 0) return;
 
         console.log(`${LOG} removing TPOS tag GIỎ TRỐNG from ${needRemoval.length} orders`);
@@ -171,7 +185,7 @@
             while (i < needRemoval.length) {
                 const idx = i++;
                 await _removeGioTrongTagTPOS(needRemoval[idx]);
-                await new Promise(r => setTimeout(r, BATCH_STAGGER_MS));
+                await new Promise((r) => setTimeout(r, BATCH_STAGGER_MS));
             }
         }
         const workers = Array.from({ length: BATCH_MAX_PARALLEL }, () => worker());

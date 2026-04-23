@@ -4,7 +4,7 @@
 // Hệ thống tag xử lý chốt đơn — 5 categories
 // =====================================================
 
-(function() {
+(function () {
     'use strict';
 
     // Module guard — chống IIFE chạy 2 lần
@@ -13,7 +13,8 @@
     }
     window.__tab1ProcessingTagsV2Loaded = true;
 
-    const PTAG_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/processing-tags';
+    const PTAG_API_BASE =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/processing-tags';
     const PTAG_LOG = '[PTAG v2]';
 
     // Auto T toggle — bật/tắt clear T-tag khi onPtagBillCreated chạy (đơn ra đơn).
@@ -29,7 +30,7 @@
     function _rebuildSlZeroCache(orders) {
         _slZeroCodes = new Set();
         _slZeroIds = new Set();
-        for (const o of (orders || [])) {
+        for (const o of orders || []) {
             if (!o) continue;
             if (Number(o.TotalQuantity || 0) === 0) {
                 if (o.Code) _slZeroCodes.add(String(o.Code));
@@ -51,7 +52,7 @@
         CHO_DI_DON: 1,
         XU_LY: 2,
         KHONG_CAN_CHOT: 3,
-        KHACH_XA: 4
+        KHACH_XA: 4,
     };
 
     const PTAG_CATEGORY_META = {
@@ -59,7 +60,7 @@
         1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'Chờ đi đơn', icon: 'fa-clock', emoji: '🔵' },
         2: { name: 'MỤC XỬ LÝ', short: 'Xử lý', icon: 'fa-exclamation-triangle', emoji: '🟠' },
         3: { name: 'KHÔNG CẦN CHỐT', short: 'Ko cần chốt', icon: 'fa-minus-circle', emoji: '⚪' },
-        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' }
+        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' },
     };
 
     const PTAG_CATEGORY_COLORS = {
@@ -67,40 +68,65 @@
         1: { bg: 'rgba(59,130,246,0.08)', border: '#3b82f6', text: '#1e40af' },
         2: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', text: '#92400e' },
         3: { bg: 'rgba(107,114,128,0.08)', border: '#6b7280', text: '#374151' },
-        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' }
+        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' },
     };
 
     const PTAG_SUBSTATES = {
         OKIE_CHO_DI_DON: { key: 'OKIE_CHO_DI_DON', label: 'OKIE CHỜ ĐI ĐƠN', color: '#3b82f6' },
-        CHO_HANG:        { key: 'CHO_HANG',         label: 'CHỜ HÀNG',         color: '#f59e0b' }
+        CHO_HANG: { key: 'CHO_HANG', label: 'CHỜ HÀNG', color: '#f59e0b' },
     };
 
     const PTAG_FLAGS = {
-        TRU_CONG_NO:  { key: 'TRU_CONG_NO',  label: 'TRỪ CÔNG NỢ', auto: true,  icon: '\u{1F4B0}' },
-        CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK',           auto: true,  icon: '\u{1F4B3}' },
-        GIAM_GIA:     { key: 'GIAM_GIA',     label: 'GIẢM GIÁ',    auto: false, icon: '\u{1F3F7}\uFE0F' },
-        CHO_LIVE:     { key: 'CHO_LIVE',     label: 'CHỜ LIVE',     auto: false, icon: '\u{1F4FA}' },
-        GIU_DON:      { key: 'GIU_DON',      label: 'GIỮ ĐƠN',     auto: false, icon: '\u{231B}' },
-        QUA_LAY:      { key: 'QUA_LAY',      label: 'QUA LẤY',     auto: false, icon: '\u{1F3E0}' },
-        GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'GỌI BÁO KHÁCH HH', auto: false, icon: '\u{1F4DE}' },
-        KHACH_BOOM:   { key: 'KHACH_BOOM',   label: 'KHÁCH BOOM',     auto: false, icon: '\u{1F4A5}' },
-        THE_KHACH_LA: { key: 'THE_KHACH_LA', label: 'THẺ KHÁCH LẠ',   auto: false, icon: '\u{1FAAA}' },
-        DA_DI_DON_GAP:{ key: 'DA_DI_DON_GAP',label: 'ĐÃ ĐI ĐƠN GẤP', auto: false, icon: '\u{26A1}' },
-        KHAC:         { key: 'KHAC',         label: 'TAG TPOS NGOÀI MAPPING', auto: false, icon: '\u{1F4CB}', hasNote: true }
+        TRU_CONG_NO: { key: 'TRU_CONG_NO', label: 'TRỪ CÔNG NỢ', auto: true, icon: '\u{1F4B0}' },
+        CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK', auto: true, icon: '\u{1F4B3}' },
+        GIAM_GIA: { key: 'GIAM_GIA', label: 'GIẢM GIÁ', auto: false, icon: '\u{1F3F7}\uFE0F' },
+        CHO_LIVE: { key: 'CHO_LIVE', label: 'CHỜ LIVE', auto: false, icon: '\u{1F4FA}' },
+        GIU_DON: { key: 'GIU_DON', label: 'GIỮ ĐƠN', auto: false, icon: '\u{231B}' },
+        QUA_LAY: { key: 'QUA_LAY', label: 'QUA LẤY', auto: false, icon: '\u{1F3E0}' },
+        GOI_BAO_KHACH_HH: {
+            key: 'GOI_BAO_KHACH_HH',
+            label: 'GỌI BÁO KHÁCH HH',
+            auto: false,
+            icon: '\u{1F4DE}',
+        },
+        KHACH_BOOM: { key: 'KHACH_BOOM', label: 'KHÁCH BOOM', auto: false, icon: '\u{1F4A5}' },
+        THE_KHACH_LA: {
+            key: 'THE_KHACH_LA',
+            label: 'THẺ KHÁCH LẠ',
+            auto: false,
+            icon: '\u{1FAAA}',
+        },
+        DA_DI_DON_GAP: {
+            key: 'DA_DI_DON_GAP',
+            label: 'ĐÃ ĐI ĐƠN GẤP',
+            auto: false,
+            icon: '\u{26A1}',
+        },
+        KHAC: {
+            key: 'KHAC',
+            label: 'TAG TPOS NGOÀI MAPPING',
+            auto: false,
+            icon: '\u{1F4CB}',
+            hasNote: true,
+        },
     };
 
     const PTAG_SUBTAGS = {
         // Category 2 — MỤC XỬ LÝ
-        CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'ĐƠN CHƯA PHẢN HỒI', category: 2 },
-        BAN_HANG:       { key: 'BAN_HANG',        label: 'BÁN HÀNG',           category: 2 },
+        CHUA_PHAN_HOI: { key: 'CHUA_PHAN_HOI', label: 'ĐƠN CHƯA PHẢN HỒI', category: 2 },
+        BAN_HANG: { key: 'BAN_HANG', label: 'BÁN HÀNG', category: 2 },
         // Category 3 — KHÔNG CẦN CHỐT
         // Note (2026-04-18): GIO_TRONG removed — filter "GIỎ TRỐNG" nay lọc theo TotalQuantity=0
         DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3 },
-        KHONG_DE_HANG:     { key: 'KHONG_DE_HANG',     label: 'KHÔNG ĐỂ HÀNG',     category: 3 },
+        KHONG_DE_HANG: { key: 'KHONG_DE_HANG', label: 'KHÔNG ĐỂ HÀNG', category: 3 },
         // Category 4 — KHÁCH XÃ
-        NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC HẾT HÀNG',              category: 4 },
-        KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'KHÁCH HỦY NGUYÊN ĐƠN',      category: 4 },
-        KHACH_KO_LIEN_LAC:  { key: 'KHACH_KO_LIEN_LAC', label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', category: 4 }
+        NCC_HET_HANG: { key: 'NCC_HET_HANG', label: 'NCC HẾT HÀNG', category: 4 },
+        KHACH_HUY_DON: { key: 'KHACH_HUY_DON', label: 'KHÁCH HỦY NGUYÊN ĐƠN', category: 4 },
+        KHACH_KO_LIEN_LAC: {
+            key: 'KHACH_KO_LIEN_LAC',
+            label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC',
+            category: 4,
+        },
     };
 
     const PTAG_TOOLTIPS = {
@@ -139,29 +165,47 @@
         subtag_KHACH_HUY_DON: 'Khách báo lý do không nhận: đi công tác, không có tiền, đổi ý.',
         subtag_KHACH_KO_LIEN_LAC: 'Sau buổi chốt đơn vẫn không liên lạc được, bắt buộc xã.',
         // Flags
-        flag_GOI_BAO_KHACH_HH: 'Gọi báo khách hàng hết hàng, chờ phản hồi.'
+        flag_GOI_BAO_KHACH_HH: 'Gọi báo khách hàng hết hàng, chờ phản hồi.',
     };
 
     const PTAG_SUBTAG_ICONS = {
-        CHUA_PHAN_HOI: '💬', BAN_HANG: '🛒',
+        CHUA_PHAN_HOI: '💬',
+        BAN_HANG: '🛒',
         NCC_HET_HANG: '🚫',
         DA_GOP_KHONG_CHOT: '🔗',
-        KHACH_HUY_DON: '❌', KHACH_KO_LIEN_LAC: '📵'
+        KHACH_HUY_DON: '❌',
+        KHACH_KO_LIEN_LAC: '📵',
     };
 
     // Default T-tags — always present, cannot be deleted, hidden from manager modal
     const DEFAULT_TTAG_DEFS = [
         { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true },
         // Marker cho đơn đã gộp (tag XL-side, pair với TPOS "Gộp X Y Z" tag)
-        { id: 'GOP_DON', name: 'GỘP ĐƠN', productCode: '', createdAt: 0, isDefault: true }
+        { id: 'GOP_DON', name: 'GỘP ĐƠN', productCode: '', createdAt: 0, isDefault: true },
     ];
 
     // ── Flag color palette (for đặc điểm tags) ──
     const PTAG_FLAG_COLOR_PALETTE = [
-        '#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6',
-        '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#06b6d4',
-        '#84cc16', '#d946ef', '#0ea5e9', '#e11d48', '#7c3aed',
-        '#059669', '#dc2626', '#2563eb', '#9333ea', '#c026d3'
+        '#ef4444',
+        '#f97316',
+        '#f59e0b',
+        '#22c55e',
+        '#14b8a6',
+        '#3b82f6',
+        '#6366f1',
+        '#8b5cf6',
+        '#ec4899',
+        '#06b6d4',
+        '#84cc16',
+        '#d946ef',
+        '#0ea5e9',
+        '#e11d48',
+        '#7c3aed',
+        '#059669',
+        '#dc2626',
+        '#2563eb',
+        '#9333ea',
+        '#c026d3',
     ];
 
     // T-tag color constants
@@ -170,21 +214,29 @@
     const PTAG_TTAG_YELLOW_NAMES = ['CHỜ HÀNG', 'MY THÊM CHỜ VỀ'];
 
     // ---- Normalize helpers: support both old (string) and new ({id, name}) formats ----
-    function _ptagFlagId(f) { return (typeof f === 'object' && f !== null) ? f.id : f; }
-    function _ptagTTagId(t) { return (typeof t === 'object' && t !== null) ? t.id : t; }
+    function _ptagFlagId(f) {
+        return typeof f === 'object' && f !== null ? f.id : f;
+    }
+    function _ptagTTagId(t) {
+        return typeof t === 'object' && t !== null ? t.id : t;
+    }
 
     function _ptagNormalizeFlag(f) {
         if (typeof f === 'object' && f !== null && f.id) return f;
         const fl = PTAG_FLAGS[f];
-        const name = fl ? fl.label : (ProcessingTagState.getCustomFlagLabel(f) || f);
+        const name = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(f) || f;
         return { id: f, name };
     }
     function _ptagNormalizeTTag(t) {
         if (typeof t === 'object' && t !== null && t.id) return t;
         return { id: t, name: ProcessingTagState.getTTagName(t) || t };
     }
-    function _ptagNormalizeFlags(arr) { return (arr || []).map(_ptagNormalizeFlag); }
-    function _ptagNormalizeTTags(arr) { return (arr || []).map(_ptagNormalizeTTag); }
+    function _ptagNormalizeFlags(arr) {
+        return (arr || []).map(_ptagNormalizeFlag);
+    }
+    function _ptagNormalizeTTags(arr) {
+        return (arr || []).map(_ptagNormalizeTTag);
+    }
 
     function _ptagGetFlagColor(flagKey) {
         const saved = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
@@ -206,7 +258,8 @@
             return color;
         }
         // Random for custom flags without saved color
-        const color = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
+        const color =
+            PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         saved[flagKey] = color;
         localStorage.setItem('ptag_flag_colors', JSON.stringify(saved));
         return color;
@@ -236,31 +289,42 @@
     // =====================================================
 
     const ProcessingTagState = {
-        _orderData: new Map(),         // Key = orderCode (hoặc orderId cho dữ liệu cũ)
-        _idToCodeIndex: new Map(),     // orderId → orderCode mapping (lookup ngược)
+        _orderData: new Map(), // Key = orderCode (hoặc orderId cho dữ liệu cũ)
+        _idToCodeIndex: new Map(), // orderId → orderCode mapping (lookup ngược)
         _panelOpen: false,
         _panelPinned: JSON.parse(localStorage.getItem('ptag_panel_pinned') || 'false'),
         // Filter state — persisted to localStorage (key: ptag_active_filter_v1 / ptag_active_flag_filters_v1)
         // để tránh bị mất khi loadProcessingTags() polling 15s, và sống qua reload trang.
-        _activeFilter: (function(){
-            try { const v = localStorage.getItem('ptag_active_filter_v1'); return v && v !== 'null' ? v : null; }
-            catch(e){ return null; }
+        _activeFilter: (function () {
+            try {
+                const v = localStorage.getItem('ptag_active_filter_v1');
+                return v && v !== 'null' ? v : null;
+            } catch (e) {
+                return null;
+            }
         })(),
-        _activeFlagFilters: (function(){
-            try { const a = JSON.parse(localStorage.getItem('ptag_active_flag_filters_v1') || '[]'); return new Set(Array.isArray(a) ? a : []); }
-            catch(e){ return new Set(); }
+        _activeFlagFilters: (function () {
+            try {
+                const a = JSON.parse(localStorage.getItem('ptag_active_flag_filters_v1') || '[]');
+                return new Set(Array.isArray(a) ? a : []);
+            } catch (e) {
+                return new Set();
+            }
         })(),
         _sseSource: null,
         _pollInterval: null,
         _tTagDefinitions: [],
         _customFlagDefs: [],
         _flagsSectionExpanded: false,
-        _tTagPinned: (function(){
-            try { return localStorage.getItem('ptag_ttag_pinned_v1') === '1'; }
-            catch(e){ return false; }
+        _tTagPinned: (function () {
+            try {
+                return localStorage.getItem('ptag_ttag_pinned_v1') === '1';
+            } catch (e) {
+                return false;
+            }
         })(),
-        _isLoaded: false,          // true khi data đã load xong từ API — guard cho auto-tag
-        _historyStore: new Map(),  // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
+        _isLoaded: false, // true khi data đã load xong từ API — guard cho auto-tag
+        _historyStore: new Map(), // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
 
         getHistory(orderCode) {
             return this._historyStore.get(String(orderCode)) || [];
@@ -330,23 +394,23 @@
             const arr = Array.isArray(defs) ? defs : [];
             // Ensure default T-tags are always present
             for (const def of DEFAULT_TTAG_DEFS) {
-                if (!arr.some(d => d.id === def.id)) {
+                if (!arr.some((d) => d.id === def.id)) {
                     arr.unshift({ ...def });
                 }
             }
             this._tTagDefinitions = arr;
         },
         getTTagName(tagId) {
-            const def = this._tTagDefinitions.find(d => d.id === tagId);
+            const def = this._tTagDefinitions.find((d) => d.id === tagId);
             if (def) return def.name;
             console.warn(`${PTAG_LOG} T-tag definition missing for ID: ${tagId}`);
             return `⚠ ${tagId}`;
         },
         getTTagDef(tagId) {
-            return this._tTagDefinitions.find(d => d.id === tagId) || null;
+            return this._tTagDefinitions.find((d) => d.id === tagId) || null;
         },
         getTTagLabel(tagId) {
-            const def = this._tTagDefinitions.find(d => d.id === tagId);
+            const def = this._tTagDefinitions.find((d) => d.id === tagId);
             if (!def) {
                 console.warn(`${PTAG_LOG} T-tag definition missing for ID: ${tagId}`);
                 return `⚠ ${tagId}`;
@@ -361,14 +425,14 @@
             this._customFlagDefs = Array.isArray(defs) ? defs : [];
         },
         getCustomFlagDef(flagId) {
-            return this._customFlagDefs.find(d => d.id === flagId) || null;
+            return this._customFlagDefs.find((d) => d.id === flagId) || null;
         },
         getCustomFlagLabel(flagId) {
-            const def = this._customFlagDefs.find(d => d.id === flagId);
+            const def = this._customFlagDefs.find((d) => d.id === flagId);
             if (def) return (def.label || '').toUpperCase();
             console.warn(`${PTAG_LOG} Custom flag definition missing for ID: ${flagId}`);
             return `⚠ ${flagId.slice(-8)}`;
-        }
+        },
     };
 
     // Helper: resolve orderId → orderCode
@@ -377,15 +441,15 @@
         const cached = ProcessingTagState._idToCodeIndex.get(String(orderId));
         if (cached) return cached;
         // 2. Tìm trong allOrders
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const order = allOrders.find(o => String(o.Id) === String(orderId));
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+        const order = allOrders.find((o) => String(o.Id) === String(orderId));
         return order?.Code ? String(order.Code) : null;
     }
 
     // Helper: resolve orderCode → orderId
     function _ptagResolveId(orderCode) {
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const order = allOrders.find(o => String(o.Code) === String(orderCode));
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+        const order = allOrders.find((o) => String(o.Code) === String(orderCode));
         return order?.Id ? String(order.Id) : null;
     }
 
@@ -396,7 +460,7 @@
     async function _ptagFetch(url, options = {}) {
         const defaults = {
             headers: { 'Content-Type': 'application/json' },
-            ...options
+            ...options,
         };
         const response = await fetch(url, defaults);
         if (!response.ok) {
@@ -411,11 +475,19 @@
             if (ProcessingTagState._activeFilter == null) {
                 localStorage.removeItem('ptag_active_filter_v1');
             } else {
-                localStorage.setItem('ptag_active_filter_v1', String(ProcessingTagState._activeFilter));
+                localStorage.setItem(
+                    'ptag_active_filter_v1',
+                    String(ProcessingTagState._activeFilter)
+                );
             }
-            localStorage.setItem('ptag_active_flag_filters_v1', JSON.stringify([...ProcessingTagState._activeFlagFilters]));
+            localStorage.setItem(
+                'ptag_active_flag_filters_v1',
+                JSON.stringify([...ProcessingTagState._activeFlagFilters])
+            );
             window.FilterPersistence?.scheduleSave();
-        } catch (e) { /* ignore quota errors */ }
+        } catch (e) {
+            /* ignore quota errors */
+        }
     }
 
     async function loadProcessingTags() {
@@ -433,11 +505,15 @@
                 const configResult = await _ptagFetch(`${PTAG_API_BASE}/config`);
                 if (configResult.data) {
                     if (configResult.data.__ttag_config__?.tTagDefinitions?.length) {
-                        ProcessingTagState.setTTagDefinitions(configResult.data.__ttag_config__.tTagDefinitions);
+                        ProcessingTagState.setTTagDefinitions(
+                            configResult.data.__ttag_config__.tTagDefinitions
+                        );
                         loadedTTags = true;
                     }
                     if (configResult.data.__ptag_custom_flags__?.customFlagDefs) {
-                        ProcessingTagState.setCustomFlagDefs(configResult.data.__ptag_custom_flags__.customFlagDefs);
+                        ProcessingTagState.setCustomFlagDefs(
+                            configResult.data.__ptag_custom_flags__.customFlagDefs
+                        );
                         loadedCustomFlags = true;
                     }
                 }
@@ -450,13 +526,16 @@
             }
             if (!loadedCustomFlags && backupCustomFlagDefs.length > 0) {
                 ProcessingTagState._customFlagDefs = backupCustomFlagDefs;
-                console.log(`${PTAG_LOG} Restored ${backupCustomFlagDefs.length} custom flag defs from backup`);
+                console.log(
+                    `${PTAG_LOG} Restored ${backupCustomFlagDefs.length} custom flag defs from backup`
+                );
             }
 
             // 2. Load ALL order tags bằng batch endpoint (orderCode only)
             // loadProcessingTagsByCodes gọi setOrderData() cho từng order → merge vào _orderData
-            const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-            const orderCodes = allOrders.map(o => String(o.Code)).filter(Boolean);
+            const allOrders =
+                typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+            const orderCodes = allOrders.map((o) => String(o.Code)).filter(Boolean);
             if (orderCodes.length > 0) {
                 await loadProcessingTagsByCodes(orderCodes);
             }
@@ -479,20 +558,29 @@
 
             // Nếu user đang có filter active → re-apply qua performTableSearch để bảng phản
             // ánh đúng sau khi data mới load (tránh trường hợp row mới xuất hiện không bị filter).
-            if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
+            if (
+                hasActiveProcessingTagFilters() &&
+                typeof window.performTableSearch === 'function'
+            ) {
                 window.performTableSearch();
             }
 
             // Re-trigger auto-tag CK/Trừ Công Nợ cho wallet data đã load trước ProcessingTagState
-            if (typeof window._applyWalletAutoTags === 'function' && window.walletDebtData && window.walletDebtData.size > 0) {
-                console.log(`${PTAG_LOG} Re-triggering wallet auto-tag (${window.walletDebtData.size} phones)`);
+            if (
+                typeof window._applyWalletAutoTags === 'function' &&
+                window.walletDebtData &&
+                window.walletDebtData.size > 0
+            ) {
+                console.log(
+                    `${PTAG_LOG} Re-triggering wallet auto-tag (${window.walletDebtData.size} phones)`
+                );
                 window._applyWalletAutoTags();
             }
 
             // Reconcile tag XL với invoice store: nếu đơn có PBH active mà tag vẫn
             // là CHO_DI_DON (do creation không đi qua storeFromApiResult hoặc
             // session khác), auto-flip sang HOAN_TAT. Fire-and-forget.
-            reconcileTagsWithInvoices().catch(e => {
+            reconcileTagsWithInvoices().catch((e) => {
                 console.warn(`${PTAG_LOG} reconcileTagsWithInvoices failed:`, e);
             });
         } catch (e) {
@@ -506,15 +594,15 @@
      * Dữ liệu mới đã dùng orderCode làm key nên không cần reconcile.
      */
     function _ptagReconcileIds() {
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
         if (allOrders.length === 0) return;
 
         const codeToOrder = new Map();
-        allOrders.forEach(o => {
+        allOrders.forEach((o) => {
             if (o.Code) codeToOrder.set(String(o.Code), o);
         });
         const idToOrder = new Map();
-        allOrders.forEach(o => {
+        allOrders.forEach((o) => {
             if (o.Id) idToOrder.set(String(o.Id), o);
         });
 
@@ -549,7 +637,9 @@
         }
 
         if (remaps.length > 0) {
-            console.log(`${PTAG_LOG} Reconciled ${remaps.length} legacy entry(ies) to orderCode keys`);
+            console.log(
+                `${PTAG_LOG} Reconciled ${remaps.length} legacy entry(ies) to orderCode keys`
+            );
         }
     }
 
@@ -567,7 +657,7 @@
             try {
                 const result = await _ptagFetch(`${PTAG_API_BASE}/batch`, {
                     method: 'POST',
-                    body: JSON.stringify({ codes: chunk })
+                    body: JSON.stringify({ codes: chunk }),
                 });
                 if (result.data) {
                     for (const [code, tagData] of Object.entries(result.data)) {
@@ -579,7 +669,8 @@
                         }
                         // Normalize subState
                         if (tagData.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                            tagData.subState = (tagData.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+                            tagData.subState =
+                                (tagData.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                         }
                         // Store trực tiếp bằng orderCode
                         ProcessingTagState.setOrderData(code, tagData);
@@ -596,17 +687,19 @@
         console.log(`${PTAG_LOG} Loaded tags by code for ${orderCodes.length} orders`);
     }
 
-
-
     async function saveProcessingTagToAPI(orderCode, data) {
         try {
             const userName = window.authManager?.getAuthState()?.username || '';
             // Gắn history từ _historyStore vào data trước khi gửi lên server
             const dataWithHistory = { ...data, history: ProcessingTagState.getHistory(orderCode) };
-            await _ptagFetch(
-                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data: dataWithHistory, updatedBy: userName, campaignId: data.campaignId || null }) }
-            );
+            await _ptagFetch(`${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    data: dataWithHistory,
+                    updatedBy: userName,
+                    campaignId: data.campaignId || null,
+                }),
+            });
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
         }
@@ -619,7 +712,7 @@
     const _batchSaveQueue = new Map(); // orderCode → { data, updatedBy, campaignId }
     let _batchSaveTimer = null;
     const BATCH_SAVE_DELAY_MS = 500; // Collect saves for 500ms then flush
-    const BATCH_SAVE_CHUNK = 200;    // Max items per request (server limit)
+    const BATCH_SAVE_CHUNK = 200; // Max items per request (server limit)
 
     function queueProcessingTagSave(orderCode, data, options = {}) {
         const userName = options.updatedBy || window.authManager?.getAuthState()?.username || '';
@@ -628,7 +721,7 @@
             orderCode,
             data: dataWithHistory,
             updatedBy: userName,
-            campaignId: data.campaignId || null
+            campaignId: data.campaignId || null,
         });
 
         if (!_batchSaveTimer) {
@@ -649,7 +742,7 @@
             try {
                 await _ptagFetch(`${PTAG_API_BASE}/batch-save`, {
                     method: 'PUT',
-                    body: JSON.stringify({ items: chunk, silent: chunk.length > 10 })
+                    body: JSON.stringify({ items: chunk, silent: chunk.length > 10 }),
                 });
                 console.log(`${PTAG_LOG} Batch saved ${chunk.length} tags`);
             } catch (e) {
@@ -688,12 +781,18 @@
 
         const p = (async () => {
             const defs = ProcessingTagState.getCustomFlagDefs();
-            const existing = defs.find(d => String(d.label || '').toUpperCase() === normLabel);
+            const existing = defs.find((d) => String(d.label || '').toUpperCase() === normLabel);
             if (existing) return existing;
 
             const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-            const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
-            const newDef = { id: key, label: normLabel, color: assignedColor, createdAt: Date.now() };
+            const assignedColor =
+                PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
+            const newDef = {
+                id: key,
+                label: normLabel,
+                color: assignedColor,
+                createdAt: Date.now(),
+            };
 
             const savedColors = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
             savedColors[key] = assignedColor;
@@ -706,7 +805,11 @@
         })();
 
         _inflightMergeFlag.set(normLabel, p);
-        try { return await p; } finally { _inflightMergeFlag.delete(normLabel); }
+        try {
+            return await p;
+        } finally {
+            _inflightMergeFlag.delete(normLabel);
+        }
     }
 
     /**
@@ -718,7 +821,12 @@
             const userName = window.authManager?.getAuthState()?.username || '';
             await _ptagFetch(`${PTAG_API_BASE}/config-merge`, {
                 method: 'PATCH',
-                body: JSON.stringify({ configKey, addDefs: addDefs || [], removeDefs: removeDefs || [], updatedBy: userName })
+                body: JSON.stringify({
+                    configKey,
+                    addDefs: addDefs || [],
+                    removeDefs: removeDefs || [],
+                    updatedBy: userName,
+                }),
             });
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to merge config ${configKey}:`, e);
@@ -730,10 +838,9 @@
 
     async function clearProcessingTagAPI(orderCode) {
         try {
-            await _ptagFetch(
-                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'DELETE' }
-            );
+            await _ptagFetch(`${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`, {
+                method: 'DELETE',
+            });
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to clear tag for ${orderCode}:`, e);
         }
@@ -842,9 +949,10 @@
         // column width recalc → bảng giật ngang liên tục khi SSE stream active. Giờ skip nếu
         // trạng thái pass/không-pass KHÔNG đổi so với DOM presence.
         if (hasActiveProcessingTagFilters()) {
-            const passesNow = typeof orderPassesProcessingTagFilter === 'function'
-                ? orderPassesProcessingTagFilter(orderCode)
-                : true;
+            const passesNow =
+                typeof orderPassesProcessingTagFilter === 'function'
+                    ? orderPassesProcessingTagFilter(orderCode)
+                    : true;
             const isInDom = !!row;
             // passes && in-dom → stays visible; !passes && !in-dom → stays hidden → skip re-filter
             if (passesNow === isInDom) return;
@@ -862,7 +970,7 @@
     function _ptagRefreshAllRows() {
         // Re-render all visible processing tag cells after bulk load
         const cells = document.querySelectorAll('td[data-column="processing-tag"]');
-        cells.forEach(cell => {
+        cells.forEach((cell) => {
             const row = cell.closest('tr');
             if (!row) return;
             const orderId = row.getAttribute('data-order-id');
@@ -882,24 +990,37 @@
         // (legacy bug), try to extract .category from it; otherwise abort to
         // prevent storing "[object Object]:" as catValue in history.
         if (typeof category === 'object' && category !== null) {
-            console.warn(`${PTAG_LOG} assignOrderCategory called with object as category, extracting .category`, category);
+            console.warn(
+                `${PTAG_LOG} assignOrderCategory called with object as category, extracting .category`,
+                category
+            );
             if (category.subTag && !options.subTag) options.subTag = category.subTag;
             category = category.category;
         }
         category = parseInt(category);
         if (!Number.isFinite(category) || category < 0 || category > 5) {
-            console.error(`${PTAG_LOG} assignOrderCategory: invalid category`, category, 'for order', orderCode);
+            console.error(
+                `${PTAG_LOG} assignOrderCategory: invalid category`,
+                category,
+                'for order',
+                orderCode
+            );
             return;
         }
 
         const existingData = ProcessingTagState.getOrderData(orderCode);
         // Preserve existing flags when changing category
         const existingFlags = existingData?.flags || [];
-        const newFlags = (options.flags || []).map(f => _ptagNormalizeFlag(f));
+        const newFlags = (options.flags || []).map((f) => _ptagNormalizeFlag(f));
         // Merge flags by ID, dedup
         const flagMap = new Map();
-        for (const f of existingFlags) { const nf = _ptagNormalizeFlag(f); flagMap.set(nf.id, nf); }
-        for (const f of newFlags) { flagMap.set(f.id, f); }
+        for (const f of existingFlags) {
+            const nf = _ptagNormalizeFlag(f);
+            flagMap.set(nf.id, nf);
+        }
+        for (const f of newFlags) {
+            flagMap.set(f.id, f);
+        }
         const data = {
             category,
             subTag: options.subTag || null,
@@ -908,7 +1029,7 @@
             tTags: existingData?.tTags ? [...existingData.tTags] : [],
             note: options.note || '',
             assignedAt: Date.now(),
-            previousPosition: null
+            previousPosition: null,
         };
 
         // Category 1 (CHỜ ĐI ĐƠN): auto-detect sub-state + flags
@@ -924,7 +1045,7 @@
             if (phone) {
                 const autoFlagKeys = await autoDetectFlags(orderCode, phone);
                 for (const fk of autoFlagKeys) {
-                    if (!data.flags.some(f => _ptagFlagId(f) === fk)) {
+                    if (!data.flags.some((f) => _ptagFlagId(f) === fk)) {
                         data.flags.push(_ptagNormalizeFlag(fk));
                     }
                 }
@@ -939,10 +1060,14 @@
         _ptagAddHistory(orderCode, 'SET_CATEGORY', catValue, options.source || null);
         // Log auto-detected flags
         if (category === PTAG_CATEGORIES.CHO_DI_DON) {
-            const existingFlagIds = new Set(existingFlags.map(f => _ptagFlagId(f)));
-            const newFlagIds = new Set(newFlags.map(f => _ptagFlagId(f)));
-            const autoFlags = data.flags.filter(f => !existingFlagIds.has(_ptagFlagId(f)) && !newFlagIds.has(_ptagFlagId(f)));
-            autoFlags.forEach(f => _ptagAddHistory(orderCode, 'ADD_FLAG', _ptagFlagId(f), 'Hệ thống'));
+            const existingFlagIds = new Set(existingFlags.map((f) => _ptagFlagId(f)));
+            const newFlagIds = new Set(newFlags.map((f) => _ptagFlagId(f)));
+            const autoFlags = data.flags.filter(
+                (f) => !existingFlagIds.has(_ptagFlagId(f)) && !newFlagIds.has(_ptagFlagId(f))
+            );
+            autoFlags.forEach((f) =>
+                _ptagAddHistory(orderCode, 'ADD_FLAG', _ptagFlagId(f), 'Hệ thống')
+            );
         }
 
         _ptagRefreshRow(orderCode);
@@ -967,20 +1092,30 @@
         if (!data) {
             // Nếu data chưa load từ API, KHÔNG tạo entry blank để tránh ghi đè server data
             if (!ProcessingTagState._isLoaded) {
-                console.warn(`${PTAG_LOG} Skip toggleOrderFlag(${orderCode}, ${flagKey}) — data not loaded yet`);
+                console.warn(
+                    `${PTAG_LOG} Skip toggleOrderFlag(${orderCode}, ${flagKey}) — data not loaded yet`
+                );
                 return;
             }
-            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+            data = {
+                category: null,
+                subTag: null,
+                subState: null,
+                flags: [],
+                tTags: [],
+                note: '',
+                assignedAt: Date.now(),
+            };
         }
 
         const flags = data.flags || [];
-        const idx = flags.findIndex(f => _ptagFlagId(f) === flagKey);
+        const idx = flags.findIndex((f) => _ptagFlagId(f) === flagKey);
         const isAdding = idx < 0;
         if (idx >= 0) {
             flags.splice(idx, 1);
         } else {
             const fl = PTAG_FLAGS[flagKey];
-            const name = fl ? fl.label : (ProcessingTagState.getCustomFlagLabel(flagKey) || flagKey);
+            const name = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(flagKey) || flagKey;
             flags.push({ id: flagKey, name });
         }
         data.flags = flags;
@@ -1018,10 +1153,10 @@
         if (history.length > 0) {
             // Giữ history trên server, xóa data
             const userName = window.authManager?.getAuthState()?.username || '';
-            await _ptagFetch(
-                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data: { history }, updatedBy: userName }) }
-            );
+            await _ptagFetch(`${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`, {
+                method: 'PUT',
+                body: JSON.stringify({ data: { history }, updatedBy: userName }),
+            });
         } else {
             await clearProcessingTagAPI(orderCode);
         }
@@ -1054,10 +1189,10 @@
         if (history.length > 0) {
             // PUT history-only để server giữ history (không gọi DELETE)
             const userName = window.authManager?.getAuthState()?.username || '';
-            await _ptagFetch(
-                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data: { history }, updatedBy: userName }) }
-            );
+            await _ptagFetch(`${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`, {
+                method: 'PUT',
+                body: JSON.stringify({ data: { history }, updatedBy: userName }),
+            });
         } else {
             await clearProcessingTagAPI(orderCode);
         }
@@ -1068,14 +1203,16 @@
         let data = ProcessingTagState.getOrderData(orderCode);
         if (!data) {
             if (!ProcessingTagState._isLoaded) {
-                console.warn(`${PTAG_LOG} Skip assignTTagToOrder(${orderCode}) — data not loaded yet`);
+                console.warn(
+                    `${PTAG_LOG} Skip assignTTagToOrder(${orderCode}) — data not loaded yet`
+                );
                 return;
             }
             // Create minimal data for orders without processing tag
             data = { tTags: [] };
         }
         const tTags = data.tTags || [];
-        if (!tTags.some(t => _ptagTTagId(t) === tagId)) {
+        if (!tTags.some((t) => _ptagTTagId(t) === tagId)) {
             tTags.push({ id: tagId, name: ProcessingTagState.getTTagName(tagId) || tagId });
         }
         data.tTags = tTags;
@@ -1100,9 +1237,13 @@
     async function removeTTagFromOrder(orderCode, tagId, source) {
         const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
-        data.tTags = (data.tTags || []).filter(t => _ptagTTagId(t) !== tagId);
+        data.tTags = (data.tTags || []).filter((t) => _ptagTTagId(t) !== tagId);
         // Auto sub-state ONLY when at Cat 1 "Chờ Hàng" and all T-tags removed
-        if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
+        if (
+            data.category === PTAG_CATEGORIES.CHO_DI_DON &&
+            data.subState === 'CHO_HANG' &&
+            data.tTags.length === 0
+        ) {
             data.subState = 'OKIE_CHO_DI_DON';
         }
         _ptagEnsureCode(orderCode, data);
@@ -1131,24 +1272,31 @@
             return { transferred: false, reason: 'nothing_to_transfer' };
         }
 
-        console.log(`${PTAG_LOG} Transferring processing tags from ${sourceOrderCode} to ${targetOrderCode} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`);
+        console.log(
+            `${PTAG_LOG} Transferring processing tags from ${sourceOrderCode} to ${targetOrderCode} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`
+        );
 
         // Get or create target data
         let targetData = ProcessingTagState.getOrderData(targetOrderCode) || {
-            category: null, subTag: null, subState: null,
-            flags: [], tTags: [], note: '', assignedAt: Date.now()
+            category: null,
+            subTag: null,
+            subState: null,
+            flags: [],
+            tTags: [],
+            note: '',
+            assignedAt: Date.now(),
         };
 
         // Union merge flags by ID (add flags from source that target doesn't have)
         const targetFlags = targetData.flags || [];
-        const targetFlagIds = new Set(targetFlags.map(f => _ptagFlagId(f)));
-        const newFlags = sourceFlags.filter(f => !targetFlagIds.has(_ptagFlagId(f)));
+        const targetFlagIds = new Set(targetFlags.map((f) => _ptagFlagId(f)));
+        const newFlags = sourceFlags.filter((f) => !targetFlagIds.has(_ptagFlagId(f)));
         targetData.flags = [...targetFlags, ...newFlags];
 
         // Union merge tTags by ID
         const targetTTags = targetData.tTags || [];
-        const targetTTagIds = new Set(targetTTags.map(t => _ptagTTagId(t)));
-        const newTTags = sourceTTags.filter(t => !targetTTagIds.has(_ptagTTagId(t)));
+        const targetTTagIds = new Set(targetTTags.map((t) => _ptagTTagId(t)));
+        const newTTags = sourceTTags.filter((t) => !targetTTagIds.has(_ptagTTagId(t)));
         targetData.tTags = [...targetTTags, ...newTTags];
 
         // Auto subState for category 1 CHO_DI_DON when tTags added
@@ -1177,11 +1325,13 @@
         _ptagRefreshRow(sourceOrderCode);
         renderPanelContent();
 
-        console.log(`${PTAG_LOG} Transfer complete: ${newFlags.length} flags, ${newTTags.length} tTags added to ${targetOrderCode}`);
+        console.log(
+            `${PTAG_LOG} Transfer complete: ${newFlags.length} flags, ${newTTags.length} tTags added to ${targetOrderCode}`
+        );
         return {
             transferred: true,
             flagsAdded: newFlags,
-            tTagsAdded: newTTags
+            tTagsAdded: newTTags,
         };
     }
 
@@ -1189,14 +1339,26 @@
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     async function onPtagBillCreated(saleOnlineId) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
-        let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
+        let data =
+            ProcessingTagState.getOrderData(orderCode) ||
+            ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
             if (!ProcessingTagState._isLoaded) {
-                console.warn(`${PTAG_LOG} Skip onPtagBillCreated(${orderCode}) — data not loaded yet`);
+                console.warn(
+                    `${PTAG_LOG} Skip onPtagBillCreated(${orderCode}) — data not loaded yet`
+                );
                 return;
             }
-            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+            data = {
+                category: null,
+                subTag: null,
+                subState: null,
+                flags: [],
+                tTags: [],
+                note: '',
+                assignedAt: Date.now(),
+            };
         }
 
         // Guard: chỉ set HOAN_TAT khi thực sự còn invoice active trong InvoiceStatusStore.
@@ -1206,12 +1368,14 @@
         const invStore = window.InvoiceStatusStore;
         if (invStore && typeof invStore.getAll === 'function') {
             const entries = invStore.getAll(saleOnlineId) || [];
-            const hasActive = entries.some(inv => {
+            const hasActive = entries.some((inv) => {
                 const sc = inv.StateCode || 'None';
                 return !inv.IsMergeCancel && sc !== 'cancel' && sc !== 'IsMergeCancel';
             });
             if (!hasActive) {
-                console.log(`${PTAG_LOG} onPtagBillCreated skip ${orderCode} — không có invoice active trong store (${entries.length} entries)`);
+                console.log(
+                    `${PTAG_LOG} onPtagBillCreated skip ${orderCode} — không có invoice active trong store (${entries.length} entries)`
+                );
                 return;
             }
         }
@@ -1224,11 +1388,13 @@
             category: data.category,
             subTag: data.subTag,
             subState: data.subState,
-            flags: Array.isArray(data.flags) ? data.flags.map(f => (typeof f === 'object' && f !== null ? { ...f } : f)) : [],
+            flags: Array.isArray(data.flags)
+                ? data.flags.map((f) => (typeof f === 'object' && f !== null ? { ...f } : f))
+                : [],
             tTags: Array.isArray(data.tTags) ? [...data.tTags] : [],
             note: data.note || '',
             pickingSlipPrinted: !!data.pickingSlipPrinted,
-            snapshotAt: Date.now()
+            snapshotAt: Date.now(),
         };
 
         // Chuyển sang ĐÃ RA ĐƠN — reset subTag/subState; clear tTags theo toggle Auto T
@@ -1262,14 +1428,26 @@
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     function onPtagPackingSlipPrinted(saleOnlineId) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
-        let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
+        let data =
+            ProcessingTagState.getOrderData(orderCode) ||
+            ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
             if (!ProcessingTagState._isLoaded) {
-                console.warn(`${PTAG_LOG} Skip onPtagPackingSlipPrinted(${orderCode}) — data not loaded yet`);
+                console.warn(
+                    `${PTAG_LOG} Skip onPtagPackingSlipPrinted(${orderCode}) — data not loaded yet`
+                );
                 return;
             }
-            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+            data = {
+                category: null,
+                subTag: null,
+                subState: null,
+                flags: [],
+                tTags: [],
+                note: '',
+                assignedAt: Date.now(),
+            };
         }
 
         // Already printed → skip
@@ -1298,19 +1476,25 @@
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     async function onPtagBillCancelled(saleOnlineId) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
-        const data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
+        const data =
+            ProcessingTagState.getOrderData(orderCode) ||
+            ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
         if (!data) return;
 
         // Idempotency: không có snapshot → đã restore rồi hoặc chưa bao giờ auto-transition
         if (!data.previousPosition) {
-            console.log(`${PTAG_LOG} onPtagBillCancelled(${orderCode}) — no previousPosition, skip`);
+            console.log(
+                `${PTAG_LOG} onPtagBillCancelled(${orderCode}) — no previousPosition, skip`
+            );
             return;
         }
 
         // Idempotency: nếu user đã gán thủ công lại (category !== HOAN_TAT) thì KHÔNG restore
         // (assignOrderCategory đã clear previousPosition, nhưng double-check cho race condition)
         if (data.category !== PTAG_CATEGORIES.HOAN_TAT) {
-            console.log(`${PTAG_LOG} onPtagBillCancelled(${orderCode}) — category đã đổi (${data.category}), skip restore`);
+            console.log(
+                `${PTAG_LOG} onPtagBillCancelled(${orderCode}) — category đã đổi (${data.category}), skip restore`
+            );
             return;
         }
 
@@ -1319,12 +1503,14 @@
             category: prev.category,
             subTag: prev.subTag,
             subState: prev.subState,
-            flags: Array.isArray(prev.flags) ? prev.flags.map(f => (typeof f === 'object' && f !== null ? { ...f } : f)) : [],
+            flags: Array.isArray(prev.flags)
+                ? prev.flags.map((f) => (typeof f === 'object' && f !== null ? { ...f } : f))
+                : [],
             tTags: Array.isArray(prev.tTags) ? [...prev.tTags] : [],
             note: prev.note || '',
             pickingSlipPrinted: !!prev.pickingSlipPrinted,
             assignedAt: Date.now(),
-            history: Array.isArray(data.history) ? [...data.history] : []
+            history: Array.isArray(data.history) ? [...data.history] : [],
         };
         // XÓA HẲN field snapshot (không để null, không giữ key trong JSONB)
         delete restored.previousPosition;
@@ -1382,16 +1568,23 @@
             const orderId = _ptagResolveId(orderCode);
             if (!orderId) return;
             const invs = invStore.getAll(orderId) || [];
-            const hasActive = invs.some(inv => {
+            const hasActive = invs.some((inv) => {
                 const st = String(inv.State || '').toLowerCase();
                 const sc = String(inv.StateCode || 'None');
-                return !inv.IsMergeCancel && st !== 'cancel' && sc !== 'cancel' && sc !== 'IsMergeCancel';
+                return (
+                    !inv.IsMergeCancel &&
+                    st !== 'cancel' &&
+                    sc !== 'cancel' &&
+                    sc !== 'IsMergeCancel'
+                );
             });
             if (hasActive) candidates.push({ orderId, orderCode });
         });
 
         if (candidates.length === 0) return;
-        console.log(`${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`);
+        console.log(
+            `${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`
+        );
 
         for (const { orderId, orderCode } of candidates) {
             try {
@@ -1410,7 +1603,9 @@
 
     // Helpers
     function _ptagGetOrderPhone(orderCode) {
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Code) === String(orderCode));
+        const order = (typeof window.getAllOrders === 'function' ? window.getAllOrders() : []).find(
+            (o) => String(o.Code) === String(orderCode)
+        );
         return order?.Telephone || order?.Phone || '';
     }
 
@@ -1423,13 +1618,15 @@
             if (!orderId) return false;
             const resp = await window.tokenManager.authenticatedFetch(
                 `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
-                { headers: { 'accept': 'application/json', 'content-type': 'application/json' } }
+                { headers: { accept: 'application/json', 'content-type': 'application/json' } }
             );
             if (!resp.ok) return false;
             const data = await resp.json();
             const details = data.Details || [];
             if (details.length === 0) return false;
-            const uniqueCodes = new Set(details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+            const uniqueCodes = new Set(
+                details.map((d) => (d.ProductCode || '').toUpperCase()).filter((c) => c)
+            );
             return uniqueCodes.size === 1;
         } catch (e) {
             console.warn(`${PTAG_LOG} Failed to fetch order details for single-SKU check:`, e);
@@ -1457,7 +1654,8 @@
         const data = ProcessingTagState.getOrderData(orderCode);
 
         // Buttons row: [🏷 tags] [⏰ wait] [✓ ok] — identical to TPOS tag column
-        const btns = `<div class="ptag-cell-buttons">` +
+        const btns =
+            `<div class="ptag-cell-buttons">` +
             `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--print" onclick="window._ptagQuickAssign('${orderCode}', 'print'); event.stopPropagation();" title="Đánh dấu đã in phiếu soạn"><i class="fas fa-print"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderCode}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
@@ -1468,9 +1666,10 @@
         // (2026-04-20) Virtual badge GIỎ TRỐNG cho đơn SL=0 (display-only,
         // không đụng XL state/subTag). Click → filter subtag_GIO_TRONG (SL=0).
         const _oIdEarly = _ptagResolveId(orderCode);
-        const _oEarly = _oIdEarly && typeof window.getAllOrders === 'function'
-            ? window.getAllOrders().find(o => o.Id === _oIdEarly)
-            : null;
+        const _oEarly =
+            _oIdEarly && typeof window.getAllOrders === 'function'
+                ? window.getAllOrders().find((o) => o.Id === _oIdEarly)
+                : null;
         const _isSLZero = _oEarly && Number(_oEarly.TotalQuantity || 0) === 0;
         const gioTrongBadge = _isSLZero
             ? `<span class="ptag-badge" style="border-color:#f59e0b;color:#92400e;background:#fef3c7;cursor:pointer;" onclick="window._ptagSetFilter('subtag_GIO_TRONG'); event.stopPropagation();" title="Đơn SL=0 — click để lọc">GIỎ TRỐNG</span>`
@@ -1497,8 +1696,10 @@
                 const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
                 let label = ss.label;
                 let badgeColor = ss.color;
-                const printIcon = (data.subState === 'CHO_HANG' && data.pickingSlipPrinted)
-                    ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>' : '';
+                const printIcon =
+                    data.subState === 'CHO_HANG' && data.pickingSlipPrinted
+                        ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>'
+                        : '';
                 badges += `<span class="ptag-badge" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}</span>`;
             } else {
                 // Cat 2/3/4: render only subtag badge (parent category implicit).
@@ -1512,14 +1713,18 @@
 
         // 2. Flag badges (đặc điểm) — inline row
         let flagBadges = '';
-        (data.flags || []).forEach(f => {
+        (data.flags || []).forEach((f) => {
             const fId = _ptagFlagId(f);
             // Skip flag KHAC — không render trong cell. KHÁC giờ là meta-concept
             // được render từ unmanaged TPOS tags ở section 2c phía dưới.
             if (fId === 'KHAC') return;
             const fl = PTAG_FLAGS[fId];
             // Prefer canonical PTAG_FLAGS label (vd "CK") over stored name (vd "CỌC 100K")
-            const label = fl ? fl.label : ((typeof f === 'object' && f.name) ? f.name : ProcessingTagState.getCustomFlagLabel(fId));
+            const label = fl
+                ? fl.label
+                : typeof f === 'object' && f.name
+                  ? f.name
+                  : ProcessingTagState.getCustomFlagLabel(fId);
             const bgColor = _ptagGetFlagColor(fId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
@@ -1527,19 +1732,22 @@
 
         // Lookup order 1 lần dùng cho cả 2b (virtual flags) và 2c (KHÁC badge)
         const _orderIdForCell = _ptagResolveId(orderCode);
-        const _orderForCell = _orderIdForCell && typeof window.getAllOrders === 'function'
-            ? window.getAllOrders().find(o => o.Id === _orderIdForCell)
-            : null;
+        const _orderForCell =
+            _orderIdForCell && typeof window.getAllOrders === 'function'
+                ? window.getAllOrders().find((o) => o.Id === _orderIdForCell)
+                : null;
         let _tposTagsForCell = [];
         if (_orderForCell && _orderForCell.Tags) {
-            try { _tposTagsForCell = JSON.parse(_orderForCell.Tags || '[]'); } catch (e) {}
+            try {
+                _tposTagsForCell = JSON.parse(_orderForCell.Tags || '[]');
+            } catch (e) {}
         }
 
         // 2b. Virtual flag badges từ TPOS pattern alias (vd CỌC 100K → CK)
         // XL state có thể chưa có flag (đơn legacy chưa qua reverse sync), render visual.
         // Badge không có nút × vì không phải state thật của XL.
         if (_tposTagsForCell.length > 0 && typeof window.matchTPOSAliasFlag === 'function') {
-            const xlFlagIds = (data.flags || []).map(f => _ptagFlagId(f));
+            const xlFlagIds = (data.flags || []).map((f) => _ptagFlagId(f));
             const virtualAdded = new Set();
             for (const t of _tposTagsForCell) {
                 const flagKey = window.matchTPOSAliasFlag(t?.Name || '');
@@ -1567,10 +1775,13 @@
         // 3. T-tag badges — each on its own line
         let ttagBadges = '';
         const _tTags = data.tTags || [];
-        _tTags.forEach(t => {
+        _tTags.forEach((t) => {
             const tId = _ptagTTagId(t);
             // Prefer stored name, fallback to lookup
-            const tLabel = (typeof t === 'object' && t.name) ? t.name.toUpperCase() : ProcessingTagState.getTTagLabel(tId);
+            const tLabel =
+                typeof t === 'object' && t.name
+                    ? t.name.toUpperCase()
+                    : ProcessingTagState.getTTagLabel(tId);
             const bgColor = _ptagGetTTagColor(tId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oc}', '${tId.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
             ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
@@ -1580,7 +1791,9 @@
         let badgesContent = gioTrongBadge + badges;
         if (flagBadges) badgesContent += `<div class="ptag-cell-flags-row">${flagBadges}</div>`;
         if (ttagBadges) badgesContent += `<div class="ptag-cell-ttag-row">${ttagBadges}</div>`;
-        const badgesRow = badgesContent ? `<div class="ptag-cell-badges">${badgesContent}</div>` : '';
+        const badgesRow = badgesContent
+            ? `<div class="ptag-cell-badges">${badgesContent}</div>`
+            : '';
         return `<div class="ptag-cell">${btns}${badgesRow}</div>`;
     }
 
@@ -1596,49 +1809,123 @@
         const tags = [];
         // Cat 1 — CHỜ ĐI ĐƠN
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[1].emoji} CHỜ ĐI ĐƠN` });
-        tags.push({ type: 'tag', key: 'cat:1:null', label: 'OKIE CHỜ ĐI ĐƠN', isCat: true, cat: 1, subTag: null, color: PTAG_CATEGORY_COLORS[1].border });
+        tags.push({
+            type: 'tag',
+            key: 'cat:1:null',
+            label: 'OKIE CHỜ ĐI ĐƠN',
+            isCat: true,
+            cat: 1,
+            subTag: null,
+            color: PTAG_CATEGORY_COLORS[1].border,
+        });
         // T-tag button
-        tags.push({ type: 'tag', key: 'ttag-btn', label: '📦 Tag T Chờ Hàng', isTTagBtn: true, color: '#8b5cf6' });
+        tags.push({
+            type: 'tag',
+            key: 'ttag-btn',
+            label: '📦 Tag T Chờ Hàng',
+            isTTagBtn: true,
+            color: '#8b5cf6',
+        });
         // Cat 2 — XỬ LÝ
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[2].emoji} MỤC XỬ LÝ` });
         for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
             if (st.category !== 2) continue;
-            tags.push({ type: 'tag', key: `cat:2:${key}`, label: st.label, isCat: true, cat: 2, subTag: key, color: PTAG_CATEGORY_COLORS[2].border });
+            tags.push({
+                type: 'tag',
+                key: `cat:2:${key}`,
+                label: st.label,
+                isCat: true,
+                cat: 2,
+                subTag: key,
+                color: PTAG_CATEGORY_COLORS[2].border,
+            });
         }
         // Đã in phiếu soạn — toggle pickingSlipPrinted on CHO_HANG orders
-        tags.push({ type: 'tag', key: 'picking-slip', label: '📋 Đã in phiếu soạn', isPickingSlip: true, color: '#10b981' });
+        tags.push({
+            type: 'tag',
+            key: 'picking-slip',
+            label: '📋 Đã in phiếu soạn',
+            isPickingSlip: true,
+            color: '#10b981',
+        });
         // Cat 3 — KHÔNG CẦN CHỐT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[3].emoji} KHÔNG CẦN CHỐT` });
         for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
             if (st.category !== 3) continue;
-            tags.push({ type: 'tag', key: `cat:3:${key}`, label: st.label, isCat: true, cat: 3, subTag: key, color: PTAG_CATEGORY_COLORS[3].border });
+            tags.push({
+                type: 'tag',
+                key: `cat:3:${key}`,
+                label: st.label,
+                isCat: true,
+                cat: 3,
+                subTag: key,
+                color: PTAG_CATEGORY_COLORS[3].border,
+            });
         }
         // Cat 4 — KHÁCH XÃ
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[4].emoji} KHÁCH XÃ SAU CHỐT` });
         for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
             if (st.category !== 4) continue;
-            tags.push({ type: 'tag', key: `cat:4:${key}`, label: st.label, isCat: true, cat: 4, subTag: key, color: PTAG_CATEGORY_COLORS[4].border });
+            tags.push({
+                type: 'tag',
+                key: `cat:4:${key}`,
+                label: st.label,
+                isCat: true,
+                cat: 4,
+                subTag: key,
+                color: PTAG_CATEGORY_COLORS[4].border,
+            });
         }
         // Cat 0 — HOÀN TẤT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[0].emoji} HOÀN TẤT` });
-        tags.push({ type: 'tag', key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
+        tags.push({
+            type: 'tag',
+            key: 'cat:0:null',
+            label: 'ĐÃ RA ĐƠN',
+            isCat: true,
+            cat: 0,
+            subTag: null,
+            color: PTAG_CATEGORY_COLORS[0].border,
+        });
         // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
         tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             // Skip KHAC — meta-concept (TPOS unmanaged), không cho gán thủ công
             if (key === 'KHAC') continue;
-            tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: _ptagGetFlagColor(key), auto: flag.auto });
+            tags.push({
+                type: 'tag',
+                key: `flag:${key}`,
+                label: `${flag.icon} ${flag.label}`,
+                isFlag: true,
+                flagKey: key,
+                color: _ptagGetFlagColor(key),
+                auto: flag.auto,
+            });
         }
         // Custom flags
         const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
         for (const cf of customFlagDefs) {
-            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: (cf.label || '').toUpperCase(), isFlag: true, flagKey: cf.id, color: _ptagGetFlagColor(cf.id) });
+            tags.push({
+                type: 'tag',
+                key: `flag:${cf.id}`,
+                label: (cf.label || '').toUpperCase(),
+                isFlag: true,
+                flagKey: cf.id,
+                color: _ptagGetFlagColor(cf.id),
+            });
         }
         // All T-tag definitions — shown at bottom of dropdown as direct toggle
         tags.push({ type: 'cat-label', label: '📦 TAG T CHỜ HÀNG' });
         const allTTagDefs = ProcessingTagState.getTTagDefinitions();
         for (const def of allTTagDefs) {
-            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: def.name, isTTag: true, ttagId: def.id, color: _ptagGetTTagColor(def.id) });
+            tags.push({
+                type: 'tag',
+                key: `dtag:${def.id}`,
+                label: def.name,
+                isTTag: true,
+                ttagId: def.id,
+                color: _ptagGetTTagColor(def.id),
+            });
         }
         return tags;
     }
@@ -1661,36 +1948,84 @@
         if (data.category !== null && data.category !== undefined) {
             const catColor = PTAG_CATEGORY_COLORS[data.category];
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                selected.push({ key: 'cat:1:null', label: 'OKIE CHỜ ĐI ĐƠN', isCat: true, cat: 1, subTag: null, color: catColor.border });
+                selected.push({
+                    key: 'cat:1:null',
+                    label: 'OKIE CHỜ ĐI ĐƠN',
+                    isCat: true,
+                    cat: 1,
+                    subTag: null,
+                    color: catColor.border,
+                });
             } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
-                selected.push({ key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: catColor.border });
+                selected.push({
+                    key: 'cat:0:null',
+                    label: 'ĐÃ RA ĐƠN',
+                    isCat: true,
+                    cat: 0,
+                    subTag: null,
+                    color: catColor.border,
+                });
             } else {
                 const st = PTAG_SUBTAGS[data.subTag];
                 const label = st?.label || PTAG_CATEGORY_META[data.category]?.short || '';
-                selected.push({ key: `cat:${data.category}:${data.subTag}`, label, isCat: true, cat: data.category, subTag: data.subTag, color: catColor.border });
+                selected.push({
+                    key: `cat:${data.category}:${data.subTag}`,
+                    label,
+                    isCat: true,
+                    cat: data.category,
+                    subTag: data.subTag,
+                    color: catColor.border,
+                });
             }
         }
         // Picking slip status
         if (data.pickingSlipPrinted) {
-            selected.push({ key: 'picking-slip', label: '📋 Đã in phiếu soạn', isPickingSlip: true, color: '#10b981' });
+            selected.push({
+                key: 'picking-slip',
+                label: '📋 Đã in phiếu soạn',
+                isPickingSlip: true,
+                color: '#10b981',
+            });
         }
         // Flags
-        (data.flags || []).forEach(f => {
+        (data.flags || []).forEach((f) => {
             const fId = _ptagFlagId(f);
             const fl = PTAG_FLAGS[fId];
             if (fl) {
-                selected.push({ key: `flag:${fId}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: fId, color: _ptagGetFlagColor(fId) });
+                selected.push({
+                    key: `flag:${fId}`,
+                    label: `${fl.icon} ${fl.label}`,
+                    isFlag: true,
+                    flagKey: fId,
+                    color: _ptagGetFlagColor(fId),
+                });
             } else {
-                const label = (typeof f === 'object' && f.name) ? f.name : ProcessingTagState.getCustomFlagLabel(fId);
-                if (label) selected.push({ key: `flag:${fId}`, label: String(label).toUpperCase(), isFlag: true, flagKey: fId, color: _ptagGetFlagColor(fId) });
+                const label =
+                    typeof f === 'object' && f.name
+                        ? f.name
+                        : ProcessingTagState.getCustomFlagLabel(fId);
+                if (label)
+                    selected.push({
+                        key: `flag:${fId}`,
+                        label: String(label).toUpperCase(),
+                        isFlag: true,
+                        flagKey: fId,
+                        color: _ptagGetFlagColor(fId),
+                    });
             }
         });
         // All assigned T-tags
-        (data.tTags || []).forEach(t => {
+        (data.tTags || []).forEach((t) => {
             const tId = _ptagTTagId(t);
             const def = ProcessingTagState.getTTagDef(tId);
-            const name = (typeof t === 'object' && t.name) ? t.name : (def ? def.name : tId);
-            selected.push({ key: `dtag:${tId}`, label: name, isTTag: true, ttagId: tId, color: _ptagGetTTagColor(tId) });
+            const name = typeof t === 'object' && t.name ? t.name : def ? def.name : tId;
+            selected.push({
+                key: `dtag:${tId}`,
+                label: name,
+                isTTag: true,
+                ttagId: tId,
+                color: _ptagGetTTagColor(tId),
+            });
         });
         return selected;
     }
@@ -1702,16 +2037,18 @@
         _ddOrderCode = orderCode;
         const allTags = _ptagBuildAllTags();
         const selectedTags = _ptagGetSelectedTags(orderCode);
-        const selectedKeys = new Set(selectedTags.map(t => t.key));
+        const selectedKeys = new Set(selectedTags.map((t) => t.key));
 
         // Build HTML
         let html = `<div class="ptag-dropdown" id="ptag-dropdown" data-order-code="${orderCode}">`;
 
         // Input container: pills + search input
         html += `<div class="ptag-dd-input-container">`;
-        selectedTags.forEach(t => {
+        selectedTags.forEach((t) => {
             const isCat = t.key.startsWith('cat:');
-            const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+            const removeHtml = isCat
+                ? ''
+                : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
             html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label}${removeHtml}</span>`;
         });
         html += `<input type="text" class="ptag-dd-input" id="ptag-dd-input" placeholder="Tìm tag..." />`;
@@ -1757,7 +2094,7 @@
         }
 
         // Click on tag items
-        ddEl.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+        ddEl.querySelectorAll('.ptag-dd-tag-item').forEach((item) => {
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const key = item.dataset.key;
@@ -1787,12 +2124,28 @@
             // Toggle pickingSlipPrinted on current order
             let data = ProcessingTagState.getOrderData(orderCode);
             if (!data) {
-                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+                data = {
+                    category: null,
+                    subTag: null,
+                    subState: null,
+                    flags: [],
+                    tTags: [],
+                    note: '',
+                    assignedAt: Date.now(),
+                };
             }
             data.pickingSlipPrinted = !data.pickingSlipPrinted;
-            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            _ptagAddHistory(
+                orderCode,
+                data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN',
+                '',
+                ''
+            );
             // Auto gán Cat 1 / CHO_HANG khi bật — giống onPtagPackingSlipPrinted
-            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
+            if (
+                data.pickingSlipPrinted &&
+                (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)
+            ) {
                 data.category = PTAG_CATEGORIES.CHO_DI_DON;
                 data.subState = 'CHO_HANG';
                 data.assignedAt = Date.now();
@@ -1810,7 +2163,7 @@
             // Default T-tag — toggle directly
             const ttagId = key.replace('dtag:', '');
             const data = ProcessingTagState.getOrderData(orderCode);
-            const hasTTag = data?.tTags?.some(t => _ptagTTagId(t) === ttagId);
+            const hasTTag = data?.tTags?.some((t) => _ptagTTagId(t) === ttagId);
             if (hasTTag) {
                 removeTTagFromOrder(orderCode, ttagId);
             } else {
@@ -1869,29 +2222,31 @@
         if (!dd) return;
         const orderCode = _ddOrderCode;
         const selectedTags = _ptagGetSelectedTags(orderCode);
-        const selectedKeys = new Set(selectedTags.map(t => t.key));
+        const selectedKeys = new Set(selectedTags.map((t) => t.key));
 
         // Refresh pills
         const container = dd.querySelector('.ptag-dd-input-container');
         const input = dd.querySelector('#ptag-dd-input');
         if (container && input) {
             // Remove old pills
-            container.querySelectorAll('.ptag-dd-pill').forEach(p => p.remove());
+            container.querySelectorAll('.ptag-dd-pill').forEach((p) => p.remove());
             // Insert new pills before input
-            selectedTags.forEach(t => {
+            selectedTags.forEach((t) => {
                 const pill = document.createElement('span');
                 pill.className = 'ptag-dd-pill';
                 pill.style.background = _ptagPillColor(t);
                 pill.dataset.key = t.key;
                 const isCat = t.key.startsWith('cat:');
-                const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                const removeHtml = isCat
+                    ? ''
+                    : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
                 pill.innerHTML = `${t.label}${removeHtml}`;
                 container.insertBefore(pill, input);
             });
         }
 
         // Refresh selected class on items
-        dd.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+        dd.querySelectorAll('.ptag-dd-tag-item').forEach((item) => {
             item.classList.toggle('selected', selectedKeys.has(item.dataset.key));
         });
     }
@@ -1949,7 +2304,9 @@
     function _ptagDdMoveHighlight(dir) {
         const dd = _currentDropdown;
         if (!dd) return;
-        const items = [...dd.querySelectorAll('.ptag-dd-tag-item')].filter(i => i.style.display !== 'none');
+        const items = [...dd.querySelectorAll('.ptag-dd-tag-item')].filter(
+            (i) => i.style.display !== 'none'
+        );
         if (!items.length) return;
         const current = dd.querySelector('.ptag-dd-tag-item.highlighted');
         let idx = current ? items.indexOf(current) : -1;
@@ -1966,9 +2323,15 @@
         const orderCode = _ddOrderCode;
         if (!orderCode) return;
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-        const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
+        const assignedColor =
+            PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         const defs = ProcessingTagState.getCustomFlagDefs();
-        defs.push({ id: key, label: label.toUpperCase(), color: assignedColor, createdAt: Date.now() });
+        defs.push({
+            id: key,
+            label: label.toUpperCase(),
+            color: assignedColor,
+            createdAt: Date.now(),
+        });
         // Save color to localStorage directly (avoid _ptagSetFlagColor which triggers duplicate saveCustomFlagDefinitions)
         const _savedColors = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
         _savedColors[key] = assignedColor;
@@ -2019,7 +2382,7 @@
         const orderCode = _ddOrderCode;
         const allTags = _ptagBuildAllTags();
         const selectedTags = _ptagGetSelectedTags(orderCode);
-        const selectedKeys = new Set(selectedTags.map(t => t.key));
+        const selectedKeys = new Set(selectedTags.map((t) => t.key));
 
         const listEl = dd.querySelector('.ptag-dd-list');
         if (!listEl) return;
@@ -2038,7 +2401,7 @@
         listEl.innerHTML = html;
 
         // Re-attach click handlers
-        listEl.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+        listEl.querySelectorAll('.ptag-dd-tag-item').forEach((item) => {
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 _ptagDdSelectTag(item.dataset.key);
@@ -2072,7 +2435,9 @@
         if (!dd) return;
 
         // Remove pending delete from pills when typing
-        dd.querySelectorAll('.ptag-dd-pill.deletion-pending').forEach(p => p.classList.remove('deletion-pending'));
+        dd.querySelectorAll('.ptag-dd-pill.deletion-pending').forEach((p) =>
+            p.classList.remove('deletion-pending')
+        );
 
         const list = dd.querySelector('.ptag-dd-list');
         if (!list) return;
@@ -2082,7 +2447,7 @@
         let catHasVisibleItem = false;
 
         // First pass: show/hide tag items
-        list.querySelectorAll('.ptag-dd-cat-label, .ptag-dd-tag-item').forEach(el => {
+        list.querySelectorAll('.ptag-dd-cat-label, .ptag-dd-tag-item').forEach((el) => {
             if (el.classList.contains('ptag-dd-cat-label')) {
                 // Before moving to next cat, apply visibility to previous cat label
                 if (currentCatLabel) {
@@ -2137,10 +2502,23 @@
             // Toggle pickingSlipPrinted + đảm bảo subState='CHO_HANG' để badge hiển thị mark
             let data = ProcessingTagState.getOrderData(orderCode);
             if (!data) {
-                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+                data = {
+                    category: null,
+                    subTag: null,
+                    subState: null,
+                    flags: [],
+                    tTags: [],
+                    note: '',
+                    assignedAt: Date.now(),
+                };
             }
             data.pickingSlipPrinted = !data.pickingSlipPrinted;
-            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            _ptagAddHistory(
+                orderCode,
+                data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN',
+                '',
+                ''
+            );
             if (data.pickingSlipPrinted) {
                 // Bật: ép Cat 1 / CHO_HANG (kể cả khi đang ở Cat 1 / OKIE) để badge hiển thị mark
                 if (data.category == null || data.category === PTAG_CATEGORIES.XU_LY) {
@@ -2232,18 +2610,21 @@
         // Source = orders sau khi áp dụng tất cả filter (search/TAG/status/...) NHƯNG trước Chốt Đơn filter.
         // Nhờ vậy badge trong panel = đúng số sẽ hiển thị nếu user click row đó.
         // Fallback: getEmployeeFilteredOrders → getAllOrders.
-        const allOrders = (typeof window.getOrdersBeforeProcessingTagFilter === 'function')
-            ? window.getOrdersBeforeProcessingTagFilter()
-            : ((typeof window.getEmployeeFilteredOrders === 'function')
-                ? window.getEmployeeFilteredOrders()
-                : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []));
+        const allOrders =
+            typeof window.getOrdersBeforeProcessingTagFilter === 'function'
+                ? window.getOrdersBeforeProcessingTagFilter()
+                : typeof window.getEmployeeFilteredOrders === 'function'
+                  ? window.getEmployeeFilteredOrders()
+                  : typeof window.getAllOrders === 'function'
+                    ? window.getAllOrders()
+                    : [];
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
         // Rebuild SL=0 cache (dùng cho stats "GIỎ TRỐNG" + filter subtag_GIO_TRONG)
         _rebuildSlZeroCache(allOrders);
 
-        const allDataCodes = new Set(allOrders.map(o => String(o.Code)).filter(Boolean));
+        const allDataCodes = new Set(allOrders.map((o) => String(o.Code)).filter(Boolean));
         let taggedCount = 0;
         let hasCategoryCount = 0;
         const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -2266,21 +2647,27 @@
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
                 // OKIE_NO_DELAY: Okie Chờ Đi Đơn mà KHÔNG có flag Chờ Live / Qua Lấy / Giữ Đơn
                 if (ss === 'OKIE_CHO_DI_DON') {
-                    const flagIds = (data.flags || []).map(f => _ptagFlagId(f));
-                    const hasDelay = flagIds.includes('CHO_LIVE') || flagIds.includes('QUA_LAY') || flagIds.includes('GIU_DON');
+                    const flagIds = (data.flags || []).map((f) => _ptagFlagId(f));
+                    const hasDelay =
+                        flagIds.includes('CHO_LIVE') ||
+                        flagIds.includes('QUA_LAY') ||
+                        flagIds.includes('GIU_DON');
                     if (!hasDelay) {
-                        subStateCounts['OKIE_NO_DELAY'] = (subStateCounts['OKIE_NO_DELAY'] || 0) + 1;
+                        subStateCounts['OKIE_NO_DELAY'] =
+                            (subStateCounts['OKIE_NO_DELAY'] || 0) + 1;
                     }
                 }
                 if (ss === 'CHO_HANG') {
                     if (data.pickingSlipPrinted) {
-                        subStateCounts['CHO_HANG_DA_IN'] = (subStateCounts['CHO_HANG_DA_IN'] || 0) + 1;
+                        subStateCounts['CHO_HANG_DA_IN'] =
+                            (subStateCounts['CHO_HANG_DA_IN'] || 0) + 1;
                     } else {
-                        subStateCounts['CHO_HANG_CHUA_IN'] = (subStateCounts['CHO_HANG_CHUA_IN'] || 0) + 1;
+                        subStateCounts['CHO_HANG_CHUA_IN'] =
+                            (subStateCounts['CHO_HANG_CHUA_IN'] || 0) + 1;
                     }
                 }
             }
-            (data.flags || []).forEach(f => {
+            (data.flags || []).forEach((f) => {
                 const fId = _ptagFlagId(f);
                 // KHAC count được tính riêng phía dưới (không dựa trên XL flag nữa)
                 if (fId === 'KHAC') return;
@@ -2311,14 +2698,32 @@
             }
         }
 
-        return { totalOrders, taggedCount, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts };
+        return {
+            totalOrders,
+            taggedCount,
+            untaggedCount,
+            catCounts,
+            subStateCounts,
+            flagCounts,
+            subTagCounts,
+            tTagCounts,
+        };
     }
 
     function renderPanelContent() {
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
 
-        const { totalOrders, taggedCount, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
+        const {
+            totalOrders,
+            taggedCount,
+            untaggedCount,
+            catCounts,
+            subStateCounts,
+            flagCounts,
+            subTagCounts,
+            tTagCounts,
+        } = _ptagComputeCounts();
 
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
@@ -2420,14 +2825,19 @@
             const fk = 'sub_' + key;
             const ssIcon = key === 'OKIE_CHO_DI_DON' ? 'fa-check' : 'fa-hourglass-half';
             // OKIE_CHO_DI_DON: inline filter icon to exclude Chờ Live / Qua Lấy / Giữ Đơn
-            const okieNoDelayIcon = key === 'OKIE_CHO_DI_DON' ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+            const okieNoDelayIcon =
+                key === 'OKIE_CHO_DI_DON'
+                    ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
                 <button class="ptag-panel-inline-icon ${activeFilter === 'sub_OKIE_NO_DELAY' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_NO_DELAY'); event.stopPropagation();" title="Loại Chờ Live, Qua Lấy, Giữ Đơn (${subStateCounts['OKIE_NO_DELAY'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_OKIE_NO_DELAY' ? '#3b82f6' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_OKIE_NO_DELAY' ? 'rgba(59,130,246,0.12)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
                     <i class="fas fa-filter" style="font-size:11px;color:#3b82f6;"></i>
                     <span style="position:absolute;top:-6px;right:-6px;background:#3b82f6;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['OKIE_NO_DELAY'] || 0}</span>
                 </button>
-            </div>` : '';
+            </div>`
+                    : '';
             // CHO_HANG: inline filter icons for Đã in phiếu / Chưa in phiếu
-            const inlineIcons = key === 'CHO_HANG' ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+            const inlineIcons =
+                key === 'CHO_HANG'
+                    ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
                 <button class="ptag-panel-inline-icon ${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_DA_IN'); event.stopPropagation();" title="Đã in phiếu (${subStateCounts['CHO_HANG_DA_IN'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_CHO_HANG_DA_IN' ? '#10b981' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'rgba(16,185,129,0.12)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
                     <i class="fas fa-print" style="font-size:12px;color:#10b981;"></i>
                     <span style="position:absolute;top:-6px;right:-6px;background:#10b981;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_DA_IN'] || 0}</span>
@@ -2437,7 +2847,8 @@
                     <i class="fas fa-times" style="position:absolute;font-size:8px;color:#ef4444;top:2px;right:2px;"></i>
                     <span style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_CHUA_IN'] || 0}</span>
                 </button>
-            </div>` : '';
+            </div>`
+                    : '';
             html += `<div class="ptag-panel-card ${activeFilter === fk || (key === 'OKIE_CHO_DI_DON' && activeFilter === 'sub_OKIE_NO_DELAY') ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)} da in phieu chua in phieu">
                 <div class="ptag-panel-card-icon" style="background:${ss.color};">
                     <i class="fas ${ssIcon}" style="color:#fff;font-size:13px;"></i>
@@ -2486,14 +2897,15 @@
                     // Show all custom flags (including 0-order ones so user can delete them)
                     const visibleCustom = customFlagDefs;
                     if (visibleCustom.length > 0) {
-                    const expanded = activeFlagFilters.has('KHAC') ||
-                        [...activeFlagFilters].some(f => f.startsWith('CUSTOM_'));
-                    html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
-                    for (const cf of visibleCustom) {
-                        const cfChecked = activeFlagFilters.has(cf.id) ? 'checked' : '';
-                        const cfCount = flagCounts[cf.id] || 0;
-                        const cfColor = _ptagGetFlagColor(cf.id);
-                        html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
+                        const expanded =
+                            activeFlagFilters.has('KHAC') ||
+                            [...activeFlagFilters].some((f) => f.startsWith('CUSTOM_'));
+                        html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
+                        for (const cf of visibleCustom) {
+                            const cfChecked = activeFlagFilters.has(cf.id) ? 'checked' : '';
+                            const cfCount = flagCounts[cf.id] || 0;
+                            const cfColor = _ptagGetFlagColor(cf.id);
+                            html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
                             <label class="ptag-flag-checkbox">
                                 <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cf.id}'); event.stopPropagation();" />
                                 <span style="width:10px;height:10px;border-radius:50%;background:${cfColor};display:inline-block;flex-shrink:0;"></span>
@@ -2502,13 +2914,14 @@
                             <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
                             ${_rowHistoryBtnHtml('flag', cf.id)}
                             <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${cf.id}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
-                            ${cfCount === 0
-                                ? `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" onclick="window._ptagDeleteCustomFlag('${cf.id}'); event.stopPropagation();" title="Xóa tag"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
-                                : `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" disabled title="Tag đang có ${cfCount} đơn hàng, không thể xóa" style="opacity:0.3;cursor:not-allowed;"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
+                            ${
+                                cfCount === 0
+                                    ? `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" onclick="window._ptagDeleteCustomFlag('${cf.id}'); event.stopPropagation();" title="Xóa tag"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
+                                    : `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" disabled title="Tag đang có ${cfCount} đơn hàng, không thể xóa" style="opacity:0.3;cursor:not-allowed;"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
                             }
                         </div>`;
-                    }
-                    html += `</div>`;
+                        }
+                        html += `</div>`;
                     } // end if visibleCustom.length > 0
                 }
             }
@@ -2561,11 +2974,15 @@
                 const fk = 'ttag_' + def.id;
                 const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
-                const pcLabel = def.productCode ? `<span style="color:#6b7280;font-size:11px;margin-left:4px;font-weight:500;">${def.productCode}</span>` : '';
-                const isDefaultTag = DEFAULT_TTAG_DEFS.some(d => d.id === def.id);
+                const pcLabel = def.productCode
+                    ? `<span style="color:#6b7280;font-size:11px;margin-left:4px;font-weight:500;">${def.productCode}</span>`
+                    : '';
+                const isDefaultTag = DEFAULT_TTAG_DEFS.some((d) => d.id === def.id);
                 // Hide non-default T-tags with 0 orders
                 if (count === 0 && !isDefaultTag) continue;
-                const deleteBtn = isDefaultTag ? '' : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
+                const deleteBtn = isDefaultTag
+                    ? ''
+                    : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
                 const ttagColor = _ptagGetTTagColor(def.id);
                 tTagSectionHtml += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:${ttagColor};">
@@ -2629,21 +3046,26 @@
         const isOpen = dropdown.classList.contains('open');
 
         // Close all other dropdowns
-        document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+        document
+            .querySelectorAll('.tag-filter-dropdown.open')
+            .forEach((d) => d.classList.remove('open'));
 
         if (!isOpen) {
             dropdown.classList.add('open');
             _ptagXlRenderDropdown();
             setTimeout(() => {
                 const input = document.getElementById('ptagXlFilterSearchInput');
-                if (input) { input.value = ''; input.focus(); }
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
             }, 50);
         }
     }
 
     function _ptagXlFilterSearch(query) {
         const norm = _ptagNormalize(query);
-        document.querySelectorAll('#ptagXlFilterOptions [data-search]').forEach(el => {
+        document.querySelectorAll('#ptagXlFilterOptions [data-search]').forEach((el) => {
             el.style.display = _ptagMatchTokens(el.dataset.search, norm) ? '' : 'none';
         });
     }
@@ -2689,7 +3111,7 @@
             if (fl) parts.push(fl.label);
         } else if (filter && filter.startsWith('ttag_')) {
             const tId = filter.replace('ttag_', '');
-            const def = ProcessingTagState.getTTagDefinitions().find(d => d.id === tId);
+            const def = ProcessingTagState.getTTagDefinitions().find((d) => d.id === tId);
             parts.push(def ? def.name : tId);
         }
 
@@ -2712,7 +3134,15 @@
         const container = document.getElementById('ptagXlFilterOptions');
         if (!container) return;
 
-        const { totalOrders, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
+        const {
+            totalOrders,
+            untaggedCount,
+            catCounts,
+            subStateCounts,
+            flagCounts,
+            subTagCounts,
+            tTagCounts,
+        } = _ptagComputeCounts();
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
 
@@ -2837,10 +3267,9 @@
     // handlers (TPOS order update, Firebase tag update) khi allData mutate.
     // Dùng _panelOpen state làm primary check, classList làm fallback cho edge case
     // CSS animation / manual style.
-    window._ptagRenderPanelIfOpen = function() {
+    window._ptagRenderPanelIfOpen = function () {
         const panel = document.getElementById('ptag-panel');
-        const isOpen = ProcessingTagState._panelOpen
-            || (panel && panel.classList.contains('open'));
+        const isOpen = ProcessingTagState._panelOpen || (panel && panel.classList.contains('open'));
         if (isOpen && panel) {
             renderPanelContent();
         }
@@ -2863,7 +3292,9 @@
         // Debounce double-click
         if (_ptagSetFilterLock) return;
         _ptagSetFilterLock = true;
-        setTimeout(() => { _ptagSetFilterLock = false; }, 300);
+        setTimeout(() => {
+            _ptagSetFilterLock = false;
+        }, 300);
 
         // Toggle: click same filter again → deselect (back to TẤT CẢ)
         if (ProcessingTagState._activeFilter === filterKey && filterKey !== null) {
@@ -2889,7 +3320,9 @@
 
     function _ptagToggleTTagPin() {
         ProcessingTagState._tTagPinned = !ProcessingTagState._tTagPinned;
-        try { localStorage.setItem('ptag_ttag_pinned_v1', ProcessingTagState._tTagPinned ? '1' : '0'); } catch(e) {}
+        try {
+            localStorage.setItem('ptag_ttag_pinned_v1', ProcessingTagState._tTagPinned ? '1' : '0');
+        } catch (e) {}
         renderPanelContent();
     }
 
@@ -2906,7 +3339,9 @@
         // Debounce double-click
         if (_ptagFlagFilterLock) return;
         _ptagFlagFilterLock = true;
-        setTimeout(() => { _ptagFlagFilterLock = false; }, 300);
+        setTimeout(() => {
+            _ptagFlagFilterLock = false;
+        }, 300);
 
         const set = ProcessingTagState._activeFlagFilters;
         if (set.has(flagKey)) {
@@ -2960,37 +3395,47 @@
         if (!body) return;
 
         // First: filter individual items (cards, flags, headers)
-        body.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item').forEach(el => {
+        body.querySelectorAll(
+            '.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item'
+        ).forEach((el) => {
             if (!el.dataset.search) return;
             el.style.display = _ptagMatchTokens(el.dataset.search, norm) ? '' : 'none';
         });
 
         // Show/hide custom flags container based on search
-        body.querySelectorAll('.ptag-custom-flags-list').forEach(container => {
+        body.querySelectorAll('.ptag-custom-flags-list').forEach((container) => {
             if (norm) {
-                const hasVisibleFlag = container.querySelector('.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])');
+                const hasVisibleFlag = container.querySelector(
+                    '.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])'
+                );
                 container.style.display = hasVisibleFlag ? '' : 'none';
             } else {
                 // Restore original collapsed/expanded state based on active filters
                 const flags = ProcessingTagState._activeFlagFilters;
-                const expanded = flags.has('KHAC') ||
-                    [...flags].some(f => f.startsWith('CUSTOM_'));
+                const expanded =
+                    flags.has('KHAC') || [...flags].some((f) => f.startsWith('CUSTOM_'));
                 container.style.display = expanded ? '' : 'none';
             }
         });
 
         // Then: show/hide groups — visible if group itself matches OR any child is visible
-        body.querySelectorAll('.ptag-panel-group').forEach(group => {
+        body.querySelectorAll('.ptag-panel-group').forEach((group) => {
             const groupMatch = group.dataset.search && _ptagMatchTokens(group.dataset.search, norm);
             const hasVisibleChild = group.querySelector(
                 '.ptag-panel-card:not([style*="display: none"]):not([style*="display:none"]), ' +
-                '.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])'
+                    '.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])'
             );
             if (groupMatch) {
                 // Group matches → show group + all children
                 group.style.display = '';
-                group.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item').forEach(c => c.style.display = '');
-                group.querySelectorAll('.ptag-custom-flags-list').forEach(c => c.style.display = '');
+                group
+                    .querySelectorAll(
+                        '.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item'
+                    )
+                    .forEach((c) => (c.style.display = ''));
+                group
+                    .querySelectorAll('.ptag-custom-flags-list')
+                    .forEach((c) => (c.style.display = ''));
             } else if (hasVisibleChild) {
                 // Some children match → show group + header, keep children filtered
                 group.style.display = '';
@@ -3043,23 +3488,29 @@
         // Cat 2
         html += `<div class="ptag-bulk-group">
             <div class="ptag-bulk-cat" style="color:${PTAG_CATEGORY_COLORS[2].text};">${PTAG_CATEGORY_META[2].emoji} ${PTAG_CATEGORY_META[2].short}</div>`;
-        Object.entries(PTAG_SUBTAGS).filter(([,v]) => v.category === 2).forEach(([key, st]) => {
-            html += `<label><input type="radio" name="ptag-bulk-choice" value="2:${key}" /> ${st.label}</label>`;
-        });
+        Object.entries(PTAG_SUBTAGS)
+            .filter(([, v]) => v.category === 2)
+            .forEach(([key, st]) => {
+                html += `<label><input type="radio" name="ptag-bulk-choice" value="2:${key}" /> ${st.label}</label>`;
+            });
         html += `</div>`;
         // Cat 3
         html += `<div class="ptag-bulk-group">
             <div class="ptag-bulk-cat" style="color:${PTAG_CATEGORY_COLORS[3].text};">${PTAG_CATEGORY_META[3].emoji} ${PTAG_CATEGORY_META[3].short}</div>`;
-        Object.entries(PTAG_SUBTAGS).filter(([,v]) => v.category === 3).forEach(([key, st]) => {
-            html += `<label><input type="radio" name="ptag-bulk-choice" value="3:${key}" /> ${st.label}</label>`;
-        });
+        Object.entries(PTAG_SUBTAGS)
+            .filter(([, v]) => v.category === 3)
+            .forEach(([key, st]) => {
+                html += `<label><input type="radio" name="ptag-bulk-choice" value="3:${key}" /> ${st.label}</label>`;
+            });
         html += `</div>`;
         // Cat 4
         html += `<div class="ptag-bulk-group">
             <div class="ptag-bulk-cat" style="color:${PTAG_CATEGORY_COLORS[4].text};">${PTAG_CATEGORY_META[4].emoji} ${PTAG_CATEGORY_META[4].short}</div>`;
-        Object.entries(PTAG_SUBTAGS).filter(([,v]) => v.category === 4).forEach(([key, st]) => {
-            html += `<label><input type="radio" name="ptag-bulk-choice" value="4:${key}" /> ${st.label}</label>`;
-        });
+        Object.entries(PTAG_SUBTAGS)
+            .filter(([, v]) => v.category === 4)
+            .forEach(([key, st]) => {
+                html += `<label><input type="radio" name="ptag-bulk-choice" value="4:${key}" /> ${st.label}</label>`;
+            });
         html += `</div>`;
         return html;
     }
@@ -3088,7 +3539,9 @@
         }
 
         // Find orders by STT (SessionIndex)
-        const orders = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).filter(o => stts.includes(o.SessionIndex));
+        const orders = (
+            typeof window.getAllOrders === 'function' ? window.getAllOrders() : []
+        ).filter((o) => stts.includes(o.SessionIndex));
 
         if (orders.length === 0) {
             alert('Không tìm thấy đơn nào với STT đã nhập.');
@@ -3101,7 +3554,9 @@
         _ptagCloseBulkModal();
 
         for (const order of orders) {
-            await assignOrderCategory(String(order.Code), category, { subTag: subTag === 'null' ? null : subTag });
+            await assignOrderCategory(String(order.Code), category, {
+                subTag: subTag === 'null' ? null : subTag,
+            });
         }
 
         console.log(`${PTAG_LOG} Bulk assigned ${orders.length} orders to category ${category}`);
@@ -3109,7 +3564,10 @@
 
     function _ptagParseSTT(input) {
         const stts = [];
-        const parts = input.split(',').map(s => s.trim()).filter(Boolean);
+        const parts = input
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
         for (const part of parts) {
             if (part.includes('-')) {
                 const [start, end] = part.split('-').map(Number);
@@ -3192,15 +3650,17 @@
             _ttagPendingDeleteIndex = -1;
             return;
         }
-        container.innerHTML = _ttagSelectedTags.map((tagId, index) => {
-            const isPending = index === _ttagPendingDeleteIndex;
-            const bg = isPending ? '#ef4444' : '#8b5cf6';
-            const label = ProcessingTagState.getTTagName(tagId) || tagId;
-            return `<span class="ptag-ttag-pill ${isPending ? 'deletion-pending' : ''}" style="background-color:${bg};">
+        container.innerHTML = _ttagSelectedTags
+            .map((tagId, index) => {
+                const isPending = index === _ttagPendingDeleteIndex;
+                const bg = isPending ? '#ef4444' : '#8b5cf6';
+                const label = ProcessingTagState.getTTagName(tagId) || tagId;
+                return `<span class="ptag-ttag-pill ${isPending ? 'deletion-pending' : ''}" style="background-color:${bg};">
                 ${label}
                 <button class="ptag-ttag-pill-remove" onclick="event.stopPropagation(); window._ptagRemoveTTagAtIndex(${index});">\u2715</button>
             </span>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function _ptagRenderTTagSuggestions(query) {
@@ -3210,7 +3670,7 @@
         const defs = ProcessingTagState.getTTagDefinitions();
         const q = _ptagNormalize(query);
 
-        const filtered = defs.filter(def => {
+        const filtered = defs.filter((def) => {
             if (_ttagSelectedTags.includes(def.id)) return false;
             if (!q) return true;
             return _ptagMatchTokens(_ptagNormalize(def.name), q);
@@ -3225,12 +3685,14 @@
             return;
         }
 
-        dropdown.innerHTML = filtered.map((def, idx) => {
-            const escapedId = def.id.replace(/'/g, "\\'");
-            return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${escapedId}')" data-tag-id="${def.id}">
+        dropdown.innerHTML = filtered
+            .map((def, idx) => {
+                const escapedId = def.id.replace(/'/g, "\\'");
+                return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${escapedId}')" data-tag-id="${def.id}">
                 <span style="color:#7c3aed;font-weight:600;">${(def.name || '').toUpperCase()}</span>
             </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function _ptagFilterTTags() {
@@ -3313,7 +3775,7 @@
         const defs = ProcessingTagState.getTTagDefinitions();
 
         // Check if already exists (id = name, case-insensitive)
-        const existing = defs.find(d => d.id === upperName);
+        const existing = defs.find((d) => d.id === upperName);
         if (existing) {
             if (!_ttagSelectedTags.includes(existing.id)) {
                 _ttagSelectedTags.push(existing.id);
@@ -3324,7 +3786,12 @@
         }
 
         // Create new definition: id = name (UPPERCASE), with optional productCode
-        const newDef = { id: upperName, name: upperName, productCode: productCode || '', createdAt: Date.now() };
+        const newDef = {
+            id: upperName,
+            name: upperName,
+            productCode: productCode || '',
+            createdAt: Date.now(),
+        };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
         mergeConfigDefs('__ttag_config__', [newDef]);
@@ -3374,12 +3841,12 @@
     // =====================================================
 
     // State variables for T-Tag Manager v2
-    let _ttagMgrData = [];                // [{tagId, tagName, productCode, sttList: number[], errorMessage?}]
+    let _ttagMgrData = []; // [{tagId, tagName, productCode, sttList: number[], errorMessage?}]
     let _ttagMgrSelectedRows = new Set(); // Selected tag IDs for batch operation
     let _ttagMgrSelectedSTTs = new Set(); // Per-STT selection for remove tab: "tagId:stt"
-    let _ttagMgrActiveTab = 'assign';     // 'assign' | 'remove'
-    let _ttagMgrDropdownIndex = -1;       // Highlighted dropdown index
-    let _ttagMgrCreatingInline = false;   // Whether inline create form is showing
+    let _ttagMgrActiveTab = 'assign'; // 'assign' | 'remove'
+    let _ttagMgrDropdownIndex = -1; // Highlighted dropdown index
+    let _ttagMgrCreatingInline = false; // Whether inline create form is showing
 
     function _ttagGetCounts() {
         const counts = {};
@@ -3395,11 +3862,17 @@
 
     function _ttagGetOrdersForTag(tagId) {
         const orders = [];
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
         for (const [orderCode, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) {
-                const order = allOrders.find(o => String(o.Code) === String(orderCode));
-                orders.push({ orderId: order?.Id, orderCode, stt: order?.SessionIndex || '?', name: order?.PartnerName || order?.Name || '', phone: order?.Telephone || '' });
+            if (data.tTags && data.tTags.some((t) => _ptagTTagId(t) === tagId)) {
+                const order = allOrders.find((o) => String(o.Code) === String(orderCode));
+                orders.push({
+                    orderId: order?.Id,
+                    orderCode,
+                    stt: order?.SessionIndex || '?',
+                    name: order?.PartnerName || order?.Name || '',
+                    phone: order?.Telephone || '',
+                });
             }
         }
         return orders.sort((a, b) => (a.stt || 0) - (b.stt || 0));
@@ -3419,14 +3892,16 @@
 
         const counts = _ttagGetCounts();
         const allDefs = ProcessingTagState.getTTagDefinitions();
-        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
-        const defs = allDefs.filter(d => !defaultIds.has(d.id));
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map((d) => d.id));
+        const defs = allDefs.filter((d) => !defaultIds.has(d.id));
         const totalOrders = Object.values(counts).reduce((s, c) => s + c, 0);
 
         const modal = document.createElement('div');
         modal.id = 'ptag-ttag-manager';
         modal.className = 'bulk-tag-modal show';
-        modal.onclick = (e) => { if (e.target === modal) _ptagCloseTTagManager(); };
+        modal.onclick = (e) => {
+            if (e.target === modal) _ptagCloseTTagManager();
+        };
         modal.innerHTML = `
             <div class="bulk-tag-modal-content" style="max-width:700px;">
                 <!-- Header -->
@@ -3543,16 +4018,17 @@
 
         const searchText = (input.value || '').trim().toLowerCase();
         const allDefs = ProcessingTagState.getTTagDefinitions();
-        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
-        const addedIds = new Set(_ttagMgrData.map(d => d.tagId));
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map((d) => d.id));
+        const addedIds = new Set(_ttagMgrData.map((d) => d.tagId));
 
         // Filter definitions
-        let filtered = allDefs.filter(d => !defaultIds.has(d.id) && !addedIds.has(d.id));
+        let filtered = allDefs.filter((d) => !defaultIds.has(d.id) && !addedIds.has(d.id));
         if (searchText) {
-            filtered = filtered.filter(d =>
-                d.name.toLowerCase().includes(searchText) ||
-                (d.productCode || '').toLowerCase().includes(searchText) ||
-                d.id.toLowerCase().includes(searchText)
+            filtered = filtered.filter(
+                (d) =>
+                    d.name.toLowerCase().includes(searchText) ||
+                    (d.productCode || '').toLowerCase().includes(searchText) ||
+                    d.id.toLowerCase().includes(searchText)
             );
         }
 
@@ -3567,7 +4043,9 @@
         } else {
             filtered.forEach((def, i) => {
                 const count = _ttagGetCounts()[def.id] || 0;
-                const pcLabel = def.productCode ? ` · <span style="color:#6b7280;">${def.productCode}</span>` : '';
+                const pcLabel = def.productCode
+                    ? ` · <span style="color:#6b7280;">${def.productCode}</span>`
+                    : '';
                 html += `<div class="bulk-tag-dropdown-item ${i === _ttagMgrDropdownIndex ? 'highlighted' : ''}"
                     data-index="${i}" data-tag-id="${def.id}"
                     onclick="window._ttagMgrAddTag('${def.id.replace(/'/g, "\\'")}')"
@@ -3641,7 +4119,10 @@
 
     function _ttagMgrCancelCreate() {
         const form = document.getElementById('ttagMgrCreateForm');
-        if (form) { form.style.display = 'none'; form.innerHTML = ''; }
+        if (form) {
+            form.style.display = 'none';
+            form.innerHTML = '';
+        }
         _ttagMgrCreatingInline = false;
     }
 
@@ -3651,7 +4132,10 @@
         const name = (nameInput?.value || '').trim();
         const productCode = (pcInput?.value || '').trim().toUpperCase();
 
-        if (!name) { alert('Vui lòng nhập tên tag.'); return; }
+        if (!name) {
+            alert('Vui lòng nhập tên tag.');
+            return;
+        }
 
         // Generate ID
         const defs = ProcessingTagState.getTTagDefinitions();
@@ -3682,7 +4166,7 @@
     // ===== ADD/REMOVE TAG TO TABLE =====
 
     function _ttagMgrAddTag(tagId) {
-        if (_ttagMgrData.some(d => d.tagId === tagId)) return;
+        if (_ttagMgrData.some((d) => d.tagId === tagId)) return;
         const def = ProcessingTagState.getTTagDef(tagId);
         if (!def) return;
 
@@ -3691,13 +4175,13 @@
             tagName: def.name,
             productCode: def.productCode || '',
             sttList: [],
-            errorMessage: null
+            errorMessage: null,
         };
 
         // In "remove" tab, auto-load existing orders with this tag
         if (_ttagMgrActiveTab === 'remove') {
             const orders = _ttagGetOrdersForTag(tagId);
-            entry.sttList = orders.map(o => o.stt).filter(s => s !== '?');
+            entry.sttList = orders.map((o) => o.stt).filter((s) => s !== '?');
         }
 
         _ttagMgrData.push(entry);
@@ -3719,7 +4203,7 @@
     }
 
     function _ttagMgrRemoveTagRow(tagId) {
-        _ttagMgrData = _ttagMgrData.filter(d => d.tagId !== tagId);
+        _ttagMgrData = _ttagMgrData.filter((d) => d.tagId !== tagId);
         _ttagMgrSelectedRows.delete(tagId);
         _ttagMgrUpdateTable();
         _ttagMgrUpdateRowCount();
@@ -3749,55 +4233,64 @@
             return;
         }
 
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
 
-        tableBody.innerHTML = _ttagMgrData.map(tagData => {
-            const isSelected = _ttagMgrSelectedRows.has(tagData.tagId);
-            const sttArray = tagData.sttList || [];
-            const sttCount = sttArray.length;
-            const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
-            const escapedId = tagData.tagId.replace(/'/g, "\\'");
+        tableBody.innerHTML = _ttagMgrData
+            .map((tagData) => {
+                const isSelected = _ttagMgrSelectedRows.has(tagData.tagId);
+                const sttArray = tagData.sttList || [];
+                const sttCount = sttArray.length;
+                const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
+                const escapedId = tagData.tagId.replace(/'/g, "\\'");
 
-            // STT pills with customer names
-            const isRemoveTab = _ttagMgrActiveTab === 'remove';
-            const sttPillsHtml = sttArray.map(stt => {
-                const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
-                const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
-                const sttKey = `${tagData.tagId}:${stt}`;
-                const sttChecked = _ttagMgrSelectedSTTs.has(sttKey);
+                // STT pills with customer names
+                const isRemoveTab = _ttagMgrActiveTab === 'remove';
+                const sttPillsHtml = sttArray
+                    .map((stt) => {
+                        const order =
+                            window.OrderStore?.getBySTT(stt) ||
+                            allOrders.find((o) => o.SessionIndex === stt);
+                        const customerName = order
+                            ? order.Name || order.PartnerName || 'N/A'
+                            : 'N/A';
+                        const sttKey = `${tagData.tagId}:${stt}`;
+                        const sttChecked = _ttagMgrSelectedSTTs.has(sttKey);
 
-                if (isRemoveTab) {
-                    return `<label class="bulk-tag-stt-pill stt-pill-selectable ${sttChecked ? 'stt-pill-selected' : ''}" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                        if (isRemoveTab) {
+                            return `<label class="bulk-tag-stt-pill stt-pill-selectable ${sttChecked ? 'stt-pill-selected' : ''}" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
                         <input type="checkbox" ${sttChecked ? 'checked' : ''}
                             onchange="window._ttagMgrToggleSTT('${escapedId}', ${stt})"
                             style="margin:0;accent-color:#ef4444;">
                         <span class="stt-number">STT ${stt}</span>
                         <span class="customer-name">${customerName}</span>
                     </label>`;
-                }
+                        }
 
-                return `<div class="bulk-tag-stt-pill">
+                        return `<div class="bulk-tag-stt-pill">
                     <span class="stt-number">STT ${stt}</span>
                     <span class="customer-name">${customerName}</span>
                     <button class="remove-stt" onclick="window._ttagMgrRemoveSTT('${escapedId}', ${stt})" title="Xóa STT">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>`;
-            }).join('');
+                    })
+                    .join('');
 
-            const errorHtml = hasError ? `<div class="bulk-tag-row-error">${tagData.errorMessage}</div>` : '';
+                const errorHtml = hasError
+                    ? `<div class="bulk-tag-row-error">${tagData.errorMessage}</div>`
+                    : '';
 
-            // Product code + Tìm Đơn button
-            const pcHtml = tagData.productCode
-                ? `<div class="ttag-mgr-product-code">
+                // Product code + Tìm Đơn button
+                const pcHtml = tagData.productCode
+                    ? `<div class="ttag-mgr-product-code">
                     <b>${tagData.productCode}</b>
                     <button class="ttag-mgr-find-btn" onclick="window._ttagMgrFindByProductCode('${escapedId}')">
                         <i class="fas fa-search" style="font-size:10px;"></i> Tìm Đơn
                     </button>
                    </div>`
-                : '';
+                    : '';
 
-            return `
+                return `
                 <div class="bulk-tag-row ${isSelected ? 'selected' : ''} ${hasError ? 'has-error' : ''}" data-tag-id="${tagData.tagId}">
                     <div class="bulk-tag-row-tag">
                         <input type="checkbox"
@@ -3828,7 +4321,8 @@
                         </button>
                     </div>
                 </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function _ttagMgrUpdateRowCount() {
@@ -3839,13 +4333,15 @@
     function _ttagMgrUpdateSelectAllCheckbox() {
         const cb = document.getElementById('ttagMgrSelectAllCheckbox');
         if (!cb) return;
-        const selectableRows = _ttagMgrData.filter(d => d.sttList.length > 0);
-        cb.checked = selectableRows.length > 0 && selectableRows.every(d => _ttagMgrSelectedRows.has(d.tagId));
+        const selectableRows = _ttagMgrData.filter((d) => d.sttList.length > 0);
+        cb.checked =
+            selectableRows.length > 0 &&
+            selectableRows.every((d) => _ttagMgrSelectedRows.has(d.tagId));
         cb.disabled = selectableRows.length === 0;
     }
 
     function _ttagMgrToggleSelectAll(checked) {
-        _ttagMgrData.forEach(d => {
+        _ttagMgrData.forEach((d) => {
             if (d.sttList.length > 0) {
                 if (checked) _ttagMgrSelectedRows.add(d.tagId);
                 else _ttagMgrSelectedRows.delete(d.tagId);
@@ -3870,17 +4366,20 @@
         const stt = parseInt(input.value);
         if (isNaN(stt)) return;
 
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
+        const order =
+            window.OrderStore?.getBySTT(stt) || allOrders.find((o) => o.SessionIndex === stt);
         if (!order) {
-            if (window.notificationManager) window.notificationManager.warning(`Không tìm thấy đơn STT ${stt}`, 2000);
+            if (window.notificationManager)
+                window.notificationManager.warning(`Không tìm thấy đơn STT ${stt}`, 2000);
             return;
         }
 
-        const tagEntry = _ttagMgrData.find(d => d.tagId === tagId);
+        const tagEntry = _ttagMgrData.find((d) => d.tagId === tagId);
         if (!tagEntry) return;
         if (tagEntry.sttList.includes(stt)) {
-            if (window.notificationManager) window.notificationManager.warning(`STT ${stt} đã có trong danh sách`, 2000);
+            if (window.notificationManager)
+                window.notificationManager.warning(`STT ${stt} đã có trong danh sách`, 2000);
             input.value = '';
             return;
         }
@@ -3898,20 +4397,20 @@
     }
 
     function _ttagMgrRemoveSTT(tagId, stt) {
-        const tagEntry = _ttagMgrData.find(d => d.tagId === tagId);
+        const tagEntry = _ttagMgrData.find((d) => d.tagId === tagId);
         if (!tagEntry) return;
-        tagEntry.sttList = tagEntry.sttList.filter(s => s !== stt);
+        tagEntry.sttList = tagEntry.sttList.filter((s) => s !== stt);
         if (tagEntry.sttList.length === 0) _ttagMgrSelectedRows.delete(tagId);
         _ttagMgrUpdateTable();
         _ttagMgrUpdateSelectAllCheckbox();
     }
 
     async function _ttagMgrFindByProductCode(tagId) {
-        const tagEntry = _ttagMgrData.find(d => d.tagId === tagId);
+        const tagEntry = _ttagMgrData.find((d) => d.tagId === tagId);
         if (!tagEntry) return;
         const def = ProcessingTagState.getTTagDef(tagId);
         const productCode = (def?.productCode || tagId).toUpperCase();
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
 
         const orderByCode = new Map();
         const orderById = new Map();
@@ -3920,14 +4419,17 @@
             orderById.set(String(o.Id), o);
         }
 
-        let hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+        let hasDetails = allOrders.some((o) => Array.isArray(o.Details) && o.Details.length > 0);
         let searchSource = allOrders;
 
         if (!hasDetails) {
-            if (window.notificationManager) window.notificationManager.info('Đang tải chi tiết SP...', 2000);
+            if (window.notificationManager)
+                window.notificationManager.info('Đang tải chi tiết SP...', 2000);
             const reportOrders = await _ptagLoadReportOrderDetails();
             if (!reportOrders || reportOrders.length === 0) {
-                alert('Chưa có dữ liệu chi tiết đơn hàng.\n\nVui lòng vào Tab "Báo Cáo Tổng Hợp" → nhấn "Lấy chi tiết đơn hàng" trước.');
+                alert(
+                    'Chưa có dữ liệu chi tiết đơn hàng.\n\nVui lòng vào Tab "Báo Cáo Tổng Hợp" → nhấn "Lấy chi tiết đơn hàng" trước.'
+                );
                 return;
             }
             searchSource = reportOrders;
@@ -3938,7 +4440,7 @@
         for (const order of searchSource) {
             const details = order.Details;
             if (!Array.isArray(details)) continue;
-            if (details.some(d => (d.ProductCode || '').toUpperCase() === productCode)) {
+            if (details.some((d) => (d.ProductCode || '').toUpperCase() === productCode)) {
                 if (order.Code) matchedCodes.add(String(order.Code));
                 matchedIds.add(String(order.Id));
             }
@@ -3962,7 +4464,11 @@
         }
 
         if (matchingOrders.length === 0) {
-            if (window.notificationManager) window.notificationManager.warning(`Không tìm thấy đơn nào chứa SP "${productCode}"`, 3000);
+            if (window.notificationManager)
+                window.notificationManager.warning(
+                    `Không tìm thấy đơn nào chứa SP "${productCode}"`,
+                    3000
+                );
             return;
         }
 
@@ -3979,9 +4485,17 @@
         if (added > 0) {
             _ttagMgrUpdateTable();
             _ttagMgrUpdateSelectAllCheckbox();
-            if (window.notificationManager) window.notificationManager.success(`Đã thêm ${added} đơn chứa SP "${productCode}"`, 3000);
+            if (window.notificationManager)
+                window.notificationManager.success(
+                    `Đã thêm ${added} đơn chứa SP "${productCode}"`,
+                    3000
+                );
         } else {
-            if (window.notificationManager) window.notificationManager.warning(`Tất cả ${matchingOrders.length} đơn chứa SP "${productCode}" đã có trong danh sách`, 3000);
+            if (window.notificationManager)
+                window.notificationManager.warning(
+                    `Tất cả ${matchingOrders.length} đơn chứa SP "${productCode}" đã có trong danh sách`,
+                    3000
+                );
         }
 
         console.log(`${PTAG_LOG} FindByPC in manager: ${productCode} → ${added} new STTs added`);
@@ -4042,13 +4556,19 @@
     }
 
     async function _ttagMgrExecuteAssign() {
-        const selectedTags = _ttagMgrData.filter(t => _ttagMgrSelectedRows.has(t.tagId) && t.sttList.length > 0);
+        const selectedTags = _ttagMgrData.filter(
+            (t) => _ttagMgrSelectedRows.has(t.tagId) && t.sttList.length > 0
+        );
         if (selectedTags.length === 0) {
-            if (window.notificationManager) window.notificationManager.warning('Vui lòng chọn ít nhất một tag có STT để gán', 3000);
+            if (window.notificationManager)
+                window.notificationManager.warning(
+                    'Vui lòng chọn ít nhất một tag có STT để gán',
+                    3000
+                );
             return;
         }
 
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
         const successResults = [];
         const failedResults = [];
 
@@ -4058,45 +4578,71 @@
             const redirectedSTT = [];
 
             for (const stt of tagEntry.sttList) {
-                const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
-                if (!order) { failedSTT.push(stt); continue; }
+                const order =
+                    window.OrderStore?.getBySTT(stt) ||
+                    allOrders.find((o) => o.SessionIndex === stt);
+                if (!order) {
+                    failedSTT.push(stt);
+                    continue;
+                }
 
                 // Check for "ĐÃ GỘP KO CHỐT" TPOS tag → redirect to replacement order
                 const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
-                const hasBlockedTag = rawTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
+                const hasBlockedTag = rawTags.some((t) => t.Name === 'ĐÃ GỘP KO CHỐT');
 
                 if (hasBlockedTag) {
                     const originalSTT = order.SessionIndex;
                     const normalizedPhone = _ttagMgrNormalizePhone(order.Telephone);
 
                     if (!normalizedPhone) {
-                        console.warn(`${PTAG_LOG} Order ${order.Code} has "ĐÃ GỘP KO CHỐT" but no phone number`);
+                        console.warn(
+                            `${PTAG_LOG} Order ${order.Code} has "ĐÃ GỘP KO CHỐT" but no phone number`
+                        );
                         failedSTT.push(stt);
                         continue;
                     }
 
-                    const samePhoneOrders = allOrders.filter(o =>
-                        o.Id !== order.Id && _ttagMgrNormalizePhone(o.Telephone) === normalizedPhone
+                    const samePhoneOrders = allOrders.filter(
+                        (o) =>
+                            o.Id !== order.Id &&
+                            _ttagMgrNormalizePhone(o.Telephone) === normalizedPhone
                     );
 
                     if (samePhoneOrders.length === 0) {
-                        console.warn(`${PTAG_LOG} No replacement order found for phone ${normalizedPhone}`);
+                        console.warn(
+                            `${PTAG_LOG} No replacement order found for phone ${normalizedPhone}`
+                        );
                         failedSTT.push(stt);
                         continue;
                     }
 
-                    const replacementOrder = samePhoneOrders.sort((a, b) => b.SessionIndex - a.SessionIndex)[0];
-                    console.log(`${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`);
+                    const replacementOrder = samePhoneOrders.sort(
+                        (a, b) => b.SessionIndex - a.SessionIndex
+                    )[0];
+                    console.log(
+                        `${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`
+                    );
 
                     try {
                         await assignTTagToOrder(String(replacementOrder.Code), tagEntry.tagId);
                         // Transfer processing tags (flags + tTags) from blocked order to replacement
                         try {
-                            await transferProcessingTags(String(order.Code), String(replacementOrder.Code));
-                        } catch (e) { console.warn(`${PTAG_LOG} Transfer processing tags failed:`, e); }
-                        redirectedSTT.push({ original: originalSTT, redirectTo: replacementOrder.SessionIndex });
+                            await transferProcessingTags(
+                                String(order.Code),
+                                String(replacementOrder.Code)
+                            );
+                        } catch (e) {
+                            console.warn(`${PTAG_LOG} Transfer processing tags failed:`, e);
+                        }
+                        redirectedSTT.push({
+                            original: originalSTT,
+                            redirectTo: replacementOrder.SessionIndex,
+                        });
                     } catch (e) {
-                        console.error(`${PTAG_LOG} Failed to assign ${tagEntry.tagId} to replacement STT ${replacementOrder.SessionIndex}:`, e);
+                        console.error(
+                            `${PTAG_LOG} Failed to assign ${tagEntry.tagId} to replacement STT ${replacementOrder.SessionIndex}:`,
+                            e
+                        );
                         failedSTT.push(stt);
                     }
                     continue;
@@ -4107,27 +4653,42 @@
                     await assignTTagToOrder(String(order.Code), tagEntry.tagId);
                     successSTT.push(stt);
                 } catch (e) {
-                    console.error(`${PTAG_LOG} Failed to assign ${tagEntry.tagId} to STT ${stt}:`, e);
+                    console.error(
+                        `${PTAG_LOG} Failed to assign ${tagEntry.tagId} to STT ${stt}:`,
+                        e
+                    );
                     failedSTT.push(stt);
                 }
             }
 
             if (successSTT.length > 0 || redirectedSTT.length > 0) {
-                successResults.push({ tagName: tagEntry.tagName, productCode: tagEntry.productCode, sttList: successSTT, redirectedList: redirectedSTT });
+                successResults.push({
+                    tagName: tagEntry.tagName,
+                    productCode: tagEntry.productCode,
+                    sttList: successSTT,
+                    redirectedList: redirectedSTT,
+                });
             }
             if (failedSTT.length > 0) {
-                failedResults.push({ tagName: tagEntry.tagName, sttList: failedSTT, reason: 'Không tìm thấy đơn hoặc lỗi API' });
+                failedResults.push({
+                    tagName: tagEntry.tagName,
+                    sttList: failedSTT,
+                    reason: 'Không tìm thấy đơn hoặc lỗi API',
+                });
             }
         }
 
         // Remove successful rows/STTs from table (including redirected ones)
         for (const success of successResults) {
-            const tagEntry = _ttagMgrData.find(d => d.tagName === success.tagName);
+            const tagEntry = _ttagMgrData.find((d) => d.tagName === success.tagName);
             if (tagEntry) {
-                const allSuccessSTT = [...success.sttList, ...(success.redirectedList || []).map(r => r.original)];
-                tagEntry.sttList = tagEntry.sttList.filter(s => !allSuccessSTT.includes(s));
+                const allSuccessSTT = [
+                    ...success.sttList,
+                    ...(success.redirectedList || []).map((r) => r.original),
+                ];
+                tagEntry.sttList = tagEntry.sttList.filter((s) => !allSuccessSTT.includes(s));
                 if (tagEntry.sttList.length === 0) {
-                    _ttagMgrData = _ttagMgrData.filter(d => d.tagId !== tagEntry.tagId);
+                    _ttagMgrData = _ttagMgrData.filter((d) => d.tagId !== tagEntry.tagId);
                     _ttagMgrSelectedRows.delete(tagEntry.tagId);
                 }
             }
@@ -4149,7 +4710,8 @@
     async function _ttagMgrExecuteRemove() {
         // Only remove STTs that have individual checkboxes checked
         if (_ttagMgrSelectedSTTs.size === 0) {
-            if (window.notificationManager) window.notificationManager.warning('Vui lòng chọn ít nhất một STT để gỡ', 3000);
+            if (window.notificationManager)
+                window.notificationManager.warning('Vui lòng chọn ít nhất một STT để gỡ', 3000);
             return;
         }
 
@@ -4161,48 +4723,64 @@
             tagSTTMap.get(tagId).push(Number(stt));
         }
 
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
         const successResults = [];
         const failedResults = [];
 
         for (const [tagId, sttList] of tagSTTMap) {
-            const tagEntry = _ttagMgrData.find(d => d.tagId === tagId);
+            const tagEntry = _ttagMgrData.find((d) => d.tagId === tagId);
             if (!tagEntry) continue;
 
             const successSTT = [];
             const failedSTT = [];
 
             for (const stt of sttList) {
-                const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
-                if (!order) { failedSTT.push(stt); continue; }
+                const order =
+                    window.OrderStore?.getBySTT(stt) ||
+                    allOrders.find((o) => o.SessionIndex === stt);
+                if (!order) {
+                    failedSTT.push(stt);
+                    continue;
+                }
 
                 try {
                     await removeTTagFromOrder(String(order.Code), tagEntry.tagId);
                     successSTT.push(stt);
                 } catch (e) {
-                    console.error(`${PTAG_LOG} Failed to remove ${tagEntry.tagId} from STT ${stt}:`, e);
+                    console.error(
+                        `${PTAG_LOG} Failed to remove ${tagEntry.tagId} from STT ${stt}:`,
+                        e
+                    );
                     failedSTT.push(stt);
                 }
             }
 
             if (successSTT.length > 0) {
-                successResults.push({ tagName: tagEntry.tagName, productCode: tagEntry.productCode, sttList: successSTT });
+                successResults.push({
+                    tagName: tagEntry.tagName,
+                    productCode: tagEntry.productCode,
+                    sttList: successSTT,
+                });
             }
             if (failedSTT.length > 0) {
-                failedResults.push({ tagName: tagEntry.tagName, sttList: failedSTT, reason: 'Không tìm thấy đơn hoặc lỗi API' });
+                failedResults.push({
+                    tagName: tagEntry.tagName,
+                    sttList: failedSTT,
+                    reason: 'Không tìm thấy đơn hoặc lỗi API',
+                });
             }
         }
 
         // Remove successful STTs from table + clear selection
         for (const success of successResults) {
-            const tagEntry = _ttagMgrData.find(d => d.tagName === success.tagName);
+            const tagEntry = _ttagMgrData.find((d) => d.tagName === success.tagName);
             if (tagEntry) {
                 for (const stt of success.sttList) {
                     _ttagMgrSelectedSTTs.delete(`${tagEntry.tagId}:${stt}`);
                 }
-                tagEntry.sttList = tagEntry.sttList.filter(s => !success.sttList.includes(s));
+                tagEntry.sttList = tagEntry.sttList.filter((s) => !success.sttList.includes(s));
                 if (tagEntry.sttList.length === 0) {
-                    _ttagMgrData = _ttagMgrData.filter(d => d.tagId !== tagEntry.tagId);
+                    _ttagMgrData = _ttagMgrData.filter((d) => d.tagId !== tagEntry.tagId);
                     _ttagMgrSelectedRows.delete(tagEntry.tagId);
                 }
             }
@@ -4219,16 +4797,31 @@
     }
 
     function _ttagMgrShowResult(successResults, failedResults, actionLabel) {
-        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList || []).length, 0);
+        const totalSuccess = successResults.reduce(
+            (sum, r) => sum + r.sttList.length + (r.redirectedList || []).length,
+            0
+        );
         const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
         // Notification
         if (totalSuccess > 0 && totalFailed === 0) {
-            if (window.notificationManager) window.notificationManager.success(`${actionLabel} thành công: ${totalSuccess} đơn`, 4000);
+            if (window.notificationManager)
+                window.notificationManager.success(
+                    `${actionLabel} thành công: ${totalSuccess} đơn`,
+                    4000
+                );
         } else if (totalSuccess > 0 && totalFailed > 0) {
-            if (window.notificationManager) window.notificationManager.warning(`${actionLabel}: ${totalSuccess} thành công, ${totalFailed} thất bại`, 5000);
+            if (window.notificationManager)
+                window.notificationManager.warning(
+                    `${actionLabel}: ${totalSuccess} thành công, ${totalFailed} thất bại`,
+                    5000
+                );
         } else if (totalFailed > 0) {
-            if (window.notificationManager) window.notificationManager.error(`${actionLabel} thất bại: ${totalFailed} đơn`, 5000);
+            if (window.notificationManager)
+                window.notificationManager.error(
+                    `${actionLabel} thất bại: ${totalFailed} đơn`,
+                    5000
+                );
         }
 
         // Build result modal
@@ -4236,20 +4829,25 @@
         if (successResults.length > 0) {
             successHtml = `<div style="margin-bottom:12px;">
                 <div style="font-weight:600;color:#10b981;margin-bottom:6px;"><i class="fas fa-check-circle"></i> Thành công (${totalSuccess} đơn)</div>
-                ${successResults.map(r => {
-                    let html = `<div style="padding:4px 0;font-size:13px;">
+                ${successResults
+                    .map((r) => {
+                        let html = `<div style="padding:4px 0;font-size:13px;">
                         <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span>
                         <span style="color:#374151;">${r.sttList.length > 0 ? 'STT ' + r.sttList.join(', ') : ''}</span>
                     </div>`;
-                    if (r.redirectedList && r.redirectedList.length > 0) {
-                        html += r.redirectedList.map(rd =>
-                            `<div style="padding:2px 0 2px 12px;font-size:12px;color:#6b7280;">
+                        if (r.redirectedList && r.redirectedList.length > 0) {
+                            html += r.redirectedList
+                                .map(
+                                    (rd) =>
+                                        `<div style="padding:2px 0 2px 12px;font-size:12px;color:#6b7280;">
                                 ↳ STT ${rd.original} → chuyển sang STT ${rd.redirectTo} (đơn gộp)
                             </div>`
-                        ).join('');
-                    }
-                    return html;
-                }).join('')}
+                                )
+                                .join('');
+                        }
+                        return html;
+                    })
+                    .join('')}
             </div>`;
         }
 
@@ -4257,11 +4855,15 @@
         if (failedResults.length > 0) {
             failedHtml = `<div>
                 <div style="font-weight:600;color:#ef4444;margin-bottom:6px;"><i class="fas fa-times-circle"></i> Thất bại (${totalFailed} đơn)</div>
-                ${failedResults.map(r => `<div style="padding:4px 0;font-size:13px;">
+                ${failedResults
+                    .map(
+                        (r) => `<div style="padding:4px 0;font-size:13px;">
                     <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span>
                     <span style="color:#374151;">STT ${r.sttList.join(', ')}</span>
                     <div style="font-size:11px;color:#6b7280;">→ ${r.reason}</div>
-                </div>`).join('')}
+                </div>`
+                    )
+                    .join('')}
             </div>`;
         }
 
@@ -4273,7 +4875,9 @@
             resultModal.id = 'ttagMgrResultModal';
             resultModal.className = 'bulk-tag-modal show';
             resultModal.style.zIndex = '10003';
-            resultModal.onclick = (e) => { if (e.target === resultModal) resultModal.remove(); };
+            resultModal.onclick = (e) => {
+                if (e.target === resultModal) resultModal.remove();
+            };
             resultModal.innerHTML = `
                 <div class="bulk-tag-modal-content" style="max-width:500px;">
                     <div class="bulk-tag-modal-header" style="background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);">
@@ -4298,8 +4902,8 @@
         const el = document.getElementById('ttagMgrSubtitle');
         if (!el) return;
         const allDefs = ProcessingTagState.getTTagDefinitions();
-        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
-        const defs = allDefs.filter(d => !defaultIds.has(d.id));
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map((d) => d.id));
+        const defs = allDefs.filter((d) => !defaultIds.has(d.id));
         const counts = _ttagGetCounts();
         const totalOrders = Object.values(counts).reduce((s, c) => s + c, 0);
         el.textContent = `Tổng: ${defs.length} tag · ${totalOrders} đơn chờ hàng`;
@@ -4319,15 +4923,20 @@
                     const tokenData = window.tokenManager?.getTokenData?.();
                     username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
 
             const historyEntry = {
-                timestamp, dateFormatted, username, type,
+                timestamp,
+                dateFormatted,
+                username,
+                type,
                 results,
                 summary: {
                     totalSuccess: results.success.reduce((sum, r) => sum + r.sttList.length, 0),
-                    totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0)
-                }
+                    totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0),
+                },
             };
 
             if (typeof database !== 'undefined') {
@@ -4348,7 +4957,9 @@
         historyModal.id = 'ttagMgrHistoryModal';
         historyModal.className = 'bulk-tag-modal show';
         historyModal.style.zIndex = '10002';
-        historyModal.onclick = (e) => { if (e.target === historyModal) historyModal.remove(); };
+        historyModal.onclick = (e) => {
+            if (e.target === historyModal) historyModal.remove();
+        };
         historyModal.innerHTML = `
             <div class="bulk-tag-modal-content" style="max-width:800px;">
                 <div class="bulk-tag-modal-header" style="background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);">
@@ -4385,27 +4996,37 @@
                 return;
             }
 
-            const historyArray = Object.values(historyData).sort((a, b) => b.timestamp - a.timestamp);
+            const historyArray = Object.values(historyData).sort(
+                (a, b) => b.timestamp - a.timestamp
+            );
             window._ttagMgrHistoryCache = historyArray;
             _ttagMgrRenderHistoryList(historyArray);
         } catch (error) {
             console.error(`${PTAG_LOG} Error loading T-Tag history:`, error);
             const body = document.getElementById('ttagMgrHistoryBody');
-            if (body) body.innerHTML = `<div class="bulk-tag-history-empty"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i><p>Lỗi tải lịch sử: ${error.message}</p></div>`;
+            if (body)
+                body.innerHTML = `<div class="bulk-tag-history-empty"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i><p>Lỗi tải lịch sử: ${error.message}</p></div>`;
         }
     }
 
     function _ttagMgrRenderHistoryItem(entry, index) {
         const { dateFormatted, username, type, results, summary } = entry;
-        const typeLabel = type === 'assign' ? '<span style="color:#10b981;">GÁN</span>' : '<span style="color:#ef4444;">GỠ</span>';
+        const typeLabel =
+            type === 'assign'
+                ? '<span style="color:#10b981;">GÁN</span>'
+                : '<span style="color:#ef4444;">GỠ</span>';
 
         let successHtml = '';
         if (results?.success?.length > 0) {
             successHtml = `<div style="margin-top:8px;">
                 <div style="font-weight:600;color:#10b981;font-size:12px;margin-bottom:4px;"><i class="fas fa-check-circle"></i> Thành công (${summary.totalSuccess} đơn):</div>
-                ${results.success.map(r => `<div style="padding:2px 0;font-size:12px;">
+                ${results.success
+                    .map(
+                        (r) => `<div style="padding:2px 0;font-size:12px;">
                     <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span> STT ${(r.sttList || []).join(', ')}
-                </div>`).join('')}
+                </div>`
+                    )
+                    .join('')}
             </div>`;
         }
 
@@ -4413,10 +5034,14 @@
         if (results?.failed?.length > 0) {
             failedHtml = `<div style="margin-top:6px;">
                 <div style="font-weight:600;color:#ef4444;font-size:12px;margin-bottom:4px;"><i class="fas fa-times-circle"></i> Thất bại (${summary.totalFailed} đơn):</div>
-                ${results.failed.map(r => `<div style="padding:2px 0;font-size:12px;">
+                ${results.failed
+                    .map(
+                        (r) => `<div style="padding:2px 0;font-size:12px;">
                     <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span> STT ${(r.sttList || []).join(', ')}
                     <span style="color:#6b7280;font-size:11px;">→ ${r.reason}</span>
-                </div>`).join('')}
+                </div>`
+                    )
+                    .join('')}
             </div>`;
         }
 
@@ -4460,16 +5085,19 @@
     function _ttagMgrFilterHistory(query) {
         const all = window._ttagMgrHistoryCache || [];
         const q = String(query || '').trim();
-        if (!q) { _ttagMgrRenderHistoryList(all); return; }
+        if (!q) {
+            _ttagMgrRenderHistoryList(all);
+            return;
+        }
         const matchStt = (stt) => String(stt) === q;
         const filtered = [];
         for (const entry of all) {
             const successMatched = (entry.results?.success || [])
-                .map(r => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
-                .filter(r => r.sttList.length > 0);
+                .map((r) => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
+                .filter((r) => r.sttList.length > 0);
             const failedMatched = (entry.results?.failed || [])
-                .map(r => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
-                .filter(r => r.sttList.length > 0);
+                .map((r) => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
+                .filter((r) => r.sttList.length > 0);
             if (successMatched.length === 0 && failedMatched.length === 0) continue;
             filtered.push({
                 ...entry,
@@ -4478,7 +5106,7 @@
                     ...(entry.summary || {}),
                     totalSuccess: successMatched.reduce((s, r) => s + r.sttList.length, 0),
                     totalFailed: failedMatched.reduce((s, r) => s + r.sttList.length, 0),
-                }
+                },
             });
         }
         _ttagMgrRenderHistoryList(filtered);
@@ -4492,14 +5120,16 @@
         if (existingSettings) existingSettings.remove();
 
         const allDefs = ProcessingTagState.getTTagDefinitions();
-        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
-        const defs = allDefs.filter(d => !defaultIds.has(d.id));
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map((d) => d.id));
+        const defs = allDefs.filter((d) => !defaultIds.has(d.id));
         const counts = _ttagGetCounts();
 
         const settingsModal = document.createElement('div');
         settingsModal.id = 'ttagMgrSettingsModal';
         settingsModal.className = 'ttag-mgr-settings-overlay';
-        settingsModal.onclick = (e) => { if (e.target === settingsModal) settingsModal.remove(); };
+        settingsModal.onclick = (e) => {
+            if (e.target === settingsModal) settingsModal.remove();
+        };
         settingsModal.innerHTML = `
             <div class="ttag-mgr-settings-content">
                 <div style="background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:8px;">
@@ -4508,11 +5138,14 @@
                     <button onclick="window._ttagMgrCloseSettings()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">&times;</button>
                 </div>
                 <div id="ttagMgrSettingsList" style="max-height:60vh;overflow-y:auto;">
-                    ${defs.length === 0 ? '<div style="padding:30px;text-align:center;color:#6b7280;font-size:14px;">Chưa có tag T nào.</div>' :
-                    defs.map(def => {
-                        const count = counts[def.id] || 0;
-                        const escapedId = def.id.replace(/'/g, "\\'");
-                        return `<div class="ttag-mgr-settings-row" id="ttagSettingsRow_${def.id}">
+                    ${
+                        defs.length === 0
+                            ? '<div style="padding:30px;text-align:center;color:#6b7280;font-size:14px;">Chưa có tag T nào.</div>'
+                            : defs
+                                  .map((def) => {
+                                      const count = counts[def.id] || 0;
+                                      const escapedId = def.id.replace(/'/g, "\\'");
+                                      return `<div class="ttag-mgr-settings-row" id="ttagSettingsRow_${def.id}">
                             <div style="flex:1;min-width:0;">
                                 <div style="font-weight:600;color:#7c3aed;font-size:14px;" id="ttagSettingsName_${def.id}">${(def.name || '').toUpperCase()}</div>
                                 <div style="font-size:12px;color:#6b7280;">
@@ -4526,7 +5159,9 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>`;
-                    }).join('')}
+                                  })
+                                  .join('')
+                    }
                 </div>
                 <div style="padding:12px 16px;border-top:1px solid #e5e7eb;text-align:right;">
                     <button onclick="window._ttagMgrCloseSettings()" style="padding:8px 20px;font-size:13px;font-weight:600;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;">Đóng</button>
@@ -4572,10 +5207,13 @@
         const newName = (nameInput?.value || '').trim().toUpperCase();
         const newPC = (pcInput?.value || '').trim().toUpperCase();
 
-        if (!newName) { alert('Tên tag không được trống.'); return; }
+        if (!newName) {
+            alert('Tên tag không được trống.');
+            return;
+        }
 
         const defs = ProcessingTagState.getTTagDefinitions();
-        const def = defs.find(d => d.id === tagId);
+        const def = defs.find((d) => d.id === tagId);
         if (def) {
             def.name = newName;
             def.productCode = newPC;
@@ -4589,7 +5227,9 @@
                 _ptagRefreshRow(o.orderCode);
             }
 
-            console.log(`${PTAG_LOG} Renamed tag ${tagId} to "${newName}" (PC: ${newPC}), refreshed ${ordersWithTag.length} rows`);
+            console.log(
+                `${PTAG_LOG} Renamed tag ${tagId} to "${newName}" (PC: ${newPC}), refreshed ${ordersWithTag.length} rows`
+            );
         }
 
         _ttagMgrRefreshSettings();
@@ -4616,13 +5256,17 @@
      * Smart cache: reuses cached data if tableName matches.
      */
     async function _ptagLoadReportOrderDetails() {
-        const tableName = window.campaignManager?.activeCampaign?.name
-            || localStorage.getItem('orders_table_name') || '';
+        const tableName =
+            window.campaignManager?.activeCampaign?.name ||
+            localStorage.getItem('orders_table_name') ||
+            '';
         if (!tableName) return null;
 
         // Use cache if same table
         if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
-            console.log(`${PTAG_LOG} Using cached report data (${_reportOrderDetailsCache.orders.length} orders)`);
+            console.log(
+                `${PTAG_LOG} Using cached report data (${_reportOrderDetailsCache.orders.length} orders)`
+            );
             return _reportOrderDetailsCache.orders;
         }
 
@@ -4655,7 +5299,7 @@
     // Keep _ptagFindByProductCode as a legacy entry point (delegates to manager version if open)
     async function _ptagFindByProductCode(tagId) {
         // If manager is open and tag is in the table, use manager version
-        const mgrEntry = _ttagMgrData.find(d => d.tagId === tagId);
+        const mgrEntry = _ttagMgrData.find((d) => d.tagId === tagId);
         if (mgrEntry && document.getElementById('ptag-ttag-manager')) {
             await _ttagMgrFindByProductCode(tagId);
             return;
@@ -4663,15 +5307,17 @@
         // Fallback: direct assign (used from quick picker or other contexts)
         const def = ProcessingTagState.getTTagDef(tagId);
         const productCode = (def?.productCode || tagId).toUpperCase();
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
 
-        let hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+        let hasDetails = allOrders.some((o) => Array.isArray(o.Details) && o.Details.length > 0);
         let searchSource = allOrders;
 
         if (!hasDetails) {
             const reportOrders = await _ptagLoadReportOrderDetails();
             if (!reportOrders || reportOrders.length === 0) {
-                alert('Chưa có dữ liệu chi tiết đơn hàng.\nVui lòng vào Tab "Báo Cáo Tổng Hợp" → nhấn "Lấy chi tiết đơn hàng" trước.');
+                alert(
+                    'Chưa có dữ liệu chi tiết đơn hàng.\nVui lòng vào Tab "Báo Cáo Tổng Hợp" → nhấn "Lấy chi tiết đơn hàng" trước.'
+                );
                 return;
             }
             searchSource = reportOrders;
@@ -4688,7 +5334,7 @@
         const matchedIds = new Set();
         for (const order of searchSource) {
             if (!Array.isArray(order.Details)) continue;
-            if (order.Details.some(d => (d.ProductCode || '').toUpperCase() === productCode)) {
+            if (order.Details.some((d) => (d.ProductCode || '').toUpperCase() === productCode)) {
                 if (order.Code) matchedCodes.add(String(order.Code));
                 matchedIds.add(String(order.Id));
             }
@@ -4698,30 +5344,41 @@
         const seenIds = new Set();
         for (const code of matchedCodes) {
             const order = orderByCode.get(code);
-            if (order && !seenIds.has(String(order.Id))) { matchingOrders.push(order); seenIds.add(String(order.Id)); }
+            if (order && !seenIds.has(String(order.Id))) {
+                matchingOrders.push(order);
+                seenIds.add(String(order.Id));
+            }
         }
         for (const oid of matchedIds) {
             const order = orderById.get(oid);
-            if (order && !seenIds.has(oid)) { matchingOrders.push(order); seenIds.add(oid); }
+            if (order && !seenIds.has(oid)) {
+                matchingOrders.push(order);
+                seenIds.add(oid);
+            }
         }
 
         const existingOrderCodes = new Set();
         for (const [key, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) existingOrderCodes.add(String(key));
+            if (data.tTags && data.tTags.some((t) => _ptagTTagId(t) === tagId))
+                existingOrderCodes.add(String(key));
         }
-        const newOrders = matchingOrders.filter(o => !existingOrderCodes.has(String(o.Code)));
+        const newOrders = matchingOrders.filter((o) => !existingOrderCodes.has(String(o.Code)));
 
         if (newOrders.length === 0) {
-            alert(matchingOrders.length > 0
-                ? `Tất cả ${matchingOrders.length} đơn chứa SP "${productCode}" đã có tag này.`
-                : `Không tìm thấy đơn nào chứa SP "${productCode}".`);
+            alert(
+                matchingOrders.length > 0
+                    ? `Tất cả ${matchingOrders.length} đơn chứa SP "${productCode}" đã có tag này.`
+                    : `Không tìm thấy đơn nào chứa SP "${productCode}".`
+            );
             return;
         }
 
         for (const o of newOrders) {
             await assignTTagToOrder(String(o.Code), tagId);
         }
-        console.log(`${PTAG_LOG} Assigned tag ${tagId} to ${newOrders.length} orders via SP search (legacy)`);
+        console.log(
+            `${PTAG_LOG} Assigned tag ${tagId} to ${newOrders.length} orders via SP search (legacy)`
+        );
         renderPanelContent();
     }
 
@@ -4734,7 +5391,7 @@
     }
 
     async function _ptagDeleteTTagDefAndOrders(tagId) {
-        if (DEFAULT_TTAG_DEFS.some(d => d.id === tagId)) {
+        if (DEFAULT_TTAG_DEFS.some((d) => d.id === tagId)) {
             alert('Tag mặc định không thể xóa.');
             return;
         }
@@ -4743,16 +5400,17 @@
         const orders = _ttagGetOrdersForTag(tagId);
         const count = orders.length;
 
-        const msg = count > 0
-            ? `Xóa tag "${tagName}" và gỡ khỏi ${count} đơn hàng?`
-            : `Xóa tag "${tagName}"?`;
+        const msg =
+            count > 0
+                ? `Xóa tag "${tagName}" và gỡ khỏi ${count} đơn hàng?`
+                : `Xóa tag "${tagName}"?`;
         if (!confirm(msg)) return;
 
         for (const o of orders) {
             await removeTTagFromOrder(o.orderCode, tagId);
         }
 
-        const idx = defs.findIndex(d => d.id === tagId);
+        const idx = defs.findIndex((d) => d.id === tagId);
         if (idx >= 0) {
             defs.splice(idx, 1);
             ProcessingTagState.setTTagDefinitions(defs);
@@ -4764,7 +5422,7 @@
     }
 
     function _ptagDeleteTTagDef(tagId) {
-        if (DEFAULT_TTAG_DEFS.some(d => d.id === tagId)) {
+        if (DEFAULT_TTAG_DEFS.some((d) => d.id === tagId)) {
             alert('Tag mặc định không thể xóa.');
             return;
         }
@@ -4772,11 +5430,17 @@
         const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
         let count = 0;
         for (const [, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) count++;
+            if (data.tTags && data.tTags.some((t) => _ptagTTagId(t) === tagId)) count++;
         }
-        if (count > 0 && !confirm(`Tag "${tagName}" đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`)) return;
+        if (
+            count > 0 &&
+            !confirm(
+                `Tag "${tagName}" đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`
+            )
+        )
+            return;
 
-        const idx = defs.findIndex(d => d.id === tagId);
+        const idx = defs.findIndex((d) => d.id === tagId);
         if (idx >= 0) {
             defs.splice(idx, 1);
             ProcessingTagState.setTTagDefinitions(defs);
@@ -4794,7 +5458,10 @@
     }
 
     function hasActiveProcessingTagFilters() {
-        return ProcessingTagState._activeFilter !== null || ProcessingTagState._activeFlagFilters.size > 0;
+        return (
+            ProcessingTagState._activeFilter !== null ||
+            ProcessingTagState._activeFlagFilters.size > 0
+        );
     }
 
     // Accepts orderCode hoặc orderId (tự resolve)
@@ -4808,15 +5475,16 @@
         if (!hasBaseFilter && !hasFlagFilter) return true;
 
         // Thử lookup bằng orderCode trước, fallback orderId
-        const data = ProcessingTagState.getOrderData(orderCodeOrId)
-            || ProcessingTagState.getOrderDataByIdFallback(orderCodeOrId);
+        const data =
+            ProcessingTagState.getOrderData(orderCodeOrId) ||
+            ProcessingTagState.getOrderDataByIdFallback(orderCodeOrId);
 
         // --- Evaluate flag filter independently (Tag XL only — không touch cột TAG TPOS) ---
         let passesFlag = true; // default: no flag filter = pass
         if (hasFlagFilter) {
             if (data) {
-                const orderFlagIds = (data.flags || []).map(of => _ptagFlagId(of));
-                passesFlag = [...flagFilters].some(f => orderFlagIds.includes(f));
+                const orderFlagIds = (data.flags || []).map((of) => _ptagFlagId(of));
+                passesFlag = [...flagFilters].some((f) => orderFlagIds.includes(f));
             } else {
                 passesFlag = false;
             }
@@ -4829,13 +5497,18 @@
                 passesBase = !data || data.category === null || data.category === undefined;
             } else if (filter === '__don_chot__') {
                 // Đơn Chốt = tất cả trừ Cat 3 (Không cần chốt)
-                passesBase = !data || data.category === null || data.category === undefined || data.category !== 3;
+                passesBase =
+                    !data ||
+                    data.category === null ||
+                    data.category === undefined ||
+                    data.category !== 3;
             } else if (filter === 'subtag_GIO_TRONG') {
                 // (2026-04-18) Tag GIỎ TRỐNG không còn gắn vào đơn → filter này
                 // chuyển sang lọc theo TotalQuantity === 0 (dùng cache _slZeroCodes).
                 // Lazy rebuild nếu cache rỗng (panel chưa mở ở session này).
                 if (_slZeroCodes.size === 0 && _slZeroIds.size === 0) {
-                    const allOrdersLookup = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+                    const allOrdersLookup =
+                        typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
                     _rebuildSlZeroCache(allOrdersLookup);
                 }
                 passesBase = _isOrderSLZero(orderCodeOrId);
@@ -4857,8 +5530,11 @@
                     passesBase = (data.tTags || []).length > 0 && !data.pickingSlipPrinted;
                 } else if (subKey === 'OKIE_NO_DELAY') {
                     // Okie Chờ Đi Đơn — loại bỏ đơn có Chờ Live / Qua Lấy / Giữ Đơn
-                    const flagIds = (data.flags || []).map(f => _ptagFlagId(f));
-                    const hasDelay = flagIds.includes('CHO_LIVE') || flagIds.includes('QUA_LAY') || flagIds.includes('GIU_DON');
+                    const flagIds = (data.flags || []).map((f) => _ptagFlagId(f));
+                    const hasDelay =
+                        flagIds.includes('CHO_LIVE') ||
+                        flagIds.includes('QUA_LAY') ||
+                        flagIds.includes('GIU_DON');
                     passesBase = (data.tTags || []).length === 0 && !hasDelay;
                 } else {
                     passesBase = (data.tTags || []).length === 0;
@@ -4866,20 +5542,23 @@
             }
             // Flag filter — works across all categories
             else if (filter.startsWith('flag_')) {
-                passesBase = (data.flags || []).some(f => _ptagFlagId(f) === filter.replace('flag_', ''));
+                passesBase = (data.flags || []).some(
+                    (f) => _ptagFlagId(f) === filter.replace('flag_', '')
+                );
             }
             // Sub-tag filter (cat 2,3,4) — đồng thời check category khớp với subtag def
             // (tránh orphan: data.subTag='BAN_HANG' còn sót khi cat đổi từ 2 → 1)
             else if (filter.startsWith('subtag_')) {
                 const subTagKey = filter.replace('subtag_', '');
                 const subTagDef = PTAG_SUBTAGS[subTagKey];
-                passesBase = data.subTag === subTagKey
-                    && (!subTagDef || data.category === subTagDef.category);
+                passesBase =
+                    data.subTag === subTagKey &&
+                    (!subTagDef || data.category === subTagDef.category);
             }
             // T-tag filter (from internal tTags, not TPOS)
             else if (filter.startsWith('ttag_')) {
                 const tagId = filter.replace('ttag_', '');
-                passesBase = (data.tTags || []).some(t => _ptagTTagId(t) === tagId);
+                passesBase = (data.tTags || []).some((t) => _ptagTTagId(t) === tagId);
             }
         }
 
@@ -4898,7 +5577,7 @@
         const auth = window.authManager?.getAuthState?.();
         return {
             user: auth?.username || auth?.name || 'Unknown',
-            userId: auth?.userId || auth?.id || null
+            userId: auth?.userId || auth?.id || null,
         };
     }
 
@@ -4915,7 +5594,9 @@
             return value || 'Phân loại';
         }
         if (action === 'ADD_FLAG' || action === 'REMOVE_FLAG') {
-            return PTAG_FLAGS[value]?.label || ProcessingTagState.getCustomFlagLabel(value) || value;
+            return (
+                PTAG_FLAGS[value]?.label || ProcessingTagState.getCustomFlagLabel(value) || value
+            );
         }
         if (action === 'ADD_TTAG' || action === 'REMOVE_TTAG') {
             return ProcessingTagState.getTTagName(value) || value;
@@ -4942,7 +5623,10 @@
             safeValue = String(value);
         }
         if (typeof safeValue === 'string' && safeValue.includes('[object')) {
-            console.warn(`${PTAG_LOG} _ptagAddHistory: malformed value`, { action, value: safeValue });
+            console.warn(`${PTAG_LOG} _ptagAddHistory: malformed value`, {
+                action,
+                value: safeValue,
+            });
             safeValue = '';
         }
         ProcessingTagState.addHistoryEntry(orderCode, {
@@ -4951,7 +5635,7 @@
             displayName: _ptagResolveDisplayName(action, safeValue),
             user: userInfo.user,
             userId: userInfo.userId,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
     }
 
@@ -4961,19 +5645,25 @@
 
     function _ptagRenderHistoryPopover(orderCode, anchorEl) {
         // Remove existing popover
-        document.querySelectorAll('.ptag-history-popover').forEach(p => p.remove());
+        document.querySelectorAll('.ptag-history-popover').forEach((p) => p.remove());
 
         const history = _ptagGetHistory(orderCode);
 
         if (history.length === 0) {
             const popover = document.createElement('div');
             popover.className = 'ptag-history-popover';
-            popover.innerHTML = '<div class="ptag-history-title">Lịch sử tag</div><div style="padding:8px 12px;color:#9ca3af;font-size:12px;">Chưa có lịch sử</div>';
+            popover.innerHTML =
+                '<div class="ptag-history-title">Lịch sử tag</div><div style="padding:8px 12px;color:#9ca3af;font-size:12px;">Chưa có lịch sử</div>';
             document.body.appendChild(popover);
             const rect = anchorEl.getBoundingClientRect();
-            popover.style.top = (rect.bottom + 4) + 'px';
+            popover.style.top = rect.bottom + 4 + 'px';
             popover.style.left = rect.left + 'px';
-            const closeHandler = (e) => { if (!popover.contains(e.target) && e.target !== anchorEl) { popover.remove(); document.removeEventListener('click', closeHandler); } };
+            const closeHandler = (e) => {
+                if (!popover.contains(e.target) && e.target !== anchorEl) {
+                    popover.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
             setTimeout(() => document.addEventListener('click', closeHandler), 0);
             return;
         }
@@ -4995,19 +5685,23 @@
             AUTO_ROLLBACK: '←',
             SET_PHIEU_SOAN: '+',
             UNSET_PHIEU_SOAN: '-',
-            AUTO_PHIEU_SOAN: '+'
+            AUTO_PHIEU_SOAN: '+',
         };
 
-        history.forEach(h => {
+        history.forEach((h) => {
             const date = new Date(h.timestamp);
-            const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+            const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
             const sign = ACTION_LABELS[h.action] || '·';
-            const signClass = sign === '+' || sign === '→' ? 'add' : sign === '-' || sign === '←' ? 'remove' : '';
+            const signClass =
+                sign === '+' || sign === '→' ? 'add' : sign === '-' || sign === '←' ? 'remove' : '';
 
             // Resolve display label - ưu tiên displayName đã lưu sẵn, fallback resolve từ value (entries cũ)
             // Skip displayName nếu chứa "[object Object]" (legacy bug)
-            const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
-            const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
+            const validDisplayName =
+                h.displayName && !String(h.displayName).includes('[object Object]');
+            const label = validDisplayName
+                ? h.displayName
+                : _ptagResolveDisplayName(h.action, h.value);
 
             html += `<div class="ptag-history-item">
                 <span class="ptag-history-date">${dateStr}</span>
@@ -5053,7 +5747,7 @@
         for (const [key, history] of ProcessingTagState._historyStore) {
             if (!history || history.length === 0) continue;
             // Lấy timestamp của entry cuối cùng (mới nhất = lần update cuối)
-            const lastTimestamp = Math.max(...history.map(h => h.timestamp || 0));
+            const lastTimestamp = Math.max(...history.map((h) => h.timestamp || 0));
             if (lastTimestamp < cutoff) {
                 // 60 ngày không có thay đổi → xóa nguyên row (tag data + history)
                 ProcessingTagState._historyStore.delete(key);
@@ -5064,16 +5758,20 @@
     }
 
     function _ptagNormalize(str) {
-        return (str || '').toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-            .replace(/[^a-z0-9\s]/g, '').trim();
+        return (str || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .replace(/[^a-z0-9\s]/g, '')
+            .trim();
     }
 
     function _ptagMatchTokens(searchData, normalizedQuery) {
         if (!normalizedQuery) return true;
         const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
-        return tokens.every(token => searchData.includes(token));
+        return tokens.every((token) => searchData.includes(token));
     }
 
     // =====================================================
@@ -5081,19 +5779,19 @@
     // =====================================================
 
     const PTAG_ACTION_META = {
-        SET_CATEGORY:    { sign: '+', cls: 'add', group: 'category', label: 'Gán phân loại' },
+        SET_CATEGORY: { sign: '+', cls: 'add', group: 'category', label: 'Gán phân loại' },
         REMOVE_CATEGORY: { sign: '-', cls: 'remove', group: 'category', label: 'Xóa phân loại' },
-        ADD_FLAG:        { sign: '+', cls: 'add', group: 'flag', label: 'Thêm đặc điểm' },
-        REMOVE_FLAG:     { sign: '-', cls: 'remove', group: 'flag', label: 'Xóa đặc điểm' },
-        ADD_TTAG:        { sign: '+', cls: 'add', group: 'ttag', label: 'Thêm Tag T' },
-        REMOVE_TTAG:     { sign: '-', cls: 'remove', group: 'ttag', label: 'Xóa Tag T' },
-        AUTO_HOAN_TAT:   { sign: '→', cls: 'auto', group: 'auto', label: 'Auto hoàn tất' },
-        AUTO_ROLLBACK:   { sign: '←', cls: 'auto', group: 'auto', label: 'Auto rollback' },
-        SET_PHIEU_SOAN:  { sign: '+', cls: 'add', group: 'phieu', label: 'Đánh dấu phiếu soạn' },
-        UNSET_PHIEU_SOAN:{ sign: '-', cls: 'remove', group: 'phieu', label: 'Bỏ phiếu soạn' },
+        ADD_FLAG: { sign: '+', cls: 'add', group: 'flag', label: 'Thêm đặc điểm' },
+        REMOVE_FLAG: { sign: '-', cls: 'remove', group: 'flag', label: 'Xóa đặc điểm' },
+        ADD_TTAG: { sign: '+', cls: 'add', group: 'ttag', label: 'Thêm Tag T' },
+        REMOVE_TTAG: { sign: '-', cls: 'remove', group: 'ttag', label: 'Xóa Tag T' },
+        AUTO_HOAN_TAT: { sign: '→', cls: 'auto', group: 'auto', label: 'Auto hoàn tất' },
+        AUTO_ROLLBACK: { sign: '←', cls: 'auto', group: 'auto', label: 'Auto rollback' },
+        SET_PHIEU_SOAN: { sign: '+', cls: 'add', group: 'phieu', label: 'Đánh dấu phiếu soạn' },
+        UNSET_PHIEU_SOAN: { sign: '-', cls: 'remove', group: 'phieu', label: 'Bỏ phiếu soạn' },
         AUTO_PHIEU_SOAN: { sign: '+', cls: 'auto', group: 'phieu', label: 'Auto phiếu soạn' },
-        TRANSFER_IN:     { sign: '←', cls: 'add', group: 'transfer', label: 'Nhận tag XL' },
-        TRANSFER_OUT:    { sign: '→', cls: 'remove', group: 'transfer', label: 'Chuyển tag XL' }
+        TRANSFER_IN: { sign: '←', cls: 'add', group: 'transfer', label: 'Nhận tag XL' },
+        TRANSFER_OUT: { sign: '→', cls: 'remove', group: 'transfer', label: 'Chuyển tag XL' },
     };
 
     let _globalHistoryCache = [];
@@ -5110,20 +5808,20 @@
         const currentDisplayName = auth?.displayName || null;
         const currentUserType = auth?.userType || null;
         let r = null;
-        if (currentUserId) r = ranges.find(x => x.id === currentUserId);
-        if (!r && currentDisplayName) r = ranges.find(x => x.name === currentDisplayName);
-        if (!r && currentUserType) r = ranges.find(x => x.name === currentUserType);
+        if (currentUserId) r = ranges.find((x) => x.id === currentUserId);
+        if (!r && currentDisplayName) r = ranges.find((x) => x.name === currentDisplayName);
+        if (!r && currentUserType) r = ranges.find((x) => x.name === currentUserType);
         if (!r && currentUserType) {
             const shortName = currentUserType.split('-')[0].trim();
-            r = ranges.find(x => x.name === shortName);
+            r = ranges.find((x) => x.name === shortName);
         }
         return r || null;
     }
 
     function _ptagAggregateAllHistory() {
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
         const orderLookup = new Map();
-        allOrders.forEach(o => {
+        allOrders.forEach((o) => {
             if (o.Code) {
                 const sttRaw = o.STT || o.Stt || o.SessionIndex || '';
                 orderLookup.set(String(o.Code), {
@@ -5131,7 +5829,7 @@
                     sttNum: parseInt(sttRaw, 10),
                     code: o.Code || '',
                     name: o.PartnerName || o.Name || '',
-                    phone: o.Telephone || ''
+                    phone: o.Telephone || '',
                 });
             }
         });
@@ -5139,15 +5837,21 @@
         const entries = [];
         for (const [key, history] of ProcessingTagState.getAllHistoryOrders()) {
             if (!history || history.length === 0) continue;
-            const lookup = orderLookup.get(String(key)) || { stt: '', sttNum: NaN, code: key, name: '', phone: '' };
-            history.forEach(h => {
+            const lookup = orderLookup.get(String(key)) || {
+                stt: '',
+                sttNum: NaN,
+                code: key,
+                name: '',
+                phone: '',
+            };
+            history.forEach((h) => {
                 entries.push({
                     ...h,
                     orderCode: lookup.code || key,
                     orderSTT: lookup.stt,
                     orderSttNum: lookup.sttNum,
                     orderName: lookup.name || '',
-                    orderPhone: lookup.phone || ''
+                    orderPhone: lookup.phone || '',
                 });
             });
         }
@@ -5170,10 +5874,11 @@
         let empRange = null;
         if (empValue) {
             const ranges = window.employeeRanges || [];
-            empRange = ranges.find(r => (r.id && r.id === empValue) || r.name === empValue) || null;
+            empRange =
+                ranges.find((r) => (r.id && r.id === empValue) || r.name === empValue) || null;
         }
 
-        _globalHistoryFiltered = _globalHistoryCache.filter(entry => {
+        _globalHistoryFiltered = _globalHistoryCache.filter((entry) => {
             if (orderQuery) {
                 const sttStr = String(entry.orderSTT || '');
                 const codeStr = _ptagNormalize(entry.orderCode || '');
@@ -5218,14 +5923,17 @@
             </div>`;
         } else {
             let html = '';
-            pageItems.forEach(h => {
+            pageItems.forEach((h) => {
                 const date = new Date(h.timestamp);
-                const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
                 const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '' };
                 // Skip displayName nếu chứa "[object Object]" (legacy bug)
-                const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
-                const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
-                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
+                const validDisplayName =
+                    h.displayName && !String(h.displayName).includes('[object Object]');
+                const label = validDisplayName
+                    ? h.displayName
+                    : _ptagResolveDisplayName(h.action, h.value);
+                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : h.orderCode || '?';
                 const actionLabel = meta.label || h.action;
 
                 html += `<div class="ptag-gh-item">
@@ -5242,7 +5950,8 @@
 
         // Update pagination
         const pageInfo = document.getElementById('ptag-gh-page-info');
-        if (pageInfo) pageInfo.textContent = `Trang ${_globalHistoryPage + 1} / ${totalPages} (${total} mục)`;
+        if (pageInfo)
+            pageInfo.textContent = `Trang ${_globalHistoryPage + 1} / ${totalPages} (${total} mục)`;
         const prevBtn = document.getElementById('ptag-gh-prev');
         const nextBtn = document.getElementById('ptag-gh-next');
         if (prevBtn) prevBtn.disabled = _globalHistoryPage <= 0;
@@ -5262,14 +5971,16 @@
         // Build employee filter options + default selection (current user's range)
         const ranges = window.employeeRanges || [];
         const currentRange = _ptagGetCurrentEmployeeRange();
-        const defaultEmpValue = currentRange ? (currentRange.id || currentRange.name) : '';
+        const defaultEmpValue = currentRange ? currentRange.id || currentRange.name : '';
         const empOptionsHtml = ['<option value="">Tất cả nhân viên</option>']
-            .concat(ranges.map(r => {
-                const val = r.id || r.name || '';
-                const label = `${r.name || val} (${r.start}–${r.end})`;
-                const sel = val === defaultEmpValue ? ' selected' : '';
-                return `<option value="${val}"${sel}>${label}</option>`;
-            }))
+            .concat(
+                ranges.map((r) => {
+                    const val = r.id || r.name || '';
+                    const label = `${r.name || val} (${r.start}–${r.end})`;
+                    const sel = val === defaultEmpValue ? ' selected' : '';
+                    return `<option value="${val}"${sel}>${label}</option>`;
+                })
+            )
             .join('');
 
         const modal = document.createElement('div');
@@ -5341,7 +6052,10 @@
     }
 
     function _ptagGHNextPage() {
-        const totalPages = Math.max(1, Math.ceil(_globalHistoryFiltered.length / _globalHistoryPageSize));
+        const totalPages = Math.max(
+            1,
+            Math.ceil(_globalHistoryFiltered.length / _globalHistoryPageSize)
+        );
         if (_globalHistoryPage < totalPages - 1) {
             _globalHistoryPage++;
             _ptagRenderGlobalHistoryList();
@@ -5410,7 +6124,10 @@
 
     function _ptagGetRowHistoryTitle(rowType, rowId) {
         if (rowType === 'substate') return PTAG_SUBSTATES[rowId]?.label || rowId;
-        if (rowType === 'flag') return PTAG_FLAGS[rowId]?.label || ProcessingTagState.getCustomFlagLabel(rowId) || rowId;
+        if (rowType === 'flag')
+            return (
+                PTAG_FLAGS[rowId]?.label || ProcessingTagState.getCustomFlagLabel(rowId) || rowId
+            );
         if (rowType === 'subtag') return PTAG_SUBTAGS[rowId]?.label || rowId;
         if (rowType === 'ttag') return ProcessingTagState.getTTagName(rowId) || rowId;
         return rowId;
@@ -5418,10 +6135,10 @@
 
     function _ptagShowRowHistory(rowType, rowId, anchorEl) {
         // Remove any existing row-history popovers
-        document.querySelectorAll('.ptag-row-history-popover').forEach(p => p.remove());
+        document.querySelectorAll('.ptag-row-history-popover').forEach((p) => p.remove());
 
         const allHistory = _ptagAggregateAllHistory();
-        const filtered = allHistory.filter(h => _ptagMatchRowHistoryEntry(h, rowType, rowId));
+        const filtered = allHistory.filter((h) => _ptagMatchRowHistoryEntry(h, rowType, rowId));
         const items = filtered.slice(0, 20);
         const title = _ptagGetRowHistoryTitle(rowType, rowId);
 
@@ -5438,21 +6155,27 @@
             html += `<div class="ptag-rh-empty">Chưa có lịch sử</div>`;
         } else {
             html += '<div class="ptag-rh-list">';
-            items.forEach(h => {
+            items.forEach((h) => {
                 const date = new Date(h.timestamp);
-                const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
                 const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '', label: h.action };
-                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
-                const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
-                const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
+                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : h.orderCode || '?';
+                const validDisplayName =
+                    h.displayName && !String(h.displayName).includes('[object Object]');
+                const label = validDisplayName
+                    ? h.displayName
+                    : _ptagResolveDisplayName(h.action, h.value);
                 const escName = (h.orderName || '').replace(/"/g, '&quot;');
                 const escCode = (h.orderCode || '').replace(/"/g, '&quot;');
                 const titleAttr = `${escCode}${h.orderName ? ' · ' + escName : ''}${h.orderPhone ? ' · ' + h.orderPhone : ''} · ${meta.label || h.action} · ${label}`;
                 const row2Parts = [];
                 if (h.orderName) row2Parts.push(`<span class="ptag-rh-name">${h.orderName}</span>`);
-                if (h.orderPhone) row2Parts.push(`<span class="ptag-rh-phone">${h.orderPhone}</span>`);
+                if (h.orderPhone)
+                    row2Parts.push(`<span class="ptag-rh-phone">${h.orderPhone}</span>`);
                 if (h.orderCode) row2Parts.push(`<span class="ptag-rh-code">${h.orderCode}</span>`);
-                const row2Html = row2Parts.length ? `<div class="ptag-rh-row2">${row2Parts.join('<span class="ptag-rh-sep">·</span>')}</div>` : '';
+                const row2Html = row2Parts.length
+                    ? `<div class="ptag-rh-row2">${row2Parts.join('<span class="ptag-rh-sep">·</span>')}</div>`
+                    : '';
                 html += `<div class="ptag-rh-item" title="${titleAttr}">
                     <div class="ptag-rh-row1">
                         <span class="ptag-rh-time">${dateStr}</span>
@@ -5475,7 +6198,8 @@
 
         // Position near anchor (popover ~380x400)
         const rect = anchorEl.getBoundingClientRect();
-        const popW = 380, popH = popover.offsetHeight || 400;
+        const popW = 380,
+            popH = popover.offsetHeight || 400;
         let top = rect.bottom + 4;
         let left = rect.right - popW; // align right edge with button
         if (top + popH > window.innerHeight) top = rect.top - popH - 4;
@@ -5553,10 +6277,23 @@
     // Build flat danh sách options (key/label/count/indent/section/search) cho "Ẩn Tag XL"
     // dropdown — mirror structure của _ptagXlRenderDropdown nhưng không đụng DOM.
     function _ptagXlGetFilterOptions() {
-        const { totalOrders, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
+        const {
+            totalOrders,
+            untaggedCount,
+            catCounts,
+            subStateCounts,
+            flagCounts,
+            subTagCounts,
+            tTagCounts,
+        } = _ptagComputeCounts();
         const opts = [];
 
-        opts.push({ key: '__no_tag__', label: '🏷️ Chưa gán Tag XL', count: untaggedCount, search: 'chua gan tag xl' });
+        opts.push({
+            key: '__no_tag__',
+            label: '🏷️ Chưa gán Tag XL',
+            count: untaggedCount,
+            search: 'chua gan tag xl',
+        });
 
         opts.push({ section: true, label: 'PHÂN LOẠI', search: 'phan loai category' });
 
@@ -5564,14 +6301,14 @@
             key: 'cat_0',
             label: `${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}`,
             count: catCounts[0] || 0,
-            search: _ptagNormalize(PTAG_CATEGORY_META[0].name)
+            search: _ptagNormalize(PTAG_CATEGORY_META[0].name),
         });
 
         opts.push({
             key: 'cat_1',
             label: `${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}`,
             count: catCounts[1] || 0,
-            search: _ptagNormalize(PTAG_CATEGORY_META[1].name) + ' cho di don oke'
+            search: _ptagNormalize(PTAG_CATEGORY_META[1].name) + ' cho di don oke',
         });
         for (const [ssKey, ss] of Object.entries(PTAG_SUBSTATES)) {
             opts.push({
@@ -5580,7 +6317,7 @@
                 labelColor: ss.color,
                 count: subStateCounts[ssKey] || 0,
                 indent: true,
-                search: _ptagNormalize(ss.label)
+                search: _ptagNormalize(ss.label),
             });
         }
 
@@ -5590,7 +6327,7 @@
                 key: 'cat_' + cat,
                 label: `${meta.emoji} ${meta.name}`,
                 count: catCounts[cat] || 0,
-                search: _ptagNormalize(meta.name)
+                search: _ptagNormalize(meta.name),
             });
             for (const [stKey, st] of Object.entries(PTAG_SUBTAGS)) {
                 if (st.category !== cat) continue;
@@ -5600,7 +6337,7 @@
                     label: `↳ ${icon} ${st.label}`,
                     count: subTagCounts[stKey] || 0,
                     indent: true,
-                    search: _ptagNormalize(st.label)
+                    search: _ptagNormalize(st.label),
                 });
             }
         }
@@ -5611,7 +6348,7 @@
                 key: 'flag_' + key,
                 label: `${flag.icon} ${flag.label}`,
                 count: flagCounts[key] || 0,
-                search: _ptagNormalize(flag.label)
+                search: _ptagNormalize(flag.label),
             });
         }
         const customFlags = ProcessingTagState.getCustomFlagDefs();
@@ -5621,7 +6358,7 @@
                 label: `📋 ${cf.label}`,
                 count: flagCounts[cf.id] || 0,
                 indent: true,
-                search: _ptagNormalize(cf.label)
+                search: _ptagNormalize(cf.label),
             });
         }
 
@@ -5633,7 +6370,7 @@
                     key: 'ttag_' + def.id,
                     label: `🏷️ ${ProcessingTagState.getTTagLabel(def.id)}`,
                     count: tTagCounts[def.id] || 0,
-                    search: _ptagNormalize(def.name + ' ' + (def.productCode || ''))
+                    search: _ptagNormalize(def.name + ' ' + (def.productCode || '')),
                 });
             }
         }
@@ -5667,14 +6404,16 @@
             return cf ? cf.label : fKey;
         }
         if (key.startsWith('ttag_')) {
-            return ProcessingTagState.getTTagName(key.replace('ttag_', '')) || key.replace('ttag_', '');
+            return (
+                ProcessingTagState.getTTagName(key.replace('ttag_', '')) || key.replace('ttag_', '')
+            );
         }
         return key;
     }
     window._ptagXlResolveKeyLabel = _ptagXlResolveKeyLabel;
 
     // Re-render "Ẩn Tag XL" dropdown khi counts thay đổi (từ panel hay realtime update)
-    window._ptagXlRerenderExcludeIfOpen = function() {
+    window._ptagXlRerenderExcludeIfOpen = function () {
         if (typeof window._excludePtagXlPopulateIfOpen === 'function') {
             window._excludePtagXlPopulateIfOpen();
         }
@@ -5688,18 +6427,25 @@
         const tTagCounts = {};
 
         for (const [key, data] of taggedOrders) {
-            (data.flags || []).forEach(f => { const fId = _ptagFlagId(f); flagCounts[fId] = (flagCounts[fId] || 0) + 1; });
-            (data.tTags || []).forEach(t => { const tId = _ptagTTagId(t); tTagCounts[tId] = (tTagCounts[tId] || 0) + 1; });
+            (data.flags || []).forEach((f) => {
+                const fId = _ptagFlagId(f);
+                flagCounts[fId] = (flagCounts[fId] || 0) + 1;
+            });
+            (data.tTags || []).forEach((t) => {
+                const tId = _ptagTTagId(t);
+                tTagCounts[tId] = (tTagCounts[tId] || 0) + 1;
+            });
         }
 
         // Find custom flags with 0 orders
         const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
-        const emptyCustomFlags = customFlagDefs.filter(cf => (flagCounts[cf.id] || 0) === 0);
+        const emptyCustomFlags = customFlagDefs.filter((cf) => (flagCounts[cf.id] || 0) === 0);
 
         // Find non-default T-tags with 0 orders
         const tTagDefs = ProcessingTagState.getTTagDefinitions();
-        const emptyTTags = tTagDefs.filter(def =>
-            !DEFAULT_TTAG_DEFS.some(d => d.id === def.id) && (tTagCounts[def.id] || 0) === 0
+        const emptyTTags = tTagDefs.filter(
+            (def) =>
+                !DEFAULT_TTAG_DEFS.some((d) => d.id === def.id) && (tTagCounts[def.id] || 0) === 0
         );
 
         if (emptyCustomFlags.length === 0 && emptyTTags.length === 0) {
@@ -5709,42 +6455,46 @@
 
         const lines = [];
         if (emptyCustomFlags.length > 0) {
-            lines.push(`${emptyCustomFlags.length} Tag Đặc Điểm: ${emptyCustomFlags.map(f => f.label).join(', ')}`);
+            lines.push(
+                `${emptyCustomFlags.length} Tag Đặc Điểm: ${emptyCustomFlags.map((f) => f.label).join(', ')}`
+            );
         }
         if (emptyTTags.length > 0) {
-            lines.push(`${emptyTTags.length} Tag T: ${emptyTTags.map(t => t.name).join(', ')}`);
+            lines.push(`${emptyTTags.length} Tag T: ${emptyTTags.map((t) => t.name).join(', ')}`);
         }
         if (!confirm(`Xóa các tag không còn đơn hàng?\n\n${lines.join('\n')}`)) return;
 
         // Delete empty custom flags
         if (emptyCustomFlags.length > 0) {
-            const emptyIds = emptyCustomFlags.map(cf => cf.id);
-            const remaining = customFlagDefs.filter(cf => !new Set(emptyIds).has(cf.id));
+            const emptyIds = emptyCustomFlags.map((cf) => cf.id);
+            const remaining = customFlagDefs.filter((cf) => !new Set(emptyIds).has(cf.id));
             ProcessingTagState.setCustomFlagDefs(remaining);
             await mergeConfigDefs('__ptag_custom_flags__', [], emptyIds);
         }
 
         // Delete empty T-tag definitions
         if (emptyTTags.length > 0) {
-            const emptyTTagIds = emptyTTags.map(t => t.id);
-            const remaining = tTagDefs.filter(d => !new Set(emptyTTagIds).has(d.id));
+            const emptyTTagIds = emptyTTags.map((t) => t.id);
+            const remaining = tTagDefs.filter((d) => !new Set(emptyTTagIds).has(d.id));
             ProcessingTagState.setTTagDefinitions(remaining);
             await mergeConfigDefs('__ttag_config__', [], emptyTTagIds);
         }
 
-        console.log(`${PTAG_LOG} Cleaned up ${emptyCustomFlags.length} empty custom flags + ${emptyTTags.length} empty T-tags`);
+        console.log(
+            `${PTAG_LOG} Cleaned up ${emptyCustomFlags.length} empty custom flags + ${emptyTTags.length} empty T-tags`
+        );
         renderPanelContent();
     }
 
     async function _ptagDeleteCustomFlag(flagId) {
         const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
-        const flagDef = customFlagDefs.find(cf => cf.id === flagId);
+        const flagDef = customFlagDefs.find((cf) => cf.id === flagId);
         if (!flagDef) return;
 
         // Re-check usage count at delete time (safety against stale UI)
         let count = 0;
         for (const [, data] of ProcessingTagState.getAllOrders()) {
-            if (data.flags && data.flags.some(f => _ptagFlagId(f) === flagId)) count++;
+            if (data.flags && data.flags.some((f) => _ptagFlagId(f) === flagId)) count++;
         }
         if (count > 0) {
             alert(`Tag "${flagDef.label}" đang có ${count} đơn hàng. Không thể xóa.`);
@@ -5753,7 +6503,7 @@
 
         if (!confirm(`Xóa tag đặc điểm "${flagDef.label}"?`)) return;
 
-        const remaining = customFlagDefs.filter(cf => cf.id !== flagId);
+        const remaining = customFlagDefs.filter((cf) => cf.id !== flagId);
         ProcessingTagState.setCustomFlagDefs(remaining);
         await mergeConfigDefs('__ptag_custom_flags__', [], [flagId]);
         console.log(`${PTAG_LOG} Deleted custom flag: ${flagDef.label} (${flagId})`);
@@ -5862,7 +6612,7 @@
 
     // Color picker for đặc điểm flags
     function _ptagOpenFlagColorPicker(flagKey, anchorEl) {
-        document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+        document.querySelectorAll('.ptag-color-picker-popover').forEach((el) => el.remove());
         const currentColor = _ptagGetFlagColor(flagKey);
         const rect = anchorEl.getBoundingClientRect();
         let html = `<div class="ptag-color-picker-popover" style="top:${rect.bottom + 4}px;left:${rect.left}px;">`;
@@ -5875,7 +6625,9 @@
         setTimeout(() => {
             document.addEventListener('click', function closer(e) {
                 if (!e.target.closest('.ptag-color-picker-popover')) {
-                    document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+                    document
+                        .querySelectorAll('.ptag-color-picker-popover')
+                        .forEach((el) => el.remove());
                     document.removeEventListener('click', closer);
                 }
             });
@@ -5884,7 +6636,7 @@
 
     function _ptagApplyFlagColor(flagKey, color) {
         _ptagSetFlagColor(flagKey, color);
-        document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+        document.querySelectorAll('.ptag-color-picker-popover').forEach((el) => el.remove());
         renderPanelContent();
         if (typeof window.refreshProcessingTagColumn === 'function') {
             window.refreshProcessingTagColumn();
@@ -5905,14 +6657,15 @@
     // =====================================================
     function _ptagOpenCustomTagsPopover(orderCode, anchorEl) {
         // Close any existing popover
-        document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
+        document.querySelectorAll('.ptag-custom-tags-popover').forEach((el) => el.remove());
 
         // Lấy unmanaged TPOS tags của đơn này
         let unmanagedTags = [];
         const orderId = _ptagResolveId(orderCode);
-        const order = orderId && typeof window.getAllOrders === 'function'
-            ? window.getAllOrders().find(o => o.Id === orderId)
-            : null;
+        const order =
+            orderId && typeof window.getAllOrders === 'function'
+                ? window.getAllOrders().find((o) => o.Id === orderId)
+                : null;
         if (order && order.Tags && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
             unmanagedTags = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
         }
@@ -5941,7 +6694,9 @@
         setTimeout(() => {
             document.addEventListener('click', function closer(e) {
                 if (!e.target.closest('.ptag-custom-tags-popover')) {
-                    document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
+                    document
+                        .querySelectorAll('.ptag-custom-tags-popover')
+                        .forEach((el) => el.remove());
                     document.removeEventListener('click', closer);
                 }
             });
@@ -5980,7 +6735,7 @@
         if (window.userStorageManager) {
             const v = window.userStorageManager.loadFromLocalStorage(AUTO_T_CLEAR_KEY);
             if (v !== null && v !== undefined) {
-                _autoTClearEnabled = (v === true || v === 'true');
+                _autoTClearEnabled = v === true || v === 'true';
             }
             _updateAutoTToggleUI();
             return true;
@@ -6015,5 +6770,4 @@
             tryLoad();
         }
     })();
-
 })();

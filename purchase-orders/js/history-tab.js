@@ -68,7 +68,11 @@ window.PurchaseOrderHistory = (function () {
      * Load done rows from Firestore with real-time sync
      */
     function getDb() {
-        return window.db || (typeof getFirestore === 'function' ? getFirestore() : null) || firebase.firestore();
+        return (
+            window.db ||
+            (typeof getFirestore === 'function' ? getFirestore() : null) ||
+            firebase.firestore()
+        );
     }
 
     async function loadDoneRows() {
@@ -81,7 +85,7 @@ window.PurchaseOrderHistory = (function () {
                 const doc = await db.doc(DONE_DOC_PATH).get();
                 if (doc.exists) {
                     const ids = doc.data().ids || [];
-                    ids.forEach(id => doneRows.add(id));
+                    ids.forEach((id) => doneRows.add(id));
                     console.log('[History] Loaded done rows:', ids.length);
                 } else {
                     console.log('[History] No done rows doc yet');
@@ -94,10 +98,11 @@ window.PurchaseOrderHistory = (function () {
                 doneUnsubscribe = db.doc(DONE_DOC_PATH).onSnapshot((snap) => {
                     if (!snap.exists) return;
                     const ids = new Set(snap.data().ids || []);
-                    const changed = ids.size !== doneRows.size || [...ids].some(id => !doneRows.has(id));
+                    const changed =
+                        ids.size !== doneRows.size || [...ids].some((id) => !doneRows.has(id));
                     if (!changed) return;
                     doneRows.clear();
-                    ids.forEach(id => doneRows.add(id));
+                    ids.forEach((id) => doneRows.add(id));
                     if (currentData.length > 0) {
                         renderTable(currentData);
                         renderPagination();
@@ -117,9 +122,10 @@ window.PurchaseOrderHistory = (function () {
             const db = getDb();
             const data = { ids: Array.from(doneRows), lastUpdated: Date.now() };
             console.log('[History] Saving done rows...', data.ids.length);
-            db.doc(DONE_DOC_PATH).set(data)
+            db.doc(DONE_DOC_PATH)
+                .set(data)
                 .then(() => console.log('[History] Done rows saved OK'))
-                .catch(e => console.error('[History] Firestore save error:', e));
+                .catch((e) => console.error('[History] Firestore save error:', e));
         } catch (e) {
             console.error('[History] Failed to save done rows:', e);
         }
@@ -200,7 +206,9 @@ window.PurchaseOrderHistory = (function () {
             loadPage(1);
         };
 
-        document.getElementById('btnHistoryReload').addEventListener('click', () => loadPage(currentPage));
+        document
+            .getElementById('btnHistoryReload')
+            .addEventListener('click', () => loadPage(currentPage));
         document.getElementById('historyStateFilter').addEventListener('change', applyFilters);
 
         document.getElementById('historyStartDate').addEventListener('change', applyFilters);
@@ -323,7 +331,10 @@ window.PurchaseOrderHistory = (function () {
             currentData = data.value || [];
 
             // Compute summary stats from current page data
-            summaryTotalAmount = currentData.reduce((sum, item) => sum + (item.AmountTotal || 0), 0);
+            summaryTotalAmount = currentData.reduce(
+                (sum, item) => sum + (item.AmountTotal || 0),
+                0
+            );
             summaryTotalResidual = currentData.reduce((sum, item) => sum + (item.Residual || 0), 0);
             summaryTotalQty = 0;
             qtyLoading = currentData.length > 0;
@@ -373,26 +384,28 @@ window.PurchaseOrderHistory = (function () {
             return;
         }
         try {
-            const qtys = await Promise.all(items.map(async item => {
-                if (qtyCache.has(item.Id)) {
-                    return qtyCache.get(item.Id);
-                }
-                try {
-                    const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${item.Id})/OrderLines?$select=ProductQty`;
-                    const res = await window.TPOSClient.authenticatedFetch(url);
-                    if (!res.ok) return 0;
-                    const data = await res.json();
-                    const qty = (data.value || []).reduce((s, l) => s + (l.ProductQty || 0), 0);
-                    qtyCache.set(item.Id, qty);
-                    if (token === qtyRequestToken) updateQtyCell(item.Id, qty);
-                    return qty;
-                } catch (_e) {
-                    return 0;
-                }
-            }));
+            const qtys = await Promise.all(
+                items.map(async (item) => {
+                    if (qtyCache.has(item.Id)) {
+                        return qtyCache.get(item.Id);
+                    }
+                    try {
+                        const url = `${PROXY_URL}/api/odata/FastPurchaseOrder(${item.Id})/OrderLines?$select=ProductQty`;
+                        const res = await window.TPOSClient.authenticatedFetch(url);
+                        if (!res.ok) return 0;
+                        const data = await res.json();
+                        const qty = (data.value || []).reduce((s, l) => s + (l.ProductQty || 0), 0);
+                        qtyCache.set(item.Id, qty);
+                        if (token === qtyRequestToken) updateQtyCell(item.Id, qty);
+                        return qty;
+                    } catch (_e) {
+                        return 0;
+                    }
+                })
+            );
             if (token !== qtyRequestToken) return; // Stale response
             // Paint any cached rows we skipped (in case DOM was re-rendered between fetches)
-            items.forEach(item => {
+            items.forEach((item) => {
                 if (qtyCache.has(item.Id)) updateQtyCell(item.Id, qtyCache.get(item.Id));
             });
             summaryTotalQty = qtys.reduce((s, q) => s + q, 0);
@@ -481,15 +494,17 @@ window.PurchaseOrderHistory = (function () {
 
         const startIdx = (currentPage - 1) * PAGE_SIZE;
 
-        const rows = items.map((item, idx) => {
-            const rowNum = startIdx + idx + 1;
-            const isExpanded = !!expandedRows[item.Id];
-            const isDone = doneRows.has(item.Id);
-            const residual = item.Residual ?? 0;
-            const amountTotal = item.AmountTotal || 0;
-            const residualColor = residual > 0 ? 'var(--color-danger, #dc2626)' : 'var(--color-success, #22c55e)';
+        const rows = items
+            .map((item, idx) => {
+                const rowNum = startIdx + idx + 1;
+                const isExpanded = !!expandedRows[item.Id];
+                const isDone = doneRows.has(item.Id);
+                const residual = item.Residual ?? 0;
+                const amountTotal = item.AmountTotal || 0;
+                const residualColor =
+                    residual > 0 ? 'var(--color-danger, #dc2626)' : 'var(--color-success, #22c55e)';
 
-            return `
+                return `
                 <tr class="order-row ${idx === 0 ? 'order-row--first' : ''} ${isExpanded ? 'order-row--expanded' : ''} ${isDone ? 'order-row--done' : ''}"
                     data-order-id="${item.Id}" style="border-top: ${idx > 0 ? '1px solid var(--color-border-light)' : 'none'}; cursor: pointer; position: relative;">
                     <td style="width:32px;text-align:center;font-size:12px;color:var(--color-text-muted);">${rowNum}</td>
@@ -532,7 +547,8 @@ window.PurchaseOrderHistory = (function () {
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         tableContainer.innerHTML = `
             <div class="table-wrapper">
@@ -573,7 +589,7 @@ window.PurchaseOrderHistory = (function () {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Bind row click to toggle expand
-        tableContainer.querySelectorAll('tr.order-row[data-order-id]').forEach(row => {
+        tableContainer.querySelectorAll('tr.order-row[data-order-id]').forEach((row) => {
             row.addEventListener('click', () => {
                 const orderId = parseInt(row.dataset.orderId, 10);
                 toggleExpandRow(orderId);
@@ -581,7 +597,7 @@ window.PurchaseOrderHistory = (function () {
         });
 
         // Bind print buttons
-        tableContainer.querySelectorAll('.history-print-btn').forEach(btn => {
+        tableContainer.querySelectorAll('.history-print-btn').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
@@ -590,18 +606,23 @@ window.PurchaseOrderHistory = (function () {
         });
 
         // Bind checkbox for Done watermark (persisted to Firestore)
-        tableContainer.querySelectorAll('.history-done-cb').forEach(cb => {
+        tableContainer.querySelectorAll('.history-done-cb').forEach((cb) => {
             cb.addEventListener('change', () => {
                 const id = parseInt(cb.dataset.id, 10);
                 const row = tableContainer.querySelector(`tr.order-row[data-order-id="${id}"]`);
                 const statusTd = row?.querySelector('.td-status');
-                const indicator = cb.closest('.history-done-toggle')?.querySelector('.history-done-toggle__indicator');
+                const indicator = cb
+                    .closest('.history-done-toggle')
+                    ?.querySelector('.history-done-toggle__indicator');
                 if (cb.checked) {
                     doneRows.add(id);
                     row?.classList.add('order-row--done');
                     statusTd?.classList.add('td-status--done');
                     if (statusTd && !statusTd.querySelector('.done-check-icon')) {
-                        statusTd.insertAdjacentHTML('beforeend', '<span class="done-check-icon">✓</span>');
+                        statusTd.insertAdjacentHTML(
+                            'beforeend',
+                            '<span class="done-check-icon">✓</span>'
+                        );
                     }
                     if (indicator) {
                         indicator.classList.add('history-done-toggle__indicator--on');
@@ -627,9 +648,10 @@ window.PurchaseOrderHistory = (function () {
         if (filterBtn && filterDropdown) {
             filterBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                filterDropdown.style.display = filterDropdown.style.display === 'none' ? 'block' : 'none';
+                filterDropdown.style.display =
+                    filterDropdown.style.display === 'none' ? 'block' : 'none';
             });
-            filterDropdown.querySelectorAll('.th-filter-option').forEach(opt => {
+            filterDropdown.querySelectorAll('.th-filter-option').forEach((opt) => {
                 opt.addEventListener('click', (e) => {
                     e.stopPropagation();
                     filterState = opt.dataset.state;
@@ -668,8 +690,9 @@ window.PurchaseOrderHistory = (function () {
         expandRow.style.display = 'table-row';
         mainRow?.classList.add('order-row--expanded');
 
-        const item = currentData.find(d => d.Id === orderId);
-        contentDiv.innerHTML = '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Đang tải chi tiết...</div>';
+        const item = currentData.find((d) => d.Id === orderId);
+        contentDiv.innerHTML =
+            '<div style="padding: 12px 16px; color: var(--color-text-muted); font-size: 13px;">Đang tải chi tiết...</div>';
 
         try {
             // Ensure Notes items are loaded so we can check existing keys
@@ -716,20 +739,22 @@ window.PurchaseOrderHistory = (function () {
         }
 
         const supplierName = item?.PartnerDisplayName || '';
-        const lineRows = lines.map((line, idx) => {
-            const lineKey = `${orderId}_${line.Id}`;
-            const alreadyInNotes = window.PurchaseOrderNotes?.hasKey?.(lineKey) || false;
-            const thumbUrl = getProductThumb(line);
-            const productCode = line.ProductBarcode || line.Product?.DefaultCode || '';
-            const productName = line.Name || line.ProductNameGet || line.ProductName || '';
+        const lineRows = lines
+            .map((line, idx) => {
+                const lineKey = `${orderId}_${line.Id}`;
+                const alreadyInNotes = window.PurchaseOrderNotes?.hasKey?.(lineKey) || false;
+                const thumbUrl = getProductThumb(line);
+                const productCode = line.ProductBarcode || line.Product?.DefaultCode || '';
+                const productName = line.Name || line.ProductNameGet || line.ProductName || '';
 
-            return `
+                return `
             <tr class="expand-line-row"${alreadyInNotes ? ' style="opacity: 0.5;"' : ''}>
                 <td style="text-align: center; width: 40px;">${idx + 1}</td>
                 <td style="width:48px;text-align:center;">
-                    ${thumbUrl
-                        ? `<img src="${escapeHtml(thumbUrl)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;">`
-                        : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;">N/A</div>'
+                    ${
+                        thumbUrl
+                            ? `<img src="${escapeHtml(thumbUrl)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;">`
+                            : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;">N/A</div>'
                     }
                 </td>
                 <td style="width:100px;">
@@ -753,9 +778,11 @@ window.PurchaseOrderHistory = (function () {
                            style="width: 15px; height: 15px; cursor: pointer; accent-color: #3b82f6;">
                 </td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
-        const totalAmount = item?.AmountTotal || lines.reduce((s, l) => s + (l.PriceSubTotal || 0), 0);
+        const totalAmount =
+            item?.AmountTotal || lines.reduce((s, l) => s + (l.PriceSubTotal || 0), 0);
         const residual = item?.Residual ?? totalAmount;
 
         return `
@@ -795,7 +822,7 @@ window.PurchaseOrderHistory = (function () {
      * Bind note checkboxes inside expanded content
      */
     function bindNoteCheckboxes(container) {
-        container.querySelectorAll('.note-product-cb').forEach(cb => {
+        container.querySelectorAll('.note-product-cb').forEach((cb) => {
             cb.addEventListener('change', () => {
                 if (cb.checked) {
                     const noteItem = {
@@ -808,7 +835,7 @@ window.PurchaseOrderHistory = (function () {
                         quantity: parseFloat(cb.dataset.qty) || 0,
                         priceUnit: parseFloat(cb.dataset.price) || 0,
                         note: `${cb.dataset.supplier} bán dùm`,
-                        createdAt: Date.now()
+                        createdAt: Date.now(),
                     };
                     if (window.PurchaseOrderNotes?.addItem) {
                         window.PurchaseOrderNotes.addItem(noteItem);
@@ -829,10 +856,10 @@ window.PurchaseOrderHistory = (function () {
      */
     function renderState(showState, state) {
         const colors = {
-            'open': { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
-            'paid': { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
-            'draft': { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
-            'cancel': { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }
+            open: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
+            paid: { bg: '#dbeafe', text: '#2563eb', border: '#bfdbfe' },
+            draft: { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
+            cancel: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' },
         };
         const c = colors[state] || colors['open'];
         return `<span class="status-badge" style="background: ${c.bg}; color: ${c.text}; border: 1px solid ${c.border};">${escapeHtml(showState || state || '')}</span>`;
@@ -862,24 +889,31 @@ window.PurchaseOrderHistory = (function () {
                     Hiển thị ${startItem} - ${endItem} trong ${totalCount} hóa đơn
                 </div>
                 <div class="pagination__controls">
-                    ${totalPages > 1 ? `
+                    ${
+                        totalPages > 1
+                            ? `
                         <button class="pagination__btn pagination__btn--prev ${currentPage <= 1 ? 'disabled' : ''}"
                                 data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>
                             <i data-lucide="chevron-left"></i>
                         </button>
 
-                        ${pages.map(p => {
-                            if (p === '...') return '<span class="pagination__ellipsis">...</span>';
-                            const isActive = p === currentPage;
-                            return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}"
+                        ${pages
+                            .map((p) => {
+                                if (p === '...')
+                                    return '<span class="pagination__ellipsis">...</span>';
+                                const isActive = p === currentPage;
+                                return `<button class="pagination__btn pagination__btn--page ${isActive ? 'active' : ''}"
                                             data-page="${p}" ${isActive ? 'disabled' : ''}>${p}</button>`;
-                        }).join('')}
+                            })
+                            .join('')}
 
                         <button class="pagination__btn pagination__btn--next ${currentPage >= totalPages ? 'disabled' : ''}"
                                 data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>
                             <i data-lucide="chevron-right"></i>
                         </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
@@ -887,7 +921,7 @@ window.PurchaseOrderHistory = (function () {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Bind click handlers
-        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach(btn => {
+        paginationContainer.querySelectorAll('.pagination__btn[data-page]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const page = parseInt(btn.dataset.page, 10);
                 if (!isNaN(page) && page >= 1 && page <= totalPages) {
@@ -910,8 +944,14 @@ window.PurchaseOrderHistory = (function () {
         let start = current - half;
         let end = current + half;
 
-        if (start < 1) { start = 1; end = maxVisible; }
-        if (end > total) { end = total; start = total - maxVisible + 1; }
+        if (start < 1) {
+            start = 1;
+            end = maxVisible;
+        }
+        if (end > total) {
+            end = total;
+            start = total - maxVisible + 1;
+        }
 
         if (start > 1) {
             pages.push(1);
@@ -977,8 +1017,11 @@ window.PurchaseOrderHistory = (function () {
         if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
             return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
         }
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
     }
 
     /**
@@ -1016,7 +1059,7 @@ window.PurchaseOrderHistory = (function () {
         summaryTotalAmount = 0;
         summaryTotalResidual = 0;
         // Clear expanded state
-        Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
+        Object.keys(expandedRows).forEach((k) => delete expandedRows[k]);
         // Unsubscribe real-time listener
         if (doneUnsubscribe) {
             doneUnsubscribe();
@@ -1028,7 +1071,7 @@ window.PurchaseOrderHistory = (function () {
         init,
         destroy,
         reload,
-        viewDetail
+        viewDetail,
     };
 })();
 

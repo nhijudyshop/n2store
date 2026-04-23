@@ -9,16 +9,16 @@
 // =====================================================
 
 window.currentConversationId = null;
-window.currentConversationType = null;  // 'INBOX' | 'COMMENT'
-window.currentChatChannelId = null;     // pageId
+window.currentConversationType = null; // 'INBOX' | 'COMMENT'
+window.currentChatChannelId = null; // pageId
 window.currentChatPSID = null;
 window.currentCustomerName = null;
-window.currentConversationData = null;  // full Pancake conversation object
+window.currentConversationData = null; // full Pancake conversation object
 window.allChatMessages = [];
-window.currentChatCursor = null;        // pagination cursor (current_count)
+window.currentChatCursor = null; // pagination cursor (current_count)
 window.isLoadingMoreMessages = false;
-window.currentReplyMessage = null;      // reply-to context {id, text, sender}
-window.currentSendPageId = null;        // override send from page
+window.currentReplyMessage = null; // reply-to context {id, text, sender}
+window.currentSendPageId = null; // override send from page
 window.currentReplyType = 'private_replies'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
@@ -28,13 +28,17 @@ window.isSendingMessage = false;
 window._pageConvCache = new Map();
 
 // Send QR image directly to current chat (called from chat header "Gửi mã QR" button)
-window.sendQRFromChatHeader = async function() {
+window.sendQRFromChatHeader = async function () {
     const phone = (window.currentChatPhone || '').trim();
     if (!phone) {
-        window.notificationManager?.warning?.('Khách hàng chưa có SĐT') || alert('Khách hàng chưa có SĐT');
+        window.notificationManager?.warning?.('Khách hàng chưa có SĐT') ||
+            alert('Khách hàng chưa có SĐT');
         return;
     }
-    if (typeof window.getOrCreateQRForPhone !== 'function' || typeof window.generateVietQRUrl !== 'function') {
+    if (
+        typeof window.getOrCreateQRForPhone !== 'function' ||
+        typeof window.generateVietQRUrl !== 'function'
+    ) {
         alert('Chức năng QR chưa sẵn sàng');
         return;
     }
@@ -42,8 +46,10 @@ window.sendQRFromChatHeader = async function() {
         alert('Chức năng gửi ảnh chưa sẵn sàng');
         return;
     }
-    const normalizedPhone = (typeof window.normalizePhoneForQR === 'function')
-        ? window.normalizePhoneForQR(phone) : phone;
+    const normalizedPhone =
+        typeof window.normalizePhoneForQR === 'function'
+            ? window.normalizePhoneForQR(phone)
+            : phone;
     const uniqueCode = window.getOrCreateQRForPhone(normalizedPhone);
     if (!uniqueCode) {
         window.notificationManager?.error?.('Không thể tạo mã QR') || alert('Không thể tạo mã QR');
@@ -57,7 +63,7 @@ window.sendQRFromChatHeader = async function() {
  * Send bill image from chat modal header
  * Uses existing BillService + InvoiceStatusStore infrastructure
  */
-window.sendBillFromChat = async function() {
+window.sendBillFromChat = async function () {
     const orderId = window.currentChatOrderId;
     const psid = window.currentChatPSID;
     const pageId = window.currentChatChannelId || window.currentSendPageId;
@@ -73,7 +79,10 @@ window.sendBillFromChat = async function() {
     }
 
     const btn = document.getElementById('chatHeaderBillBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'; }
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+    }
 
     try {
         const invoiceData = window.InvoiceStatusStore.get(orderId);
@@ -100,7 +109,7 @@ window.sendBillFromChat = async function() {
         if (typeof window.BillService?.sendBillToCustomer === 'function') {
             sendResult = await window.BillService.sendBillToCustomer(invoiceData, pageId, psid, {
                 conversationId: convId,
-                preGeneratedBlob: billBlob
+                preGeneratedBlob: billBlob,
             });
         } else if (typeof window.sendBillFromMainTable === 'function') {
             await window.sendBillFromMainTable(orderId);
@@ -122,11 +131,15 @@ window.sendBillFromChat = async function() {
                     time: new Date(),
                     sender: 'shop',
                     senderName: '',
-                    attachments: billImageUrl ? [{
-                        type: 'image',
-                        url: billImageUrl,
-                        preview_url: billImageUrl
-                    }] : []
+                    attachments: billImageUrl
+                        ? [
+                              {
+                                  type: 'image',
+                                  url: billImageUrl,
+                                  preview_url: billImageUrl,
+                              },
+                          ]
+                        : [],
                 };
                 window.allChatMessages.push(billMsg);
                 window.renderChatMessages(window.allChatMessages);
@@ -134,7 +147,9 @@ window.sendBillFromChat = async function() {
                 // Auto-scroll to bottom
                 const messagesEl = document.getElementById('chatMessages');
                 if (messagesEl) {
-                    setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 100);
+                    setTimeout(() => {
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                    }, 100);
                 }
             }
 
@@ -164,16 +179,17 @@ window.sendBillFromChat = async function() {
  * Get avatar URL for a customer — same 4-tier fallback as inbox-chat.js
  * Extracts direct avatar from currentConversationData, then falls back to proxy.
  */
-window._getChatAvatarUrl = function(psid, pageId) {
+window._getChatAvatarUrl = function (psid, pageId) {
     const conv = window.currentConversationData || {};
     const raw = conv._raw || {};
     // Same priority as inbox: conv.avatar → from.picture → from.profile_pic → customers[].avatar
-    const directAvatar = conv.avatar
-        || raw.from?.picture?.data?.url
-        || raw.from?.profile_pic
-        || raw.customers?.[0]?.avatar
-        || conv.customers?.[0]?.avatar
-        || null;
+    const directAvatar =
+        conv.avatar ||
+        raw.from?.picture?.data?.url ||
+        raw.from?.profile_pic ||
+        raw.customers?.[0]?.avatar ||
+        conv.customers?.[0]?.avatar ||
+        null;
     if (window.pancakeDataManager?.getAvatarUrl) {
         return window.pancakeDataManager.getAvatarUrl(psid, pageId, null, directAvatar);
     }
@@ -190,8 +206,14 @@ function _markRepliedOnServer(psid, pageId) {
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
     // Fire and forget to BOTH servers — with timeout to avoid zombie fetches
     const _fetch = window.fetchWithTimeout || fetch;
-    _fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied', opts, 6000).catch(() => {});
-    _fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts, 6000).catch(() => {});
+    _fetch(
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied',
+        opts,
+        6000
+    ).catch(() => {});
+    _fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts, 6000).catch(
+        () => {}
+    );
 }
 
 // =====================================================
@@ -203,16 +225,37 @@ function _markRepliedOnServer(psid, pageId) {
 // =====================================================
 function _friendlyChatError(code, err) {
     const map = {
-        PAT_FAILED:        { title: 'Hết phiên Pancake', body: 'Token truy cập đã hết hạn. Vui lòng thử lại hoặc reload trang.' },
-        PAT_REGEN_FAILED:  { title: 'Không làm mới được token', body: 'Tất cả account Pancake đều fail. Kiểm tra lại đăng nhập Pancake.' },
-        MESSAGES_FETCH_FAILED: { title: 'Không tải được tin nhắn', body: 'Pancake API trả lỗi. Mạng có thể chậm hoặc page không quyền.' },
-        TIMEOUT:           { title: 'Quá thời gian chờ', body: 'Server chậm hoặc mạng không ổn định. Thử lại sau vài giây.' },
-        HTTP_401:          { title: 'Không đủ quyền', body: 'Token không hợp lệ. Thử đăng nhập lại Pancake.' },
-        HTTP_403:          { title: 'Bị chặn truy cập', body: 'Pancake từ chối request này. Liên hệ admin.' },
-        HTTP_500:          { title: 'Lỗi server Pancake', body: 'Thử lại sau vài phút.' },
-        HTTP_502:          { title: 'Pancake gateway lỗi', body: 'Thử lại sau vài phút.' },
-        HTTP_503:          { title: 'Pancake bảo trì', body: 'Thử lại sau.' },
-        UNKNOWN:           { title: 'Không tải được tin nhắn', body: err?.message || 'Lỗi không xác định. Thử lại.' },
+        PAT_FAILED: {
+            title: 'Hết phiên Pancake',
+            body: 'Token truy cập đã hết hạn. Vui lòng thử lại hoặc reload trang.',
+        },
+        PAT_REGEN_FAILED: {
+            title: 'Không làm mới được token',
+            body: 'Tất cả account Pancake đều fail. Kiểm tra lại đăng nhập Pancake.',
+        },
+        MESSAGES_FETCH_FAILED: {
+            title: 'Không tải được tin nhắn',
+            body: 'Pancake API trả lỗi. Mạng có thể chậm hoặc page không quyền.',
+        },
+        TIMEOUT: {
+            title: 'Quá thời gian chờ',
+            body: 'Server chậm hoặc mạng không ổn định. Thử lại sau vài giây.',
+        },
+        HTTP_401: {
+            title: 'Không đủ quyền',
+            body: 'Token không hợp lệ. Thử đăng nhập lại Pancake.',
+        },
+        HTTP_403: {
+            title: 'Bị chặn truy cập',
+            body: 'Pancake từ chối request này. Liên hệ admin.',
+        },
+        HTTP_500: { title: 'Lỗi server Pancake', body: 'Thử lại sau vài phút.' },
+        HTTP_502: { title: 'Pancake gateway lỗi', body: 'Thử lại sau vài phút.' },
+        HTTP_503: { title: 'Pancake bảo trì', body: 'Thử lại sau.' },
+        UNKNOWN: {
+            title: 'Không tải được tin nhắn',
+            body: err?.message || 'Lỗi không xác định. Thử lại.',
+        },
     };
     return map[code] || map.UNKNOWN;
 }
@@ -229,7 +272,7 @@ function _friendlyChatError(code, err) {
  * @param {string} psid - Customer PSID
  * @param {string} [conversationType] - 'INBOX' or 'COMMENT', defaults to 'INBOX'
  */
-window.openChatModal = async function(orderId, pageId, psid, conversationType) {
+window.openChatModal = async function (orderId, pageId, psid, conversationType) {
     const modal = document.getElementById('chatModal');
     if (!modal) return;
 
@@ -261,19 +304,20 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const nameEl_ = orderRow?.querySelector('.customer-name');
     if (nameEl_) {
         const clone = nameEl_.cloneNode(true);
-        clone.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+        clone.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
         window.currentCustomerName = clone.textContent.trim();
     } else {
         window.currentCustomerName = '';
     }
-    window.currentChatPhone = orderRow?.querySelector('td[data-column="phone"] span')?.textContent?.trim() || '';
+    window.currentChatPhone =
+        orderRow?.querySelector('td[data-column="phone"] span')?.textContent?.trim() || '';
 
     // Show modal
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
     // Click outside modal content to close
-    modal.onclick = function(e) {
+    modal.onclick = function (e) {
         if (e.target === modal) window.closeChatModal();
     };
 
@@ -289,7 +333,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const copyPhoneBtn = document.getElementById('chatCopyPhone');
     if (copyPhoneBtn) {
         copyPhoneBtn.style.display = window.currentChatPhone ? 'inline' : 'none';
-        copyPhoneBtn.onclick = function(e) {
+        copyPhoneBtn.onclick = function (e) {
             e.stopPropagation();
             navigator.clipboard.writeText(window.currentChatPhone).then(() => {
                 copyPhoneBtn.className = 'fas fa-check chat-copy-phone';
@@ -305,8 +349,10 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Render total debt badge (green)
     const debtContainer = document.getElementById('chatDebtBadgesContainer');
     if (debtContainer) {
-        debtContainer.innerHTML = typeof renderWalletDebtBadges === 'function'
-            ? renderWalletDebtBadges(window.currentChatPhone) : '';
+        debtContainer.innerHTML =
+            typeof renderWalletDebtBadges === 'function'
+                ? renderWalletDebtBadges(window.currentChatPhone)
+                : '';
     }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)
@@ -333,7 +379,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         // Fetch Pancake notes (async)
         const phone = window.currentChatPhone;
         if (phone && window.PancakeValidator) {
-            window.PancakeValidator.quickLookup(phone).then(data => {
+            window.PancakeValidator.quickLookup(phone).then((data) => {
                 if (!data?.customer) return;
                 const pNotes = data.customer.pancake_notes || [];
                 for (const n of pNotes) {
@@ -353,19 +399,32 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
         // Fetch DB notes (customer_notes table) from Render DB
         if (phone) {
-            const renderUrl = window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const renderUrl =
+                window.API_CONFIG?.RENDER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const _fetch = window.fetchWithTimeout || fetch;
-            _fetch(`${renderUrl}/api/v2/customers/${phone}/notes`, {}, 6000).then(r => r.json()).then(data => {
-                if (data.success && data.data?.length) {
-                    for (const n of data.data) {
-                        // Avoid duplicates
-                        if (!noteEl._allNotes.some(x => x.text === n.content && x.source === 'db')) {
-                            noteEl._allNotes.push({ text: n.content, source: 'db', by: n.created_by, pinned: n.is_pinned });
+            _fetch(`${renderUrl}/api/v2/customers/${phone}/notes`, {}, 6000)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.success && data.data?.length) {
+                        for (const n of data.data) {
+                            // Avoid duplicates
+                            if (
+                                !noteEl._allNotes.some(
+                                    (x) => x.text === n.content && x.source === 'db'
+                                )
+                            ) {
+                                noteEl._allNotes.push({
+                                    text: n.content,
+                                    source: 'db',
+                                    by: n.created_by,
+                                    pinned: n.is_pinned,
+                                });
+                            }
                         }
+                        _updateNoteBanner(noteEl);
                     }
-                    _updateNoteBanner(noteEl);
-                }
-            }).catch(() => {});
+                })
+                .catch(() => {});
         }
     }
 
@@ -385,12 +444,16 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Show loading
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
-        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải tin nhắn...</p></div>';
+        messagesEl.innerHTML =
+            '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải tin nhắn...</p></div>';
     }
 
     // Clear input
     const inputEl = document.getElementById('chatInput');
-    if (inputEl) { inputEl.value = ''; inputEl.style.height = 'auto'; }
+    if (inputEl) {
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+    }
 
     // Init extension pages
     if (window.initExtensionPages && window.pancakeDataManager?.pageIds) {
@@ -404,11 +467,17 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Find conversation and load messages
     // P1: AbortController — cancel in-flight requests when user opens another chat
     const myToken = ++window._chatLoadSeq;
-    if (window._chatLoadCtrl) { try { window._chatLoadCtrl.abort(); } catch (_) {} }
+    if (window._chatLoadCtrl) {
+        try {
+            window._chatLoadCtrl.abort();
+        } catch (_) {}
+    }
     window._chatLoadCtrl = new AbortController();
     const mySignal = window._chatLoadCtrl.signal;
     try {
-        await _findAndLoadConversation(pageId, psid, conversationType, myToken, { signal: mySignal });
+        await _findAndLoadConversation(pageId, psid, conversationType, myToken, {
+            signal: mySignal,
+        });
         // Auto-focus chat input so user can type immediately
         setTimeout(() => {
             const chatInputEl = document.getElementById('chatInput');
@@ -457,7 +526,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
  * Open comment modal (alias for openChatModal with COMMENT type)
  * Called from tab1-table.js / tab1-encoding.js
  */
-window.openCommentModal = function(orderId, pageId, psid) {
+window.openCommentModal = function (orderId, pageId, psid) {
     window.openChatModal(orderId, pageId, psid, 'COMMENT');
 };
 
@@ -467,7 +536,7 @@ window.openCommentModal = function(orderId, pageId, psid) {
  * New chat modal has built-in toggle, so just open INBOX directly.
  * Called from tab1-table.js and tab1-encoding.js onclick handlers.
  */
-window.showConversationPicker = function(orderId, pageId, psid, event) {
+window.showConversationPicker = function (orderId, pageId, psid, event) {
     if (event) event.stopPropagation();
     window.openChatModal(orderId, pageId, psid, 'INBOX');
 };
@@ -475,7 +544,7 @@ window.showConversationPicker = function(orderId, pageId, psid, event) {
 /**
  * Close chat modal
  */
-window.closeChatModal = function() {
+window.closeChatModal = function () {
     const modal = document.getElementById('chatModal');
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
@@ -486,11 +555,19 @@ window.closeChatModal = function() {
 
     // Cleanup Firebase realtime listeners to prevent memory leaks
     if (window._chatRealtimeUnsubscribe) {
-        try { window._chatRealtimeUnsubscribe(); } catch (e) { /* ignore */ }
+        try {
+            window._chatRealtimeUnsubscribe();
+        } catch (e) {
+            /* ignore */
+        }
         window._chatRealtimeUnsubscribe = null;
     }
     if (window._chatPrivateReplyUnsubscribe) {
-        try { window._chatPrivateReplyUnsubscribe(); } catch (e) { /* ignore */ }
+        try {
+            window._chatPrivateReplyUnsubscribe();
+        } catch (e) {
+            /* ignore */
+        }
         window._chatPrivateReplyUnsubscribe = null;
     }
 
@@ -498,7 +575,7 @@ window.closeChatModal = function() {
     window._chatLoadSeq = (window._chatLoadSeq || 0) + 1;
     clearTimeout(window._chatUpdateDebounce);
     if (window._chatUpdateDebounceMap) {
-        window._chatUpdateDebounceMap.forEach(id => clearTimeout(id));
+        window._chatUpdateDebounceMap.forEach((id) => clearTimeout(id));
         window._chatUpdateDebounceMap.clear();
     }
     if (window._chatFindInFlight) window._chatFindInFlight.clear();
@@ -533,7 +610,7 @@ async function _findAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // In-flight dedupe — coalesce identical concurrent requests
     const dedupeKey = `${pageId}:${psid}:${type}`;
     const inflight = window._chatFindInFlight.get(dedupeKey);
-    if (inflight && (Date.now() - inflight.ts) < 3000) {
+    if (inflight && Date.now() - inflight.ts < 3000) {
         return inflight.promise;
     }
     const promise = _doFindAndLoadConversation(pageId, psid, type, loadToken, opts);
@@ -580,13 +657,34 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         if (customerPhone || psid) {
             try {
                 const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-                const _fetch = window.fetchOrNull || (async (u, o) => { try { const r = await fetch(u, o); return r.ok ? r : null; } catch { return null; } });
+                const _fetch =
+                    window.fetchOrNull ||
+                    (async (u, o) => {
+                        try {
+                            const r = await fetch(u, o);
+                            return r.ok ? r : null;
+                        } catch {
+                            return null;
+                        }
+                    });
                 const srcPageId = window.currentChatChannelId || pageId;
 
                 // Parallel Step A + Step B
                 const [cacheRes, custRes] = await Promise.all([
-                    psid ? _fetch(`${renderUrl}/api/fb-global-id?pageId=${srcPageId}&psid=${psid}`, { signal: opts?.signal }, 6000) : null,
-                    customerPhone ? _fetch(`${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`, { signal: opts?.signal }, 6000) : null,
+                    psid
+                        ? _fetch(
+                              `${renderUrl}/api/fb-global-id?pageId=${srcPageId}&psid=${psid}`,
+                              { signal: opts?.signal },
+                              6000
+                          )
+                        : null,
+                    customerPhone
+                        ? _fetch(
+                              `${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`,
+                              { signal: opts?.signal },
+                              6000
+                          )
+                        : null,
                 ]);
 
                 let globalId = null;
@@ -605,7 +703,11 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
                 // Step C: use global_id to find fb_id on target page
                 if (!targetFbId && globalId) {
-                    const targetRes = await _fetch(`${renderUrl}/api/fb-global-id/by-global?globalUserId=${globalId}&pageId=${pageId}`, { signal: opts?.signal }, 6000);
+                    const targetRes = await _fetch(
+                        `${renderUrl}/api/fb-global-id/by-global?globalUserId=${globalId}&pageId=${pageId}`,
+                        { signal: opts?.signal },
+                        6000
+                    );
                     if (targetRes) {
                         const targetData = await targetRes.json().catch(() => null);
                         if (targetData?.found) targetFbId = targetData.psid;
@@ -619,30 +721,43 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // If DB found exact fb_id → fetch conversations directly (precise, no name ambiguity)
         if (targetFbId) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, targetFbId, { signal: opts?.signal });
-            foundConvs = (result.conversations || []).filter(c =>
-                String(c.page_id) === String(pageId)
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, targetFbId, {
+                signal: opts?.signal,
+            });
+            foundConvs = (result.conversations || []).filter(
+                (c) => String(c.page_id) === String(pageId)
             );
         }
 
         // Fallback: name search (v1 POST — cross-page, confirmed working)
         if (foundConvs.length === 0 && customerName) {
-            const _strip = s => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() || '';
+            const _strip = (s) =>
+                s
+                    ?.normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase()
+                    .trim() || '';
             const _nameMatch = (a, b) => a && b && (a === b || _strip(a) === _strip(b));
 
             if (pdm.searchConversations) {
-                const searchResult = await pdm.searchConversations(customerName, { signal: opts?.signal });
-                foundConvs = (searchResult.conversations || []).filter(c =>
-                    String(c.page_id) === String(pageId) && _nameMatch(c.from?.name, customerName)
+                const searchResult = await pdm.searchConversations(customerName, {
+                    signal: opts?.signal,
+                });
+                foundConvs = (searchResult.conversations || []).filter(
+                    (c) =>
+                        String(c.page_id) === String(pageId) &&
+                        _nameMatch(c.from?.name, customerName)
                 );
             }
         }
 
         // Last fallback: page-specific API with original PSID
         if (foundConvs.length === 0) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
-            foundConvs = (result.conversations || []).filter(c =>
-                String(c.page_id) === String(pageId)
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, {
+                signal: opts?.signal,
+            });
+            foundConvs = (result.conversations || []).filter(
+                (c) => String(c.page_id) === String(pageId)
             );
         }
 
@@ -664,7 +779,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             foundConvs.sort(_byTypeAndTime);
 
             // Auto-pick first INBOX (or first conv if no INBOX)
-            conv = foundConvs.find(c => c.type === 'INBOX') || foundConvs[0];
+            conv = foundConvs.find((c) => c.type === 'INBOX') || foundConvs[0];
 
             // Cache for repick button (sync icon)
             if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
@@ -672,8 +787,10 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
-        const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
-        const commentConvs = (result.conversations || []).filter(c => c.type === 'COMMENT');
+        const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, {
+            signal: opts?.signal,
+        });
+        const commentConvs = (result.conversations || []).filter((c) => c.type === 'COMMENT');
 
         if (commentConvs.length > 0) {
             commentConvs.sort(_byUpdatedAtDesc);
@@ -682,35 +799,44 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
         // Fallback: multi-page search
         if (!conv) {
-            const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid, { signal: opts?.signal });
-            const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
+            const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid, {
+                signal: opts?.signal,
+            });
+            const mpConvs = (mpResult.conversations || []).filter((c) => c.type === 'COMMENT');
             if (mpConvs.length > 0) {
                 mpConvs.sort(_byUpdatedAtDesc);
-                conv = mpConvs.find(c => String(c.page_id) === String(pageId)) || mpConvs[0];
+                conv = mpConvs.find((c) => String(c.page_id) === String(pageId)) || mpConvs[0];
             }
         }
     } else {
         // INBOX: Use cached maps first, then API fallback
         // Guard: cache may hold cross-page conv (PSID = fb_id is page-scoped)
-        const cachedConv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
+        const cachedConv =
+            pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
         if (cachedConv && String(cachedConv.page_id) === String(pageId)) {
             conv = cachedConv;
         }
 
         if (!conv) {
-            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, { signal: opts?.signal });
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, {
+                signal: opts?.signal,
+            });
             const convs = result.conversations || [];
-            conv = convs.find(c => c.type === 'INBOX') || convs[0] || null;
+            conv = convs.find((c) => c.type === 'INBOX') || convs[0] || null;
         }
 
         // Fallback: multi-page search
         if (!conv) {
-            const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid, { signal: opts?.signal });
+            const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid, {
+                signal: opts?.signal,
+            });
             const convs = result.conversations || [];
-            conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
-                || convs.find(c => String(c.page_id) === String(pageId))
-                || convs.find(c => c.type === type)
-                || convs[0] || null;
+            conv =
+                convs.find((c) => c.type === type && String(c.page_id) === String(pageId)) ||
+                convs.find((c) => String(c.page_id) === String(pageId)) ||
+                convs.find((c) => c.type === type) ||
+                convs[0] ||
+                null;
         }
     }
 
@@ -719,7 +845,8 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     if (!conv) {
         const messagesEl = document.getElementById('chatMessages');
         if (messagesEl) {
-            const pageName = (pdm.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+            const pageName =
+                (pdm.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
             messagesEl.innerHTML = allowDrift
                 ? '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>'
                 : `<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên <b>${pageName}</b>.</p></div>`;
@@ -751,21 +878,24 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // but conversation list API does. Fire background fetch to get it.
     // Pass opts.signal so modal close/switch aborts this zombie fetch.
     if (!conv.thread_id && type !== 'COMMENT') {
-        pdm.fetchConversationsByCustomerFbId(convPageId, psid, { signal: opts?.signal }).then(result => {
-            const apiConv = (result.conversations || []).find(c => c.id === conv.id);
-            if (apiConv?.thread_id && window.currentConversationData?.id === conv.id) {
-                window.currentConversationData.thread_id = apiConv.thread_id;
-                // Also set in _raw for buildConvData
-                if (window.currentConversationData._raw) {
-                    window.currentConversationData._raw.thread_id = apiConv.thread_id;
+        pdm.fetchConversationsByCustomerFbId(convPageId, psid, { signal: opts?.signal })
+            .then((result) => {
+                const apiConv = (result.conversations || []).find((c) => c.id === conv.id);
+                if (apiConv?.thread_id && window.currentConversationData?.id === conv.id) {
+                    window.currentConversationData.thread_id = apiConv.thread_id;
+                    // Also set in _raw for buildConvData
+                    if (window.currentConversationData._raw) {
+                        window.currentConversationData._raw.thread_id = apiConv.thread_id;
+                    }
+                    console.log('[Chat-Core] Enriched thread_id:', apiConv.thread_id);
                 }
-                console.log('[Chat-Core] Enriched thread_id:', apiConv.thread_id);
-            }
-        }).catch(() => {});
+            })
+            .catch(() => {});
     }
 
     // Load messages - customerId from customers array or from.id
-    const customerId = conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
+    const customerId =
+        conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
     await _loadMessages(convPageId, conv.id, customerId, loadToken, opts);
 }
 
@@ -783,7 +913,7 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
         // P5: throwOnError — let error bubble to openChatModal catch which shows retry button
         const result = await pdm.fetchMessages(pageId, conversationId, null, customerId, false, {
             signal: opts.signal,
-            throwOnError: true
+            throwOnError: true,
         });
         if (_isStale()) return;
 
@@ -792,8 +922,9 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
             const rc = result.conversation;
             if (!window.currentConversationData) window.currentConversationData = {};
             // Preserve thread_id from conversation list API (messages API often lacks it)
-            const existingThreadId = window.currentConversationData.thread_id
-                || window.currentConversationData._raw?.thread_id;
+            const existingThreadId =
+                window.currentConversationData.thread_id ||
+                window.currentConversationData._raw?.thread_id;
             window.currentConversationData._raw = rc;
             if (!rc.thread_id && existingThreadId) {
                 rc.thread_id = existingThreadId;
@@ -806,9 +937,10 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
             };
 
             // Proactive global_id caching — use rich data from messages response
-            const gid = result.global_id
-                || rc.page_customer?.global_id
-                || (result.customers || []).find(c => c.global_id)?.global_id;
+            const gid =
+                result.global_id ||
+                rc.page_customer?.global_id ||
+                (result.customers || []).find((c) => c.global_id)?.global_id;
             if (gid) {
                 const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
                 _setGlobalIdCache(cacheKey, gid);
@@ -821,7 +953,7 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
         }
 
         // Map messages
-        const messages = (result.messages || []).map(msg => {
+        const messages = (result.messages || []).map((msg) => {
             const isFromPage = msg.from?.id === pageId;
             const text = msg.original_message || _stripHtml(msg.message || '');
             return {
@@ -832,7 +964,7 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
                 senderName: msg.from?.name || '',
                 fromId: msg.from?.id || '',
                 attachments: msg.attachments || [],
-                reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
                 reactionSummary: msg.reaction_summary || msg.reactions || null,
                 isHidden: msg.is_hidden || false,
                 isRemoved: msg.is_removed || false,
@@ -848,7 +980,7 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
 
         // Auto-mark private reply messages in store (for cross-device sync)
         if (window.currentConversationType === 'COMMENT' && window.PrivateReplyStore) {
-            messages.forEach(m => {
+            messages.forEach((m) => {
                 if (m.privateReplyConversation && !window.PrivateReplyStore.has(m.id)) {
                     window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
                 }
@@ -858,8 +990,9 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
         // Reconcile any optimistic private-reply placeholders ("pr_*") with
         // real shop messages from server (text+60s match). Surviving optimistic
         // are appended so user still sees their pending sends.
-        const survivors = window._reconcileOptimisticReplies(window.allChatMessages, messages)
-            .filter(m => typeof m.id === 'string' && m.id.startsWith('pr_'));
+        const survivors = window
+            ._reconcileOptimisticReplies(window.allChatMessages, messages)
+            .filter((m) => typeof m.id === 'string' && m.id.startsWith('pr_'));
         if (survivors.length) messages.push(...survivors);
 
         window.allChatMessages = messages;
@@ -884,8 +1017,9 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
 /**
  * Load more messages (scroll up pagination)
  */
-window.loadMoreMessages = async function() {
-    if (window.isLoadingMoreMessages || !window.currentConversationId || !window.currentChatCursor) return;
+window.loadMoreMessages = async function () {
+    if (window.isLoadingMoreMessages || !window.currentConversationId || !window.currentChatCursor)
+        return;
     window.isLoadingMoreMessages = true;
 
     // Snapshot conv identity at start to detect switch during fetch
@@ -897,20 +1031,18 @@ window.loadMoreMessages = async function() {
         const pdm = window.pancakeDataManager;
         if (!pdm) return;
 
-        const result = await pdm.fetchMessages(
-            startPageId,
-            startConvId,
-            window.currentChatCursor
-        );
+        const result = await pdm.fetchMessages(startPageId, startConvId, window.currentChatCursor);
 
         // Bail if user switched conversation/page/type while we were fetching
-        if (startToken !== window._chatLoadSeq ||
+        if (
+            startToken !== window._chatLoadSeq ||
             startConvId !== window.currentConversationId ||
-            startPageId !== window.currentChatChannelId) {
+            startPageId !== window.currentChatChannelId
+        ) {
             return;
         }
 
-        const newMessages = (result.messages || []).map(msg => {
+        const newMessages = (result.messages || []).map((msg) => {
             const isFromPage = msg.from?.id === window.currentChatChannelId;
             return {
                 id: msg.id,
@@ -968,16 +1100,18 @@ function _resetTransientChatState() {
     const preview = document.getElementById('replyPreview');
     if (preview) preview.classList.remove('active');
     if (typeof window.clearImagePreviews === 'function') {
-        try { window.clearImagePreviews(); } catch (_) {}
+        try {
+            window.clearImagePreviews();
+        } catch (_) {}
     }
 }
 
 // Shared: reconcile optimistic private-reply placeholders ("pr_*") in `existing`
 // against `incoming` real shop messages by text+60s window. Mutates store marks.
-window._reconcileOptimisticReplies = function(existing, incoming) {
+window._reconcileOptimisticReplies = function (existing, incoming) {
     if (!existing?.length || !incoming?.length) return existing || [];
     const realShopTexts = new Set(
-        incoming.filter(m => m.sender === 'shop').map(m => (m.text || '').trim())
+        incoming.filter((m) => m.sender === 'shop').map((m) => (m.text || '').trim())
     );
     const survivors = [];
     for (const o of existing) {
@@ -991,7 +1125,7 @@ window._reconcileOptimisticReplies = function(existing, incoming) {
             continue;
         }
         // Matched — migrate PrivateReplyStore mark to real id
-        const real = incoming.find(m => m.sender === 'shop' && (m.text || '').trim() === txt);
+        const real = incoming.find((m) => m.sender === 'shop' && (m.text || '').trim() === txt);
         if (real && window.PrivateReplyStore?.has?.(o.id)) {
             try {
                 window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
@@ -1025,7 +1159,7 @@ function _setGlobalIdCache(key, value) {
 // CONVERSATION TYPE SWITCHING
 // =====================================================
 
-window.switchConversationType = async function(type) {
+window.switchConversationType = async function (type) {
     if (type === window.currentConversationType) return;
     window.currentConversationType = type;
 
@@ -1036,7 +1170,8 @@ window.switchConversationType = async function(type) {
     // Re-find conversation with new type
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
-        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
+        messagesEl.innerHTML =
+            '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
     }
 
     try {
@@ -1049,7 +1184,8 @@ window.switchConversationType = async function(type) {
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
+            messagesEl.innerHTML =
+                '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
         }
     }
 };
@@ -1058,11 +1194,16 @@ window.switchConversationType = async function(type) {
 // REPLY MANAGEMENT
 // =====================================================
 
-window.setReplyMessage = function(msgId) {
-    const msg = window.allChatMessages.find(m => m.id === msgId);
+window.setReplyMessage = function (msgId) {
+    const msg = window.allChatMessages.find((m) => m.id === msgId);
     if (!msg) return;
 
-    window.currentReplyMessage = { id: msgId, text: msg.text, sender: msg.sender, senderName: msg.senderName };
+    window.currentReplyMessage = {
+        id: msgId,
+        text: msg.text,
+        sender: msg.sender,
+        senderName: msg.senderName,
+    };
 
     const preview = document.getElementById('replyPreview');
     if (preview) {
@@ -1076,7 +1217,7 @@ window.setReplyMessage = function(msgId) {
     if (input) input.focus();
 };
 
-window.cancelReply = function() {
+window.cancelReply = function () {
     window.currentReplyMessage = null;
     const preview = document.getElementById('replyPreview');
     if (preview) preview.classList.remove('active');
@@ -1086,7 +1227,7 @@ window.cancelReply = function() {
 // REPLY TYPE MANAGEMENT (COMMENT mode)
 // =====================================================
 
-window.setReplyType = function(type) {
+window.setReplyType = function (type) {
     window.currentReplyType = type;
     const select = document.getElementById('replyTypeSelect');
     if (select) select.value = type;
@@ -1094,9 +1235,8 @@ window.setReplyType = function(type) {
     // Update input placeholder
     const input = document.getElementById('chatInput');
     if (input) {
-        input.placeholder = type === 'private_replies'
-            ? 'Nhắn riêng cho khách...'
-            : 'Trả lời bình luận...';
+        input.placeholder =
+            type === 'private_replies' ? 'Nhắn riêng cho khách...' : 'Trả lời bình luận...';
     }
 };
 
@@ -1105,7 +1245,7 @@ window.setReplyType = function(type) {
 // =====================================================
 
 function _updateTypeToggle(type) {
-    document.querySelectorAll('.conv-type-toggle button').forEach(btn => {
+    document.querySelectorAll('.conv-type-toggle button').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.type === type);
     });
 
@@ -1193,7 +1333,7 @@ function _renderPageSelectorItems() {
     dropdown.innerHTML = html;
 
     // Bind clicks
-    dropdown.querySelectorAll('.chat-page-item').forEach(item => {
+    dropdown.querySelectorAll('.chat-page-item').forEach((item) => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             const pageId = item.dataset.pageId;
@@ -1211,7 +1351,7 @@ function _updatePageSelectorLabel(pageId) {
     const label = document.getElementById('chatPageSelectorLabel');
     if (!label) return;
     const pdm = window.pancakeDataManager;
-    const page = (pdm?.pages || []).find(p => String(p.id) === String(pageId));
+    const page = (pdm?.pages || []).find((p) => String(p.id) === String(pageId));
     label.textContent = page?.name || 'Page';
 }
 
@@ -1242,7 +1382,7 @@ function _togglePageDropdown() {
             let left = rect.right - dropW;
             if (left < 8) left = rect.left;
             if (left < 8) left = 8;
-            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.top = rect.bottom + 4 + 'px';
             dropdown.style.left = left + 'px';
             dropdown.style.right = '';
         }
@@ -1274,10 +1414,11 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
         const cust = messagesResult.customers?.[0];
         if (!cust?.fb_id) return;
 
-        const phone = messagesResult.recent_phone_numbers?.[0]
-            || messagesResult.conv_phone_numbers?.[0]
-            || cust.recent_phone_numbers?.[0]?.phone_number
-            || null;
+        const phone =
+            messagesResult.recent_phone_numbers?.[0] ||
+            messagesResult.conv_phone_numbers?.[0] ||
+            cust.recent_phone_numbers?.[0]?.phone_number ||
+            null;
 
         const body = {
             page_id: pageId,
@@ -1296,15 +1437,24 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
 
         const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const _fetch = window.fetchWithTimeout || fetch;
-        _fetch(`${renderUrl}/api/v2/customers/sync-pancake`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        }, 8000).then(r => r.json()).then(data => {
-            if (data.success) {
-                console.log(`[Chat-Core] Synced customer "${cust.name}" to DB (${data.action})`);
-            }
-        }).catch(() => {});
+        _fetch(
+            `${renderUrl}/api/v2/customers/sync-pancake`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            },
+            8000
+        )
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.success) {
+                    console.log(
+                        `[Chat-Core] Synced customer "${cust.name}" to DB (${data.action})`
+                    );
+                }
+            })
+            .catch(() => {});
     } catch (_) {}
 }
 
@@ -1322,7 +1472,8 @@ function _appendConvPickerBelow(convs, pageId, loadToken) {
     if (!messagesEl) return;
 
     const pdm = window.pancakeDataManager;
-    const pageName = (pdm?.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+    const pageName =
+        (pdm?.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
 
     let html = `<div class="chat-conv-picker" style="border-top:1px solid var(--ap-outline-variant);margin-top:12px;padding-top:12px;">
         <div class="chat-conv-picker-title">Đoạn hội thoại khác trên ${_escapeHtml(pageName)}</div>`;
@@ -1355,11 +1506,12 @@ function _appendConvPickerBelow(convs, pageId, loadToken) {
     messagesEl.appendChild(pickerDiv);
 
     // Bind clicks
-    pickerDiv.querySelectorAll('.chat-conv-picker-item').forEach(item => {
+    pickerDiv.querySelectorAll('.chat-conv-picker-item').forEach((item) => {
         item.addEventListener('click', () => {
             const convId = item.dataset.convId;
             const allConvs = window._pageConvPickerCache?.get(pageId)?.convs || convs;
-            const conv = allConvs.find(c => c.id === convId) || convs.find(c => c.id === convId);
+            const conv =
+                allConvs.find((c) => c.id === convId) || convs.find((c) => c.id === convId);
             if (conv) _pickConversation(conv, pageId, loadToken);
         });
     });
@@ -1370,7 +1522,8 @@ function _showConversationPicker(convs, pageId, loadToken) {
     if (!messagesEl) return;
 
     const pdm = window.pancakeDataManager;
-    const pageName = (pdm?.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+    const pageName =
+        (pdm?.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
 
     let html = `<div class="chat-conv-picker">
         <div class="chat-conv-picker-title">Chọn cuộc hội thoại trên ${_escapeHtml(pageName)}</div>`;
@@ -1401,10 +1554,10 @@ function _showConversationPicker(convs, pageId, loadToken) {
     messagesEl.innerHTML = html;
 
     // Bind clicks
-    messagesEl.querySelectorAll('.chat-conv-picker-item').forEach(item => {
+    messagesEl.querySelectorAll('.chat-conv-picker-item').forEach((item) => {
         item.addEventListener('click', () => {
             const convId = item.dataset.convId;
-            const conv = convs.find(c => c.id === convId);
+            const conv = convs.find((c) => c.id === convId);
             if (conv) _pickConversation(conv, pageId, loadToken);
         });
     });
@@ -1418,7 +1571,9 @@ async function _pickConversation(conv, pageId, loadToken) {
     const preview = document.getElementById('replyPreview');
     if (preview) preview.classList.remove('active');
     if (typeof window.clearImagePreviews === 'function') {
-        try { window.clearImagePreviews(); } catch (_) {}
+        try {
+            window.clearImagePreviews();
+        } catch (_) {}
     }
 
     window.currentConversationId = conv.id;
@@ -1438,7 +1593,8 @@ async function _pickConversation(conv, pageId, loadToken) {
     // Show loading
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
-        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
+        messagesEl.innerHTML =
+            '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
     }
 
     // Load messages
@@ -1457,7 +1613,9 @@ function _formatPickerTime(dateStr) {
             return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
         }
         return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-    } catch (_) { return ''; }
+    } catch (_) {
+        return '';
+    }
 }
 
 // Show/hide re-pick button (visible when >1 page available)
@@ -1465,14 +1623,14 @@ function _updateRepickBtnVisibility() {
     const btn = document.getElementById('chatRepickConvBtn');
     if (!btn) return;
     const pdm = window.pancakeDataManager;
-    btn.style.display = (pdm?.pages?.length > 1) ? '' : 'none';
+    btn.style.display = pdm?.pages?.length > 1 ? '' : 'none';
 }
 
 /**
  * Re-pick conversation: clear cache for current page+psid+type,
  * then re-fetch fresh from API.
  */
-window.repickConversation = async function() {
+window.repickConversation = async function () {
     const pageId = window.currentChatChannelId;
     const psid = window.currentChatPSID;
     if (!pageId || !psid) return;
@@ -1495,7 +1653,8 @@ window.repickConversation = async function() {
 
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
-        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tìm đoạn hội thoại...</p></div>';
+        messagesEl.innerHTML =
+            '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tìm đoạn hội thoại...</p></div>';
     }
 
     try {
@@ -1505,17 +1664,21 @@ window.repickConversation = async function() {
         let foundConvs = [];
         if (customerName && pdm?.searchConversationsOnPage) {
             const r = await pdm.searchConversationsOnPage(pageId, customerName);
-            foundConvs = (r.conversations || []).filter(c => c.from?.name === customerName);
+            foundConvs = (r.conversations || []).filter((c) => c.from?.name === customerName);
         }
         if (foundConvs.length === 0) {
             const r = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
-            foundConvs = (r.conversations || []).filter(c => String(c.page_id) === String(pageId));
+            foundConvs = (r.conversations || []).filter(
+                (c) => String(c.page_id) === String(pageId)
+            );
         }
         if (myToken !== window._chatLoadSeq) return;
 
         if (foundConvs.length <= 1) {
             // 0 or 1 → just load it
-            await _findAndLoadConversation(pageId, psid, window.currentConversationType, myToken, { allowDrift: false });
+            await _findAndLoadConversation(pageId, psid, window.currentConversationType, myToken, {
+                allowDrift: false,
+            });
         } else {
             foundConvs.sort((a, b) => {
                 const ta = new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
@@ -1528,12 +1691,13 @@ window.repickConversation = async function() {
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
+            messagesEl.innerHTML =
+                '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
         }
     }
 };
 
-window.switchChatPage = async function(newPageId) {
+window.switchChatPage = async function (newPageId) {
     if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) return;
 
     window.currentChatChannelId = newPageId;
@@ -1546,16 +1710,24 @@ window.switchChatPage = async function(newPageId) {
 
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
-        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
+        messagesEl.innerHTML =
+            '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
     }
 
     try {
-        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType, myToken, { allowDrift: false });
+        await _findAndLoadConversation(
+            newPageId,
+            window.currentChatPSID,
+            window.currentConversationType,
+            myToken,
+            { allowDrift: false }
+        );
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         console.error('[Chat-Core] switchChatPage error:', e);
         if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên trang này.</p></div>';
+            messagesEl.innerHTML =
+                '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên trang này.</p></div>';
         }
     }
 };
@@ -1598,12 +1770,14 @@ function _startRealtimeForChat() {
                 window.pancakeDataManager.clearMessagesCache(pageId, convId);
                 const result = await window.pancakeDataManager.fetchMessages(pageId, convId);
                 if (!result.messages?.length || window.currentConversationId !== convId) return;
-                const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
-                const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
+                const existingIds = new Set(window.allChatMessages.map((m) => String(m.id)));
+                const newMsgs = result.messages.filter((m) => !existingIds.has(String(m.id)));
                 for (const msg of newMsgs) {
                     window.handleNewMessage?.({ message: msg, page_id: pageId });
                 }
-            } catch (e) { /* silent */ }
+            } catch (e) {
+                /* silent */
+            }
         });
     }
 
@@ -1619,7 +1793,13 @@ function _stopChatPolling() {
 
 function _stripHtml(html) {
     if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    return html
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
 }
 
 function _parseTimestamp(ts) {
@@ -1653,7 +1833,9 @@ function _getPreferredPage(psid) {
     try {
         const map = JSON.parse(localStorage.getItem(PREF_PAGE_KEY) || '{}');
         return map[psid] || null;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
 
 function _savePreferredPage(psid, pageId) {
@@ -1665,11 +1847,13 @@ function _savePreferredPage(psid, pageId) {
         // Trim old entries if too many
         const keys = Object.keys(map);
         if (keys.length > PREF_PAGE_MAX) {
-            keys.slice(0, keys.length - PREF_PAGE_MAX).forEach(k => delete map[k]);
+            keys.slice(0, keys.length - PREF_PAGE_MAX).forEach((k) => delete map[k]);
         }
 
         localStorage.setItem(PREF_PAGE_KEY, JSON.stringify(map));
-    } catch { /* quota exceeded — ignore */ }
+    } catch {
+        /* quota exceeded — ignore */
+    }
 }
 
 // =====================================================
@@ -1694,7 +1878,7 @@ function _updateNoteBanner(noteEl) {
     noteEl.style.display = 'block';
 }
 
-window._toggleChatNoteSource = function() {
+window._toggleChatNoteSource = function () {
     const noteEl = document.getElementById('chatOrderNote');
     if (!noteEl) return;
     const notes = noteEl._allNotes || [];
@@ -1702,7 +1886,10 @@ window._toggleChatNoteSource = function() {
 
     // Close existing popup
     const existing = document.getElementById('chatNotesPopup');
-    if (existing) { existing.remove(); return; }
+    if (existing) {
+        existing.remove();
+        return;
+    }
 
     // Build popup
     const popup = document.createElement('div');
@@ -1713,7 +1900,8 @@ window._toggleChatNoteSource = function() {
     const sourceColors = { tpos: '#fef3c7', pancake: '#fff7ed', db: '#ede9fe' };
     const sourceBorders = { tpos: '#fde68a', pancake: '#fed7aa', db: '#c4b5fd' };
 
-    let html = '<div class="cnp-header"><span class="cnp-title">Ghi chú khách hàng</span><button class="cnp-close" onclick="document.getElementById(\'chatNotesPopup\')?.remove()">&times;</button></div>';
+    let html =
+        '<div class="cnp-header"><span class="cnp-title">Ghi chú khách hàng</span><button class="cnp-close" onclick="document.getElementById(\'chatNotesPopup\')?.remove()">&times;</button></div>';
     html += '<div class="cnp-body">';
 
     for (const n of notes) {
@@ -1738,7 +1926,7 @@ window._toggleChatNoteSource = function() {
     // Position below noteEl
     const rect = noteEl.getBoundingClientRect();
     popup.style.position = 'fixed';
-    popup.style.top = (rect.bottom + 4) + 'px';
+    popup.style.top = rect.bottom + 4 + 'px';
     popup.style.left = Math.max(8, rect.left) + 'px';
 
     document.body.appendChild(popup);
@@ -1758,4 +1946,3 @@ window._toggleChatNoteSource = function() {
 // Expose helpers for other modules
 window._parseTimestamp = _parseTimestamp;
 window._stripHtml = _stripHtml;
-

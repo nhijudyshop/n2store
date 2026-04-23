@@ -27,8 +27,10 @@ class PancakePhoenixSocket {
         this.isConnected = false;
         this.joinedChannels = new Set();
 
-        this.clientSession = crypto.getRandomValues(new Uint8Array(32))
-            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '').slice(0, 64);
+        this.clientSession = crypto
+            .getRandomValues(new Uint8Array(32))
+            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '')
+            .slice(0, 64);
     }
 
     connect() {
@@ -49,7 +51,10 @@ class PancakePhoenixSocket {
 
     disconnect() {
         this._stopHeartbeat();
-        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         if (this.ws) {
             this.ws.onopen = null;
             this.ws.onclose = null;
@@ -68,17 +73,24 @@ class PancakePhoenixSocket {
         this.reconnectAttempts = 0;
 
         this._joinChannel(`users:${this.userId}`, {
-            accessToken: this.accessToken, userId: this.userId, platform: 'web'
+            accessToken: this.accessToken,
+            userId: this.userId,
+            platform: 'web',
         });
 
         // Join multiple_pages with retry logic (remove bad pages one by one)
         this._allPageIds = [...this.pageIds];
         this._retryIndex = 0;
         this._retryExhausted = false;
-        console.log(`[PHOENIX] Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
+        console.log(
+            `[PHOENIX] Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`
+        );
         this._joinChannel(`multiple_pages:${this.userId}`, {
-            accessToken: this.accessToken, userId: this.userId,
-            clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
+            accessToken: this.accessToken,
+            userId: this.userId,
+            clientSession: this.clientSession,
+            pageIds: this.pageIds,
+            platform: 'web',
         });
 
         this._startHeartbeat();
@@ -102,7 +114,10 @@ class PancakePhoenixSocket {
             if (event === 'phx_reply') {
                 // Heartbeat reply — clear timeout
                 if (topic === 'phoenix') {
-                    if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+                    if (this.heartbeatTimeout) {
+                        clearTimeout(this.heartbeatTimeout);
+                        this.heartbeatTimeout = null;
+                    }
                     return;
                 }
                 // Channel join reply
@@ -114,32 +129,52 @@ class PancakePhoenixSocket {
                         this.onStatusChange(true);
                     }
                 } else if (payload?.status === 'error') {
-                    const reason = payload?.response?.message || payload?.response?.reason || JSON.stringify(payload?.response);
+                    const reason =
+                        payload?.response?.message ||
+                        payload?.response?.reason ||
+                        JSON.stringify(payload?.response);
                     console.error(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
 
                     // Retry multiple_pages by removing one page at a time
-                    if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                    if (
+                        topic.startsWith('multiple_pages:') &&
+                        this._allPageIds &&
+                        !this._retryExhausted
+                    ) {
                         this._retryIndex = (this._retryIndex || 0) + 1;
                         if (this._retryIndex <= this._allPageIds.length) {
                             const skipIdx = this._retryIndex - 1;
                             const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
-                            console.warn(`[PHOENIX] Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                            console.warn(
+                                `[PHOENIX] Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`
+                            );
                             this.pageIds = retryPages;
                             this._joinChannel(`multiple_pages:${this.userId}`, {
-                                accessToken: this.accessToken, userId: this.userId,
-                                clientSession: this.clientSession, pageIds: retryPages, platform: 'web'
+                                accessToken: this.accessToken,
+                                userId: this.userId,
+                                clientSession: this.clientSession,
+                                pageIds: retryPages,
+                                platform: 'web',
                             });
                         } else {
                             this._retryExhausted = true;
-                            console.error('[PHOENIX] All page combinations failed for multiple_pages channel.');
+                            console.error(
+                                '[PHOENIX] All page combinations failed for multiple_pages channel.'
+                            );
                         }
                     }
                 }
                 return;
             }
 
-            if (event === 'phx_error') { this.joinedChannels.delete(topic); return; }
-            if (event === 'phx_close') { this.joinedChannels.delete(topic); return; }
+            if (event === 'phx_error') {
+                this.joinedChannels.delete(topic);
+                return;
+            }
+            if (event === 'phx_close') {
+                this.joinedChannels.delete(topic);
+                return;
+            }
 
             if (this.onEvent) this.onEvent(event, payload);
         } catch (e) {
@@ -171,8 +206,14 @@ class PancakePhoenixSocket {
     }
 
     _stopHeartbeat() {
-        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-        if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
+        if (this.heartbeatTimeout) {
+            clearTimeout(this.heartbeatTimeout);
+            this.heartbeatTimeout = null;
+        }
     }
 
     _scheduleReconnect() {
@@ -182,7 +223,9 @@ class PancakePhoenixSocket {
         }
         const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
         this.reconnectAttempts++;
-        console.log(`[PHOENIX] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnect})`);
+        console.log(
+            `[PHOENIX] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnect})`
+        );
         this.reconnectTimer = setTimeout(() => this.connect(), delay);
     }
 }
@@ -294,7 +337,7 @@ class InboxChatController {
         const savedFilter = this.currentFilter;
         const tab = document.querySelector(`.filter-tab[data-filter="${savedFilter}"]`);
         if (tab) {
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.filter-tab').forEach((t) => t.classList.remove('active'));
             tab.classList.add('active');
         }
         this.toggleLivestreamPostSelector();
@@ -316,13 +359,19 @@ class InboxChatController {
             const query = e.target.value.trim();
             this.searchQuery = query;
 
-            if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+                searchTimeout = null;
+            }
 
             if (!query) {
                 this.isSearching = false;
                 this.searchResults = null;
                 this._lastSearchQuery = null;
-                if (localRenderRaf) { cancelAnimationFrame(localRenderRaf); localRenderRaf = 0; }
+                if (localRenderRaf) {
+                    cancelAnimationFrame(localRenderRaf);
+                    localRenderRaf = 0;
+                }
                 this.renderConversationList();
                 return;
             }
@@ -349,10 +398,16 @@ class InboxChatController {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 const query = this.elements.searchInput.value.trim();
-                if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = null;
+                }
                 if (query) this.performSearch(query);
             } else if (e.key === 'Escape') {
-                if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = null;
+                }
                 this.elements.searchInput.value = '';
                 this.searchQuery = '';
                 this.isSearching = false;
@@ -372,16 +427,24 @@ class InboxChatController {
                 convScrollThrottled = false;
                 const el = this.elements.conversationList;
                 const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
-                if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery && Date.now() >= this._loadMoreCooldownUntil) {
+                if (
+                    nearBottom &&
+                    !this.isLoadingMoreConversations &&
+                    this.hasMoreConversations &&
+                    !this.searchQuery &&
+                    Date.now() >= this._loadMoreCooldownUntil
+                ) {
                     this.loadMoreConversations();
                 }
             });
         });
 
         // Filter tabs
-        document.querySelectorAll('.filter-tab').forEach(tab => {
+        document.querySelectorAll('.filter-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                document
+                    .querySelectorAll('.filter-tab')
+                    .forEach((t) => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
                 localStorage.setItem('inbox_current_filter', this.currentFilter);
@@ -393,9 +456,11 @@ class InboxChatController {
         });
 
         // Type filter (comment/message) — applies across all tabs
-        document.querySelectorAll('.type-filter-btn').forEach(btn => {
+        document.querySelectorAll('.type-filter-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+                document
+                    .querySelectorAll('.type-filter-btn')
+                    .forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.currentTypeFilter = btn.dataset.type;
                 this._consecutiveEmptyLoads = 0;
@@ -407,7 +472,7 @@ class InboxChatController {
 
         // Update type filter count badges
         this._updateTypeFilterCounts = (total, inbox, comment) => {
-            document.querySelectorAll('.type-filter-btn').forEach(btn => {
+            document.querySelectorAll('.type-filter-btn').forEach((btn) => {
                 const type = btn.dataset.type;
                 const count = type === 'all' ? total : type === 'INBOX' ? inbox : comment;
                 // Update or create badge span
@@ -482,7 +547,9 @@ class InboxChatController {
                 }
             }
         });
-        document.getElementById('chatImagePreviewClose')?.addEventListener('click', () => this._clearImagePreview());
+        document
+            .getElementById('chatImagePreviewClose')
+            ?.addEventListener('click', () => this._clearImagePreview());
 
         // Note input: Enter to send (right panel only)
         const noteInput = document.getElementById('convNoteInput');
@@ -499,23 +566,30 @@ class InboxChatController {
         this.elements.chatMessages.addEventListener('scroll', () => {
             const container = this.elements.chatMessages;
             // Load more when scrolled near top
-            if (container.scrollTop < 100 &&
+            if (
+                container.scrollTop < 100 &&
                 this.hasMoreMessages &&
                 !this.isLoadingMoreMessages &&
-                this.activeConversationId) {
+                this.activeConversationId
+            ) {
                 this.loadMoreMessages();
             }
             // Show/hide scroll-to-bottom button
-            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            const distanceFromBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight;
             if (this.elements.btnScrollBottom) {
-                this.elements.btnScrollBottom.style.display = distanceFromBottom > 200 ? 'flex' : 'none';
+                this.elements.btnScrollBottom.style.display =
+                    distanceFromBottom > 200 ? 'flex' : 'none';
             }
         });
 
         // Scroll-to-bottom button click
         if (this.elements.btnScrollBottom) {
             this.elements.btnScrollBottom.addEventListener('click', () => {
-                this.elements.chatMessages.scrollTo({ top: this.elements.chatMessages.scrollHeight, behavior: 'smooth' });
+                this.elements.chatMessages.scrollTo({
+                    top: this.elements.chatMessages.scrollHeight,
+                    behavior: 'smooth',
+                });
             });
         }
 
@@ -573,15 +647,643 @@ class InboxChatController {
         // Emoji picker
         this.emojiData = {
             recent: ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
-            smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬'],
-            gestures: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','🫦'],
-            hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','🫶','💏','💑','👪'],
-            animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🪸','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦣','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'],
-            food: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🫘','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾','🫗'],
-            objects: ['💡','🔦','🏮','🪔','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💾','💿','📀','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','🩻','🩼','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓']
+            smileys: [
+                '😀',
+                '😃',
+                '😄',
+                '😁',
+                '😆',
+                '😅',
+                '🤣',
+                '😂',
+                '🙂',
+                '😊',
+                '😇',
+                '🥰',
+                '😍',
+                '🤩',
+                '😘',
+                '😗',
+                '😚',
+                '😙',
+                '🥲',
+                '😋',
+                '😛',
+                '😜',
+                '🤪',
+                '😝',
+                '🤑',
+                '🤗',
+                '🤭',
+                '🫢',
+                '🤫',
+                '🤔',
+                '🫡',
+                '🤐',
+                '🤨',
+                '😐',
+                '😑',
+                '😶',
+                '🫥',
+                '😏',
+                '😒',
+                '🙄',
+                '😬',
+                '🤥',
+                '😌',
+                '😔',
+                '😪',
+                '🤤',
+                '😴',
+                '😷',
+                '🤒',
+                '🤕',
+                '🤢',
+                '🤮',
+                '🥵',
+                '🥶',
+                '🥴',
+                '😵',
+                '🤯',
+                '🤠',
+                '🥳',
+                '🥸',
+                '😎',
+                '🤓',
+                '🧐',
+                '😕',
+                '🫤',
+                '😟',
+                '🙁',
+                '😮',
+                '😯',
+                '😲',
+                '😳',
+                '🥺',
+                '🥹',
+                '😦',
+                '😧',
+                '😨',
+                '😰',
+                '😥',
+                '😢',
+                '😭',
+                '😱',
+                '😖',
+                '😣',
+                '😞',
+                '😓',
+                '😩',
+                '😫',
+                '🥱',
+                '😤',
+                '😡',
+                '😠',
+                '🤬',
+            ],
+            gestures: [
+                '👋',
+                '🤚',
+                '🖐️',
+                '✋',
+                '🖖',
+                '🫱',
+                '🫲',
+                '🫳',
+                '🫴',
+                '👌',
+                '🤌',
+                '🤏',
+                '✌️',
+                '🤞',
+                '🫰',
+                '🤟',
+                '🤘',
+                '🤙',
+                '👈',
+                '👉',
+                '👆',
+                '🖕',
+                '👇',
+                '☝️',
+                '🫵',
+                '👍',
+                '👎',
+                '✊',
+                '👊',
+                '🤛',
+                '🤜',
+                '👏',
+                '🙌',
+                '🫶',
+                '👐',
+                '🤲',
+                '🤝',
+                '🙏',
+                '✍️',
+                '💅',
+                '🤳',
+                '💪',
+                '🦾',
+                '🦿',
+                '🦵',
+                '🦶',
+                '👂',
+                '🦻',
+                '👃',
+                '🫀',
+                '🫁',
+                '🧠',
+                '🦷',
+                '🦴',
+                '👀',
+                '👁️',
+                '👅',
+                '👄',
+                '🫦',
+            ],
+            hearts: [
+                '❤️',
+                '🧡',
+                '💛',
+                '💚',
+                '💙',
+                '💜',
+                '🖤',
+                '🤍',
+                '🤎',
+                '💔',
+                '❤️‍🔥',
+                '❤️‍🩹',
+                '❣️',
+                '💕',
+                '💞',
+                '💓',
+                '💗',
+                '💖',
+                '💘',
+                '💝',
+                '💟',
+                '♥️',
+                '🫶',
+                '💏',
+                '💑',
+                '👪',
+            ],
+            animals: [
+                '🐶',
+                '🐱',
+                '🐭',
+                '🐹',
+                '🐰',
+                '🦊',
+                '🐻',
+                '🐼',
+                '🐨',
+                '🐯',
+                '🦁',
+                '🐮',
+                '🐷',
+                '🐸',
+                '🐵',
+                '🙈',
+                '🙉',
+                '🙊',
+                '🐒',
+                '🐔',
+                '🐧',
+                '🐦',
+                '🐤',
+                '🐣',
+                '🐥',
+                '🦆',
+                '🦅',
+                '🦉',
+                '🦇',
+                '🐺',
+                '🐗',
+                '🐴',
+                '🦄',
+                '🐝',
+                '🪱',
+                '🐛',
+                '🦋',
+                '🐌',
+                '🐞',
+                '🐜',
+                '🪰',
+                '🪲',
+                '🪳',
+                '🦟',
+                '🦗',
+                '🕷️',
+                '🦂',
+                '🐢',
+                '🐍',
+                '🦎',
+                '🦖',
+                '🦕',
+                '🐙',
+                '🦑',
+                '🦐',
+                '🦞',
+                '🦀',
+                '🪸',
+                '🐡',
+                '🐠',
+                '🐟',
+                '🐬',
+                '🐳',
+                '🐋',
+                '🦈',
+                '🐊',
+                '🐅',
+                '🐆',
+                '🦓',
+                '🦍',
+                '🦧',
+                '🐘',
+                '🦣',
+                '🦛',
+                '🦏',
+                '🐪',
+                '🐫',
+                '🦒',
+                '🦘',
+                '🦬',
+                '🐃',
+                '🐂',
+                '🐄',
+                '🐎',
+                '🐖',
+                '🐏',
+                '🐑',
+                '🦙',
+                '🐐',
+                '🦌',
+                '🐕',
+                '🐩',
+                '🦮',
+                '🐕‍🦺',
+                '🐈',
+                '🐈‍⬛',
+                '🪶',
+                '🐓',
+                '🦃',
+                '🦤',
+                '🦚',
+                '🦜',
+                '🦢',
+                '🦩',
+                '🕊️',
+                '🐇',
+                '🦝',
+                '🦨',
+                '🦡',
+                '🦫',
+                '🦦',
+                '🦥',
+                '🐁',
+                '🐀',
+                '🐿️',
+                '🦔',
+            ],
+            food: [
+                '🍎',
+                '🍐',
+                '🍊',
+                '🍋',
+                '🍌',
+                '🍉',
+                '🍇',
+                '🍓',
+                '🫐',
+                '🍈',
+                '🍒',
+                '🍑',
+                '🥭',
+                '🍍',
+                '🥥',
+                '🥝',
+                '🍅',
+                '🍆',
+                '🥑',
+                '🥦',
+                '🥬',
+                '🥒',
+                '🌶️',
+                '🫑',
+                '🌽',
+                '🥕',
+                '🫒',
+                '🧄',
+                '🧅',
+                '🥔',
+                '🍠',
+                '🫘',
+                '🥐',
+                '🥯',
+                '🍞',
+                '🥖',
+                '🥨',
+                '🧀',
+                '🥚',
+                '🍳',
+                '🧈',
+                '🥞',
+                '🧇',
+                '🥓',
+                '🥩',
+                '🍗',
+                '🍖',
+                '🌭',
+                '🍔',
+                '🍟',
+                '🍕',
+                '🫓',
+                '🥪',
+                '🥙',
+                '🧆',
+                '🌮',
+                '🌯',
+                '🫔',
+                '🥗',
+                '🥘',
+                '🫕',
+                '🥫',
+                '🍝',
+                '🍜',
+                '🍲',
+                '🍛',
+                '🍣',
+                '🍱',
+                '🥟',
+                '🦪',
+                '🍤',
+                '🍙',
+                '🍚',
+                '🍘',
+                '🍥',
+                '🥠',
+                '🥮',
+                '🍢',
+                '🍡',
+                '🍧',
+                '🍨',
+                '🍦',
+                '🥧',
+                '🧁',
+                '🍰',
+                '🎂',
+                '🍮',
+                '🍭',
+                '🍬',
+                '🍫',
+                '🍿',
+                '🍩',
+                '🍪',
+                '🌰',
+                '🥜',
+                '🍯',
+                '🥛',
+                '🍼',
+                '🫖',
+                '☕',
+                '🍵',
+                '🧃',
+                '🥤',
+                '🧋',
+                '🍶',
+                '🍺',
+                '🍻',
+                '🥂',
+                '🍷',
+                '🥃',
+                '🍸',
+                '🍹',
+                '🧉',
+                '🍾',
+                '🫗',
+            ],
+            objects: [
+                '💡',
+                '🔦',
+                '🏮',
+                '🪔',
+                '📱',
+                '💻',
+                '⌨️',
+                '🖥️',
+                '🖨️',
+                '🖱️',
+                '🖲️',
+                '💾',
+                '💿',
+                '📀',
+                '📷',
+                '📸',
+                '📹',
+                '🎥',
+                '📽️',
+                '🎞️',
+                '📞',
+                '☎️',
+                '📟',
+                '📠',
+                '📺',
+                '📻',
+                '🎙️',
+                '🎚️',
+                '🎛️',
+                '🧭',
+                '⏱️',
+                '⏲️',
+                '⏰',
+                '🕰️',
+                '⌛',
+                '⏳',
+                '📡',
+                '🔋',
+                '🪫',
+                '🔌',
+                '💵',
+                '💴',
+                '💶',
+                '💷',
+                '🪙',
+                '💰',
+                '💳',
+                '💎',
+                '⚖️',
+                '🪜',
+                '🧰',
+                '🪛',
+                '🔧',
+                '🔨',
+                '⚒️',
+                '🛠️',
+                '⛏️',
+                '🪚',
+                '🔩',
+                '⚙️',
+                '🪤',
+                '🧲',
+                '🔫',
+                '💣',
+                '🧨',
+                '🪓',
+                '🔪',
+                '🗡️',
+                '⚔️',
+                '🛡️',
+                '🚬',
+                '⚰️',
+                '🪦',
+                '⚱️',
+                '🏺',
+                '🔮',
+                '📿',
+                '🧿',
+                '🪬',
+                '💈',
+                '⚗️',
+                '🔭',
+                '🔬',
+                '🕳️',
+                '🩹',
+                '🩺',
+                '🩻',
+                '🩼',
+                '💊',
+                '💉',
+                '🩸',
+                '🧬',
+                '🦠',
+                '🧫',
+                '🧪',
+                '🌡️',
+                '🧹',
+                '🪠',
+                '🧺',
+                '🧻',
+                '🚽',
+                '🚰',
+                '🚿',
+                '🛁',
+                '🛀',
+                '🧼',
+                '🪥',
+                '🪒',
+                '🧽',
+                '🪣',
+                '🧴',
+                '🛎️',
+                '🔑',
+                '🗝️',
+                '🚪',
+                '🪑',
+                '🛋️',
+                '🛏️',
+                '🛌',
+                '🧸',
+                '🪆',
+                '🖼️',
+                '🪞',
+                '🪟',
+                '🛍️',
+                '🛒',
+                '🎁',
+                '🎈',
+                '🎏',
+                '🎀',
+                '🪄',
+                '🪅',
+                '🎊',
+                '🎉',
+                '🎎',
+                '🏮',
+                '🎐',
+                '🧧',
+                '✉️',
+                '📩',
+                '📨',
+                '📧',
+                '💌',
+                '📥',
+                '📤',
+                '📦',
+                '🏷️',
+                '🪧',
+                '📪',
+                '📫',
+                '📬',
+                '📭',
+                '📮',
+                '📯',
+                '📜',
+                '📃',
+                '📄',
+                '📑',
+                '🧾',
+                '📊',
+                '📈',
+                '📉',
+                '🗒️',
+                '🗓️',
+                '📆',
+                '📅',
+                '🗑️',
+                '📇',
+                '🗃️',
+                '🗳️',
+                '🗄️',
+                '📋',
+                '📁',
+                '📂',
+                '🗂️',
+                '🗞️',
+                '📰',
+                '📓',
+                '📔',
+                '📒',
+                '📕',
+                '📗',
+                '📘',
+                '📙',
+                '📚',
+                '📖',
+                '🔖',
+                '🧷',
+                '🔗',
+                '📎',
+                '🖇️',
+                '📐',
+                '📏',
+                '🧮',
+                '📌',
+                '📍',
+                '✂️',
+                '🖊️',
+                '🖋️',
+                '✒️',
+                '🖌️',
+                '🖍️',
+                '📝',
+                '✏️',
+                '🔍',
+                '🔎',
+                '🔏',
+                '🔐',
+                '🔒',
+                '🔓',
+            ],
         };
         const savedRecent = localStorage.getItem('inbox_recent_emojis');
-        if (savedRecent) { try { this.emojiData.recent = JSON.parse(savedRecent); } catch(e){} }
+        if (savedRecent) {
+            try {
+                this.emojiData.recent = JSON.parse(savedRecent);
+            } catch (e) {}
+        }
 
         const emojiBtn = document.getElementById('btnEmoji');
         const emojiPicker = document.getElementById('emojiPicker');
@@ -594,12 +1296,15 @@ class InboxChatController {
                 if (!vis) this.renderEmojiGrid('recent');
             });
             document.addEventListener('click', (e) => {
-                if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) emojiPicker.style.display = 'none';
+                if (!emojiPicker.contains(e.target) && e.target !== emojiBtn)
+                    emojiPicker.style.display = 'none';
             });
             document.getElementById('emojiCategories').addEventListener('click', (e) => {
                 const cat = e.target.closest('.emoji-cat');
                 if (!cat) return;
-                document.querySelectorAll('.emoji-cat').forEach(c => c.classList.remove('active'));
+                document
+                    .querySelectorAll('.emoji-cat')
+                    .forEach((c) => c.classList.remove('active'));
                 cat.classList.add('active');
                 this.renderEmojiGrid(cat.dataset.cat);
             });
@@ -659,12 +1364,18 @@ class InboxChatController {
         });
 
         // Info panel tabs
-        document.querySelectorAll('.info-tab').forEach(tab => {
+        document.querySelectorAll('.info-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.info-tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('.info-tab').forEach((t) => t.classList.remove('active'));
+                document
+                    .querySelectorAll('.info-tab-content')
+                    .forEach((c) => c.classList.remove('active'));
                 tab.classList.add('active');
-                const tabMap = { stats: 'tabStats', activities: 'tabActivities', orders: 'tabOrders' };
+                const tabMap = {
+                    stats: 'tabStats',
+                    activities: 'tabActivities',
+                    orders: 'tabOrders',
+                };
                 const target = document.getElementById(tabMap[tab.dataset.tab] || 'tabStats');
                 if (target) target.classList.add('active');
             });
@@ -742,7 +1453,6 @@ class InboxChatController {
                 }
             });
         }
-
     }
 
     // ===== Page Selector (from tpos-pancake) =====
@@ -753,7 +1463,8 @@ class InboxChatController {
 
         const pages = this.data.pages || [];
         if (pages.length === 0) {
-            dropdown.innerHTML = '<div class="page-item" style="padding:8px;color:var(--text-tertiary);">Chưa có pages</div>';
+            dropdown.innerHTML =
+                '<div class="page-item" style="padding:8px;color:var(--text-tertiary);">Chưa có pages</div>';
             return;
         }
 
@@ -780,9 +1491,10 @@ class InboxChatController {
                 : `<div class="page-item-avatar-ph">${initial}</div>`;
 
             const unreadCount = this.pageUnreadCounts[pageId] || 0;
-            const unreadBadgeHtml = unreadCount > 0
-                ? `<span class="page-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`
-                : '';
+            const unreadBadgeHtml =
+                unreadCount > 0
+                    ? `<span class="page-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                    : '';
 
             html += `
                 <div class="page-item ${isActive ? 'active' : ''}" data-page-id="${pageId}">
@@ -799,7 +1511,7 @@ class InboxChatController {
         dropdown.innerHTML = html;
 
         // Bind click events — multi-select toggle
-        dropdown.querySelectorAll('.page-item').forEach(item => {
+        dropdown.querySelectorAll('.page-item').forEach((item) => {
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const pageId = item.dataset.pageId;
@@ -831,7 +1543,7 @@ class InboxChatController {
             label.textContent = 'Tất cả Pages';
         } else if (this.selectedPageIds.size === 1) {
             const pageId = [...this.selectedPageIds][0];
-            const page = pages.find(p => p.id === pageId);
+            const page = pages.find((p) => p.id === pageId);
             label.textContent = page?.name || 'Page';
         } else {
             label.textContent = `${this.selectedPageIds.size} Pages`;
@@ -854,7 +1566,9 @@ class InboxChatController {
         container.style.display = 'flex';
 
         // Always match conversation's page when switching conversations
-        const conv = this.activeConversationId ? this.data.getConversation(this.activeConversationId) : null;
+        const conv = this.activeConversationId
+            ? this.data.getConversation(this.activeConversationId)
+            : null;
         if (conv?.pageId) {
             this.currentSendPageId = conv.pageId;
         }
@@ -873,7 +1587,7 @@ class InboxChatController {
     onSendPageChanged(pageId) {
         this.currentSendPageId = pageId || null;
         const pages = this.data.pages || [];
-        const page = pages.find(p => p.id === pageId);
+        const page = pages.find((p) => p.id === pageId);
         if (pageId && page) {
             console.log('[InboxChat] Send page changed to:', page.name || pageId);
         } else {
@@ -933,8 +1647,8 @@ class InboxChatController {
         const input = this.elements.chatInput;
         if (!input) return;
         const hints = {
-            'reply_comment': 'Trả lời bình luận công khai...',
-            'private_replies': 'Nhắn riêng cho người bình luận...',
+            reply_comment: 'Trả lời bình luận công khai...',
+            private_replies: 'Nhắn riêng cho người bình luận...',
         };
         input.placeholder = hints[this.currentReplyType] || 'Nhập tin nhắn...';
     }
@@ -949,11 +1663,12 @@ class InboxChatController {
 
         // 4-tier avatar fallback (like tpos-pancake)
         const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
-        const directAvatar = conv.avatar
-            || conv._raw?.from?.picture?.data?.url
-            || conv._raw?.from?.profile_pic
-            || conv._raw?.customers?.[0]?.avatar
-            || null;
+        const directAvatar =
+            conv.avatar ||
+            conv._raw?.from?.picture?.data?.url ||
+            conv._raw?.from?.profile_pic ||
+            conv._raw?.customers?.[0]?.avatar ||
+            null;
 
         let avatarUrl = directAvatar;
         if (window.inboxPancakeAPI?.getAvatarUrl && fbId) {
@@ -970,17 +1685,20 @@ class InboxChatController {
     // ===== Tags Helper =====
 
     getTagsHtml(conv) {
-        const tags = conv._raw?.tags?.filter(t => t != null);
+        const tags = conv._raw?.tags?.filter((t) => t != null);
         if (!tags || tags.length === 0) return '';
         const colorPalette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
-        return tags.slice(0, 3).map((tag, idx) => {
-            const tagName = tag.name || tag.tag_name || tag;
-            const tagColor = tag.color || colorPalette[idx % colorPalette.length];
-            if (tagColor.startsWith('#')) {
-                return `<span class="conv-tag" style="background:${tagColor}20;color:${tagColor};">${this.escapeHtml(tagName)}</span>`;
-            }
-            return `<span class="conv-tag tag-${tagColor}">${this.escapeHtml(tagName)}</span>`;
-        }).join('');
+        return tags
+            .slice(0, 3)
+            .map((tag, idx) => {
+                const tagName = tag.name || tag.tag_name || tag;
+                const tagColor = tag.color || colorPalette[idx % colorPalette.length];
+                if (tagColor.startsWith('#')) {
+                    return `<span class="conv-tag" style="background:${tagColor}20;color:${tagColor};">${this.escapeHtml(tagName)}</span>`;
+                }
+                return `<span class="conv-tag tag-${tagColor}">${this.escapeHtml(tagName)}</span>`;
+            })
+            .join('');
     }
 
     // ===== Conversation List =====
@@ -988,7 +1706,9 @@ class InboxChatController {
     renderConversationList() {
         // Debounce: collapse rapid consecutive calls into 1 render (WS events, init, etc.)
         if (this._renderDebounceTimer) return;
-        this._renderDebounceTimer = setTimeout(() => { this._renderDebounceTimer = null; }, 50);
+        this._renderDebounceTimer = setTimeout(() => {
+            this._renderDebounceTimer = null;
+        }, 50);
 
         // Guard: prevent scroll-to-load-more during re-render
         this._isRerendering = true;
@@ -1004,10 +1724,10 @@ class InboxChatController {
                 filter: effectiveFilter,
                 groupFilters: this.currentGroupFilters,
             });
-            const localIds = new Set(localResults.map(c => c.id));
+            const localIds = new Set(localResults.map((c) => c.id));
             const apiMapped = this.searchResults
-                .filter(c => !localIds.has(c.id))
-                .map(c => this.data.mapConversation(c));
+                .filter((c) => !localIds.has(c.id))
+                .map((c) => this.data.mapConversation(c));
             conversations = [...localResults, ...apiMapped];
         } else {
             conversations = this.data.getConversations({
@@ -1020,29 +1740,32 @@ class InboxChatController {
         // While searching: always sort by newest time first (override unread-first sort).
         // User wants the most recent matches at the top regardless of read state.
         if (this.searchQuery) {
-            const ts = (c) => (c.time instanceof Date ? c.time.getTime() : (typeof c.time === 'number' ? c.time : 0));
+            const ts = (c) =>
+                c.time instanceof Date ? c.time.getTime() : typeof c.time === 'number' ? c.time : 0;
             conversations.sort((a, b) => ts(b) - ts(a));
         }
 
         // Apply page filter (multi-select)
         if (this.selectedPageIds.size > 0) {
-            conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
+            conversations = conversations.filter((c) => this.selectedPageIds.has(c.pageId));
         }
 
         // Count by type for filter badges (before type filter applied)
         const totalCount = conversations.length;
-        const inboxCount = conversations.filter(c => c.type === 'INBOX').length;
-        const commentCount = conversations.filter(c => c.type === 'COMMENT').length;
+        const inboxCount = conversations.filter((c) => c.type === 'INBOX').length;
+        const commentCount = conversations.filter((c) => c.type === 'COMMENT').length;
         this._updateTypeFilterCounts(totalCount, inboxCount, commentCount);
 
         // Apply type filter (INBOX/COMMENT) — across all tabs
         if (this.currentTypeFilter !== 'all') {
-            conversations = conversations.filter(c => c.type === this.currentTypeFilter);
+            conversations = conversations.filter((c) => c.type === this.currentTypeFilter);
         }
 
         // Apply livestream post filter (only in livestream tab)
         if (this.currentFilter === 'livestream' && this.selectedLivestreamPostId) {
-            conversations = conversations.filter(c => c._raw?.post_id === this.selectedLivestreamPostId);
+            conversations = conversations.filter(
+                (c) => c._raw?.post_id === this.selectedLivestreamPostId
+            );
         }
 
         if (conversations.length === 0 && this.isSearching) {
@@ -1077,27 +1800,42 @@ class InboxChatController {
             return;
         }
 
-        this.elements.conversationList.innerHTML = conversations.map(conv => this._buildConvItemHtml(conv)).join('');
+        this.elements.conversationList.innerHTML = conversations
+            .map((conv) => this._buildConvItemHtml(conv))
+            .join('');
 
         this._debouncedCreateIcons();
 
         // Restore scroll guard after render settles
-        requestAnimationFrame(() => { this._isRerendering = false; });
+        requestAnimationFrame(() => {
+            this._isRerendering = false;
+        });
     }
 
     _buildConvItemHtml(conv) {
-        const labelsHtml = (conv.labels || ['new']).map(l =>
-            `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
-        ).join('');
+        const labelsHtml = (conv.labels || ['new'])
+            .map(
+                (l) =>
+                    `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
+            )
+            .join('');
         const isActive = conv.id === this.activeConversationId;
         // Don't show as unread if shop sent the last message (already replied)
         const isUnread = conv.unread > 0 && conv.isCustomerLast !== false;
         const avatarHtml = this.getAvatarHtml(conv);
-        const unreadBadge = isUnread ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>` : '';
-        const livestreamBadge = conv.isLivestream ? '<span class="conv-livestream-badge">LIVE</span>' : '';
-        const pageNameHtml = conv.pageName ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>` : '';
+        const unreadBadge = isUnread
+            ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>`
+            : '';
+        const livestreamBadge = conv.isLivestream
+            ? '<span class="conv-livestream-badge">LIVE</span>'
+            : '';
+        const pageNameHtml = conv.pageName
+            ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>`
+            : '';
         const typeIcon = conv.type === 'COMMENT' ? 'message-circle' : 'mail';
-        const phoneIconHtml = conv.phone ? `<span class="conv-phone-icon" title="${this.escapeHtml(conv.phone)}"><i data-lucide="phone"></i></span>` : '';
+        const phoneIconHtml = conv.phone
+            ? `<span class="conv-phone-icon" title="${this.escapeHtml(conv.phone)}"><i data-lucide="phone"></i></span>`
+            : '';
         const tagsHtml = this.getTagsHtml(conv);
         const bulkChecked = window.inboxFeatures?.bulkSelected?.has(conv.id) ? 'checked' : '';
         return `
@@ -1159,7 +1897,7 @@ class InboxChatController {
      * in _buildConvItemHtml so DOM order stays in sync with the canonical sort.
      */
     _convSortRank(conv) {
-        return (conv.unread > 0 && conv.isCustomerLast !== false) ? 1 : 0;
+        return conv.unread > 0 && conv.isCustomerLast !== false ? 1 : 0;
     }
 
     _convSortTime(conv) {
@@ -1269,10 +2007,14 @@ class InboxChatController {
             // Remove from livestream
             this.data.unmarkAsLivestream(conv.id);
             // Also delete from server
-            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            fetch(`${workerUrl}/api/realtime/livestream-conversations?conv_id=${encodeURIComponent(conv.id)}`, {
-                method: 'DELETE'
-            }).catch(err => console.warn('[InboxChat] Error removing livestream:', err.message));
+            const workerUrl =
+                InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(
+                `${workerUrl}/api/realtime/livestream-conversations?conv_id=${encodeURIComponent(conv.id)}`,
+                {
+                    method: 'DELETE',
+                }
+            ).catch((err) => console.warn('[InboxChat] Error removing livestream:', err.message));
             showToast('Đã bỏ khỏi Livestream', 'success');
         } else {
             // Add to livestream — need a post_id
@@ -1286,7 +2028,9 @@ class InboxChatController {
                 if (latest?.post_id) {
                     postId = latest.post_id;
                     postName = latest.message || latest.attachments?.title || null;
-                    console.log(`[Livestream] INBOX conv → using activity post_id: ${postId}, name: ${postName}`);
+                    console.log(
+                        `[Livestream] INBOX conv → using activity post_id: ${postId}, name: ${postName}`
+                    );
                 }
             }
             if (!postId) postId = 'manual';
@@ -1319,7 +2063,7 @@ class InboxChatController {
         const postIds = Object.keys(postMap);
 
         // Check for missing names — fetch once
-        const missingIds = postIds.filter(pid => !postNames[pid]);
+        const missingIds = postIds.filter((pid) => !postNames[pid]);
         if (missingIds.length > 0 && !this._fetchingPostNames) {
             this._fetchingPostNames = true;
             this._fetchMissingPostNames(missingIds);
@@ -1352,7 +2096,10 @@ class InboxChatController {
             const conv = this.data.getConversation(sc.conv_id);
             const pageId = conv?.pageId || sc.page_id;
             const convId = sc.conv_id;
-            if (!pageId || !convId) { console.log(`[PostName] Skip ${postId}: no pageId/convId`); continue; }
+            if (!pageId || !convId) {
+                console.log(`[PostName] Skip ${postId}: no pageId/convId`);
+                continue;
+            }
 
             // Check if messages already loaded (has post data)
             const cachedPost = conv?._messagesData?.post;
@@ -1368,16 +2115,24 @@ class InboxChatController {
                 const cacheKey = `${pageId}_${convId}`;
                 if (pdm.clearMessagesCache) pdm.clearMessagesCache(cacheKey);
 
-                console.log(`[PostName] Fetching for post ${postId}, page=${pageId}, conv=${convId}`);
+                console.log(
+                    `[PostName] Fetching for post ${postId}, page=${pageId}, conv=${convId}`
+                );
                 const result = await pdm.fetchMessagesForConversation(
-                    pageId, convId, null, conv?.customerId || sc.customer_id
+                    pageId,
+                    convId,
+                    null,
+                    conv?.customerId || sc.customer_id
                 );
                 const post = result?.post || result?.conversation?.post;
                 // Livestream posts have message=null, fallback to story or date+admin
                 // INBOX conversations have post=null, fallback to activities
-                let postName = post?.message
-                    || post?.story
-                    || (post?.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
+                let postName =
+                    post?.message ||
+                    post?.story ||
+                    (post?.inserted_at
+                        ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}`
+                        : null);
 
                 // If post is null (INBOX conv), try activities for livestream video names
                 if (!postName && result?.activities?.length) {
@@ -1390,11 +2145,13 @@ class InboxChatController {
                 if (postName) {
                     this.data.livestreamPostNames[postId] = postName;
                     // Save to server for persistence
-                    const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const workerUrl =
+                        InboxApiConfig?.WORKER_URL ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev';
                     fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ convId, postId, postName })
+                        body: JSON.stringify({ convId, postId, postName }),
                     }).catch(() => {});
                     updated = true;
                 }
@@ -1422,16 +2179,25 @@ class InboxChatController {
             return;
         }
 
-        if (!confirm(`Xóa đánh dấu livestream cho ${convs.length} đoạn hội thoại của bài post này?`)) return;
+        if (
+            !confirm(`Xóa đánh dấu livestream cho ${convs.length} đoạn hội thoại của bài post này?`)
+        )
+            return;
 
         // DELETE on server
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const workerUrl =
+            InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
-            const res = await fetch(`${workerUrl}/api/realtime/livestream-conversations?post_id=${encodeURIComponent(postId)}`, {
-                method: 'DELETE'
-            });
+            const res = await fetch(
+                `${workerUrl}/api/realtime/livestream-conversations?post_id=${encodeURIComponent(postId)}`,
+                {
+                    method: 'DELETE',
+                }
+            );
             const data = await res.json();
-            console.log(`[InboxChat] Deleted ${data.deleted} livestream conversations for post ${postId}`);
+            console.log(
+                `[InboxChat] Deleted ${data.deleted} livestream conversations for post ${postId}`
+            );
         } catch (err) {
             console.warn('[InboxChat] Error deleting livestream:', err.message);
         }
@@ -1454,7 +2220,8 @@ class InboxChatController {
         // Show loading spinner at bottom
         const spinner = document.createElement('div');
         spinner.className = 'conv-loading-more';
-        spinner.innerHTML = '<div class="typing-indicator" style="justify-content:center;padding:12px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+        spinner.innerHTML =
+            '<div class="typing-indicator" style="justify-content:center;padding:12px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
         this.elements.conversationList.appendChild(spinner);
 
         try {
@@ -1469,18 +2236,24 @@ class InboxChatController {
 
             // Filter new conversations by current tab/type before appending
             let filtered = newConvs;
-            if (this.currentFilter === 'unread') filtered = filtered.filter(c => c.unread > 0);
-            else if (this.currentFilter === 'livestream') filtered = filtered.filter(c => c.isLivestream);
-            else if (this.currentFilter === 'inbox_my') filtered = filtered.filter(c => !c.isLivestream);
-            if (this.currentTypeFilter !== 'all') filtered = filtered.filter(c => c.type === this.currentTypeFilter);
-            if (this.selectedPageIds.size > 0) filtered = filtered.filter(c => this.selectedPageIds.has(c.pageId));
+            if (this.currentFilter === 'unread') filtered = filtered.filter((c) => c.unread > 0);
+            else if (this.currentFilter === 'livestream')
+                filtered = filtered.filter((c) => c.isLivestream);
+            else if (this.currentFilter === 'inbox_my')
+                filtered = filtered.filter((c) => !c.isLivestream);
+            if (this.currentTypeFilter !== 'all')
+                filtered = filtered.filter((c) => c.type === this.currentTypeFilter);
+            if (this.selectedPageIds.size > 0)
+                filtered = filtered.filter((c) => this.selectedPageIds.has(c.pageId));
             if (this.currentFilter === 'livestream' && this.selectedLivestreamPostId) {
-                filtered = filtered.filter(c => c._raw?.post_id === this.selectedLivestreamPostId);
+                filtered = filtered.filter(
+                    (c) => c._raw?.post_id === this.selectedLivestreamPostId
+                );
             }
 
             // Append filtered items (preserves scroll)
             if (filtered.length > 0) {
-                const newHtml = filtered.map(conv => this._buildConvItemHtml(conv)).join('');
+                const newHtml = filtered.map((conv) => this._buildConvItemHtml(conv)).join('');
                 this.elements.conversationList.insertAdjacentHTML('beforeend', newHtml);
                 this._debouncedCreateIcons();
                 this._consecutiveEmptyLoads = 0;
@@ -1493,10 +2266,14 @@ class InboxChatController {
             if (this._consecutiveEmptyLoads > 0) {
                 const delay = Math.min(this._consecutiveEmptyLoads * 2000, 10000); // 2s, 4s, 6s... max 10s
                 this._loadMoreCooldownUntil = Date.now() + delay;
-                console.log(`[InboxChat] Load-more cooldown ${delay}ms (${this._consecutiveEmptyLoads} empty loads)`);
+                console.log(
+                    `[InboxChat] Load-more cooldown ${delay}ms (${this._consecutiveEmptyLoads} empty loads)`
+                );
             }
 
-            console.log(`[InboxChat] Loaded ${newConvs.length} more, ${filtered.length} matched filter`);
+            console.log(
+                `[InboxChat] Loaded ${newConvs.length} more, ${filtered.length} matched filter`
+            );
         } catch (error) {
             console.error('[InboxChat] Error loading more conversations:', error);
             spinner.remove();
@@ -1536,7 +2313,7 @@ class InboxChatController {
 
         // If not found locally, check search results (API returned conversation not in loaded list)
         if (!conv && this.searchResults) {
-            const apiConv = this.searchResults.find(c => c.id === convId);
+            const apiConv = this.searchResults.find((c) => c.id === convId);
             if (apiConv) {
                 conv = this.data.mapConversation(apiConv);
                 this.data.conversations.unshift(conv);
@@ -1561,7 +2338,12 @@ class InboxChatController {
         const gradient = AVATAR_GRADIENTS[colorIndex];
 
         const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
-        const directAvatar = conv.avatar || conv._raw?.from?.picture?.data?.url || conv._raw?.from?.profile_pic || conv._raw?.customers?.[0]?.avatar || null;
+        const directAvatar =
+            conv.avatar ||
+            conv._raw?.from?.picture?.data?.url ||
+            conv._raw?.from?.profile_pic ||
+            conv._raw?.customers?.[0]?.avatar ||
+            null;
         let avatarUrl = directAvatar;
         if (window.inboxPancakeAPI?.getAvatarUrl && fbId) {
             avatarUrl = window.inboxPancakeAPI.getAvatarUrl(fbId, conv.pageId, null, directAvatar);
@@ -1583,7 +2365,9 @@ class InboxChatController {
         this.updateLivestreamButton(conv);
         this.renderChatLabelBar(conv);
         // Update active highlight without marking as read
-        this.elements.conversationList.querySelectorAll('.conversation-item.active').forEach(el => el.classList.remove('active'));
+        this.elements.conversationList
+            .querySelectorAll('.conversation-item.active')
+            .forEach((el) => el.classList.remove('active'));
         const activeEl = this.elements.conversationList.querySelector(`[data-id="${convId}"]`);
         if (activeEl) {
             activeEl.classList.add('active');
@@ -1647,7 +2431,8 @@ class InboxChatController {
                 customers: result.customers || [],
                 reports_by_phone: result.reports_by_phone || {},
                 comment_count: result.comment_count || 0,
-                recent_phone_numbers: result.recent_phone_numbers || result.conv_recent_phone_numbers || [],
+                recent_phone_numbers:
+                    result.recent_phone_numbers || result.conv_recent_phone_numbers || [],
                 activities: result.activities || [],
                 conv_phone_numbers: result.conv_phone_numbers || [],
                 notes: result.notes || [],
@@ -1664,7 +2449,10 @@ class InboxChatController {
                 const rc = result.conversation;
                 if (rc.thread_id && !conv._raw.thread_id) {
                     conv._raw.thread_id = rc.thread_id;
-                    console.log('[InboxChat] Merged thread_id from messages response:', rc.thread_id);
+                    console.log(
+                        '[InboxChat] Merged thread_id from messages response:',
+                        rc.thread_id
+                    );
                 }
                 if (rc.thread_key && !conv._raw.thread_key) {
                     conv._raw.thread_key = rc.thread_key;
@@ -1672,7 +2460,10 @@ class InboxChatController {
                 if (rc.page_customer?.global_id && !conv._raw.page_customer?.global_id) {
                     if (!conv._raw.page_customer) conv._raw.page_customer = {};
                     conv._raw.page_customer.global_id = rc.page_customer.global_id;
-                    console.log('[InboxChat] Merged global_id from messages response:', rc.page_customer.global_id);
+                    console.log(
+                        '[InboxChat] Merged global_id from messages response:',
+                        rc.page_customer.global_id
+                    );
                 }
             }
 
@@ -1684,7 +2475,11 @@ class InboxChatController {
             const liveVideoStatus = post?.live_video_status;
             const wasLivestream = conv.isLivestream;
 
-            if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
+            if (
+                postType === 'livestream' ||
+                liveVideoStatus === 'vod' ||
+                liveVideoStatus === 'live'
+            ) {
                 this.data.markAsLivestream(conv.id, conv._raw?.post_id);
                 conv.isLivestream = true;
             } else if (conv.type === 'COMMENT' && post) {
@@ -1692,7 +2487,6 @@ class InboxChatController {
                 this.data.unmarkAsLivestream(conv.id);
                 conv.isLivestream = false;
             }
-
 
             // Update status line
             const statusParts = [];
@@ -1711,17 +2505,20 @@ class InboxChatController {
             // recent_phone_numbers can be string[] or {phone_number}[]
             const rpn = conv._messagesData.recent_phone_numbers?.[0];
             const rpnPhone = typeof rpn === 'string' ? rpn : rpn?.phone_number || '';
-            const extractedPhone = conv._messagesData.conv_phone_numbers?.[0]
-                || rpnPhone
-                || conv._messagesData.customers?.[0]?.recent_phone_numbers?.[0]?.phone_number
-                || '';
+            const extractedPhone =
+                conv._messagesData.conv_phone_numbers?.[0] ||
+                rpnPhone ||
+                conv._messagesData.customers?.[0]?.recent_phone_numbers?.[0]?.phone_number ||
+                '';
             if (extractedPhone) conv.phone = extractedPhone;
 
             // Preserve optimistic messages (temp IDs starting with 'm') before replacing
-            const prevOptimistic = (conv.messages || []).filter(m => typeof m.id === 'string' && m.id.startsWith('m'));
+            const prevOptimistic = (conv.messages || []).filter(
+                (m) => typeof m.id === 'string' && m.id.startsWith('m')
+            );
 
             // Map Pancake messages to inbox format
-            conv.messages = messages.map(msg => {
+            conv.messages = messages.map((msg) => {
                 const isFromPage = msg.from?.id === conv.pageId;
                 // Prefer original_message (clean text) over message (has HTML tags)
                 const text = msg.original_message || this.stripHtml(msg.message || '');
@@ -1733,7 +2530,7 @@ class InboxChatController {
                     attachments: msg.attachments || [],
                     senderName: msg.from?.name || '',
                     fromId: msg.from?.id || '',
-                    reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                    reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
                     reactionSummary: msg.reaction_summary || msg.reactions || null,
                     phoneInfo: msg.phone_info || [],
                     isHidden: msg.is_hidden || false,
@@ -1748,9 +2545,11 @@ class InboxChatController {
             // Re-append optimistic messages not yet confirmed by API
             // Check if API already returned a message with matching text+sender (confirmed)
             for (const opt of prevOptimistic) {
-                const alreadyInApi = conv.messages.some(m =>
-                    m.sender === opt.sender && m.text === opt.text &&
-                    Math.abs(new Date(m.time) - new Date(opt.time)) < 60000
+                const alreadyInApi = conv.messages.some(
+                    (m) =>
+                        m.sender === opt.sender &&
+                        m.text === opt.text &&
+                        Math.abs(new Date(m.time) - new Date(opt.time)) < 60000
                 );
                 if (!alreadyInApi) {
                     conv.messages.push(opt);
@@ -1765,9 +2564,10 @@ class InboxChatController {
 
             // Update lastMessage from actual loaded messages (snippet from API may be stale)
             if (conv.messages.length > 0) {
-                const lastVisibleMsg = [...conv.messages].reverse().find(m => {
+                const lastVisibleMsg = [...conv.messages].reverse().find((m) => {
                     const t = (m.text || '').trim();
-                    if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return false;
+                    if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn'))
+                        return false;
                     if (t === '[Tin nhắn trống]') return false;
                     return true;
                 });
@@ -1808,7 +2608,6 @@ class InboxChatController {
             if (window.inboxOrders && conv.phone) {
                 window.inboxOrders.fillCustomerInfo(conv);
             }
-
         } catch (error) {
             console.error('[InboxChat] Error loading messages:', error);
             if (this.activeConversationId === conv.id) {
@@ -1844,128 +2643,176 @@ class InboxChatController {
 
         // Build message avatar HTML with 4-tier fallback (like tpos-pancake)
         const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
-        const directAvatar = conv.avatar || conv._raw?.from?.picture?.data?.url || conv._raw?.from?.profile_pic || conv._raw?.customers?.[0]?.avatar || null;
+        const directAvatar =
+            conv.avatar ||
+            conv._raw?.from?.picture?.data?.url ||
+            conv._raw?.from?.profile_pic ||
+            conv._raw?.customers?.[0]?.avatar ||
+            null;
         let msgAvatarUrl = directAvatar;
         if (window.inboxPancakeAPI?.getAvatarUrl && fbId) {
-            msgAvatarUrl = window.inboxPancakeAPI.getAvatarUrl(fbId, conv.pageId, null, directAvatar);
+            msgAvatarUrl = window.inboxPancakeAPI.getAvatarUrl(
+                fbId,
+                conv.pageId,
+                null,
+                directAvatar
+            );
         }
-        const msgAvatarHtml = (msgAvatarUrl && !msgAvatarUrl.startsWith('data:image/svg'))
-            ? `<img src="${msgAvatarUrl}" class="message-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div class=\\'message-avatar\\' style=\\'background:${gradient}\\'>${initial}</div>'">`
-            : `<div class="message-avatar" style="background:${gradient};">${initial}</div>`;
+        const msgAvatarHtml =
+            msgAvatarUrl && !msgAvatarUrl.startsWith('data:image/svg')
+                ? `<img src="${msgAvatarUrl}" class="message-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div class=\\'message-avatar\\' style=\\'background:${gradient}\\'>${initial}</div>'">`
+                : `<div class="message-avatar" style="background:${gradient};">${initial}</div>`;
         let lastDate = '';
 
-        let html = conv.messages.filter(msg => {
-            // Hide auto-label system messages
-            const t = (msg.text || '').trim();
-            if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return false;
-            if (t === '[Tin nhắn trống]') return false;
-            return true;
-        }).map(msg => {
-            const msgDate = this.formatDate(msg.time);
-            let dateSeparator = '';
-            if (msgDate !== lastDate) {
-                lastDate = msgDate;
-                dateSeparator = `
+        let html = conv.messages
+            .filter((msg) => {
+                // Hide auto-label system messages
+                const t = (msg.text || '').trim();
+                if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn'))
+                    return false;
+                if (t === '[Tin nhắn trống]') return false;
+                return true;
+            })
+            .map((msg) => {
+                const msgDate = this.formatDate(msg.time);
+                let dateSeparator = '';
+                if (msgDate !== lastDate) {
+                    lastDate = msgDate;
+                    dateSeparator = `
                     <div class="chat-date-separator">
                         <span>${msgDate}</span>
                     </div>
                 `;
-            }
+                }
 
-            const isOutgoing = msg.sender === 'shop';
-            const isHidden = msg.isHidden || false;
-            const isRemoved = msg.isRemoved || false;
+                const isOutgoing = msg.sender === 'shop';
+                const isHidden = msg.isHidden || false;
+                const isRemoved = msg.isRemoved || false;
 
-            // Build message content (text + attachments)
-            let messageContent = '';
+                // Build message content (text + attachments)
+                let messageContent = '';
 
-            // Render attachments first (above text, like tpos-pancake)
-            const mediaAttachments = (msg.attachments || []).filter(a => a.type !== 'reaction');
-            if (mediaAttachments.length > 0) {
-                messageContent += this.renderAttachments(mediaAttachments);
-            }
+                // Render attachments first (above text, like tpos-pancake)
+                const mediaAttachments = (msg.attachments || []).filter(
+                    (a) => a.type !== 'reaction'
+                );
+                if (mediaAttachments.length > 0) {
+                    messageContent += this.renderAttachments(mediaAttachments);
+                }
 
-            if (msg.text) {
-                messageContent += `<div class="message-text">${this.formatMessageText(msg.text)}</div>`;
-            }
+                if (msg.text) {
+                    messageContent += `<div class="message-text">${this.formatMessageText(msg.text)}</div>`;
+                }
 
-            // Phone tags from phone_info
-            const phoneInfo = msg.phoneInfo || [];
-            let phoneTagsHtml = '';
-            if (phoneInfo.length > 0) {
-                phoneTagsHtml = phoneInfo.map(pi =>
-                    `<span class="msg-phone-tag" onclick="navigator.clipboard.writeText('${this.escapeHtml(pi.phone_number)}');showToast('Đã copy: ${this.escapeHtml(pi.phone_number)}','success')" title="Click để copy">
+                // Phone tags from phone_info
+                const phoneInfo = msg.phoneInfo || [];
+                let phoneTagsHtml = '';
+                if (phoneInfo.length > 0) {
+                    phoneTagsHtml = phoneInfo
+                        .map(
+                            (pi) =>
+                                `<span class="msg-phone-tag" onclick="navigator.clipboard.writeText('${this.escapeHtml(pi.phone_number)}');showToast('Đã copy: ${this.escapeHtml(pi.phone_number)}','success')" title="Click để copy">
                         <i data-lucide="phone"></i> ${this.escapeHtml(pi.phone_number)}
                     </span>`
-                ).join('');
-            }
-
-            // Reactions (from attachments + reaction_summary)
-            const reactions = msg.reactions || [];
-            let reactionsHtml = '';
-            if (reactions.length > 0) {
-                const emojis = reactions.map(r => r.emoji || '❤️').join('');
-                reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
-            }
-            // Also show reaction_summary (LIKE, LOVE, HAHA, WOW, SAD, ANGRY)
-            const reactionSummary = msg.reactionSummary;
-            if (reactionSummary && typeof reactionSummary === 'object') {
-                const reactionIcons = { LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', SAD: '😢', ANGRY: '😠', CARE: '🤗' };
-                const parts = Object.entries(reactionSummary)
-                    .filter(([, count]) => count > 0)
-                    .map(([type, count]) => `<span class="reaction-badge">${reactionIcons[type] || '👍'}${count > 1 ? ' ' + count : ''}</span>`);
-                if (parts.length > 0) {
-                    reactionsHtml += `<div class="message-reaction-summary">${parts.join('')}</div>`;
+                        )
+                        .join('');
                 }
-            }
 
-            if (!messageContent && !reactionsHtml && !phoneTagsHtml) {
-                messageContent = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
-            }
+                // Reactions (from attachments + reaction_summary)
+                const reactions = msg.reactions || [];
+                let reactionsHtml = '';
+                if (reactions.length > 0) {
+                    const emojis = reactions.map((r) => r.emoji || '❤️').join('');
+                    reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
+                }
+                // Also show reaction_summary (LIKE, LOVE, HAHA, WOW, SAD, ANGRY)
+                const reactionSummary = msg.reactionSummary;
+                if (reactionSummary && typeof reactionSummary === 'object') {
+                    const reactionIcons = {
+                        LIKE: '👍',
+                        LOVE: '❤️',
+                        HAHA: '😆',
+                        WOW: '😮',
+                        SAD: '😢',
+                        ANGRY: '😠',
+                        CARE: '🤗',
+                    };
+                    const parts = Object.entries(reactionSummary)
+                        .filter(([, count]) => count > 0)
+                        .map(
+                            ([type, count]) =>
+                                `<span class="reaction-badge">${reactionIcons[type] || '👍'}${count > 1 ? ' ' + count : ''}</span>`
+                        );
+                    if (parts.length > 0) {
+                        reactionsHtml += `<div class="message-reaction-summary">${parts.join('')}</div>`;
+                    }
+                }
 
-            // Hidden/removed indicator
-            let statusIndicator = '';
-            if (isRemoved) {
-                statusIndicator = '<span class="msg-status-indicator removed" title="Đã xóa"><i data-lucide="trash-2"></i></span>';
-            } else if (isHidden) {
-                statusIndicator = '<span class="msg-status-indicator hidden-msg" title="Đã ẩn"><i data-lucide="eye-off"></i></span>';
-            }
+                if (!messageContent && !reactionsHtml && !phoneTagsHtml) {
+                    messageContent =
+                        '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
+                }
 
-            // Reply type badge (private_replies = nhắn riêng)
-            const replyTypeBadge = msg.replyType === 'private_replies'
-                ? '<span class="msg-reply-type-badge private"><i data-lucide="lock"></i> Nhắn riêng</span>'
-                : '';
+                // Hidden/removed indicator
+                let statusIndicator = '';
+                if (isRemoved) {
+                    statusIndicator =
+                        '<span class="msg-status-indicator removed" title="Đã xóa"><i data-lucide="trash-2"></i></span>';
+                } else if (isHidden) {
+                    statusIndicator =
+                        '<span class="msg-status-indicator hidden-msg" title="Đã ẩn"><i data-lucide="eye-off"></i></span>';
+                }
 
-            // Sender name for outgoing messages (staff name)
-            const senderHtml = isOutgoing && msg.senderName
-                ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
-                : '';
+                // Reply type badge (private_replies = nhắn riêng)
+                const replyTypeBadge =
+                    msg.replyType === 'private_replies'
+                        ? '<span class="msg-reply-type-badge private"><i data-lucide="lock"></i> Nhắn riêng</span>'
+                        : '';
 
-            // Determine message type for visual distinction
-            const isComment = conv.type === 'COMMENT';
-            const isInbox = conv.type === 'INBOX';
-            const isPrivateReply = isComment && msg.replyType === 'private_replies';
-            const isCommentMsg = isComment && !isPrivateReply;
+                // Sender name for outgoing messages (staff name)
+                const senderHtml =
+                    isOutgoing && msg.senderName
+                        ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
+                        : '';
 
-            // Type badge icon (shown in meta area)
-            const typeIcon = isComment
-                ? (isPrivateReply
-                    ? '<span class="msg-type-icon type-inbox" title="Tin nhắn riêng"><i data-lucide="mail"></i></span>'
-                    : '<span class="msg-type-icon type-comment" title="Bình luận"><i data-lucide="message-circle"></i></span>')
-                : '';
+                // Determine message type for visual distinction
+                const isComment = conv.type === 'COMMENT';
+                const isInbox = conv.type === 'INBOX';
+                const isPrivateReply = isComment && msg.replyType === 'private_replies';
+                const isCommentMsg = isComment && !isPrivateReply;
 
-            // Hover action buttons (like, hide/unhide, delete, reply, react)
-            const likeBtn = isComment ? `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="like" data-msg-id="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="${msg.userLikes ? 'heart' : 'heart'}"></i></button>` : '';
-            const replyBtn = (isComment && !isOutgoing) ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>` : '';
-            const reactBtn = isComment ? `<button class="msg-action-btn" data-action="react" data-msg-id="${msg.id}" title="React"><i data-lucide="smile-plus"></i></button>` : '';
-            const hideBtn = isComment ? `<button class="msg-action-btn ${isHidden ? 'active' : ''}" data-action="hide" data-msg-id="${msg.id}" title="${isHidden ? 'Hiện bình luận' : 'Ẩn bình luận'}"><i data-lucide="${isHidden ? 'eye' : 'eye-off'}"></i></button>` : '';
-            const deleteBtn = isComment ? `<button class="msg-action-btn danger" data-action="delete" data-msg-id="${msg.id}" title="Xóa bình luận"><i data-lucide="trash-2"></i></button>` : '';
-            const copyBtn = `<button class="msg-action-btn" data-action="copy" data-msg-id="${msg.id}" title="Copy tin nhắn"><i data-lucide="copy"></i></button>`;
-            // Reply for inbox messages too
-            const inboxReplyBtn = isInbox ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>` : '';
-            const actionsHtml = `<div class="msg-hover-actions">${replyBtn}${inboxReplyBtn}${reactBtn}${likeBtn}${hideBtn}${copyBtn}${deleteBtn}</div>`;
+                // Type badge icon (shown in meta area)
+                const typeIcon = isComment
+                    ? isPrivateReply
+                        ? '<span class="msg-type-icon type-inbox" title="Tin nhắn riêng"><i data-lucide="mail"></i></span>'
+                        : '<span class="msg-type-icon type-comment" title="Bình luận"><i data-lucide="message-circle"></i></span>'
+                    : '';
 
-            return `
+                // Hover action buttons (like, hide/unhide, delete, reply, react)
+                const likeBtn = isComment
+                    ? `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="like" data-msg-id="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="${msg.userLikes ? 'heart' : 'heart'}"></i></button>`
+                    : '';
+                const replyBtn =
+                    isComment && !isOutgoing
+                        ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>`
+                        : '';
+                const reactBtn = isComment
+                    ? `<button class="msg-action-btn" data-action="react" data-msg-id="${msg.id}" title="React"><i data-lucide="smile-plus"></i></button>`
+                    : '';
+                const hideBtn = isComment
+                    ? `<button class="msg-action-btn ${isHidden ? 'active' : ''}" data-action="hide" data-msg-id="${msg.id}" title="${isHidden ? 'Hiện bình luận' : 'Ẩn bình luận'}"><i data-lucide="${isHidden ? 'eye' : 'eye-off'}"></i></button>`
+                    : '';
+                const deleteBtn = isComment
+                    ? `<button class="msg-action-btn danger" data-action="delete" data-msg-id="${msg.id}" title="Xóa bình luận"><i data-lucide="trash-2"></i></button>`
+                    : '';
+                const copyBtn = `<button class="msg-action-btn" data-action="copy" data-msg-id="${msg.id}" title="Copy tin nhắn"><i data-lucide="copy"></i></button>`;
+                // Reply for inbox messages too
+                const inboxReplyBtn = isInbox
+                    ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>`
+                    : '';
+                const actionsHtml = `<div class="msg-hover-actions">${replyBtn}${inboxReplyBtn}${reactBtn}${likeBtn}${hideBtn}${copyBtn}${deleteBtn}</div>`;
+
+                return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isCommentMsg ? 'is-comment' : ''} ${isPrivateReply ? 'is-private-reply' : ''} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
                     ${!isOutgoing ? msgAvatarHtml : ''}
@@ -1985,7 +2832,8 @@ class InboxChatController {
                     ${actionsHtml}
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         // Typing indicator (set via WebSocket)
         if (conv._isCustomerTyping) {
@@ -2009,63 +2857,74 @@ class InboxChatController {
      * Render attachments (reference: tpos-pancake renderMessage)
      */
     renderAttachments(attachments) {
-        return attachments.map(att => {
-            // Replied Message (Quoted message) — no URL needed
-            if (att.type === 'replied_message') {
-                const quotedText = att.message || '';
-                const quotedFrom = att.from?.name || att.from?.admin_name || '';
-                const quotedId = att.id || att.message_id || att.mid || '';
-                let attachPreview = '';
-                if (att.attachments?.length > 0) {
-                    const qAtt = att.attachments[0];
-                    const qUrl = qAtt.url || qAtt.file_url || '';
-                    if ((qAtt.type === 'photo' || qAtt.mime_type?.startsWith('image/')) && qUrl) {
-                        attachPreview = `<img src="${qUrl}" style="max-width:60px;max-height:40px;border-radius:4px;margin-top:3px;object-fit:cover;" loading="lazy">`;
-                    } else if (qAtt.type === 'sticker' && qUrl) {
-                        attachPreview = `<img src="${qUrl}" style="max-width:40px;max-height:40px;margin-top:3px;" loading="lazy">`;
-                    } else {
-                        attachPreview = `<span style="font-size:11px;color:#9ca3af;"><i data-lucide="paperclip" style="width:10px;height:10px;display:inline;"></i> Tệp đính kèm</span>`;
+        return attachments
+            .map((att) => {
+                // Replied Message (Quoted message) — no URL needed
+                if (att.type === 'replied_message') {
+                    const quotedText = att.message || '';
+                    const quotedFrom = att.from?.name || att.from?.admin_name || '';
+                    const quotedId = att.id || att.message_id || att.mid || '';
+                    let attachPreview = '';
+                    if (att.attachments?.length > 0) {
+                        const qAtt = att.attachments[0];
+                        const qUrl = qAtt.url || qAtt.file_url || '';
+                        if (
+                            (qAtt.type === 'photo' || qAtt.mime_type?.startsWith('image/')) &&
+                            qUrl
+                        ) {
+                            attachPreview = `<img src="${qUrl}" style="max-width:60px;max-height:40px;border-radius:4px;margin-top:3px;object-fit:cover;" loading="lazy">`;
+                        } else if (qAtt.type === 'sticker' && qUrl) {
+                            attachPreview = `<img src="${qUrl}" style="max-width:40px;max-height:40px;margin-top:3px;" loading="lazy">`;
+                        } else {
+                            attachPreview = `<span style="font-size:11px;color:#9ca3af;"><i data-lucide="paperclip" style="width:10px;height:10px;display:inline;"></i> Tệp đính kèm</span>`;
+                        }
                     }
-                }
-                const content = quotedText
-                    ? `<div style="font-size:12px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">${this.escapeHtml(quotedText)}</div>`
-                    : (attachPreview || '<span style="font-size:11px;color:#9ca3af;">[Tin nhắn]</span>');
-                return `<div class="quoted-message" ${quotedId ? `data-msg-id="${quotedId}"` : ''}>
+                    const content = quotedText
+                        ? `<div style="font-size:12px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">${this.escapeHtml(quotedText)}</div>`
+                        : attachPreview ||
+                          '<span style="font-size:11px;color:#9ca3af;">[Tin nhắn]</span>';
+                    return `<div class="quoted-message" ${quotedId ? `data-msg-id="${quotedId}"` : ''}>
                     <div style="font-size:11px;color:#6b7280;margin-bottom:2px;"><i data-lucide="corner-up-left" style="width:10px;height:10px;display:inline;"></i> ${this.escapeHtml(quotedFrom)}</div>
                     ${content}${quotedText && attachPreview ? `<div>${attachPreview}</div>` : ''}
                 </div>`;
-            }
+                }
 
-            const url = att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
-            if (!url) return '';
+                const url =
+                    att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
+                if (!url) return '';
 
-            // Image
-            if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-                return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="showImageZoom('${url.replace(/'/g, "\\'")}')" loading="lazy"></div>`;
-            }
-            // Sticker / GIF
-            if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
-                return `<div class="message-media"><img class="message-sticker" src="${url}" alt="Sticker" loading="lazy"></div>`;
-            }
-            // Video
-            if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                return `<div class="message-media"><video controls src="${url}" preload="metadata" style="max-width:240px;border-radius:8px;"></video></div>`;
-            }
-            // Audio
-            if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
-                return `<div class="message-media"><audio controls src="${url}" preload="metadata"></audio></div>`;
-            }
-            // File
-            if (att.type === 'file' || att.type === 'document') {
-                const fileName = att.name || att.filename || 'Tệp đính kèm';
-                return `<div class="message-file"><a href="${url}" target="_blank" rel="noopener"><i data-lucide="file-text"></i> ${this.escapeHtml(fileName)}</a></div>`;
-            }
-            // Like/thumbsup
-            if (att.type === 'like' || att.type === 'thumbsup') {
-                return `<div class="message-like">👍</div>`;
-            }
-            return '';
-        }).join('');
+                // Image
+                if (
+                    att.type === 'image' ||
+                    att.type === 'photo' ||
+                    att.mime_type?.startsWith('image/')
+                ) {
+                    return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="showImageZoom('${url.replace(/'/g, "\\'")}')" loading="lazy"></div>`;
+                }
+                // Sticker / GIF
+                if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
+                    return `<div class="message-media"><img class="message-sticker" src="${url}" alt="Sticker" loading="lazy"></div>`;
+                }
+                // Video
+                if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
+                    return `<div class="message-media"><video controls src="${url}" preload="metadata" style="max-width:240px;border-radius:8px;"></video></div>`;
+                }
+                // Audio
+                if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
+                    return `<div class="message-media"><audio controls src="${url}" preload="metadata"></audio></div>`;
+                }
+                // File
+                if (att.type === 'file' || att.type === 'document') {
+                    const fileName = att.name || att.filename || 'Tệp đính kèm';
+                    return `<div class="message-file"><a href="${url}" target="_blank" rel="noopener"><i data-lucide="file-text"></i> ${this.escapeHtml(fileName)}</a></div>`;
+                }
+                // Like/thumbsup
+                if (att.type === 'like' || att.type === 'thumbsup') {
+                    return `<div class="message-like">👍</div>`;
+                }
+                return '';
+            })
+            .join('');
     }
 
     /**
@@ -2090,7 +2949,11 @@ class InboxChatController {
         }
 
         // Step 3: Fallback to other accounts with page access
-        console.log('[InboxChat] Active account cannot access page', pageId, '- trying other accounts...');
+        console.log(
+            '[InboxChat] Active account cannot access page',
+            pageId,
+            '- trying other accounts...'
+        );
         if (Object.keys(ptm.accountPageAccessMap || {}).length === 0) {
             await ptm.prefetchAllAccountPages();
         }
@@ -2116,13 +2979,21 @@ class InboxChatController {
             const eCode = data.e_code || data.error_code || data.error?.code || 0;
             const eSubcode = data.e_subcode || data.error_subcode || data.error?.error_subcode || 0;
             const message = data.message || data.error?.message || responseText;
-            const is24HourError = (eCode === 10 && eSubcode === 2018278) ||
+            const is24HourError =
+                (eCode === 10 && eSubcode === 2018278) ||
                 (message && message.includes('khoảng thời gian cho phép'));
-            const isUserUnavailable = (eCode === 551) ||
-                (message && message.includes('không có mặt'));
+            const isUserUnavailable =
+                eCode === 551 || (message && message.includes('không có mặt'));
             return { eCode, eSubcode, message, is24HourError, isUserUnavailable, raw: data };
         } catch {
-            return { eCode: 0, eSubcode: 0, message: responseText, is24HourError: false, isUserUnavailable: false, raw: null };
+            return {
+                eCode: 0,
+                eSubcode: 0,
+                message: responseText,
+                is24HourError: false,
+                isUserUnavailable: false,
+                raw: null,
+            };
         }
     }
 
@@ -2133,11 +3004,15 @@ class InboxChatController {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
         const text = await response.text();
         let data;
-        try { data = JSON.parse(text); } catch { data = null; }
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = null;
+        }
 
         if (!response.ok) {
             const parsed = this._parseFbError(text);
@@ -2174,8 +3049,9 @@ class InboxChatController {
         // Add employee signature
         let finalText = text;
         if (text) {
-            const displayName = window.authManager?.getUserInfo?.()?.displayName
-                || window.authManager?.getAuthState?.()?.displayName;
+            const displayName =
+                window.authManager?.getUserInfo?.()?.displayName ||
+                window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalText = text + '\nNv. ' + displayName;
         }
 
@@ -2216,7 +3092,12 @@ class InboxChatController {
 
         // Optimistic UI update + mark as read in one pass
         const displayText = text || (hasImage ? '[Hình ảnh]' : '');
-        this.data.addMessage(this.activeConversationId, displayText, 'shop', replyType ? { replyType } : {});
+        this.data.addMessage(
+            this.activeConversationId,
+            displayText,
+            'shop',
+            replyType ? { replyType } : {}
+        );
         this.data.markAsRead(this.activeConversationId);
         this.renderMessages(conv);
         if (!this._updateSingleConversationInList(this.activeConversationId)) {
@@ -2224,10 +3105,14 @@ class InboxChatController {
         }
 
         try {
-            console.log(`[InboxChat] Sending from page: ${sendPageId}, conv page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`);
+            console.log(
+                `[InboxChat] Sending from page: ${sendPageId}, conv page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`
+            );
             const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
             if (!pageAccessToken) {
-                throw new Error(`Không tìm thấy page_access_token cho page ${sendPageId}. Không có account nào có quyền truy cập page này.`);
+                throw new Error(
+                    `Không tìm thấy page_access_token cho page ${sendPageId}. Không có account nào có quyền truy cập page này.`
+                );
             }
 
             const url = InboxApiConfig.buildUrl.pancakeOfficial(
@@ -2250,13 +3135,16 @@ class InboxChatController {
                     await this._sendApi(url, {
                         action: 'reply_inbox',
                         message: '',
-                        content_url: imageContentUrl
+                        content_url: imageContentUrl,
                     });
                     console.log('[InboxChat] Image sent successfully via API');
                 } catch (imgErr) {
                     // Image send failed (24h/551) → fallback to extension
                     if (window.pancakeExtension?.connected) {
-                        console.log('[InboxChat] Image API failed, trying extension...', imgErr.message);
+                        console.log(
+                            '[InboxChat] Image API failed, trying extension...',
+                            imgErr.message
+                        );
                         showToast('Đang gửi ảnh qua Extension (bypass 24h)...', 'warning');
                         await this._sendViaExtension('', conv, imageContentUrl);
                         console.log('[InboxChat] Image sent via extension');
@@ -2268,7 +3156,7 @@ class InboxChatController {
 
             // Send text (with 300ms delay if image was also sent)
             if (text) {
-                if (hasImage) await new Promise(r => setTimeout(r, 300));
+                if (hasImage) await new Promise((r) => setTimeout(r, 300));
 
                 if (conv.type === 'COMMENT') {
                     await this._sendComment(url, finalText, conv, replyData, replyType);
@@ -2284,7 +3172,6 @@ class InboxChatController {
                     await this.loadMessages(conv);
                 }
             }, 2000);
-
         } catch (error) {
             console.error('[InboxChat] Error sending message:', error);
             const fb = error.fbError;
@@ -2357,14 +3244,18 @@ class InboxChatController {
         // Try 2b: Get from messages response customers (faster than extension ~1-2s vs ~30-40s)
         if (!globalUserId && conv._messagesData?.customers?.length) {
             globalUserId = conv._messagesData.customers[0].global_id || null;
-            if (globalUserId) console.log('[EXT-SEND] Got globalUserId from customers[]:', globalUserId);
+            if (globalUserId)
+                console.log('[EXT-SEND] Got globalUserId from customers[]:', globalUserId);
         }
 
         // Get Facebook thread_id from Pancake API (for GET_GLOBAL_ID_FOR_CONV fallback)
         const fbThreadId = raw.thread_id || null;
 
         console.log('[EXT-SEND] Extension send:', {
-            pageId: conv.pageId, psid, globalUserId, fbThreadId,
+            pageId: conv.pageId,
+            psid,
+            globalUserId,
+            fbThreadId,
             threadKey: raw.thread_key,
             conversationId: conv.conversationId,
             customerName: conv.customerName || conv.name,
@@ -2375,13 +3266,16 @@ class InboxChatController {
                 customers_global_id: conv._messagesData?.customers?.[0]?.global_id || null,
                 raw_thread_id: raw.thread_id || null,
                 raw_thread_key: raw.thread_key || null,
-            }
+            },
         });
 
         // Try 3: If no global_id, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
         // Use Facebook thread_id (NOT PSID!) - PSID fails with "INCORRECT THREAD"
         if (!globalUserId && fbThreadId) {
-            console.log('[EXT-SEND] No global_id, trying GET_GLOBAL_ID_FOR_CONV with thread_id:', fbThreadId);
+            console.log(
+                '[EXT-SEND] No global_id, trying GET_GLOBAL_ID_FOR_CONV with thread_id:',
+                fbThreadId
+            );
             const taskId = Date.now();
             globalUserId = await new Promise((resolve) => {
                 const timeout = setTimeout(() => {
@@ -2391,13 +3285,22 @@ class InboxChatController {
                 }, 60000); // Extension needs ~30-40s to resolve via graphqlbatch
                 const handler = (e) => {
                     if (e.source !== window) return;
-                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === taskId) {
+                    if (
+                        e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' &&
+                        e.data?.taskId === taskId
+                    ) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
-                        console.log('[EXT-SEND] ✅ Got globalUserId from extension:', e.data.globalId);
+                        console.log(
+                            '[EXT-SEND] ✅ Got globalUserId from extension:',
+                            e.data.globalId
+                        );
                         resolve(e.data.globalId);
                     }
-                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && e.data?.taskId === taskId) {
+                    if (
+                        e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' &&
+                        e.data?.taskId === taskId
+                    ) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
                         console.warn('[EXT-SEND] ❌ GET_GLOBAL_ID_FOR_CONV failed:', e.data);
@@ -2405,25 +3308,32 @@ class InboxChatController {
                     }
                 };
                 window.addEventListener('message', handler);
-                window.postMessage({
-                    type: 'GET_GLOBAL_ID_FOR_CONV',
-                    pageId: conv.pageId,
-                    threadId: fbThreadId,
-                    threadKey: 't_' + fbThreadId,
-                    isBusiness: true,
-                    conversationUpdatedTime,
-                    customerName: conv.customerName || conv.name || '',
-                    convType: conv.type || 'INBOX',
-                    postId: null, convId: null,
-                    taskId, from: 'WEBPAGE'
-                }, '*');
+                window.postMessage(
+                    {
+                        type: 'GET_GLOBAL_ID_FOR_CONV',
+                        pageId: conv.pageId,
+                        threadId: fbThreadId,
+                        threadKey: 't_' + fbThreadId,
+                        isBusiness: true,
+                        conversationUpdatedTime,
+                        customerName: conv.customerName || conv.name || '',
+                        convType: conv.type || 'INBOX',
+                        postId: null,
+                        convId: null,
+                        taskId,
+                        from: 'WEBPAGE',
+                    },
+                    '*'
+                );
             });
         } else if (!globalUserId) {
             console.warn('[EXT-SEND] No global_id AND no thread_id in conversation data!');
         }
 
         if (!globalUserId) {
-            throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
+            throw new Error(
+                'Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.'
+            );
         }
 
         // Cache for next time (skip 40s wait)
@@ -2447,7 +3357,10 @@ class InboxChatController {
                     console.log('[EXT-SEND] Image uploaded, fbId:', uploadResult.fbId);
                 }
             } catch (uploadErr) {
-                console.error('[EXT-SEND] Image upload failed, sending text only:', uploadErr.message);
+                console.error(
+                    '[EXT-SEND] Image upload failed, sending text only:',
+                    uploadErr.message
+                );
                 showToast('Upload ảnh thất bại, chỉ gửi text', 'warning');
             }
         }
@@ -2462,19 +3375,28 @@ class InboxChatController {
                 const timeout = setTimeout(() => {
                     window.removeEventListener('message', handler);
                     console.error('[EXT-SEND] TIMEOUT after 60s for REPLY_INBOX_PHOTO');
-                    console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
+                    console.error(
+                        '[EXT-SEND] Recent extension events:',
+                        window.pancakeExtension?.lastEvents?.slice(-5)
+                    );
                     reject(new Error('Extension send timeout (60s)'));
                 }, 60000);
 
                 const handler = (e) => {
                     if (e.source !== window) return;
-                    if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === sendTaskId) {
+                    if (
+                        e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' &&
+                        e.data?.taskId === sendTaskId
+                    ) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
                         console.log('[EXT-SEND] SUCCESS:', JSON.stringify(e.data, null, 2));
                         resolve(e.data);
                     }
-                    if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === sendTaskId) {
+                    if (
+                        e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' &&
+                        e.data?.taskId === sendTaskId
+                    ) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
                         console.error('[EXT-SEND] FAILURE:', JSON.stringify(e.data, null, 2));
@@ -2503,11 +3425,15 @@ class InboxChatController {
                     photoUrls: [],
                     isBusiness: false,
                     taskId: sendTaskId,
-                    from: 'WEBPAGE'
+                    from: 'WEBPAGE',
                 };
 
                 window.postMessage(payload, '*');
-                console.log('[EXT-SEND] Sent REPLY_INBOX_PHOTO:', { attachmentType: msgAttachmentType, files: msgFiles, hasText: !!msgText });
+                console.log('[EXT-SEND] Sent REPLY_INBOX_PHOTO:', {
+                    attachmentType: msgAttachmentType,
+                    files: msgFiles,
+                    hasText: !!msgText,
+                });
             });
         };
 
@@ -2516,7 +3442,7 @@ class InboxChatController {
             await sendOneMessage('', 'PHOTO', files);
             showToast('Đã gửi ảnh qua Extension (bypass 24h)', 'success');
             if (hasTextToSend) {
-                await new Promise(r => setTimeout(r, 500)); // Brief delay between image and text
+                await new Promise((r) => setTimeout(r, 500)); // Brief delay between image and text
                 await sendOneMessage(text, 'SEND_TEXT_ONLY', []);
                 showToast('Đã gửi text qua Extension (bypass 24h)', 'success');
             }
@@ -2537,7 +3463,11 @@ class InboxChatController {
         const taskId = Date.now();
         const uploadId = 'upload_' + taskId;
 
-        console.log('[EXT-UPLOAD] Uploading image via extension:', { photoUrl, pageId: conv.pageId, taskId });
+        console.log('[EXT-UPLOAD] Uploading image via extension:', {
+            photoUrl,
+            pageId: conv.pageId,
+            taskId,
+        });
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
@@ -2551,7 +3481,10 @@ class InboxChatController {
                 if (e.data?.type === 'UPLOAD_INBOX_PHOTO_SUCCESS' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.log('[EXT-UPLOAD] SUCCESS:', { fbId: e.data.fbId, previewUri: e.data.previewUri });
+                    console.log('[EXT-UPLOAD] SUCCESS:', {
+                        fbId: e.data.fbId,
+                        previewUri: e.data.previewUri,
+                    });
                     resolve({ fbId: e.data.fbId, previewUri: e.data.previewUri });
                 }
                 if (e.data?.type === 'UPLOAD_INBOX_PHOTO_FAILURE' && e.data?.taskId === taskId) {
@@ -2563,15 +3496,19 @@ class InboxChatController {
             };
             window.addEventListener('message', handler);
 
-            window.postMessage({
-                type: 'UPLOAD_INBOX_PHOTO',
-                pageId: conv.pageId,
-                photoUrl: photoUrl,
-                name: 'image.jpg',
-                platform: 'facebook',
-                taskId, uploadId,
-                from: 'WEBPAGE'
-            }, '*');
+            window.postMessage(
+                {
+                    type: 'UPLOAD_INBOX_PHOTO',
+                    pageId: conv.pageId,
+                    photoUrl: photoUrl,
+                    name: 'image.jpg',
+                    platform: 'facebook',
+                    taskId,
+                    uploadId,
+                    from: 'WEBPAGE',
+                },
+                '*'
+            );
         });
     }
 
@@ -2591,7 +3528,11 @@ class InboxChatController {
             // Public comment reply — visible in chat thread
             console.log('[InboxChat] Sending reply_comment:', { messageId });
             try {
-                await this._sendApi(url, { action: 'reply_comment', message_id: messageId, message: text });
+                await this._sendApi(url, {
+                    action: 'reply_comment',
+                    message_id: messageId,
+                    message: text,
+                });
                 console.log('[InboxChat] reply_comment succeeded');
                 return;
             } catch (err) {
@@ -2599,7 +3540,13 @@ class InboxChatController {
                 // Fallback to private_replies
                 console.log('[InboxChat] Fallback to private_replies...');
                 try {
-                    await this._sendApi(url, { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text });
+                    await this._sendApi(url, {
+                        action: 'private_replies',
+                        post_id: postId,
+                        message_id: messageId,
+                        from_id: fromId,
+                        message: text,
+                    });
                     showToast('Bình luận thất bại, đã gửi nhắn riêng', 'warning');
                     return;
                 } catch (err2) {
@@ -2612,22 +3559,36 @@ class InboxChatController {
             // Pancake API often sends message successfully but returns success:false
             // → Call fetch directly, only throw on clear Facebook errors
             console.log('[InboxChat] Sending private_replies:', { postId, messageId, fromId });
-            const payload = { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text };
+            const payload = {
+                action: 'private_replies',
+                post_id: postId,
+                message_id: messageId,
+                from_id: fromId,
+                message: text,
+            };
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
             const respText = await response.text();
             let data;
-            try { data = JSON.parse(respText); } catch { data = null; }
+            try {
+                data = JSON.parse(respText);
+            } catch {
+                data = null;
+            }
 
             if (data?.success === false) {
                 const errStr = JSON.stringify(data);
-                const isPostGone = errStr.includes('does not exist') || errStr.includes('"code":100')
-                    || errStr.includes('does not support');
+                const isPostGone =
+                    errStr.includes('does not exist') ||
+                    errStr.includes('"code":100') ||
+                    errStr.includes('does not support');
                 if (isPostGone) {
-                    throw new Error('Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.');
+                    throw new Error(
+                        'Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.'
+                    );
                 }
                 // Other "errors" — message was likely sent. Treat as success.
                 console.warn('[InboxChat] private_replies response (treating as success):', data);
@@ -2672,19 +3633,24 @@ class InboxChatController {
         const preview = document.getElementById('chatImagePreview');
         const img = document.getElementById('chatImagePreviewImg');
         if (preview) preview.style.display = 'none';
-        if (img) { URL.revokeObjectURL(img.src); img.src = ''; }
+        if (img) {
+            URL.revokeObjectURL(img.src);
+            img.src = '';
+        }
     }
-
 
     // ===== Chat Label Bar =====
 
     renderChatLabelBar(conv) {
         this.elements.chatLabelBar.style.display = 'block';
         const labels = conv.labels || ['new'];
-        this.elements.chatLabelBarList.innerHTML = this.data.groups.map(group => {
-            const isActive = labels.includes(group.id);
-            const activeStyle = isActive ? `background: ${group.color}; border-color: ${group.color};` : '';
-            return `
+        this.elements.chatLabelBarList.innerHTML = this.data.groups
+            .map((group) => {
+                const isActive = labels.includes(group.id);
+                const activeStyle = isActive
+                    ? `background: ${group.color}; border-color: ${group.color};`
+                    : '';
+                return `
                 <button class="chat-label-btn ${isActive ? 'active' : ''}"
                         style="${activeStyle}"
                         onclick="window.inboxChat.assignLabel('${conv.id}', '${group.id}')">
@@ -2692,7 +3658,8 @@ class InboxChatController {
                     ${this.escapeHtml(group.name)}
                 </button>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     assignLabel(convId, labelId) {
@@ -2708,16 +3675,21 @@ class InboxChatController {
     renderGroupStats() {
         this.data.recalculateGroupCounts(this.currentTypeFilter);
         const iconMap = {
-            'new': 'inbox', 'processing': 'loader', 'waiting': 'clock',
-            'ordered': 'shopping-cart', 'urgent': 'alert-triangle', 'done': 'check-circle',
+            new: 'inbox',
+            processing: 'loader',
+            waiting: 'clock',
+            ordered: 'shopping-cart',
+            urgent: 'alert-triangle',
+            done: 'check-circle',
         };
 
-        this.elements.groupStatsList.innerHTML = this.data.groups.map(group => {
-            const icon = iconMap[group.id] || 'tag';
-            const isActive = this.currentGroupFilters.has(group.id);
-            const note = group.note || 'Chưa có mô tả cho nhóm này.';
+        this.elements.groupStatsList.innerHTML = this.data.groups
+            .map((group) => {
+                const icon = iconMap[group.id] || 'tag';
+                const isActive = this.currentGroupFilters.has(group.id);
+                const note = group.note || 'Chưa có mô tả cho nhóm này.';
 
-            return `
+                return `
                 <div class="group-stats-card ${isActive ? 'active' : ''}"
                      onclick="window.inboxChat.filterByGroup('${group.id}')">
                     <div class="group-stats-card-color" style="background: ${group.color}">
@@ -2733,7 +3705,8 @@ class InboxChatController {
                     </button>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         this._debouncedCreateIcons();
     }
@@ -2751,7 +3724,8 @@ class InboxChatController {
     // ===== Render Data Modal =====
 
     async showRenderDataModal() {
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const workerUrl =
+            InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         // Show loading modal immediately
         const modal = document.createElement('div');
@@ -2773,29 +3747,42 @@ class InboxChatController {
             </div>
         `;
         document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
 
         // Fetch all endpoints in parallel
         const endpoints = [
-            { name: 'Livestream Convs', url: '/api/realtime/livestream-conversations', key: 'posts' },
+            {
+                name: 'Livestream Convs',
+                url: '/api/realtime/livestream-conversations',
+                key: 'posts',
+            },
             { name: 'Labels', url: '/api/realtime/conversation-labels', key: 'labelMap' },
-            { name: 'Pending Customers', url: '/api/realtime/pending-customers?limit=500', key: 'customers' },
+            {
+                name: 'Pending Customers',
+                url: '/api/realtime/pending-customers?limit=500',
+                key: 'customers',
+            },
             { name: 'Realtime Status', url: '/api/realtime/status', key: null },
         ];
 
-        const results = await Promise.all(endpoints.map(async (ep) => {
-            try {
-                const res = await fetch(workerUrl + ep.url);
-                const data = await res.json();
-                return { name: ep.name, url: ep.url, data, ok: true };
-            } catch (err) {
-                return { name: ep.name, url: ep.url, data: { error: err.message }, ok: false };
-            }
-        }));
+        const results = await Promise.all(
+            endpoints.map(async (ep) => {
+                try {
+                    const res = await fetch(workerUrl + ep.url);
+                    const data = await res.json();
+                    return { name: ep.name, url: ep.url, data, ok: true };
+                } catch (err) {
+                    return { name: ep.name, url: ep.url, data: { error: err.message }, ok: false };
+                }
+            })
+        );
 
         // Build tabs HTML
         const body = modal.querySelector('.modal-body');
-        let tabsHtml = '<div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">';
+        let tabsHtml =
+            '<div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">';
         results.forEach((r, i) => {
             const count = r.ok ? this._renderDataCount(r) : '!';
             tabsHtml += `<button class="render-data-tab ${i === 0 ? 'active' : ''}" data-idx="${i}"
@@ -2820,9 +3807,9 @@ class InboxChatController {
         body.innerHTML = tabsHtml + '<div style="flex:1;overflow:auto;">' + panelsHtml + '</div>';
 
         // Tab switching
-        body.querySelectorAll('.render-data-tab').forEach(tab => {
+        body.querySelectorAll('.render-data-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
-                body.querySelectorAll('.render-data-tab').forEach(t => {
+                body.querySelectorAll('.render-data-tab').forEach((t) => {
                     t.classList.remove('active');
                     t.style.background = 'transparent';
                     t.style.borderBottomColor = 'transparent';
@@ -2830,8 +3817,12 @@ class InboxChatController {
                 tab.classList.add('active');
                 tab.style.background = 'var(--gray-100)';
                 tab.style.borderBottomColor = 'var(--primary)';
-                body.querySelectorAll('.render-data-panel').forEach(p => p.style.display = 'none');
-                body.querySelector(`.render-data-panel[data-idx="${tab.dataset.idx}"]`).style.display = 'block';
+                body.querySelectorAll('.render-data-panel').forEach(
+                    (p) => (p.style.display = 'none')
+                );
+                body.querySelector(
+                    `.render-data-panel[data-idx="${tab.dataset.idx}"]`
+                ).style.display = 'block';
             });
         });
     }
@@ -2850,7 +3841,18 @@ class InboxChatController {
     // ===== Manage Groups Modal =====
 
     showManageGroupsModal() {
-        const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#14b8a6', '#6366f1', '#f97316', '#6b7280'];
+        const colors = [
+            '#3b82f6',
+            '#8b5cf6',
+            '#ec4899',
+            '#ef4444',
+            '#f59e0b',
+            '#10b981',
+            '#14b8a6',
+            '#6366f1',
+            '#f97316',
+            '#6b7280',
+        ];
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -2859,7 +3861,9 @@ class InboxChatController {
                 <div class="modal-title"><i data-lucide="settings"></i> Quản Lý Nhóm</div>
                 <div class="modal-body">
                     <div class="modal-group-list" id="modalGroupList">
-                        ${this.data.groups.map((group) => `
+                        ${this.data.groups
+                            .map(
+                                (group) => `
                             <div class="modal-group-item" data-group-id="${group.id}">
                                 <div class="modal-group-color-pick" style="background: ${group.color}"
                                      onclick="window.inboxChat._toggleColorPicker(this, '${group.id}')"></div>
@@ -2872,7 +3876,9 @@ class InboxChatController {
                                 <button class="modal-group-delete" title="Xóa nhóm"
                                         onclick="window.inboxChat._deleteGroupInModal('${group.id}', this)">&times;</button>
                             </div>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
                     <div class="modal-add-section">
                         <h4>Thêm Nhóm Mới</h4>
@@ -2881,10 +3887,14 @@ class InboxChatController {
                                 <input type="text" id="modalNewGroupName" placeholder="Tên nhóm mới..." />
                                 <textarea id="modalNewGroupNote" placeholder="Ghi chú cho nhóm..." rows="2"></textarea>
                                 <div class="modal-color-picker">
-                                    ${colors.map((c, i) => `
+                                    ${colors
+                                        .map(
+                                            (c, i) => `
                                         <div class="color-option ${i === 0 ? 'selected' : ''}" style="background: ${c}" data-color="${c}"
                                              onclick="this.parentElement.querySelectorAll('.color-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected');"></div>
-                                    `).join('')}
+                                    `
+                                        )
+                                        .join('')}
                                 </div>
                             </div>
                             <button class="btn-modal-add" id="btnModalAddGroup">+ Thêm</button>
@@ -2901,14 +3911,21 @@ class InboxChatController {
         document.body.appendChild(overlay);
         this._debouncedCreateIcons();
 
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
         document.getElementById('btnModalCancel').addEventListener('click', () => overlay.remove());
 
         document.getElementById('btnModalAddGroup').addEventListener('click', () => {
             const name = document.getElementById('modalNewGroupName').value.trim();
             const note = document.getElementById('modalNewGroupNote').value.trim();
-            const color = overlay.querySelector('.modal-add-section .color-option.selected')?.dataset.color || '#3b82f6';
-            if (!name) { showToast('Vui lòng nhập tên nhóm', 'warning'); return; }
+            const color =
+                overlay.querySelector('.modal-add-section .color-option.selected')?.dataset.color ||
+                '#3b82f6';
+            if (!name) {
+                showToast('Vui lòng nhập tên nhóm', 'warning');
+                return;
+            }
             this.data.addGroup(name, color, note);
             const newGroup = this.data.groups[this.data.groups.length - 1];
             const listEl = document.getElementById('modalGroupList');
@@ -2935,17 +3952,18 @@ class InboxChatController {
 
         document.getElementById('btnModalSave').addEventListener('click', async () => {
             // Update all groups locally (name, note, color)
-            overlay.querySelectorAll('.modal-group-item').forEach(item => {
+            overlay.querySelectorAll('.modal-group-item').forEach((item) => {
                 const groupId = item.dataset.groupId;
                 const nameInput = item.querySelector('.modal-group-name-input');
                 const noteInput = item.querySelector('.modal-group-note-input');
                 const colorEl = item.querySelector('.modal-group-color-pick');
                 if (nameInput && noteInput) {
-                    const group = this.data.groups.find(g => g.id === groupId);
+                    const group = this.data.groups.find((g) => g.id === groupId);
                     if (group) {
                         group.name = nameInput.value.trim();
                         group.note = noteInput.value.trim();
-                        if (colorEl) group.color = colorEl.style.background || colorEl.style.backgroundColor;
+                        if (colorEl)
+                            group.color = colorEl.style.background || colorEl.style.backgroundColor;
                     }
                 }
             });
@@ -2959,7 +3977,10 @@ class InboxChatController {
                 if (conv) this.renderChatLabelBar(conv);
             }
             overlay.remove();
-            showToast(ok ? 'Đã lưu thay đổi nhóm lên server' : 'Lưu local OK, nhưng server lỗi', ok ? 'success' : 'warning');
+            showToast(
+                ok ? 'Đã lưu thay đổi nhóm lên server' : 'Lưu local OK, nhưng server lỗi',
+                ok ? 'success' : 'warning'
+            );
         });
     }
 
@@ -2972,11 +3993,29 @@ class InboxChatController {
 
     _toggleColorPicker(el, groupId) {
         const existing = el.parentElement.querySelector('.color-popover');
-        if (existing) { existing.remove(); return; }
-        const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#14b8a6', '#6366f1', '#f97316', '#6b7280'];
+        if (existing) {
+            existing.remove();
+            return;
+        }
+        const colors = [
+            '#3b82f6',
+            '#8b5cf6',
+            '#ec4899',
+            '#ef4444',
+            '#f59e0b',
+            '#10b981',
+            '#14b8a6',
+            '#6366f1',
+            '#f97316',
+            '#6b7280',
+        ];
         const popover = document.createElement('div');
         popover.className = 'color-popover';
-        popover.innerHTML = colors.map(c => `<div class="color-option" style="background: ${c}" data-color="${c}"></div>`).join('');
+        popover.innerHTML = colors
+            .map(
+                (c) => `<div class="color-option" style="background: ${c}" data-color="${c}"></div>`
+            )
+            .join('');
         el.style.position = 'relative';
         el.appendChild(popover);
         popover.addEventListener('click', (e) => {
@@ -2989,7 +4028,10 @@ class InboxChatController {
         });
         setTimeout(() => {
             const closeHandler = (e) => {
-                if (!popover.contains(e.target) && e.target !== el) { popover.remove(); document.removeEventListener('click', closeHandler); }
+                if (!popover.contains(e.target) && e.target !== el) {
+                    popover.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
             };
             document.addEventListener('click', closeHandler);
         }, 0);
@@ -3002,10 +4044,16 @@ class InboxChatController {
         if (!card) return;
 
         const data = conv._messagesData;
-        if (!data) { card.style.display = 'none'; return; }
+        if (!data) {
+            card.style.display = 'none';
+            return;
+        }
 
         const cust = data.customers?.[0];
-        if (!cust) { card.style.display = 'none'; return; }
+        if (!cust) {
+            card.style.display = 'none';
+            return;
+        }
 
         const phone = conv.phone || data.conv_phone_numbers?.[0] || '';
         const globalId = data.global_id || cust.global_id || '';
@@ -3017,10 +4065,11 @@ class InboxChatController {
         const commentCount = data.comment_count || 0;
 
         // Order stats
-        let successOrders = 0, failOrders = 0;
+        let successOrders = 0,
+            failOrders = 0;
         if (phone && data.reports_by_phone) {
-            const phoneKey = Object.keys(data.reports_by_phone).find(k =>
-                k.includes(phone.replace(/^0/, '')) || k === phone
+            const phoneKey = Object.keys(data.reports_by_phone).find(
+                (k) => k.includes(phone.replace(/^0/, '')) || k === phone
             );
             if (phoneKey) {
                 const report = data.reports_by_phone[phoneKey];
@@ -3149,7 +4198,10 @@ class InboxChatController {
         if (!bar) return;
 
         const data = conv._messagesData;
-        if (!data) { bar.style.display = 'none'; return; }
+        if (!data) {
+            bar.style.display = 'none';
+            return;
+        }
 
         // Phone number
         const phone = conv.phone || '';
@@ -3158,13 +4210,14 @@ class InboxChatController {
         const commentCount = data.comment_count || 0;
 
         // Order stats from reports_by_phone or customer data
-        let successOrders = 0, failOrders = 0;
+        let successOrders = 0,
+            failOrders = 0;
         const customer = data.customers?.[0];
 
         if (phone && data.reports_by_phone) {
             // Try both formats: "0944333435" and "+84944333435"
-            const phoneKey = Object.keys(data.reports_by_phone).find(k =>
-                k.includes(phone.replace(/^0/, '')) || k === phone
+            const phoneKey = Object.keys(data.reports_by_phone).find(
+                (k) => k.includes(phone.replace(/^0/, '')) || k === phone
             );
             if (phoneKey) {
                 const report = data.reports_by_phone[phoneKey];
@@ -3200,11 +4253,15 @@ class InboxChatController {
                 <span class="stat-badge return" title="Đơn hoàn: ${failOrders}">
                     <i data-lucide="undo-2"></i><span>${failOrders}</span>
                 </span>
-                ${isWarning ? `
+                ${
+                    isWarning
+                        ? `
                     <span class="stat-badge warning" title="Tỉ lệ hoàn ${returnRate}%">
                         <i data-lucide="alert-triangle"></i>
                     </span>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
         bar.style.display = 'flex';
@@ -3258,7 +4315,7 @@ class InboxChatController {
         const list = document.getElementById('convNotesList');
         if (section && list) {
             section.style.display = this.activeConversationId ? 'block' : 'none';
-            list.innerHTML = notes.map(n => this._noteHtml(n)).join('');
+            list.innerHTML = notes.map((n) => this._noteHtml(n)).join('');
         }
 
         // Header inline note (display only, next to name)
@@ -3267,7 +4324,7 @@ class InboxChatController {
             if (notes.length > 0) {
                 const latest = notes[0];
                 headerNote.textContent = latest.message;
-                headerNote.title = notes.map(n => n.message).join('\n');
+                headerNote.title = notes.map((n) => n.message).join('\n');
                 headerNote.style.display = 'inline';
             } else {
                 headerNote.textContent = '';
@@ -3278,7 +4335,12 @@ class InboxChatController {
 
     _noteHtml(note) {
         const date = new Date(note.created_at);
-        const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        const timeStr = date.toLocaleString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+        });
         const author = note.created_by?.fb_name || '';
         return `<div class="conv-note-item">
             <div class="conv-note-meta"><span class="conv-note-author">${this.escapeHtml(author)}</span> <span class="conv-note-time">${timeStr}</span></div>
@@ -3311,7 +4373,10 @@ class InboxChatController {
         if (ok) {
             input.value = '';
             // Clear the other input too
-            const other = input.id === 'convNoteInput' ? document.getElementById('chatNoteBarInput') : document.getElementById('convNoteInput');
+            const other =
+                input.id === 'convNoteInput'
+                    ? document.getElementById('chatNoteBarInput')
+                    : document.getElementById('convNoteInput');
             if (other) other.value = '';
             showToast('Đã thêm ghi chú', 'success');
             pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
@@ -3345,13 +4410,15 @@ class InboxChatController {
                 <h3>Hoạt động trên ${activities.length} bài viết</h3>
             </div>
             <div class="activities-list">
-                ${activities.map(act => {
-                    const thumb = act.attachments?.data?.[0]?.url || '';
-                    const actUrl = act.attachments?.target?.url || '';
-                    const actTitle = act.message || '';
-                    const truncTitle = actTitle.length > 80 ? actTitle.substring(0, 80) + '...' : actTitle;
-                    const actTime = act.inserted_at ? this.formatDate(act.inserted_at) : '';
-                    return `
+                ${activities
+                    .map((act) => {
+                        const thumb = act.attachments?.data?.[0]?.url || '';
+                        const actUrl = act.attachments?.target?.url || '';
+                        const actTitle = act.message || '';
+                        const truncTitle =
+                            actTitle.length > 80 ? actTitle.substring(0, 80) + '...' : actTitle;
+                        const actTime = act.inserted_at ? this.formatDate(act.inserted_at) : '';
+                        return `
                         <div class="activity-item" ${actUrl ? `onclick="window.open('${actUrl}','_blank')"` : ''}>
                             ${thumb ? `<img class="activity-thumb" src="${thumb}" alt="">` : '<div class="activity-thumb-ph"><i data-lucide="video"></i></div>'}
                             <div class="activity-content">
@@ -3360,7 +4427,8 @@ class InboxChatController {
                             </div>
                         </div>
                     `;
-                }).join('')}
+                    })
+                    .join('')}
             </div>
         `;
         this._debouncedCreateIcons();
@@ -3378,7 +4446,8 @@ class InboxChatController {
     // ===== Message Pagination (like tpos-pancake) =====
 
     async loadMoreMessages() {
-        if (this.isLoadingMoreMessages || !this.hasMoreMessages || !this.activeConversationId) return;
+        if (this.isLoadingMoreMessages || !this.hasMoreMessages || !this.activeConversationId)
+            return;
 
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv || !conv.messages || conv.messages.length === 0) return;
@@ -3390,13 +4459,17 @@ class InboxChatController {
         // Show loading indicator at top
         const loader = document.createElement('div');
         loader.className = 'load-more-indicator';
-        loader.innerHTML = '<div class="loading-spinner" style="width:24px;height:24px;"></div><span>Đang tải tin nhắn cũ...</span>';
+        loader.innerHTML =
+            '<div class="loading-spinner" style="width:24px;height:24px;"></div><span>Đang tải tin nhắn cũ...</span>';
         container.insertBefore(loader, container.firstChild);
 
         try {
             const pdm = window.inboxPancakeAPI;
             const result = await pdm.fetchMessagesForConversation(
-                conv.pageId, conv.conversationId, this.messageCurrentCount, conv.customerId
+                conv.pageId,
+                conv.conversationId,
+                this.messageCurrentCount,
+                conv.customerId
             );
 
             if (this.activeConversationId !== conv.id) return;
@@ -3410,17 +4483,18 @@ class InboxChatController {
                 endMarker.innerHTML = '<span>— Đầu cuộc hội thoại —</span>';
                 container.insertBefore(endMarker, container.firstChild);
             } else {
-                const mapped = olderMessages.map(msg => {
+                const mapped = olderMessages.map((msg) => {
                     const isFromPage = msg.from?.id === conv.pageId;
                     return {
                         id: msg.id,
                         text: msg.original_message || this.stripHtml(msg.message || ''),
-                        time: this.parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
+                        time:
+                            this.parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
                         sender: isFromPage ? 'shop' : 'customer',
                         attachments: msg.attachments || [],
                         senderName: msg.from?.name || '',
                         fromId: msg.from?.id || '',
-                        reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                        reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
                         reactionSummary: msg.reaction_summary || msg.reactions || null,
                         phoneInfo: msg.phone_info || [],
                         isHidden: msg.is_hidden || false,
@@ -3497,8 +4571,8 @@ class InboxChatController {
                         body: JSON.stringify({
                             action: 'reply_inbox',
                             message: '',
-                            content_url: result.url
-                        })
+                            content_url: result.url,
+                        }),
                     });
                     showToast('Đã gửi file: ' + file.name, 'success');
                     this.data.markAsRead(this.activeConversationId);
@@ -3524,7 +4598,9 @@ class InboxChatController {
     renderEmojiGrid(category) {
         const grid = document.getElementById('emojiGrid');
         if (!grid || !this.emojiData[category]) return;
-        grid.innerHTML = this.emojiData[category].map(e => `<button class="emoji-item">${e}</button>`).join('');
+        grid.innerHTML = this.emojiData[category]
+            .map((e) => `<button class="emoji-item">${e}</button>`)
+            .join('');
     }
 
     // ===== Message Actions (like, hide/unhide, delete, copy) =====
@@ -3532,7 +4608,7 @@ class InboxChatController {
     async handleMessageAction(action, msgId, btn) {
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
-        const msg = conv.messages?.find(m => m.id === msgId);
+        const msg = conv.messages?.find((m) => m.id === msgId);
         if (!msg) return;
         const pdm = window.inboxPancakeAPI;
         if (!pdm) return;
@@ -3542,10 +4618,18 @@ class InboxChatController {
                 btn.disabled = true;
                 if (msg.userLikes) {
                     const ok = await pdm.unlikeComment(conv.pageId, msgId);
-                    if (ok) { msg.userLikes = false; btn.classList.remove('liked'); btn.title = 'Thích'; }
+                    if (ok) {
+                        msg.userLikes = false;
+                        btn.classList.remove('liked');
+                        btn.title = 'Thích';
+                    }
                 } else {
                     const ok = await pdm.likeComment(conv.pageId, msgId);
-                    if (ok) { msg.userLikes = true; btn.classList.add('liked'); btn.title = 'Bỏ thích'; }
+                    if (ok) {
+                        msg.userLikes = true;
+                        btn.classList.add('liked');
+                        btn.title = 'Bỏ thích';
+                    }
                 }
                 btn.disabled = false;
             } else if (action === 'hide') {
@@ -3612,9 +4696,10 @@ class InboxChatController {
         const msgEl = document.getElementById('replyPreviewMsg');
         if (bar && sender && msgEl) {
             sender.textContent = this.replyingTo.senderName;
-            msgEl.textContent = this.replyingTo.text.length > 80
-                ? this.replyingTo.text.substring(0, 80) + '...'
-                : this.replyingTo.text;
+            msgEl.textContent =
+                this.replyingTo.text.length > 80
+                    ? this.replyingTo.text.substring(0, 80) + '...'
+                    : this.replyingTo.text;
             bar.style.display = 'flex';
         }
         this.elements.chatInput.focus();
@@ -3640,8 +4725,8 @@ class InboxChatController {
         const chatArea = document.getElementById('col2');
         const chatRect = chatArea ? chatArea.getBoundingClientRect() : { left: 0, top: 0 };
 
-        picker.style.left = (rect.left - chatRect.left) + 'px';
-        picker.style.top = (rect.top - chatRect.top - 44) + 'px';
+        picker.style.left = rect.left - chatRect.left + 'px';
+        picker.style.top = rect.top - chatRect.top - 44 + 'px';
         picker.dataset.msgId = msgId;
         picker.style.display = 'flex';
 
@@ -3668,7 +4753,7 @@ class InboxChatController {
 
             // Use likeComment for LIKE, or the specific reaction API if available
             if (reactionType === 'LIKE') {
-                const msg = conv.messages?.find(m => m.id === msgId);
+                const msg = conv.messages?.find((m) => m.id === msgId);
                 if (msg?.userLikes) {
                     await pdm.unlikeComment(conv.pageId, msgId);
                     msg.userLikes = false;
@@ -3689,12 +4774,12 @@ class InboxChatController {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reaction_type: reactionType })
+                    body: JSON.stringify({ reaction_type: reactionType }),
                 });
                 if (!response.ok) {
                     // Fallback: try likeComment
                     await pdm.likeComment(conv.pageId, msgId);
-                    const msg = conv.messages?.find(m => m.id === msgId);
+                    const msg = conv.messages?.find((m) => m.id === msgId);
                     if (msg) msg.userLikes = true;
                 }
             }
@@ -3717,7 +4802,8 @@ class InboxChatController {
     async performSearch(query) {
         if (!query || query.length < 2) return;
         // Skip if already searched this exact query and have results
-        if (this._lastSearchQuery === query && this.searchResults && this.searchResults.length > 0) return;
+        if (this._lastSearchQuery === query && this.searchResults && this.searchResults.length > 0)
+            return;
         this._lastSearchQuery = query;
 
         this.isSearching = true;
@@ -3740,7 +4826,9 @@ class InboxChatController {
                 const cusResult = await pdm.searchByCustomerId(trimmed);
                 if (this.searchQuery !== query) return;
                 this.searchResults = cusResult.conversations || [];
-                console.log(`[InboxChat] Customer search: ${this.searchResults.length} conversations`);
+                console.log(
+                    `[InboxChat] Customer search: ${this.searchResults.length} conversations`
+                );
                 this.renderConversationList();
                 return;
             }
@@ -3758,7 +4846,9 @@ class InboxChatController {
 
             if (result && result.conversations && result.conversations.length > 0) {
                 this.searchResults = result.conversations;
-                console.log(`[InboxChat] Search found ${result.conversations.length} results for "${query}"`);
+                console.log(
+                    `[InboxChat] Search found ${result.conversations.length} results for "${query}"`
+                );
             } else {
                 this.searchResults = [];
                 console.log(`[InboxChat] Search returned 0 results for "${query}"`);
@@ -3767,7 +4857,8 @@ class InboxChatController {
             this.renderConversationList();
         } catch (error) {
             console.error('[InboxChat] Search error:', error);
-            if (typeof showToast === 'function') showToast('Lỗi tìm kiếm: ' + error.message, 'error');
+            if (typeof showToast === 'function')
+                showToast('Lỗi tìm kiếm: ' + error.message, 'error');
             if (!this.searchResults || this.searchResults.length === 0) this.searchResults = [];
             this.renderConversationList();
         } finally {
@@ -3784,10 +4875,11 @@ class InboxChatController {
             const cust = messagesResult.customers?.[0];
             if (!cust?.fb_id) return;
 
-            const phone = messagesResult.recent_phone_numbers?.[0]
-                || messagesResult.conv_phone_numbers?.[0]
-                || cust.recent_phone_numbers?.[0]?.phone_number
-                || null;
+            const phone =
+                messagesResult.recent_phone_numbers?.[0] ||
+                messagesResult.conv_phone_numbers?.[0] ||
+                cust.recent_phone_numbers?.[0]?.phone_number ||
+                null;
 
             const body = {
                 page_id: conv.pageId,
@@ -3805,16 +4897,22 @@ class InboxChatController {
                 ad_clicks: cust.ad_clicks || null,
             };
 
-            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const workerUrl =
+                InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             fetch(`${workerUrl}/api/v2/customers/sync-pancake`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
-            }).then(r => r.json()).then(data => {
-                if (data.success) {
-                    console.log(`[InboxChat] Synced customer "${cust.name}" to DB (${data.action}, global_id=${body.global_id})`);
-                }
-            }).catch(() => {});
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.success) {
+                        console.log(
+                            `[InboxChat] Synced customer "${cust.name}" to DB (${data.action}, global_id=${body.global_id})`
+                        );
+                    }
+                })
+                .catch(() => {});
         } catch (_) {}
     }
 
@@ -3827,36 +4925,63 @@ class InboxChatController {
     async _getWorkingAccountForWS(ptm, pdm) {
         const accountIds = Object.keys(ptm.accounts || {});
         // Try active account first, then others
-        const ordered = [ptm.activeAccountId, ...accountIds.filter(id => id !== ptm.activeAccountId)].filter(Boolean);
+        const ordered = [
+            ptm.activeAccountId,
+            ...accountIds.filter((id) => id !== ptm.activeAccountId),
+        ].filter(Boolean);
 
-        console.log(`[InboxChat][DEBUG] _getWorkingAccountForWS: ${accountIds.length} accounts, active=${ptm.activeAccountId}, order=[${ordered.join(',')}]`);
+        console.log(
+            `[InboxChat][DEBUG] _getWorkingAccountForWS: ${accountIds.length} accounts, active=${ptm.activeAccountId}, order=[${ordered.join(',')}]`
+        );
 
         for (const accountId of ordered) {
             const account = ptm.accounts[accountId];
-            if (!account) { console.log(`[InboxChat][DEBUG] Account ${accountId}: not found, skip`); continue; }
+            if (!account) {
+                console.log(`[InboxChat][DEBUG] Account ${accountId}: not found, skip`);
+                continue;
+            }
             if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) {
-                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": JWT expired (exp=${account.exp}), skip`);
+                console.log(
+                    `[InboxChat][DEBUG] Account "${account.name || accountId}": JWT expired (exp=${account.exp}), skip`
+                );
                 continue;
             }
 
             const token = account.token;
-            if (!token) { console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": no token, skip`); continue; }
+            if (!token) {
+                console.log(
+                    `[InboxChat][DEBUG] Account "${account.name || accountId}": no token, skip`
+                );
+                continue;
+            }
 
             // Decode userId from JWT
             let userId = null;
             try {
                 const parts = token.split('.');
                 if (parts.length >= 2) {
-                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    const payload = JSON.parse(
+                        atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+                    );
                     userId = payload.uid || payload.user_id || payload.sub;
                 }
             } catch (e) {
-                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": JWT decode failed`, e.message);
+                console.log(
+                    `[InboxChat][DEBUG] Account "${account.name || accountId}": JWT decode failed`,
+                    e.message
+                );
                 continue;
             }
-            if (!userId) { console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": no userId in JWT`); continue; }
+            if (!userId) {
+                console.log(
+                    `[InboxChat][DEBUG] Account "${account.name || accountId}": no userId in JWT`
+                );
+                continue;
+            }
 
-            console.log(`[InboxChat][DEBUG] Testing account "${account.name || accountId}" (uid=${userId})...`);
+            console.log(
+                `[InboxChat][DEBUG] Testing account "${account.name || accountId}" (uid=${userId})...`
+            );
 
             // Quick check: try fetching conversations to see if subscription is active
             try {
@@ -3864,20 +4989,33 @@ class InboxChatController {
                 const res = await fetch(testUrl);
                 const data = await res.json();
                 if (data.error_code === 122) {
-                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" subscription expired (error_code=122), skipping...`);
+                    console.log(
+                        `[InboxChat][DEBUG] Account "${account.name || accountId}" subscription expired (error_code=122), skipping...`
+                    );
                     continue;
                 }
                 if (data.error) {
-                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API error:`, data.error);
+                    console.log(
+                        `[InboxChat][DEBUG] Account "${account.name || accountId}" API error:`,
+                        data.error
+                    );
                 } else {
-                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API OK, ${data.data?.length || 0} conversations`);
+                    console.log(
+                        `[InboxChat][DEBUG] Account "${account.name || accountId}" API OK, ${data.data?.length || 0} conversations`
+                    );
                 }
             } catch (e) {
-                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API check failed:`, e.message, '(trying anyway)');
+                console.log(
+                    `[InboxChat][DEBUG] Account "${account.name || accountId}" API check failed:`,
+                    e.message,
+                    '(trying anyway)'
+                );
             }
 
-            const pageIds = (pdm.pageIds || []).map(id => String(id));
-            console.log(`[InboxChat] ✅ Using account "${account.name || accountId}" (uid=${userId}) for WS, pages=[${pageIds.join(',')}]`);
+            const pageIds = (pdm.pageIds || []).map((id) => String(id));
+            console.log(
+                `[InboxChat] ✅ Using account "${account.name || accountId}" (uid=${userId}) for WS, pages=[${pageIds.join(',')}]`
+            );
             return { token, userId, pageIds, cookie: `jwt=${token}` };
         }
 
@@ -3886,9 +5024,13 @@ class InboxChatController {
     }
 
     async initializeWebSocket() {
-        console.log(`[InboxChat][DEBUG] initializeWebSocket() called. isSocketConnected=${this.isSocketConnected}, isSocketConnecting=${this.isSocketConnecting}`);
+        console.log(
+            `[InboxChat][DEBUG] initializeWebSocket() called. isSocketConnected=${this.isSocketConnected}, isSocketConnecting=${this.isSocketConnecting}`
+        );
         if (this.isSocketConnected || this.isSocketConnecting) {
-            console.log(`[InboxChat][DEBUG] initializeWebSocket() skipped: already ${this.isSocketConnected ? 'connected' : 'connecting'}`);
+            console.log(
+                `[InboxChat][DEBUG] initializeWebSocket() skipped: already ${this.isSocketConnected ? 'connected' : 'connecting'}`
+            );
             return true;
         }
 
@@ -3922,14 +5064,15 @@ class InboxChatController {
                 accessToken: token,
                 userId: this.userId,
                 pageIds: pageIds,
-                onEvent: (event, payload) => this.onSocketMessage({ data: JSON.stringify({ type: event, payload }) }),
+                onEvent: (event, payload) =>
+                    this.onSocketMessage({ data: JSON.stringify({ type: event, payload }) }),
                 onStatusChange: (connected) => {
                     if (connected) {
                         this.onSocketOpen();
                     } else if (this.isSocketConnected) {
                         this.onSocketClose({ code: 1006, reason: 'Phoenix disconnected' });
                     }
-                }
+                },
             });
 
             this.phoenixSocket.connect();
@@ -3971,13 +5114,19 @@ class InboxChatController {
                 this.handleConversationUpdate(data.payload);
             } else if (data.type === 'pages:new_message' || data.type === 'new_message') {
                 this.handleNewMessage(data.payload);
-            } else if (data.type === 'pages:seen_conversation' || data.type === 'seen_conversation') {
+            } else if (
+                data.type === 'pages:seen_conversation' ||
+                data.type === 'seen_conversation'
+            ) {
                 this.handleSeenConversation(data.payload);
             } else if (data.type === 'post_type_detected') {
                 this.handlePostTypeDetected(data);
             }
             // viewing_conversation events → inboxFeatures
-            if (data.type === 'viewing_conversation:append' || data.type === 'viewing_conversation:remove') {
+            if (
+                data.type === 'viewing_conversation:append' ||
+                data.type === 'viewing_conversation:remove'
+            ) {
                 window.inboxFeatures?.handleViewingEvent(data.type, data.payload);
             }
         } catch (e) {
@@ -3992,26 +5141,34 @@ class InboxChatController {
         // Filter by page_id — only process pages the inbox manages
         const pageId = String(conversation.page_id || payload?.page_id || '');
         if (pageId) {
-            const knownPage = this.data.pages.find(p => String(p.id) === pageId || String(p.page_id) === pageId);
+            const knownPage = this.data.pages.find(
+                (p) => String(p.id) === pageId || String(p.page_id) === pageId
+            );
             if (!knownPage) return;
         }
 
         // Filter by type — only process INBOX and COMMENT
-        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') return;
+        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT')
+            return;
 
         // Detect livestream from post data in payload
         const post = conversation.post;
-        const isLivestream = post?.type === 'livestream' || post?.live_video_status === 'vod' || post?.live_video_status === 'live';
+        const isLivestream =
+            post?.type === 'livestream' ||
+            post?.live_video_status === 'vod' ||
+            post?.live_video_status === 'live';
 
         // Extract customer psid for cross-conversation livestream linking
-        const customerPsid = conversation.from_psid
-            || conversation.from?.id
-            || conversation.customers?.[0]?.fb_id
-            || '';
+        const customerPsid =
+            conversation.from_psid ||
+            conversation.from?.id ||
+            conversation.customers?.[0]?.fb_id ||
+            '';
 
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
-            existing.lastMessage = this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
+            existing.lastMessage =
+                this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
             if (conversation.type) existing.type = conversation.type;
@@ -4022,7 +5179,12 @@ class InboxChatController {
                 this.data.markAsLivestream(conversation.id, conversation.post_id);
                 // Mark customer → all their conversations become livestream
                 const custName = conversation.from?.name || conversation.customers?.[0]?.name;
-                this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
+                this.data.markCustomerAsLivestream(
+                    customerPsid,
+                    pageId,
+                    custName,
+                    conversation.post_id
+                );
             } else if (this.data.livestreamConvIdSet.has(conversation.id)) {
                 // Already known as livestream from server
                 existing.isLivestream = true;
@@ -4034,7 +5196,12 @@ class InboxChatController {
                 mapped.isLivestream = true;
                 this.data.markAsLivestream(conversation.id, conversation.post_id);
                 const custName = conversation.from?.name || conversation.customers?.[0]?.name;
-                this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
+                this.data.markCustomerAsLivestream(
+                    customerPsid,
+                    pageId,
+                    custName,
+                    conversation.post_id
+                );
             } else if (this.data.livestreamConvIdSet.has(conversation.id)) {
                 mapped.isLivestream = true;
             }
@@ -4092,7 +5259,9 @@ class InboxChatController {
         const conv = this.data.getConversation(convId);
         if (conv) {
             conv.time = new Date();
-            conv.lastMessage = this.data._filterSystemMessage(message.original_message || message.message) || conv.lastMessage;
+            conv.lastMessage =
+                this.data._filterSystemMessage(message.original_message || message.message) ||
+                conv.lastMessage;
             this.data.conversations.sort((a, b) => b.time - a.time);
 
             // Smart update: only update the changed conversation item
@@ -4182,7 +5351,8 @@ class InboxChatController {
             this.pageUnreadCounts = {};
             for (const conv of this.data.conversations) {
                 if (conv.unread > 0 && conv.pageId) {
-                    this.pageUnreadCounts[conv.pageId] = (this.pageUnreadCounts[conv.pageId] || 0) + 1;
+                    this.pageUnreadCounts[conv.pageId] =
+                        (this.pageUnreadCounts[conv.pageId] || 0) + 1;
                 }
             }
             this.renderPageSelector();
@@ -4204,15 +5374,31 @@ class InboxChatController {
     // ===== Utility Methods =====
 
     getLabelClass(label) {
-        return { 'new': 'label-new', 'processing': 'label-processing', 'waiting': 'label-waiting',
-                 'ordered': 'label-done', 'urgent': 'label-urgent', 'done': 'label-done' }[label] || 'label-new';
+        return (
+            {
+                new: 'label-new',
+                processing: 'label-processing',
+                waiting: 'label-waiting',
+                ordered: 'label-done',
+                urgent: 'label-urgent',
+                done: 'label-done',
+            }[label] || 'label-new'
+        );
     }
 
     getLabelText(label) {
-        const group = this.data.groups.find(g => g.id === label);
+        const group = this.data.groups.find((g) => g.id === label);
         if (group) return group.name;
-        return { 'new': 'Mới', 'processing': 'Đang XL', 'waiting': 'Chờ PH',
-                 'ordered': 'Đã Đặt', 'urgent': 'Cần Gấp', 'done': 'Xong' }[label] || label;
+        return (
+            {
+                new: 'Mới',
+                processing: 'Đang XL',
+                waiting: 'Chờ PH',
+                ordered: 'Đã Đặt',
+                urgent: 'Cần Gấp',
+                done: 'Xong',
+            }[label] || label
+        );
     }
 
     /**
@@ -4224,7 +5410,11 @@ class InboxChatController {
         try {
             let date;
             if (typeof timestamp === 'string') {
-                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                if (
+                    !timestamp.includes('Z') &&
+                    !timestamp.includes('+') &&
+                    !timestamp.includes('-', 10)
+                ) {
                     date = new Date(timestamp + 'Z');
                 } else {
                     date = new Date(timestamp);
@@ -4251,36 +5441,66 @@ class InboxChatController {
             const now = new Date();
             const vnFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Ho_Chi_Minh',
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', hour12: false
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
             });
 
             const dateParts = vnFormatter.formatToParts(date);
             const nowParts = vnFormatter.formatToParts(now);
-            const getVal = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+            const getVal = (parts, type) =>
+                parseInt(parts.find((p) => p.type === type)?.value || '0');
 
-            const isSameDay = getVal(dateParts, 'year') === getVal(nowParts, 'year') &&
-                              getVal(dateParts, 'month') === getVal(nowParts, 'month') &&
-                              getVal(dateParts, 'day') === getVal(nowParts, 'day');
+            const isSameDay =
+                getVal(dateParts, 'year') === getVal(nowParts, 'year') &&
+                getVal(dateParts, 'month') === getVal(nowParts, 'month') &&
+                getVal(dateParts, 'day') === getVal(nowParts, 'day');
 
             if (isSameDay) {
                 return new Intl.DateTimeFormat('vi-VN', {
-                    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour12: false,
                 }).format(date);
             }
 
-            const vnDateObj = new Date(getVal(dateParts, 'year'), getVal(dateParts, 'month') - 1, getVal(dateParts, 'day'));
-            const vnNowObj = new Date(getVal(nowParts, 'year'), getVal(nowParts, 'month') - 1, getVal(nowParts, 'day'));
+            const vnDateObj = new Date(
+                getVal(dateParts, 'year'),
+                getVal(dateParts, 'month') - 1,
+                getVal(dateParts, 'day')
+            );
+            const vnNowObj = new Date(
+                getVal(nowParts, 'year'),
+                getVal(nowParts, 'month') - 1,
+                getVal(nowParts, 'day')
+            );
             const diffDays = Math.floor((vnNowObj - vnDateObj) / 86400000);
 
             if (diffDays > 0 && diffDays < 7) {
-                const dayOfWeek = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short' }).format(date);
-                const days = { 'Sun': 'CN', 'Mon': 'T2', 'Tue': 'T3', 'Wed': 'T4', 'Thu': 'T5', 'Fri': 'T6', 'Sat': 'T7' };
+                const dayOfWeek = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    weekday: 'short',
+                }).format(date);
+                const days = {
+                    Sun: 'CN',
+                    Mon: 'T2',
+                    Tue: 'T3',
+                    Wed: 'T4',
+                    Thu: 'T5',
+                    Fri: 'T6',
+                    Sat: 'T7',
+                };
                 return days[dayOfWeek] || dayOfWeek;
             }
 
             return new Intl.DateTimeFormat('vi-VN', {
-                day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh'
+                day: '2-digit',
+                month: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh',
             }).format(date);
         } catch (error) {
             return '';
@@ -4294,23 +5514,38 @@ class InboxChatController {
         try {
             const now = new Date();
             const vnFormatter = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+                timeZone: 'Asia/Ho_Chi_Minh',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
             });
             const dateParts = vnFormatter.formatToParts(date);
             const nowParts = vnFormatter.formatToParts(now);
-            const getVal = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+            const getVal = (parts, type) =>
+                parseInt(parts.find((p) => p.type === type)?.value || '0');
 
             const dateKey = `${getVal(dateParts, 'year')}-${getVal(dateParts, 'month')}-${getVal(dateParts, 'day')}`;
             const nowKey = `${getVal(nowParts, 'year')}-${getVal(nowParts, 'month')}-${getVal(nowParts, 'day')}`;
 
             if (dateKey === nowKey) return 'Hôm nay';
 
-            const vnDateObj = new Date(getVal(dateParts, 'year'), getVal(dateParts, 'month') - 1, getVal(dateParts, 'day'));
-            const vnNowObj = new Date(getVal(nowParts, 'year'), getVal(nowParts, 'month') - 1, getVal(nowParts, 'day'));
+            const vnDateObj = new Date(
+                getVal(dateParts, 'year'),
+                getVal(dateParts, 'month') - 1,
+                getVal(dateParts, 'day')
+            );
+            const vnNowObj = new Date(
+                getVal(nowParts, 'year'),
+                getVal(nowParts, 'month') - 1,
+                getVal(nowParts, 'day')
+            );
             if (vnNowObj - vnDateObj === 86400000) return 'Hôm qua';
 
             return new Intl.DateTimeFormat('vi-VN', {
-                day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh'
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                timeZone: 'Asia/Ho_Chi_Minh',
             }).format(date);
         } catch (error) {
             return '';
@@ -4321,13 +5556,19 @@ class InboxChatController {
         const date = this.parseTimestamp(timestamp);
         if (!date) return '';
         return new Intl.DateTimeFormat('vi-VN', {
-            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour12: false,
         }).format(date);
     }
 
     formatMessageText(text) {
         let safe = this.escapeHtml(text);
-        safe = safe.replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">$1</a>');
+        safe = safe.replace(
+            /(https?:\/\/[^\s<]+)/gi,
+            '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">$1</a>'
+        );
         safe = safe.replace(/\n/g, '<br>');
         return safe;
     }

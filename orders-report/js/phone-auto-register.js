@@ -13,7 +13,7 @@ const PhoneAutoRegister = (() => {
     const START_STAGGER_MS = 200;
     const DEFAULTS = {
         pbx_domain: 'pbx-ucaas.oncallcx.vn',
-        ws_url: 'wss://45-76-155-207.sslip.io/ws'
+        ws_url: 'wss://45-76-155-207.sslip.io/ws',
     };
 
     const uas = new Map(); // ext → { ua, registered, lastError, ext }
@@ -31,15 +31,23 @@ const PhoneAutoRegister = (() => {
         try {
             sessionId = sessionStorage.getItem(SESSION_KEY);
             if (!sessionId) {
-                sessionId = (crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36));
+                sessionId =
+                    crypto?.randomUUID?.() ||
+                    Math.random().toString(36).slice(2) + Date.now().toString(36);
                 sessionStorage.setItem(SESSION_KEY, sessionId);
             }
-        } catch { sessionId = Math.random().toString(36).slice(2); }
+        } catch {
+            sessionId = Math.random().toString(36).slice(2);
+        }
         return sessionId;
     }
 
     function _currentUser() {
-        try { return window.authManager?.getAuthData?.()?.displayName || ''; } catch { return ''; }
+        try {
+            return window.authManager?.getAuthData?.()?.displayName || '';
+        } catch {
+            return '';
+        }
     }
     function _deviceLabel() {
         const ua = navigator.userAgent || '';
@@ -55,15 +63,23 @@ const PhoneAutoRegister = (() => {
             if (auth?.roleTemplate === 'admin') return true;
             if (auth?.checkLogin === 0) return true;
             return false;
-        } catch { return false; }
+        } catch {
+            return false;
+        }
     }
 
     // Local preference: "I want to be the auto-register holder"
     function isPreferenceOn() {
-        try { return localStorage.getItem(PREF_KEY) === 'true'; } catch { return false; }
+        try {
+            return localStorage.getItem(PREF_KEY) === 'true';
+        } catch {
+            return false;
+        }
     }
     function _setPreference(on) {
-        try { localStorage.setItem(PREF_KEY, on ? 'true' : 'false'); } catch {}
+        try {
+            localStorage.setItem(PREF_KEY, on ? 'true' : 'false');
+        } catch {}
     }
 
     // === LOCK API ===
@@ -72,34 +88,45 @@ const PhoneAutoRegister = (() => {
             const r = await fetch(`${API_BASE}/auto-register-lock`, { cache: 'no-store' });
             if (!r.ok) return null;
             return await r.json();
-        } catch { return null; }
+        } catch {
+            return null;
+        }
     }
     async function _takeLock({ force = false } = {}) {
         try {
             const r = await fetch(`${API_BASE}/auto-register-lock`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session: _getSessionId(), user: _currentUser(), device: _deviceLabel(), force })
+                body: JSON.stringify({
+                    session: _getSessionId(),
+                    user: _currentUser(),
+                    device: _deviceLabel(),
+                    force,
+                }),
             });
             return await r.json();
-        } catch (err) { return { success: false, error: err.message }; }
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
     }
     async function _heartbeat() {
         try {
             const r = await fetch(`${API_BASE}/auto-register-lock/heartbeat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session: _getSessionId() })
+                body: JSON.stringify({ session: _getSessionId() }),
             });
             return await r.json();
-        } catch { return { success: false }; }
+        } catch {
+            return { success: false };
+        }
     }
     async function _releaseLock() {
         try {
             await fetch(`${API_BASE}/auto-register-lock`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session: _getSessionId() })
+                body: JSON.stringify({ session: _getSessionId() }),
             });
         } catch {}
     }
@@ -109,30 +136,47 @@ const PhoneAutoRegister = (() => {
         try {
             const r = await fetch(`${API_BASE}/phone-config`);
             const d = await r.json();
-            if (d?.success && d.config) { dbConfig = d.config; extensions = d.config.sip_extensions || []; return; }
+            if (d?.success && d.config) {
+                dbConfig = d.config;
+                extensions = d.config.sip_extensions || [];
+                return;
+            }
         } catch {}
         try {
             const c = JSON.parse(localStorage.getItem('phoneWidget_dbConfig') || '{}');
-            dbConfig = c; extensions = c.sip_extensions || [];
+            dbConfig = c;
+            extensions = c.sip_extensions || [];
         } catch {}
     }
 
     function _notifyStatus() {
         const s = getStatus();
-        statusListeners.forEach(fn => { try { fn(s); } catch {} });
+        statusListeners.forEach((fn) => {
+            try {
+                fn(s);
+            } catch {}
+        });
     }
-    function onStatus(fn) { if (typeof fn === 'function') statusListeners.push(fn); }
+    function onStatus(fn) {
+        if (typeof fn === 'function') statusListeners.push(fn);
+    }
 
     // Start UAs (called after lock acquired)
     async function _spawnUAs() {
-        if (typeof JsSIP === 'undefined') { console.warn('[PhoneAutoRegister] JsSIP not loaded'); return; }
+        if (typeof JsSIP === 'undefined') {
+            console.warn('[PhoneAutoRegister] JsSIP not loaded');
+            return;
+        }
         await _loadConfig();
-        if (!extensions.length) { console.warn('[PhoneAutoRegister] no extensions in config'); return; }
+        if (!extensions.length) {
+            console.warn('[PhoneAutoRegister] no extensions in config');
+            return;
+        }
         try {
             if (window.PhoneExtAssignment) {
                 await Promise.race([
                     window.PhoneExtAssignment.init(),
-                    new Promise(r => setTimeout(r, 3000))
+                    new Promise((r) => setTimeout(r, 3000)),
                 ]);
             }
         } catch {}
@@ -140,32 +184,41 @@ const PhoneAutoRegister = (() => {
 
         const wsUrl = dbConfig?.ws_url || DEFAULTS.ws_url;
         const domain = dbConfig?.pbx_domain || DEFAULTS.pbx_domain;
-        const toStart = extensions.filter(e => String(e.ext) !== String(myExt));
+        const toStart = extensions.filter((e) => String(e.ext) !== String(myExt));
 
         toStart.forEach((ext, idx) => {
             setTimeout(() => _startOneUA(ext, wsUrl, domain), idx * START_STAGGER_MS);
         });
         started = true;
-        console.log(`[PhoneAutoRegister] spawned ${toStart.length} background UAs (skip my ext ${myExt || 'none'})`);
+        console.log(
+            `[PhoneAutoRegister] spawned ${toStart.length} background UAs (skip my ext ${myExt || 'none'})`
+        );
     }
 
     function _scheduleRetry(entry, ext, wsUrl, domain, reason) {
         if (entry._retryTimer) clearTimeout(entry._retryTimer);
         entry._retryAttempt = (entry._retryAttempt || 0) + 1;
         const delay = Math.min(5000 * Math.pow(2, Math.min(entry._retryAttempt - 1, 5)), 60000);
-        console.log(`[PhoneAutoRegister] ext ${ext.ext} retry ${Math.round(delay/1000)}s #${entry._retryAttempt} (${reason})`);
+        console.log(
+            `[PhoneAutoRegister] ext ${ext.ext} retry ${Math.round(delay / 1000)}s #${entry._retryAttempt} (${reason})`
+        );
         entry._retryTimer = setTimeout(() => {
             entry._retryTimer = null;
             try {
-                const conn = entry.ua && (entry.ua.isConnected?.() || entry.ua.transport?.isConnected?.());
+                const conn =
+                    entry.ua && (entry.ua.isConnected?.() || entry.ua.transport?.isConnected?.());
                 if (entry.ua && conn) {
                     entry.ua.register();
                 } else {
-                    try { entry.ua?.stop(); } catch {}
+                    try {
+                        entry.ua?.stop();
+                    } catch {}
                     uas.delete(ext.ext);
                     _startOneUA(ext, wsUrl, domain);
                 }
-            } catch (err) { _scheduleRetry(entry, ext, wsUrl, domain, 'err'); }
+            } catch (err) {
+                _scheduleRetry(entry, ext, wsUrl, domain, 'err');
+            }
         }, delay);
     }
 
@@ -186,28 +239,47 @@ const PhoneAutoRegister = (() => {
                 session_timers: false,
                 no_answer_timeout: 120,
                 connection_recovery_min_interval: 2,
-                connection_recovery_max_interval: 30
+                connection_recovery_max_interval: 30,
             });
             entry.ua = ua;
             ua.on('connected', () => {});
-            ua.on('disconnected', () => { entry.registered = false; _notifyStatus(); _scheduleRetry(entry, ext, wsUrl, domain, 'ws_disc'); });
+            ua.on('disconnected', () => {
+                entry.registered = false;
+                _notifyStatus();
+                _scheduleRetry(entry, ext, wsUrl, domain, 'ws_disc');
+            });
             ua.on('registered', () => {
-                entry.registered = true; entry.lastError = null;
+                entry.registered = true;
+                entry.lastError = null;
                 entry._retryAttempt = 0;
-                if (entry._retryTimer) { clearTimeout(entry._retryTimer); entry._retryTimer = null; }
+                if (entry._retryTimer) {
+                    clearTimeout(entry._retryTimer);
+                    entry._retryTimer = null;
+                }
                 _notifyStatus();
             });
-            ua.on('unregistered', () => { entry.registered = false; _notifyStatus(); _scheduleRetry(entry, ext, wsUrl, domain, 'unreg'); });
-            ua.on('registrationFailed', (e) => {
-                entry.registered = false; entry.lastError = e.cause;
+            ua.on('unregistered', () => {
+                entry.registered = false;
                 _notifyStatus();
-                if (!String(e.cause || '').toLowerCase().includes('authentication')) {
+                _scheduleRetry(entry, ext, wsUrl, domain, 'unreg');
+            });
+            ua.on('registrationFailed', (e) => {
+                entry.registered = false;
+                entry.lastError = e.cause;
+                _notifyStatus();
+                if (
+                    !String(e.cause || '')
+                        .toLowerCase()
+                        .includes('authentication')
+                ) {
                     _scheduleRetry(entry, ext, wsUrl, domain, 'reg_fail');
                 }
             });
             ua.on('newRTCSession', (evt) => {
                 if (evt.originator !== 'remote') return;
-                try { evt.session.terminate({ status_code: 486, reason_phrase: 'Busy Here' }); } catch {}
+                try {
+                    evt.session.terminate({ status_code: 486, reason_phrase: 'Busy Here' });
+                } catch {}
             });
             ua.start();
         } catch (err) {
@@ -218,7 +290,11 @@ const PhoneAutoRegister = (() => {
     }
 
     function _stopAllUAs() {
-        uas.forEach(entry => { try { entry.ua?.stop(); } catch {} });
+        uas.forEach((entry) => {
+            try {
+                entry.ua?.stop();
+            } catch {}
+        });
         uas.clear();
         started = false;
     }
@@ -231,12 +307,18 @@ const PhoneAutoRegister = (() => {
                 // Someone else took the lock
                 console.warn('[PhoneAutoRegister] lock lost — stopping');
                 _stopAllUAs();
-                clearInterval(heartbeatTimer); heartbeatTimer = null;
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
                 _notifyStatus();
             }
         }, HEARTBEAT_MS);
     }
-    function _stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+    function _stopHeartbeat() {
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+    }
 
     function _startPolling() {
         if (pollTimer) clearInterval(pollTimer);
@@ -248,10 +330,17 @@ const PhoneAutoRegister = (() => {
                 const lock = await _getLock();
                 if (lock && (!lock.locked || lock.holder_session === _getSessionId())) {
                     const t = await _takeLock({});
-                    if (t.success && t.taken) { await _spawnUAs(); _startHeartbeat(); _notifyStatus(); }
+                    if (t.success && t.taken) {
+                        await _spawnUAs();
+                        _startHeartbeat();
+                        _notifyStatus();
+                    }
                 }
             } else if (!wantOn && haveStarted) {
-                _stopAllUAs(); _stopHeartbeat(); _releaseLock(); _notifyStatus();
+                _stopAllUAs();
+                _stopHeartbeat();
+                _releaseLock();
+                _notifyStatus();
             }
         }, POLL_MS);
     }
@@ -264,7 +353,12 @@ const PhoneAutoRegister = (() => {
         const mySession = _getSessionId();
         if (lock.locked && lock.holder_session !== mySession && force === null) {
             // Conflict — caller must decide
-            return { conflict: true, holder_user: lock.holder_user, holder_device: lock.holder_device, started_at: lock.started_at };
+            return {
+                conflict: true,
+                holder_user: lock.holder_user,
+                holder_device: lock.holder_device,
+                started_at: lock.started_at,
+            };
         }
         const t = await _takeLock({ force: force === true });
         if (!t.success) return { conflict: true, ...t };
@@ -291,15 +385,25 @@ const PhoneAutoRegister = (() => {
             sessionId: _getSessionId(),
             myExt,
             total: uas.size,
-            registered: Array.from(uas.values()).filter(e => e.registered).length,
-            details: Array.from(uas.values()).map(e => ({ ext: e.ext, registered: e.registered, error: e.lastError }))
+            registered: Array.from(uas.values()).filter((e) => e.registered).length,
+            details: Array.from(uas.values()).map((e) => ({
+                ext: e.ext,
+                registered: e.registered,
+                error: e.lastError,
+            })),
         };
     }
-    async function getRemoteLock() { return _getLock(); }
+    async function getRemoteLock() {
+        return _getLock();
+    }
 
     // Legacy compat
-    function isEnabled() { return isPreferenceOn(); }
-    function setEnabled(b) { return b ? enable() : disable(); }
+    function isEnabled() {
+        return isPreferenceOn();
+    }
+    function setEnabled(b) {
+        return b ? enable() : disable();
+    }
 
     // === AUTO-BOOT ===
     // On page load: if preference ON, try to take (no force). If conflict, stay off until user takes action.
@@ -312,14 +416,20 @@ const PhoneAutoRegister = (() => {
             const mySession = _getSessionId();
             if (!lock.locked || lock.holder_session === mySession) {
                 const t = await _takeLock({});
-                if (t.success && t.taken) { await _spawnUAs(); _startHeartbeat(); _notifyStatus(); }
+                if (t.success && t.taken) {
+                    await _spawnUAs();
+                    _startHeartbeat();
+                    _notifyStatus();
+                }
             }
             // else: someone else holds — wait, do nothing (user must explicitly takeover)
         }, 6000);
         window.addEventListener('beforeunload', () => {
             _stopAllUAs();
             try {
-                const blob = new Blob([JSON.stringify({ session: _getSessionId() })], { type: 'application/json' });
+                const blob = new Blob([JSON.stringify({ session: _getSessionId() })], {
+                    type: 'application/json',
+                });
                 navigator.sendBeacon?.(`${API_BASE}/auto-register-lock`, blob); // best-effort release
             } catch {}
         });
@@ -327,11 +437,20 @@ const PhoneAutoRegister = (() => {
 
     return {
         // Primary
-        enable, disable, getStatus, getRemoteLock, onStatus,
+        enable,
+        disable,
+        getStatus,
+        getRemoteLock,
+        onStatus,
         // Legacy compat
-        start: enable, stop: disable, isEnabled, setEnabled,
+        start: enable,
+        stop: disable,
+        isEnabled,
+        setEnabled,
         // Helpers
-        isAdmin: _isAdmin, isPreferenceOn, getSessionId: _getSessionId
+        isAdmin: _isAdmin,
+        isPreferenceOn,
+        getSessionId: _getSessionId,
     };
 })();
 

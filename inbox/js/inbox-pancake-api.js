@@ -32,8 +32,8 @@ const InboxApiConfig = {
         // Data persistence API (groups, labels, livestream, pending)
         dataApi(path) {
             return `${INBOX_WORKER_URL}/api/realtime/${path}`;
-        }
-    }
+        },
+    },
 };
 
 // =====================================================
@@ -54,7 +54,7 @@ class InboxTokenManager {
             JWT_EXPIRY: 'pancake_jwt_token_expiry',
             ACCOUNT_ID: 'tpos_pancake_active_account_id',
             PAGE_TOKENS: 'pancake_page_access_tokens',
-            ALL_ACCOUNTS: 'pancake_all_accounts'
+            ALL_ACCOUNTS: 'pancake_all_accounts',
         };
     }
 
@@ -146,7 +146,7 @@ class InboxTokenManager {
 
     _isExpired(exp) {
         if (!exp) return true;
-        return Math.floor(Date.now() / 1000) >= (exp - 3600);
+        return Math.floor(Date.now() / 1000) >= exp - 3600;
     }
 
     isTokenExpired(exp) {
@@ -158,11 +158,13 @@ class InboxTokenManager {
         return Object.entries(this.accounts).map(([id, acc]) => ({
             ...acc,
             accountId: id,
-            isActive: id === this.activeAccountId
+            isActive: id === this.activeAccountId,
         }));
     }
 
-    getActiveAccountId() { return this.activeAccountId; }
+    getActiveAccountId() {
+        return this.activeAccountId;
+    }
 
     async setActiveAccount(accountId) {
         const acc = this.accounts[accountId];
@@ -177,9 +179,14 @@ class InboxTokenManager {
 
         const userType = localStorage.getItem('userType');
         if (userType && this._prefsRef) {
-            this._prefsRef.set({
-                [userType]: { activeAccountId: accountId, updatedAt: Date.now() }
-            }, { merge: true }).catch(() => {});
+            this._prefsRef
+                .set(
+                    {
+                        [userType]: { activeAccountId: accountId, updatedAt: Date.now() },
+                    },
+                    { merge: true }
+                )
+                .catch(() => {});
         }
         return true;
     }
@@ -189,7 +196,13 @@ class InboxTokenManager {
         const valid = [];
         for (const [id, acc] of Object.entries(this.accounts)) {
             if (acc.exp && now < acc.exp - 3600) {
-                valid.push({ accountId: id, name: acc.name, uid: acc.uid, token: acc.token, exp: acc.exp });
+                valid.push({
+                    accountId: id,
+                    name: acc.name,
+                    uid: acc.uid,
+                    token: acc.token,
+                    exp: acc.exp,
+                });
             }
         }
         return valid;
@@ -199,7 +212,7 @@ class InboxTokenManager {
         if (!this.accounts[accountId]) return false;
         if (this._accountsRef) {
             await this._accountsRef.update({
-                [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete()
+                [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete(),
             });
         }
         delete this.accounts[accountId];
@@ -216,13 +229,22 @@ class InboxTokenManager {
     async saveTokenToFirestore(token, accountId = null) {
         let clean = token.trim();
         if (clean.startsWith('jwt=')) clean = clean.substring(4).trim();
-        clean = clean.replace(/^["']|["']$/g, '').replace(/\s+/g, '').replace(/[;,]+$/g, '');
+        clean = clean
+            .replace(/^["']|["']$/g, '')
+            .replace(/\s+/g, '')
+            .replace(/[;,]+$/g, '');
 
         const payload = this.decodeToken(clean);
         if (!payload) return null;
         if (!accountId) accountId = payload.uid || `account_${Date.now()}`;
 
-        const data = { token: clean, exp: payload.exp, uid: payload.uid, name: payload.name || 'Unknown', savedAt: Date.now() };
+        const data = {
+            token: clean,
+            exp: payload.exp,
+            uid: payload.uid,
+            name: payload.name || 'Unknown',
+            savedAt: Date.now(),
+        };
         this.accounts[accountId] = data;
         this.activeAccountId = accountId;
         this.currentToken = clean;
@@ -239,16 +261,22 @@ class InboxTokenManager {
     async setTokenManual(token) {
         let clean = token.trim();
         if (clean.toLowerCase().startsWith('jwt=')) clean = clean.substring(4).trim();
-        clean = clean.replace(/^["']|["']$/g, '').replace(/\s+/g, '').replace(/[;,]+$/g, '');
+        clean = clean
+            .replace(/^["']|["']$/g, '')
+            .replace(/\s+/g, '')
+            .replace(/[;,]+$/g, '');
 
         if (!clean) throw new Error('Token trống sau khi làm sạch');
         const parts = clean.split('.');
-        if (parts.length !== 3) throw new Error(`Token không đúng định dạng JWT (có ${parts.length} phần, cần 3)`);
+        if (parts.length !== 3)
+            throw new Error(`Token không đúng định dạng JWT (có ${parts.length} phần, cần 3)`);
 
         const payload = this.decodeToken(clean);
         if (!payload) throw new Error('Không thể giải mã token');
         if (this._isExpired(payload.exp)) {
-            throw new Error(`Token đã hết hạn vào ${new Date(payload.exp * 1000).toLocaleString('vi-VN')}`);
+            throw new Error(
+                `Token đã hết hạn vào ${new Date(payload.exp * 1000).toLocaleString('vi-VN')}`
+            );
         }
 
         const accountId = await this.saveTokenToFirestore(clean);
@@ -287,8 +315,14 @@ class InboxTokenManager {
     async generatePageAccessToken(pageId, accountToken = null) {
         // Try specific token first
         const tryGenerate = async (jwt) => {
-            const url = InboxApiConfig.buildUrl.pancake(`pages/${pageId}/generate_page_access_token`, `access_token=${jwt}`);
-            const res = await fetch(url, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } });
+            const url = InboxApiConfig.buildUrl.pancake(
+                `pages/${pageId}/generate_page_access_token`,
+                `access_token=${jwt}`
+            );
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            });
             const data = await res.json();
             if (data.success && data.page_access_token) {
                 await this.savePageAccessToken(pageId, data.page_access_token);
@@ -312,10 +346,14 @@ class InboxTokenManager {
                 try {
                     const pat = await tryGenerate(acc.token);
                     if (pat) {
-                        console.log(`[INBOX-TOKEN] Generated PAT for page ${pageId} using account ${acc.name || acc.accountId}`);
+                        console.log(
+                            `[INBOX-TOKEN] Generated PAT for page ${pageId} using account ${acc.name || acc.accountId}`
+                        );
                         return pat;
                     }
-                } catch (e) { /* try next account */ }
+                } catch (e) {
+                    /* try next account */
+                }
             }
         } catch (e) {
             console.error('[INBOX-TOKEN] Generate page token error:', e);
@@ -331,7 +369,10 @@ class InboxTokenManager {
 
     getAllPageAccessTokens() {
         return Object.entries(this.pageAccessTokens).map(([pageId, data]) => ({
-            pageId, pageName: data.pageName || pageId, token: data.token || null, savedAt: data.savedAt
+            pageId,
+            pageName: data.pageName || pageId,
+            token: data.token || null,
+            savedAt: data.savedAt,
         }));
     }
 
@@ -342,8 +383,8 @@ class InboxTokenManager {
             const res = await fetch(url);
             const data = await res.json();
             if (data.success && data.categorized?.activated) {
-                const pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
-                this.accountPageAccessMap[accountId] = new Set(pages.map(p => p.id));
+                const pages = data.categorized.activated.filter((p) => !p.id.startsWith('igo_'));
+                this.accountPageAccessMap[accountId] = new Set(pages.map((p) => p.id));
                 return this.accountPageAccessMap[accountId];
             }
         } catch (e) {}
@@ -353,16 +394,23 @@ class InboxTokenManager {
 
     async prefetchAllAccountPages() {
         const valid = this.getValidAccounts();
-        await Promise.all(valid.map(a => this.fetchAccountPages(a.accountId, a.token)));
+        await Promise.all(valid.map((a) => this.fetchAccountPages(a.accountId, a.token)));
     }
 
     findAccountWithPageAccess(pageId, excludeId = null) {
         const valid = this.getValidAccounts();
-        return valid.find(a => a.accountId !== excludeId && this.accountPageAccessMap[a.accountId]?.has(pageId)) || null;
+        return (
+            valid.find(
+                (a) =>
+                    a.accountId !== excludeId && this.accountPageAccessMap[a.accountId]?.has(pageId)
+            ) || null
+        );
     }
 
     getAccountsWithPageAccess(pageId) {
-        return this.getValidAccounts().filter(a => this.accountPageAccessMap[a.accountId]?.has(pageId));
+        return this.getValidAccounts().filter((a) =>
+            this.accountPageAccessMap[a.accountId]?.has(pageId)
+        );
     }
 
     // --- Extract page_access_tokens from /pages response ---
@@ -371,7 +419,12 @@ class InboxTokenManager {
         for (const page of pages) {
             const pat = page.settings?.page_access_token;
             if (page.id && pat) {
-                this.pageAccessTokens[page.id] = { token: pat, pageId: page.id, pageName: page.name || page.id, savedAt: Date.now() };
+                this.pageAccessTokens[page.id] = {
+                    token: pat,
+                    pageId: page.id,
+                    pageName: page.name || page.id,
+                    savedAt: Date.now(),
+                };
                 count++;
             }
         }
@@ -431,7 +484,7 @@ class InboxTokenManager {
     async _loadAccounts() {
         try {
             const doc = await this._accountsRef.get();
-            this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
+            this.accounts = doc.exists ? doc.data()?.data || {} : {};
 
             let preferredId = null;
             const userType = localStorage.getItem('userType');
@@ -468,18 +521,23 @@ class InboxTokenManager {
     _syncAccountsToRenderDB() {
         try {
             if (!this.accounts || Object.keys(this.accounts).length === 0) return;
-            const workerUrl = typeof InboxApiConfig !== 'undefined'
-                ? InboxApiConfig.WORKER_URL
-                : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const workerUrl =
+                typeof InboxApiConfig !== 'undefined'
+                    ? InboxApiConfig.WORKER_URL
+                    : 'https://chatomni-proxy.nhijudyshop.workers.dev';
             fetch(`${workerUrl}/api/pancake-accounts/sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ accounts: this.accounts }),
-            }).then(r => r.json()).then(data => {
-                if (data.upserted > 0) console.log(`[INBOX-TOKEN] Synced ${data.upserted} accounts to Render DB`);
-            }).catch(e => {
-                console.warn('[INBOX-TOKEN] Render DB sync failed:', e.message);
-            });
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.upserted > 0)
+                        console.log(`[INBOX-TOKEN] Synced ${data.upserted} accounts to Render DB`);
+                })
+                .catch((e) => {
+                    console.warn('[INBOX-TOKEN] Render DB sync failed:', e.message);
+                });
         } catch (e) {}
     }
 
@@ -507,7 +565,7 @@ class InboxTokenManager {
     _getCookieToken() {
         try {
             const cookies = document.cookie.split(';');
-            const jwt = cookies.find(c => c.trim().startsWith('jwt='));
+            const jwt = cookies.find((c) => c.trim().startsWith('jwt='));
             if (jwt) return jwt.split('=').slice(1).join('=').trim();
         } catch (e) {}
         return null;
@@ -520,10 +578,12 @@ class InboxTokenManager {
             if (!doc.exists) return;
             const docData = doc.data() || {};
             const fsTokens = {};
-            if (docData.data && typeof docData.data === 'object') Object.assign(fsTokens, docData.data);
+            if (docData.data && typeof docData.data === 'object')
+                Object.assign(fsTokens, docData.data);
             for (const [k, v] of Object.entries(docData)) {
                 if (k !== 'data' && v?.token) {
-                    if (!fsTokens[k] || (v.savedAt || 0) > (fsTokens[k].savedAt || 0)) fsTokens[k] = v;
+                    if (!fsTokens[k] || (v.savedAt || 0) > (fsTokens[k].savedAt || 0))
+                        fsTokens[k] = v;
                 }
             }
             const merged = { ...this.pageAccessTokens };
@@ -542,8 +602,12 @@ class InboxTokenManager {
         if (!this.activeAccountId || !this.accounts[this.activeAccountId]) return null;
         const acc = this.accounts[this.activeAccountId];
         return {
-            accountId: this.activeAccountId, name: acc.name, uid: acc.uid, exp: acc.exp,
-            expiryDate: new Date(acc.exp * 1000).toLocaleString(), isExpired: this._isExpired(acc.exp)
+            accountId: this.activeAccountId,
+            name: acc.name,
+            uid: acc.uid,
+            exp: acc.exp,
+            expiryDate: new Date(acc.exp * 1000).toLocaleString(),
+            isExpired: this._isExpired(acc.exp),
         };
     }
 }
@@ -557,7 +621,7 @@ class InboxPancakeAPI {
         this.tm = tokenManager;
         this.pages = [];
         this.pageIds = [];
-        this._lastConvId = {};          // cursor per page for pagination
+        this._lastConvId = {}; // cursor per page for pagination
         this._searchablePageIds = null;
         this.CACHE_DURATION = 5 * 60 * 1000;
         this.MSG_CACHE_DURATION = 2 * 60 * 1000;
@@ -567,7 +631,12 @@ class InboxPancakeAPI {
 
     // --- Fetch Pages ---
     async fetchPages(forceRefresh = false) {
-        if (!forceRefresh && this.pages.length > 0 && this._lastPageFetch && (Date.now() - this._lastPageFetch < this.CACHE_DURATION)) {
+        if (
+            !forceRefresh &&
+            this.pages.length > 0 &&
+            this._lastPageFetch &&
+            Date.now() - this._lastPageFetch < this.CACHE_DURATION
+        ) {
             return this.pages;
         }
         try {
@@ -580,8 +649,8 @@ class InboxPancakeAPI {
 
             const data = await res.json();
             if (data.success && data.categorized?.activated) {
-                this.pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
-                this.pageIds = this.pages.map(p => p.id);
+                this.pages = data.categorized.activated.filter((p) => !p.id.startsWith('igo_'));
+                this.pageIds = this.pages.map((p) => p.id);
                 this._lastPageFetch = Date.now();
                 this.tm.extractPageTokensFromPages(this.pages);
                 console.log(`[INBOX-API] Fetched ${this.pages.length} pages`);
@@ -601,15 +670,18 @@ class InboxPancakeAPI {
         try {
             const token = await this.tm.getToken();
             if (!token) return [];
-            const url = InboxApiConfig.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
+            const url = InboxApiConfig.buildUrl.pancake(
+                'pages/unread_conv_pages_count',
+                `access_token=${token}`
+            );
             const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
             if (!res.ok) return [];
             const data = await res.json();
             if (data.success && data.data) {
-                return data.data.map(item => ({
+                return data.data.map((item) => ({
                     page_id: item.page_id,
                     unread_conv_count: item.unread_conv_count || 0,
-                    page_name: this.pages.find(p => p.id === item.page_id)?.name || item.page_id
+                    page_name: this.pages.find((p) => p.id === item.page_id)?.name || item.page_id,
                 }));
             }
             return [];
@@ -622,15 +694,22 @@ class InboxPancakeAPI {
     _syncAccountPages(accountId, pages) {
         if (!accountId || !pages || pages.length === 0) return;
         try {
-            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const pageData = pages.map(p => ({ id: p.id, name: p.name || p.id }));
+            const workerUrl =
+                InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const pageData = pages.map((p) => ({ id: p.id, name: p.name || p.id }));
             fetch(`${workerUrl}/api/pancake-accounts/${accountId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pages: pageData }),
-            }).then(r => r.json()).then(data => {
-                if (data.success) console.log(`[INBOX-API] Synced ${pageData.length} pages for account ${accountId}`);
-            }).catch(() => {});
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.success)
+                        console.log(
+                            `[INBOX-API] Synced ${pageData.length} pages for account ${accountId}`
+                        );
+                })
+                .catch(() => {});
         } catch (_) {}
     }
 
@@ -649,13 +728,17 @@ class InboxPancakeAPI {
             const fetchOnePage = async (pageId) => {
                 let pat = this.tm.getPageAccessToken(pageId);
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
-                if (!pat) { console.warn(`[INBOX-API] Page ${pageId}: NO PAT`); return { pageId, error: { code: 'NO_TOKEN' } }; }
+                if (!pat) {
+                    console.warn(`[INBOX-API] Page ${pageId}: NO PAT`);
+                    return { pageId, error: { code: 'NO_TOKEN' } };
+                }
 
                 const fetchPage = async (token) => {
                     const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
-                        `pages/${pageId}/conversations`, token
+                        `pages/${pageId}/conversations`,
+                        token
                     );
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
                     if (!res.ok) throw { code: res.status };
                     const data = await res.json();
                     if (data.error_code) throw { code: data.error_code, message: data.message };
@@ -668,7 +751,9 @@ class InboxPancakeAPI {
                         data = await fetchPage(pat);
                     } catch (err) {
                         if (err.code === 105 || err.code === 100) {
-                            console.warn(`[INBOX-API] Page ${pageId}: token error ${err.code}, regenerating...`);
+                            console.warn(
+                                `[INBOX-API] Page ${pageId}: token error ${err.code}, regenerating...`
+                            );
                             pat = await this.tm.generatePageAccessToken(pageId);
                             if (!pat) throw { code: 'REGEN_FAILED' };
                             data = await fetchPage(pat);
@@ -692,13 +777,17 @@ class InboxPancakeAPI {
                 }
                 const data = r.data;
                 if (data && data.conversations) {
-                    console.log(`[INBOX-API] Page ${r.pageId}: ${data.conversations.length} conversations`);
+                    console.log(
+                        `[INBOX-API] Page ${r.pageId}: ${data.conversations.length} conversations`
+                    );
                     allConvs.push(...data.conversations);
                     const convs = data.conversations;
                     if (convs.length > 0) {
                         this._lastConvId[r.pageId] = convs[convs.length - 1].id;
                     }
-                    try { window.GlobalIdHarvester?.fromConversations(r.pageId, convs); } catch (_) {}
+                    try {
+                        window.GlobalIdHarvester?.fromConversations(r.pageId, convs);
+                    } catch (_) {}
                 }
             }
 
@@ -716,21 +805,27 @@ class InboxPancakeAPI {
             if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
             if (!pat) return { conversations: [], error: { code: 'NO_TOKEN' } };
 
-            const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
-                `pages/${pageId}/conversations`, pat
-            ) + '&unread_first=true';
+            const url =
+                InboxApiConfig.buildUrl.pancakeOfficialV2(`pages/${pageId}/conversations`, pat) +
+                '&unread_first=true';
 
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
             if (!res.ok) return { conversations: [], error: { code: res.status } };
 
             const data = await res.json();
-            if (data.error_code) return { conversations: [], error: { code: data.error_code, message: data.message } };
+            if (data.error_code)
+                return {
+                    conversations: [],
+                    error: { code: data.error_code, message: data.message },
+                };
 
             const convs = data.conversations || [];
             if (convs.length > 0) {
                 this._lastConvId[pageId] = convs[convs.length - 1].id;
             }
-            try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
+            try {
+                window.GlobalIdHarvester?.fromConversations(pageId, convs);
+            } catch (_) {}
             return { conversations: convs, error: null };
         } catch (e) {
             return { conversations: [], error: { code: 0, message: e.message } };
@@ -752,19 +847,24 @@ class InboxPancakeAPI {
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
                 if (!pat) return [];
 
-                const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
-                    `pages/${pageId}/conversations`, pat
-                ) + `&last_conversation_id=${cursor}&unread_first=true`;
+                const url =
+                    InboxApiConfig.buildUrl.pancakeOfficialV2(
+                        `pages/${pageId}/conversations`,
+                        pat
+                    ) + `&last_conversation_id=${cursor}&unread_first=true`;
 
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(url, { headers: { Accept: 'application/json' } });
                     if (!res.ok) return [];
                     const data = await res.json();
                     if (data.conversations?.length > 0) {
-                        this._lastConvId[pageId] = data.conversations[data.conversations.length - 1].id;
+                        this._lastConvId[pageId] =
+                            data.conversations[data.conversations.length - 1].id;
                         return data.conversations;
                     }
-                } catch (e) { console.error(`[INBOX-API] fetchMore page ${pageId}:`, e.message); }
+                } catch (e) {
+                    console.error(`[INBOX-API] fetchMore page ${pageId}:`, e.message);
+                }
                 return [];
             };
 
@@ -777,11 +877,17 @@ class InboxPancakeAPI {
     }
 
     // --- Fetch Messages (Public API v1 with page_access_token) ---
-    async fetchMessages(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false) {
+    async fetchMessages(
+        pageId,
+        conversationId,
+        currentCount = null,
+        customerId = null,
+        forceRefresh = false
+    ) {
         const cacheKey = `${pageId}_${conversationId}`;
         if (!forceRefresh && currentCount === null) {
             const cached = this._messagesCache.get(cacheKey);
-            if (cached && (Date.now() - cached.timestamp) < this.MSG_CACHE_DURATION) {
+            if (cached && Date.now() - cached.timestamp < this.MSG_CACHE_DURATION) {
                 return { ...cached, fromCache: true };
             }
         }
@@ -795,7 +901,7 @@ class InboxPancakeAPI {
                 let url = InboxApiConfig.buildUrl.pancakeOfficial(endpoint, token);
                 if (customerId) url += `&customer_id=${customerId}`;
                 if (currentCount !== null) url += `&current_count=${currentCount}`;
-                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const res = await fetch(url, { headers: { Accept: 'application/json' } });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return await res.json();
             };
@@ -814,13 +920,18 @@ class InboxPancakeAPI {
             if (data.error_code) {
                 // Token renewed — regenerate and retry
                 if (data.error_code === 105 || data.error_code === 100) {
-                    console.warn(`[INBOX-API] fetchMessages token error ${data.error_code}, regenerating...`);
+                    console.warn(
+                        `[INBOX-API] fetchMessages token error ${data.error_code}, regenerating...`
+                    );
                     pat = await this.tm.generatePageAccessToken(pageId);
                     if (pat) data = await doFetch(pat);
                 }
             }
 
-            console.log('[INBOX-API] fetchMessages:', { pageId, messageCount: data.messages?.length });
+            console.log('[INBOX-API] fetchMessages:', {
+                pageId,
+                messageCount: data.messages?.length,
+            });
             const result = {
                 messages: data.messages || [],
                 conversation: data.conversation || null,
@@ -833,17 +944,35 @@ class InboxPancakeAPI {
                 recent_phone_numbers: data.recent_phone_numbers || [],
                 conv_phone_numbers: data.conv_phone_numbers || [],
                 notes: data.notes || [],
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
 
             if (currentCount === null) {
                 this._messagesCache.set(cacheKey, result);
             }
-            try { window.GlobalIdHarvester?.fromCustomers(pageId, result.customers, { conversationId, threadId: result.conversation?.thread_id }); } catch (_) {}
+            try {
+                window.GlobalIdHarvester?.fromCustomers(pageId, result.customers, {
+                    conversationId,
+                    threadId: result.conversation?.thread_id,
+                });
+            } catch (_) {}
             return { ...result, fromCache: false };
         } catch (e) {
             console.error('[INBOX-API] fetchMessages error:', e);
-            return { messages: [], conversation: null, customers: [], customerId: null, post: null, activities: [], reports_by_phone: {}, comment_count: 0, recent_phone_numbers: [], conv_phone_numbers: [], notes: [], fromCache: false };
+            return {
+                messages: [],
+                conversation: null,
+                customers: [],
+                customerId: null,
+                post: null,
+                activities: [],
+                reports_by_phone: {},
+                comment_count: 0,
+                recent_phone_numbers: [],
+                conv_phone_numbers: [],
+                notes: [],
+                fromCache: false,
+            };
         }
     }
 
@@ -860,12 +989,16 @@ class InboxPancakeAPI {
             );
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(payload),
             });
             const text = await res.text();
             let data;
-            try { data = JSON.parse(text); } catch (e) { data = { success: false, raw: text }; }
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                data = { success: false, raw: text };
+            }
             return data;
         } catch (e) {
             console.error('[INBOX-API] sendMessage error:', e);
@@ -879,7 +1012,10 @@ class InboxPancakeAPI {
             const formData = new FormData();
             formData.append('file', file);
 
-            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/upload_contents`, pageAccessToken);
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(
+                `pages/${pageId}/upload_contents`,
+                pageAccessToken
+            );
             const res = await fetch(url, { method: 'POST', body: formData });
             const data = await res.json();
             return data;
@@ -897,7 +1033,7 @@ class InboxPancakeAPI {
             if (!token) return { conversations: [], customerId: null };
 
             let ids = pageIds || this._searchablePageIds || this.pageIds;
-            ids = ids.filter(id => !id.startsWith('igo_'));
+            ids = ids.filter((id) => !id.startsWith('igo_'));
             if (ids.length === 0) return { conversations: [], customerId: null };
 
             const encoded = encodeURIComponent(query);
@@ -909,12 +1045,13 @@ class InboxPancakeAPI {
                 const working = [];
                 for (const pid of ids) {
                     const test = await this._doSearch(token, encoded, [pid]);
-                    if (test.success || (test.errorCode !== 122 && test.errorCode !== 429)) working.push(pid);
-                    await new Promise(r => setTimeout(r, 500));
+                    if (test.success || (test.errorCode !== 122 && test.errorCode !== 429))
+                        working.push(pid);
+                    await new Promise((r) => setTimeout(r, 500));
                 }
                 if (working.length > 0) {
                     this._searchablePageIds = working;
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise((r) => setTimeout(r, 1000));
                     const retry = await this._doSearch(token, encoded, working);
                     if (retry.success) return retry;
                 }
@@ -935,7 +1072,8 @@ class InboxPancakeAPI {
             const res = await fetch(url, { method: 'POST', body: formData });
             if (!res.ok) return { success: false, errorCode: res.status };
             const data = await res.json();
-            if (data.error_code || !data.success) return { success: false, errorCode: data.error_code, message: data.message };
+            if (data.error_code || !data.success)
+                return { success: false, errorCode: data.error_code, message: data.message };
             const convs = data.conversations || [];
             const cid = convs[0]?.customers?.[0]?.id || null;
             return { success: true, conversations: convs, customerId: cid };
@@ -954,12 +1092,12 @@ class InboxPancakeAPI {
             if (allIds.length === 0) return { conversations: [] };
 
             const doFetch = async (accountToken, pageIds) => {
-                const pagesParams = pageIds.map(id => `pages[${id}]=0`).join('&');
+                const pagesParams = pageIds.map((id) => `pages[${id}]=0`).join('&');
                 const url = InboxApiConfig.buildUrl.pancake(
                     `conversations/customer/${fbId}`,
                     `${pagesParams}&access_token=${accountToken}`
                 );
-                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const res = await fetch(url, { headers: { Accept: 'application/json' } });
                 if (!res.ok) return null;
                 return await res.json();
             };
@@ -975,9 +1113,8 @@ class InboxPancakeAPI {
             // If map not populated yet, query all pages for that account.
             const tasks = accounts.map(async (acc) => {
                 const knownPages = this.tm.accountPageAccessMap[acc.accountId];
-                const accPageIds = knownPages?.size > 0
-                    ? allIds.filter(id => knownPages.has(id))
-                    : allIds; // Map not populated → query all
+                const accPageIds =
+                    knownPages?.size > 0 ? allIds.filter((id) => knownPages.has(id)) : allIds; // Map not populated → query all
                 if (accPageIds.length === 0) return;
 
                 let data = await doFetch(acc.token, accPageIds);
@@ -985,8 +1122,12 @@ class InboxPancakeAPI {
 
                 // Error 122: retry excluding expired pages
                 if (!data.success && data.error_code === 122 && data.errors) {
-                    const badIds = new Set(data.errors.filter(e => e.error_code === 122).map(e => String(e.page_id)));
-                    const goodIds = accPageIds.filter(id => !badIds.has(String(id)));
+                    const badIds = new Set(
+                        data.errors
+                            .filter((e) => e.error_code === 122)
+                            .map((e) => String(e.page_id))
+                    );
+                    const goodIds = accPageIds.filter((id) => !badIds.has(String(id)));
                     if (goodIds.length > 0) {
                         data = await doFetch(acc.token, goodIds);
                     } else {
@@ -998,7 +1139,9 @@ class InboxPancakeAPI {
                     for (const conv of data.conversations) {
                         if (!allConvs.has(conv.id)) allConvs.set(conv.id, conv);
                     }
-                    console.log(`[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}": ${data.conversations.length} convs (${accPageIds.length} pages)`);
+                    console.log(
+                        `[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}": ${data.conversations.length} convs (${accPageIds.length} pages)`
+                    );
                 }
             });
 
@@ -1011,7 +1154,7 @@ class InboxPancakeAPI {
             for (const conv of allConvs.values()) {
                 if (conv.page_id) coveredPageIds.add(String(conv.page_id));
             }
-            const uncoveredPageIds = allIds.filter(id => !coveredPageIds.has(String(id)));
+            const uncoveredPageIds = allIds.filter((id) => !coveredPageIds.has(String(id)));
 
             if (uncoveredPageIds.length > 0) {
                 const knownFbIds = new Set([fbId]);
@@ -1023,38 +1166,51 @@ class InboxPancakeAPI {
                 // 1 account per page (first account that has access), × each fb_id
                 const perPageTasks = [];
                 for (const pageId of uncoveredPageIds) {
-                    const acc = accounts.find(a => {
-                        const m = this.tm.accountPageAccessMap[a.accountId];
-                        return !m || m.size === 0 || m.has(pageId);
-                    }) || accounts[0];
+                    const acc =
+                        accounts.find((a) => {
+                            const m = this.tm.accountPageAccessMap[a.accountId];
+                            return !m || m.size === 0 || m.has(pageId);
+                        }) || accounts[0];
                     if (!acc) continue;
 
                     for (const custFbId of knownFbIds) {
-                        perPageTasks.push((async () => {
-                            try {
-                                const url = InboxApiConfig.buildUrl.pancake(
-                                    `pages/${pageId}/customers/${custFbId}/conversations`,
-                                    `access_token=${acc.token}`
-                                );
-                                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                                if (!res.ok) return;
-                                const data = await res.json();
-                                if (data?.success && data.conversations) {
-                                    let added = 0;
-                                    for (const conv of data.conversations) {
-                                        if (!allConvs.has(conv.id)) { allConvs.set(conv.id, conv); added++; }
+                        perPageTasks.push(
+                            (async () => {
+                                try {
+                                    const url = InboxApiConfig.buildUrl.pancake(
+                                        `pages/${pageId}/customers/${custFbId}/conversations`,
+                                        `access_token=${acc.token}`
+                                    );
+                                    const res = await fetch(url, {
+                                        headers: { Accept: 'application/json' },
+                                    });
+                                    if (!res.ok) return;
+                                    const data = await res.json();
+                                    if (data?.success && data.conversations) {
+                                        let added = 0;
+                                        for (const conv of data.conversations) {
+                                            if (!allConvs.has(conv.id)) {
+                                                allConvs.set(conv.id, conv);
+                                                added++;
+                                            }
+                                        }
+                                        if (added > 0)
+                                            console.log(
+                                                `[INBOX-API] per-page search page=${pageId} cust=${custFbId}: +${added} new convs`
+                                            );
                                     }
-                                    if (added > 0) console.log(`[INBOX-API] per-page search page=${pageId} cust=${custFbId}: +${added} new convs`);
-                                }
-                            } catch (_) {}
-                        })());
+                                } catch (_) {}
+                            })()
+                        );
                     }
                 }
                 if (perPageTasks.length > 0) await Promise.all(perPageTasks);
             }
 
             const conversations = [...allConvs.values()];
-            console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${conversations.length} total from ${accounts.length} accounts`);
+            console.log(
+                `[INBOX-API] searchByCustomerId(${fbId}): ${conversations.length} total from ${accounts.length} accounts`
+            );
             return { conversations };
         } catch (e) {
             console.error('[INBOX-API] searchByCustomerId error:', e);
@@ -1069,11 +1225,14 @@ class InboxPancakeAPI {
             if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
             if (!pat) return false;
             const url = InboxApiConfig.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${conversationId}/read`, pat
+                `pages/${pageId}/conversations/${conversationId}/read`,
+                pat
             );
             await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             return true;
-        } catch (e) { return false; }
+        } catch (e) {
+            return false;
+        }
     }
 
     async markAsUnread(pageId, conversationId) {
@@ -1082,52 +1241,85 @@ class InboxPancakeAPI {
             if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
             if (!pat) return false;
             const url = InboxApiConfig.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${conversationId}/unread`, pat
+                `pages/${pageId}/conversations/${conversationId}/unread`,
+                pat
             );
             await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             return true;
-        } catch (e) { return false; }
+        } catch (e) {
+            return false;
+        }
     }
 
     // --- Comment Actions ---
     async likeComment(pageId, commentId, pageAccessToken) {
-        return this._commentAction(`pages/${pageId}/comments/${commentId}/likes`, 'POST', pageAccessToken);
+        return this._commentAction(
+            `pages/${pageId}/comments/${commentId}/likes`,
+            'POST',
+            pageAccessToken
+        );
     }
 
     async unlikeComment(pageId, commentId, pageAccessToken) {
-        return this._commentAction(`pages/${pageId}/comments/${commentId}/likes`, 'DELETE', pageAccessToken);
+        return this._commentAction(
+            `pages/${pageId}/comments/${commentId}/likes`,
+            'DELETE',
+            pageAccessToken
+        );
     }
 
     async hideComment(pageId, commentId, pageAccessToken) {
-        return this._commentAction(`pages/${pageId}/comments/${commentId}/hide`, 'POST', pageAccessToken);
+        return this._commentAction(
+            `pages/${pageId}/comments/${commentId}/hide`,
+            'POST',
+            pageAccessToken
+        );
     }
 
     async unhideComment(pageId, commentId, pageAccessToken) {
-        return this._commentAction(`pages/${pageId}/comments/${commentId}/hide`, 'DELETE', pageAccessToken);
+        return this._commentAction(
+            `pages/${pageId}/comments/${commentId}/hide`,
+            'DELETE',
+            pageAccessToken
+        );
     }
 
     async deleteComment(pageId, commentId, pageAccessToken) {
-        return this._commentAction(`pages/${pageId}/comments/${commentId}`, 'DELETE', pageAccessToken);
+        return this._commentAction(
+            `pages/${pageId}/comments/${commentId}`,
+            'DELETE',
+            pageAccessToken
+        );
     }
 
     async sendReaction(pageId, commentId, reactionType, pageAccessToken) {
         try {
-            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/comments/${commentId}/reactions`, pageAccessToken);
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(
+                `pages/${pageId}/comments/${commentId}/reactions`,
+                pageAccessToken
+            );
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: reactionType })
+                body: JSON.stringify({ type: reactionType }),
             });
             return await res.json();
-        } catch (e) { return { success: false }; }
+        } catch (e) {
+            return { success: false };
+        }
     }
 
     async _commentAction(endpoint, method, pageAccessToken) {
         try {
             const url = InboxApiConfig.buildUrl.pancakeOfficial(endpoint, pageAccessToken);
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' } });
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+            });
             return await res.json();
-        } catch (e) { return { success: false }; }
+        } catch (e) {
+            return { success: false };
+        }
     }
 
     // --- Fetch Tags (Public API v1 with page_access_token) ---
@@ -1137,21 +1329,26 @@ class InboxPancakeAPI {
             if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
             if (!pat) return [];
             const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/tags`, pat);
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
             if (!res.ok) return [];
             const data = await res.json();
             return data.tags || data.data || [];
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     }
 
     // --- Avatar URL ---
     getAvatarUrl(fbId, pageId = null, token = null, directAvatarUrl = null) {
         if (directAvatarUrl) {
-            if (directAvatarUrl.includes('content.pancake.vn')) return `${INBOX_WORKER_URL}/api/image-proxy?url=${encodeURIComponent(directAvatarUrl)}`;
-            if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl)) return `${INBOX_WORKER_URL}/api/pancake-avatar?hash=${directAvatarUrl}`;
+            if (directAvatarUrl.includes('content.pancake.vn'))
+                return `${INBOX_WORKER_URL}/api/image-proxy?url=${encodeURIComponent(directAvatarUrl)}`;
+            if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl))
+                return `${INBOX_WORKER_URL}/api/pancake-avatar?hash=${directAvatarUrl}`;
             if (directAvatarUrl.startsWith('http')) return directAvatarUrl;
         }
-        if (!fbId) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
+        if (!fbId)
+            return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
         let url = `${INBOX_WORKER_URL}/api/fb-avatar?id=${fbId}`;
         if (pageId) url += `&page=${pageId}`;
         if (token) url += `&token=${encodeURIComponent(token)}`;
@@ -1176,11 +1373,11 @@ window.InboxApiConfig = InboxApiConfig;
 // =====================================================
 
 // --- InboxApiConfig shims ---
-InboxApiConfig.smartFetch = async function(url, options) {
+InboxApiConfig.smartFetch = async function (url, options) {
     return fetch(url, options);
 };
 
-InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, jwtToken) {
+InboxApiConfig.buildUrl.pancakeDirect = function (endpoint, pageId, jwtToken) {
     const base = `${INBOX_WORKER_URL}/api/pancake-direct/${endpoint}`;
     const params = [];
     if (pageId) params.push(`page_id=${pageId}`);
@@ -1195,15 +1392,15 @@ InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, jwtToken) {
 window.API_CONFIG = InboxApiConfig;
 
 // --- InboxTokenManager shims ---
-InboxTokenManager.prototype.getTokenFromCookie = function() {
+InboxTokenManager.prototype.getTokenFromCookie = function () {
     return this._getCookieToken();
 };
 
-InboxTokenManager.prototype.saveTokenToFirebase = function(token) {
+InboxTokenManager.prototype.saveTokenToFirebase = function (token) {
     return this.saveTokenToFirestore(token);
 };
 
-InboxTokenManager.prototype.clearToken = async function() {
+InboxTokenManager.prototype.clearToken = async function () {
     const accounts = this.getAllAccounts();
     for (const id of Object.keys(accounts)) {
         await this.deleteAccount(id);
@@ -1213,7 +1410,7 @@ InboxTokenManager.prototype.clearToken = async function() {
     this.activeAccountId = null;
 };
 
-InboxTokenManager.prototype.debugToken = function(input) {
+InboxTokenManager.prototype.debugToken = function (input) {
     try {
         const clean = (input || '').replace(/^jwt=/, '').trim();
         const decoded = this.decodeToken(clean);
@@ -1223,47 +1420,55 @@ InboxTokenManager.prototype.debugToken = function(input) {
     }
 };
 
-InboxTokenManager.prototype.savePageAccessTokensToStorage = function() {
+InboxTokenManager.prototype.savePageAccessTokensToStorage = function () {
     return this._savePageTokensLocal();
 };
 
 Object.defineProperty(InboxTokenManager.prototype, 'pageTokensRef', {
-    get() { return this._pageTokensRef; }
+    get() {
+        return this._pageTokensRef;
+    },
 });
 
-InboxTokenManager.prototype.generatePageAccessTokenWithToken = function(pageId, accountToken) {
+InboxTokenManager.prototype.generatePageAccessTokenWithToken = function (pageId, accountToken) {
     return this.generatePageAccessToken(pageId, accountToken);
 };
 
 // --- InboxPancakeAPI shims ---
-InboxPancakeAPI.prototype.initialize = async function() {
+InboxPancakeAPI.prototype.initialize = async function () {
     await this.fetchPages();
 };
 
-InboxPancakeAPI.prototype.fetchMessagesForConversation = function(pageId, convId, currentCount, customerId) {
+InboxPancakeAPI.prototype.fetchMessagesForConversation = function (
+    pageId,
+    convId,
+    currentCount,
+    customerId
+) {
     return this.fetchMessages(pageId, convId, currentCount, customerId);
 };
 
-InboxPancakeAPI.prototype.markConversationAsRead = function(pageId, convId) {
+InboxPancakeAPI.prototype.markConversationAsRead = function (pageId, convId) {
     return this.markAsRead(pageId, convId);
 };
 
-InboxPancakeAPI.prototype.uploadImage = async function(channelId, blob) {
+InboxPancakeAPI.prototype.uploadImage = async function (channelId, blob) {
     const pat = await window.inboxTokenManager?.getOrGeneratePageAccessToken(channelId);
     return this.uploadMedia(channelId, blob, pat);
 };
 
-InboxPancakeAPI.prototype.addCustomerNote = async function(pageId, customerId, text) {
+InboxPancakeAPI.prototype.addCustomerNote = async function (pageId, customerId, text) {
     try {
         const pat = await window.inboxTokenManager?.getOrGeneratePageAccessToken(pageId);
         if (!pat) return false;
         const url = InboxApiConfig.buildUrl.pancakeOfficial(
-            `pages/${pageId}/customers/${customerId}/notes`, pat
+            `pages/${pageId}/customers/${customerId}/notes`,
+            pat
         );
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: text })
+            body: JSON.stringify({ content: text }),
         });
         return res.ok;
     } catch (e) {
@@ -1272,33 +1477,33 @@ InboxPancakeAPI.prototype.addCustomerNote = async function(pageId, customerId, t
     }
 };
 
-InboxPancakeAPI.prototype.fetchPagesWithUnreadCount = function() {
+InboxPancakeAPI.prototype.fetchPagesWithUnreadCount = function () {
     return this.fetchPagesUnreadCount();
 };
 
 // Override comment actions to auto-fetch token if not provided
 const _origLikeComment = InboxPancakeAPI.prototype.likeComment;
-InboxPancakeAPI.prototype.likeComment = async function(pageId, commentId, pat) {
+InboxPancakeAPI.prototype.likeComment = async function (pageId, commentId, pat) {
     if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
     return _origLikeComment.call(this, pageId, commentId, pat);
 };
 const _origUnlikeComment = InboxPancakeAPI.prototype.unlikeComment;
-InboxPancakeAPI.prototype.unlikeComment = async function(pageId, commentId, pat) {
+InboxPancakeAPI.prototype.unlikeComment = async function (pageId, commentId, pat) {
     if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
     return _origUnlikeComment.call(this, pageId, commentId, pat);
 };
 const _origHideComment = InboxPancakeAPI.prototype.hideComment;
-InboxPancakeAPI.prototype.hideComment = async function(pageId, commentId, pat) {
+InboxPancakeAPI.prototype.hideComment = async function (pageId, commentId, pat) {
     if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
     return _origHideComment.call(this, pageId, commentId, pat);
 };
 const _origUnhideComment = InboxPancakeAPI.prototype.unhideComment;
-InboxPancakeAPI.prototype.unhideComment = async function(pageId, commentId, pat) {
+InboxPancakeAPI.prototype.unhideComment = async function (pageId, commentId, pat) {
     if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
     return _origUnhideComment.call(this, pageId, commentId, pat);
 };
 const _origDeleteComment = InboxPancakeAPI.prototype.deleteComment;
-InboxPancakeAPI.prototype.deleteComment = async function(pageId, commentId, pat) {
+InboxPancakeAPI.prototype.deleteComment = async function (pageId, commentId, pat) {
     if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
     return _origDeleteComment.call(this, pageId, commentId, pat);
 };

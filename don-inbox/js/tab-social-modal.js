@@ -128,7 +128,7 @@ function _mapLegacyProduct(p) {
         sellingPrice: p.sellingPrice || p.price || 0,
         productImages: p.productImages || [],
         priceImages: p.priceImages || [],
-        selectedAttributeValueIds: p.selectedAttributeValueIds || []
+        selectedAttributeValueIds: p.selectedAttributeValueIds || [],
     };
     if (p.tposProductId) mapped.tposProductId = p.tposProductId;
     if (p.tposProductTmplId) mapped.tposProductTmplId = p.tposProductTmplId;
@@ -141,7 +141,9 @@ function _isNonEmptyProduct(p) {
     const code = (p.productCode || '').trim();
     const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
     const selling = parseFloat(String(p.sellingPrice || 0).replace(/[,.]/g, '')) || 0;
-    const hasImages = (p.productImages && p.productImages.length > 0) || (p.priceImages && p.priceImages.length > 0);
+    const hasImages =
+        (p.productImages && p.productImages.length > 0) ||
+        (p.priceImages && p.priceImages.length > 0);
     return name || variant || code || purchase > 0 || selling > 0 || hasImages;
 }
 
@@ -161,7 +163,7 @@ function _initSocialProductSection(existingProducts = []) {
 
     // 3. Load items (filter out empty rows)
     if (existingProducts.length > 0) {
-        const filtered = existingProducts.filter(p => _isNonEmptyProduct(p));
+        const filtered = existingProducts.filter((p) => _isNonEmptyProduct(p));
         window.purchaseOrderFormModal.formData.items = filtered.map((p, i) => {
             const item = {
                 id: p.id || `item_${Date.now()}_${i}`,
@@ -174,7 +176,7 @@ function _initSocialProductSection(existingProducts = []) {
                 productImages: p.productImages || [],
                 priceImages: p.priceImages || [],
                 selectedAttributeValueIds: p.selectedAttributeValueIds || [],
-                _isExistingItem: true
+                _isExistingItem: true,
             };
             if (p.tposProductId) item.tposProductId = p.tposProductId;
             if (p.tposProductTmplId) item.tposProductTmplId = p.tposProductTmplId;
@@ -197,9 +199,10 @@ function _setupSellingPriceTotalsOverride() {
     const tbody = document.getElementById('itemsTableBody');
     if (!tbody) return;
 
-    const fmt = (n) => (window.purchaseOrderFormModal?.formatNumber
-        ? window.purchaseOrderFormModal.formatNumber(n)
-        : Math.round(n).toLocaleString('vi-VN'));
+    const fmt = (n) =>
+        window.purchaseOrderFormModal?.formatNumber
+            ? window.purchaseOrderFormModal.formatNumber(n)
+            : Math.round(n).toLocaleString('vi-VN');
 
     const recalc = () => {
         let total = 0;
@@ -236,19 +239,27 @@ function _collectSocialProducts() {
     if (!window.purchaseOrderFormModal) return [];
     window.purchaseOrderFormModal.collectFormData();
     // Filter out empty rows before saving
-    const items = window.purchaseOrderFormModal.formData.items.filter(item => _isNonEmptyProduct(item));
-    return items.map(item => {
+    const items = window.purchaseOrderFormModal.formData.items.filter((item) =>
+        _isNonEmptyProduct(item)
+    );
+    return items.map((item) => {
         const mapped = {
             id: item.id,
             productName: item.productName || '',
             variant: item.variant || '',
             productCode: item.productCode || '',
             quantity: parseInt(item.quantity) || 1,
-            purchasePrice: window.purchaseOrderFormModal?.parsePrice(item.purchasePrice) || parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
-            sellingPrice: window.purchaseOrderFormModal?.parsePrice(item.sellingPrice) || parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+            purchasePrice:
+                window.purchaseOrderFormModal?.parsePrice(item.purchasePrice) ||
+                parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) ||
+                0,
+            sellingPrice:
+                window.purchaseOrderFormModal?.parsePrice(item.sellingPrice) ||
+                parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) ||
+                0,
             productImages: item.productImages || [],
             priceImages: item.priceImages || [],
-            selectedAttributeValueIds: item.selectedAttributeValueIds || []
+            selectedAttributeValueIds: item.selectedAttributeValueIds || [],
         };
         if (item.tposProductId) mapped.tposProductId = item.tposProductId;
         if (item.tposProductTmplId) mapped.tposProductTmplId = item.tposProductTmplId;
@@ -267,12 +278,12 @@ async function saveOrder() {
     }
     _isSavingOrder = true;
     const saveBtns = document.querySelectorAll('#orderModal .btn-save');
-    saveBtns.forEach(b => b.disabled = true);
+    saveBtns.forEach((b) => (b.disabled = true));
     try {
         return await _saveOrderImpl();
     } finally {
         _isSavingOrder = false;
-        saveBtns.forEach(b => b.disabled = false);
+        saveBtns.forEach((b) => (b.disabled = false));
     }
 }
 
@@ -302,8 +313,10 @@ async function _saveOrderImpl() {
     if (window.PancakeValidator) {
         const pData = await window.PancakeValidator.quickLookup(phone);
         if (pData?.risk?.level === 'danger') {
-            const warnings = pData.risk.warnings.map(w => w.text).join(', ');
-            const proceed = confirm(`⚠️ CẢNH BÁO: Khách hàng ${customerName} — ${warnings}\n\nBạn có muốn tiếp tục tạo đơn?`);
+            const warnings = pData.risk.warnings.map((w) => w.text).join(', ');
+            const proceed = confirm(
+                `⚠️ CẢNH BÁO: Khách hàng ${customerName} — ${warnings}\n\nBạn có muốn tiếp tục tạo đơn?`
+            );
             if (!proceed) return null;
         }
     }
@@ -411,8 +424,10 @@ async function _saveOrderImpl() {
         // Fire-and-forget: sync customer to Pancake DB
         if (window.PancakeValidator && phone) {
             window.PancakeValidator.syncPancakeCustomer({
-                phone, name: customerName, fb_id: newOrder.psid || null,
-                page_id: newOrder.pageId || null
+                phone,
+                name: customerName,
+                fb_id: newOrder.psid || null,
+                page_id: newOrder.pageId || null,
             });
         }
 
@@ -517,14 +532,19 @@ async function fetchFacebookPosts() {
             const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(account.token)}&page_ids=${PAGE_ID}&access_token=${encodeURIComponent(account.token)}`;
 
             try {
-                const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const response = await fetch(url, { headers: { Accept: 'application/json' } });
                 const result = await response.json();
 
                 if (result.success && result.data) {
                     cachedPosts = result.data;
                     filteredPosts = cachedPosts;
                     renderPostList(cachedPosts);
-                    console.log('[SOCIAL-POST] Loaded', cachedPosts.length, 'posts via account:', account.name);
+                    console.log(
+                        '[SOCIAL-POST] Loaded',
+                        cachedPosts.length,
+                        'posts via account:',
+                        account.name
+                    );
                     return;
                 }
 
@@ -535,7 +555,9 @@ async function fetchFacebookPosts() {
         }
 
         // Strategy 2: Fallback to official API with page_access_token
-        console.log('[SOCIAL-POST] All JWT accounts failed, trying official API with page_access_token...');
+        console.log(
+            '[SOCIAL-POST] All JWT accounts failed, trying official API with page_access_token...'
+        );
         let pageAccessToken = window.pancakeTokenManager.getPageAccessToken(PAGE_ID);
 
         if (!pageAccessToken && window.pancakeTokenManager.generatePageAccessToken) {
@@ -545,11 +567,11 @@ async function fetchFacebookPosts() {
 
         if (pageAccessToken) {
             const now = Math.floor(Date.now() / 1000);
-            const since = now - (90 * 24 * 60 * 60); // 90 days ago
+            const since = now - 90 * 24 * 60 * 60; // 90 days ago
             const officialUrl = `${BASE_URL}/api/pancake-official/pages/${PAGE_ID}/posts?page_access_token=${encodeURIComponent(pageAccessToken)}&since=${since}&until=${now}&page_number=1&page_size=30`;
 
             console.log('[SOCIAL-POST] Fetching from official API...');
-            const response = await fetch(officialUrl, { headers: { 'Accept': 'application/json' } });
+            const response = await fetch(officialUrl, { headers: { Accept: 'application/json' } });
             const result = await response.json();
 
             if (result.success && result.posts) {
@@ -564,8 +586,9 @@ async function fetchFacebookPosts() {
         }
 
         // All strategies failed
-        throw new Error('Phiên đăng nhập Pancake đã hết hạn. Vui lòng đăng nhập lại tại pancake.vn');
-
+        throw new Error(
+            'Phiên đăng nhập Pancake đã hết hạn. Vui lòng đăng nhập lại tại pancake.vn'
+        );
     } catch (error) {
         console.error('[SOCIAL-POST] Error fetching posts:', error);
         document.getElementById('postLoading').style.display = 'none';
@@ -596,62 +619,66 @@ function renderPostList(posts) {
         return;
     }
 
-    const html = posts.map(post => {
-        // Get thumbnail
-        const thumbnail = post.attachments?.data?.[0]?.url || null;
-        const hasMultipleImages = (post.attachments?.data?.length || 0) > 1;
+    const html = posts
+        .map((post) => {
+            // Get thumbnail
+            const thumbnail = post.attachments?.data?.[0]?.url || null;
+            const hasMultipleImages = (post.attachments?.data?.length || 0) > 1;
 
-        // Get message/title
-        let title = post.message || 'Không có tiêu đề';
-        if (title.length > 80) {
-            title = title.substring(0, 80) + '...';
-        }
+            // Get message/title
+            let title = post.message || 'Không có tiêu đề';
+            if (title.length > 80) {
+                title = title.substring(0, 80) + '...';
+            }
 
-        // Format date
-        const date = new Date(post.inserted_at);
-        const dateStr = date.toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-        const timeStr = date.toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+            // Format date
+            const date = new Date(post.inserted_at);
+            const dateStr = date.toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+            const timeStr = date.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+            });
 
-        // Get post type icon
-        let typeIcon = '';
-        let typeLabel = '';
-        switch (post.type) {
-            case 'livestream':
-                typeIcon = '<i class="fas fa-video"></i>';
-                typeLabel = 'Live';
-                break;
-            case 'video':
-                typeIcon = '<i class="fas fa-play"></i>';
-                typeLabel = 'Video';
-                break;
-            case 'photo':
-                typeIcon = '<i class="fas fa-image"></i>';
-                typeLabel = 'Ảnh';
-                break;
-            default:
-                typeIcon = '<i class="fas fa-file-alt"></i>';
-                typeLabel = 'Text';
-        }
+            // Get post type icon
+            let typeIcon = '';
+            let typeLabel = '';
+            switch (post.type) {
+                case 'livestream':
+                    typeIcon = '<i class="fas fa-video"></i>';
+                    typeLabel = 'Live';
+                    break;
+                case 'video':
+                    typeIcon = '<i class="fas fa-play"></i>';
+                    typeLabel = 'Video';
+                    break;
+                case 'photo':
+                    typeIcon = '<i class="fas fa-image"></i>';
+                    typeLabel = 'Ảnh';
+                    break;
+                default:
+                    typeIcon = '<i class="fas fa-file-alt"></i>';
+                    typeLabel = 'Text';
+            }
 
-        // Get post URL
-        const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
+            // Get post URL
+            const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
 
-        // Build thumbnail proxy URL
-        const thumbnailProxyUrl = thumbnail ? `${BASE_URL}/api/image-proxy?url=${encodeURIComponent(thumbnail)}` : '';
+            // Build thumbnail proxy URL
+            const thumbnailProxyUrl = thumbnail
+                ? `${BASE_URL}/api/image-proxy?url=${encodeURIComponent(thumbnail)}`
+                : '';
 
-        return `
+            return `
             <div class="post-item" onclick="selectPost('${post.id}', '${postUrl.replace(/'/g, "\\'")}', '${title.replace(/'/g, "\\'")}', '${thumbnailProxyUrl.replace(/'/g, "\\'")}')">
                 <div class="post-thumbnail">
-                    ${thumbnail
-                        ? `<img src="${thumbnailProxyUrl}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fas fa-image no-image\\'></i>';">`
-                        : '<i class="fas fa-image no-image"></i>'
+                    ${
+                        thumbnail
+                            ? `<img src="${thumbnailProxyUrl}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fas fa-image no-image\\'></i>';">`
+                            : '<i class="fas fa-image no-image"></i>'
                     }
                     ${hasMultipleImages ? `<span class="post-type-icon">+${post.attachments.data.length - 1}</span>` : ''}
                     ${post.type === 'livestream' || post.type === 'video' ? `<span class="post-type-icon">${typeIcon}</span>` : ''}
@@ -672,7 +699,8 @@ function renderPostList(posts) {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
     document.getElementById('postList').innerHTML = html;
 }
@@ -684,7 +712,7 @@ function filterPosts() {
     if (!term) {
         filteredPosts = cachedPosts;
     } else {
-        filteredPosts = cachedPosts.filter(post => {
+        filteredPosts = cachedPosts.filter((post) => {
             const message = (post.message || '').toLowerCase();
             return message.includes(term);
         });
@@ -742,13 +770,16 @@ function clearSelectedPost(event) {
 }
 
 function copyPostId(postId) {
-    navigator.clipboard.writeText(postId).then(() => {
-        if (typeof showNotification === 'function') {
-            showNotification('Đã sao chép ID: ' + postId, 'success');
-        }
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-    });
+    navigator.clipboard
+        .writeText(postId)
+        .then(() => {
+            if (typeof showNotification === 'function') {
+                showNotification('Đã sao chép ID: ' + postId, 'success');
+            }
+        })
+        .catch((err) => {
+            console.error('Failed to copy:', err);
+        });
 }
 
 // ===== UTILITY =====
@@ -810,7 +841,7 @@ function initPhoneAutoLookup() {
                             'Bom hàng': '#ef4444',
                             'Cảnh báo': '#f59e0b',
                             'Nguy hiểm': '#dc2626',
-                            'VIP': '#6366f1'
+                            VIP: '#6366f1',
                         };
                         const color = statusColors[customer.statusText] || '#6b7280';
                         statusEl.innerHTML = `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;color:#fff;background:${color}">Trạng thái TPOS: ${customer.statusText}</span>`;
@@ -819,7 +850,12 @@ function initPhoneAutoLookup() {
                         statusEl.style.display = 'none';
                     }
 
-                    console.log('[SOCIAL-MODAL] Auto-filled customer:', customer.name, '| Status:', customer.statusText);
+                    console.log(
+                        '[SOCIAL-MODAL] Auto-filled customer:',
+                        customer.name,
+                        '| Status:',
+                        customer.statusText
+                    );
                     if (typeof showNotification === 'function') {
                         showNotification(`Tìm thấy KH: ${customer.name}`, 'success');
                     }
@@ -854,7 +890,7 @@ if (document.readyState === 'loading') {
 const _openingSaleForOrder = new Set();
 function openRetailSaleFromSocial(orderId) {
     if (_openingSaleForOrder.has(orderId)) return;
-    const order = SocialOrderState.orders.find(o => o.id === orderId);
+    const order = SocialOrderState.orders.find((o) => o.id === orderId);
     if (!order) {
         showNotification('Không tìm thấy đơn hàng', 'error');
         return;
@@ -892,7 +928,7 @@ function openCreateCustomerModal() {
             // Save TPOS Partner Id from newly created customer
             _currentTposPartnerId = customer.id || null;
             console.log('[SOCIAL-MODAL] Created customer, TPOS Partner Id:', _currentTposPartnerId);
-        }
+        },
     });
 }
 
@@ -910,7 +946,9 @@ function renderNoteImagesPreview() {
         return;
     }
 
-    container.innerHTML = _noteImages.map((img, i) => `
+    container.innerHTML = _noteImages
+        .map(
+            (img, i) => `
         <div style="position: relative; display: inline-block;">
             <img src="${img}" style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer;"
                  onclick="openNoteImagePreview('${img.replace(/'/g, "\\'")}')" />
@@ -919,7 +957,9 @@ function renderNoteImagesPreview() {
                 <i class="fas fa-times"></i>
             </button>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 /**
@@ -936,19 +976,19 @@ function removeNoteImage(index) {
 function compressNoteImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 const canvas = document.createElement('canvas');
                 const MAX_SIZE = 800;
                 let w = img.width;
                 let h = img.height;
                 if (w > MAX_SIZE || h > MAX_SIZE) {
                     if (w > h) {
-                        h = Math.round(h * MAX_SIZE / w);
+                        h = Math.round((h * MAX_SIZE) / w);
                         w = MAX_SIZE;
                     } else {
-                        w = Math.round(w * MAX_SIZE / h);
+                        w = Math.round((w * MAX_SIZE) / h);
                         h = MAX_SIZE;
                     }
                 }

@@ -13,12 +13,13 @@ import apiService from './api-service.js';
 import '../config.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Customer 360 Hub loaded!");
+    console.log('Customer 360 Hub loaded!');
 
     // Read actual user permissions from loginindex_auth storage
     let detailedPermissions = {};
     try {
-        const authRaw = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+        const authRaw =
+            sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
         if (authRaw) {
             const auth = JSON.parse(authRaw);
             detailedPermissions = auth.detailedPermissions || {};
@@ -27,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('[Customer Hub] Error reading auth permissions:', e);
     }
     const permissionHelper = new PermissionHelper(detailedPermissions);
-    console.log("[Customer Hub] PermissionHelper initialized from auth storage");
+    console.log('[Customer Hub] PermissionHelper initialized from auth storage');
 
     // Theme Toggle
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -56,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalContent = document.getElementById('modal-content');
     let customerProfileModule = null;
 
-    window.openCustomerModal = async function(phone) {
+    window.openCustomerModal = async function (phone) {
         if (!modalContainer || !modalContent) return;
 
         modalContainer.classList.remove('hidden');
@@ -71,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await customerProfileModule.render(phone);
     };
 
-    window.closeCustomerModal = function() {
+    window.closeCustomerModal = function () {
         const el = modalContainer || document.getElementById('customer-profile-modal');
         if (!el) return;
 
@@ -84,14 +85,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // (user yêu cầu tránh vô tình đóng khi đang thao tác)
 
     // Delegated close: catches any click on #modal-close-btn even after re-render
-    document.addEventListener('click', (e) => {
-        const btn = e.target && (e.target.id === 'modal-close-btn' ? e.target : e.target.closest?.('#modal-close-btn'));
-        if (btn) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.closeCustomerModal();
-        }
-    }, true);
+    document.addEventListener(
+        'click',
+        (e) => {
+            const btn =
+                e.target &&
+                (e.target.id === 'modal-close-btn'
+                    ? e.target
+                    : e.target.closest?.('#modal-close-btn'));
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.closeCustomerModal();
+            }
+        },
+        true
+    );
 
     // --- Update Unlinked Badge Count ---
     async function updateUnlinkedBadge() {
@@ -127,7 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'CustomerProfileModule':
                 return new CustomerProfileModule(containerId, permissionHelper);
             case 'LinkBankTransactionModule':
-                return new LinkBankTransactionModule(containerId, permissionHelper, updateUnlinkedBadge);
+                return new LinkBankTransactionModule(
+                    containerId,
+                    permissionHelper,
+                    updateUnlinkedBadge
+                );
             case 'TransactionActivityModule':
                 return new TransactionActivityModule(containerId, permissionHelper);
             case 'WalletPanelModule':
@@ -144,7 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'customer-search': () => {
             if (permissionHelper.hasPageAccess('customer-hub')) {
                 appContent.innerHTML = `<div id="customer-search-container"></div>`;
-                window._customerSearchModule = loadModule('CustomerSearchModule', 'customer-search-container');
+                window._customerSearchModule = loadModule(
+                    'CustomerSearchModule',
+                    'customer-search-container'
+                );
             } else {
                 appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng này.</p>`;
             }
@@ -173,7 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
             setActiveTabLink('unlinked-transactions-tab');
         },
         'manual-topup': () => {
-            if (permissionHelper.hasPermission('customer-hub', 'manageWallet') || permissionHelper.hasPermission('customer-hub', 'viewActivities')) {
+            if (
+                permissionHelper.hasPermission('customer-hub', 'manageWallet') ||
+                permissionHelper.hasPermission('customer-hub', 'viewActivities')
+            ) {
                 appContent.innerHTML = `<div id="manual-topup-container"></div>`;
                 loadModule('ManualTopupTabModule', 'manual-topup-container');
             } else {
@@ -184,17 +203,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function setActiveTabLink(tabId) {
-        tabLinks.forEach(link => {
+        tabLinks.forEach((link) => {
             // Reset all tabs to inactive style
-            link.classList.remove('border-primary', 'text-primary', 'dark:text-white', 'font-semibold');
-            link.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400', 'font-medium');
+            link.classList.remove(
+                'border-primary',
+                'text-primary',
+                'dark:text-white',
+                'font-semibold'
+            );
+            link.classList.add(
+                'border-transparent',
+                'text-slate-500',
+                'dark:text-slate-400',
+                'font-medium'
+            );
         });
 
         const activeLink = document.getElementById(tabId);
         if (activeLink) {
             // Set active tab style
-            activeLink.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400', 'font-medium');
-            activeLink.classList.add('border-primary', 'text-primary', 'dark:text-white', 'font-semibold');
+            activeLink.classList.remove(
+                'border-transparent',
+                'text-slate-500',
+                'dark:text-slate-400',
+                'font-medium'
+            );
+            activeLink.classList.add(
+                'border-primary',
+                'text-primary',
+                'dark:text-white',
+                'font-semibold'
+            );
         }
     }
 
@@ -223,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     handleHashChange();
 
     // Update tab links to use hash
-    tabLinks.forEach(link => {
+    tabLinks.forEach((link) => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const tabId = link.id;

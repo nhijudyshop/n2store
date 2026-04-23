@@ -11,7 +11,12 @@ const ColumnManager = (() => {
 
     const COLUMNS = {
         tpos: { id: 'tposColumn', contentId: 'tposContent', name: 'TPOS', icon: 'shopping-cart' },
-        pancake: { id: 'pancakeColumn', contentId: 'pancakeContent', name: 'Pancake', icon: 'layout-grid' }
+        pancake: {
+            id: 'pancakeColumn',
+            contentId: 'pancakeContent',
+            name: 'Pancake',
+            icon: 'layout-grid',
+        },
     };
 
     let currentOrder = [...DEFAULT_ORDER];
@@ -109,8 +114,14 @@ const ColumnManager = (() => {
         let leftW = startWidths.left + dx;
         let rightW = startWidths.right - dx;
 
-        if (leftW < MIN_COLUMN_WIDTH) { leftW = MIN_COLUMN_WIDTH; rightW = containerW - MIN_COLUMN_WIDTH; }
-        if (rightW < MIN_COLUMN_WIDTH) { rightW = MIN_COLUMN_WIDTH; leftW = containerW - MIN_COLUMN_WIDTH; }
+        if (leftW < MIN_COLUMN_WIDTH) {
+            leftW = MIN_COLUMN_WIDTH;
+            rightW = containerW - MIN_COLUMN_WIDTH;
+        }
+        if (rightW < MIN_COLUMN_WIDTH) {
+            rightW = MIN_COLUMN_WIDTH;
+            leftW = containerW - MIN_COLUMN_WIDTH;
+        }
 
         cols[0].style.flex = `0 0 ${(leftW / containerW) * 100}%`;
         cols[1].style.flex = `0 0 ${(rightW / containerW) * 100}%`;
@@ -148,14 +159,23 @@ const ColumnManager = (() => {
         if (closeBtn) closeBtn.addEventListener('click', () => panel?.classList.remove('show'));
 
         document.addEventListener('click', (e) => {
-            if (panel?.classList.contains('show') && !panel.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+            if (
+                panel?.classList.contains('show') &&
+                !panel.contains(e.target) &&
+                e.target !== btn &&
+                !btn?.contains(e.target)
+            ) {
                 panel.classList.remove('show');
             }
         });
 
         if (col1 && col2) {
-            col1.addEventListener('change', () => { col2.value = col1.value === 'tpos' ? 'pancake' : 'tpos'; });
-            col2.addEventListener('change', () => { col1.value = col2.value === 'tpos' ? 'pancake' : 'tpos'; });
+            col1.addEventListener('change', () => {
+                col2.value = col1.value === 'tpos' ? 'pancake' : 'tpos';
+            });
+            col2.addEventListener('change', () => {
+                col1.value = col2.value === 'tpos' ? 'pancake' : 'tpos';
+            });
         }
 
         if (applyBtn) {
@@ -197,7 +217,8 @@ const ColumnManager = (() => {
         if (!container) {
             container = document.createElement('div');
             container.className = 'notification-container';
-            container.style.cssText = 'position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;';
+            container.style.cssText =
+                'position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;';
             document.body.appendChild(container);
         }
 
@@ -205,7 +226,7 @@ const ColumnManager = (() => {
             success: { bg: '#dcfce7', border: '#22c55e', text: '#166534' },
             error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
             info: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
-            warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' }
+            warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
         };
         const c = colors[type] || colors.info;
 
@@ -234,7 +255,10 @@ const ColumnManager = (() => {
 
     function setColumnContent(columnKey, html) {
         const el = document.getElementById(COLUMNS[columnKey]?.contentId);
-        if (el) { el.innerHTML = html; _refreshIcons(); }
+        if (el) {
+            el.innerHTML = html;
+            _refreshIcons();
+        }
     }
 
     // ---- Init ----
@@ -251,7 +275,10 @@ const ColumnManager = (() => {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const fs = document.querySelector('.column-wrapper.fullscreen');
-                if (fs) { fs.classList.remove('fullscreen'); document.body.style.overflow = ''; }
+                if (fs) {
+                    fs.classList.remove('fullscreen');
+                    document.body.style.overflow = '';
+                }
             }
         });
 
@@ -278,7 +305,7 @@ const ColumnManager = (() => {
         showNotification,
         refreshColumns,
         setColumnContent,
-        getOrder
+        getOrder,
     };
 })();
 

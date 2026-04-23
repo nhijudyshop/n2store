@@ -10,7 +10,9 @@
  */
 function normalizeMergePhone(phone) {
     if (!phone) return '';
-    let s = String(phone).trim().replace(/[\s\-\.()]/g, '');
+    let s = String(phone)
+        .trim()
+        .replace(/[\s\-\.()]/g, '');
     if (!s) return '';
     if (s.startsWith('+84')) s = '0' + s.slice(3);
     else if (s.startsWith('84') && s.length === 11) s = '0' + s.slice(2);
@@ -34,30 +36,39 @@ async function getOrderDetails(orderId, retries = 2) {
             const response = await API_CONFIG.smartFetch(apiUrl, {
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
             });
 
             if (!response.ok) {
                 if (response.status === 502 && attempt < retries) {
-                    console.warn(`[MERGE-API] 502 for order ${orderId}, retry ${attempt + 1}/${retries}...`);
-                    await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                    console.warn(
+                        `[MERGE-API] 502 for order ${orderId}, retry ${attempt + 1}/${retries}...`
+                    );
+                    await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
                     continue;
                 }
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log(`[MERGE-API] Fetched order ${orderId} with ${data.Details?.length || 0} products`);
+            console.log(
+                `[MERGE-API] Fetched order ${orderId} with ${data.Details?.length || 0} products`
+            );
             return data;
         } catch (error) {
             if (attempt < retries) {
-                console.warn(`[MERGE-API] Error for order ${orderId}, retry ${attempt + 1}/${retries}...`);
-                await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                console.warn(
+                    `[MERGE-API] Error for order ${orderId}, retry ${attempt + 1}/${retries}...`
+                );
+                await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
                 continue;
             }
-            console.error(`[MERGE-API] Error fetching order ${orderId} after ${retries + 1} attempts:`, error);
+            console.error(
+                `[MERGE-API] Error fetching order ${orderId} after ${retries + 1} attempts:`,
+                error
+            );
             return null; // Return null instead of throwing - let caller handle gracefully
         }
     }
@@ -72,142 +83,168 @@ async function getOrderDetails(orderId, retries = 2) {
  * @param {number} retries - Số lần retry khi gặp 502/503/504/timeout
  * @returns {Promise<Object>} Updated order data
  */
-async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, totalQuantity, retries = 2) {
+async function updateOrderWithFullPayload(
+    orderData,
+    newDetails,
+    totalAmount,
+    totalQuantity,
+    retries = 2
+) {
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderData.Id})`;
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderData.Id})`;
 
-        // Clone order data and prepare payload (same approach as prepareOrderPayload)
-        const payload = JSON.parse(JSON.stringify(orderData));
+            // Clone order data and prepare payload (same approach as prepareOrderPayload)
+            const payload = JSON.parse(JSON.stringify(orderData));
 
-        // Add @odata.context (CRITICAL for PUT request)
-        if (!payload["@odata.context"]) {
-            payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
-        }
-
-        // Get CreatedById from order or auth
-        const createdById = orderData.CreatedById || orderData.UserId;
-
-        // Update Details with new products - CLEAN UP to only include API-required fields
-        payload.Details = (newDetails || []).map(detail => {
-            // Only include fields that API expects
-            const cleaned = {
-                ProductId: detail.ProductId,
-                Quantity: detail.Quantity,
-                Price: detail.Price,
-                Note: detail.Note || null,
-                UOMId: detail.UOMId || 1,
-                Factor: detail.Factor || 1,
-                Priority: detail.Priority || 0,
-                OrderId: orderData.Id,
-                LiveCampaign_DetailId: detail.LiveCampaign_DetailId || null,
-                ProductWeight: detail.ProductWeight || 0,
-                ProductName: detail.ProductName,
-                ProductNameGet: detail.ProductNameGet,
-                ProductCode: detail.ProductCode,
-                UOMName: detail.UOMName || 'Cái',
-                ImageUrl: detail.ImageUrl || '',
-                IsOrderPriority: detail.IsOrderPriority || null,
-                QuantityRegex: detail.QuantityRegex || null,
-                IsDisabledLiveCampaignDetail: detail.IsDisabledLiveCampaignDetail || false,
-                CreatedById: detail.CreatedById || createdById  // CRITICAL: Add CreatedById
-            };
-
-            // Keep Id if it exists (for existing details)
-            if (detail.Id) {
-                cleaned.Id = detail.Id;
+            // Add @odata.context (CRITICAL for PUT request)
+            if (!payload['@odata.context']) {
+                payload['@odata.context'] =
+                    'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
             }
 
-            return cleaned;
-        });
+            // Get CreatedById from order or auth
+            const createdById = orderData.CreatedById || orderData.UserId;
 
-        // Update totals
-        payload.TotalAmount = totalAmount || 0;
-        payload.TotalQuantity = totalQuantity || 0;
+            // Update Details with new products - CLEAN UP to only include API-required fields
+            payload.Details = (newDetails || []).map((detail) => {
+                // Only include fields that API expects
+                const cleaned = {
+                    ProductId: detail.ProductId,
+                    Quantity: detail.Quantity,
+                    Price: detail.Price,
+                    Note: detail.Note || null,
+                    UOMId: detail.UOMId || 1,
+                    Factor: detail.Factor || 1,
+                    Priority: detail.Priority || 0,
+                    OrderId: orderData.Id,
+                    LiveCampaign_DetailId: detail.LiveCampaign_DetailId || null,
+                    ProductWeight: detail.ProductWeight || 0,
+                    ProductName: detail.ProductName,
+                    ProductNameGet: detail.ProductNameGet,
+                    ProductCode: detail.ProductCode,
+                    UOMName: detail.UOMName || 'Cái',
+                    ImageUrl: detail.ImageUrl || '',
+                    IsOrderPriority: detail.IsOrderPriority || null,
+                    QuantityRegex: detail.QuantityRegex || null,
+                    IsDisabledLiveCampaignDetail: detail.IsDisabledLiveCampaignDetail || false,
+                    CreatedById: detail.CreatedById || createdById, // CRITICAL: Add CreatedById
+                };
 
-        console.log(`[MERGE-API] Preparing PUT payload for order ${orderData.Id}:`, {
-            detailsCount: payload.Details.length,
-            totalAmount: payload.TotalAmount,
-            totalQuantity: payload.TotalQuantity,
-            hasContext: !!payload["@odata.context"],
-            hasRowVersion: !!payload.RowVersion
-        });
+                // Keep Id if it exists (for existing details)
+                if (detail.Id) {
+                    cleaned.Id = detail.Id;
+                }
 
-        // Build headers. DISABLED: If-Match header gây CORS preflight reject (CF Worker
-        // CORS_HEADERS chưa whitelist "If-Match") → "Request header field if-match is not allowed".
-        // RowVersion đã có trong payload body → TPOS vẫn có thể validate concurrency nội bộ.
-        // Khi CF Worker được deploy với If-Match trong Allow-Headers, bật lại block dưới đây.
-        const putHeaders = {
-            ...headers,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        };
-        // NOTE: tạm thời disable until CF Worker allows If-Match header.
-        // if (payload.RowVersion != null && payload.RowVersion !== '') {
-        //     putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
-        // }
+                return cleaned;
+            });
 
-        // Use direct fetch instead of smartFetch to avoid fallback issues
-        const response = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: putHeaders,
-            body: JSON.stringify(payload)
-        });
+            // Update totals
+            payload.TotalAmount = totalAmount || 0;
+            payload.TotalQuantity = totalQuantity || 0;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            // Transient server errors → retry (502/503/504). Errors khác (400 validation, 409 conflict) fail fast.
-            if ([502, 503, 504].includes(response.status) && attempt < retries) {
-                console.warn(`[MERGE-API] PUT ${orderData.Id} HTTP ${response.status}, retry ${attempt + 1}/${retries}...`);
-                lastError = new Error(`HTTP ${response.status}: ${errorText}`);
-                await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+            console.log(`[MERGE-API] Preparing PUT payload for order ${orderData.Id}:`, {
+                detailsCount: payload.Details.length,
+                totalAmount: payload.TotalAmount,
+                totalQuantity: payload.TotalQuantity,
+                hasContext: !!payload['@odata.context'],
+                hasRowVersion: !!payload.RowVersion,
+            });
+
+            // Build headers. DISABLED: If-Match header gây CORS preflight reject (CF Worker
+            // CORS_HEADERS chưa whitelist "If-Match") → "Request header field if-match is not allowed".
+            // RowVersion đã có trong payload body → TPOS vẫn có thể validate concurrency nội bộ.
+            // Khi CF Worker được deploy với If-Match trong Allow-Headers, bật lại block dưới đây.
+            const putHeaders = {
+                ...headers,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            };
+            // NOTE: tạm thời disable until CF Worker allows If-Match header.
+            // if (payload.RowVersion != null && payload.RowVersion !== '') {
+            //     putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
+            // }
+
+            // Use direct fetch instead of smartFetch to avoid fallback issues
+            const response = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: putHeaders,
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // Transient server errors → retry (502/503/504). Errors khác (400 validation, 409 conflict) fail fast.
+                if ([502, 503, 504].includes(response.status) && attempt < retries) {
+                    console.warn(
+                        `[MERGE-API] PUT ${orderData.Id} HTTP ${response.status}, retry ${attempt + 1}/${retries}...`
+                    );
+                    lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+                    await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+                    continue;
+                }
+                // Concurrency conflict (412/409 với message về RowVersion/ETag) → không retry, thông báo rõ
+                if (
+                    response.status === 412 ||
+                    (response.status === 409 &&
+                        /rowversion|etag|concurren|conflict/i.test(errorText))
+                ) {
+                    console.error(
+                        `[MERGE-API] 🔀 Concurrency conflict PUT ${orderData.Id} (HTTP ${response.status}):`,
+                        errorText
+                    );
+                    const concErr = new Error(
+                        `Concurrency conflict: Đơn ${orderData.Id} đã bị sửa bởi user khác. Vui lòng load lại và thử lại.`
+                    );
+                    concErr.__noRetry = true;
+                    concErr.__concurrencyConflict = true;
+                    throw concErr;
+                }
+                console.error(`[MERGE-API] PUT failed:`, errorText);
+                // Non-retryable HTTP (400/401/403/404/409/422/...) → throw với flag để catch không retry
+                const httpErr = new Error(`HTTP ${response.status}: ${errorText}`);
+                httpErr.__noRetry = true;
+                throw httpErr;
+            }
+
+            // Handle empty response body (PUT often returns 200 OK with no content)
+            let data = null;
+            const responseText = await response.text();
+            if (responseText && responseText.trim()) {
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.log(`[MERGE-API] Response is not JSON, treating as success`);
+                }
+            }
+
+            console.log(
+                `[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`
+            );
+            return data || { success: true, orderId: orderData.Id };
+        } catch (error) {
+            // Non-retryable HTTP (400/409/...) → throw ngay, không retry.
+            // Chỉ retry khi là network error thuần (fetch reject, TypeError, timeout).
+            lastError = error;
+            if (error && error.__noRetry) {
+                throw error;
+            }
+            if (attempt < retries) {
+                console.warn(
+                    `[MERGE-API] PUT ${orderData.Id} network error, retry ${attempt + 1}/${retries}...`,
+                    error.message
+                );
+                await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
                 continue;
             }
-            // Concurrency conflict (412/409 với message về RowVersion/ETag) → không retry, thông báo rõ
-            if (response.status === 412 || (response.status === 409 && /rowversion|etag|concurren|conflict/i.test(errorText))) {
-                console.error(`[MERGE-API] 🔀 Concurrency conflict PUT ${orderData.Id} (HTTP ${response.status}):`, errorText);
-                const concErr = new Error(`Concurrency conflict: Đơn ${orderData.Id} đã bị sửa bởi user khác. Vui lòng load lại và thử lại.`);
-                concErr.__noRetry = true;
-                concErr.__concurrencyConflict = true;
-                throw concErr;
-            }
-            console.error(`[MERGE-API] PUT failed:`, errorText);
-            // Non-retryable HTTP (400/401/403/404/409/422/...) → throw với flag để catch không retry
-            const httpErr = new Error(`HTTP ${response.status}: ${errorText}`);
-            httpErr.__noRetry = true;
-            throw httpErr;
-        }
-
-        // Handle empty response body (PUT often returns 200 OK with no content)
-        let data = null;
-        const responseText = await response.text();
-        if (responseText && responseText.trim()) {
-            try {
-                data = JSON.parse(responseText);
-            } catch (parseError) {
-                console.log(`[MERGE-API] Response is not JSON, treating as success`);
-            }
-        }
-
-        console.log(`[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`);
-        return data || { success: true, orderId: orderData.Id };
-    } catch (error) {
-        // Non-retryable HTTP (400/409/...) → throw ngay, không retry.
-        // Chỉ retry khi là network error thuần (fetch reject, TypeError, timeout).
-        lastError = error;
-        if (error && error.__noRetry) {
+            console.error(
+                `[MERGE-API] Error updating order ${orderData.Id} after ${retries + 1} attempts:`,
+                error
+            );
             throw error;
         }
-        if (attempt < retries) {
-            console.warn(`[MERGE-API] PUT ${orderData.Id} network error, retry ${attempt + 1}/${retries}...`, error.message);
-            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-            continue;
-        }
-        console.error(`[MERGE-API] Error updating order ${orderData.Id} after ${retries + 1} attempts:`, error);
-        throw error;
-    }
     }
     // Không nên tới đây, nhưng safety
     throw lastError || new Error(`[MERGE-API] Update failed for order ${orderData.Id}`);
@@ -225,7 +262,7 @@ window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 // cùng chạy merge trên cùng 1 target (second PUT sẽ overwrite first + mất products nguồn).
 // Lock keyed by TargetOrderId; set khi bắt đầu, xóa trong finally.
 // Shared qua window để live-waiting module cũng dùng được lock chung.
-const _mergeInProgress = window.__merge_inprogress = window.__merge_inprogress || new Set();
+const _mergeInProgress = (window.__merge_inprogress = window.__merge_inprogress || new Set());
 
 /**
  * Acquire merge lock cho 1 target order. Return false nếu đã bị lock.
@@ -252,7 +289,12 @@ window.releaseMergeLock = releaseMergeLock;
  * @returns {Promise<Object>} Merge result
  */
 async function executeMergeOrderProducts(mergedOrder) {
-    if (!mergedOrder.IsMerged || !mergedOrder.TargetOrderId || !mergedOrder.SourceOrderIds || mergedOrder.SourceOrderIds.length === 0) {
+    if (
+        !mergedOrder.IsMerged ||
+        !mergedOrder.TargetOrderId ||
+        !mergedOrder.SourceOrderIds ||
+        mergedOrder.SourceOrderIds.length === 0
+    ) {
         console.log('[MERGE-API] Not a merged order or no source orders to merge');
         return { success: false, message: 'Not a merged order' };
     }
@@ -264,37 +306,49 @@ async function executeMergeOrderProducts(mergedOrder) {
         return {
             success: false,
             message: `Đơn đích STT ${mergedOrder.TargetSTT} đang được gộp (tab khác?). Chờ hoàn tất rồi thử lại.`,
-            locked: true
+            locked: true,
         };
     }
 
     try {
         console.log(`[MERGE-API] Starting merge for phone ${mergedOrder.Telephone}`);
-        console.log(`[MERGE-API] Target: STT ${mergedOrder.TargetSTT} (${mergedOrder.TargetOrderId})`);
-        console.log(`[MERGE-API] Sources: STT ${mergedOrder.SourceSTTs.join(', ')} (${mergedOrder.SourceOrderIds.length} orders)`);
+        console.log(
+            `[MERGE-API] Target: STT ${mergedOrder.TargetSTT} (${mergedOrder.TargetOrderId})`
+        );
+        console.log(
+            `[MERGE-API] Sources: STT ${mergedOrder.SourceSTTs.join(', ')} (${mergedOrder.SourceOrderIds.length} orders)`
+        );
 
         // Step 1: Fetch all order details
         const targetOrderData = await getOrderDetails(mergedOrder.TargetOrderId);
         if (!targetOrderData) {
-            return { success: false, message: `Không thể tải đơn đích ${mergedOrder.TargetOrderId} (API lỗi 502)` };
+            return {
+                success: false,
+                message: `Không thể tải đơn đích ${mergedOrder.TargetOrderId} (API lỗi 502)`,
+            };
         }
         const sourceOrdersData = await Promise.all(
-            mergedOrder.SourceOrderIds.map(id => getOrderDetails(id))
+            mergedOrder.SourceOrderIds.map((id) => getOrderDetails(id))
         );
-        const failedSources = sourceOrdersData.filter(d => !d);
+        const failedSources = sourceOrdersData.filter((d) => !d);
         if (failedSources.length > 0) {
-            return { success: false, message: `Không thể tải ${failedSources.length} đơn nguồn (API lỗi 502)` };
+            return {
+                success: false,
+                message: `Không thể tải ${failedSources.length} đơn nguồn (API lỗi 502)`,
+            };
         }
 
         // Step 2: Collect all products and merge by ProductId
         const productMap = new Map(); // key: ProductId, value: product detail
 
         // Add target order products first
-        (targetOrderData.Details || []).forEach(detail => {
+        (targetOrderData.Details || []).forEach((detail) => {
             // Skip products without ProductId to avoid merging unrelated items under null key
             const key = detail.ProductId;
             if (!key) {
-                console.warn(`[MERGE-API] Skipping product without ProductId: ${detail.ProductName || 'unknown'}`);
+                console.warn(
+                    `[MERGE-API] Skipping product without ProductId: ${detail.ProductName || 'unknown'}`
+                );
                 // Still include it with a unique key so it's not lost
                 productMap.set(`_noid_${productMap.size}`, { ...detail });
                 return;
@@ -321,7 +375,7 @@ async function executeMergeOrderProducts(mergedOrder) {
             const sourceSTT = mergedOrder.SourceSTTs[index];
             console.log(`[MERGE-API] Source STT ${sourceSTT}: ${sourceProducts.length} products`);
 
-            sourceProducts.forEach(detail => {
+            sourceProducts.forEach((detail) => {
                 const key = detail.ProductId;
                 if (!key) {
                     productMap.set(`_noid_${productMap.size}`, { ...detail });
@@ -334,19 +388,27 @@ async function executeMergeOrderProducts(mergedOrder) {
                     existing.Quantity = Math.min(newQty, 999999);
                     // Concat note từ source vào existing nếu chưa có
                     if (detail.Note && !(existing.Note || '').includes(detail.Note)) {
-                        existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
+                        existing.Note = existing.Note
+                            ? `${existing.Note}, ${detail.Note}`
+                            : detail.Note;
                     }
                     // Cảnh báo nếu giá source khác target (target price giữ nguyên — điều chỉnh manual nếu cần)
-                    if (detail.Price != null && existing.Price != null && Number(detail.Price) !== Number(existing.Price)) {
+                    if (
+                        detail.Price != null &&
+                        existing.Price != null &&
+                        Number(detail.Price) !== Number(existing.Price)
+                    ) {
                         priceDiffs.push({
                             sourceSTT,
                             productId: key,
                             productName: detail.ProductName || detail.ProductNameGet || '?',
                             targetPrice: Number(existing.Price),
-                            sourcePrice: Number(detail.Price)
+                            sourcePrice: Number(detail.Price),
                         });
                     }
-                    console.log(`[MERGE-API] Merged duplicate ProductId ${key}: new qty = ${existing.Quantity}`);
+                    console.log(
+                        `[MERGE-API] Merged duplicate ProductId ${key}: new qty = ${existing.Quantity}`
+                    );
                 } else {
                     productMap.set(key, { ...detail });
                 }
@@ -354,7 +416,10 @@ async function executeMergeOrderProducts(mergedOrder) {
         });
 
         if (priceDiffs.length > 0) {
-            console.warn(`[MERGE-API] ⚠️ ${priceDiffs.length} product(s) có giá khác giữa source/target — target price giữ nguyên:`, priceDiffs);
+            console.warn(
+                `[MERGE-API] ⚠️ ${priceDiffs.length} product(s) có giá khác giữa source/target — target price giữ nguyên:`,
+                priceDiffs
+            );
         }
 
         // Convert map to array
@@ -363,9 +428,9 @@ async function executeMergeOrderProducts(mergedOrder) {
         // Calculate totals from merged products
         let totalAmount = 0;
         let totalQuantity = 0;
-        allProducts.forEach(p => {
+        allProducts.forEach((p) => {
             totalAmount += (p.Price || 0) * (p.Quantity || 0);
-            totalQuantity += (p.Quantity || 0);
+            totalQuantity += p.Quantity || 0;
         });
 
         console.log(`[MERGE-API] Total products to merge: ${allProducts.length}`);
@@ -374,7 +439,9 @@ async function executeMergeOrderProducts(mergedOrder) {
         // Step 3: Update target order with all products (using full payload)
         // Nếu target PUT fail → không có side-effect, các source vẫn nguyên vẹn → safe abort.
         await updateOrderWithFullPayload(targetOrderData, allProducts, totalAmount, totalQuantity);
-        console.log(`[MERGE-API] ✅ Updated target order STT ${mergedOrder.TargetSTT} with ${allProducts.length} products`);
+        console.log(
+            `[MERGE-API] ✅ Updated target order STT ${mergedOrder.TargetSTT} with ${allProducts.length} products`
+        );
 
         // Step 4: Clear products from source orders (using full payload).
         // CRITICAL: target đã nhận tất cả products → MỖI source clear fail = duplicate products!
@@ -388,7 +455,12 @@ async function executeMergeOrderProducts(mergedOrder) {
 
             if (!sourceOrder) {
                 console.warn(`[MERGE-API] Source order index ${i} is null, skipping clear`);
-                sourceClearResults.push({ sourceId, sourceSTT, cleared: false, reason: 'fetch-null' });
+                sourceClearResults.push({
+                    sourceId,
+                    sourceSTT,
+                    cleared: false,
+                    reason: 'fetch-null',
+                });
                 failedSourceSTTs.push(sourceSTT);
                 continue;
             }
@@ -397,23 +469,37 @@ async function executeMergeOrderProducts(mergedOrder) {
                 console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
                 sourceClearResults.push({ sourceId, sourceSTT, cleared: true });
             } catch (clearErr) {
-                console.error(`[MERGE-API] ❌ Failed to clear source STT ${sourceSTT} (${sourceId}):`, clearErr);
-                sourceClearResults.push({ sourceId, sourceSTT, cleared: false, reason: clearErr.message || 'clear-fail' });
+                console.error(
+                    `[MERGE-API] ❌ Failed to clear source STT ${sourceSTT} (${sourceId}):`,
+                    clearErr
+                );
+                sourceClearResults.push({
+                    sourceId,
+                    sourceSTT,
+                    cleared: false,
+                    reason: clearErr.message || 'clear-fail',
+                });
                 failedSourceSTTs.push(sourceSTT);
             }
         }
 
-        const clearedCount = sourceClearResults.filter(r => r.cleared).length;
+        const clearedCount = sourceClearResults.filter((r) => r.cleared).length;
         const failedClearCount = sourceClearResults.length - clearedCount;
 
         // Snapshot pre-merge Details cho history (bulk path cần vì displayedData không có Details)
-        const preMergeTargetDetails = Array.isArray(targetOrderData.Details) ? targetOrderData.Details : [];
-        const preMergeSourceDetails = sourceOrdersData.map(so => Array.isArray(so?.Details) ? so.Details : []);
+        const preMergeTargetDetails = Array.isArray(targetOrderData.Details)
+            ? targetOrderData.Details
+            : [];
+        const preMergeSourceDetails = sourceOrdersData.map((so) =>
+            Array.isArray(so?.Details) ? so.Details : []
+        );
 
         if (failedClearCount > 0) {
             // ⚠️ Target đã có đủ products nhưng source chưa được clear → DUPLICATE RISK.
             // Return partial success để caller hiển thị rõ tình trạng và người dùng có thể retry thủ công.
-            console.error(`[MERGE-API] ⚠️ PARTIAL MERGE: Target đã cập nhật nhưng ${failedClearCount}/${sourceClearResults.length} source KHÔNG clear được. DUPLICATE PRODUCTS RISK!`);
+            console.error(
+                `[MERGE-API] ⚠️ PARTIAL MERGE: Target đã cập nhật nhưng ${failedClearCount}/${sourceClearResults.length} source KHÔNG clear được. DUPLICATE PRODUCTS RISK!`
+            );
             return {
                 success: false,
                 partial: true,
@@ -426,7 +512,7 @@ async function executeMergeOrderProducts(mergedOrder) {
                 priceDiffs,
                 mergedProducts: allProducts,
                 preMergeTargetDetails,
-                preMergeSourceDetails
+                preMergeSourceDetails,
             };
         }
 
@@ -444,9 +530,8 @@ async function executeMergeOrderProducts(mergedOrder) {
             totalProducts: allProducts.length,
             mergedProducts: allProducts,
             preMergeTargetDetails,
-            preMergeSourceDetails
+            preMergeSourceDetails,
         };
-
     } catch (error) {
         console.error('[MERGE-API] Error during merge:', error);
 
@@ -467,7 +552,7 @@ async function executeMergeOrderProducts(mergedOrder) {
             message: 'Lỗi: ' + error.message,
             error: error,
             errorResponse: errorResponse,
-            concurrencyConflict: !!(error && error.__concurrencyConflict)
+            concurrencyConflict: !!(error && error.__concurrencyConflict),
         };
     } finally {
         releaseMergeLock(lockKey);
@@ -483,7 +568,7 @@ async function executeBulkMergeOrderProducts() {
         // Group orders by NORMALIZED phone number to find duplicates
         // (handles +84xxx vs 0xxx, spaces, dashes...)
         const phoneGroups = new Map();
-        displayedData.forEach(order => {
+        displayedData.forEach((order) => {
             const phone = normalizeMergePhone(order.Telephone);
             if (phone) {
                 if (!phoneGroups.has(phone)) {
@@ -507,49 +592,68 @@ async function executeBulkMergeOrderProducts() {
                     Telephone: targetOrder.Telephone || phone,
                     TargetOrderId: targetOrder.Id,
                     TargetSTT: targetOrder.SessionIndex,
-                    SourceOrderIds: sourceOrders.map(o => o.Id),
-                    SourceSTTs: sourceOrders.map(o => o.SessionIndex),
+                    SourceOrderIds: sourceOrders.map((o) => o.Id),
+                    SourceSTTs: sourceOrders.map((o) => o.SessionIndex),
                     IsMerged: true,
                     // Lưu full order objects để tag assignment sau merge
                     _targetOrder: targetOrder,
                     _sourceOrders: sourceOrders,
-                    _allOrders: orders // sorted DESC, target ở đầu
+                    _allOrders: orders, // sorted DESC, target ở đầu
                 });
             }
         });
 
         if (mergeableGroups.length === 0) {
             if (window.notificationManager) {
-                window.notificationManager.show('Không có đơn hàng nào trùng SĐT cần gộp sản phẩm.', 'warning');
+                window.notificationManager.show(
+                    'Không có đơn hàng nào trùng SĐT cần gộp sản phẩm.',
+                    'warning'
+                );
             }
             return { success: false, message: 'No duplicate phone orders found' };
         }
 
-        const totalSourceOrders = mergeableGroups.reduce((sum, g) => sum + g.SourceOrderIds.length, 0);
-        const confirmMsg = `Tìm thấy ${mergeableGroups.length} SĐT trùng (${totalSourceOrders + mergeableGroups.length} đơn).\n\n` +
+        const totalSourceOrders = mergeableGroups.reduce(
+            (sum, g) => sum + g.SourceOrderIds.length,
+            0
+        );
+        const confirmMsg =
+            `Tìm thấy ${mergeableGroups.length} SĐT trùng (${totalSourceOrders + mergeableGroups.length} đơn).\n\n` +
             `Hành động này sẽ:\n` +
             `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
             `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn\n` +
             `- Gán tag "ĐÃ GỘP KO CHỐT" cho đơn nguồn, tag "Gộp X Y Z" cho đơn đích`;
 
-        const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp sản phẩm");
+        const confirmed = await window.notificationManager.confirm(
+            confirmMsg,
+            'Xác nhận gộp sản phẩm'
+        );
         if (!confirmed) {
             return { success: false, message: 'Cancelled by user' };
         }
 
         // Show loading indicator
         if (window.notificationManager) {
-            window.notificationManager.show(`Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT...`, 'info');
+            window.notificationManager.show(
+                `Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT...`,
+                'info'
+            );
         }
 
         // Load available tags trước để tag assignment có Id đúng
-        try { await loadAvailableTags(); } catch (e) { console.warn('[MERGE-BULK] loadAvailableTags fail:', e); }
+        try {
+            await loadAvailableTags();
+        } catch (e) {
+            console.warn('[MERGE-BULK] loadAvailableTags fail:', e);
+        }
 
         // Execute merge for each phone group
         const results = [];
         for (let i = 0; i < mergeableGroups.length; i++) {
             const group = mergeableGroups[i];
-            console.log(`[MERGE-BULK] Processing ${i + 1}/${mergeableGroups.length}: Phone ${group.Telephone}`);
+            console.log(
+                `[MERGE-BULK] Processing ${i + 1}/${mergeableGroups.length}: Phone ${group.Telephone}`
+            );
 
             const result = await executeMergeOrderProducts(group);
             results.push({ order: group, result });
@@ -562,14 +666,14 @@ async function executeBulkMergeOrderProducts() {
                     phone: group.Telephone,
                     targetOrder: {
                         ...group._targetOrder,
-                        Details: result.preMergeTargetDetails || []
+                        Details: result.preMergeTargetDetails || [],
                     },
                     sourceOrders: group._sourceOrders.map((s, i) => ({
                         ...s,
-                        Details: (result.preMergeSourceDetails || [])[i] || []
+                        Details: (result.preMergeSourceDetails || [])[i] || [],
                     })),
                     orders: group._allOrders, // DESC — assignTagsAfterMerge sort nội bộ nên thứ tự không matter
-                    mergedProducts: result.mergedProducts || []
+                    mergedProducts: result.mergedProducts || [],
                 };
                 const clusterForTagging = result.partial
                     ? buildPartialTagCluster(baseCluster, result.sourceClearResults)
@@ -578,10 +682,16 @@ async function executeBulkMergeOrderProducts() {
                 try {
                     const tagResult = await assignTagsAfterMerge(clusterForTagging);
                     if (!tagResult.success) {
-                        console.warn(`[MERGE-BULK] Tag assignment fail for ${group.Telephone}:`, tagResult.error);
+                        console.warn(
+                            `[MERGE-BULK] Tag assignment fail for ${group.Telephone}:`,
+                            tagResult.error
+                        );
                     }
                 } catch (tagErr) {
-                    console.warn(`[MERGE-BULK] Tag assignment error for ${group.Telephone}:`, tagErr);
+                    console.warn(
+                        `[MERGE-BULK] Tag assignment error for ${group.Telephone}:`,
+                        tagErr
+                    );
                 }
 
                 // Save history với Details đầy đủ (không còn empty products như trước)
@@ -589,37 +699,48 @@ async function executeBulkMergeOrderProducts() {
                     try {
                         await saveMergeHistory(baseCluster, result, result.errorResponse || null);
                     } catch (historyErr) {
-                        console.warn(`[MERGE-BULK] saveMergeHistory fail for ${group.Telephone}:`, historyErr);
+                        console.warn(
+                            `[MERGE-BULK] saveMergeHistory fail for ${group.Telephone}:`,
+                            historyErr
+                        );
                     }
                 }
 
                 // Mark PBH merge-cancelled cho source đã clear
-                const clearedIds = (result.sourceClearResults || []).filter(r => r.cleared).map(r => r.sourceId);
+                const clearedIds = (result.sourceClearResults || [])
+                    .filter((r) => r.cleared)
+                    .map((r) => r.sourceId);
                 if (clearedIds.length > 0 && typeof markSourceOrdersMergeCancelled === 'function') {
                     try {
                         markSourceOrdersMergeCancelled(clearedIds);
                     } catch (pbhErr) {
-                        console.warn(`[MERGE-BULK] markSourceOrdersMergeCancelled fail for ${group.Telephone}:`, pbhErr);
+                        console.warn(
+                            `[MERGE-BULK] markSourceOrdersMergeCancelled fail for ${group.Telephone}:`,
+                            pbhErr
+                        );
                     }
                 }
             }
 
             // Small delay to avoid rate limiting
             if (i < mergeableGroups.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise((resolve) => setTimeout(resolve, 500));
             }
         }
 
         // Count successes, partials, failures — phân loại concurrency & locked, tập hợp (không ẩn)
-        const successCount = results.filter(r => r.result.success).length;
-        const partialList = results.filter(r => !r.result.success && r.result.partial);
-        const concurrencyList = results.filter(r => !r.result.success && r.result.concurrencyConflict);
-        const lockedList = results.filter(r => !r.result.success && r.result.locked);
-        const genericFails = results.filter(r =>
-            !r.result.success
-            && !r.result.partial
-            && !r.result.concurrencyConflict
-            && !r.result.locked
+        const successCount = results.filter((r) => r.result.success).length;
+        const partialList = results.filter((r) => !r.result.success && r.result.partial);
+        const concurrencyList = results.filter(
+            (r) => !r.result.success && r.result.concurrencyConflict
+        );
+        const lockedList = results.filter((r) => !r.result.success && r.result.locked);
+        const genericFails = results.filter(
+            (r) =>
+                !r.result.success &&
+                !r.result.partial &&
+                !r.result.concurrencyConflict &&
+                !r.result.locked
         );
         const failureCount = results.length - successCount;
 
@@ -635,20 +756,30 @@ async function executeBulkMergeOrderProducts() {
                 const parts = [];
                 if (partialList.length > 0) {
                     const details = partialList
-                        .map(r => `${r.order.Telephone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                        .map(
+                            (r) =>
+                                `${r.order.Telephone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`
+                        )
                         .join('; ');
                     parts.push(`⚠️ ${partialList.length} GỘP DANG DỞ: ${details}`);
                 }
                 if (concurrencyList.length > 0) {
-                    parts.push(`🔀 ${concurrencyList.length} CONFLICT: ${concurrencyList.map(r => r.order.Telephone).join(', ')} — load lại rồi thử lại`);
+                    parts.push(
+                        `🔀 ${concurrencyList.length} CONFLICT: ${concurrencyList.map((r) => r.order.Telephone).join(', ')} — load lại rồi thử lại`
+                    );
                 }
                 if (lockedList.length > 0) {
-                    parts.push(`🔒 ${lockedList.length} BỊ LOCK: ${lockedList.map(r => r.order.Telephone).join(', ')}`);
+                    parts.push(
+                        `🔒 ${lockedList.length} BỊ LOCK: ${lockedList.map((r) => r.order.Telephone).join(', ')}`
+                    );
                 }
                 if (genericFails.length > 0) {
-                    parts.push(`❌ ${genericFails.length} LỖI: ${genericFails.map(r => r.order.Telephone).join(', ')}`);
+                    parts.push(
+                        `❌ ${genericFails.length} LỖI: ${genericFails.map((r) => r.order.Telephone).join(', ')}`
+                    );
                 }
-                const level = partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+                const level =
+                    partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
                 window.notificationManager.show(
                     `Gộp ${successCount}/${results.length} đơn. ${parts.join(' | ')}`,
                     level,
@@ -662,7 +793,10 @@ async function executeBulkMergeOrderProducts() {
             await fetchOrders();
             // renderTable and updateStats are called inside fetchOrders flow
         } catch (refreshError) {
-            console.warn('[MERGE-BULK] Could not auto-refresh, please reload manually:', refreshError);
+            console.warn(
+                '[MERGE-BULK] Could not auto-refresh, please reload manually:',
+                refreshError
+            );
             // Fallback: just re-render with current data
             renderTable();
             updateStats();
@@ -673,13 +807,16 @@ async function executeBulkMergeOrderProducts() {
             totalOrders: results.length,
             successCount,
             failureCount,
-            results
+            results,
         };
-
     } catch (error) {
         console.error('[MERGE-BULK] Error during bulk merge:', error);
         if (window.notificationManager) {
-            window.notificationManager.show('❌ Lỗi khi gộp sản phẩm: ' + error.message, 'error', 5000);
+            window.notificationManager.show(
+                '❌ Lỗi khi gộp sản phẩm: ' + error.message,
+                'error',
+                5000
+            );
         }
         return { success: false, message: error.message, error };
     }
@@ -724,7 +861,7 @@ async function showMergeDuplicateOrdersModal() {
         // Group orders by NORMALIZED phone number to find duplicates
         // (handles +84xxx vs 0xxx, spaces, dashes...)
         const phoneGroups = new Map();
-        displayedData.forEach(order => {
+        displayedData.forEach((order) => {
             const phone = normalizeMergePhone(order.Telephone);
             if (phone) {
                 if (!phoneGroups.has(phone)) {
@@ -746,11 +883,11 @@ async function showMergeDuplicateOrdersModal() {
                 const sourceOrders = orders.slice(0, -1);
 
                 clusters.push({
-                    phone: targetOrder.Telephone || phone,  // Display original target phone
+                    phone: targetOrder.Telephone || phone, // Display original target phone
                     orders: orders,
                     targetOrder,
                     sourceOrders,
-                    minSTT: orders[0].SessionIndex || 0
+                    minSTT: orders[0].SessionIndex || 0,
                 });
             }
         });
@@ -770,7 +907,7 @@ async function showMergeDuplicateOrdersModal() {
         clusters.sort((a, b) => a.minSTT - b.minSTT);
 
         // Fetch full details for all orders in all clusters
-        const allOrderIds = clusters.flatMap(c => c.orders.map(o => o.Id));
+        const allOrderIds = clusters.flatMap((c) => c.orders.map((o) => o.Id));
         const orderDetailsMap = new Map();
 
         // Update loading message
@@ -786,13 +923,15 @@ async function showMergeDuplicateOrdersModal() {
         let failedCount = 0;
         for (let i = 0; i < allOrderIds.length; i += batchSize) {
             const batch = allOrderIds.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(id => getOrderDetails(id)));
+            const results = await Promise.all(batch.map((id) => getOrderDetails(id)));
             results.forEach((detail, idx) => {
                 if (detail) {
                     orderDetailsMap.set(batch[idx], detail);
                 } else {
                     failedCount++;
-                    console.warn(`[MERGE-MODAL] Failed to fetch details for order ${batch[idx]}, will show without products`);
+                    console.warn(
+                        `[MERGE-MODAL] Failed to fetch details for order ${batch[idx]}, will show without products`
+                    );
                 }
             });
 
@@ -807,22 +946,24 @@ async function showMergeDuplicateOrdersModal() {
 
             // Small delay between batches
             if (i + batchSize < allOrderIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise((resolve) => setTimeout(resolve, 300));
             }
         }
 
         // Build clusters with full product details
         mergeClustersData = clusters.map((cluster, index) => {
-            const ordersWithDetails = cluster.orders.map(order => {
+            const ordersWithDetails = cluster.orders.map((order) => {
                 const apiOrderData = orderDetailsMap.get(order.Id);
 
                 // Tags lấy từ displayedData (đã có sẵn, không cần từ API)
                 // Chỉ cần Details từ API vì displayedData không có chi tiết sản phẩm
-                console.log(`[MERGE-MODAL] Order STT ${order.SessionIndex}: Tags from displayedData: ${order.Tags || '(empty)'}`);
+                console.log(
+                    `[MERGE-MODAL] Order STT ${order.SessionIndex}: Tags from displayedData: ${order.Tags || '(empty)'}`
+                );
 
                 return {
                     ...order,
-                    Details: apiOrderData?.Details || []
+                    Details: apiOrderData?.Details || [],
                     // Tags giữ nguyên từ ...order (displayedData)
                 };
             });
@@ -830,7 +971,10 @@ async function showMergeDuplicateOrdersModal() {
             // Calculate merged products preview — truyền targetOrderId để preview
             // process target-first (giữ giá target) khớp với executeMergeOrderProducts
             const targetOrderForPreview = ordersWithDetails[ordersWithDetails.length - 1];
-            const mergedProducts = calculateMergedProductsPreview(ordersWithDetails, targetOrderForPreview.Id);
+            const mergedProducts = calculateMergedProductsPreview(
+                ordersWithDetails,
+                targetOrderForPreview.Id
+            );
 
             return {
                 id: `cluster_${index}`,
@@ -838,16 +982,18 @@ async function showMergeDuplicateOrdersModal() {
                 orders: ordersWithDetails,
                 targetOrder: ordersWithDetails[ordersWithDetails.length - 1],
                 sourceOrders: ordersWithDetails.slice(0, -1),
-                mergedProducts
+                mergedProducts,
             };
         });
 
         // Render clusters
         renderMergeClusters();
 
-        const totalSourceOrders = mergeClustersData.reduce((sum, c) => sum + c.sourceOrders.length, 0);
+        const totalSourceOrders = mergeClustersData.reduce(
+            (sum, c) => sum + c.sourceOrders.length,
+            0
+        );
         subtitle.textContent = `Tìm thấy ${mergeClustersData.length} SĐT trùng (${totalSourceOrders + mergeClustersData.length} đơn)`;
-
     } catch (error) {
         console.error('[MERGE-MODAL] Error loading data:', error);
         modalBody.innerHTML = `
@@ -875,16 +1021,16 @@ function calculateMergedProductsPreview(orders, targetOrderId = null) {
     // Reorder: target first, sources theo thứ tự gốc
     const ordered = targetOrderId
         ? [
-            ...orders.filter(o => String(o.Id) === String(targetOrderId)),
-            ...orders.filter(o => String(o.Id) !== String(targetOrderId))
+              ...orders.filter((o) => String(o.Id) === String(targetOrderId)),
+              ...orders.filter((o) => String(o.Id) !== String(targetOrderId)),
           ]
-        : (orders.length > 1
-            // Fallback heuristic: STT cao nhất = target → đưa lên đầu
-            ? [...orders].sort((a, b) => (b.SessionIndex || 0) - (a.SessionIndex || 0))
-            : orders);
+        : orders.length > 1
+          ? // Fallback heuristic: STT cao nhất = target → đưa lên đầu
+            [...orders].sort((a, b) => (b.SessionIndex || 0) - (a.SessionIndex || 0))
+          : orders;
 
-    ordered.forEach(order => {
-        (order.Details || []).forEach(detail => {
+    ordered.forEach((order) => {
+        (order.Details || []).forEach((detail) => {
             const key = detail.ProductId;
             if (!key) {
                 productMap.set(`_noid_${productMap.size}`, { ...detail });
@@ -896,7 +1042,9 @@ function calculateMergedProductsPreview(orders, targetOrderId = null) {
                 existing.Quantity = Math.min(newQty, 999999);
                 // Giá target (insert đầu tiên) được giữ nguyên — khớp với executeMergeOrderProducts
                 if (detail.Note && !existing.Note?.includes(detail.Note)) {
-                    existing.Note = existing.Note ? `${existing.Note}, ${detail.Note}` : detail.Note;
+                    existing.Note = existing.Note
+                        ? `${existing.Note}, ${detail.Note}`
+                        : detail.Note;
                 }
             } else {
                 productMap.set(key, { ...detail });
@@ -931,9 +1079,12 @@ function renderMergeTagPills(tags) {
 
     if (!Array.isArray(tagsArray) || tagsArray.length === 0) return '';
 
-    const pillsHtml = tagsArray.map(t =>
-        `<span class="merge-tag-pill" style="background: ${t.Color || '#6b7280'};" title="${escapeHtml(t.Name || '')}">${escapeHtml(t.Name || '')}</span>`
-    ).join('');
+    const pillsHtml = tagsArray
+        .map(
+            (t) =>
+                `<span class="merge-tag-pill" style="background: ${t.Color || '#6b7280'};" title="${escapeHtml(t.Name || '')}">${escapeHtml(t.Name || '')}</span>`
+        )
+        .join('');
 
     return `<div class="merge-header-tags">${pillsHtml}</div>`;
 }
@@ -954,7 +1105,7 @@ function renderMergeClusters() {
         return;
     }
 
-    const html = mergeClustersData.map(cluster => renderClusterCard(cluster)).join('');
+    const html = mergeClustersData.map((cluster) => renderClusterCard(cluster)).join('');
     modalBody.innerHTML = html;
 
     updateConfirmButtonState();
@@ -984,24 +1135,25 @@ function renderClusterCard(cluster) {
     const esc = _escMerge;
     const isSelected = selectedMergeClusters.has(cluster.id);
     const orderTitles = cluster.orders
-        .map(o => `STT ${esc(o.SessionIndex)} - ${esc(o.PartnerName || 'N/A')}`)
+        .map((o) => `STT ${esc(o.SessionIndex)} - ${esc(o.PartnerName || 'N/A')}`)
         .join(' | ');
 
     // Compute merged tags preview (mirror assignTagsAfterMerge logic)
     const mergedTagsPreview = calculateMergedTagsPreview(cluster);
-    const mergedTagsHtml = mergedTagsPreview.length > 0
-        ? renderMergeTagPills(mergedTagsPreview)
-        : `<div class="merge-header-tags merge-empty"><span class="merge-tag-pill" style="background:#9ca3af;">Không có tag</span></div>`;
+    const mergedTagsHtml =
+        mergedTagsPreview.length > 0
+            ? renderMergeTagPills(mergedTagsPreview)
+            : `<div class="merge-header-tags merge-empty"><span class="merge-tag-pill" style="background:#9ca3af;">Không có tag</span></div>`;
 
     // Build table headers
     const headers = [
         `<th class="merged-col">
             Sau Khi Gộp<br><small>(STT ${esc(cluster.targetOrder.SessionIndex)})</small>
             ${mergedTagsHtml}
-        </th>`
+        </th>`,
     ];
 
-    cluster.orders.forEach(order => {
+    cluster.orders.forEach((order) => {
         const isTarget = order.Id === cluster.targetOrder.Id;
         const className = isTarget ? 'target-col' : '';
         const targetLabel = isTarget ? ' (Đích)' : '';
@@ -1021,7 +1173,7 @@ function renderClusterCard(cluster) {
     // Find max products count for rows
     const maxProducts = Math.max(
         cluster.mergedProducts.length,
-        ...cluster.orders.map(o => (o.Details || []).length)
+        ...cluster.orders.map((o) => (o.Details || []).length)
     );
 
     // Build table rows
@@ -1031,14 +1183,18 @@ function renderClusterCard(cluster) {
 
         // Merged column
         const mergedProduct = cluster.mergedProducts[i];
-        cells.push(`<td class="merged-col">${mergedProduct ? renderProductItem(mergedProduct) : ''}</td>`);
+        cells.push(
+            `<td class="merged-col">${mergedProduct ? renderProductItem(mergedProduct) : ''}</td>`
+        );
 
         // Order columns
-        cluster.orders.forEach(order => {
+        cluster.orders.forEach((order) => {
             const isTarget = order.Id === cluster.targetOrder.Id;
             const className = isTarget ? 'target-col' : '';
             const product = (order.Details || [])[i];
-            cells.push(`<td class="${className}">${product ? renderProductItem(product) : ''}</td>`);
+            cells.push(
+                `<td class="${className}">${product ? renderProductItem(product) : ''}</td>`
+            );
         });
 
         rows.push(`<tr>${cells.join('')}</tr>`);
@@ -1046,11 +1202,15 @@ function renderClusterCard(cluster) {
 
     // If no products at all
     if (maxProducts === 0) {
-        const emptyCells = ['<td class="merged-col"><div class="merge-empty-cell">Trống</div></td>'];
-        cluster.orders.forEach(order => {
+        const emptyCells = [
+            '<td class="merged-col"><div class="merge-empty-cell">Trống</div></td>',
+        ];
+        cluster.orders.forEach((order) => {
             const isTarget = order.Id === cluster.targetOrder.Id;
             const className = isTarget ? 'target-col' : '';
-            emptyCells.push(`<td class="${className}"><div class="merge-empty-cell">Trống</div></td>`);
+            emptyCells.push(
+                `<td class="${className}"><div class="merge-empty-cell">Trống</div></td>`
+            );
         });
         rows.push(`<tr>${emptyCells.join('')}</tr>`);
     }
@@ -1091,9 +1251,10 @@ function renderProductItem(product) {
         ? `<img src="${esc(imgUrl)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
         : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
 
-    const productCode = product.ProductCode || product.ProductName?.match(/\[([^\]]+)\]/)?.[1] || '';
+    const productCode =
+        product.ProductCode || product.ProductName?.match(/\[([^\]]+)\]/)?.[1] || '';
     const productName = product.ProductName || product.ProductNameGet || 'Sản phẩm';
-    const price = product.Price ? `${(product.Price).toLocaleString('vi-VN')}đ` : '';
+    const price = product.Price ? `${product.Price.toLocaleString('vi-VN')}đ` : '';
     const note = product.Note || '';
 
     return `
@@ -1138,7 +1299,7 @@ function toggleMergeClusterSelection(clusterId, checked) {
  */
 function toggleSelectAllMergeClusters(checked) {
     if (checked) {
-        mergeClustersData.forEach(cluster => {
+        mergeClustersData.forEach((cluster) => {
             selectedMergeClusters.add(cluster.id);
         });
     } else {
@@ -1146,10 +1307,10 @@ function toggleSelectAllMergeClusters(checked) {
     }
 
     // Update all checkboxes and cards
-    document.querySelectorAll('.merge-cluster-checkbox').forEach(checkbox => {
+    document.querySelectorAll('.merge-cluster-checkbox').forEach((checkbox) => {
         checkbox.checked = checked;
     });
-    document.querySelectorAll('.merge-cluster-card').forEach(card => {
+    document.querySelectorAll('.merge-cluster-card').forEach((card) => {
         card.classList.toggle('selected', checked);
     });
 
@@ -1202,21 +1363,25 @@ function closeMergeDuplicateOrdersModal() {
 async function confirmMergeSelectedClusters() {
     if (selectedMergeClusters.size === 0) {
         if (window.notificationManager) {
-            window.notificationManager.show('Vui lòng chọn ít nhất một cụm đơn hàng để gộp.', 'warning');
+            window.notificationManager.show(
+                'Vui lòng chọn ít nhất một cụm đơn hàng để gộp.',
+                'warning'
+            );
         }
         return;
     }
 
-    const selectedClusters = mergeClustersData.filter(c => selectedMergeClusters.has(c.id));
+    const selectedClusters = mergeClustersData.filter((c) => selectedMergeClusters.has(c.id));
     const totalSourceOrders = selectedClusters.reduce((sum, c) => sum + c.sourceOrders.length, 0);
 
-    const confirmMsg = `Bạn sắp gộp ${selectedClusters.length} cụm đơn hàng (${totalSourceOrders + selectedClusters.length} đơn).\n\n` +
+    const confirmMsg =
+        `Bạn sắp gộp ${selectedClusters.length} cụm đơn hàng (${totalSourceOrders + selectedClusters.length} đơn).\n\n` +
         `Hành động này sẽ:\n` +
         `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
         `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn\n\n` +
         `Tiếp tục?`;
 
-    const confirmed = await window.notificationManager.confirm(confirmMsg, "Xác nhận gộp đơn");
+    const confirmed = await window.notificationManager.confirm(confirmMsg, 'Xác nhận gộp đơn');
     if (!confirmed) {
         return;
     }
@@ -1225,7 +1390,10 @@ async function confirmMergeSelectedClusters() {
     closeMergeDuplicateOrdersModal();
 
     if (window.notificationManager) {
-        window.notificationManager.show(`Đang gộp sản phẩm cho ${selectedClusters.length} cụm...`, 'info');
+        window.notificationManager.show(
+            `Đang gộp sản phẩm cho ${selectedClusters.length} cụm...`,
+            'info'
+        );
     }
 
     // Load available tags before merge (needed for tag assignment)
@@ -1235,15 +1403,17 @@ async function confirmMergeSelectedClusters() {
     const results = [];
     for (let i = 0; i < selectedClusters.length; i++) {
         const cluster = selectedClusters[i];
-        console.log(`[MERGE-MODAL] Processing ${i + 1}/${selectedClusters.length}: Phone ${cluster.phone}`);
+        console.log(
+            `[MERGE-MODAL] Processing ${i + 1}/${selectedClusters.length}: Phone ${cluster.phone}`
+        );
 
         const mergeData = {
             Telephone: cluster.phone,
             TargetOrderId: cluster.targetOrder.Id,
             TargetSTT: cluster.targetOrder.SessionIndex,
-            SourceOrderIds: cluster.sourceOrders.map(o => o.Id),
-            SourceSTTs: cluster.sourceOrders.map(o => o.SessionIndex),
-            IsMerged: true
+            SourceOrderIds: cluster.sourceOrders.map((o) => o.Id),
+            SourceSTTs: cluster.sourceOrders.map((o) => o.SessionIndex),
+            IsMerged: true,
         };
 
         const result = await executeMergeOrderProducts(mergeData);
@@ -1258,24 +1428,34 @@ async function confirmMergeSelectedClusters() {
         //    cho các source đã clear thành công (source chưa clear giữ nguyên tag cũ để user retry)
         const clusterForTagging = result.success
             ? cluster
-            : (result.partial ? buildPartialTagCluster(cluster, result.sourceClearResults) : null);
+            : result.partial
+              ? buildPartialTagCluster(cluster, result.sourceClearResults)
+              : null;
 
         if (clusterForTagging) {
-            console.log(`[MERGE-MODAL] Assigning tags for cluster ${cluster.phone} (${result.partial ? 'partial' : 'full'})`);
+            console.log(
+                `[MERGE-MODAL] Assigning tags for cluster ${cluster.phone} (${result.partial ? 'partial' : 'full'})`
+            );
             const tagResult = await assignTagsAfterMerge(clusterForTagging);
             if (tagResult.success) {
                 console.log(`[MERGE-MODAL] ✅ Tags assigned for cluster ${cluster.phone}`);
             } else {
-                console.warn(`[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`, tagResult.error);
+                console.warn(
+                    `[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`,
+                    tagResult.error
+                );
             }
         }
 
         // Sync InvoiceStatusStore (PBH) cho source đã clear → đánh dấu merge-cancelled local
         if (result.success || result.partial) {
             const clearedIds = (result.sourceClearResults || [])
-                .filter(r => r.cleared)
-                .map(r => r.sourceId);
-            if (clearedIds.length > 0 && typeof window.markSourceOrdersMergeCancelled === 'function') {
+                .filter((r) => r.cleared)
+                .map((r) => r.sourceId);
+            if (
+                clearedIds.length > 0 &&
+                typeof window.markSourceOrdersMergeCancelled === 'function'
+            ) {
                 try {
                     window.markSourceOrdersMergeCancelled(clearedIds);
                 } catch (e) {
@@ -1286,25 +1466,29 @@ async function confirmMergeSelectedClusters() {
 
         // Small delay to avoid rate limiting
         if (i < selectedClusters.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
         }
     }
 
     // Count successes, partials, failures — phân loại concurrency & locked
-    const successCount = results.filter(r => r.result.success).length;
-    const partialList = results.filter(r => !r.result.success && r.result.partial);
-    const concurrencyList = results.filter(r => !r.result.success && r.result.concurrencyConflict);
-    const lockedList = results.filter(r => !r.result.success && r.result.locked);
-    const genericFails = results.filter(r =>
-        !r.result.success
-        && !r.result.partial
-        && !r.result.concurrencyConflict
-        && !r.result.locked
+    const successCount = results.filter((r) => r.result.success).length;
+    const partialList = results.filter((r) => !r.result.success && r.result.partial);
+    const concurrencyList = results.filter(
+        (r) => !r.result.success && r.result.concurrencyConflict
+    );
+    const lockedList = results.filter((r) => !r.result.success && r.result.locked);
+    const genericFails = results.filter(
+        (r) =>
+            !r.result.success &&
+            !r.result.partial &&
+            !r.result.concurrencyConflict &&
+            !r.result.locked
     );
 
     // Show summary — TẬP HỢP tất cả failure categories, không ẩn qua else-if chain
     if (window.notificationManager) {
-        const totalFail = partialList.length + concurrencyList.length + lockedList.length + genericFails.length;
+        const totalFail =
+            partialList.length + concurrencyList.length + lockedList.length + genericFails.length;
         if (totalFail === 0) {
             window.notificationManager.show(
                 `Đã gộp sản phẩm thành công cho ${successCount} cụm đơn hàng!`,
@@ -1315,20 +1499,30 @@ async function confirmMergeSelectedClusters() {
             const parts = [];
             if (partialList.length > 0) {
                 const details = partialList
-                    .map(r => `${r.cluster.phone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`)
+                    .map(
+                        (r) =>
+                            `${r.cluster.phone} (STT nguồn chưa clear: ${(r.result.failedSourceSTTs || []).join(',')})`
+                    )
                     .join('; ');
                 parts.push(`⚠️ ${partialList.length} GỘP DANG DỞ (trùng SP): ${details}`);
             }
             if (concurrencyList.length > 0) {
-                parts.push(`🔀 ${concurrencyList.length} CONFLICT (user khác sửa đơn): ${concurrencyList.map(r => r.cluster.phone).join(', ')} — load lại rồi thử lại`);
+                parts.push(
+                    `🔀 ${concurrencyList.length} CONFLICT (user khác sửa đơn): ${concurrencyList.map((r) => r.cluster.phone).join(', ')} — load lại rồi thử lại`
+                );
             }
             if (lockedList.length > 0) {
-                parts.push(`🔒 ${lockedList.length} BỊ LOCK (tab khác đang gộp): ${lockedList.map(r => r.cluster.phone).join(', ')}`);
+                parts.push(
+                    `🔒 ${lockedList.length} BỊ LOCK (tab khác đang gộp): ${lockedList.map((r) => r.cluster.phone).join(', ')}`
+                );
             }
             if (genericFails.length > 0) {
-                parts.push(`❌ ${genericFails.length} LỖI khác: ${genericFails.map(r => r.cluster.phone).join(', ')}`);
+                parts.push(
+                    `❌ ${genericFails.length} LỖI khác: ${genericFails.map((r) => r.cluster.phone).join(', ')}`
+                );
             }
-            const level = partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+            const level =
+                partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
             window.notificationManager.show(
                 `Gộp ${successCount}/${results.length} cụm. ${parts.join(' | ')}`,
                 level,
@@ -1370,7 +1564,10 @@ function getMergeHistoryUserInfo() {
 
     try {
         // Try userStorageManager first
-        if (window.userStorageManager && typeof window.userStorageManager.getUserIdentifier === 'function') {
+        if (
+            window.userStorageManager &&
+            typeof window.userStorageManager.getUserIdentifier === 'function'
+        ) {
             userId = window.userStorageManager.getUserIdentifier() || 'guest';
         }
 
@@ -1404,24 +1601,24 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
         const timestamp = new Date();
 
         // Build source orders data with original tags
-        const sourceOrdersData = cluster.sourceOrders.map(order => ({
+        const sourceOrdersData = cluster.sourceOrders.map((order) => ({
             orderId: order.Id,
             stt: order.SessionIndex,
             partnerName: order.PartnerName || '',
-            originalTags: getOrderTagsArray(order).map(t => ({
+            originalTags: getOrderTagsArray(order).map((t) => ({
                 id: t.Id,
                 name: t.Name || '',
-                color: t.Color || ''
+                color: t.Color || '',
             })),
-            products: (order.Details || []).map(p => ({
+            products: (order.Details || []).map((p) => ({
                 productId: p.ProductId,
                 productCode: p.ProductCode || '',
                 productName: p.ProductName || '',
                 productImage: p.ProductImageUrl || p.ImageUrl || '',
                 quantity: p.Quantity || 0,
                 price: p.Price || 0,
-                note: p.Note || ''
-            }))
+                note: p.Note || '',
+            })),
         }));
 
         // Build target order data with original tags
@@ -1429,31 +1626,31 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             orderId: cluster.targetOrder.Id,
             stt: cluster.targetOrder.SessionIndex,
             partnerName: cluster.targetOrder.PartnerName || '',
-            originalTags: getOrderTagsArray(cluster.targetOrder).map(t => ({
+            originalTags: getOrderTagsArray(cluster.targetOrder).map((t) => ({
                 id: t.Id,
                 name: t.Name || '',
-                color: t.Color || ''
+                color: t.Color || '',
             })),
-            products: (cluster.targetOrder.Details || []).map(p => ({
+            products: (cluster.targetOrder.Details || []).map((p) => ({
                 productId: p.ProductId,
                 productCode: p.ProductCode || '',
                 productName: p.ProductName || '',
                 productImage: p.ProductImageUrl || p.ImageUrl || '',
                 quantity: p.Quantity || 0,
                 price: p.Price || 0,
-                note: p.Note || ''
-            }))
+                note: p.Note || '',
+            })),
         };
 
         // Build merged products data
-        const mergedProductsData = (cluster.mergedProducts || []).map(p => ({
+        const mergedProductsData = (cluster.mergedProducts || []).map((p) => ({
             productId: p.ProductId,
             productCode: p.ProductCode || '',
             productName: p.ProductName || '',
             productImage: p.ProductImageUrl || p.ImageUrl || '',
             quantity: p.Quantity || 0,
             price: p.Price || 0,
-            note: p.Note || ''
+            note: p.Note || '',
         }));
 
         const historyEntry = {
@@ -1463,18 +1660,17 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             userId: userId,
             userName: userName,
             success: result.success,
-            errorMessage: result.success ? null : (result.message || 'Unknown error'),
+            errorMessage: result.success ? null : result.message || 'Unknown error',
             errorResponse: errorResponse ? JSON.stringify(errorResponse) : null,
             sourceOrders: sourceOrdersData,
             targetOrder: targetOrderData,
             mergedProducts: mergedProductsData,
             totalSourceOrders: sourceOrdersData.length,
-            totalMergedProducts: mergedProductsData.length
+            totalMergedProducts: mergedProductsData.length,
         };
 
         await db.collection(MERGE_HISTORY_COLLECTION).add(historyEntry);
         console.log('[MERGE-HISTORY] Saved history entry for phone:', cluster.phone);
-
     } catch (error) {
         console.error('[MERGE-HISTORY] Error saving history:', error);
     }
@@ -1490,22 +1686,22 @@ async function loadMergeHistory(limit = 50) {
     }
 
     try {
-        const snapshot = await db.collection(MERGE_HISTORY_COLLECTION)
+        const snapshot = await db
+            .collection(MERGE_HISTORY_COLLECTION)
             .orderBy('timestamp', 'desc')
             .limit(limit)
             .get();
 
         const history = [];
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc) => {
             history.push({
                 id: doc.id,
-                ...doc.data()
+                ...doc.data(),
             });
         });
 
         console.log(`[MERGE-HISTORY] Loaded ${history.length} history entries`);
         return history;
-
     } catch (error) {
         console.error('[MERGE-HISTORY] Error loading history:', error);
         return [];
@@ -1547,10 +1743,9 @@ async function showMergeHistoryModal() {
         const html = history.map((entry, index) => renderHistoryEntry(entry, index)).join('');
         modalBody.innerHTML = html;
 
-        const successCount = history.filter(e => e.success).length;
+        const successCount = history.filter((e) => e.success).length;
         const failedCount = history.length - successCount;
         subtitle.textContent = `${history.length} lần gộp (${successCount} thành công, ${failedCount} thất bại)`;
-
     } catch (error) {
         console.error('[MERGE-HISTORY] Error showing history:', error);
         modalBody.innerHTML = `
@@ -1566,13 +1761,15 @@ async function showMergeHistoryModal() {
  * Render a single history entry
  */
 function renderHistoryEntry(entry, index) {
-    const timestamp = entry.timestamp?.toDate ? entry.timestamp.toDate() : new Date(entry.timestampISO);
+    const timestamp = entry.timestamp?.toDate
+        ? entry.timestamp.toDate()
+        : new Date(entry.timestampISO);
     const timeStr = timestamp.toLocaleString('vi-VN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
     });
 
     const statusClass = entry.success ? 'success' : 'failed';
@@ -1580,29 +1777,34 @@ function renderHistoryEntry(entry, index) {
 
     // Build order titles for header
     const allSTTs = [
-        ...entry.sourceOrders.map(o => `STT ${o.stt}`),
-        `STT ${entry.targetOrder.stt} (Đích)`
+        ...entry.sourceOrders.map((o) => `STT ${o.stt}`),
+        `STT ${entry.targetOrder.stt} (Đích)`,
     ].join(' | ');
 
     // Build table for details
     const tableHtml = renderHistoryTable(entry);
 
     // Error section if failed
-    const errorHtml = !entry.success && entry.errorResponse ? `
+    const errorHtml =
+        !entry.success && entry.errorResponse
+            ? `
         <div class="merge-history-error">
             <div class="merge-history-error-title">
                 <i class="fas fa-exclamation-circle"></i> Chi tiết lỗi từ TPOS
             </div>
             <div class="merge-history-error-content">${escapeHtml(entry.errorResponse)}</div>
         </div>
-    ` : (!entry.success ? `
+    `
+            : !entry.success
+              ? `
         <div class="merge-history-error">
             <div class="merge-history-error-title">
                 <i class="fas fa-exclamation-circle"></i> Lỗi
             </div>
             <div class="merge-history-error-content">${escapeHtml(entry.errorMessage || 'Unknown error')}</div>
         </div>
-    ` : '');
+    `
+              : '';
 
     return `
         <div class="merge-history-entry" id="history-entry-${index}">
@@ -1633,7 +1835,7 @@ function renderHistoryEntry(entry, index) {
 function renderHistoryTagPills(tags) {
     if (!tags || tags.length === 0) return '';
     return `<div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
-        ${tags.map(t => `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; color: white; background: ${t.color || '#6b7280'};">${escapeHtml(t.name)}</span>`).join('')}
+        ${tags.map((t) => `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; color: white; background: ${t.color || '#6b7280'};">${escapeHtml(t.name)}</span>`).join('')}
     </div>`;
 }
 
@@ -1643,24 +1845,26 @@ function renderHistoryTagPills(tags) {
 function renderHistoryTable(entry) {
     // Build headers with original tags
     const headers = [
-        `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${entry.targetOrder.stt})</small></th>`
+        `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${entry.targetOrder.stt})</small></th>`,
     ];
 
     // Source orders headers with original tags
-    entry.sourceOrders.forEach(order => {
+    entry.sourceOrders.forEach((order) => {
         const tagsHtml = renderHistoryTagPills(order.originalTags);
         headers.push(`<th>STT ${order.stt} - ${escapeHtml(order.partnerName)}${tagsHtml}</th>`);
     });
 
     // Target order header with original tags
     const targetTagsHtml = renderHistoryTagPills(entry.targetOrder.originalTags);
-    headers.push(`<th class="target-col">STT ${entry.targetOrder.stt} - ${escapeHtml(entry.targetOrder.partnerName)} (Đích)${targetTagsHtml}</th>`);
+    headers.push(
+        `<th class="target-col">STT ${entry.targetOrder.stt} - ${escapeHtml(entry.targetOrder.partnerName)} (Đích)${targetTagsHtml}</th>`
+    );
 
     // Find max products
     const allProductCounts = [
         entry.mergedProducts.length,
-        ...entry.sourceOrders.map(o => o.products.length),
-        entry.targetOrder.products.length
+        ...entry.sourceOrders.map((o) => o.products.length),
+        entry.targetOrder.products.length,
     ];
     const maxProducts = Math.max(...allProductCounts, 1);
 
@@ -1671,17 +1875,21 @@ function renderHistoryTable(entry) {
 
         // Merged column
         const mergedProduct = entry.mergedProducts[i];
-        cells.push(`<td class="merged-col">${mergedProduct ? renderHistoryProductItem(mergedProduct) : ''}</td>`);
+        cells.push(
+            `<td class="merged-col">${mergedProduct ? renderHistoryProductItem(mergedProduct) : ''}</td>`
+        );
 
         // Source order columns
-        entry.sourceOrders.forEach(order => {
+        entry.sourceOrders.forEach((order) => {
             const product = order.products[i];
             cells.push(`<td>${product ? renderHistoryProductItem(product) : ''}</td>`);
         });
 
         // Target order column
         const targetProduct = entry.targetOrder.products[i];
-        cells.push(`<td class="target-col">${targetProduct ? renderHistoryProductItem(targetProduct) : ''}</td>`);
+        cells.push(
+            `<td class="target-col">${targetProduct ? renderHistoryProductItem(targetProduct) : ''}</td>`
+        );
 
         rows.push(`<tr>${cells.join('')}</tr>`);
     }
@@ -1783,7 +1991,7 @@ async function queryTPOSTagByName(tagName) {
 
         const resp = await API_CONFIG.smartFetch(url, {
             method: 'GET',
-            headers: { ...headers, accept: 'application/json' }
+            headers: { ...headers, accept: 'application/json' },
         });
         if (!resp.ok) {
             console.warn(`[MERGE-TAG] queryTPOSTagByName HTTP ${resp.status} for "${tagName}"`);
@@ -1793,8 +2001,12 @@ async function queryTPOSTagByName(tagName) {
         const list = Array.isArray(data?.value) ? data.value : [];
         if (list.length === 0) return null;
         // Ưu tiên exact-case match, fallback case-insensitive first
-        const exact = list.find(t => t?.Name === tagName);
-        return exact || list.find(t => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()) || null;
+        const exact = list.find((t) => t?.Name === tagName);
+        return (
+            exact ||
+            list.find((t) => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()) ||
+            null
+        );
     } catch (e) {
         console.warn(`[MERGE-TAG] queryTPOSTagByName error for "${tagName}":`, e);
         return null;
@@ -1807,14 +2019,17 @@ async function queryTPOSTagByName(tagName) {
 function _registerLocalTag(tag) {
     if (!tag || tag.Id == null) return;
     if (!Array.isArray(availableTags)) return;
-    if (availableTags.find(t => t.Id === tag.Id)) return;
+    if (availableTags.find((t) => t.Id === tag.Id)) return;
     availableTags.push(tag);
     window.availableTags = availableTags;
-    try { window.cacheManager.set("tags", availableTags, "tags"); } catch {}
+    try {
+        window.cacheManager.set('tags', availableTags, 'tags');
+    } catch {}
     if (typeof database !== 'undefined' && database) {
-        database.ref('settings/tags').set(availableTags).catch(e =>
-            console.warn('[MERGE-TAG] Firebase tags save failed:', e)
-        );
+        database
+            .ref('settings/tags')
+            .set(availableTags)
+            .catch((e) => console.warn('[MERGE-TAG] Firebase tags save failed:', e));
     }
 }
 
@@ -1835,8 +2050,8 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
     try {
         // STEP 1: Local cache (case-insensitive)
         if (Array.isArray(availableTags)) {
-            const local = availableTags.find(t =>
-                t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()
+            const local = availableTags.find(
+                (t) => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()
             );
             if (local) {
                 console.log(`[MERGE-TAG] Tag "${tagName}" found in local cache:`, local);
@@ -1862,10 +2077,10 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'accept': 'application/json, text/plain, */*',
+                    accept: 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ Name: tagName, Color: color })
+                body: JSON.stringify({ Name: tagName, Color: color }),
             }
         );
 
@@ -1881,18 +2096,24 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
         const errorText = await response.text();
         const isDuplicate = response.status === 400 && /tồn tại|exist/i.test(errorText);
         if (isDuplicate) {
-            console.warn(`[MERGE-TAG] POST said "đã tồn tại" — re-querying tag "${tagName}" to recover...`);
+            console.warn(
+                `[MERGE-TAG] POST said "đã tồn tại" — re-querying tag "${tagName}" to recover...`
+            );
             const recovered = await queryTPOSTagByName(tagName);
             if (recovered) {
-                console.log(`[MERGE-TAG] Tag "${tagName}" recovered after duplicate error:`, recovered);
+                console.log(
+                    `[MERGE-TAG] Tag "${tagName}" recovered after duplicate error:`,
+                    recovered
+                );
                 _registerLocalTag(recovered);
                 return recovered;
             }
-            console.error(`[MERGE-TAG] Tag "${tagName}" exists on server but cannot be retrieved via $filter`);
+            console.error(
+                `[MERGE-TAG] Tag "${tagName}" exists on server but cannot be retrieved via $filter`
+            );
         }
 
         throw new Error(`HTTP ${response.status}: ${errorText}`);
-
     } catch (error) {
         console.error('[MERGE-TAG] Error ensuring tag exists:', error);
         throw error;
@@ -1947,26 +2168,27 @@ function calculateMergedTagsPreview(cluster) {
     // Filter giống hệt assignTagsAfterMerge — KHÔNG được lệch
     const shouldExcludeTag = (tagName) => {
         if (!tagName) return false;
-        if (tagName === MERGED_ORDER_TAG_NAME) return true;     // 'ĐÃ GỘP KO CHỐT'
-        if (tagName.startsWith('Gộp ')) return true;            // tag merge group cũ
+        if (tagName === MERGED_ORDER_TAG_NAME) return true; // 'ĐÃ GỘP KO CHỐT'
+        if (tagName.startsWith('Gộp ')) return true; // tag merge group cũ
         return false;
     };
 
     // 1) Target tags trước (priority hiển thị)
     const targetTags = getOrderTagsArray(cluster.targetOrder);
-    targetTags.forEach(t => {
+    targetTags.forEach((t) => {
         if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
             allTags.set(t.Id, t);
         }
     });
 
     // 2) Source tags theo STT ascending — đảm bảo deterministic
-    const sourceOrdersSorted = [...(cluster.sourceOrders || [])]
-        .sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
+    const sourceOrdersSorted = [...(cluster.sourceOrders || [])].sort(
+        (a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0)
+    );
 
-    sourceOrdersSorted.forEach(sourceOrder => {
+    sourceOrdersSorted.forEach((sourceOrder) => {
         const sourceTags = getOrderTagsArray(sourceOrder);
-        sourceTags.forEach(t => {
+        sourceTags.forEach((t) => {
             if (t && t.Id != null && !shouldExcludeTag(t.Name) && !allTags.has(t.Id)) {
                 allTags.set(t.Id, t);
             }
@@ -1975,15 +2197,15 @@ function calculateMergedTagsPreview(cluster) {
 
     // 3) Placeholder "Gộp X Y Z" tag (sẽ tạo thật khi confirm merge)
     const allSTTs = (cluster.orders || [])
-        .map(o => o.SessionIndex)
-        .filter(s => s != null)
+        .map((o) => o.SessionIndex)
+        .filter((s) => s != null)
         .sort((a, b) => a - b);
     if (allSTTs.length > 0) {
         const previewMergeTagName = `Gộp ${allSTTs.join(' ')}`;
         allTags.set('__preview_merge_group__', {
             Id: '__preview_merge_group__',
             Name: previewMergeTagName,
-            Color: MERGE_TAG_COLOR
+            Color: MERGE_TAG_COLOR,
         });
     }
 
@@ -2006,7 +2228,7 @@ function calculateSourceTagsPreview(sourceOrder, cluster) {
 
     // 1) Preserved custom tags (filter merge-related)
     const existing = getOrderTagsArray(sourceOrder);
-    existing.forEach(t => {
+    existing.forEach((t) => {
         if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
             result.set(t.Id, t);
         }
@@ -2016,19 +2238,19 @@ function calculateSourceTagsPreview(sourceOrder, cluster) {
     result.set('__preview_merged__', {
         Id: '__preview_merged__',
         Name: MERGED_ORDER_TAG_NAME,
-        Color: MERGE_TAG_COLOR
+        Color: MERGE_TAG_COLOR,
     });
 
     // 3) "Gộp X Y Z"
     const allSTTs = (cluster.orders || [])
-        .map(o => o.SessionIndex)
-        .filter(s => s != null)
+        .map((o) => o.SessionIndex)
+        .filter((s) => s != null)
         .sort((a, b) => a - b);
     if (allSTTs.length > 0) {
         result.set('__preview_merge_group__', {
             Id: '__preview_merge_group__',
             Name: `Gộp ${allSTTs.join(' ')}`,
-            Color: MERGE_TAG_COLOR
+            Color: MERGE_TAG_COLOR,
         });
     }
 
@@ -2050,12 +2272,12 @@ async function assignTagsToOrder(orderId, tags) {
             headers: {
                 ...headers,
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
+                Accept: 'application/json',
             },
             body: JSON.stringify({
-                Tags: tags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                OrderId: orderId
-            })
+                Tags: tags.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                OrderId: orderId,
+            }),
         }
     );
 
@@ -2086,7 +2308,7 @@ async function assignTagsAfterMerge(cluster) {
         const mergedTag = await ensureMergeTagExists(MERGED_ORDER_TAG_NAME, MERGE_TAG_COLOR);
 
         // Step 2: Create "Gộp X Y Z" tag
-        const allSTTs = cluster.orders.map(o => o.SessionIndex).sort((a, b) => a - b);
+        const allSTTs = cluster.orders.map((o) => o.SessionIndex).sort((a, b) => a - b);
         const mergeTagName = `Gộp ${allSTTs.join(' ')}`;
         const mergeGroupTag = await ensureMergeTagExists(mergeTagName, MERGE_TAG_COLOR);
 
@@ -2105,19 +2327,28 @@ async function assignTagsAfterMerge(cluster) {
 
         // Add tags from target order (exclude merge-related tags)
         const targetTags = getOrderTagsArray(cluster.targetOrder);
-        targetTags.forEach(t => {
+        targetTags.forEach((t) => {
             if (t.Id && !shouldExcludeTag(t.Name)) {
                 allTags.set(t.Id, t);
             }
         });
-        console.log(`[MERGE-TAG] Target order tags after filter: ${targetTags.filter(t => !shouldExcludeTag(t.Name)).map(t => t.Name).join(', ') || '(none)'}`);
+        console.log(
+            `[MERGE-TAG] Target order tags after filter: ${
+                targetTags
+                    .filter((t) => !shouldExcludeTag(t.Name))
+                    .map((t) => t.Name)
+                    .join(', ') || '(none)'
+            }`
+        );
 
         // Add tags from source orders (exclude merge-related tags)
-        cluster.sourceOrders.forEach(sourceOrder => {
+        cluster.sourceOrders.forEach((sourceOrder) => {
             const sourceTags = getOrderTagsArray(sourceOrder);
-            const filteredTags = sourceTags.filter(t => t.Id && !shouldExcludeTag(t.Name));
-            console.log(`[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map(t => t.Name).join(', ') || '(none)'}`);
-            filteredTags.forEach(t => {
+            const filteredTags = sourceTags.filter((t) => t.Id && !shouldExcludeTag(t.Name));
+            console.log(
+                `[MERGE-TAG] Source order STT ${sourceOrder.SessionIndex} tags after filter: ${filteredTags.map((t) => t.Name).join(', ') || '(none)'}`
+            );
+            filteredTags.forEach((t) => {
                 allTags.set(t.Id, t);
             });
         });
@@ -2128,11 +2359,15 @@ async function assignTagsAfterMerge(cluster) {
         // Convert to array
         const targetOrderNewTags = Array.from(allTags.values());
 
-        console.log(`[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags: ${targetOrderNewTags.map(t => t.Name).join(', ')}`);
+        console.log(
+            `[MERGE-TAG] Target order STT ${cluster.targetOrder.SessionIndex} will have ${targetOrderNewTags.length} tags: ${targetOrderNewTags.map((t) => t.Name).join(', ')}`
+        );
 
         // Step 4: Assign tags to target order
         await assignTagsToOrder(cluster.targetOrder.Id, targetOrderNewTags);
-        console.log(`[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`);
+        console.log(
+            `[MERGE-TAG] ✅ Assigned ${targetOrderNewTags.length} tags to target order STT ${cluster.targetOrder.SessionIndex}`
+        );
 
         // Step 5: Assign tags to source orders.
         // BUG-7 FIX: assignTagsToOrder REPLACE toàn bộ tags trên TPOS. Trước đây chỉ gửi [mergedTag]
@@ -2142,7 +2377,7 @@ async function assignTagsAfterMerge(cluster) {
         for (const sourceOrder of cluster.sourceOrders) {
             const existingSourceTags = getOrderTagsArray(sourceOrder);
             const preservedTags = new Map();
-            existingSourceTags.forEach(t => {
+            existingSourceTags.forEach((t) => {
                 if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
                     preservedTags.set(t.Id, t);
                 }
@@ -2153,7 +2388,9 @@ async function assignTagsAfterMerge(cluster) {
             const finalSourceTags = Array.from(preservedTags.values());
 
             await assignTagsToOrder(sourceOrder.Id, finalSourceTags);
-            console.log(`[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 2} custom + "${MERGED_ORDER_TAG_NAME}" + "${mergeGroupTag.Name}")`);
+            console.log(
+                `[MERGE-TAG] ✅ Source STT ${sourceOrder.SessionIndex}: ${finalSourceTags.length} tags (giữ ${finalSourceTags.length - 2} custom + "${MERGED_ORDER_TAG_NAME}" + "${mergeGroupTag.Name}")`
+            );
         }
 
         // Step 6: Assign Tag XL (Processing Tags) — mirror TPOS tag logic
@@ -2161,24 +2398,26 @@ async function assignTagsAfterMerge(cluster) {
         if (ptagResult.success) {
             console.log(`[MERGE-TAG] ✅ Tag XL assigned successfully for cluster ${cluster.phone}`);
         } else {
-            console.warn(`[MERGE-TAG] ⚠️ Tag XL assignment failed for cluster ${cluster.phone}:`, ptagResult.error);
+            console.warn(
+                `[MERGE-TAG] ⚠️ Tag XL assignment failed for cluster ${cluster.phone}:`,
+                ptagResult.error
+            );
         }
 
         // Clear cache
-        window.cacheManager.clear("orders");
+        window.cacheManager.clear('orders');
 
         return {
             success: true,
             targetTags: targetOrderNewTags,
             sourceTag: mergedTag,
-            mergeGroupTag: mergeGroupTag
+            mergeGroupTag: mergeGroupTag,
         };
-
     } catch (error) {
         console.error('[MERGE-TAG] Error assigning tags:', error);
         return {
             success: false,
-            error: error.message
+            error: error.message,
         };
     }
 }
@@ -2187,7 +2426,7 @@ async function assignTagsAfterMerge(cluster) {
  * Helper: get flag/tTag id from object or string
  */
 function _mergeXLId(item) {
-    return (typeof item === 'object' && item !== null) ? item.id : item;
+    return typeof item === 'object' && item !== null ? item.id : item;
 }
 
 /**
@@ -2207,8 +2446,15 @@ function _mergeXLId(item) {
  */
 async function assignTagXLAfterMerge(cluster) {
     try {
-        if (!window.ProcessingTagState || !window.assignOrderCategory || !window.assignTTagToOrder || !window.toggleOrderFlag) {
-            console.warn('[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment');
+        if (
+            !window.ProcessingTagState ||
+            !window.assignOrderCategory ||
+            !window.assignTTagToOrder ||
+            !window.toggleOrderFlag
+        ) {
+            console.warn(
+                '[MERGE-PTAG] Required Processing Tag functions not available, skipping Tag XL assignment'
+            );
             return { success: false, error: 'Processing Tags module not loaded' };
         }
 
@@ -2232,7 +2478,8 @@ async function assignTagXLAfterMerge(cluster) {
             // Category: ưu tiên đơn đầu tiên có category (target first)
             // Skip "Đã gộp không chốt" categories from previous merges
             if (ptagData.category !== null && ptagData.category !== undefined) {
-                const isOldMergeTag = (ptagData.category === 3 && ptagData.subTag === 'DA_GOP_KHONG_CHOT');
+                const isOldMergeTag =
+                    ptagData.category === 3 && ptagData.subTag === 'DA_GOP_KHONG_CHOT';
                 if (!isOldMergeTag && bestCategory === null) {
                     bestCategory = ptagData.category;
                     bestSubTag = ptagData.subTag;
@@ -2240,13 +2487,13 @@ async function assignTagXLAfterMerge(cluster) {
             }
 
             // Merge all flags from every order (dedup by ID)
-            (ptagData.flags || []).forEach(f => {
+            (ptagData.flags || []).forEach((f) => {
                 const fId = _mergeXLId(f);
                 if (fId != null && !allFlags.has(fId)) allFlags.set(fId, f);
             });
 
             // Merge all tTags from every order (dedup by ID)
-            (ptagData.tTags || []).forEach(t => {
+            (ptagData.tTags || []).forEach((t) => {
                 const tId = _mergeXLId(t);
                 if (tId != null && !allTTags.has(tId)) allTTags.set(tId, t);
             });
@@ -2258,9 +2505,10 @@ async function assignTagXLAfterMerge(cluster) {
         // Set merged Tag XL data to target order
         if (bestCategory !== null || mergedFlags.length > 0 || mergedTTags.length > 0) {
             const existingTarget = window.ProcessingTagState.getOrderData(targetCode) || {};
-            const targetSameCategory = bestCategory !== null
-                && existingTarget.category === bestCategory
-                && (existingTarget.subTag || null) === (bestSubTag || null);
+            const targetSameCategory =
+                bestCategory !== null &&
+                existingTarget.category === bestCategory &&
+                (existingTarget.subTag || null) === (bestSubTag || null);
 
             // Step 1: Set/update category
             if (bestCategory !== null && !targetSameCategory) {
@@ -2268,7 +2516,7 @@ async function assignTagXLAfterMerge(cluster) {
                 await window.assignOrderCategory(targetCode, bestCategory, {
                     subTag: bestSubTag,
                     flags: mergedFlags,
-                    source: 'Hệ thống (gộp đơn)'
+                    source: 'Hệ thống (gộp đơn)',
                 });
             } else {
                 // Same category (hoặc không có category mới) → giữ nguyên category+subState,
@@ -2277,7 +2525,7 @@ async function assignTagXLAfterMerge(cluster) {
                     const flagId = _mergeXLId(flag);
                     if (flagId == null) continue;
                     const cur = window.ProcessingTagState.getOrderData(targetCode);
-                    const has = (cur?.flags || []).some(f => _mergeXLId(f) === flagId);
+                    const has = (cur?.flags || []).some((f) => _mergeXLId(f) === flagId);
                     if (!has) {
                         await window.toggleOrderFlag(targetCode, flagId, 'Hệ thống (gộp đơn)');
                     }
@@ -2290,24 +2538,30 @@ async function assignTagXLAfterMerge(cluster) {
                 const tId = _mergeXLId(tTag);
                 if (tId == null) continue;
                 const cur = window.ProcessingTagState.getOrderData(targetCode);
-                const has = (cur?.tTags || []).some(t => _mergeXLId(t) === tId);
+                const has = (cur?.tTags || []).some((t) => _mergeXLId(t) === tId);
                 if (!has) {
                     await window.assignTTagToOrder(targetCode, tId, 'Hệ thống (gộp đơn)');
                 }
             }
 
-            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${bestCategory}, subTag=${bestSubTag}, flags=${mergedFlags.length}, tTags=${mergedTTags.length}`);
+            console.log(
+                `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${bestCategory}, subTag=${bestSubTag}, flags=${mergedFlags.length}, tTags=${mergedTTags.length}`
+            );
         } else {
-            console.log(`[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`);
+            console.log(
+                `[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`
+            );
         }
 
         // Step 3: Đánh tTag "GỘP ĐƠN" (GOP_DON) vào target — marker đồng bộ với TPOS tag "Gộp X Y Z"
         try {
             const curTarget = window.ProcessingTagState.getOrderData(targetCode);
-            const hasGopDon = (curTarget?.tTags || []).some(t => _mergeXLId(t) === 'GOP_DON');
+            const hasGopDon = (curTarget?.tTags || []).some((t) => _mergeXLId(t) === 'GOP_DON');
             if (!hasGopDon) {
                 await window.assignTTagToOrder(targetCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
-                console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: gán tTag GỘP ĐƠN`);
+                console.log(
+                    `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: gán tTag GỘP ĐƠN`
+                );
             }
         } catch (e) {
             console.warn(`[MERGE-PTAG] assignTTagToOrder(GOP_DON) target fail:`, e);
@@ -2319,19 +2573,24 @@ async function assignTagXLAfterMerge(cluster) {
             const sourceCode = String(sourceOrder.Code);
             await window.assignOrderCategory(sourceCode, 3, {
                 subTag: 'DA_GOP_KHONG_CHOT',
-                source: 'Hệ thống (gộp đơn)'
+                source: 'Hệ thống (gộp đơn)',
             });
             // Gán thêm tTag GỘP ĐƠN để source cũng có marker XL giống target
             try {
                 const curSrc = window.ProcessingTagState.getOrderData(sourceCode);
-                const srcHasGopDon = (curSrc?.tTags || []).some(t => _mergeXLId(t) === 'GOP_DON');
+                const srcHasGopDon = (curSrc?.tTags || []).some((t) => _mergeXLId(t) === 'GOP_DON');
                 if (!srcHasGopDon) {
                     await window.assignTTagToOrder(sourceCode, 'GOP_DON', 'Hệ thống (gộp đơn)');
                 }
             } catch (e) {
-                console.warn(`[MERGE-PTAG] assignTTagToOrder(GOP_DON) source ${sourceCode} fail:`, e);
+                console.warn(
+                    `[MERGE-PTAG] assignTTagToOrder(GOP_DON) source ${sourceCode} fail:`,
+                    e
+                );
             }
-            console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt + GỘP ĐƠN`);
+            console.log(
+                `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt + GỘP ĐƠN`
+            );
         }
 
         // Refresh panel if visible
@@ -2363,15 +2622,21 @@ window.saveMergeHistory = saveMergeHistory;
  */
 function buildPartialTagCluster(cluster, sourceClearResults) {
     if (!Array.isArray(sourceClearResults) || sourceClearResults.length === 0) return cluster;
-    const clearedIds = new Set(sourceClearResults.filter(r => r.cleared).map(r => String(r.sourceId)));
-    const filteredSources = (cluster.sourceOrders || []).filter(o => clearedIds.has(String(o.Id)));
+    const clearedIds = new Set(
+        sourceClearResults.filter((r) => r.cleared).map((r) => String(r.sourceId))
+    );
+    const filteredSources = (cluster.sourceOrders || []).filter((o) =>
+        clearedIds.has(String(o.Id))
+    );
     // Giữ convention `orders[last]` = target như showMergeDuplicateOrdersModal,
     // sort by STT ascending để khớp display (source STT thấp đầu, target cuối).
-    const allFiltered = [...filteredSources].sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
+    const allFiltered = [...filteredSources].sort(
+        (a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0)
+    );
     return {
         ...cluster,
         sourceOrders: filteredSources,
-        orders: [...allFiltered, cluster.targetOrder]
+        orders: [...allFiltered, cluster.targetOrder],
     };
 }
 
@@ -2409,19 +2674,23 @@ function markSourceOrdersMergeCancelled(sourceOrderIds) {
     }
 
     if (mutatedCompoundKeys.length > 0) {
-        console.log(`[MERGE-PBH] ✅ Marked ${mutatedCompoundKeys.length} invoice entry(ies) as merge-cancelled`);
+        console.log(
+            `[MERGE-PBH] ✅ Marked ${mutatedCompoundKeys.length} invoice entry(ies) as merge-cancelled`
+        );
         // Persist xuống API
         if (typeof store._saveBatchToAPI === 'function') {
-            Promise.resolve(store._saveBatchToAPI(mutatedCompoundKeys))
-                .catch(e => console.warn('[MERGE-PBH] _saveBatchToAPI failed:', e?.message || e));
+            Promise.resolve(store._saveBatchToAPI(mutatedCompoundKeys)).catch((e) =>
+                console.warn('[MERGE-PBH] _saveBatchToAPI failed:', e?.message || e)
+            );
         }
         // Re-render UI
         if (typeof store._refreshInvoiceStatusUI === 'function') {
-            try { store._refreshInvoiceStatusUI(sourceOrderIds.map(String)); } catch {}
+            try {
+                store._refreshInvoiceStatusUI(sourceOrderIds.map(String));
+            } catch {}
         }
     }
 }
 
 window.buildPartialTagCluster = buildPartialTagCluster;
 window.markSourceOrdersMergeCancelled = markSourceOrdersMergeCancelled;
-

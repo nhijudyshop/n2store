@@ -21,7 +21,7 @@ const CREDENTIALED_ORIGIN_PATTERNS = [
 
 function isCredentialedOrigin(origin) {
     if (!origin) return false;
-    return CREDENTIALED_ORIGIN_PATTERNS.some(re => re.test(origin));
+    return CREDENTIALED_ORIGIN_PATTERNS.some((re) => re.test(origin));
 }
 
 /**
@@ -34,11 +34,12 @@ export function buildCorsHeaders(request) {
     const allowCred = isCredentialedOrigin(origin);
     return {
         'Access-Control-Allow-Origin': allowCred ? origin : '*',
-        ...(allowCred ? { 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Origin' } : {}),
+        ...(allowCred ? { 'Access-Control-Allow-Credentials': 'true', Vary: 'Origin' } : {}),
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         // Include Cache-Control / Pragma / If-* so clients sending cache-busting or conditional
         // headers don't trip the preflight (doi-soat search sends `cache-control: no-cache`).
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+        'Access-Control-Allow-Headers':
+            'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
         'Access-Control-Expose-Headers': 'X-Retry-Count',
         'Access-Control-Max-Age': '86400',
     };
@@ -51,7 +52,8 @@ export function buildCorsHeaders(request) {
 export const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+    'Access-Control-Allow-Headers':
+        'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
     'Access-Control-Expose-Headers': 'X-Retry-Count',
     'Access-Control-Max-Age': '86400',
 };
@@ -107,11 +109,14 @@ export function corsPreflightResponse(request = null) {
  * @returns {Response}
  */
 export function corsErrorResponse(message, status = 500, extraData = {}) {
-    return corsResponse({
-        success: false,
-        error: message,
-        ...extraData,
-    }, status);
+    return corsResponse(
+        {
+            success: false,
+            error: message,
+            ...extraData,
+        },
+        status
+    );
 }
 
 /**
@@ -121,11 +126,14 @@ export function corsErrorResponse(message, status = 500, extraData = {}) {
  * @returns {Response}
  */
 export function corsSuccessResponse(data, extraData = {}) {
-    return corsResponse({
-        success: true,
-        data,
-        ...extraData,
-    }, 200);
+    return corsResponse(
+        {
+            success: true,
+            data,
+            ...extraData,
+        },
+        200
+    );
 }
 
 /**

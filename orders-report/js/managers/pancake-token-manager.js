@@ -37,7 +37,7 @@ class PancakeTokenManager {
             JWT_TOKEN_EXPIRY: 'pancake_jwt_token_expiry',
             JWT_ACCOUNT_ID: 'tpos_pancake_active_account_id',
             PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens',
-            ALL_ACCOUNTS: 'pancake_all_accounts' // NEW: Store all accounts for multi-account sending
+            ALL_ACCOUNTS: 'pancake_all_accounts', // NEW: Store all accounts for multi-account sending
         };
     }
 
@@ -106,7 +106,10 @@ class PancakeTokenManager {
      */
     saveAllAccountsToLocalStorage() {
         try {
-            localStorage.setItem(this.LOCAL_STORAGE_KEYS.ALL_ACCOUNTS, JSON.stringify(this.accounts));
+            localStorage.setItem(
+                this.LOCAL_STORAGE_KEYS.ALL_ACCOUNTS,
+                JSON.stringify(this.accounts)
+            );
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error saving all accounts to localStorage:', error);
         }
@@ -139,13 +142,13 @@ class PancakeTokenManager {
 
         for (const [accountId, account] of Object.entries(this.accounts)) {
             // Check if not expired (with 1 hour buffer)
-            if (account.exp && (now < account.exp - 3600)) {
+            if (account.exp && now < account.exp - 3600) {
                 validAccounts.push({
                     accountId,
                     name: account.name,
                     uid: account.uid,
                     token: account.token,
-                    exp: account.exp
+                    exp: account.exp,
                 });
             }
         }
@@ -162,10 +165,16 @@ class PancakeTokenManager {
             const data = tokens || this.pageAccessTokens;
 
             if (window.indexedDBStorage) {
-                await window.indexedDBStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, data);
+                await window.indexedDBStorage.setItem(
+                    this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS,
+                    data
+                );
             } else {
                 // Fallback to localStorage
-                localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
+                localStorage.setItem(
+                    this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS,
+                    JSON.stringify(data)
+                );
             }
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error saving page access tokens:', error);
@@ -188,7 +197,9 @@ class PancakeTokenManager {
             // Try IndexedDB first
             if (window.indexedDBStorage) {
                 await window.indexedDBStorage.readyPromise;
-                data = await window.indexedDBStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+                data = await window.indexedDBStorage.getItem(
+                    this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS
+                );
 
                 if (data) {
                     return data;
@@ -202,7 +213,10 @@ class PancakeTokenManager {
 
                 // Migrate to IndexedDB
                 if (window.indexedDBStorage) {
-                    await window.indexedDBStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, parsed);
+                    await window.indexedDBStorage.setItem(
+                        this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS,
+                        parsed
+                    );
                     localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
                 }
 
@@ -238,7 +252,9 @@ class PancakeTokenManager {
     async clearPageAccessTokensFromStorage() {
         try {
             if (window.indexedDBStorage) {
-                await window.indexedDBStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+                await window.indexedDBStorage.removeItem(
+                    this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS
+                );
             }
             localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
         } catch (error) {
@@ -276,10 +292,7 @@ class PancakeTokenManager {
      */
     async _loadFromRenderDB() {
         try {
-            await Promise.allSettled([
-                this.loadAccounts(),
-                this.loadPageAccessTokens()
-            ]);
+            await Promise.allSettled([this.loadAccounts(), this.loadPageAccessTokens()]);
         } catch (e) {
             console.warn('[PANCAKE-TOKEN] Render DB background load failed:', e.message);
         }
@@ -328,7 +341,7 @@ class PancakeTokenManager {
                         exp: acc.token_exp ? Number(acc.token_exp) : null,
                         uid: acc.uid,
                         name: acc.name || acc.fb_name || 'Unknown',
-                        savedAt: acc.saved_at ? Number(acc.saved_at) : Date.now()
+                        savedAt: acc.saved_at ? Number(acc.saved_at) : Date.now(),
                     };
                 }
                 console.log(`[PANCAKE-TOKEN] Loaded ${dbAccounts.length} accounts from Render DB`);
@@ -404,7 +417,6 @@ class PancakeTokenManager {
             }
 
             return true;
-
         } catch (error) {
             console.error('[PANCAKE-TOKEN] ❌ Error migrating from Realtime Database:', error);
             return false;
@@ -500,10 +512,14 @@ class PancakeTokenManager {
 
             // Check for common issues
             if (token.includes(' ')) {
-                console.error('[PANCAKE-TOKEN] ⚠️ Token contains spaces - this should not happen after cleaning');
+                console.error(
+                    '[PANCAKE-TOKEN] ⚠️ Token contains spaces - this should not happen after cleaning'
+                );
             }
             if (token.includes('\n') || token.includes('\r')) {
-                console.error('[PANCAKE-TOKEN] ⚠️ Token contains newlines - this should not happen after cleaning');
+                console.error(
+                    '[PANCAKE-TOKEN] ⚠️ Token contains newlines - this should not happen after cleaning'
+                );
             }
 
             return null;
@@ -519,7 +535,7 @@ class PancakeTokenManager {
         if (!exp) return true;
         const now = Math.floor(Date.now() / 1000); // Convert to seconds
         const buffer = 60 * 60; // 1 hour buffer
-        return now >= (exp - buffer);
+        return now >= exp - buffer;
     }
 
     /**
@@ -537,7 +553,11 @@ class PancakeTokenManager {
             if (!data) {
                 try {
                     const _fetch = window.fetchWithTimeout || fetch;
-                    const r = await _fetch(`${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`, {}, 6000);
+                    const r = await _fetch(
+                        `${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`,
+                        {},
+                        6000
+                    );
                     if (r.ok) {
                         const resp = await r.json();
                         if (resp.account?.token) {
@@ -545,12 +565,14 @@ class PancakeTokenManager {
                                 token: resp.account.token,
                                 exp: resp.account.token_exp ? Number(resp.account.token_exp) : null,
                                 uid: resp.account.uid,
-                                name: resp.account.name
+                                name: resp.account.name,
                             };
                             this.accounts[this.activeAccountId] = data;
                         }
                     }
-                } catch (e) { /* Render unavailable */ }
+                } catch (e) {
+                    /* Render unavailable */
+                }
             }
 
             if (!data || !data.token) return null;
@@ -602,7 +624,7 @@ class PancakeTokenManager {
                 exp: payload.exp,
                 uid: payload.uid,
                 name: payload.name || 'Unknown User',
-                savedAt: Date.now()
+                savedAt: Date.now(),
             };
 
             // Update local state first
@@ -621,13 +643,14 @@ class PancakeTokenManager {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        accounts: { [accountId]: data }
-                    })
+                        accounts: { [accountId]: data },
+                    }),
                 }).catch(() => {});
-            } catch (e) { /* fire-and-forget */ }
+            } catch (e) {
+                /* fire-and-forget */
+            }
 
             return accountId;
-
         } catch (error) {
             console.error('[PANCAKE-TOKEN] ❌ Error saving token:', error);
             return null;
@@ -662,12 +685,19 @@ class PancakeTokenManager {
                 }
 
                 try {
-                    const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${account.token}`);
+                    const url = window.API_CONFIG.buildUrl.pancake(
+                        'pages',
+                        `access_token=${account.token}`
+                    );
                     const _fetch = window.fetchWithTimeout || fetch;
-                    const response = await _fetch(url, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    }, 8000);
+                    const response = await _fetch(
+                        url,
+                        {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' },
+                        },
+                        8000
+                    );
 
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}`);
@@ -680,11 +710,13 @@ class PancakeTokenManager {
                         );
                     }
                 } catch (error) {
-                    console.warn(`[PANCAKE-TOKEN] Failed to fetch pages for ${account.name}:`, error.message);
+                    console.warn(
+                        `[PANCAKE-TOKEN] Failed to fetch pages for ${account.name}:`,
+                        error.message
+                    );
                 }
             })
         );
-
     }
 
     /**
@@ -700,7 +732,7 @@ class PancakeTokenManager {
      */
     getAccountsWithPageAccess(pageId) {
         const validAccounts = this.getValidAccountsForSending();
-        return validAccounts.filter(acc => this.accountHasPageAccess(acc.accountId, pageId));
+        return validAccounts.filter((acc) => this.accountHasPageAccess(acc.accountId, pageId));
     }
 
     /**
@@ -720,7 +752,7 @@ class PancakeTokenManager {
                     return {
                         accountId,
                         name: account.name,
-                        token: account.token
+                        token: account.token,
                     };
                 }
             }
@@ -759,7 +791,6 @@ class PancakeTokenManager {
             this.saveTokenToLocalStorage(account.token, account.exp);
 
             return true;
-
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error setting active account:', error);
             return false;
@@ -781,7 +812,7 @@ class PancakeTokenManager {
             // Delete from Firestore using FieldValue.delete()
             if (this.accountsRef) {
                 await this.accountsRef.update({
-                    [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete()
+                    [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete(),
                 });
             }
             delete this.accounts[accountId];
@@ -801,7 +832,6 @@ class PancakeTokenManager {
             }
 
             return true;
-
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error deleting account:', error);
             return false;
@@ -815,7 +845,7 @@ class PancakeTokenManager {
     getTokenFromCookie() {
         try {
             const cookies = document.cookie.split(';');
-            const jwtCookie = cookies.find(c => c.trim().startsWith('jwt='));
+            const jwtCookie = cookies.find((c) => c.trim().startsWith('jwt='));
             if (jwtCookie) {
                 // Split by '=' and take everything after the first '='
                 const parts = jwtCookie.split('=');
@@ -865,7 +895,11 @@ class PancakeTokenManager {
                 console.log('[PANCAKE-TOKEN] Render cache token expired, skipping');
                 return null;
             }
-            console.log('[PANCAKE-TOKEN] ✅ Token from Render cache (exp:', new Date(payload.exp * 1000).toISOString(), ')');
+            console.log(
+                '[PANCAKE-TOKEN] ✅ Token from Render cache (exp:',
+                new Date(payload.exp * 1000).toISOString(),
+                ')'
+            );
             // Hydrate memory + localStorage so next calls are instant
             this.currentToken = data.token;
             this.currentTokenExpiry = payload.exp;
@@ -918,7 +952,9 @@ class PancakeTokenManager {
         }
 
         // No valid token found
-        console.warn('[PANCAKE-TOKEN] No valid token found. Please login to Pancake.vn or set token manually.');
+        console.warn(
+            '[PANCAKE-TOKEN] No valid token found. Please login to Pancake.vn or set token manually.'
+        );
         return null;
     }
 
@@ -958,7 +994,9 @@ class PancakeTokenManager {
             // Validate token format (should have 3 parts separated by dots)
             const parts = cleanedToken.split('.');
             if (parts.length !== 3) {
-                throw new Error(`Token không đúng định dạng JWT (có ${parts.length} phần, cần 3 phần cách nhau bởi dấu chấm)`);
+                throw new Error(
+                    `Token không đúng định dạng JWT (có ${parts.length} phần, cần 3 phần cách nhau bởi dấu chấm)`
+                );
             }
 
             // Check each part is not empty
@@ -971,13 +1009,20 @@ class PancakeTokenManager {
             if (!payload) {
                 // Check console for detailed error messages
                 console.error('[PANCAKE-TOKEN] 🔍 Kiểm tra console để xem chi tiết lỗi');
-                console.error('[PANCAKE-TOKEN] 📋 Token đã làm sạch:', cleanedToken.substring(0, 100) + '...');
-                throw new Error('Không thể giải mã token. Vui lòng:\n1. Kiểm tra lại token đã copy đúng chưa\n2. Đăng nhập lại Pancake và lấy token mới\n3. Xem console (F12) để biết lỗi chi tiết');
+                console.error(
+                    '[PANCAKE-TOKEN] 📋 Token đã làm sạch:',
+                    cleanedToken.substring(0, 100) + '...'
+                );
+                throw new Error(
+                    'Không thể giải mã token. Vui lòng:\n1. Kiểm tra lại token đã copy đúng chưa\n2. Đăng nhập lại Pancake và lấy token mới\n3. Xem console (F12) để biết lỗi chi tiết'
+                );
             }
 
             if (this.isTokenExpired(payload.exp)) {
                 const expiryDate = new Date(payload.exp * 1000).toLocaleString('vi-VN');
-                throw new Error(`Token đã hết hạn vào ${expiryDate}. Vui lòng đăng nhập lại Pancake để lấy token mới.`);
+                throw new Error(
+                    `Token đã hết hạn vào ${expiryDate}. Vui lòng đăng nhập lại Pancake để lấy token mới.`
+                );
             }
 
             // Save to Firebase
@@ -987,7 +1032,6 @@ class PancakeTokenManager {
             }
 
             return accountId;
-
         } catch (error) {
             console.error('[PANCAKE-TOKEN] ❌ Error setting manual token:', error);
             throw error;
@@ -1011,7 +1055,7 @@ class PancakeTokenManager {
             exp: account.exp,
             expiryDate: new Date(account.exp * 1000).toLocaleString(),
             isExpired: this.isTokenExpired(account.exp),
-            savedAt: new Date(account.savedAt).toLocaleString()
+            savedAt: new Date(account.savedAt).toLocaleString(),
         };
     }
 
@@ -1034,7 +1078,7 @@ class PancakeTokenManager {
             expiryDate: new Date(account.exp * 1000).toLocaleString(),
             isExpired: this.isTokenExpired(account.exp),
             savedAt: new Date(account.savedAt).toLocaleString(),
-            isActive: this.activeAccountId === accountId
+            isActive: this.activeAccountId === accountId,
         };
     }
 
@@ -1072,7 +1116,7 @@ class PancakeTokenManager {
         const result = {
             valid: false,
             issues: [],
-            info: {}
+            info: {},
         };
 
         try {
@@ -1095,7 +1139,7 @@ class PancakeTokenManager {
             // Check parts
             const parts = cleaned.split('.');
             result.info.parts = parts.length;
-            result.info.partLengths = parts.map(p => p.length);
+            result.info.partLengths = parts.map((p) => p.length);
 
             if (parts.length !== 3) {
                 result.issues.push(`Token có ${parts.length} phần, cần 3 phần`);
@@ -1164,7 +1208,9 @@ class PancakeTokenManager {
             this.pageAccessTokens = mergedTokens;
             this.savePageAccessTokensToLocalStorage();
 
-            console.log(`[PANCAKE-TOKEN] Loaded ${Object.keys(dbTokens).length} page tokens from Render DB`);
+            console.log(
+                `[PANCAKE-TOKEN] Loaded ${Object.keys(dbTokens).length} page tokens from Render DB`
+            );
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error loading page access tokens:', error);
         }
@@ -1200,7 +1246,7 @@ class PancakeTokenManager {
                 pageId: pageId,
                 pageName: pageName,
                 timestamp: timestamp,
-                savedAt: Date.now()
+                savedAt: Date.now(),
             };
 
             // Update in-memory cache first
@@ -1212,15 +1258,23 @@ class PancakeTokenManager {
             // Save to Render DB (async, shared across machines)
             try {
                 const _fetch = window.fetchWithTimeout || fetch;
-                _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        token, pageName, timestamp,
-                        generatedBy: this.accounts[this.activeAccountId]?.name || 'unknown'
-                    })
-                }, 6000).catch(() => {});
-            } catch (e) { /* fire-and-forget */ }
+                _fetch(
+                    `${_RENDER_URL}/api/pancake-page-tokens/${pageId}`,
+                    {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            token,
+                            pageName,
+                            timestamp,
+                            generatedBy: this.accounts[this.activeAccountId]?.name || 'unknown',
+                        }),
+                    },
+                    6000
+                ).catch(() => {});
+            } catch (e) {
+                /* fire-and-forget */
+            }
 
             return true;
         } catch (error) {
@@ -1269,11 +1323,15 @@ class PancakeTokenManager {
         const POLL_INTERVAL_MS = 500;
         const POLL_MAX_ITER = 10;
         try {
-            const lockRes = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ttlMs: LOCK_TTL_MS })
-            }, 4000);
+            const lockRes = await _fetch(
+                `${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ttlMs: LOCK_TTL_MS }),
+                },
+                4000
+            );
             if (lockRes.ok) {
                 const data = await lockRes.json();
                 lockAcquired = data.acquired === true;
@@ -1283,9 +1341,13 @@ class PancakeTokenManager {
                     const existing = this.pageAccessTokens[pageId];
                     const baselineSavedAt = existing?.savedAt || 0;
                     for (let i = 0; i < POLL_MAX_ITER; i++) {
-                        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+                        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
                         try {
-                            const r = await _fetch(`${_RENDER_URL}/api/pancake-page-tokens`, {}, POLL_FETCH_TIMEOUT_MS);
+                            const r = await _fetch(
+                                `${_RENDER_URL}/api/pancake-page-tokens`,
+                                {},
+                                POLL_FETCH_TIMEOUT_MS
+                            );
                             if (r.ok) {
                                 const d = await r.json();
                                 const fresh = d.tokens?.[pageId];
@@ -1296,11 +1358,15 @@ class PancakeTokenManager {
                                 if (freshToken && freshSavedAt > baselineSavedAt) {
                                     this.pageAccessTokens[pageId] = fresh;
                                     this.savePageAccessTokensToLocalStorage();
-                                    console.log('[PANCAKE-TOKEN] ✅ Got PAT from Render (another machine regenerated)');
+                                    console.log(
+                                        '[PANCAKE-TOKEN] ✅ Got PAT from Render (another machine regenerated)'
+                                    );
                                     return freshToken;
                                 }
                             }
-                        } catch (_) { /* keep polling */ }
+                        } catch (_) {
+                            /* keep polling */
+                        }
                     }
                     // Polling timed out — fall through to regen ourselves
                     console.warn('[PANCAKE-TOKEN] Polling timeout, regenerating anyway');
@@ -1319,9 +1385,17 @@ class PancakeTokenManager {
         }
 
         // Current account failed — try other accounts from Render DB
-        console.warn('[PANCAKE-TOKEN] Current account failed for page', pageId, '— trying other accounts...');
+        console.warn(
+            '[PANCAKE-TOKEN] Current account failed for page',
+            pageId,
+            '— trying other accounts...'
+        );
         try {
-            const r = await _fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-accounts?active=true', {}, 8000);
+            const r = await _fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-accounts?active=true',
+                {},
+                8000
+            );
             if (r.ok) {
                 const data = await r.json();
                 const accounts = data.accounts || [];
@@ -1329,12 +1403,14 @@ class PancakeTokenManager {
                     if (!acc.token || acc.token === this.currentToken) continue;
                     // Check if account has this page
                     const pages = acc.pages || [];
-                    const hasPage = pages.some(p => String(p.id || p.pageId) === String(pageId));
+                    const hasPage = pages.some((p) => String(p.id || p.pageId) === String(pageId));
                     if (!hasPage) continue;
 
                     const result = await this._tryGenerateWithToken(pageId, acc.token);
                     if (result) {
-                        console.log(`[PANCAKE-TOKEN] ✅ Account "${acc.name}" succeeded for page ${pageId} — cached`);
+                        console.log(
+                            `[PANCAKE-TOKEN] ✅ Account "${acc.name}" succeeded for page ${pageId} — cached`
+                        );
                         if (lockAcquired) this._releaseLock(pageId).catch(() => {});
                         return result;
                     }
@@ -1352,8 +1428,14 @@ class PancakeTokenManager {
     async _releaseLock(pageId) {
         try {
             const _fetch = window.fetchWithTimeout || fetch;
-            await _fetch(`${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`, { method: 'DELETE' }, 3000);
-        } catch (_) { /* best-effort */ }
+            await _fetch(
+                `${_RENDER_URL}/api/pancake-page-tokens/${pageId}/lock`,
+                { method: 'DELETE' },
+                3000
+            );
+        } catch (_) {
+            /* best-effort */
+        }
     }
 
     /**
@@ -1370,13 +1452,17 @@ class PancakeTokenManager {
             );
 
             const _fetch = window.fetchWithTimeout || fetch;
-            const response = await _fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            }, 10000);
+            const response = await _fetch(
+                url,
+                {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                },
+                10000
+            );
 
             const result = await response.json();
 
@@ -1409,13 +1495,17 @@ class PancakeTokenManager {
             );
 
             const _fetch = window.fetchWithTimeout || fetch;
-            const response = await _fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            }, 10000);
+            const response = await _fetch(
+                url,
+                {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                },
+                10000
+            );
 
             const result = await response.json();
 
@@ -1468,7 +1558,7 @@ class PancakeTokenManager {
             pageName: data.pageName || pageId,
             token: data.token || null,
             savedAt: data.savedAt || null,
-            hasToken: !!data.token
+            hasToken: !!data.token,
         }));
     }
 }

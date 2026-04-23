@@ -82,7 +82,10 @@
             ImageUrl: kho.image_url,
             Price: parseFloat(kho.selling_price) || parseFloat(kho.purchase_price) || 0,
             PurchasePrice: parseFloat(kho.purchase_price) || 0,
-            Quantity: parseInt(kho.available_qty) >= 0 ? parseInt(kho.available_qty) : parseInt(kho.quantity) || 0,
+            Quantity:
+                parseInt(kho.available_qty) >= 0
+                    ? parseInt(kho.available_qty)
+                    : parseInt(kho.quantity) || 0,
             WarehouseQty: parseInt(kho.quantity) || 0,
             HeldQty: parseInt(kho.held_qty) || 0,
             UOMName: 'Cái',
@@ -190,8 +193,8 @@
             updateDroppedCounts();
 
             // Load initial data
-            await loadDroppedProductsFromAPI();  // Hàng rớt xả
-            loadWarehouseProductsFromAPI();       // Kho Sản Phẩm (async, no await)
+            await loadDroppedProductsFromAPI(); // Hàng rớt xả
+            loadWarehouseProductsFromAPI(); // Kho Sản Phẩm (async, no await)
 
             // Setup SSE for real-time updates (both sources)
             setupSSE();
@@ -216,7 +219,7 @@
 
             // New format: { products: {...}, latestCampaigns: [...] }
             const productsMap = data.products || data;
-            latestCampaignNames = (data.latestCampaigns || []).map(c => c.name);
+            latestCampaignNames = (data.latestCampaigns || []).map((c) => c.name);
 
             droppedProducts = Object.entries(productsMap).map(([id, item]) => ({
                 id,
@@ -226,7 +229,9 @@
 
             isFirstLoad = false;
             debouncedRenderAndUpdate();
-            console.log(`[DROPPED] Loaded ${droppedProducts.length} dropped products (campaigns: ${latestCampaignNames.join(', ')})`);
+            console.log(
+                `[DROPPED] Loaded ${droppedProducts.length} dropped products (campaigns: ${latestCampaignNames.join(', ')})`
+            );
         } catch (error) {
             console.error('[DROPPED] Error loading from API:', error);
         }
@@ -237,7 +242,9 @@
      */
     async function loadWarehouseProductsFromAPI() {
         try {
-            const response = await fetch(`${WAREHOUSE_API}?limit=1000&sort_by=stt&sort_order=ASC&has_inventory=true`);
+            const response = await fetch(
+                `${WAREHOUSE_API}?limit=1000&sort_by=stt&sort_order=ASC&has_inventory=true`
+            );
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const result = await response.json();
@@ -325,12 +332,23 @@
         const existingIndex = droppedProducts.findIndex((p) => p.id === id);
 
         if (existingIndex > -1) {
-            droppedProducts[existingIndex] = { ...droppedProducts[existingIndex], ...eventData, id, ProductId: parseInt(eventData.ProductId) || droppedProducts[existingIndex].ProductId };
+            droppedProducts[existingIndex] = {
+                ...droppedProducts[existingIndex],
+                ...eventData,
+                id,
+                ProductId:
+                    parseInt(eventData.ProductId) || droppedProducts[existingIndex].ProductId,
+            };
         } else {
-            droppedProducts.push({ ...eventData, id, ProductId: parseInt(eventData.ProductId) || eventData.ProductId });
+            droppedProducts.push({
+                ...eventData,
+                id,
+                ProductId: parseInt(eventData.ProductId) || eventData.ProductId,
+            });
             if (!isFirstLoad && eventData.reason === 'sale_removed') {
                 const msg = `🔔 ${eventData.removedBy || 'Sale'} vừa xả ${eventData.ProductNameGet || 'SP'} x${eventData.Quantity || 1} từ đơn STT ${eventData.removedFromOrderSTT || '?'}`;
-                if (window.notificationManager) window.notificationManager.show(msg, 'warning', 5000);
+                if (window.notificationManager)
+                    window.notificationManager.show(msg, 'warning', 5000);
             }
         }
         debouncedRenderAndUpdate();
@@ -338,7 +356,11 @@
 
     function handleDroppedDeleteSSE(eventData) {
         if (!eventData) return;
-        if (eventData.cleared) { droppedProducts = []; debouncedRenderAndUpdate(); return; }
+        if (eventData.cleared) {
+            droppedProducts = [];
+            debouncedRenderAndUpdate();
+            return;
+        }
         if (eventData.id) {
             const idx = droppedProducts.findIndex((p) => p.id === eventData.id);
             if (idx > -1) droppedProducts.splice(idx, 1);
@@ -389,7 +411,10 @@
         }
 
         try {
-            await window.ProductSearchModule.loadExcelData(() => {}, () => {});
+            await window.ProductSearchModule.loadExcelData(
+                () => {},
+                () => {}
+            );
             productSearchInitialized = true;
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error initializing product search:', error);
@@ -511,12 +536,23 @@
             const order = window.currentChatOrderData;
             const cm = window.campaignManager;
             const campaignId = cm?.activeCampaignId || null;
-            const campaignName = cm?.activeCampaign?.name || cm?.activeCampaign?.displayName
-                || order?.LiveCampaignName || '';
+            const campaignName =
+                cm?.activeCampaign?.name ||
+                cm?.activeCampaign?.displayName ||
+                order?.LiveCampaignName ||
+                '';
             const authState = window.authManager?.getAuthState?.();
-            const removedBy = metadata?.removedBy || authState?.displayName || authState?.userType?.split('-')[0] || '';
+            const removedBy =
+                metadata?.removedBy ||
+                authState?.displayName ||
+                authState?.userType?.split('-')[0] ||
+                '';
             const removedFromOrderSTT = metadata?.removedFromOrderSTT || order?.SessionIndex || '';
-            const removedFromCustomer = metadata?.removedFromCustomer || order?.Partner?.Name || window.currentCustomerName || '';
+            const removedFromCustomer =
+                metadata?.removedFromCustomer ||
+                order?.Partner?.Name ||
+                window.currentCustomerName ||
+                '';
             const removedAt = metadata?.removedAt || Date.now();
 
             const existing = droppedProducts.find((p) => p.ProductId === product.ProductId);
@@ -531,28 +567,33 @@
                     removedAt,
                 };
 
-                const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${existing.id}/quantity`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
+                const resp = await fetch(
+                    `${RENDER_API}/api/realtime/dropped-products/${existing.id}/quantity`,
+                    {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    }
+                );
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             } else {
                 // Collect full order context
-                const orderContext = order ? {
-                    orderId: order.Id || null,
-                    orderCode: order.Code || null,
-                    stt: order.SessionIndex || null,
-                    customerName: order.PartnerName || order.Name || null,
-                    customerPhone: order.Telephone || order.PartnerPhone || null,
-                    fbUserId: order.Facebook_ASUserId || order.Facebook_UserId || null,
-                    fbUserName: order.Facebook_UserName || null,
-                    userName: order.UserName || null,
-                    liveCampaignId: order.LiveCampaignId || null,
-                    liveCampaignName: order.LiveCampaignName || null,
-                    totalAmount: order.TotalAmount || null,
-                    source: order.Source || null,
-                } : null;
+                const orderContext = order
+                    ? {
+                          orderId: order.Id || null,
+                          orderCode: order.Code || null,
+                          stt: order.SessionIndex || null,
+                          customerName: order.PartnerName || order.Name || null,
+                          customerPhone: order.Telephone || order.PartnerPhone || null,
+                          fbUserId: order.Facebook_ASUserId || order.Facebook_UserId || null,
+                          fbUserName: order.Facebook_UserName || null,
+                          userName: order.UserName || null,
+                          liveCampaignId: order.LiveCampaignId || null,
+                          liveCampaignName: order.LiveCampaignName || null,
+                          totalAmount: order.TotalAmount || null,
+                          source: order.Source || null,
+                      }
+                    : null;
 
                 const newItem = {
                     ProductId: product.ProductId,
@@ -574,7 +615,8 @@
                     orderContext,
                 };
 
-                const id = 'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+                const id =
+                    'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
                 const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -593,7 +635,9 @@
      */
     window.getProductHolders = async function (productId) {
         try {
-            const resp = await fetch(`${RENDER_API}/api/realtime/held-products/by-product/${productId}`);
+            const resp = await fetch(
+                `${RENDER_API}/api/realtime/held-products/by-product/${productId}`
+            );
             if (!resp.ok) return [];
             const data = await resp.json();
             return data.holders || [];
@@ -631,7 +675,9 @@
             if (!droppedProduct) return;
             if ((droppedProduct.Quantity || 0) > 0) return;
 
-            await fetch(`${RENDER_API}/api/realtime/dropped-products/${droppedProduct.id}`, { method: 'DELETE' });
+            await fetch(`${RENDER_API}/api/realtime/dropped-products/${droppedProduct.id}`, {
+                method: 'DELETE',
+            });
         } catch (error) {
             console.error('[DROPPED] Error during cleanup:', error);
         }
@@ -656,7 +702,9 @@
         }
 
         try {
-            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, { method: 'DELETE' });
+            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, {
+                method: 'DELETE',
+            });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             showSuccess('Đã xóa khỏi hàng rớt');
         } catch (error) {
@@ -670,11 +718,13 @@
      */
     window.removeDroppedProductByProductId = async function (productId) {
         productId = Number(productId);
-        const product = droppedProducts.find(p => Number(p.ProductId) === productId);
+        const product = droppedProducts.find((p) => Number(p.ProductId) === productId);
         if (!product || !product.id) return;
 
         try {
-            await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, { method: 'DELETE' });
+            await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, {
+                method: 'DELETE',
+            });
         } catch (error) {
             console.error('[DROPPED] Error removing by ProductId:', error);
         }
@@ -695,11 +745,14 @@
                 body.change = change;
             }
 
-            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}/quantity`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
+            const resp = await fetch(
+                `${RENDER_API}/api/realtime/dropped-products/${product.id}/quantity`,
+                {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                }
+            );
 
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         } catch (error) {
@@ -748,7 +801,10 @@
             let fullProduct = null;
             if (window.productSearchManager) {
                 try {
-                    fullProduct = await window.productSearchManager.getFullProductDetails(product.ProductId, true);
+                    fullProduct = await window.productSearchManager.getFullProductDetails(
+                        product.ProductId,
+                        true
+                    );
                 } catch (e) {}
             }
 
@@ -763,18 +819,25 @@
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
                     ProductNameGet: product.ProductNameGet,
-                    ProductCode: fullProduct ? fullProduct.DefaultCode || fullProduct.Barcode : product.ProductCode,
+                    ProductCode: fullProduct
+                        ? fullProduct.DefaultCode || fullProduct.Barcode
+                        : product.ProductCode,
                     ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
                     Price: product.Price,
                     Quantity: 1,
                     UOMId: fullProduct ? fullProduct.UOM?.Id || 1 : 1,
                     UOMName: fullProduct ? fullProduct.UOM?.Name || 'Cái' : product.UOMName,
-                    Factor: 1, Priority: 0,
+                    Factor: 1,
+                    Priority: 0,
                     OrderId: window.currentChatOrderData.Id,
-                    LiveCampaign_DetailId: null, ProductWeight: 0, Note: null,
-                    IsHeld: true, IsFromDropped: true,
+                    LiveCampaign_DetailId: null,
+                    ProductWeight: 0,
+                    Note: null,
+                    IsHeld: true,
+                    IsFromDropped: true,
                     StockQty: fullProduct ? fullProduct.QtyAvailable : 0,
-                    Name: product.ProductName, Code: product.ProductCode,
+                    Name: product.ProductName,
+                    Code: product.ProductCode,
                 });
             }
 
@@ -786,7 +849,8 @@
                 const auth = window.authManager.getAuthState();
                 if (auth) {
                     let userId = auth.id || auth.Id || auth.username || auth.userType;
-                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                    if (!userId && auth.displayName)
+                        userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
 
                     if (userId) {
                         const currentHeldProduct = window.currentChatOrderData.Details.find(
@@ -794,22 +858,30 @@
                         );
                         const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
 
-                        await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                productId, displayName: auth.displayName || auth.userType || 'Unknown',
-                                quantity: heldQuantity, isDraft: false, timestamp: Date.now(),
-                                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                                stt: window.currentChatOrderData?.SessionIndex || '',
-                                productName: product.ProductName || '',
-                                productNameGet: product.ProductNameGet || product.ProductName || '',
-                                productCode: product.ProductCode || '',
-                                imageUrl: product.ImageUrl || '',
-                                price: product.Price || 0,
-                                uomName: product.UOMName || 'Cái',
-                            }),
-                        });
+                        await fetch(
+                            `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
+                            {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    productId,
+                                    displayName: auth.displayName || auth.userType || 'Unknown',
+                                    quantity: heldQuantity,
+                                    isDraft: false,
+                                    timestamp: Date.now(),
+                                    campaignName:
+                                        window.currentChatOrderData?.LiveCampaignName || '',
+                                    stt: window.currentChatOrderData?.SessionIndex || '',
+                                    productName: product.ProductName || '',
+                                    productNameGet:
+                                        product.ProductNameGet || product.ProductName || '',
+                                    productCode: product.ProductCode || '',
+                                    imageUrl: product.ImageUrl || '',
+                                    price: product.Price || 0,
+                                    uomName: product.UOMName || 'Cái',
+                                }),
+                            }
+                        );
                     }
                 }
             }
@@ -883,7 +955,9 @@
                 if (typeof window.sendProductToChat === 'function') {
                     await window.sendProductToChat(pid, name);
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
     };
 
@@ -898,14 +972,18 @@
                 if (typeof window.sendImageToChat === 'function') {
                     await window.sendImageToChat(p.ImageUrl, name, pid, p.ProductCode || '');
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
     };
 
     function _attachDroppedGlobalListeners() {
         if (_droppedGridListenersAttached) return;
         _droppedGridListenersAttached = true;
-        const stopDrag = () => { _droppedDragging = false; };
+        const stopDrag = () => {
+            _droppedDragging = false;
+        };
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('mouseleave', stopDrag);
     }
@@ -926,7 +1004,11 @@
         for (const pid of ids) {
             const idx = droppedProducts.findIndex((p) => p.ProductId === pid);
             if (idx >= 0 && (droppedProducts[idx].Quantity || 0) > 0) {
-                try { await window.moveDroppedToOrder(idx); } catch (e) { console.error(e); }
+                try {
+                    await window.moveDroppedToOrder(idx);
+                } catch (e) {
+                    console.error(e);
+                }
             }
         }
         _droppedSelectedIds.clear();
@@ -943,7 +1025,11 @@
             .filter((i) => i >= 0)
             .sort((a, b) => b - a);
         for (const idx of indexes) {
-            try { await window.removeFromDroppedProducts(idx, true /*skipConfirm*/); } catch (e) { console.error(e); }
+            try {
+                await window.removeFromDroppedProducts(idx, true /*skipConfirm*/);
+            } catch (e) {
+                console.error(e);
+            }
         }
         _droppedSelectedIds.clear();
         renderDroppedProductsTable();
@@ -1012,7 +1098,11 @@
             const code = (p.ProductCode || '').toLowerCase();
             if (search && !name.includes(search) && !code.includes(search)) return false;
             if (_droppedCategoryFilter !== 'all') {
-                if (_detectDroppedCategory(p.ProductNameGet || p.ProductName) !== _droppedCategoryFilter) return false;
+                if (
+                    _detectDroppedCategory(p.ProductNameGet || p.ProductName) !==
+                    _droppedCategoryFilter
+                )
+                    return false;
             }
             return true;
         });
@@ -1042,43 +1132,68 @@
             })
         );
 
-        const cellsHTML = productsWithHolders.map((p) => {
-            const isOutOfStock = (p.Quantity || 0) === 0;
-            const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(/"/g, '&quot;');
-            const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
-            const isSelected = _droppedSelectedIds.has(p.ProductId);
+        const cellsHTML = productsWithHolders
+            .map((p) => {
+                const isOutOfStock = (p.Quantity || 0) === 0;
+                const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(
+                    /"/g,
+                    '&quot;'
+                );
+                const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
+                const isSelected = _droppedSelectedIds.has(p.ProductId);
 
-            // Build custom tooltip HTML (rich styled, shown on hover)
-            const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const ttRows = [];
-            ttRows.push(`<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`);
-            const meta = [];
-            if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
-            if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
-            if (p.Price) meta.push(`<b>${(p.Price).toLocaleString('vi-VN')}đ</b>`);
-            if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
-            const campaignNameForTip = p.campaignName
-                || window.currentChatOrderData?.LiveCampaignName
-                || (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignName)
-                || '';
-            if (campaignNameForTip) ttRows.push(`<div class="dpt-line">Chiến dịch: <b>${esc(campaignNameForTip)}</b></div>`);
-            if (p.removedFromCustomer || p.removedFromOrderSTT || p.removedBy) {
-                ttRows.push('<div class="dpt-sep"></div>');
-                if (p.removedFromCustomer) ttRows.push(`<div class="dpt-kh">KH: <b>${esc(p.removedFromCustomer)}</b></div>`);
-                if (p.removedFromOrderSTT) ttRows.push(`<div class="dpt-kh">STT: <b>${esc(p.removedFromOrderSTT)}</b></div>`);
-                if (p.removedBy) ttRows.push(`<div class="dpt-kh">Xả bởi: <b>${esc(p.removedBy)}</b></div>`);
-            }
-            if (isOutOfStock && p._holders && p._holders[0]) {
-                ttRows.push(`<div class="dpt-line">Đang giữ: <b>${esc(p._holders[0].name)}</b></div>`);
-            }
-            const tooltipHTML = ttRows.join('');
-            const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
+                // Build custom tooltip HTML (rich styled, shown on hover)
+                const esc = (s) =>
+                    String(s == null ? '' : s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                const ttRows = [];
+                ttRows.push(
+                    `<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`
+                );
+                const meta = [];
+                if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
+                if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
+                if (p.Price) meta.push(`<b>${p.Price.toLocaleString('vi-VN')}đ</b>`);
+                if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
+                const campaignNameForTip =
+                    p.campaignName ||
+                    window.currentChatOrderData?.LiveCampaignName ||
+                    (typeof campaignInfoFromTab1 !== 'undefined' &&
+                        campaignInfoFromTab1?.activeCampaignName) ||
+                    '';
+                if (campaignNameForTip)
+                    ttRows.push(
+                        `<div class="dpt-line">Chiến dịch: <b>${esc(campaignNameForTip)}</b></div>`
+                    );
+                if (p.removedFromCustomer || p.removedFromOrderSTT || p.removedBy) {
+                    ttRows.push('<div class="dpt-sep"></div>');
+                    if (p.removedFromCustomer)
+                        ttRows.push(
+                            `<div class="dpt-kh">KH: <b>${esc(p.removedFromCustomer)}</b></div>`
+                        );
+                    if (p.removedFromOrderSTT)
+                        ttRows.push(
+                            `<div class="dpt-kh">STT: <b>${esc(p.removedFromOrderSTT)}</b></div>`
+                        );
+                    if (p.removedBy)
+                        ttRows.push(`<div class="dpt-kh">Xả bởi: <b>${esc(p.removedBy)}</b></div>`);
+                }
+                if (isOutOfStock && p._holders && p._holders[0]) {
+                    ttRows.push(
+                        `<div class="dpt-line">Đang giữ: <b>${esc(p._holders[0].name)}</b></div>`
+                    );
+                }
+                const tooltipHTML = ttRows.join('');
+                const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
-            const imgInner = p.ImageUrl
-                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
-                : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
+                const imgInner = p.ImageUrl
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
+                    : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
-            return `
+                return `
                 <div class="dropped-cell${isSelected ? ' selected' : ''}${isOutOfStock ? ' held' : ''}"
                      data-pid="${p.ProductId}"
                      data-name="${productNameEscaped}"
@@ -1088,7 +1203,8 @@
                     <span class="dropped-cell-check"><i class="fas fa-check"></i></span>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         grid.innerHTML = cellsHTML;
         _wireDroppedGrid();
@@ -1101,7 +1217,9 @@
             searchInput._wired = true;
             let t = null;
             let composing = false;
-            searchInput.addEventListener('compositionstart', () => { composing = true; });
+            searchInput.addEventListener('compositionstart', () => {
+                composing = true;
+            });
             searchInput.addEventListener('compositionend', (e) => {
                 composing = false;
                 _droppedSearchText = e.target.value;
@@ -1190,7 +1308,11 @@
             const cell = e.target.closest('.dropped-cell');
             if (!cell || cell === _hoverCell) return;
             const img = cell.querySelector('img');
-            if (!img) { _hideHoverPreview(); _hoverCell = null; return; }
+            if (!img) {
+                _hideHoverPreview();
+                _hoverCell = null;
+                return;
+            }
             _hoverCell = cell;
             _showHoverPreview(img.src, e.clientX, e.clientY, cell.dataset.tooltip || '');
         });
@@ -1254,7 +1376,9 @@
                 if (typeof window.sendProductToChat === 'function') {
                     await window.sendProductToChat(pid, name);
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
     };
 
@@ -1269,7 +1393,9 @@
                 if (typeof window.sendImageToChat === 'function') {
                     await window.sendImageToChat(p.ImageUrl, name, pid, p.ProductCode || '');
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
     };
 
@@ -1289,7 +1415,8 @@
             try {
                 const auth = window.authManager?.getAuthState();
                 let userId = auth?.id || auth?.Id || auth?.username || auth?.userType;
-                if (!userId && auth?.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                if (!userId && auth?.displayName)
+                    userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
                 if (!userId) continue;
 
                 const orderId = window.currentChatOrderData.Id;
@@ -1310,7 +1437,8 @@
 
                 if (holdResp.ok) {
                     // Add to local Details
-                    if (!window.currentChatOrderData.Details) window.currentChatOrderData.Details = [];
+                    if (!window.currentChatOrderData.Details)
+                        window.currentChatOrderData.Details = [];
                     const existingHeld = window.currentChatOrderData.Details.find(
                         (d) => d.ProductCode === productCode && d.IsHeld
                     );
@@ -1318,18 +1446,30 @@
                         existingHeld.Quantity += 1;
                     } else {
                         window.currentChatOrderData.Details.push({
-                            ProductId: pid, ProductName: p.ProductName,
-                            ProductNameGet: p.ProductNameGet, ProductCode: productCode,
-                            ImageUrl: p.ImageUrl, Price: p.Price,
-                            Quantity: 1, UOMId: 1, UOMName: p.UOMName || 'Cái',
-                            Factor: 1, Priority: 0, OrderId: orderId,
-                            IsHeld: true, IsFromDropped: false, IsFromKho: true,
+                            ProductId: pid,
+                            ProductName: p.ProductName,
+                            ProductNameGet: p.ProductNameGet,
+                            ProductCode: productCode,
+                            ImageUrl: p.ImageUrl,
+                            Price: p.Price,
+                            Quantity: 1,
+                            UOMId: 1,
+                            UOMName: p.UOMName || 'Cái',
+                            Factor: 1,
+                            Priority: 0,
+                            OrderId: orderId,
+                            IsHeld: true,
+                            IsFromDropped: false,
+                            IsFromKho: true,
                             _khoProductCode: productCode,
-                            Name: p.ProductName, Code: productCode,
+                            Name: p.ProductName,
+                            Code: productCode,
                         });
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         _warehouseSelectedIds.clear();
@@ -1351,7 +1491,9 @@
     function _attachWarehouseGlobalListeners() {
         if (_warehouseGridListenersAttached) return;
         _warehouseGridListenersAttached = true;
-        const stopDrag = () => { _warehouseDragging = false; };
+        const stopDrag = () => {
+            _warehouseDragging = false;
+        };
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('mouseleave', stopDrag);
     }
@@ -1412,7 +1554,11 @@
             const code = (p.ProductCode || '').toLowerCase();
             if (search && !name.includes(search) && !code.includes(search)) return false;
             if (_warehouseCategoryFilter !== 'all') {
-                if (_detectDroppedCategory(p.ProductNameGet || p.ProductName) !== _warehouseCategoryFilter) return false;
+                if (
+                    _detectDroppedCategory(p.ProductNameGet || p.ProductName) !==
+                    _warehouseCategoryFilter
+                )
+                    return false;
             }
             return true;
         });
@@ -1434,27 +1580,38 @@
             return;
         }
 
-        const cellsHTML = products.map((p) => {
-            const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(/"/g, '&quot;');
-            const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
-            const isSelected = _warehouseSelectedIds.has(p.ProductId);
+        const cellsHTML = products
+            .map((p) => {
+                const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(
+                    /"/g,
+                    '&quot;'
+                );
+                const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
+                const isSelected = _warehouseSelectedIds.has(p.ProductId);
 
-            const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const ttRows = [];
-            ttRows.push(`<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`);
-            const meta = [];
-            if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
-            if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
-            if (p.Price) meta.push(`<b>${(p.Price).toLocaleString('vi-VN')}đ</b>`);
-            if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
-            const tooltipHTML = ttRows.join('');
-            const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
+                const esc = (s) =>
+                    String(s == null ? '' : s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                const ttRows = [];
+                ttRows.push(
+                    `<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`
+                );
+                const meta = [];
+                if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
+                if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
+                if (p.Price) meta.push(`<b>${p.Price.toLocaleString('vi-VN')}đ</b>`);
+                if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
+                const tooltipHTML = ttRows.join('');
+                const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
-            const imgInner = p.ImageUrl
-                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
-                : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
+                const imgInner = p.ImageUrl
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
+                    : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
-            return `
+                return `
                 <div class="dropped-cell${isSelected ? ' selected' : ''}"
                      data-pid="${p.ProductId}"
                      data-name="${productNameEscaped}"
@@ -1464,7 +1621,8 @@
                     <span class="dropped-cell-check"><i class="fas fa-check"></i></span>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         grid.innerHTML = cellsHTML;
         _wireWarehouseGrid();
@@ -1477,7 +1635,9 @@
             searchInput._wired = true;
             let t = null;
             let composing = false;
-            searchInput.addEventListener('compositionstart', () => { composing = true; });
+            searchInput.addEventListener('compositionstart', () => {
+                composing = true;
+            });
             searchInput.addEventListener('compositionend', (e) => {
                 composing = false;
                 _warehouseSearchText = e.target.value;
@@ -1527,7 +1687,9 @@
         }
         if (sendImageBtn && !sendImageBtn._wired) {
             sendImageBtn._wired = true;
-            sendImageBtn.addEventListener('click', () => window._handleWarehouseSendImageSelected());
+            sendImageBtn.addEventListener('click', () =>
+                window._handleWarehouseSendImageSelected()
+            );
         }
         if (delBtn && !delBtn._wired) {
             delBtn._wired = true;
@@ -1567,7 +1729,11 @@
             const cell = e.target.closest('.dropped-cell');
             if (!cell || cell === _hoverCell) return;
             const img = cell.querySelector('img');
-            if (!img) { _hideHoverPreview(); _hoverCell = null; return; }
+            if (!img) {
+                _hideHoverPreview();
+                _hoverCell = null;
+                return;
+            }
             _hoverCell = cell;
             _showHoverPreview(img.src, e.clientX, e.clientY, cell.dataset.tooltip || '');
         });
@@ -1596,7 +1762,9 @@
     }
 
     // Public API for warehouse — user sẽ hoàn thiện logic add sau
-    window.getWarehouseProducts = function () { return warehouseProducts; };
+    window.getWarehouseProducts = function () {
+        return warehouseProducts;
+    };
     window.addToWarehouseProducts = function (product, quantity = 1) {
         if (!product || !product.ProductId) return;
         const existing = warehouseProducts.find((p) => p.ProductId === product.ProductId);
@@ -1664,12 +1832,13 @@
         const pad = 16;
         let left = x + 20;
         let top = y + 20;
-        if (left + rect.width + pad > window.innerWidth)  left = x - rect.width - 20;
-        if (top + rect.height + pad > window.innerHeight) top = window.innerHeight - rect.height - pad;
+        if (left + rect.width + pad > window.innerWidth) left = x - rect.width - 20;
+        if (top + rect.height + pad > window.innerHeight)
+            top = window.innerHeight - rect.height - pad;
         if (left < pad) left = pad;
-        if (top < pad)  top = pad;
+        if (top < pad) top = pad;
         el.style.left = left + 'px';
-        el.style.top  = top  + 'px';
+        el.style.top = top + 'px';
     }
 
     // Legacy code removed below
@@ -1981,7 +2150,9 @@
         });
 
         const contents = document.querySelectorAll('.chat-tab-content');
-        contents.forEach((content) => { content.style.display = 'none'; });
+        contents.forEach((content) => {
+            content.style.display = 'none';
+        });
 
         const activeContent = document.getElementById(
             tabName === 'orders'
@@ -2007,7 +2178,10 @@
         } else if (tabName === 'history') {
             renderHistoryList();
         } else if (tabName === 'invoice_history') {
-            if (window.chatProductManager && typeof window.chatProductManager.renderInvoiceHistory === 'function') {
+            if (
+                window.chatProductManager &&
+                typeof window.chatProductManager.renderInvoiceHistory === 'function'
+            ) {
                 window.chatProductManager.renderInvoiceHistory();
             }
         }
@@ -2030,7 +2204,9 @@
         if (!confirmed) return;
 
         try {
-            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/all`, { method: 'DELETE' });
+            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/all`, {
+                method: 'DELETE',
+            });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             showSuccess('Đã xóa tất cả hàng rớt');
         } catch (error) {
@@ -2060,5 +2236,4 @@
     } else {
         setTimeout(initDroppedProductsManager, 500);
     }
-
 })();

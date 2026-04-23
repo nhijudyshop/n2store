@@ -23,7 +23,7 @@ import {
     deleteCartSnapshot,
     logSaleTransaction,
     getSalesLogByDate,
-    getAllSalesLogs
+    getAllSalesLogs,
 } from '../firebase-helpers.js';
 
 // State variables
@@ -119,19 +119,22 @@ function cleanProductForFirebase(product) {
         soldQty: Number(product.soldQty) || 0,
         remainingQty: Number(product.remainingQty) || 0,
         imageUrl: product.imageUrl ? String(product.imageUrl) : null,
-        ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
+        ProductTmplId:
+            typeof product.ProductTmplId === 'object'
+                ? product.ProductTmplId?.Id
+                : product.ProductTmplId,
         ListPrice: Number(product.ListPrice) || 0, // Price for display
         PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
         addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
         isHidden: product.isHidden || false, // Hidden status
-        lastRefreshed: product.lastRefreshed || null // Timestamp for image cache-busting
+        lastRefreshed: product.lastRefreshed || null, // Timestamp for image cache-busting
     };
     return cleanProduct;
 }
 
 function cleanProductsArray(products) {
     if (!Array.isArray(products)) return [];
-    return products.map(p => cleanProductForFirebase(p));
+    return products.map((p) => cleanProductForFirebase(p));
 }
 
 async function cleanupOldProductsLocal() {
@@ -187,10 +190,13 @@ function calculateCartStats(products) {
     return {
         productCount: productArray.length,
         totalItems: productArray.reduce((sum, p) => sum + (p.QtyAvailable || 0), 0),
-        visibleCount: productArray.filter(p => !p.isHidden).length,
-        hiddenCount: productArray.filter(p => p.isHidden).length,
+        visibleCount: productArray.filter((p) => !p.isHidden).length,
+        hiddenCount: productArray.filter((p) => p.isHidden).length,
         soldItemsCount: productArray.reduce((sum, p) => sum + (p.soldQty || 0), 0),
-        remainingItemsCount: productArray.reduce((sum, p) => sum + (p.remainingQty || p.QtyAvailable || 0), 0)
+        remainingItemsCount: productArray.reduce(
+            (sum, p) => sum + (p.remainingQty || p.QtyAvailable || 0),
+            0
+        ),
     };
 }
 
@@ -242,9 +248,9 @@ async function saveCartAndRefresh() {
                 visibleCount: stats.visibleCount,
                 hiddenCount: stats.hiddenCount,
                 soldItemsCount: stats.soldItemsCount,
-                remainingItemsCount: stats.remainingItemsCount
+                remainingItemsCount: stats.remainingItemsCount,
             },
-            products: { ...soluongProducts }
+            products: { ...soluongProducts },
         };
 
         await saveCartSnapshot(database, snapshot);
@@ -254,7 +260,6 @@ async function saveCartAndRefresh() {
         await refreshCartHistory();
 
         showNotificationMessage('✅ Đã lưu giỏ hàng và làm mới thành công!');
-
     } catch (error) {
         console.error('Error saving cart:', error);
         showNotificationMessage('❌ Lỗi: ' + error.message);
@@ -287,7 +292,7 @@ function filterCartHistoryByDate() {
     const selectedDate = new Date(dateInput.value);
     selectedDate.setHours(0, 0, 0, 0);
 
-    const filtered = soluongCartHistorySnapshots.filter(snapshot => {
+    const filtered = soluongCartHistorySnapshots.filter((snapshot) => {
         const snapshotDate = new Date(snapshot.metadata.savedAt);
         snapshotDate.setHours(0, 0, 0, 0);
         return snapshotDate.getTime() === selectedDate.getTime();
@@ -298,7 +303,8 @@ function filterCartHistoryByDate() {
     if (filtered.length === 0) {
         const container = document.getElementById('soluongCartHistoryList');
         if (container) {
-            container.innerHTML = '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
+            container.innerHTML =
+                '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
         }
     }
 }
@@ -327,11 +333,12 @@ function renderCartHistoryList(snapshots) {
         return;
     }
 
-    container.innerHTML = snapshots.map(snapshot => {
-        const snapshotId = snapshot.id;
-        const meta = snapshot.metadata;
+    container.innerHTML = snapshots
+        .map((snapshot) => {
+            const snapshotId = snapshot.id;
+            const meta = snapshot.metadata;
 
-        return `
+            return `
             <div class="snapshot-card" data-snapshot-id="${snapshotId}">
                 <div class="snapshot-header">
                     <div class="snapshot-name">${meta.name}</div>
@@ -353,7 +360,8 @@ function renderCartHistoryList(snapshots) {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 /**
@@ -385,7 +393,6 @@ async function viewSnapshot(snapshotId) {
         const modal = document.getElementById('snapshotViewModal');
         modal.style.display = 'flex';
         modal.dataset.snapshotId = snapshotId;
-
     } catch (error) {
         console.error('Error viewing snapshot:', error);
         showNotificationMessage('❌ Lỗi: ' + error.message);
@@ -401,11 +408,14 @@ function renderSnapshotProducts(products) {
 
     const productArray = Object.values(products);
 
-    grid.innerHTML = productArray.map(product => {
-        const price = Math.round((product.PriceVariant || product.ListPrice || 0) / 1000);
-        const imageUrl = product.imageUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+    grid.innerHTML = productArray
+        .map((product) => {
+            const price = Math.round((product.PriceVariant || product.ListPrice || 0) / 1000);
+            const imageUrl =
+                product.imageUrl ||
+                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
 
-        return `
+            return `
             <div class="snapshot-product-card">
                 <img src="${imageUrl}" alt="${product.NameGet}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3ENo Image%3C/text%3E%3C/svg%3E'">
                 <div class="product-name">${product.NameGet} ${price}K</div>
@@ -417,7 +427,8 @@ function renderSnapshotProducts(products) {
                 ${product.isHidden ? '<div class="hidden-badge">Đã ẩn</div>' : ''}
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 /**
@@ -519,7 +530,9 @@ function toggleAutoSaveInput() {
  */
 async function confirmRestore() {
     const shouldAutoSave = document.getElementById('autoSaveBeforeRestore').checked;
-    const autoSaveName = shouldAutoSave ? document.getElementById('autoSaveName').value.trim() : null;
+    const autoSaveName = shouldAutoSave
+        ? document.getElementById('autoSaveName').value.trim()
+        : null;
 
     console.log('DEBUG: confirmRestore() called');
     console.log('DEBUG: pendingRestoreSnapshotId:', pendingRestoreSnapshotId);
@@ -580,9 +593,9 @@ async function performRestore(snapshotId, shouldAutoSave, autoSaveName) {
                     visibleCount: stats.visibleCount,
                     hiddenCount: stats.hiddenCount,
                     soldItemsCount: stats.soldItemsCount,
-                    remainingItemsCount: stats.remainingItemsCount
+                    remainingItemsCount: stats.remainingItemsCount,
                 },
-                products: { ...soluongProducts }
+                products: { ...soluongProducts },
             };
 
             await saveCartSnapshot(database, currentSnapshot);
@@ -640,7 +653,6 @@ async function performRestore(snapshotId, shouldAutoSave, autoSaveName) {
             : `✅ Đã khôi phục ${snapshot.metadata.productCount} sản phẩm`;
 
         showNotificationMessage(successMsg);
-
     } catch (error) {
         console.error('Error restoring snapshot:', error);
         showNotificationMessage('❌ Lỗi: ' + error.message);
@@ -659,7 +671,6 @@ async function deleteSnapshot(snapshotId) {
         await deleteCartSnapshot(database, snapshotId);
         await refreshCartHistory();
         showNotificationMessage('🗑️ Đã xóa giỏ hàng đã lưu');
-
     } catch (error) {
         console.error('Error deleting snapshot:', error);
         showNotificationMessage('❌ Lỗi: ' + error.message);
@@ -749,7 +760,7 @@ let _searchDebounceTimer = null;
 async function searchProductsFromAPI(searchText) {
     if (!searchText || searchText.length < 1) return [];
     const rows = await WarehouseAPI.search(searchText, 10);
-    return rows.map(row => WarehouseAPI.toSearchSuggestion(row));
+    return rows.map((row) => WarehouseAPI.toSearchSuggestion(row));
 }
 
 function debouncedSearch(searchText, callback, delay = 300) {
@@ -768,12 +779,13 @@ function displaySuggestions(suggestions) {
         return;
     }
 
-    suggestionsDiv.innerHTML = suggestions.map(product => {
-        const imgHtml = product.image
-            ? `<img class="suggestion-img" src="${product.image}" alt="" loading="lazy">`
-            : `<span class="suggestion-img-empty"></span>`;
-        const qtyClass = (product.qty || 0) <= 0 ? ' suggestion-qty-zero' : '';
-        return `<div class="suggestion-item" data-id="${product.id}">
+    suggestionsDiv.innerHTML = suggestions
+        .map((product) => {
+            const imgHtml = product.image
+                ? `<img class="suggestion-img" src="${product.image}" alt="" loading="lazy">`
+                : `<span class="suggestion-img-empty"></span>`;
+            const qtyClass = (product.qty || 0) <= 0 ? ' suggestion-qty-zero' : '';
+            return `<div class="suggestion-item" data-id="${product.id}">
             ${imgHtml}
             <div class="suggestion-info">
                 <div class="suggestion-name"><strong>${product.code || ''}</strong> — ${product.name}</div>
@@ -782,11 +794,12 @@ function displaySuggestions(suggestions) {
                 </div>
             </div>
         </div>`;
-    }).join('');
+        })
+        .join('');
 
     suggestionsDiv.classList.add('show');
 
-    suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+    suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item) => {
         item.addEventListener('click', () => {
             const productId = parseInt(item.dataset.id);
             loadProductDetails(productId);
@@ -811,7 +824,7 @@ async function loadProductDetails(productId) {
         // Check if auto-add variants is enabled and variants exist
         if (autoAddVariants && result.variants && result.variants.length > 0) {
             // Filter only active variants (Active === true)
-            const activeVariants = result.variants.filter(v => v.Active === true);
+            const activeVariants = result.variants.filter((v) => v.Active === true);
 
             // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
             const sortedVariants = sortVariants(activeVariants);
@@ -820,17 +833,20 @@ async function loadProductDetails(productId) {
             if (sortedVariants.length === 0) {
                 // No active variants, fallback to single product
                 const qtyAvailable = productData.QtyAvailable || 0;
-                const addSuccess = await addProductToList({
-                    Id: productData.Id,
-                    NameGet: productData.NameGet,
-                    QtyAvailable: qtyAvailable,
-                    ProductTmplId: productData.ProductTmplId,
-                    ListPrice: productData.ListPrice || 0,
-                    PriceVariant: productData.PriceVariant || 0,
-                    imageUrl: imageUrl,
-                    soldQty: 0,
-                    remainingQty: qtyAvailable
-                }, true);
+                const addSuccess = await addProductToList(
+                    {
+                        Id: productData.Id,
+                        NameGet: productData.NameGet,
+                        QtyAvailable: qtyAvailable,
+                        ProductTmplId: productData.ProductTmplId,
+                        ListPrice: productData.ListPrice || 0,
+                        PriceVariant: productData.PriceVariant || 0,
+                        imageUrl: imageUrl,
+                        soldQty: 0,
+                        remainingQty: qtyAvailable,
+                    },
+                    true
+                );
 
                 if (addSuccess) {
                     document.getElementById('productSearch').value = '';
@@ -839,7 +855,7 @@ async function loadProductDetails(productId) {
             }
 
             // Prepare all variants for batch add
-            const variantsToAdd = sortedVariants.map(variant => {
+            const variantsToAdd = sortedVariants.map((variant) => {
                 const qtyAvailable = variant.QtyAvailable || 0;
                 const variantImageUrl = variant.imageUrl || variant.ImageUrl || imageUrl;
 
@@ -853,13 +869,17 @@ async function loadProductDetails(productId) {
                     imageUrl: variantImageUrl,
                     soldQty: 0,
                     remainingQty: qtyAvailable,
-                    isHidden: false
+                    isHidden: false,
                 });
             });
 
             // Use batch add helper (only variants, no main product)
             try {
-                const result = await addProductsToFirebase(database, variantsToAdd, soluongProducts);
+                const result = await addProductsToFirebase(
+                    database,
+                    variantsToAdd,
+                    soluongProducts
+                );
 
                 updateProductListPreview();
 
@@ -867,9 +887,13 @@ async function loadProductDetails(productId) {
                 const totalUpdated = result.updated;
 
                 if (totalAdded > 0 && totalUpdated > 0) {
-                    showNotificationMessage(`Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                    showNotificationMessage(
+                        `Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`
+                    );
                 } else if (totalUpdated > 0) {
-                    showNotificationMessage(`Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                    showNotificationMessage(
+                        `Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`
+                    );
                 } else if (totalAdded > 0) {
                     showNotificationMessage(`Đã thêm ${totalAdded} biến thể sản phẩm`);
                 }
@@ -882,17 +906,20 @@ async function loadProductDetails(productId) {
         } else {
             // Add single product (original behavior)
             const qtyAvailable = productData.QtyAvailable || 0;
-            const addSuccess = addProductToList({
-                Id: productData.Id,
-                NameGet: productData.NameGet,
-                QtyAvailable: qtyAvailable,
-                ProductTmplId: productData.ProductTmplId,
-                ListPrice: productData.ListPrice || 0,
-                PriceVariant: productData.PriceVariant || 0,
-                imageUrl: imageUrl,
-                soldQty: 0,
-                remainingQty: qtyAvailable
-            }, true);
+            const addSuccess = addProductToList(
+                {
+                    Id: productData.Id,
+                    NameGet: productData.NameGet,
+                    QtyAvailable: qtyAvailable,
+                    ProductTmplId: productData.ProductTmplId,
+                    ListPrice: productData.ListPrice || 0,
+                    PriceVariant: productData.PriceVariant || 0,
+                    imageUrl: imageUrl,
+                    soldQty: 0,
+                    remainingQty: qtyAvailable,
+                },
+                true
+            );
 
             if (addSuccess) {
                 document.getElementById('productSearch').value = '';
@@ -913,7 +940,9 @@ async function addProductToList(product, showNotification = true) {
 
             if (showNotification) {
                 if (result.action === 'updated') {
-                    showNotificationMessage('🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)');
+                    showNotificationMessage(
+                        '🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)'
+                    );
                 } else {
                     showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
                 }
@@ -929,7 +958,7 @@ async function addProductToList(product, showNotification = true) {
                     soldQty: existingProduct.soldQty || 0,
                     remainingQty: cleanProduct.QtyAvailable - (existingProduct.soldQty || 0),
                     addedAt: existingProduct.addedAt || cleanProduct.addedAt,
-                    lastRefreshed: Date.now()
+                    lastRefreshed: Date.now(),
                 };
             } else {
                 soluongProducts[productKey] = cleanProduct;
@@ -952,7 +981,7 @@ function updateProductListPreview() {
     const productCount = document.getElementById('productCount');
 
     // Filter visible (not hidden) products
-    const visibleProducts = Object.values(soluongProducts).filter(p => !p.isHidden);
+    const visibleProducts = Object.values(soluongProducts).filter((p) => !p.isHidden);
 
     if (visibleProducts.length === 0) {
         productListSection.style.display = 'none';
@@ -969,12 +998,12 @@ function updateProductListPreview() {
 
     // Group products by ProductTmplId to keep variants together
     const groupedProducts = {};
-    productsToDisplay.forEach(product => {
+    productsToDisplay.forEach((product) => {
         const tmplId = product.ProductTmplId || product.Id;
         if (!groupedProducts[tmplId]) {
             groupedProducts[tmplId] = {
                 products: [],
-                maxAddedAt: 0
+                maxAddedAt: 0,
             };
         }
         groupedProducts[tmplId].products.push(product);
@@ -987,21 +1016,22 @@ function updateProductListPreview() {
 
     // Sort each group's variants, then sort groups by addedAt (recent first)
     const sortedGroups = Object.values(groupedProducts)
-        .map(group => ({
+        .map((group) => ({
             products: sortVariants(group.products),
-            maxAddedAt: group.maxAddedAt
+            maxAddedAt: group.maxAddedAt,
         }))
         .sort((a, b) => b.maxAddedAt - a.maxAddedAt);
 
     // Flatten groups to get final sorted product list
-    const recentProducts = sortedGroups.flatMap(group => group.products);
+    const recentProducts = sortedGroups.flatMap((group) => group.products);
 
-    productListPreview.innerHTML = recentProducts.map(product => {
-        const imageHtml = product.imageUrl
-            ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
-            : `<div class="preview-image no-image">📦</div>`;
+    productListPreview.innerHTML = recentProducts
+        .map((product) => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                : `<div class="preview-image no-image">📦</div>`;
 
-        return `
+            return `
             <div class="preview-item">
                 ${imageHtml}
                 <div class="preview-info">
@@ -1022,7 +1052,8 @@ function updateProductListPreview() {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
     // Update hidden products list
     updateHiddenProductListPreview();
@@ -1034,7 +1065,7 @@ function updateHiddenProductListPreview() {
     const hiddenProductCount = document.getElementById('hiddenProductCount');
 
     // Filter hidden products
-    const hiddenProducts = Object.values(soluongProducts).filter(p => p.isHidden);
+    const hiddenProducts = Object.values(soluongProducts).filter((p) => p.isHidden);
 
     if (hiddenProducts.length === 0) {
         hiddenProductsSection.style.display = 'none';
@@ -1052,12 +1083,13 @@ function updateHiddenProductListPreview() {
 
     const recentProducts = [...productsToDisplay].reverse();
 
-    hiddenProductListPreview.innerHTML = recentProducts.map(product => {
-        const imageHtml = product.imageUrl
-            ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
-            : `<div class="preview-image no-image">📦</div>`;
+    hiddenProductListPreview.innerHTML = recentProducts
+        .map((product) => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                : `<div class="preview-image no-image">📦</div>`;
 
-        return `
+            return `
             <div class="preview-item">
                 ${imageHtml}
                 <div class="preview-info">
@@ -1079,7 +1111,8 @@ function updateHiddenProductListPreview() {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 async function unhideProduct(productId) {
@@ -1103,7 +1136,9 @@ async function updateProductQty(productId, change) {
             // Recalculate remainingQty after helper updates soldQty
             const productKey = `product_${productId}`;
             if (soluongProducts[productKey]) {
-                soluongProducts[productKey].remainingQty = soluongProducts[productKey].QtyAvailable - (soluongProducts[productKey].soldQty || 0);
+                soluongProducts[productKey].remainingQty =
+                    soluongProducts[productKey].QtyAvailable -
+                    (soluongProducts[productKey].soldQty || 0);
             }
 
             updateProductListPreview();
@@ -1196,11 +1231,11 @@ function closeImageModal() {
 function switchImageTab(tabName) {
     // Update tab buttons
     const tabs = document.querySelectorAll('.image-modal-tab');
-    tabs.forEach(tab => tab.classList.remove('active'));
+    tabs.forEach((tab) => tab.classList.remove('active'));
 
     // Update tab contents
     const contents = document.querySelectorAll('.image-modal-content');
-    contents.forEach(content => content.classList.remove('active'));
+    contents.forEach((content) => content.classList.remove('active'));
 
     // Activate selected tab
     if (tabName === 'paste') {
@@ -1263,9 +1298,9 @@ async function startCamera() {
             video: {
                 facingMode: currentFacingMode,
                 width: { ideal: 1920 },
-                height: { ideal: 1080 }
+                height: { ideal: 1080 },
             },
-            audio: false
+            audio: false,
         };
 
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -1294,7 +1329,7 @@ async function startCamera() {
 
 function stopCamera() {
     if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach((track) => track.stop());
         cameraStream = null;
 
         const video = document.getElementById('cameraVideo');
@@ -1549,18 +1584,24 @@ function saveImageChange() {
 
     // Sync to Firebase
     if (!isSyncingFromFirebase) {
-        database.ref().update(updates).then(() => {
-            console.log(`✅ Updated image for product ${product.NameGet}`);
-            if (updatedCount > 1) {
-                showNotificationMessage(`🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`);
-            } else {
-                showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
-            }
-            closeImageModal();
-        }).catch(error => {
-            console.error('❌ Lỗi sync products lên Firebase:', error);
-            showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
-        });
+        database
+            .ref()
+            .update(updates)
+            .then(() => {
+                console.log(`✅ Updated image for product ${product.NameGet}`);
+                if (updatedCount > 1) {
+                    showNotificationMessage(
+                        `🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`
+                    );
+                } else {
+                    showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
+                }
+                closeImageModal();
+            })
+            .catch((error) => {
+                console.error('❌ Lỗi sync products lên Firebase:', error);
+                showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
+            });
     }
 
     // Update UI
@@ -1581,14 +1622,15 @@ function performListSearch(keyword) {
     const searchNoSign = removeVietnameseTones(listSearchKeyword);
 
     // Filter visible products that match
-    const visibleProducts = Object.values(soluongProducts).filter(p => !p.isHidden);
-    const matchedProducts = visibleProducts.filter(product => {
+    const visibleProducts = Object.values(soluongProducts).filter((p) => !p.isHidden);
+    const matchedProducts = visibleProducts.filter((product) => {
         // Match in product name (no Vietnamese tones)
         const nameNoSign = removeVietnameseTones(product.NameGet || '');
         const matchName = nameNoSign.includes(searchNoSign);
 
         // Match in original name (lowercase, for special chars like [Q5X1])
-        const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+        const matchNameOriginal =
+            product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
 
         return matchName || matchNameOriginal;
     });
@@ -1650,14 +1692,15 @@ function performHiddenListSearch(keyword) {
     const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
 
     // Filter hidden products that match
-    const hiddenProducts = Object.values(soluongProducts).filter(p => p.isHidden);
-    const matchedProducts = hiddenProducts.filter(product => {
+    const hiddenProducts = Object.values(soluongProducts).filter((p) => p.isHidden);
+    const matchedProducts = hiddenProducts.filter((product) => {
         // Match in product name (no Vietnamese tones)
         const nameNoSign = removeVietnameseTones(product.NameGet || '');
         const matchName = nameNoSign.includes(searchNoSign);
 
         // Match in original name (lowercase, for special chars like [Q5X1])
-        const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+        const matchNameOriginal =
+            product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
 
         return matchName || matchNameOriginal;
     });
@@ -1776,8 +1819,8 @@ async function autoSearchExactMatch(searchText) {
     const results = await searchProductsFromAPI(searchText);
 
     // Try exact match by code first
-    const exactMatch = results.find(p =>
-        p.code && p.code.toLowerCase() === searchText.toLowerCase()
+    const exactMatch = results.find(
+        (p) => p.code && p.code.toLowerCase() === searchText.toLowerCase()
     );
 
     if (exactMatch) {
@@ -1804,8 +1847,8 @@ document.getElementById('productSearch').addEventListener('keypress', async (e) 
         const searchText = e.target.value.trim();
         if (searchText) {
             const results = await searchProductsFromAPI(searchText);
-            const exactMatch = results.find(p =>
-                p.code && p.code.toLowerCase() === searchText.toLowerCase()
+            const exactMatch = results.find(
+                (p) => p.code && p.code.toLowerCase() === searchText.toLowerCase()
             );
 
             if (exactMatch) {
@@ -1825,11 +1868,13 @@ document.addEventListener('keydown', (e) => {
     const activeElement = document.activeElement;
 
     // Ignore if already focused on an input/textarea or if modifier keys are pressed
-    if (activeElement.tagName === 'INPUT' ||
+    if (
+        activeElement.tagName === 'INPUT' ||
         activeElement.tagName === 'TEXTAREA' ||
         e.ctrlKey ||
         e.altKey ||
-        e.metaKey) {
+        e.metaKey
+    ) {
         return;
     }
 
@@ -1857,9 +1902,12 @@ async function loadSettings() {
             document.getElementById('settingItemHeight').value = settings.itemHeight || 500;
 
             // Image settings
-            document.getElementById('settingImageBorderRadius').value = settings.imageBorderRadius || 8;
-            document.getElementById('settingImageBorderWidth').value = settings.imageBorderWidth || 2;
-            document.getElementById('settingImageMarginBottom').value = settings.imageMarginBottom || 4;
+            document.getElementById('settingImageBorderRadius').value =
+                settings.imageBorderRadius || 8;
+            document.getElementById('settingImageBorderWidth').value =
+                settings.imageBorderWidth || 2;
+            document.getElementById('settingImageMarginBottom').value =
+                settings.imageMarginBottom || 4;
 
             // Name settings
             document.getElementById('settingNameFontSize').value = settings.nameFontSize || 13;
@@ -1872,11 +1920,13 @@ async function loadSettings() {
             document.getElementById('settingStatsLabelSize').value = settings.statsLabelSize || 9;
             document.getElementById('settingStatsPadding').value = settings.statsPadding || 3;
             document.getElementById('settingStatsGap').value = settings.statsGap || 4;
-            document.getElementById('settingStatsBorderRadius').value = settings.statsBorderRadius || 6;
+            document.getElementById('settingStatsBorderRadius').value =
+                settings.statsBorderRadius || 6;
             document.getElementById('settingStatsMarginTop').value = settings.statsMarginTop || 4;
 
             // Load autoAddVariants setting
-            autoAddVariants = settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
+            autoAddVariants =
+                settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
             document.getElementById('toggleAutoVariants').checked = autoAddVariants;
         }
 
@@ -1904,22 +1954,27 @@ function applySettings() {
     const itemHeight = parseInt(document.getElementById('settingItemHeight').value) || 500;
 
     // Image settings
-    const imageBorderRadius = parseInt(document.getElementById('settingImageBorderRadius').value) || 8;
-    const imageBorderWidth = parseInt(document.getElementById('settingImageBorderWidth').value) || 2;
-    const imageMarginBottom = parseInt(document.getElementById('settingImageMarginBottom').value) || 4;
+    const imageBorderRadius =
+        parseInt(document.getElementById('settingImageBorderRadius').value) || 8;
+    const imageBorderWidth =
+        parseInt(document.getElementById('settingImageBorderWidth').value) || 2;
+    const imageMarginBottom =
+        parseInt(document.getElementById('settingImageMarginBottom').value) || 4;
 
     // Name settings
     const nameFontSize = parseInt(document.getElementById('settingNameFontSize').value) || 13;
     const nameFontWeight = parseInt(document.getElementById('settingNameFontWeight').value) || 700;
     const nameMargin = parseInt(document.getElementById('settingNameMargin').value) || 3;
-    const nameLineHeight = parseFloat(document.getElementById('settingNameLineHeight').value) || 1.2;
+    const nameLineHeight =
+        parseFloat(document.getElementById('settingNameLineHeight').value) || 1.2;
 
     // Stats settings
     const statsValueSize = parseInt(document.getElementById('settingStatsValueSize').value) || 16;
     const statsLabelSize = parseInt(document.getElementById('settingStatsLabelSize').value) || 9;
     const statsPadding = parseInt(document.getElementById('settingStatsPadding').value) || 3;
     const statsGap = parseInt(document.getElementById('settingStatsGap').value) || 4;
-    const statsBorderRadius = parseInt(document.getElementById('settingStatsBorderRadius').value) || 6;
+    const statsBorderRadius =
+        parseInt(document.getElementById('settingStatsBorderRadius').value) || 6;
     const statsMarginTop = parseInt(document.getElementById('settingStatsMarginTop').value) || 4;
 
     const settings = {
@@ -1953,13 +2008,16 @@ function applySettings() {
         statsMarginTop: statsMarginTop,
 
         // Other
-        autoAddVariants: autoAddVariants
+        autoAddVariants: autoAddVariants,
     };
 
     if (!isSyncingFromFirebase) {
-        database.ref('soluongDisplaySettings').set(settings).catch(error => {
-            console.error('❌ Lỗi sync settings lên Firebase:', error);
-        });
+        database
+            .ref('soluongDisplaySettings')
+            .set(settings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync settings lên Firebase:', error);
+            });
     }
 
     if (window.settingsChannel) {
@@ -1971,7 +2029,7 @@ function applySettings() {
 
 function toggleAutoVariants() {
     autoAddVariants = document.getElementById('toggleAutoVariants').checked;
-    
+
     // Auto save when toggle changes
     const settings = {
         columns: parseInt(document.getElementById('settingColumns').value) || 4,
@@ -1979,14 +2037,19 @@ function toggleAutoVariants() {
         gap: parseInt(document.getElementById('settingGap').value) || 15,
         itemHeight: parseInt(document.getElementById('settingItemHeight').value) || 500,
         nameMargin: parseInt(document.getElementById('settingNameMargin').value) || 3,
-        itemsPerPage: (parseInt(document.getElementById('settingColumns').value) || 4) * (parseInt(document.getElementById('settingRows').value) || 2),
-        autoAddVariants: autoAddVariants
+        itemsPerPage:
+            (parseInt(document.getElementById('settingColumns').value) || 4) *
+            (parseInt(document.getElementById('settingRows').value) || 2),
+        autoAddVariants: autoAddVariants,
     };
 
     if (!isSyncingFromFirebase) {
-        database.ref('soluongDisplaySettings').set(settings).catch(error => {
-            console.error('❌ Lỗi sync settings lên Firebase:', error);
-        });
+        database
+            .ref('soluongDisplaySettings')
+            .set(settings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync settings lên Firebase:', error);
+            });
     }
 
     const status = autoAddVariants ? 'BẬT' : 'TẮT';
@@ -2013,7 +2076,9 @@ function setupFirebaseListeners() {
                 window.settingsChannel.postMessage({ type: 'settingsChanged', settings: settings });
             }
 
-            setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+            setTimeout(() => {
+                isSyncingFromFirebase = false;
+            }, 100);
         }
     });
 
@@ -2034,7 +2099,14 @@ function setupFirebaseListeners() {
         onQtyChanged: (product, productKey) => {
             // Recalculate remainingQty when soldQty changes
             product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
-            console.log('🔥 Qty updated from Firebase:', product.NameGet, '→ soldQty:', product.soldQty, 'remainingQty:', product.remainingQty);
+            console.log(
+                '🔥 Qty updated from Firebase:',
+                product.NameGet,
+                '→ soldQty:',
+                product.soldQty,
+                'remainingQty:',
+                product.remainingQty
+            );
             updateProductListPreview();
         },
         onProductRemoved: (product) => {
@@ -2045,7 +2117,7 @@ function setupFirebaseListeners() {
         },
         onInitialLoadComplete: () => {
             console.log('✅ Firebase listeners setup complete');
-        }
+        },
     });
 }
 
@@ -2216,13 +2288,16 @@ function applyHiddenProductsSettings() {
         columns: hiddenColumns,
         rows: hiddenRows,
         gap: hiddenGap,
-        itemsPerPage: hiddenColumns * hiddenRows
+        itemsPerPage: hiddenColumns * hiddenRows,
     };
 
     if (!isSyncingFromFirebase) {
-        database.ref('hiddenProductsDisplaySettings').set(hiddenSettings).catch(error => {
-            console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
-        });
+        database
+            .ref('hiddenProductsDisplaySettings')
+            .set(hiddenSettings)
+            .catch((error) => {
+                console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
+            });
     }
 
     showNotificationMessage('💾 Đã lưu cài đặt Danh Sách Ẩn thành công!');
@@ -2282,7 +2357,7 @@ Object.assign(window, {
 
     // Snapshot modal functions
     closeSnapshotModal,
-    restoreSnapshotFromModal
+    restoreSnapshotFromModal,
 });
 
 // Cleanup Firebase listeners when leaving page

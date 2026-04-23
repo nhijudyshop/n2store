@@ -82,17 +82,17 @@ const TRANSACTION_CONFIG = {
 // Global State - Restructured with sttNCC as primary key
 let globalState = {
     // NCC-based structure (new)
-    nccList: [],              // Array of NCC documents {sttNCC, datHang[], dotHang[], ...}
-    filteredNCCList: [],      // Filtered NCC list
+    nccList: [], // Array of NCC documents {sttNCC, datHang[], dotHang[], ...}
+    filteredNCCList: [], // Filtered NCC list
 
     // Flattened views for convenience (derived from nccList)
-    shipments: [],            // Flattened dotHang from all NCCs (for backward compatibility)
+    shipments: [], // Flattened dotHang from all NCCs (for backward compatibility)
     filteredShipments: [],
-    orderBookings: [],        // Flattened datHang from all NCCs (for backward compatibility)
+    orderBookings: [], // Flattened datHang from all NCCs (for backward compatibility)
     filteredOrderBookings: [],
 
     // Product images (independent, mapped by STT/NCC)
-    productImages: [],        // From inventory_product_images table
+    productImages: [], // From inventory_product_images table
 
     // Other collections
     prepayments: [],
@@ -101,7 +101,7 @@ let globalState = {
 
     // UI state
     isLoading: false,
-    currentTab: 'booking',    // Default to booking tab
+    currentTab: 'booking', // Default to booking tab
     currentEditingId: null,
     filters: {
         dateFrom: '',
@@ -111,7 +111,7 @@ let globalState = {
         bookingStatus: 'all',
     },
     userPermissions: null,
-    langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
+    langMode: 'vi', // 'vi' = Vietnamese (default), 'cn' = Chinese original
 };
 
 // Firebase removed — all data flows via Render REST API (api-client.js → PostgreSQL).

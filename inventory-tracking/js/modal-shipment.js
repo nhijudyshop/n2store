@@ -11,7 +11,9 @@ let currentShipmentData = null;
  */
 function _dateHasPackagesForDot(dateStr, dotSo) {
     if (!dateStr || !globalState?.shipments) return false;
-    const shipment = globalState.shipments.find(s => s.ngayDiHang === dateStr && (s.dotSo || 1) === dotSo);
+    const shipment = globalState.shipments.find(
+        (s) => s.ngayDiHang === dateStr && (s.dotSo || 1) === dotSo
+    );
     return shipment && shipment.kienHang && shipment.kienHang.length > 0;
 }
 
@@ -71,9 +73,9 @@ function openShipmentModal(shipment = null) {
  */
 function _computeDefaultDotSo(shipment, date) {
     if (shipment?.dotSo) return shipment.dotSo;
-    const sameDate = (globalState?.shipments || []).filter(s => s.ngayDiHang === date);
+    const sameDate = (globalState?.shipments || []).filter((s) => s.ngayDiHang === date);
     if (sameDate.length === 0) return 1;
-    return Math.max(...sameDate.map(s => s.dotSo || 1));
+    return Math.max(...sameDate.map((s) => s.dotSo || 1));
 }
 
 /**
@@ -92,7 +94,10 @@ function renderShipmentForm(shipment) {
     const costs = shipment?.chiPhiHangVe || [];
 
     // Convert packages array to string (e.g., "10 20 50 88")
-    const packagesString = packages.map(p => p.soKg).filter(kg => kg > 0).join(' ');
+    const packagesString = packages
+        .map((p) => p.soKg)
+        .filter((kg) => kg > 0)
+        .join(' ');
 
     const canEditCost = permissionHelper?.can('edit_chiPhiHangVe');
     const canEditNote = permissionHelper?.can('edit_ghiChuAdmin');
@@ -109,14 +114,17 @@ function renderShipmentForm(shipment) {
             </div>
         </div>
 
-        ${dateHasExistingPackages ? `
+        ${
+            dateHasExistingPackages
+                ? `
             <div class="form-section" style="padding:12px 16px;background:var(--gray-50)">
                 <div style="color:var(--gray-500);font-size:13px">
                     <i data-lucide="info" style="width:14px;height:14px;vertical-align:middle"></i>
                     Kiện hàng đã được nhập cho ngày này. Bấm chỉnh sửa đợt hàng để thay đổi.
                 </div>
             </div>
-        ` : `
+        `
+                : `
             <div class="form-section form-section-collapsible">
                 <h4 class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                     <i data-lucide="box"></i> Kiện Hàng
@@ -131,7 +139,8 @@ function renderShipmentForm(shipment) {
                     <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
                 </div>
             </div>
-        `}
+        `
+        }
 
         <div class="form-section">
             <h4><i data-lucide="receipt"></i> Hóa Đơn Nhà Cung Cấp</h4>
@@ -148,11 +157,17 @@ function renderShipmentForm(shipment) {
             </div>
         </div>
 
-        ${canEditCost ? `
+        ${
+            canEditCost
+                ? `
             <div class="form-section admin-section">
                 <h4><i data-lucide="lock"></i> Chi Phí Hàng Về (Admin)</h4>
                 <div id="costsContainer">
-                    ${costs.length > 0 ? costs.map((c, i) => `
+                    ${
+                        costs.length > 0
+                            ? costs
+                                  .map(
+                                      (c, i) => `
                         <div class="cost-row" data-index="${i}">
                             <input type="text" class="form-input cost-type" value="${c.loai || ''}" placeholder="Loại chi phí">
                             <input type="number" class="form-input cost-amount" value="${c.soTien || ''}" placeholder="Số tiền">
@@ -160,21 +175,31 @@ function renderShipmentForm(shipment) {
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </div>
-                    `).join('') : ''}
+                    `
+                                  )
+                                  .join('')
+                            : ''
+                    }
                 </div>
                 <button type="button" class="btn btn-sm btn-outline" id="btnAddCost">
                     <i data-lucide="plus"></i> Thêm chi phí
                 </button>
                 <div class="cost-total">Tổng chi phí: <span id="totalCost">0</span></div>
             </div>
-        ` : ''}
+        `
+                : ''
+        }
 
-        ${canEditNote ? `
+        ${
+            canEditNote
+                ? `
             <div class="form-section admin-section">
                 <h4><i data-lucide="lock"></i> Ghi Chú Admin</h4>
                 <textarea id="adminNote" class="form-textarea" placeholder="Ghi chú...">${shipment?.ghiChuAdmin || ''}</textarea>
             </div>
-        ` : ''}
+        `
+                : ''
+        }
     `;
 }
 
@@ -183,19 +208,24 @@ function renderShipmentForm(shipment) {
  */
 function renderInvoiceForm(invoice, index) {
     const products = invoice?.sanPham || [];
-    const productLines = products.map(p => p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`).join('\n');
+    const productLines = products
+        .map((p) => p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`)
+        .join('\n');
 
     // Pre-populate existing images when editing
     const existingImages = invoice?.anhHoaDon || [];
     const existingUrlsJson = JSON.stringify(existingImages);
-    const existingPreviewsHtml = existingImages.map(url =>
-        `<div class="image-preview-item" data-url="${url}">
+    const existingPreviewsHtml = existingImages
+        .map(
+            (url) =>
+                `<div class="image-preview-item" data-url="${url}">
             <img src="${url}" alt="Preview">
             <button type="button" class="btn-remove-image" data-url="${url}">
                 <i data-lucide="x"></i>
             </button>
         </div>`
-    ).join('');
+        )
+        .join('');
 
     return `
         <div class="invoice-form" data-index="${index}">
@@ -316,7 +346,8 @@ function setupShipmentFormListeners() {
     document.addEventListener('paste', (e) => {
         // Only handle when modal is open
         if (!modalBody || modalBody.closest('.modal[style*="display: none"]')) return;
-        if (!modalBody.closest('.modal')?.classList.contains('show') && !modalBody.offsetParent) return;
+        if (!modalBody.closest('.modal')?.classList.contains('show') && !modalBody.offsetParent)
+            return;
 
         const items = e.clipboardData?.items;
         if (!items) return;
@@ -334,9 +365,10 @@ function setupShipmentFormListeners() {
         // Prefer hovered area, then focused area, then last invoice form
         const focused = document.activeElement;
         const invoiceForm = focused?.closest('.invoice-form');
-        const area = _hoveredUploadArea
-            || invoiceForm?.querySelector('.image-upload-area')
-            || modalBody.querySelector('.invoice-form:last-child .image-upload-area');
+        const area =
+            _hoveredUploadArea ||
+            invoiceForm?.querySelector('.image-upload-area') ||
+            modalBody.querySelector('.invoice-form:last-child .image-upload-area');
 
         if (area) {
             e.preventDefault();
@@ -396,7 +428,7 @@ function parsePackagesInput(inputString) {
 
     // Replace commas with spaces, then split by whitespace
     const normalized = inputString.replace(/,/g, ' ').trim();
-    const parts = normalized.split(/\s+/).filter(p => p.length > 0);
+    const parts = normalized.split(/\s+/).filter((p) => p.length > 0);
 
     const packages = [];
     parts.forEach((part, index) => {
@@ -404,7 +436,7 @@ function parsePackagesInput(inputString) {
         if (!isNaN(kg) && kg > 0) {
             packages.push({
                 stt: index + 1,
-                soKg: kg
+                soKg: kg,
             });
         }
     });
@@ -428,7 +460,7 @@ function updatePackageTotals() {
 function updateCostTotal() {
     const costs = document.querySelectorAll('.cost-row');
     let total = 0;
-    costs.forEach(row => {
+    costs.forEach((row) => {
         const amount = parseFloat(row.querySelector('.cost-amount')?.value) || 0;
         total += amount;
     });
@@ -456,8 +488,8 @@ function updateInvoicePreview(invoiceForm) {
 
     // Parse products
     const products = parseMultipleProducts(text);
-    const validProducts = products.filter(p => p.isValid);
-    const invalidProducts = products.filter(p => !p.isValid);
+    const validProducts = products.filter((p) => p.isValid);
+    const invalidProducts = products.filter((p) => !p.isValid);
 
     // Calculate totals
     const totals = calculateProductTotals(validProducts);
@@ -476,7 +508,9 @@ function updateInvoicePreview(invoiceForm) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${validProducts.map(p => `
+                    ${validProducts
+                        .map(
+                            (p) => `
                         <tr>
                             <td>${p.maSP}</td>
                             <td>${p.soMau}</td>
@@ -484,21 +518,27 @@ function updateInvoicePreview(invoiceForm) {
                             <td>${formatNumber(p.giaDonVi)}</td>
                             <td>${formatNumber(p.thanhTien)}</td>
                         </tr>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </tbody>
             </table>
-            ${invalidProducts.length > 0 ? `
+            ${
+                invalidProducts.length > 0
+                    ? `
                 <div class="preview-errors">
                     <strong>Lỗi parse:</strong>
-                    ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
+                    ${invalidProducts.map((p) => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
         `;
     } else {
         previewContent.innerHTML = `
             <div class="preview-errors">
                 <strong>Không parse được sản phẩm nào</strong>
-                ${invalidProducts.map(p => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
+                ${invalidProducts.map((p) => `<div class="error-line">${p.rawText}: ${p.error}</div>`).join('')}
             </div>
         `;
     }
@@ -535,7 +575,7 @@ async function handleInvoiceImageFiles(uploadArea, files) {
     if (validFiles.length === 0) return;
 
     // Show local previews immediately (before upload)
-    const placeholders = validFiles.map(file => {
+    const placeholders = validFiles.map((file) => {
         const localUrl = URL.createObjectURL(file);
         const item = document.createElement('div');
         item.className = 'image-preview-item uploading';
@@ -597,7 +637,9 @@ async function handleInvoiceImageFiles(uploadArea, files) {
 function syncUploadAreaUrls(uploadArea) {
     if (!uploadArea) return;
     const items = uploadArea.querySelectorAll('.image-preview-item[data-url]');
-    const urls = Array.from(items).map(el => el.dataset.url).filter(Boolean);
+    const urls = Array.from(items)
+        .map((el) => el.dataset.url)
+        .filter(Boolean);
     uploadArea.dataset.urls = JSON.stringify(urls);
 }
 
@@ -670,7 +712,7 @@ async function saveShipment() {
 
             // Parse products
             const products = productText ? parseMultipleProducts(productText) : [];
-            const validProducts = products.filter(p => p.isValid);
+            const validProducts = products.filter((p) => p.isValid);
 
             // Calculate totals
             const totals = calculateProductTotals(validProducts);
@@ -690,7 +732,7 @@ async function saveShipment() {
                 tongMon: totals.tongMon,
                 soMonThieu: existingInvoice?.soMonThieu || 0,
                 ghiChuThieu: existingInvoice?.ghiChuThieu || '',
-                anhHoaDon: anhHoaDon
+                anhHoaDon: anhHoaDon,
             });
 
             invoiceIndex++;
@@ -712,7 +754,7 @@ async function saveShipment() {
                 chiPhiHangVe.push({
                     id: generateId('cp'),
                     loai: loai,
-                    soTien: soTien
+                    soTien: soTien,
                 });
             }
         });
@@ -741,7 +783,7 @@ async function saveShipment() {
             tongMonThieu,
             chiPhiHangVe,
             tongChiPhi,
-            ghiChuAdmin
+            ghiChuAdmin,
         };
 
         // Show loading
@@ -760,7 +802,6 @@ async function saveShipment() {
 
         // Reload data
         await loadShipmentsData();
-
     } catch (error) {
         console.error('[MODAL] Error saving shipment:', error);
         window.notificationManager?.error('Không thể lưu đợt hàng');
@@ -803,7 +844,9 @@ async function handleAIImageUpload(files) {
     // Validate files
     for (const file of files) {
         if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            window.notificationManager?.error(`File ${file.name} không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, GIF, WebP.`);
+            window.notificationManager?.error(
+                `File ${file.name} không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, GIF, WebP.`
+            );
             return;
         }
         if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) {
@@ -852,7 +895,7 @@ async function addAIInvoiceToForm(data) {
     addInvoiceForm();
 
     // Wait for DOM update
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Get the last (newest) invoice form
     const forms = document.querySelectorAll('.invoice-form');
@@ -870,7 +913,11 @@ async function addAIInvoiceToForm(data) {
     // NEW: Convert productsData to textarea format for compatibility
     // The existing preview system still uses text parsing
     const productText = (data.productsData || [])
-        .map(p => p.rawText || `MA ${p.maSP} ${p.soMau} MÀU ${p.tongSoLuong || p.soLuong}X${p.giaDonVi}`)
+        .map(
+            (p) =>
+                p.rawText ||
+                `MA ${p.maSP} ${p.soMau} MÀU ${p.tongSoLuong || p.soLuong}X${p.giaDonVi}`
+        )
         .join('\n');
 
     const productsTextarea = lastForm.querySelector('.invoice-products');

@@ -5,7 +5,7 @@
  * Uses TPOSClient.authenticatedFetch() for token management
  */
 
-window.TPOSPurchase = (function() {
+window.TPOSPurchase = (function () {
     'use strict';
 
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -24,44 +24,146 @@ window.TPOSPurchase = (function() {
         // Per-company config (extracted from real TPOS payloads)
         Config: {
             1: {
-                JournalId: 4, AccountId: 4, PickingTypeId: 1, PaymentJournalId: 1,
+                JournalId: 4,
+                AccountId: 4,
+                PickingTypeId: 1,
+                PaymentJournalId: 1,
                 Company: {
-                    Id: 1, Name: 'NJD Live',
-                    Sender: 'Tổng đài:19003357', Phone: '19003357',
+                    Id: 1,
+                    Name: 'NJD Live',
+                    Sender: 'Tổng đài:19003357',
+                    Phone: '19003357',
                     Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                    CurrencyId: 1, Active: true, AllowSaleNegative: true,
-                    Customer: false, Supplier: false,
-                    DepositAccountId: 11, DeliveryCarrierId: 7,
+                    CurrencyId: 1,
+                    Active: true,
+                    AllowSaleNegative: true,
+                    Customer: false,
+                    Supplier: false,
+                    DepositAccountId: 11,
+                    DeliveryCarrierId: 7,
                     City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
                     District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                    Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                    Ward: {
+                        name: 'Phường Trung Mỹ Tây',
+                        code: '26785',
+                        cityCode: '79',
+                        districtCode: '761',
+                    },
                 },
-                User: { Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc', Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 1, CompanyName: 'NJD Live', Active: true },
-                Journal: { Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
-                PaymentJournal: { Id: 1, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
-                PickingType: { Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 1, UseCreateLots: true, UseExistingLots: true, NameGet: 'Nhi Judy Store: Nhận hàng' },
-                Account: { Id: 4, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
+                User: {
+                    Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
+                    Email: 'nvkt@gmail.com',
+                    Name: 'nvkt',
+                    UserName: 'nvkt',
+                    CompanyId: 1,
+                    CompanyName: 'NJD Live',
+                    Active: true,
+                },
+                Journal: {
+                    Id: 4,
+                    Name: 'Nhật ký mua hàng',
+                    Type: 'purchase',
+                    TypeGet: 'Mua hàng',
+                    UpdatePosted: true,
+                    DedicatedRefund: false,
+                },
+                PaymentJournal: {
+                    Id: 1,
+                    Name: 'Tiền mặt',
+                    Type: 'cash',
+                    TypeGet: 'Tiền mặt',
+                    UpdatePosted: true,
+                },
+                PickingType: {
+                    Id: 1,
+                    Code: 'incoming',
+                    Name: 'Nhận hàng',
+                    Active: true,
+                    WarehouseId: 1,
+                    UseCreateLots: true,
+                    UseExistingLots: true,
+                    NameGet: 'Nhi Judy Store: Nhận hàng',
+                },
+                Account: {
+                    Id: 4,
+                    Name: 'Phải trả người bán',
+                    Code: '331',
+                    Active: true,
+                    NameGet: '331 Phải trả người bán',
+                    Reconcile: false,
+                },
             },
             2: {
-                JournalId: 11, AccountId: 32, PickingTypeId: 5, PaymentJournalId: 8,
+                JournalId: 11,
+                AccountId: 32,
+                PickingTypeId: 5,
+                PaymentJournalId: 8,
                 Company: {
-                    Id: 2, Name: 'NJD Shop',
-                    Sender: 'Tổng đài:19003357', Phone: '19003357',
+                    Id: 2,
+                    Name: 'NJD Shop',
+                    Sender: 'Tổng đài:19003357',
+                    Phone: '19003357',
                     Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                    CurrencyId: 1, Active: true, AllowSaleNegative: true,
-                    Customer: false, Supplier: false,
-                    DepositAccountId: 11, DeliveryCarrierId: 7,
+                    CurrencyId: 1,
+                    Active: true,
+                    AllowSaleNegative: true,
+                    Customer: false,
+                    Supplier: false,
+                    DepositAccountId: 11,
+                    DeliveryCarrierId: 7,
                     City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
                     District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                    Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                    Ward: {
+                        name: 'Phường Trung Mỹ Tây',
+                        code: '26785',
+                        cityCode: '79',
+                        districtCode: '761',
+                    },
                 },
-                User: { Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc', Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 2, CompanyName: 'NJD Shop', Active: true },
-                Journal: { Id: 11, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
-                PaymentJournal: { Id: 8, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
-                PickingType: { Id: 5, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 2, UseCreateLots: true, UseExistingLots: true, NameGet: 'Shop NJD: Nhận hàng' },
-                Account: { Id: 32, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
-            }
-        }
+                User: {
+                    Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
+                    Email: 'nvkt@gmail.com',
+                    Name: 'nvkt',
+                    UserName: 'nvkt',
+                    CompanyId: 2,
+                    CompanyName: 'NJD Shop',
+                    Active: true,
+                },
+                Journal: {
+                    Id: 11,
+                    Name: 'Nhật ký mua hàng',
+                    Type: 'purchase',
+                    TypeGet: 'Mua hàng',
+                    UpdatePosted: true,
+                    DedicatedRefund: false,
+                },
+                PaymentJournal: {
+                    Id: 8,
+                    Name: 'Tiền mặt',
+                    Type: 'cash',
+                    TypeGet: 'Tiền mặt',
+                    UpdatePosted: true,
+                },
+                PickingType: {
+                    Id: 5,
+                    Code: 'incoming',
+                    Name: 'Nhận hàng',
+                    Active: true,
+                    WarehouseId: 2,
+                    UseCreateLots: true,
+                    UseExistingLots: true,
+                    NameGet: 'Shop NJD: Nhận hàng',
+                },
+                Account: {
+                    Id: 32,
+                    Name: 'Phải trả người bán',
+                    Code: '331',
+                    Active: true,
+                    NameGet: '331 Phải trả người bán',
+                    Reconcile: false,
+                },
+            },
+        },
     };
 
     function getConfig() {
@@ -91,15 +193,15 @@ window.TPOSPurchase = (function() {
             file: base64File,
             paramModel: {
                 PartnerId: partnerId,
-                DateOrder: dateOrder
-            }
+                DateOrder: dateOrder,
+            },
         };
 
         console.log('[TPOSPurchase] PurchaseByExcel → PartnerId:', partnerId);
 
         const response = await window.TPOSClient.authenticatedFetch(url, {
             method: 'POST',
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -149,7 +251,9 @@ window.TPOSPurchase = (function() {
         const partner = {
             Id: partnerId,
             Name: partnerData.Name || partnerData.name,
-            DisplayName: partnerData.DisplayName || `[${partnerData.Ref || ''}] ${partnerData.Name || partnerData.name}`,
+            DisplayName:
+                partnerData.DisplayName ||
+                `[${partnerData.Ref || ''}] ${partnerData.Name || partnerData.name}`,
             Ref: partnerData.Ref || partnerData.tposCode,
             Supplier: true,
             Customer: partnerData.Customer || false,
@@ -163,7 +267,7 @@ window.TPOSPurchase = (function() {
             Status: partnerData.Status || 'Normal',
             StatusText: partnerData.StatusText || 'Bình thường',
             Source: partnerData.Source || 'Default',
-            DateCreated: partnerData.DateCreated || toVNDateString()
+            DateCreated: partnerData.DateCreated || toVNDateString(),
         };
 
         // Build payload
@@ -228,7 +332,7 @@ window.TPOSPurchase = (function() {
             Account: companyConfig.Account,
 
             // OrderLines from PurchaseByExcel response
-            OrderLines: orderLines.map(line => ({
+            OrderLines: orderLines.map((line) => ({
                 ProductUOM: line.ProductUOM,
                 Name: line.Name,
                 Account: line.Account,
@@ -240,16 +344,23 @@ window.TPOSPurchase = (function() {
                 ProductId: line.ProductId,
                 ProductUOMId: line.ProductUOMId || 1,
                 Discount: line.Discount || 0,
-                PriceSubTotal: (line.PriceUnit || 0) * (line.ProductQty || 0)
-            }))
+                PriceSubTotal: (line.PriceUnit || 0) * (line.ProductQty || 0),
+            })),
         };
 
-        console.log('[TPOSPurchase] FastPurchaseOrder → PartnerId:', partnerId, 'Lines:', orderLines.length, 'Total:', finalAmount);
+        console.log(
+            '[TPOSPurchase] FastPurchaseOrder → PartnerId:',
+            partnerId,
+            'Lines:',
+            orderLines.length,
+            'Total:',
+            finalAmount
+        );
 
         const url = `${PROXY_URL}/api/odata/FastPurchaseOrder`;
         const response = await window.TPOSClient.authenticatedFetch(url, {
             method: 'POST',
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -258,7 +369,12 @@ window.TPOSPurchase = (function() {
         }
 
         const result = await response.json();
-        console.log('[TPOSPurchase] Purchase order created:', result.Id, result.Number, result.ShowState);
+        console.log(
+            '[TPOSPurchase] Purchase order created:',
+            result.Id,
+            result.Number,
+            result.ShowState
+        );
 
         return result;
     }
@@ -285,12 +401,15 @@ window.TPOSPurchase = (function() {
     }
 
     async function createFromExcel(workbook, order, options = {}) {
-        const showToast = window.notificationManager?.show?.bind(window.notificationManager)
-            || ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
+        const showToast =
+            window.notificationManager?.show?.bind(window.notificationManager) ||
+            ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
 
         // Guard: prevent concurrent/duplicate submissions
         if (_createInProgress) {
-            console.warn('[TPOSPurchase] createFromExcel already in progress, skipping duplicate call');
+            console.warn(
+                '[TPOSPurchase] createFromExcel already in progress, skipping duplicate call'
+            );
             showToast('Đang tạo đơn TPOS, vui lòng chờ...', 'warning');
             return { success: false, error: 'Đang xử lý, vui lòng chờ' };
         }
@@ -301,7 +420,9 @@ window.TPOSPurchase = (function() {
             const supplierName = order.supplier?.name;
             const ncc = options.ncc || window.NCCManager?.findByName(supplierName);
             if (!ncc || !ncc.tposId) {
-                throw new Error(`Không tìm thấy NCC "${supplierName}" hoặc NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.`);
+                throw new Error(
+                    `Không tìm thấy NCC "${supplierName}" hoặc NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.`
+                );
             }
 
             showToast('Đang tạo đơn mua hàng trên TPOS...', 'info');
@@ -314,17 +435,21 @@ window.TPOSPurchase = (function() {
 
             const [excelResult, partnerData] = await Promise.all([
                 purchaseByExcel(base64, ncc.tposId, orderDate),
-                window.NCCManager.getFullPartnerData(ncc.docId)
+                window.NCCManager.getFullPartnerData(ncc.docId),
             ]);
 
             // BLOCK khi TPOS trả về Errors — tránh tạo PO thiếu dòng
             if (excelResult.errors && excelResult.errors.length > 0) {
-                console.warn('[TPOSPurchase] Blocked: TPOS trả về', excelResult.errors.length, 'lỗi');
+                console.warn(
+                    '[TPOSPurchase] Blocked: TPOS trả về',
+                    excelResult.errors.length,
+                    'lỗi'
+                );
                 return {
                     success: false,
                     tposErrors: excelResult.errors,
                     error: `TPOS phát hiện ${excelResult.errors.length} lỗi trên file Excel`,
-                    orderLines: excelResult.orderLines
+                    orderLines: excelResult.orderLines,
                 };
             }
 
@@ -338,7 +463,10 @@ window.TPOSPurchase = (function() {
             // 5. FastPurchaseOrder → create PO
             const poResult = await createPurchaseOrder(excelResult.orderLines, partnerData, order);
 
-            showToast(`Đã tạo đơn mua hàng TPOS: ${poResult.Number || 'ID ' + poResult.Id}`, 'success');
+            showToast(
+                `Đã tạo đơn mua hàng TPOS: ${poResult.Number || 'ID ' + poResult.Id}`,
+                'success'
+            );
 
             return {
                 success: true,
@@ -347,7 +475,7 @@ window.TPOSPurchase = (function() {
                 state: poResult.ShowState,
                 linesCount: excelResult.orderLines.length,
                 excelErrors: excelResult.errors,
-                orderLines: excelResult.orderLines
+                orderLines: excelResult.orderLines,
             };
         } catch (error) {
             console.error('[TPOSPurchase] createFromExcel failed:', error);
@@ -367,33 +495,50 @@ window.TPOSPurchase = (function() {
      */
     function showPdfModal(pdfUrl) {
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
+        overlay.style.cssText =
+            'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
 
         const toolbar = document.createElement('div');
-        toolbar.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:8px 16px;background:#333;';
+        toolbar.style.cssText =
+            'display:flex;justify-content:flex-end;gap:8px;padding:8px 16px;background:#333;';
 
         const btnPrint = document.createElement('button');
         btnPrint.textContent = 'In';
-        btnPrint.style.cssText = 'padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+        btnPrint.style.cssText =
+            'padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
 
         const btnNewTab = document.createElement('button');
         btnNewTab.textContent = 'Mở tab mới';
-        btnNewTab.style.cssText = 'padding:6px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+        btnNewTab.style.cssText =
+            'padding:6px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
 
         const btnClose = document.createElement('button');
         btnClose.textContent = 'Đóng';
-        btnClose.style.cssText = 'padding:6px 16px;background:#666;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+        btnClose.style.cssText =
+            'padding:6px 16px;background:#666;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
 
         const iframe = document.createElement('iframe');
         iframe.src = pdfUrl;
         iframe.style.cssText = 'flex:1;border:none;background:#fff;';
 
         btnPrint.onclick = () => {
-            try { iframe.contentWindow.print(); } catch(e) { window.open(pdfUrl, '_blank'); }
+            try {
+                iframe.contentWindow.print();
+            } catch (e) {
+                window.open(pdfUrl, '_blank');
+            }
         };
         btnNewTab.onclick = () => window.open(pdfUrl, '_blank');
-        btnClose.onclick = () => { overlay.remove(); URL.revokeObjectURL(pdfUrl); };
-        overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); URL.revokeObjectURL(pdfUrl); } };
+        btnClose.onclick = () => {
+            overlay.remove();
+            URL.revokeObjectURL(pdfUrl);
+        };
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                URL.revokeObjectURL(pdfUrl);
+            }
+        };
 
         toolbar.append(btnPrint, btnNewTab, btnClose);
         overlay.append(toolbar, iframe);
@@ -405,11 +550,17 @@ window.TPOSPurchase = (function() {
             throw new Error('TPOSClient not available');
         }
 
-        console.log('[TPOSPurchase] Creating barcode label for PO:', fastPurchaseOrderId, 'Lines:', orderLines.length);
+        console.log(
+            '[TPOSPurchase] Creating barcode label for PO:',
+            fastPurchaseOrderId,
+            'Lines:',
+            orderLines.length
+        );
 
         // Step 1: POST BarcodeProductLabel
         const payload = {
-            '@odata.context': 'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
+            '@odata.context':
+                'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
             Id: 0,
             PaperId: 7,
             PriceListId: 1,
@@ -424,36 +575,55 @@ window.TPOSPurchase = (function() {
             IsHideBarcode: null,
             ExtraProperty: null,
             Warehouse: {
-                Id: 1, Code: 'WH', Name: 'Nhi Judy Store',
-                CompanyId: 0, LocationId: 0,
+                Id: 1,
+                Code: 'WH',
+                Name: 'Nhi Judy Store',
+                CompanyId: 0,
+                LocationId: 0,
                 NameGet: '[WH] Nhi Judy Store',
-                CompanyName: null, LocationActive: true
+                CompanyName: null,
+                LocationActive: true,
             },
             PriceList: {
-                Id: 1, Name: 'Bảng giá mặc định',
-                CurrencyId: 1, CurrencyName: 'VND',
-                Active: true, CompanyId: null,
-                PartnerCateName: null, Sequence: 1,
-                DateStart: null, DateEnd: null, CreatedById: null
+                Id: 1,
+                Name: 'Bảng giá mặc định',
+                CurrencyId: 1,
+                CurrencyName: 'VND',
+                Active: true,
+                CompanyId: null,
+                PartnerCateName: null,
+                Sequence: 1,
+                DateStart: null,
+                DateEnd: null,
+                CreatedById: null,
             },
             Paper: {
-                Id: 7, Name: '2 Tem',
-                SheetWidth: 66, SheetHeight: 21,
-                LabelWidth: 25, LabelHeight: 21,
-                LabelsPerSheet: 2, TopMargin: 0.5,
-                LeftMargin: 0.5, BottomMargin: 0.5,
-                RightMargin: 0.5, HSpacing: null, VSpacing: null,
-                TypePrint: 'Default', FontSize: 6,
-                TypePrintText: null, LabelsPerRow: 3
+                Id: 7,
+                Name: '2 Tem',
+                SheetWidth: 66,
+                SheetHeight: 21,
+                LabelWidth: 25,
+                LabelHeight: 21,
+                LabelsPerSheet: 2,
+                TopMargin: 0.5,
+                LeftMargin: 0.5,
+                BottomMargin: 0.5,
+                RightMargin: 0.5,
+                HSpacing: null,
+                VSpacing: null,
+                TypePrint: 'Default',
+                FontSize: 6,
+                TypePrintText: null,
+                LabelsPerRow: 3,
             },
-            Lines: orderLines.map(line => ({
+            Lines: orderLines.map((line) => ({
                 Id: 0,
                 ProductId: line.Product?.Id || line.ProductId,
                 ProductTmplId: 0,
                 Quantity: line.ProductQty || 1,
                 Price: line.Product?.PriceVariant || line.PriceUnit || 0,
-                Product: line.Product || null
-            }))
+                Product: line.Product || null,
+            })),
         };
 
         const resp1 = await window.TPOSClient.authenticatedFetch(
@@ -461,7 +631,7 @@ window.TPOSPurchase = (function() {
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json;charset=UTF-8' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             }
         );
 
@@ -510,6 +680,6 @@ window.TPOSPurchase = (function() {
         createPurchaseOrder,
         createFromExcel,
         printBarcodeLabel,
-        printBarcodeFromOrder
+        printBarcodeFromOrder,
     };
 })();

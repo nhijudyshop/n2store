@@ -42,7 +42,6 @@ async function exportToExcel() {
         XLSX.writeFile(wb, filename);
 
         window.notificationManager?.success('Đã xuất file Excel');
-
     } catch (error) {
         console.error('[EXPORT] Error:', error);
         window.notificationManager?.error('Không thể xuất file');
@@ -74,22 +73,25 @@ function buildShipmentsExportData(shipments, includeFinance) {
 
     const rows = [headers];
 
-    shipments.forEach(shipment => {
+    shipments.forEach((shipment) => {
         const packages = shipment.kien || [];
         const totalWeight = packages.reduce((sum, k) => sum + (k.soKy || 0), 0);
 
         (shipment.hoaDon || []).forEach((hd, hdIndex) => {
             (hd.sanPham || []).forEach((sp, spIndex) => {
                 // Format color details for Excel
-                const colorDetails = sp.mauSac?.length > 0
-                    ? sp.mauSac.map(c => `${c.mau} (${c.soLuong})`).join(', ')
-                    : (sp.soMau ? `${sp.soMau} màu` : '');
+                const colorDetails =
+                    sp.mauSac?.length > 0
+                        ? sp.mauSac.map((c) => `${c.mau} (${c.soLuong})`).join(', ')
+                        : sp.soMau
+                          ? `${sp.soMau} màu`
+                          : '';
 
                 const row = [
                     hdIndex === 0 && spIndex === 0 ? formatDateDisplay(shipment.ngayDiHang) : '',
                     hdIndex === 0 && spIndex === 0 ? packages.length : '',
                     hdIndex === 0 && spIndex === 0 ? totalWeight : '',
-                    spIndex === 0 ? (hd.tenNCC || hd.sttNCC || '') : '',
+                    spIndex === 0 ? hd.tenNCC || hd.sttNCC || '' : '',
                     sp.maSP || '',
                     sp.moTa || '',
                     colorDetails,
@@ -97,13 +99,13 @@ function buildShipmentsExportData(shipments, includeFinance) {
                     sp.giaDonVi || '',
                     sp.thanhTien || '',
                     spIndex === 0 ? hd.tongMon : '',
-                    spIndex === 0 ? (hd.soMonThieu || '') : '',
+                    spIndex === 0 ? hd.soMonThieu || '' : '',
                 ];
 
                 if (includeFinance) {
                     row.push(
-                        hdIndex === 0 && spIndex === 0 ? (shipment.chiPhiHangVe || '') : '',
-                        hdIndex === 0 && spIndex === 0 ? (shipment.ghiChu || '') : ''
+                        hdIndex === 0 && spIndex === 0 ? shipment.chiPhiHangVe || '' : '',
+                        hdIndex === 0 && spIndex === 0 ? shipment.ghiChu || '' : ''
                     );
                 }
 
@@ -119,26 +121,19 @@ function buildShipmentsExportData(shipments, includeFinance) {
  * Build finance export data
  */
 function buildFinanceExportData() {
-    const headers = [
-        'Ngay',
-        'Loai',
-        'Mo Ta',
-        'Thu (+)',
-        'Chi (-)',
-        'Ghi Chu'
-    ];
+    const headers = ['Ngay', 'Loai', 'Mo Ta', 'Thu (+)', 'Chi (-)', 'Ghi Chu'];
 
     const rows = [headers];
     const transactions = buildTransactionsList();
 
-    transactions.forEach(tx => {
+    transactions.forEach((tx) => {
         rows.push([
             formatDateDisplay(tx.ngay),
             getTransactionTypeLabel(tx.type),
             tx.moTa || '',
             tx.isPositive ? tx.soTien : '',
             !tx.isPositive ? tx.soTien : '',
-            tx.ghiChu || ''
+            tx.ghiChu || '',
         ]);
     });
 
@@ -159,7 +154,7 @@ function getTransactionTypeLabel(type) {
         [TRANSACTION_TYPES.PREPAYMENT]: 'Thanh toán trước',
         [TRANSACTION_TYPES.INVOICE]: 'Tiền hóa đơn',
         [TRANSACTION_TYPES.SHIPPING_COST]: 'Chi phí hàng về',
-        [TRANSACTION_TYPES.OTHER_EXPENSE]: 'Chi phí khác'
+        [TRANSACTION_TYPES.OTHER_EXPENSE]: 'Chi phí khác',
     };
     return labels[type] || type;
 }
@@ -168,7 +163,7 @@ function getTransactionTypeLabel(type) {
  * Export single shipment details
  */
 function exportShipmentDetail(shipmentId) {
-    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === shipmentId);
     if (!shipment) {
         window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
@@ -186,7 +181,6 @@ function exportShipmentDetail(shipmentId) {
         XLSX.writeFile(wb, filename);
 
         window.notificationManager?.success('Đã xuất chi tiết');
-
     } catch (error) {
         console.error('[EXPORT] Error:', error);
         window.notificationManager?.error('Không thể xuất file');
@@ -214,10 +208,15 @@ function buildShipmentDetailData(shipment) {
 
     // Invoices
     rows.push(['DANH SACH HOA DON']);
-    (shipment.hoaDon || []).forEach(hd => {
-        rows.push([`NCC ${hd.tenNCC || hd.sttNCC}`, '', `Tong: ${hd.tongTienHD}`, `${hd.tongMon} mon`]);
+    (shipment.hoaDon || []).forEach((hd) => {
+        rows.push([
+            `NCC ${hd.tenNCC || hd.sttNCC}`,
+            '',
+            `Tong: ${hd.tongTienHD}`,
+            `${hd.tongMon} mon`,
+        ]);
         rows.push(['Ma SP', 'So Mau', 'SL', 'Don Gia', 'Thanh Tien']);
-        (hd.sanPham || []).forEach(sp => {
+        (hd.sanPham || []).forEach((sp) => {
             rows.push([sp.maSP || sp.rawText, sp.soMau, sp.soLuong, sp.giaDonVi, sp.thanhTien]);
         });
         rows.push([]);
@@ -250,12 +249,12 @@ async function exportTrackingToExcel() {
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 15 },  // NCC
-            { wch: 6 },   // STT
-            { wch: 50 },  // Chi Tiết Sản Phẩm
-            { wch: 12 },  // Tiền HĐ
-            { wch: 10 },  // Tổng Món
-            { wch: 8 }    // Thiếu
+            { wch: 15 }, // NCC
+            { wch: 6 }, // STT
+            { wch: 50 }, // Chi Tiết Sản Phẩm
+            { wch: 12 }, // Tiền HĐ
+            { wch: 10 }, // Tổng Món
+            { wch: 8 }, // Thiếu
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, 'Theo Doi Don Hang');
@@ -268,7 +267,6 @@ async function exportTrackingToExcel() {
         XLSX.writeFile(wb, filename);
 
         window.notificationManager?.success('Đã xuất file Excel');
-
     } catch (error) {
         console.error('[EXPORT] Error:', error);
         window.notificationManager?.error('Không thể xuất file');
@@ -287,7 +285,7 @@ function buildTrackingExportData(shipments) {
         (b.ngayDiHang || '').localeCompare(a.ngayDiHang || '')
     );
 
-    sortedShipments.forEach(shipment => {
+    sortedShipments.forEach((shipment) => {
         const invoices = shipment.hoaDon || [];
         if (invoices.length === 0) return;
 
@@ -296,13 +294,20 @@ function buildTrackingExportData(shipments) {
         const packagesCount = packages.length;
 
         // Add date header row
-        rows.push([`Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}`, '', `${packagesCount} Kiện`, '', '', '']);
+        rows.push([
+            `Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}`,
+            '',
+            `${packagesCount} Kiện`,
+            '',
+            '',
+            '',
+        ]);
 
         // Add column headers
         rows.push(['NCC', 'STT', 'CHI TIẾT SẢN PHẨM', 'TIỀN HĐ', 'TỔNG MÓN', 'THIẾU']);
 
         // Group products by invoice (NCC)
-        invoices.forEach(hd => {
+        invoices.forEach((hd) => {
             const products = hd.sanPham || [];
             const nccDisplay = hd.tenNCC || String(hd.sttNCC);
             const tongTienHD = hd.tongTienHD || hd.tongTien || 0;
@@ -317,7 +322,7 @@ function buildTrackingExportData(shipments) {
                     '-',
                     tongTienHD,
                     tongMon,
-                    soMonThieu > 0 ? soMonThieu : '-'
+                    soMonThieu > 0 ? soMonThieu : '-',
                 ]);
             } else {
                 // Multiple products
@@ -333,12 +338,16 @@ function buildTrackingExportData(shipments) {
                         } else if (product.rawText) {
                             productText = translateToVietnamese(product.rawText);
                         } else {
-                            const tenSP = product.tenSP_vi || translateToVietnamese(product.tenSP || '');
-                            const soMau = product.soMau_vi || translateToVietnamese(product.soMau || '');
+                            const tenSP =
+                                product.tenSP_vi || translateToVietnamese(product.tenSP || '');
+                            const soMau =
+                                product.soMau_vi || translateToVietnamese(product.soMau || '');
                             productText = `MA ${product.maSP || ''} ${tenSP} MAU ${soMau} SL ${product.soLuong || 0}`;
                         }
                     } else {
-                        productText = product.rawText || `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
+                        productText =
+                            product.rawText ||
+                            `MA ${product.maSP || ''} ${product.tenSP || ''} MAU ${product.soMau || ''} SL ${product.soLuong || 0}`;
                     }
 
                     rows.push([
@@ -347,7 +356,7 @@ function buildTrackingExportData(shipments) {
                         productText,
                         isFirstRow ? tongTienHD : '',
                         isFirstRow ? tongMon : '',
-                        isFirstRow ? (soMonThieu > 0 ? soMonThieu : '-') : ''
+                        isFirstRow ? (soMonThieu > 0 ? soMonThieu : '-') : '',
                     ]);
                 });
             }

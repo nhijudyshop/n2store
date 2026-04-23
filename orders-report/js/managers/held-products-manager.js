@@ -293,7 +293,7 @@
                     if (window.currentChatOrderData && window.currentChatOrderData.Details) {
                         // Save existing held products info
                         const existingHeldProducts = {};
-                        window.currentChatOrderData.Details.filter(p => p.IsHeld).forEach(p => {
+                        window.currentChatOrderData.Details.filter((p) => p.IsHeld).forEach((p) => {
                             existingHeldProducts[p.ProductId] = {
                                 ProductId: p.ProductId,
                                 ProductName: p.ProductName,
@@ -305,14 +305,18 @@
                                 UOMName: p.UOMName,
                                 IsFromSearch: p.IsFromSearch,
                                 IsFromDropped: p.IsFromDropped,
-                                StockQty: p.StockQty
+                                StockQty: p.StockQty,
                             };
                         });
 
                         // Remove old held products
-                        window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+                        window.currentChatOrderData.Details =
+                            window.currentChatOrderData.Details.filter((p) => !p.IsHeld);
 
-                        const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
+                        const droppedProducts =
+                            typeof window.getDroppedProducts === 'function'
+                                ? window.getDroppedProducts()
+                                : [];
 
                         // Add current held products from API data
                         for (const productId in heldData) {
@@ -332,11 +336,12 @@
                                     if (!apiProductInfo && holderData.productName) {
                                         apiProductInfo = {
                                             ProductName: holderData.productName,
-                                            ProductNameGet: holderData.productNameGet || holderData.productName,
+                                            ProductNameGet:
+                                                holderData.productNameGet || holderData.productName,
                                             ProductCode: holderData.productCode || '',
                                             ImageUrl: holderData.imageUrl || '',
                                             Price: holderData.price || 0,
-                                            UOMName: holderData.uomName || 'Cái'
+                                            UOMName: holderData.uomName || 'Cái',
                                         };
                                     }
                                 }
@@ -344,17 +349,24 @@
 
                             if (totalQuantity > 0) {
                                 const existingHeld = existingHeldProducts[parseInt(productId)];
-                                const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
-                                const productSource = existingHeld || droppedProduct || apiProductInfo;
+                                const droppedProduct = droppedProducts.find(
+                                    (p) => String(p.ProductId) === String(productId)
+                                );
+                                const productSource =
+                                    existingHeld || droppedProduct || apiProductInfo;
 
                                 if (productSource) {
-                                    const isFromDropped = !!droppedProduct || (existingHeld && existingHeld.IsFromDropped);
+                                    const isFromDropped =
+                                        !!droppedProduct ||
+                                        (existingHeld && existingHeld.IsFromDropped);
 
                                     window.currentChatOrderData.Details.push({
                                         ProductId: parseInt(productId),
                                         ProductName: productSource.ProductName,
                                         ProductCode: productSource.ProductCode,
-                                        ProductNameGet: productSource.ProductNameGet || productSource.ProductName,
+                                        ProductNameGet:
+                                            productSource.ProductNameGet ||
+                                            productSource.ProductName,
                                         ImageUrl: productSource.ImageUrl,
                                         Price: productSource.Price,
                                         Quantity: totalQuantity,
@@ -370,10 +382,13 @@
                                         IsFromDropped: isFromDropped,
                                         IsFromSearch: isFromSearch || productSource.IsFromSearch,
                                         StockQty: productSource.StockQty || 0,
-                                        HeldBy: holders.join(', ')
+                                        HeldBy: holders.join(', '),
                                     });
                                 } else {
-                                    console.warn('[HELD-PRODUCTS] Product not found in any source:', productId);
+                                    console.warn(
+                                        '[HELD-PRODUCTS] Product not found in any source:',
+                                        productId
+                                    );
                                     window.currentChatOrderData.Details.push({
                                         ProductId: parseInt(productId),
                                         ProductName: `Sản phẩm #${productId}`,
@@ -392,7 +407,7 @@
                                         Note: null,
                                         IsHeld: true,
                                         IsFromSearch: isFromSearch,
-                                        HeldBy: holders.join(', ')
+                                        HeldBy: holders.join(', '),
                                     });
                                 }
                             }
@@ -421,7 +436,6 @@
 
             // Store reference for cleanup
             window.heldProductsListener = heldSSESource;
-
         } catch (e) {
             console.warn('[HELD-PRODUCTS] SSE setup failed:', e);
         }
@@ -453,7 +467,8 @@
         if (!userId) return;
 
         try {
-            const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
+            const droppedProducts =
+                typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
 
             // We need to scan all orders. Since there's no "get all held by user" API,
             // use the current order. For a full scan, we'd need a dedicated endpoint.
@@ -504,7 +519,7 @@
             const cleanupInfo = {
                 userId: userId,
                 timestamp: Date.now(),
-                pending: true
+                pending: true,
             };
             localStorage.setItem('orders_held_cleanup_pending', JSON.stringify(cleanupInfo));
         } catch (e) {
@@ -522,7 +537,7 @@
 
             const cleanupInfo = JSON.parse(pendingCleanup);
 
-            if (cleanupInfo.pending && (Date.now() - cleanupInfo.timestamp) < 3600000) {
+            if (cleanupInfo.pending && Date.now() - cleanupInfo.timestamp < 3600000) {
                 await window.cleanupAllUserHeldProducts();
             }
 
@@ -532,5 +547,4 @@
             localStorage.removeItem('orders_held_cleanup_pending');
         }
     };
-
 })();

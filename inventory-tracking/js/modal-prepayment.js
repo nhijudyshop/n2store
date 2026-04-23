@@ -81,7 +81,6 @@ async function savePrepayment() {
         if (typeof loadFinanceData === 'function') {
             await loadFinanceData();
         }
-
     } catch (error) {
         console.error('[PREPAYMENT] Error saving:', error);
         window.notificationManager?.error('Khong the luu');

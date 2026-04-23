@@ -212,9 +212,17 @@ function displaySaleProductResults(results) {
             const rowClass = isInOrder ? 'style="background-color: #f0fdf4;"' : '';
 
             // Use data attribute + delegated event instead of inline onclick with unescaped Id
-            const safeName = (product.Name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-            const safeCode = (product.Code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-            const safeImg = (product.ImageUrl || '').replace(/"/g,'&quot;');
+            const safeName = (product.Name || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            const safeCode = (product.Code || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            const safeImg = (product.ImageUrl || '').replace(/"/g, '&quot;');
             return `
             <tr ${rowClass} data-product-id="${parseInt(product.Id, 10) || 0}" onclick="addProductToSaleFromSearch(parseInt(this.dataset.productId, 10))" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
@@ -229,7 +237,7 @@ function displaySaleProductResults(results) {
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${safeCode}</div>
                     ${isInOrder ? `<div style="font-size: 11px; color: #10b981;"><i class="fas fa-shopping-cart"></i> Đã có trong đơn (SL: ${currentQty})</div>` : ''}
                 </td>
-                <td style="width: 60px; text-align: center;">${(product.UOMName || 'Cái').replace(/</g,'&lt;')}</td>
+                <td style="width: 60px; text-align: center;">${(product.UOMName || 'Cái').replace(/</g, '&lt;')}</td>
                 <td style="width: 80px; text-align: right; font-weight: 600; color: #3b82f6;">
                     ${(product.Price || 0).toLocaleString('vi-VN')}
                 </td>
@@ -366,7 +374,8 @@ async function addProductToSaleFromSearch(productId) {
             if (window.kpiAuditLogger) {
                 try {
                     const orderId = currentSaleOrderData.Id;
-                    const orderCode = currentSaleOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
+                    const orderCode =
+                        currentSaleOrderData.Code || window.OrderStore?.get(orderId)?.Code || '';
                     await window.kpiAuditLogger.logProductAction({
                         orderCode: orderCode,
                         orderId: String(orderId),
@@ -718,7 +727,9 @@ async function confirmAndPrintSale() {
                 }
             }
         } else {
-            console.log('[SALE-CONFIRM] MY CSKH bypass: allowing PBH creation despite existing invoice');
+            console.log(
+                '[SALE-CONFIRM] MY CSKH bypass: allowing PBH creation despite existing invoice'
+            );
         }
     } catch (guardErr) {
         console.warn('[SALE-CONFIRM] Duplicate-guard check failed (non-blocking):', guardErr);
@@ -729,7 +740,9 @@ async function confirmAndPrintSale() {
     // Safety timeout: auto-reset flag after 30s to prevent permanent lockout
     const saleTimeoutId = setTimeout(() => {
         if (window.__isSavingSingleSale) {
-            console.warn('[SALE-CONFIRM] ⚠️ Safety timeout: resetting isSavingSingleSale after 30s');
+            console.warn(
+                '[SALE-CONFIRM] ⚠️ Safety timeout: resetting isSavingSingleSale after 30s'
+            );
             window.__isSavingSingleSale = false;
             if (confirmBtn) {
                 confirmBtn.disabled = false;
@@ -785,7 +798,9 @@ async function confirmAndPrintSale() {
         }
         // Validate order has at least one product
         if (!model.OrderLines || model.OrderLines.length === 0) {
-            throw new Error('Đơn hàng không có sản phẩm. Vui lòng thêm sản phẩm trước khi xác nhận.');
+            throw new Error(
+                'Đơn hàng không có sản phẩm. Vui lòng thêm sản phẩm trước khi xác nhận.'
+            );
         }
         // Validate all order lines have ProductId (TPOS API requires non-zero ProductId)
         const missingProductIds = (model.OrderLines || []).filter(
@@ -810,7 +825,8 @@ async function confirmAndPrintSale() {
             const normalizedPhoneVerify = normalizePhoneForQR(customerPhone);
             if (normalizedPhoneVerify) {
                 try {
-                    const QR_API = window.QR_API_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const QR_API =
+                        window.QR_API_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
                     const verifyRes = await fetch(
                         `${QR_API}/api/v2/wallets/${encodeURIComponent(normalizedPhoneVerify)}/available-balance`
                     );
@@ -959,9 +975,18 @@ async function confirmAndPrintSale() {
             // Verbose debug — TPOS NRE messages don't include field name; dumping the full
             // OrdersError / DataErrorFast and the request payload lets us see which Partner /
             // OrderLine / Carrier field TPOS choked on.
-            console.error('[SALE-CONFIRM] TPOS rejected order. Full errorOrders:', JSON.stringify(errorOrders, null, 2));
-            console.error('[SALE-CONFIRM] Full dataErrorFast:', JSON.stringify(dataErrorFast, null, 2));
-            console.error('[SALE-CONFIRM] Request body that TPOS rejected:', JSON.stringify(requestBody, null, 2));
+            console.error(
+                '[SALE-CONFIRM] TPOS rejected order. Full errorOrders:',
+                JSON.stringify(errorOrders, null, 2)
+            );
+            console.error(
+                '[SALE-CONFIRM] Full dataErrorFast:',
+                JSON.stringify(dataErrorFast, null, 2)
+            );
+            console.error(
+                '[SALE-CONFIRM] Request body that TPOS rejected:',
+                JSON.stringify(requestBody, null, 2)
+            );
 
             const errorMessages = [];
             errorOrders.forEach((o) => {
@@ -998,16 +1023,24 @@ async function confirmAndPrintSale() {
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
         // Nếu ghi chú có "thu về" và DeliveryNote chưa có "THU VỀ" → PUT để thêm "THU VỀ" vào đầu DeliveryNote
-        const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+        const removeDiacritics = (str) =>
+            str
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toUpperCase();
         const noteComment = document.getElementById('saleReceiverNote')?.value || '';
         const origComment = currentSaleOrderData?.Comment || '';
-        const hasThuVe = removeDiacritics(noteComment).includes('THU VE') || removeDiacritics(origComment).includes('THU VE');
+        const hasThuVe =
+            removeDiacritics(noteComment).includes('THU VE') ||
+            removeDiacritics(origComment).includes('THU VE');
 
         if (hasThuVe && orderId) {
             const currentDeliveryNote = createResult.DeliveryNote || '';
             if (!removeDiacritics(currentDeliveryNote).includes('THU VE')) {
                 try {
-                    const baseUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const baseUrl =
+                        window.API_CONFIG?.WORKER_URL ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev';
                     const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${orderId})?$expand=Partner,OrderLines($expand=Product,ProductUOM,User),User,Warehouse,Company,PriceList,Journal,PaymentJournal,Carrier,Tax,SaleOrder,Account`;
                     const getRes = await API_CONFIG.smartFetch(getUrl, {
                         headers: { ...headers, 'Content-Type': 'application/json;charset=UTF-8' },
@@ -1018,10 +1051,16 @@ async function confirmAndPrintSale() {
                         const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${orderId})`;
                         await API_CONFIG.smartFetch(putUrl, {
                             method: 'PUT',
-                            headers: { ...headers, 'Content-Type': 'application/json;charset=UTF-8' },
+                            headers: {
+                                ...headers,
+                                'Content-Type': 'application/json;charset=UTF-8',
+                            },
                             body: JSON.stringify(fullOrder),
                         });
-                        console.log('[SALE-CONFIRM] Updated DeliveryNote with THU VỀ for order:', orderId);
+                        console.log(
+                            '[SALE-CONFIRM] Updated DeliveryNote with THU VỀ for order:',
+                            orderId
+                        );
                     }
                 } catch (err) {
                     console.warn('[SALE-CONFIRM] Failed to update DeliveryNote with THU VỀ:', err);
@@ -1074,9 +1113,10 @@ async function confirmAndPrintSale() {
 
             // Tính đúng PaymentAmount = min(wallet, COD) thay vì lưu toàn bộ wallet balance
             const saleCodForStore = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-            const actualPaymentForStore = saleCodForStore > 0
-                ? Math.min(savedWalletBalance, saleCodForStore)
-                : savedWalletBalance;
+            const actualPaymentForStore =
+                saleCodForStore > 0
+                    ? Math.min(savedWalletBalance, saleCodForStore)
+                    : savedWalletBalance;
 
             // For social orders: store directly by social order ID
             // (storeFromApiResult skips orders with empty SaleOnlineIds)
@@ -1156,8 +1196,10 @@ async function confirmAndPrintSale() {
                 const normalizedPhone = normalizePhoneForQR(customerPhone);
 
                 // Build detailed note with breakdown
-                const goodsValue = parseFloat(document.getElementById('saleGoodsValue')?.value) || 0;
-                const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+                const goodsValue =
+                    parseFloat(document.getElementById('saleGoodsValue')?.value) || 0;
+                const shippingFee =
+                    parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
                 const discountVal = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
 
                 let saleNote = `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`;
@@ -1479,7 +1521,9 @@ function buildSaleOrderModelForInsertList() {
         // SaleOnlineNames is plain string list — fall back to social id so TPOS sees a non-empty name.
         SaleOnlineNames: order.Code
             ? [order.Code]
-            : (order._isSocialOrder && order.Id ? [String(order.Id)] : []),
+            : order._isSocialOrder && order.Id
+              ? [String(order.Id)]
+              : [],
         Residual: null,
         Type: null,
         RefundOrderId: null,
@@ -1512,7 +1556,7 @@ function buildSaleOrderModelForInsertList() {
         ShowShipStatus: 'Chưa tiếp nhận',
         SaleOnlineName: order.Code || (order._isSocialOrder ? String(order.Id || '') : ''),
         PartnerShippingId: null,
-        PaymentJournalId: order._isSocialOrder ? null : (prepaidAmount > 0 ? 1 : null),
+        PaymentJournalId: order._isSocialOrder ? null : prepaidAmount > 0 ? 1 : null,
         PaymentAmount: prepaidAmount,
         SaleOrderId: null,
         SaleOrderIds: [],
@@ -1567,7 +1611,11 @@ function buildSaleOrderModelForInsertList() {
         QuantityUpdateDeposit: null,
         IsMergeCancel: null,
         IsPickUpAtShop: null,
-        DateDeposit: order._isSocialOrder ? null : (prepaidAmount > 0 ? new Date().toISOString() : null),
+        DateDeposit: order._isSocialOrder
+            ? null
+            : prepaidAmount > 0
+              ? new Date().toISOString()
+              : null,
         IsRefund: null,
         StateCode: 'None',
         ActualPaymentAmount: null,

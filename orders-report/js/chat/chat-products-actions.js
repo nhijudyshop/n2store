@@ -50,7 +50,7 @@
 
             // Find held product
             const heldIndex = orderData.Details.findIndex(
-                p => p.ProductId === productId && p.IsHeld
+                (p) => p.ProductId === productId && p.IsHeld
             );
 
             if (heldIndex === -1) {
@@ -72,13 +72,20 @@
             let fullProduct = null;
             try {
                 if (window.productSearchManager) {
-                    fullProduct = await window.productSearchManager.getFullProductDetails(productId, true);
+                    fullProduct = await window.productSearchManager.getFullProductDetails(
+                        productId,
+                        true
+                    );
                 }
                 if (!fullProduct) {
                     const headers = await window.tokenManager.getAuthHeader();
                     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Images`;
                     const resp = await API_CONFIG.smartFetch(apiUrl, {
-                        headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
                     });
                     if (resp.ok) fullProduct = await resp.json();
                 }
@@ -93,7 +100,7 @@
             let newDetails = [...(freshOrder.Details || [])];
 
             // Check if product already exists in main list → merge
-            const existingMainIndex = newDetails.findIndex(d => d.ProductId === productId);
+            const existingMainIndex = newDetails.findIndex((d) => d.ProductId === productId);
 
             if (existingMainIndex > -1) {
                 newDetails[existingMainIndex].Quantity += quantity;
@@ -102,37 +109,67 @@
                 newDetails.push({
                     ProductId: productId,
                     Quantity: quantity,
-                    Price: heldProduct.Price || (fullProduct?.PriceVariant || fullProduct?.ListPrice || 0),
+                    Price:
+                        heldProduct.Price ||
+                        fullProduct?.PriceVariant ||
+                        fullProduct?.ListPrice ||
+                        0,
                     Note: heldProduct.Note || null,
-                    UOMId: heldProduct.UOMId || (fullProduct?.UOM?.Id || 1),
+                    UOMId: heldProduct.UOMId || fullProduct?.UOM?.Id || 1,
                     Factor: 1,
-                    Priority: 0
+                    Priority: 0,
                 });
             }
 
             // Calculate totals
-            const totalAmount = newDetails.reduce((sum, d) => sum + ((d.Quantity || 0) * (d.Price || 0)), 0);
+            const totalAmount = newDetails.reduce(
+                (sum, d) => sum + (d.Quantity || 0) * (d.Price || 0),
+                0
+            );
             const totalQuantity = newDetails.reduce((sum, d) => sum + (d.Quantity || 0), 0);
 
             // PUT to API
             if (typeof updateOrderWithFullPayload === 'function') {
-                await updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             } else if (typeof window.updateOrderWithFullPayload === 'function') {
-                await window.updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await window.updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             } else {
                 throw new Error('updateOrderWithFullPayload not available');
             }
 
             // Confirm sale on Web Warehouse (subtract from warehouse + log to sales history)
             if (heldProduct.IsFromKho || heldProduct.IsFromDropped || heldProduct._khoProductCode) {
-                const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
+                const productCode =
+                    heldProduct._khoProductCode ||
+                    heldProduct.ProductCode ||
+                    heldProduct.Code ||
+                    '';
                 if (productCode) {
-                    await confirmKhoSale(orderData.Id, productCode, quantity, orderData.SessionIndex);
+                    await confirmKhoSale(
+                        orderData.Id,
+                        productCode,
+                        quantity,
+                        orderData.SessionIndex
+                    );
                 }
             }
 
             // Remove from Render held_products (replaces Firebase)
-            await removeHeldFromRender(orderData.Id, productId, heldProduct._khoProductCode || heldProduct.ProductCode);
+            await removeHeldFromRender(
+                orderData.Id,
+                productId,
+                heldProduct._khoProductCode || heldProduct.ProductCode
+            );
 
             // Invalidate cache
             if (typeof window.invalidateOrderDetailsCache === 'function') {
@@ -141,24 +178,37 @@
 
             // KPI audit log + recalculate (Render PostgreSQL)
             if (window.kpiAuditLogger) {
-                const source = heldProduct.IsFromDropped ? 'chat_from_dropped' : 'chat_confirm_held';
-                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
-                window.kpiAuditLogger.logProductAction({
-                    orderCode: orderCode,
-                    orderId: String(orderData.Id),
-                    action: 'add',
-                    productId: productId,
-                    productCode: heldProduct.ProductCode || heldProduct.Code || '',
-                    productName: heldProduct.ProductName || heldProduct.Name || '',
-                    quantity: quantity,
-                    source: source
-                }).then(() => {
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
-                        window.kpiManager.recalculateAndSaveKPI(orderCode);
-                    }
-                }).catch(err => {
-                    console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);
-                });
+                const source = heldProduct.IsFromDropped
+                    ? 'chat_from_dropped'
+                    : 'chat_confirm_held';
+                const orderCode =
+                    orderData.Code || window.OrderStore?.get(orderData.Id)?.Code || '';
+                window.kpiAuditLogger
+                    .logProductAction({
+                        orderCode: orderCode,
+                        orderId: String(orderData.Id),
+                        action: 'add',
+                        productId: productId,
+                        productCode: heldProduct.ProductCode || heldProduct.Code || '',
+                        productName: heldProduct.ProductName || heldProduct.Name || '',
+                        quantity: quantity,
+                        source: source,
+                    })
+                    .then(() => {
+                        if (
+                            window.kpiManager &&
+                            window.kpiManager.recalculateAndSaveKPI &&
+                            orderCode
+                        ) {
+                            window.kpiManager.recalculateAndSaveKPI(orderCode);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn(
+                            '[ChatProducts-Actions] KPI recalculate failed (non-blocking):',
+                            err
+                        );
+                    });
             }
 
             // Reload order data for UI
@@ -168,7 +218,6 @@
             updateMainTableRow(orderData.Id, totalAmount, totalQuantity);
 
             showSuccess('Đã xác nhận và thêm vào đơn hàng');
-
         } catch (error) {
             console.error('[ChatProducts-Actions] Confirm error:', error);
             showError('Lỗi xác nhận sản phẩm: ' + error.message);
@@ -190,9 +239,7 @@
         const orderData = window.currentChatOrderData;
         if (!orderData) return;
 
-        const heldIndex = orderData.Details.findIndex(
-            p => p.ProductId === productId && p.IsHeld
-        );
+        const heldIndex = orderData.Details.findIndex((p) => p.ProductId === productId && p.IsHeld);
 
         if (heldIndex === -1) {
             showError('Không tìm thấy sản phẩm giữ');
@@ -205,7 +252,10 @@
         // Confirm
         let confirmed = false;
         if (window.CustomPopup) {
-            confirmed = await window.CustomPopup.confirm(`Xóa "${productName}" khỏi danh sách giữ?`, 'Xác nhận xóa');
+            confirmed = await window.CustomPopup.confirm(
+                `Xóa "${productName}" khỏi danh sách giữ?`,
+                'Xác nhận xóa'
+            );
         } else {
             confirmed = confirm(`Xóa "${productName}"?`);
         }
@@ -213,13 +263,18 @@
 
         try {
             // Release web-warehouse hold (returns available_qty) + return to warehouse
-            const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
+            const productCode =
+                heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
             if (heldProduct.IsFromKho || heldProduct.IsFromDropped) {
                 // Product came from kho — just release the hold (available_qty auto-restores)
                 // No need to call addToDroppedProducts since kho tracks available_qty from held_products
             } else if (typeof window.addToDroppedProducts === 'function') {
                 // Product came from elsewhere — return to kho via batch
-                await window.addToDroppedProducts(heldProduct, heldProduct.Quantity, 'returned_from_held');
+                await window.addToDroppedProducts(
+                    heldProduct,
+                    heldProduct.Quantity,
+                    'returned_from_held'
+                );
             }
 
             // Remove from local
@@ -230,15 +285,22 @@
 
             // KPI Audit Log — ghi nhận xóa SP giữ
             if (window.kpiAuditLogger) {
-                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
-                window.kpiAuditLogger.logProductAction({
-                    orderCode, orderId: String(orderData.Id),
-                    action: 'remove', productId,
-                    productCode: heldProduct.ProductCode || heldProduct.Code || '',
-                    productName: heldProduct.ProductName || heldProduct.Name || '',
-                    quantity: heldProduct.Quantity || 1,
-                    source: heldProduct.IsFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'
-                }).catch(() => {});
+                const orderCode =
+                    orderData.Code || window.OrderStore?.get(orderData.Id)?.Code || '';
+                window.kpiAuditLogger
+                    .logProductAction({
+                        orderCode,
+                        orderId: String(orderData.Id),
+                        action: 'remove',
+                        productId,
+                        productCode: heldProduct.ProductCode || heldProduct.Code || '',
+                        productName: heldProduct.ProductName || heldProduct.Name || '',
+                        quantity: heldProduct.Quantity || 1,
+                        source: heldProduct.IsFromDropped
+                            ? 'chat_from_dropped'
+                            : 'chat_confirm_held',
+                    })
+                    .catch(() => {});
             }
 
             // Re-render
@@ -250,7 +312,6 @@
             }
 
             showSuccess('Đã xóa sản phẩm giữ');
-
         } catch (error) {
             console.error('[ChatProducts-Actions] Delete error:', error);
             showError('Lỗi xóa sản phẩm: ' + error.message);
@@ -270,7 +331,7 @@
         const orderData = window.currentChatOrderData;
         if (!orderData) return;
 
-        const held = orderData.Details.find(p => p.ProductId === productId && p.IsHeld);
+        const held = orderData.Details.find((p) => p.ProductId === productId && p.IsHeld);
         if (!held) return;
 
         let newQty;
@@ -286,16 +347,19 @@
         // KPI Audit Log — ghi nhận thay đổi qty SP giữ
         const qtyDelta = newQty - oldQty;
         if (window.kpiAuditLogger && qtyDelta !== 0) {
-            const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
-            window.kpiAuditLogger.logProductAction({
-                orderCode, orderId: String(orderData.Id),
-                action: qtyDelta > 0 ? 'add' : 'remove',
-                productId,
-                productCode: held.ProductCode || held.Code || '',
-                productName: held.ProductName || held.Name || '',
-                quantity: Math.abs(qtyDelta),
-                source: 'chat_confirm_held'
-            }).catch(() => {});
+            const orderCode = orderData.Code || window.OrderStore?.get(orderData.Id)?.Code || '';
+            window.kpiAuditLogger
+                .logProductAction({
+                    orderCode,
+                    orderId: String(orderData.Id),
+                    action: qtyDelta > 0 ? 'add' : 'remove',
+                    productId,
+                    productCode: held.ProductCode || held.Code || '',
+                    productName: held.ProductName || held.Name || '',
+                    quantity: Math.abs(qtyDelta),
+                    source: 'chat_confirm_held',
+                })
+                .catch(() => {});
         }
 
         // Sync to Render
@@ -320,11 +384,14 @@
             if (!userId) return;
 
             const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}/quantity`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity }),
-            });
+            await fetch(
+                `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}/quantity`,
+                {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ quantity }),
+                }
+            );
         } catch (e) {
             console.error('[ChatProducts-Actions] Held quantity sync error:', e);
         }
@@ -352,7 +419,7 @@
             }
 
             const mainProduct = orderData.Details.find(
-                p => p.ProductId === productId && !p.IsHeld
+                (p) => p.ProductId === productId && !p.IsHeld
             );
             if (!mainProduct) {
                 showError('Không tìm thấy sản phẩm');
@@ -363,9 +430,10 @@
             const currentQty = mainProduct.Quantity || 0;
 
             // Confirm
-            const msg = currentQty <= 1
-                ? `Giảm "${productName}" về 0 sẽ trả lại kho. Tiếp tục?`
-                : `Giảm số lượng "${productName}" từ ${currentQty} xuống ${currentQty - 1}?`;
+            const msg =
+                currentQty <= 1
+                    ? `Giảm "${productName}" về 0 sẽ trả lại kho. Tiếp tục?`
+                    : `Giảm số lượng "${productName}" từ ${currentQty} xuống ${currentQty - 1}?`;
 
             let confirmed = false;
             if (window.CustomPopup) {
@@ -383,7 +451,7 @@
             }
 
             let newDetails = [...(freshOrder.Details || [])];
-            const freshIndex = newDetails.findIndex(d => d.ProductId === productId);
+            const freshIndex = newDetails.findIndex((d) => d.ProductId === productId);
 
             if (freshIndex === -1) {
                 showError('Sản phẩm không còn trong đơn hàng');
@@ -401,7 +469,8 @@
                 if (typeof window.addToDroppedProducts === 'function') {
                     const userName = getUserDisplayName();
                     const orderSTT = orderData.SessionIndex || '';
-                    const customerName = orderData.Partner?.Name || window.currentCustomerName || '';
+                    const customerName =
+                        orderData.Partner?.Name || window.currentCustomerName || '';
 
                     await window.addToDroppedProducts(mainProduct, 1, 'removed', null, {
                         removedBy: userName,
@@ -417,14 +486,27 @@
             }
 
             // Calculate totals
-            const totalAmount = newDetails.reduce((sum, d) => sum + ((d.Quantity || 0) * (d.Price || 0)), 0);
+            const totalAmount = newDetails.reduce(
+                (sum, d) => sum + (d.Quantity || 0) * (d.Price || 0),
+                0
+            );
             const totalQuantity = newDetails.reduce((sum, d) => sum + (d.Quantity || 0), 0);
 
             // PUT to API
             if (typeof updateOrderWithFullPayload === 'function') {
-                await updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             } else if (typeof window.updateOrderWithFullPayload === 'function') {
-                await window.updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await window.updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             }
 
             // Invalidate cache
@@ -434,23 +516,34 @@
 
             // KPI audit log + recalculate (Render PostgreSQL)
             if (window.kpiAuditLogger) {
-                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
-                window.kpiAuditLogger.logProductAction({
-                    orderCode: orderCode,
-                    orderId: String(orderData.Id),
-                    action: 'remove',
-                    productId: productId,
-                    productCode: mainProduct.ProductCode || mainProduct.Code || '',
-                    productName: mainProduct.ProductName || mainProduct.Name || '',
-                    quantity: 1,
-                    source: 'chat_decrease'
-                }).then(() => {
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
-                        window.kpiManager.recalculateAndSaveKPI(orderCode);
-                    }
-                }).catch(err => {
-                    console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);
-                });
+                const orderCode =
+                    orderData.Code || window.OrderStore?.get(orderData.Id)?.Code || '';
+                window.kpiAuditLogger
+                    .logProductAction({
+                        orderCode: orderCode,
+                        orderId: String(orderData.Id),
+                        action: 'remove',
+                        productId: productId,
+                        productCode: mainProduct.ProductCode || mainProduct.Code || '',
+                        productName: mainProduct.ProductName || mainProduct.Name || '',
+                        quantity: 1,
+                        source: 'chat_decrease',
+                    })
+                    .then(() => {
+                        if (
+                            window.kpiManager &&
+                            window.kpiManager.recalculateAndSaveKPI &&
+                            orderCode
+                        ) {
+                            window.kpiManager.recalculateAndSaveKPI(orderCode);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn(
+                            '[ChatProducts-Actions] KPI recalculate failed (non-blocking):',
+                            err
+                        );
+                    });
             }
 
             // Reload order data
@@ -460,7 +553,6 @@
             updateMainTableRow(orderData.Id, totalAmount, totalQuantity);
 
             showSuccess(freshQty <= 1 ? 'Đã trả sản phẩm lại kho' : 'Đã giảm số lượng');
-
         } catch (error) {
             console.error('[ChatProducts-Actions] Decrease error:', error);
             showError('Lỗi giảm số lượng: ' + error.message);
@@ -483,7 +575,7 @@
         if (!orderData) return;
 
         // Find product
-        const product = orderData.Details.find(p => p.ProductId === productId);
+        const product = orderData.Details.find((p) => p.ProductId === productId);
         if (!product) return;
 
         // Same note → skip
@@ -501,18 +593,31 @@
             if (!freshOrder) return;
 
             let newDetails = [...(freshOrder.Details || [])];
-            const idx = newDetails.findIndex(d => d.ProductId === productId);
+            const idx = newDetails.findIndex((d) => d.ProductId === productId);
             if (idx === -1) return;
 
             newDetails[idx].Note = newNote;
 
-            const totalAmount = newDetails.reduce((sum, d) => sum + ((d.Quantity || 0) * (d.Price || 0)), 0);
+            const totalAmount = newDetails.reduce(
+                (sum, d) => sum + (d.Quantity || 0) * (d.Price || 0),
+                0
+            );
             const totalQuantity = newDetails.reduce((sum, d) => sum + (d.Quantity || 0), 0);
 
             if (typeof updateOrderWithFullPayload === 'function') {
-                await updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             } else if (typeof window.updateOrderWithFullPayload === 'function') {
-                await window.updateOrderWithFullPayload(freshOrder, newDetails, totalAmount, totalQuantity);
+                await window.updateOrderWithFullPayload(
+                    freshOrder,
+                    newDetails,
+                    totalAmount,
+                    totalQuantity
+                );
             }
 
             // Invalidate cache
@@ -522,7 +627,6 @@
 
             // Update local
             product.Note = newNote;
-
         } catch (error) {
             console.error('[ChatProducts-Actions] Note update error:', error);
         }
@@ -540,7 +644,11 @@
             const headers = await window.tokenManager.getAuthHeader();
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
             const response = await API_CONFIG.smartFetch(apiUrl, {
-                headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return await response.json();
@@ -570,15 +678,21 @@
 
             // Try web-warehouse hold endpoint (product_code based)
             if (productCode) {
-                await fetch(`${WAREHOUSE_API}/hold/${orderId}/${encodeURIComponent(productCode)}/${userId}`, {
-                    method: 'DELETE',
-                }).catch(() => {});
+                await fetch(
+                    `${WAREHOUSE_API}/hold/${orderId}/${encodeURIComponent(productCode)}/${userId}`,
+                    {
+                        method: 'DELETE',
+                    }
+                ).catch(() => {});
             }
 
             // Also try realtime held-products (product_id based, backward compat)
-            await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`, {
-                method: 'DELETE',
-            }).catch(() => {});
+            await fetch(
+                `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
+                {
+                    method: 'DELETE',
+                }
+            ).catch(() => {});
         } catch (e) {
             console.error('[ChatProducts-Actions] Render remove held error:', e);
         }
@@ -656,5 +770,4 @@
             console.error('[ChatProducts-Actions]', message);
         }
     }
-
 })();

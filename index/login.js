@@ -3,12 +3,13 @@
 // LOGIN SYSTEM - Render API Version
 // =====================================================
 
-const API_BASE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/users'
-    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
+const API_BASE_URL =
+    window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/users'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
 const LOGIN_API_URL = `${API_BASE_URL}/login`;
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener('DOMContentLoaded', function () {
     const AUTH_CONFIG = {
         SESSION_DURATION: 8 * 60 * 60 * 1000,
         REMEMBER_DURATION: 30 * 24 * 60 * 60 * 1000,
@@ -16,12 +17,12 @@ document.addEventListener("DOMContentLoaded", function () {
         LOCKOUT_DURATION: 5 * 60 * 1000,
     };
 
-    const usernameInput = document.getElementById("username");
-    const passwordInput = document.getElementById("password");
-    const rememberMeCheckbox = document.getElementById("rememberMe");
-    const loginButton = document.getElementById("loginButton");
-    const errorMessage = document.getElementById("errorMessage");
-    const successMessage = document.getElementById("successMessage");
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    const loginButton = document.getElementById('loginButton');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
 
     let loginAttempts = 0;
     let lastAttemptTime = 0;
@@ -42,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
 
         if (loginButton) {
-            loginButton.classList.add("loading");
+            loginButton.classList.add('loading');
             loginButton.disabled = true;
         }
 
@@ -50,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const response = await fetch(LOGIN_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, rememberMe })
+                body: JSON.stringify({ username, password, rememberMe }),
             });
 
             const data = await response.json();
@@ -71,10 +72,12 @@ document.addEventListener("DOMContentLoaded", function () {
             loginAttempts = 0;
             const user = data.user;
             const now = Date.now();
-            const duration = rememberMe ? AUTH_CONFIG.REMEMBER_DURATION : AUTH_CONFIG.SESSION_DURATION;
+            const duration = rememberMe
+                ? AUTH_CONFIG.REMEMBER_DURATION
+                : AUTH_CONFIG.SESSION_DURATION;
 
             const authData = {
-                isLoggedIn: "true",
+                isLoggedIn: 'true',
                 username: user.username,
                 displayName: user.displayName,
                 token: data.token,
@@ -95,52 +98,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (rememberMe) {
                 try {
-                    localStorage.setItem("loginindex_auth", authDataString);
+                    localStorage.setItem('loginindex_auth', authDataString);
                 } catch (quotaErr) {
                     // Emergency cleanup if localStorage is full
                     console.warn('[Login] localStorage quota exceeded, cleaning up...');
-                    ['socialOrders', 'socialOrderTags', 'standard_price_cache', 'product_excel_cache']
-                        .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-                    Object.keys(localStorage).filter(k => k.startsWith('firebase:')).forEach(k => {
-                        try { localStorage.removeItem(k); } catch (_) {}
+                    [
+                        'socialOrders',
+                        'socialOrderTags',
+                        'standard_price_cache',
+                        'product_excel_cache',
+                    ].forEach((k) => {
+                        try {
+                            localStorage.removeItem(k);
+                        } catch (_) {}
                     });
-                    localStorage.setItem("loginindex_auth", authDataString);
+                    Object.keys(localStorage)
+                        .filter((k) => k.startsWith('firebase:'))
+                        .forEach((k) => {
+                            try {
+                                localStorage.removeItem(k);
+                            } catch (_) {}
+                        });
+                    localStorage.setItem('loginindex_auth', authDataString);
                 }
-                localStorage.setItem("remember_login_preference", "true");
-                localStorage.setItem("isLoggedIn", "true");
-                localStorage.setItem("userType", authData.userType);
-                localStorage.setItem("checkLogin", authData.checkLogin);
-                localStorage.setItem("displayName", user.displayName || '');
-                sessionStorage.removeItem("loginindex_auth");
+                localStorage.setItem('remember_login_preference', 'true');
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userType', authData.userType);
+                localStorage.setItem('checkLogin', authData.checkLogin);
+                localStorage.setItem('displayName', user.displayName || '');
+                sessionStorage.removeItem('loginindex_auth');
             } else {
-                sessionStorage.setItem("loginindex_auth", authDataString);
-                localStorage.removeItem("loginindex_auth");
-                localStorage.removeItem("remember_login_preference");
-                localStorage.removeItem("isLoggedIn");
-                localStorage.removeItem("userType");
-                localStorage.removeItem("checkLogin");
-                localStorage.removeItem("displayName");
+                sessionStorage.setItem('loginindex_auth', authDataString);
+                localStorage.removeItem('loginindex_auth');
+                localStorage.removeItem('remember_login_preference');
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('userType');
+                localStorage.removeItem('checkLogin');
+                localStorage.removeItem('displayName');
             }
 
-            const durationText = rememberMe ? "30 ngay" : "phien lam viec hien tai";
-            showSuccess(`Dang nhap thanh cong! Chao mung ${user.displayName}. Se giu dang nhap trong ${durationText}.`);
+            const durationText = rememberMe ? '30 ngay' : 'phien lam viec hien tai';
+            showSuccess(
+                `Dang nhap thanh cong! Chao mung ${user.displayName}. Se giu dang nhap trong ${durationText}.`
+            );
 
             // Clear credential fields before navigation to suppress browser "save password?" prompt
-            if (passwordInput) passwordInput.value = "";
-            if (usernameInput) usernameInput.value = "";
-            const loginForm = document.getElementById("loginForm");
+            if (passwordInput) passwordInput.value = '';
+            if (usernameInput) usernameInput.value = '';
+            const loginForm = document.getElementById('loginForm');
             if (loginForm) loginForm.reset();
 
             setTimeout(() => {
                 redirectToMainApp();
             }, 1500);
-
         } catch (error) {
-            console.error("Authentication error:", error);
-            showError("Khong the ket noi server. Kiem tra ket noi mang.");
+            console.error('Authentication error:', error);
+            showError('Khong the ket noi server. Kiem tra ket noi mang.');
         } finally {
             if (loginButton) {
-                loginButton.classList.remove("loading");
+                loginButton.classList.remove('loading');
                 loginButton.disabled = false;
             }
         }
@@ -161,12 +177,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function checkExistingLogin() {
-        let authData = localStorage.getItem("loginindex_auth");
+        let authData = localStorage.getItem('loginindex_auth');
         let isFromLocalStorage = true;
-        let isRemembered = localStorage.getItem("remember_login_preference") === "true";
+        let isRemembered = localStorage.getItem('remember_login_preference') === 'true';
 
         if (!authData) {
-            authData = sessionStorage.getItem("loginindex_auth");
+            authData = sessionStorage.getItem('loginindex_auth');
             isFromLocalStorage = false;
             isRemembered = false;
         }
@@ -176,9 +192,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 const auth = JSON.parse(authData);
 
                 if (isValidSession(auth, isFromLocalStorage)) {
-                    const sessionTypeText = isRemembered ? "dang nhap dai han" : "phien lam viec";
+                    const sessionTypeText = isRemembered ? 'dang nhap dai han' : 'phien lam viec';
                     showSuccess(`Chao mung tro lai, ${auth.displayName} (${sessionTypeText})`);
-                    setTimeout(() => { redirectToMainApp(); }, 1000);
+                    setTimeout(() => {
+                        redirectToMainApp();
+                    }, 1000);
                     return true;
                 } else {
                     clearAllAuthData();
@@ -188,8 +206,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        const legacyLogin = localStorage.getItem("isLoggedIn");
-        if (legacyLogin === "true") {
+        const legacyLogin = localStorage.getItem('isLoggedIn');
+        if (legacyLogin === 'true') {
             clearAllAuthData();
         }
 
@@ -197,14 +215,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function clearAllAuthData() {
-        localStorage.removeItem("loginindex_auth");
-        localStorage.removeItem("remember_login_preference");
-        sessionStorage.removeItem("loginindex_auth");
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("userType");
-        localStorage.removeItem("checkLogin");
-        localStorage.removeItem("displayName");
-        sessionStorage.removeItem("justLoggedIn");
+        localStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('remember_login_preference');
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('checkLogin');
+        localStorage.removeItem('displayName');
+        sessionStorage.removeItem('justLoggedIn');
     }
 
     function isRateLimited() {
@@ -218,18 +236,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function validateInputs() {
         if (!usernameInput || !passwordInput) {
-            showError("Loi he thong: Khong tim thay truong nhap lieu");
+            showError('Loi he thong: Khong tim thay truong nhap lieu');
             return false;
         }
 
         if (!usernameInput.value.trim()) {
-            showError("Vui long nhap ten dang nhap");
+            showError('Vui long nhap ten dang nhap');
             usernameInput.focus();
             return false;
         }
 
         if (!passwordInput.value.trim()) {
-            showError("Vui long nhap mat khau");
+            showError('Vui long nhap mat khau');
             passwordInput.focus();
             return false;
         }
@@ -242,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
         lastAttemptTime = Date.now();
 
         if (passwordInput) {
-            passwordInput.value = "";
+            passwordInput.value = '';
             passwordInput.focus();
         }
 
@@ -250,17 +268,19 @@ document.addEventListener("DOMContentLoaded", function () {
         if (remainingAttempts > 0) {
             showError(`Thong tin dang nhap khong chinh xac. Con lai ${remainingAttempts} lan thu.`);
         } else {
-            showError(`Qua nhieu lan dang nhap sai. Tai khoan bi khoa ${AUTH_CONFIG.LOCKOUT_DURATION / 60000} phut.`);
+            showError(
+                `Qua nhieu lan dang nhap sai. Tai khoan bi khoa ${AUTH_CONFIG.LOCKOUT_DURATION / 60000} phut.`
+            );
         }
     }
 
     function showError(message) {
         if (errorMessage) {
             errorMessage.textContent = message;
-            errorMessage.classList.add("show");
+            errorMessage.classList.add('show');
             setTimeout(() => {
-                if (errorMessage.classList.contains("show")) {
-                    errorMessage.classList.remove("show");
+                if (errorMessage.classList.contains('show')) {
+                    errorMessage.classList.remove('show');
                 }
             }, 5000);
         }
@@ -269,23 +289,23 @@ document.addEventListener("DOMContentLoaded", function () {
     function showSuccess(message) {
         if (successMessage) {
             successMessage.textContent = message;
-            successMessage.classList.add("show");
+            successMessage.classList.add('show');
             setTimeout(() => {
-                if (successMessage.classList.contains("show")) {
-                    successMessage.classList.remove("show");
+                if (successMessage.classList.contains('show')) {
+                    successMessage.classList.remove('show');
                 }
             }, 3000);
         }
     }
 
     function redirectToMainApp() {
-        sessionStorage.setItem("justLoggedIn", "true");
+        sessionStorage.setItem('justLoggedIn', 'true');
         const timestamp = Date.now();
         window.location.href = `./quy-trinh/index.html?t=${timestamp}`;
     }
 
     function handleKeyPress(e) {
-        if (e.key === "Enter") {
+        if (e.key === 'Enter') {
             e.preventDefault();
             handleLogin();
         }
@@ -293,21 +313,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function setupEventListeners() {
         if (loginButton) {
-            loginButton.addEventListener("click", function (e) {
+            loginButton.addEventListener('click', function (e) {
                 e.preventDefault();
                 handleLogin();
             });
         }
 
-        if (document.getElementById("loginForm")) {
-            document.getElementById("loginForm").addEventListener("submit", function (e) {
+        if (document.getElementById('loginForm')) {
+            document.getElementById('loginForm').addEventListener('submit', function (e) {
                 e.preventDefault();
                 handleLogin();
             });
         }
 
-        if (usernameInput) usernameInput.addEventListener("keypress", handleKeyPress);
-        if (passwordInput) passwordInput.addEventListener("keypress", handleKeyPress);
+        if (usernameInput) usernameInput.addEventListener('keypress', handleKeyPress);
+        if (passwordInput) passwordInput.addEventListener('keypress', handleKeyPress);
     }
 
     // =====================================================
@@ -315,7 +335,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // =====================================================
 
     function show2FAForm(tempToken, rememberMe) {
-        const loginForm = document.getElementById("loginForm");
+        const loginForm = document.getElementById('loginForm');
         if (!loginForm) return;
 
         // Store original form content for back button
@@ -365,7 +385,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     digits[index + 1].focus();
                 }
                 // Auto-submit when all 6 digits entered
-                const code = Array.from(digits).map(d => d.value).join('');
+                const code = Array.from(digits)
+                    .map((d) => d.value)
+                    .join('');
                 if (code.length === 6) {
                     verify2FA(tempToken, code, rememberMe);
                 }
@@ -375,10 +397,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     digits[index - 1].focus();
                 }
             });
-            input.addEventListener('focus', function() {
+            input.addEventListener('focus', function () {
                 this.style.borderColor = '#6366f1';
             });
-            input.addEventListener('blur', function() {
+            input.addEventListener('blur', function () {
                 this.style.borderColor = '#e5e7eb';
             });
             // Handle paste
@@ -386,7 +408,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 e.preventDefault();
                 const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '');
                 if (pasted.length >= 6) {
-                    digits.forEach((d, i) => { d.value = pasted[i] || ''; });
+                    digits.forEach((d, i) => {
+                        d.value = pasted[i] || '';
+                    });
                     verify2FA(tempToken, pasted.substring(0, 6), rememberMe);
                 }
             });
@@ -395,7 +419,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Verify button
         document.getElementById('verify2FABtn').addEventListener('click', () => {
-            const code = Array.from(digits).map(d => d.value).join('');
+            const code = Array.from(digits)
+                .map((d) => d.value)
+                .join('');
             if (code.length !== 6) {
                 showError('Vui lòng nhập đủ 6 chữ số');
                 return;
@@ -429,7 +455,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const response = await fetch(`${API_BASE_URL}/login/verify-totp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tempToken, totpCode })
+                body: JSON.stringify({ tempToken, totpCode }),
             });
 
             const data = await response.json();
@@ -437,7 +463,9 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!response.ok || !data.success) {
                 showError(data.error || 'Mã xác thực không hợp lệ');
                 // Clear inputs
-                document.querySelectorAll('.totp-digit').forEach(d => { d.value = ''; });
+                document.querySelectorAll('.totp-digit').forEach((d) => {
+                    d.value = '';
+                });
                 document.querySelector('.totp-digit')?.focus();
                 return;
             }
@@ -448,7 +476,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const AUTH_CONFIG_DURATION = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
 
             const authData = {
-                isLoggedIn: "true",
+                isLoggedIn: 'true',
                 username: user.username,
                 displayName: user.displayName,
                 token: data.token,
@@ -468,23 +496,24 @@ document.addEventListener("DOMContentLoaded", function () {
             const authDataString = JSON.stringify(authData);
 
             if (rememberMe) {
-                localStorage.setItem("loginindex_auth", authDataString);
-                localStorage.setItem("remember_login_preference", "true");
-                localStorage.setItem("isLoggedIn", "true");
-                localStorage.setItem("userType", authData.userType);
-                localStorage.setItem("checkLogin", authData.checkLogin);
-                localStorage.setItem("displayName", user.displayName || '');
-                sessionStorage.removeItem("loginindex_auth");
+                localStorage.setItem('loginindex_auth', authDataString);
+                localStorage.setItem('remember_login_preference', 'true');
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userType', authData.userType);
+                localStorage.setItem('checkLogin', authData.checkLogin);
+                localStorage.setItem('displayName', user.displayName || '');
+                sessionStorage.removeItem('loginindex_auth');
             } else {
-                sessionStorage.setItem("loginindex_auth", authDataString);
-                localStorage.removeItem("loginindex_auth");
-                localStorage.removeItem("remember_login_preference");
-                localStorage.removeItem("displayName");
+                sessionStorage.setItem('loginindex_auth', authDataString);
+                localStorage.removeItem('loginindex_auth');
+                localStorage.removeItem('remember_login_preference');
+                localStorage.removeItem('displayName');
             }
 
             showSuccess(`Xác thực thành công! Chào mừng ${user.displayName}`);
-            setTimeout(() => { redirectToMainApp(); }, 1500);
-
+            setTimeout(() => {
+                redirectToMainApp();
+            }, 1500);
         } catch (error) {
             console.error('2FA verify error:', error);
             showError('Không thể kết nối server');
@@ -497,7 +526,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function initialize() {
-        console.log("Initializing login system (Render API)...");
+        console.log('Initializing login system (Render API)...');
         setupEventListeners();
 
         setTimeout(() => {

@@ -11,10 +11,11 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
-    const WORKER_URL = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // ===== Modal Management =====
 
@@ -23,7 +24,10 @@
         if (!modal) return;
         modal.style.display = 'flex';
         const input = document.getElementById('clm-search-input');
-        if (input) { input.value = ''; input.focus(); }
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
         document.getElementById('clm-results')?.replaceChildren();
         document.getElementById('clm-detail')?.replaceChildren();
         document.getElementById('clm-detail-panel').style.display = 'none';
@@ -75,7 +79,7 @@
                 const resp = await fetch(`${WORKER_URL}/api/v2/customers/search`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query, limit: 10 })
+                    body: JSON.stringify({ query, limit: 10 }),
                 });
                 const data = await resp.json();
                 if (data.success && data.data?.length) {
@@ -105,8 +109,10 @@
                         const cust = conv.customers?.[0];
                         if (!cust) continue;
                         // Avoid duplicates (same fb_id already in DB results)
-                        const isDupe = results.some(r =>
-                            r.fb_id === cust.fb_id || r.phone === conv.recent_phone_numbers?.[0]?.phone_number
+                        const isDupe = results.some(
+                            (r) =>
+                                r.fb_id === cust.fb_id ||
+                                r.phone === conv.recent_phone_numbers?.[0]?.phone_number
                         );
                         if (!isDupe) {
                             results.push({
@@ -121,7 +127,7 @@
                                 snippet: conv.snippet,
                                 updated_at: conv.updated_at,
                                 tags: conv.tags,
-                                _source: 'pancake'
+                                _source: 'pancake',
                             });
                         }
                     }
@@ -147,14 +153,20 @@
             item.className = 'clm-result-item';
             item.onclick = () => showCustomerDetail(r);
 
-            const sourceBadge = r._source === 'db'
-                ? '<span class="clm-badge clm-badge-db">DB</span>'
-                : '<span class="clm-badge clm-badge-pancake">Pancake</span>';
+            const sourceBadge =
+                r._source === 'db'
+                    ? '<span class="clm-badge clm-badge-db">DB</span>'
+                    : '<span class="clm-badge clm-badge-pancake">Pancake</span>';
 
-            const phone = r.phone ? `<span class="clm-result-phone">${escapeHtml(r.phone)}</span>` : '';
-            const tags = (r.tags || []).map(t =>
-                `<span class="clm-tag" style="background:${t.color || '#666'}">${escapeHtml(t.text || '')}</span>`
-            ).join('');
+            const phone = r.phone
+                ? `<span class="clm-result-phone">${escapeHtml(r.phone)}</span>`
+                : '';
+            const tags = (r.tags || [])
+                .map(
+                    (t) =>
+                        `<span class="clm-tag" style="background:${t.color || '#666'}">${escapeHtml(t.text || '')}</span>`
+                )
+                .join('');
 
             item.innerHTML = `
                 <div class="clm-result-main">
@@ -224,7 +236,8 @@
 
         // Pancake enrichment
         const pcust = pancakeData?.customers?.[0];
-        const phone = c.phone || customer.phone || pcust?.recent_phone_numbers?.[0]?.phone_number || '';
+        const phone =
+            c.phone || customer.phone || pcust?.recent_phone_numbers?.[0]?.phone_number || '';
         const name = c.name || customer.name || pcust?.name || 'N/A';
         const fbId = c.fb_id || customer.fb_id || pcust?.fb_id || '';
         const globalId = c.global_id || pancakeData?.global_id || '';
@@ -269,7 +282,8 @@
 
         // Status & tier
         if (c.status && c.status !== 'Bình thường') {
-            const statusClass = c.status === 'Bom hàng' || c.status === 'Nguy hiểm' ? 'ci-text-danger' : '';
+            const statusClass =
+                c.status === 'Bom hàng' || c.status === 'Nguy hiểm' ? 'ci-text-danger' : '';
             rows.push(`<div class="ci-row${statusClass ? ' ci-row-warn' : ''}">
                 <span class="ci-label"><i data-lucide="shield-alert" class="ci-icon"></i>Trạng thái</span>
                 <span class="ci-value ${statusClass}">${escapeHtml(c.status)}</span>
@@ -291,23 +305,34 @@
         }
 
         // Notes section
-        const allNotes = [...notes, ...pancakeNotes.map(n => ({
-            content: n.message || n.content || JSON.stringify(n),
-            created_by: n.created_by?.fb_name || 'Pancake',
-            created_at: n.created_at ? new Date(typeof n.created_at === 'number' ? n.created_at : n.created_at).toLocaleString('vi-VN') : '',
-            _source: 'pancake'
-        }))];
+        const allNotes = [
+            ...notes,
+            ...pancakeNotes.map((n) => ({
+                content: n.message || n.content || JSON.stringify(n),
+                created_by: n.created_by?.fb_name || 'Pancake',
+                created_at: n.created_at
+                    ? new Date(
+                          typeof n.created_at === 'number' ? n.created_at : n.created_at
+                      ).toLocaleString('vi-VN')
+                    : '',
+                _source: 'pancake',
+            })),
+        ];
 
         let notesHtml = '';
         if (allNotes.length > 0) {
             notesHtml = `<div class="clm-section">
                 <div class="clm-section-title"><i data-lucide="sticky-note"></i> Ghi chú (${allNotes.length})</div>
-                ${allNotes.map(n => `
+                ${allNotes
+                    .map(
+                        (n) => `
                     <div class="clm-note ${n._source === 'pancake' ? 'clm-note-pancake' : ''}">
                         <div class="clm-note-content">${escapeHtml(typeof n.content === 'string' ? n.content : JSON.stringify(n.content))}</div>
                         <div class="clm-note-meta">${escapeHtml(n.created_by || '')} ${n.created_at ? '· ' + n.created_at : ''}</div>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>`;
         }
 
@@ -316,17 +341,23 @@
         if (activities.length > 0) {
             activitiesHtml = `<div class="clm-section">
                 <div class="clm-section-title"><i data-lucide="activity"></i> Hoạt động gần đây</div>
-                ${activities.slice(0, 10).map(a => `
+                ${activities
+                    .slice(0, 10)
+                    .map(
+                        (a) => `
                     <div class="clm-activity">
                         <div class="clm-activity-title">${escapeHtml(a.title || '')}</div>
                         <div class="clm-activity-meta">${a.created_by || ''} · ${a.created_at ? new Date(a.created_at).toLocaleString('vi-VN') : ''}</div>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>`;
         }
 
         // Add note form
-        const addNoteHtml = phone ? `<div class="clm-section">
+        const addNoteHtml = phone
+            ? `<div class="clm-section">
             <div class="clm-section-title"><i data-lucide="plus-circle"></i> Thêm ghi chú</div>
             <div class="clm-add-note">
                 <input type="text" id="clm-note-input" class="clm-note-input" placeholder="Nhập ghi chú..." />
@@ -334,7 +365,8 @@
                     <i data-lucide="send"></i>
                 </button>
             </div>
-        </div>` : '';
+        </div>`
+            : '';
 
         container.innerHTML = `
             <div class="ci-header">
@@ -352,7 +384,7 @@
 
     // ===== Add Note =====
 
-    window._clmAddNote = async function(phone) {
+    window._clmAddNote = async function (phone) {
         const input = document.getElementById('clm-note-input');
         if (!input || !input.value.trim()) return;
 
@@ -363,7 +395,7 @@
             const resp = await fetch(`${WORKER_URL}/api/v2/customers/${phone}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content, created_by: 'inbox-lookup' })
+                body: JSON.stringify({ content, created_by: 'inbox-lookup' }),
             });
             const data = await resp.json();
             if (data.success) {
@@ -389,7 +421,12 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function formatMoney(n) {
@@ -428,5 +465,4 @@
     window.openCustomerLookupModal = openCustomerLookupModal;
     window.closeCustomerLookupModal = closeCustomerLookupModal;
     window._clmBackToResults = showBackToResults;
-
 })();

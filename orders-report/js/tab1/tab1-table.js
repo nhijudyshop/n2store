@@ -32,21 +32,21 @@ function updateOrderInTable(orderId, updatedOrderData) {
     // 2. Cập nhật trong allData (backward compatibility)
     // OrderStore và allData share cùng object references, nên update 1 sẽ update cả 2
     // Nhưng vẫn giữ logic cũ để đảm bảo an toàn
-    const indexInAll = allData.findIndex(order => order.Id === orderId);
+    const indexInAll = allData.findIndex((order) => order.Id === orderId);
     if (indexInAll !== -1) {
         allData[indexInAll] = { ...allData[indexInAll], ...cleanedData };
         console.log('[UPDATE] Updated in allData at index:', indexInAll);
     }
 
     // 3. Cập nhật trong filteredData
-    const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
+    const indexInFiltered = filteredData.findIndex((order) => order.Id === orderId);
     if (indexInFiltered !== -1) {
         filteredData[indexInFiltered] = { ...filteredData[indexInFiltered], ...cleanedData };
         console.log('[UPDATE] Updated in filteredData at index:', indexInFiltered);
     }
 
     // 4. Cập nhật trong displayedData
-    const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
+    const indexInDisplayed = displayedData.findIndex((order) => order.Id === orderId);
     if (indexInDisplayed !== -1) {
         displayedData[indexInDisplayed] = { ...displayedData[indexInDisplayed], ...cleanedData };
         console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
@@ -59,7 +59,7 @@ function updateOrderInTable(orderId, updatedOrderData) {
 
     if (isTagsOnlyUpdate) {
         // Find order to get Code for parseOrderTags - O(1) via OrderStore
-        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+        const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
         if (order) {
             updateRowTagsOnly(orderId, cleanedData.Tags, order.Code);
             console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
@@ -99,7 +99,7 @@ function updateRowTagsOnly(orderId, tagsJson, orderCode) {
     const _order = window.OrderStore?.get?.(orderId);
     const tagsHTML = _buildGioTrongBadge(_order) + parseOrderTags(tagsJson, orderId, orderCode);
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
         // Tìm tag cell
         const tagCell = row.querySelector('td[data-column="tag"]');
         if (!tagCell) return;
@@ -148,11 +148,11 @@ function applySorting() {
     if (!currentSortColumn || !currentSortDirection) return;
 
     const sortableColumns = {
-        'phone': { field: 'Telephone', type: 'string' },
-        'address': { field: 'Address', type: 'string' },
-        'debt': { field: null, type: 'debt' }, // Special: get from cache
-        'total': { field: 'TotalAmount', type: 'number' },
-        'quantity': { field: 'TotalQuantity', type: 'number' }
+        phone: { field: 'Telephone', type: 'string' },
+        address: { field: 'Address', type: 'string' },
+        debt: { field: null, type: 'debt' }, // Special: get from cache
+        total: { field: 'TotalAmount', type: 'number' },
+        quantity: { field: 'TotalQuantity', type: 'number' },
     };
 
     const config = sortableColumns[currentSortColumn];
@@ -243,11 +243,11 @@ function handleSortClick(column) {
 function updateSortIcons() {
     const sortableColumns = ['phone', 'address', 'debt', 'total', 'quantity'];
 
-    sortableColumns.forEach(col => {
+    sortableColumns.forEach((col) => {
         // Find all headers with this column (main table + employee tables)
         const headers = document.querySelectorAll(`th[data-column="${col}"]`);
 
-        headers.forEach(th => {
+        headers.forEach((th) => {
             // Remove existing icon
             const existingIcon = th.querySelector('.sort-icon');
             if (existingIcon) existingIcon.remove();
@@ -320,7 +320,7 @@ function renderTable() {
         // Remove any existing employee sections (important when filter results in 0 items)
         const tableContainer = document.getElementById('tableContainer');
         const existingSections = tableContainer.querySelectorAll('.employee-section');
-        existingSections.forEach(section => section.remove());
+        existingSections.forEach((section) => section.remove());
 
         // Show the default table wrapper with "Không có dữ liệu" message
         const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
@@ -328,7 +328,7 @@ function renderTable() {
             defaultTableWrapper.style.display = 'block';
         }
 
-        const tbody = document.getElementById("tableBody");
+        const tbody = document.getElementById('tableBody');
         tbody.innerHTML =
             '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
@@ -380,18 +380,18 @@ function renderAllOrders() {
 
     // Remove any existing employee sections
     const existingSections = tableContainer.querySelectorAll('.employee-section');
-    existingSections.forEach(section => section.remove());
+    existingSections.forEach((section) => section.remove());
 
     // ═══════════════════════════════════════════════════════════════════
     // PROGRESSIVE RENDER: Render 50 đơn đầu ngay lập tức,
     // load thêm khi scroll (qua handleTableScroll → loadMoreRows)
     // ═══════════════════════════════════════════════════════════════════
-    const tbody = document.getElementById("tableBody");
+    const tbody = document.getElementById('tableBody');
 
     // Render initial batch (50 rows) for instant display
     const initialBatch = displayedData.slice(0, INITIAL_RENDER_COUNT);
     renderedCount = initialBatch.length;
-    tbody.innerHTML = initialBatch.map(order => createRowHTML(order)).join('');
+    tbody.innerHTML = initialBatch.map((order) => createRowHTML(order)).join('');
 
     // Add spacer to trigger loadMoreRows() on scroll
     if (renderedCount < displayedData.length) {
@@ -435,10 +435,10 @@ window.updateChatColumnsOnly = updateChatColumnsOnly;
 
 const VirtualTable = {
     // Configuration
-    ROW_HEIGHT: 52,              // Chiều cao mỗi dòng (px) - đo thực tế
-    BUFFER_ROWS: 40,             // Số dòng buffer trên/dưới viewport
-    MIN_ROWS_FOR_VIRTUAL: 5000,  // Tắt VirtualTable cho < 5000 orders → dùng Lazy Loading (không re-render khi scroll)
-    RERENDER_THRESHOLD: 10,      // Chỉ re-render khi scroll >= 10 rows
+    ROW_HEIGHT: 52, // Chiều cao mỗi dòng (px) - đo thực tế
+    BUFFER_ROWS: 40, // Số dòng buffer trên/dưới viewport
+    MIN_ROWS_FOR_VIRTUAL: 5000, // Tắt VirtualTable cho < 5000 orders → dùng Lazy Loading (không re-render khi scroll)
+    RERENDER_THRESHOLD: 10, // Chỉ re-render khi scroll >= 10 rows
 
     // State
     container: null,
@@ -450,7 +450,7 @@ const VirtualTable = {
     lastRenderTime: 0,
 
     // Throttle scroll handler
-    scrollThrottleMs: 16,        // ~60fps
+    scrollThrottleMs: 16, // ~60fps
     pendingScroll: null,
 
     /**
@@ -533,12 +533,13 @@ const VirtualTable = {
     renderStandard() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML =
+                '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
         // Render all rows (như cũ, nhưng không dùng infinite scroll)
-        this.tbody.innerHTML = orders.map(order => createRowHTML(order)).join('');
+        this.tbody.innerHTML = orders.map((order) => createRowHTML(order)).join('');
         renderedCount = orders.length;
     },
 
@@ -548,7 +549,8 @@ const VirtualTable = {
     renderVisibleRows() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML =
+                '<tr><td colspan="19" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -556,10 +558,14 @@ const VirtualTable = {
         const totalHeight = orders.length * this.ROW_HEIGHT;
 
         // Calculate visible range
-        const startIndex = Math.max(0,
-            Math.floor(this.scrollTop / this.ROW_HEIGHT) - this.BUFFER_ROWS);
-        const endIndex = Math.min(orders.length,
-            Math.ceil((this.scrollTop + containerHeight) / this.ROW_HEIGHT) + this.BUFFER_ROWS);
+        const startIndex = Math.max(
+            0,
+            Math.floor(this.scrollTop / this.ROW_HEIGHT) - this.BUFFER_ROWS
+        );
+        const endIndex = Math.min(
+            orders.length,
+            Math.ceil((this.scrollTop + containerHeight) / this.ROW_HEIGHT) + this.BUFFER_ROWS
+        );
 
         // Skip render if range hasn't changed significantly (reduce jank)
         const startDiff = Math.abs(startIndex - this.visibleStart);
@@ -584,7 +590,7 @@ const VirtualTable = {
         }
 
         // Visible rows
-        html += visibleOrders.map(order => createRowHTML(order)).join('');
+        html += visibleOrders.map((order) => createRowHTML(order)).join('');
 
         // Bottom spacer
         if (bottomPadding > 0) {
@@ -607,7 +613,9 @@ const VirtualTable = {
 
         const now = Date.now();
         if (now - this.lastRenderTime > 1000) {
-            console.log(`[VIRTUAL-TABLE] Rendered rows ${startIndex}-${endIndex} of ${orders.length}`);
+            console.log(
+                `[VIRTUAL-TABLE] Rendered rows ${startIndex}-${endIndex} of ${orders.length}`
+            );
             this.lastRenderTime = now;
         }
     },
@@ -650,9 +658,9 @@ const VirtualTable = {
         return {
             start: this.visibleStart,
             end: this.visibleEnd,
-            total: displayedData.length
+            total: displayedData.length,
         };
-    }
+    },
 };
 
 // Expose globally
@@ -666,7 +674,7 @@ const LOAD_MORE_COUNT = 100;
 let renderedCount = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const tableWrapper = document.getElementById("tableWrapper");
+    const tableWrapper = document.getElementById('tableWrapper');
     if (tableWrapper) {
         tableWrapper.addEventListener('scroll', handleTableScroll);
     }
@@ -678,7 +686,7 @@ window.addEventListener('failedOrdersUpdated', (event) => {
     console.log('[TABLE] Failed orders updated, updating comment badges:', failedIds.size);
 
     // Update comment column cells
-    document.querySelectorAll('td[data-column="comments"][data-order-id]').forEach(td => {
+    document.querySelectorAll('td[data-column="comments"][data-order-id]').forEach((td) => {
         const orderId = td.getAttribute('data-order-id');
         const isFailed = failedIds.has(orderId);
         const currentlyShowingFailed = td.querySelector('.fa-exclamation-triangle') !== null;
@@ -719,7 +727,7 @@ window.addEventListener('failedOrdersUpdated', (event) => {
     });
 
     // Update merged order comment badges
-    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach(row => {
+    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach((row) => {
         const orderId = row.getAttribute('data-order-id');
         const isCommentsColumn = row.closest('td[data-column="comments"]') !== null;
         if (!isCommentsColumn) return;
@@ -740,7 +748,8 @@ window.addEventListener('failedOrdersUpdated', (event) => {
                 </button>`;
             row.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
         } else if (!isFailed && currentlyShowingFailed) {
-            badgeSpan.outerHTML = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+            badgeSpan.outerHTML =
+                '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
             row.title = '';
         }
     });
@@ -750,13 +759,20 @@ window.addEventListener('failedOrdersUpdated', (event) => {
 window.addEventListener('sentOrdersUpdated', (event) => {
     const sentIds = new Set(event.detail?.sentOrderIds || []);
     const commentIds = new Set(event.detail?.sentViaCommentIds || []);
-    console.log('[TABLE] Sent orders updated, updating message badges:', sentIds.size, '(via comment:', commentIds.size, ')');
+    console.log(
+        '[TABLE] Sent orders updated, updating message badges:',
+        sentIds.size,
+        '(via comment:',
+        commentIds.size,
+        ')'
+    );
 
     // Update messages column cells
-    document.querySelectorAll('td[data-column="messages"][data-order-id]').forEach(td => {
+    document.querySelectorAll('td[data-column="messages"][data-order-id]').forEach((td) => {
         const orderId = td.getAttribute('data-order-id');
         const isSent = sentIds.has(orderId);
-        const currentlyShowingSent = td.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
+        const currentlyShowingSent =
+            td.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
 
         if (isSent && !currentlyShowingSent) {
             const isViaComment = commentIds.has(orderId);
@@ -778,13 +794,16 @@ window.addEventListener('sentOrdersUpdated', (event) => {
             // Update click handler for via-comment orders
             if (isViaComment) {
                 const existingOnclick = td.getAttribute('onclick') || '';
-                td.setAttribute('onclick', existingOnclick.replace('openChatModal', 'openCommentModal'));
+                td.setAttribute(
+                    'onclick',
+                    existingOnclick.replace('openChatModal', 'openCommentModal')
+                );
             }
         }
     });
 
     // Update merged order message badges
-    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach(row => {
+    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach((row) => {
         const orderId = row.getAttribute('data-order-id');
         const isMessagesColumn = row.closest('td[data-column="messages"]') !== null;
         if (!isMessagesColumn) return;
@@ -793,7 +812,8 @@ window.addEventListener('sentOrdersUpdated', (event) => {
         const badgeSpan = row.querySelector('.merged-badge-placeholder');
         if (!badgeSpan || !isSent) return;
 
-        const currentlyShowingSent = row.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
+        const currentlyShowingSent =
+            row.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
         if (!currentlyShowingSent) {
             const isViaComment = commentIds.has(orderId);
             const icon = isViaComment ? 'fa-comment-dots' : 'fa-check-circle';
@@ -804,7 +824,10 @@ window.addEventListener('sentOrdersUpdated', (event) => {
                 </span>`;
             if (isViaComment) {
                 const existingOnclick = row.getAttribute('onclick') || '';
-                row.setAttribute('onclick', existingOnclick.replace('openChatModal', 'openCommentModal'));
+                row.setAttribute(
+                    'onclick',
+                    existingOnclick.replace('openChatModal', 'openCommentModal')
+                );
             }
         }
     });
@@ -823,10 +846,10 @@ function loadMoreRows() {
     // Prevent appending during active render or if we have no more data
     if (isRendering || renderedCount >= displayedData.length) return;
 
-    const tbody = document.getElementById("tableBody");
+    const tbody = document.getElementById('tableBody');
     if (!tbody) return; // Safety check
 
-    const spacer = document.getElementById("table-spacer");
+    const spacer = document.getElementById('table-spacer');
 
     // Remove spacer temporarily
     if (spacer) spacer.remove();
@@ -837,7 +860,7 @@ function loadMoreRows() {
 
     // Append new rows
     const fragment = document.createDocumentFragment();
-    nextBatch.forEach(order => {
+    nextBatch.forEach((order) => {
         const tr = document.createElement('tr');
         // Use a temporary container to parse HTML string
         const tempDiv = document.createElement('div');
@@ -892,14 +915,15 @@ function renderByEmployee() {
 
         // Remove existing employee sections
         const existingSections = tableContainer.querySelectorAll('.employee-section');
-        existingSections.forEach(section => section.remove());
+        existingSections.forEach((section) => section.remove());
 
         // Show loading placeholder
         let loadingPlaceholder = tableContainer.querySelector('.employee-loading-placeholder');
         if (!loadingPlaceholder) {
             loadingPlaceholder = document.createElement('div');
             loadingPlaceholder.className = 'employee-loading-placeholder';
-            loadingPlaceholder.style.cssText = 'text-align: center; padding: 60px 20px; color: #6b7280;';
+            loadingPlaceholder.style.cssText =
+                'text-align: center; padding: 60px 20px; color: #6b7280;';
             loadingPlaceholder.innerHTML = `
                 <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 16px; display: block;"></i>
                 <div style="font-size: 16px; font-weight: 500;">Đang tải dữ liệu đơn hàng...</div>
@@ -922,7 +946,7 @@ function renderByEmployee() {
     const dataByEmployee = {};
 
     // Initialize groups for each employee
-    employeeRanges.forEach(range => {
+    employeeRanges.forEach((range) => {
         dataByEmployee[range.name] = [];
     });
 
@@ -930,7 +954,7 @@ function renderByEmployee() {
     dataByEmployee['Khác'] = [];
 
     // Group orders by employee
-    displayedData.forEach(order => {
+    displayedData.forEach((order) => {
         const employeeName = getEmployeeName(order.SessionIndex) || 'Khác';
         if (!dataByEmployee[employeeName]) {
             dataByEmployee[employeeName] = [];
@@ -939,17 +963,19 @@ function renderByEmployee() {
     });
 
     // Sort each group by STT descending (largest to smallest)
-    Object.keys(dataByEmployee).forEach(name => {
-        dataByEmployee[name].sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0));
+    Object.keys(dataByEmployee).forEach((name) => {
+        dataByEmployee[name].sort(
+            (a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+        );
     });
 
     // Get ordered list of employees — sort by max STT in their orders (descending)
     const orderedEmployees = employeeRanges
-        .map(r => r.name)
-        .filter(name => dataByEmployee[name] && dataByEmployee[name].length > 0)
+        .map((r) => r.name)
+        .filter((name) => dataByEmployee[name] && dataByEmployee[name].length > 0)
         .sort((a, b) => {
-            const maxA = Math.max(...dataByEmployee[a].map(o => parseInt(o.SessionIndex) || 0));
-            const maxB = Math.max(...dataByEmployee[b].map(o => parseInt(o.SessionIndex) || 0));
+            const maxA = Math.max(...dataByEmployee[a].map((o) => parseInt(o.SessionIndex) || 0));
+            const maxB = Math.max(...dataByEmployee[b].map((o) => parseInt(o.SessionIndex) || 0));
             return maxB - maxA;
         });
 
@@ -966,10 +992,10 @@ function renderByEmployee() {
 
     // Remove existing employee sections
     const existingSections = tableContainer.querySelectorAll('.employee-section');
-    existingSections.forEach(section => section.remove());
+    existingSections.forEach((section) => section.remove());
 
     // Render each employee section
-    orderedEmployees.forEach(employeeName => {
+    orderedEmployees.forEach((employeeName) => {
         const orders = dataByEmployee[employeeName];
         const totalAmount = orders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
         const totalQuantity = orders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
@@ -1030,12 +1056,12 @@ function renderByEmployee() {
 
     // Add event listeners for employee select all checkboxes
     const employeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
-    employeeSelectAlls.forEach(checkbox => {
+    employeeSelectAlls.forEach((checkbox) => {
         checkbox.addEventListener('change', function () {
             const isChecked = this.checked;
             const section = this.closest('.employee-section');
             const checkboxes = section.querySelectorAll('tbody input[type="checkbox"]');
-            checkboxes.forEach(cb => {
+            checkboxes.forEach((cb) => {
                 cb.checked = isChecked;
                 if (isChecked) {
                     selectedOrderIds.add(cb.value);
@@ -1047,8 +1073,9 @@ function renderByEmployee() {
             // Update main selectAll checkbox state
             const mainSelectAll = document.getElementById('selectAll');
             if (mainSelectAll) {
-                const allEmployeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
-                const allChecked = Array.from(allEmployeeSelectAlls).every(cb => cb.checked);
+                const allEmployeeSelectAlls =
+                    tableContainer.querySelectorAll('.employee-select-all');
+                const allChecked = Array.from(allEmployeeSelectAlls).every((cb) => cb.checked);
                 mainSelectAll.checked = allChecked;
             }
 
@@ -1076,27 +1103,28 @@ function _buildGioTrongBadge(order) {
 }
 
 function createRowHTML(order) {
-    if (!order || !order.Id) return "";
-    let tagsHTML = "";
+    if (!order || !order.Id) return '';
+    let tagsHTML = '';
     if (order.Tags) {
         try {
             const tags = JSON.parse(order.Tags);
             if (Array.isArray(tags)) {
                 tagsHTML = parseOrderTags(order.Tags, order.Id, order.Code);
             }
-        } catch (e) { }
+        } catch (e) {}
     }
     // Prepend virtual GIỎ TRỐNG badge nếu đơn SL=0
     tagsHTML = _buildGioTrongBadge(order) + tagsHTML;
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText, order.PartnerId);
-    const highlight = (text) => highlightSearchText(text || "", searchQuery);
+    const highlight = (text) => highlightSearchText(text || '', searchQuery);
 
     // Get messages and comments columns
     const messagesHTML = renderMessagesColumn(order);
     const commentsHTML = renderCommentsColumn(order);
-    const csNotesHTML = (typeof window.renderNotesCell === 'function')
-        ? window.renderNotesCell(order)
-        : '<td data-column="cs-notes"></td>';
+    const csNotesHTML =
+        typeof window.renderNotesCell === 'function'
+            ? window.renderNotesCell(order)
+            : '<td data-column="cs-notes"></td>';
 
     // Add watermark class for edited notes
     const rowClass = order.noteEdited ? 'note-edited' : '';
@@ -1115,35 +1143,49 @@ function createRowHTML(order) {
     // Build actions cell HTML
     const actionsHTML = `
             <td data-column="actions">
-                ${isMerged ? `
+                ${
+                    isMerged
+                        ? `
                     <div class="merged-edit-dropdown" style="position: relative; display: inline-block;">
                         <button class="btn-edit-icon" onclick="toggleMergedEditDropdown(this, event)" title="Chọn đơn hàng để chỉnh sửa">
                             <i class="fas fa-edit"></i>
                             <i class="fas fa-caret-down" style="font-size: 10px; margin-left: 2px;"></i>
                         </button>
                         <div class="merged-edit-options" style="display: none; position: absolute; left: 0; top: 100%; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 100px;">
-                            ${order.OriginalOrders.sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)).map(o => `
+                            ${order.OriginalOrders.sort(
+                                (a, b) =>
+                                    (parseInt(b.SessionIndex) || 0) -
+                                    (parseInt(a.SessionIndex) || 0)
+                            )
+                                .map(
+                                    (o) => `
                                 <div onclick="openEditModal('${o.Id}'); closeMergedEditDropdown(); event.stopPropagation();"
                                      style="padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f3f4f6; transition: background 0.2s;"
                                      onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
                                     <span style="font-weight: 500;">STT ${o.SessionIndex}</span>
                                 </div>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                         </div>
                     </div>
-                ` : `
+                `
+                        : `
                     <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
                         <i class="fas fa-edit"></i>
                     </button>
-                `}
+                `
+                }
                 ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
             </td>`;
 
     // Extract pageId from Facebook_PostId (format: pageId_postId)
     const pageId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
-    const _pageName = pageId && window.pancakeDataManager?.pages?.length
-        ? (window.pancakeDataManager.pages.find(p => String(p.id) === String(pageId))?.name || '')
-        : '';
+    const _pageName =
+        pageId && window.pancakeDataManager?.pages?.length
+            ? window.pancakeDataManager.pages.find((p) => String(p.id) === String(pageId))?.name ||
+              ''
+            : '';
 
     return `
         <tr class="${rowClass} ${mergedClass} ${window.StockStatusEngine?.getStockRowClass?.(order.Id) || ''}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
@@ -1152,7 +1194,7 @@ function createRowHTML(order) {
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
-                    <span>${order.SessionIndex || ""}</span>
+                    <span>${order.SessionIndex || ''}</span>
                     ${mergedIcon}
                     ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
                 </div>
@@ -1183,10 +1225,10 @@ function createRowHTML(order) {
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
-            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone||''}','${(order.Name||'').replace(/'/g,"\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${order.Facebook_ASUserId ? `<img src="https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}" class="customer-avatar" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
+            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone || ''}','${(order.Name || '').replace(/'/g, "\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${order.Facebook_ASUserId ? `<img src="https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}" class="customer-avatar" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    ${order.Telephone ? `<i class="fas fa-phone call-phone-btn" onclick="initiateCall('${order.Telephone}', '${(order.Name||'').replace(/'/g,"\\'")}', '${order.Code||''}'); event.stopPropagation();" title="Gọi điện" style="cursor: pointer; color: #10b981; font-size: 11px;"></i>` : ''}
+                    ${order.Telephone ? `<i class="fas fa-phone call-phone-btn" onclick="initiateCall('${order.Telephone}', '${(order.Name || '').replace(/'/g, "\\'")}', '${order.Code || ''}'); event.stopPropagation();" title="Gọi điện" style="cursor: pointer; color: #10b981; font-size: 11px;"></i>` : ''}
                     ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}
                     <span>${highlight(order.Telephone)}</span>
                 </div>
@@ -1198,7 +1240,7 @@ function createRowHTML(order) {
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             ${renderMergedTotalColumn(order)}
             ${renderMergedQuantityColumn(order)}
-            <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+            <td data-column="created-date">${new Date(order.DateCreated).toLocaleString('vi-VN')}</td>
             <td data-column="invoice-status">${window.renderInvoiceStatusCell ? window.renderInvoiceStatusCell(order) : '<span style="color: #9ca3af;">−</span>'}${window.WalletAdjustmentStore?.isPending(order.Id) ? '<div style="margin-top:4px;"><span style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;" title="Chờ kế toán điều chỉnh công nợ do đổi SĐT">⚠️ Chờ ĐC công nợ</span></div>' : ''}</td>
         </tr>`;
 }
@@ -1223,10 +1265,17 @@ function formatMessagePreview(chatInfo) {
         } else if (attachment.Type === 'audio') {
             displayMessage = 'Đã gửi audio';
             messageIcon = '🎵';
-        } else if (attachment.Type === 'sticker' || attachment.type === 'sticker' || attachment.sticker_id) {
+        } else if (
+            attachment.Type === 'sticker' ||
+            attachment.type === 'sticker' ||
+            attachment.sticker_id
+        ) {
             displayMessage = 'Đã gửi sticker';
             messageIcon = '🧸';
-        } else if (attachment.Type === 'animated_image_share' || attachment.type === 'animated_image_share') {
+        } else if (
+            attachment.Type === 'animated_image_share' ||
+            attachment.type === 'animated_image_share'
+        ) {
             displayMessage = 'Đã gửi GIF';
             messageIcon = '🎞️';
         } else {
@@ -1253,20 +1302,25 @@ function renderMultiCustomerMessages(order, columnType = 'messages') {
     const rows = [];
 
     // For each customer group, find order with largest STT and get its message
-    order.CustomerGroups.forEach(customerGroup => {
+    order.CustomerGroups.forEach((customerGroup) => {
         // Get the order with largest STT (already sorted in customerGroups)
         const largestSTTOrder = customerGroup.orders[0]; // First order is largest STT
 
         // Find full order object from OriginalOrders
-        const fullOrder = order.OriginalOrders.find(o => o.Id === largestSTTOrder.id);
+        const fullOrder = order.OriginalOrders.find((o) => o.Id === largestSTTOrder.id);
         if (!fullOrder || !largestSTTOrder.psid || !largestSTTOrder.channelId) {
             return; // Skip this customer if no valid data
         }
 
         // Get message or comment
-        const messageInfo = columnType === 'messages'
-            ? window.chatDataManager.getLastMessageForOrder(fullOrder)
-            : window.chatDataManager.getLastCommentForOrder(largestSTTOrder.channelId, largestSTTOrder.psid, fullOrder);
+        const messageInfo =
+            columnType === 'messages'
+                ? window.chatDataManager.getLastMessageForOrder(fullOrder)
+                : window.chatDataManager.getLastCommentForOrder(
+                      largestSTTOrder.channelId,
+                      largestSTTOrder.psid,
+                      fullOrder
+                  );
 
         // Format message preview
         const displayMessage = formatMessagePreview(messageInfo);
@@ -1275,9 +1329,10 @@ function renderMultiCustomerMessages(order, columnType = 'messages') {
         const color = messageInfo.hasUnread ? '#111827' : '#6b7280';
 
         // Create click handler - use separate modals for messages and comments
-        const clickHandler = columnType === 'messages'
-            ? `showConversationPicker('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}', event)`
-            : `openCommentModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`;
+        const clickHandler =
+            columnType === 'messages'
+                ? `showConversationPicker('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}', event)`
+                : `openCommentModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`;
 
         rows.push(`
             <div class="multi-customer-message-row" onclick="${clickHandler}" style="border-bottom: 1px solid #e5e7eb; padding: 6px 8px; cursor: pointer; transition: background-color 0.2s;">
@@ -1313,7 +1368,7 @@ function renderMultiCustomerMessages(order, columnType = 'messages') {
 // Shows only the message/comment from the order with largest STT
 function renderSingleCustomerMessage(order, columnType = 'messages') {
     // Get the order with largest STT (stored in TargetOrderId)
-    const targetOrder = order.OriginalOrders.find(o => o.Id === order.TargetOrderId);
+    const targetOrder = order.OriginalOrders.find((o) => o.Id === order.TargetOrderId);
 
     if (!targetOrder || !targetOrder.Facebook_ASUserId) {
         return `<td data-column="${columnType}" style="text-align: center; color: #9ca3af;">−</td>`;
@@ -1327,13 +1382,24 @@ function renderSingleCustomerMessage(order, columnType = 'messages') {
     }
 
     // Get message or comment based on type
-    const messageInfo = columnType === 'messages'
-        ? window.chatDataManager.getLastMessageForOrder(targetOrder)
-        : window.chatDataManager.getLastCommentForOrder(chatInfo.channelId, chatInfo.psid, targetOrder);
+    const messageInfo =
+        columnType === 'messages'
+            ? window.chatDataManager.getLastMessageForOrder(targetOrder)
+            : window.chatDataManager.getLastCommentForOrder(
+                  chatInfo.channelId,
+                  chatInfo.psid,
+                  targetOrder
+              );
 
     // Render using the existing renderChatColumnWithData function
     // But we need to pass the targetOrder ID for the click handler
-    return renderChatColumnWithData(targetOrder, messageInfo, chatInfo.channelId, chatInfo.psid, columnType);
+    return renderChatColumnWithData(
+        targetOrder,
+        messageInfo,
+        chatInfo.channelId,
+        chatInfo.psid,
+        columnType
+    );
 }
 
 // =====================================================
@@ -1427,57 +1493,69 @@ function renderCommentsColumn(order) {
 
 function renderMergedMessagesColumn(order, columnType = 'messages') {
     // Sort by STT descending (largest first)
-    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
-        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    const sortedOrders = [...order.OriginalOrders].sort(
+        (a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
     );
 
-    const rows = sortedOrders.map(originalOrder => {
-        // Extract channelId and psid
-        const channelId = originalOrder.Facebook_PostId ? originalOrder.Facebook_PostId.split('_')[0] : '';
-        const psid = originalOrder.Facebook_ASUserId || '';
+    const rows = sortedOrders
+        .map((originalOrder) => {
+            // Extract channelId and psid
+            const channelId = originalOrder.Facebook_PostId
+                ? originalOrder.Facebook_PostId.split('_')[0]
+                : '';
+            const psid = originalOrder.Facebook_ASUserId || '';
 
-        // Create click handler
-        let clickHandler = channelId && psid
-            ? (columnType === 'messages'
-                ? `showConversationPicker('${originalOrder.Id}', '${channelId}', '${psid}', event)`
-                : `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`)
-            : '';
+            // Create click handler
+            let clickHandler =
+                channelId && psid
+                    ? columnType === 'messages'
+                        ? `showConversationPicker('${originalOrder.Id}', '${channelId}', '${psid}', event)`
+                        : `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`
+                    : '';
 
-        const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
-        const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
+            const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
+            const hoverStyle = clickHandler
+                ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"`
+                : '';
 
-        // Check if this order failed message sending (only for comments column)
-        const isFailed = columnType === 'comments' && window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
-        // Check if this order was already sent (only for messages column)
-        const isSent = columnType === 'messages' && window.messageTemplateManager?.isOrderSent(originalOrder.Id);
-        const isSentViaComment = isSent && window.messageTemplateManager?.isOrderSentViaComment(originalOrder.Id);
+            // Check if this order failed message sending (only for comments column)
+            const isFailed =
+                columnType === 'comments' &&
+                window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
+            // Check if this order was already sent (only for messages column)
+            const isSent =
+                columnType === 'messages' &&
+                window.messageTemplateManager?.isOrderSent(originalOrder.Id);
+            const isSentViaComment =
+                isSent && window.messageTemplateManager?.isOrderSentViaComment(originalOrder.Id);
 
-        // Override click handler for sent-via-comment orders to open comment modal
-        if (isSentViaComment && channelId && psid) {
-            clickHandler = `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`;
-        }
+            // Override click handler for sent-via-comment orders to open comment modal
+            if (isSentViaComment && channelId && psid) {
+                clickHandler = `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`;
+            }
 
-        // Badge content - show warning for failed orders, green badge for sent orders
-        let badgeContent;
-        if (isFailed) {
-            badgeContent = `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
+            // Badge content - show warning for failed orders, green badge for sent orders
+            let badgeContent;
+            if (isFailed) {
+                badgeContent = `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
                </span>`;
-        } else if (isSent) {
-            const sentIcon = isSentViaComment ? 'fa-comment-dots' : 'fa-check-circle';
-            const sentLabel = isSentViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
-            badgeContent = `<span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
+            } else if (isSent) {
+                const sentIcon = isSentViaComment ? 'fa-comment-dots' : 'fa-check-circle';
+                const sentLabel = isSentViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
+                badgeContent = `<span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
                 <i class="fas ${sentIcon}" style="font-size: 9px;"></i> ${sentLabel}
                </span>`;
-        } else {
-            badgeContent = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
-        }
+            } else {
+                badgeContent =
+                    '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+            }
 
-        const titleAttr = isFailed
-            ? 'title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận"'
-            : '';
+            const titleAttr = isFailed
+                ? 'title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận"'
+                : '';
 
-        return `
+            return `
             <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}" data-order-id="${originalOrder.Id}"
                  ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''}
                  style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
@@ -1486,7 +1564,8 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
                 ${badgeContent}
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
     return `<td data-column="${columnType}" style="padding: 0; vertical-align: top;">${rows}</td>`;
 }
@@ -1503,18 +1582,22 @@ function renderMergedQuantityColumn(order) {
     }
 
     // Sort by STT descending (largest first)
-    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
-        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    const sortedOrders = [...order.OriginalOrders].sort(
+        (a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
     );
 
-    const rows = sortedOrders.map(o => `
+    const rows = sortedOrders
+        .map(
+            (o) => `
         <div class="merged-detail-row" onclick="openEditModal('${o.Id}'); event.stopPropagation();" 
              style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; cursor: pointer; transition: background 0.2s;"
              onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
             <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${o.SessionIndex}:</span>
             <span style="font-weight: 600;">${o.TotalQuantity || 0}</span>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     return `<td data-column="quantity" style="padding: 0; vertical-align: top;">${rows}</td>`;
 }
@@ -1523,22 +1606,26 @@ function renderMergedQuantityColumn(order) {
 function renderMergedTotalColumn(order) {
     // Non-merged orders: simple display
     if (!order.IsMerged || !order.OriginalOrders || order.OriginalOrders.length <= 1) {
-        return `<td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>`;
+        return `<td data-column="total">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>`;
     }
 
     // Sort by STT descending (largest first)
-    const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
-        (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
+    const sortedOrders = [...order.OriginalOrders].sort(
+        (a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
     );
 
-    const rows = sortedOrders.map(o => `
+    const rows = sortedOrders
+        .map(
+            (o) => `
         <div class="merged-detail-row" onclick="openEditModal('${o.Id}'); event.stopPropagation();" 
              style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; cursor: pointer; transition: background 0.2s;"
              onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
             <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${o.SessionIndex}:</span>
-            <span style="font-weight: 600; color: #3b82f6;">${(o.TotalAmount || 0).toLocaleString("vi-VN")}đ</span>
+            <span style="font-weight: 600; color: #3b82f6;">${(o.TotalAmount || 0).toLocaleString('vi-VN')}đ</span>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     return `<td data-column="total" style="padding: 0; vertical-align: top;">${rows}</td>`;
 }
@@ -1564,10 +1651,17 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         } else if (attachment.Type === 'audio') {
             displayMessage = 'Đã gửi audio';
             messageIcon = '🎵';
-        } else if (attachment.Type === 'sticker' || attachment.type === 'sticker' || attachment.sticker_id) {
+        } else if (
+            attachment.Type === 'sticker' ||
+            attachment.type === 'sticker' ||
+            attachment.sticker_id
+        ) {
             displayMessage = 'Đã gửi sticker';
             messageIcon = '🧸';
-        } else if (attachment.Type === 'animated_image_share' || attachment.type === 'animated_image_share') {
+        } else if (
+            attachment.Type === 'animated_image_share' ||
+            attachment.type === 'animated_image_share'
+        ) {
             displayMessage = 'Đã gửi GIF';
             messageIcon = '🎞️';
         } else {
@@ -1594,13 +1688,13 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
     // For merged orders, use the TargetOrderId (order with largest STT) instead of the combined Id
     const orderIdToUse = order.IsMerged && order.TargetOrderId ? order.TargetOrderId : order.Id;
     // Use separate modals: openChatModal for messages, openCommentModal for comments
-    const clickHandler = columnType === 'messages'
-        ? `showConversationPicker('${orderIdToUse}', '${channelId}', '${psid}', event)`
-        : `openCommentModal('${orderIdToUse}', '${channelId}', '${psid}')`;
+    const clickHandler =
+        columnType === 'messages'
+            ? `showConversationPicker('${orderIdToUse}', '${channelId}', '${psid}', event)`
+            : `openCommentModal('${orderIdToUse}', '${channelId}', '${psid}')`;
 
-    const tooltipText = columnType === 'comments'
-        ? 'Click để xem bình luận'
-        : 'Click để xem toàn bộ tin nhắn';
+    const tooltipText =
+        columnType === 'comments' ? 'Click để xem bình luận' : 'Click để xem toàn bộ tin nhắn';
 
     return `
         <td data-column="${columnType}" onclick="${clickHandler}" style="cursor: pointer;" title="${tooltipText}">
@@ -1619,42 +1713,44 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
 function parseOrderTags(tagsJson, orderId, orderCode) {
     try {
         const tags = JSON.parse(tagsJson);
-        if (!Array.isArray(tags) || tags.length === 0) return "";
+        if (!Array.isArray(tags) || tags.length === 0) return '';
 
         // Escape function for safe onclick attributes
-        const escapeAttr = (str) => String(str).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const escapeAttr = (str) => String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
         return tags
             .map((tag) => {
                 // Defensive: coerce to string in case realtime sends malformed data
-                const tagName = String(tag.Name || "");
-                const tagColor = String(tag.Color || "#6b7280");
+                const tagName = String(tag.Name || '');
+                const tagColor = String(tag.Color || '#6b7280');
                 return `<div style="display: inline-flex; align-items: center; gap: 2px;">
                         <span class="order-tag" style="background-color: ${tagColor}; cursor: pointer;" onclick="openTagModal('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}'); event.stopPropagation();" title="Quản lý tag">${tagName}</span>
                         <button class="tag-remove-btn" onclick="quickRemoveTag('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}', '${escapeAttr(tag.Id)}'); event.stopPropagation();" title="Xóa tag này">×</button>
                     </div>`;
             })
-            .join("");
+            .join('');
     } catch (e) {
-        return "";
+        return '';
     }
 }
 
 function formatPartnerStatus(statusText, partnerId) {
-    if (!statusText) return "";
+    if (!statusText) return '';
     const statusColors = {
-        "Bình thường": "#5cb85c",
-        "Bom hàng": "#d1332e",
-        "Cảnh báo": "#f0ad4e",
-        "Khách sỉ": "#5cb85c",
-        "Nguy hiểm": "#d9534f",
-        "Thân thiết": "#5bc0de",
-        Vip: "#337ab7",
-        VIP: "#5bc0deff",
+        'Bình thường': '#5cb85c',
+        'Bom hàng': '#d1332e',
+        'Cảnh báo': '#f0ad4e',
+        'Khách sỉ': '#5cb85c',
+        'Nguy hiểm': '#d9534f',
+        'Thân thiết': '#5bc0de',
+        Vip: '#337ab7',
+        VIP: '#5bc0deff',
     };
-    const color = statusColors[statusText] || "#6b7280";
+    const color = statusColors[statusText] || '#6b7280';
     const cursorStyle = partnerId ? 'cursor: pointer;' : '';
-    const onclickAttr = partnerId ? `onclick="openPartnerStatusModal('${partnerId}', '${statusText}')"` : '';
+    const onclickAttr = partnerId
+        ? `onclick="openPartnerStatusModal('${partnerId}', '${statusText}')"`
+        : '';
     const titleAttr = partnerId ? 'title="Click để thay đổi trạng thái"' : '';
     const dataAttr = partnerId ? `data-partner-id="${partnerId}"` : '';
 
@@ -1664,14 +1760,14 @@ function formatPartnerStatus(statusText, partnerId) {
 // --- Partner Status Modal Logic ---
 
 const PARTNER_STATUS_OPTIONS = [
-    { value: "#5cb85c", text: "Bình thường" },
-    { value: "#d1332e", text: "Bom hàng" },
-    { value: "#f0ad4e", text: "Cảnh báo" },
-    { value: "#5cb85c", text: "Khách sỉ" },
-    { value: "#d9534f", text: "Nguy hiểm" },
-    { value: "#5bc0de", text: "Thân thiết" },
-    { value: "#337ab7", text: "Vip" },
-    { value: "#5bc0deff", text: "VIP" }
+    { value: '#5cb85c', text: 'Bình thường' },
+    { value: '#d1332e', text: 'Bom hàng' },
+    { value: '#f0ad4e', text: 'Cảnh báo' },
+    { value: '#5cb85c', text: 'Khách sỉ' },
+    { value: '#d9534f', text: 'Nguy hiểm' },
+    { value: '#5bc0de', text: 'Thân thiết' },
+    { value: '#337ab7', text: 'Vip' },
+    { value: '#5bc0deff', text: 'VIP' },
 ];
 
 let _pendingPartnerStatus = null; // { partnerId, color, text }
@@ -1685,11 +1781,14 @@ function openPartnerStatusModal(partnerId, currentStatus) {
     const noteEl = document.getElementById('partnerStatusNote');
     const confirmBtn = document.getElementById('partnerStatusConfirmBtn');
     if (noteEl) noteEl.value = '';
-    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5'; }
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+    }
 
     // Populate options
     container.innerHTML = '';
-    PARTNER_STATUS_OPTIONS.forEach(option => {
+    PARTNER_STATUS_OPTIONS.forEach((option) => {
         const btn = document.createElement('div');
         btn.className = 'status-btn';
         if (option.text === currentStatus) btn.classList.add('selected');
@@ -1700,10 +1799,15 @@ function openPartnerStatusModal(partnerId, currentStatus) {
         `;
         btn.onclick = () => {
             // Highlight selected
-            container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('selected'));
+            container
+                .querySelectorAll('.status-btn')
+                .forEach((b) => b.classList.remove('selected'));
             btn.classList.add('selected');
             _pendingPartnerStatus = { partnerId, color: option.value, text: option.text };
-            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = '1'; }
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+            }
         };
         container.appendChild(btn);
     });
@@ -1732,9 +1836,9 @@ async function updatePartnerStatus(partnerId, color, text, note) {
         const headers = await window.tokenManager.getAuthHeader();
         const baseHeaders = {
             ...headers,
-            'accept': 'application/json, text/plain, */*',
+            accept: 'application/json, text/plain, */*',
             'feature-version': '2',
-            'x-tpos-lang': 'vi'
+            'x-tpos-lang': 'vi',
         };
         const jsonHeaders = { ...baseHeaders, 'content-type': 'application/json;charset=UTF-8' };
 
@@ -1753,17 +1857,25 @@ async function updatePartnerStatus(partnerId, color, text, note) {
         if (phone) {
             try {
                 const searchUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
-                const searchRes = await API_CONFIG.smartFetch(searchUrl, { method: 'GET', headers: baseHeaders });
+                const searchRes = await API_CONFIG.smartFetch(searchUrl, {
+                    method: 'GET',
+                    headers: baseHeaders,
+                });
                 if (searchRes.ok) {
                     const searchData = await searchRes.json();
                     const partners = searchData.value || [];
                     if (partners.length > 0) {
-                        targetIds = partners.map(p => p.Id);
-                        console.log(`[PARTNER] Tìm thấy ${targetIds.length} partner trùng SĐT ${phone}`);
+                        targetIds = partners.map((p) => p.Id);
+                        console.log(
+                            `[PARTNER] Tìm thấy ${targetIds.length} partner trùng SĐT ${phone}`
+                        );
                     }
                 }
             } catch (searchErr) {
-                console.warn('[PARTNER] Search by phone failed, fallback single partner:', searchErr);
+                console.warn(
+                    '[PARTNER] Search by phone failed, fallback single partner:',
+                    searchErr
+                );
             }
         }
 
@@ -1771,7 +1883,11 @@ async function updatePartnerStatus(partnerId, color, text, note) {
         const statusBody = JSON.stringify({ status: `${color}_${text}` });
         for (const id of targetIds) {
             const url = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${id})/ODataService.UpdateStatus`;
-            const res = await API_CONFIG.smartFetch(url, { method: 'POST', headers: jsonHeaders, body: statusBody });
+            const res = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: statusBody,
+            });
             if (!res.ok) {
                 if (String(id) === String(partnerId)) {
                     throw new Error(`HTTP ${res.status} (partner ${id})`);
@@ -1785,7 +1901,10 @@ async function updatePartnerStatus(partnerId, color, text, note) {
             for (const id of targetIds) {
                 try {
                     const partnerUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${id})`;
-                    const getRes = await API_CONFIG.smartFetch(partnerUrl, { method: 'GET', headers: baseHeaders });
+                    const getRes = await API_CONFIG.smartFetch(partnerUrl, {
+                        method: 'GET',
+                        headers: baseHeaders,
+                    });
                     if (!getRes.ok) {
                         console.warn(`[PARTNER] GET ${id} for note failed: HTTP ${getRes.status}`);
                         continue;
@@ -1795,7 +1914,11 @@ async function updatePartnerStatus(partnerId, color, text, note) {
                     partnerData.Zalo = note;
                     partnerData.Facebook = note;
                     partnerData.Website = note;
-                    const putRes = await API_CONFIG.smartFetch(partnerUrl, { method: 'PUT', headers: jsonHeaders, body: JSON.stringify(partnerData) });
+                    const putRes = await API_CONFIG.smartFetch(partnerUrl, {
+                        method: 'PUT',
+                        headers: jsonHeaders,
+                        body: JSON.stringify(partnerData),
+                    });
                     if (!putRes.ok) {
                         console.warn(`[PARTNER] PUT note ${id} failed: HTTP ${putRes.status}`);
                     }
@@ -1806,11 +1929,14 @@ async function updatePartnerStatus(partnerId, color, text, note) {
         }
 
         // Success
-        window.notificationManager.show(`Cập nhật trạng thái thành công (${targetIds.length} record)`, 'success');
+        window.notificationManager.show(
+            `Cập nhật trạng thái thành công (${targetIds.length} record)`,
+            'success'
+        );
 
         // Update local data — sync tất cả order có PartnerId nằm trong targetIds
         const targetIdSet = new Set(targetIds.map(String));
-        allData.forEach(order => {
+        allData.forEach((order) => {
             if (targetIdSet.has(String(order.PartnerId))) {
                 order.PartnerStatus = text;
                 order.PartnerStatusText = text;
@@ -1818,15 +1944,14 @@ async function updatePartnerStatus(partnerId, color, text, note) {
         });
 
         // Inline UI Update — update tất cả badge của các partner liên quan
-        targetIds.forEach(id => {
+        targetIds.forEach((id) => {
             const badges = document.querySelectorAll(`.partner-status[data-partner-id="${id}"]`);
-            badges.forEach(badge => {
+            badges.forEach((badge) => {
                 badge.style.backgroundColor = color;
                 badge.innerText = text;
                 badge.setAttribute('onclick', `openPartnerStatusModal('${id}', '${text}')`);
             });
         });
-
     } catch (error) {
         console.error('[PARTNER] Update status failed:', error);
         window.notificationManager.show('Cập nhật trạng thái thất bại: ' + error.message, 'error');
@@ -1836,9 +1961,9 @@ async function updatePartnerStatus(partnerId, color, text, note) {
 // --- Order Status Modal Logic ---
 
 const ORDER_STATUS_OPTIONS = [
-    { value: "Đơn hàng", text: "Đơn hàng", color: "#5cb85c" },
-    { value: "Hủy", text: "Huỷ bỏ", color: "#d1332e" },
-    { value: "Nháp", text: "Nháp", color: "#f0ad4e" }
+    { value: 'Đơn hàng', text: 'Đơn hàng', color: '#5cb85c' },
+    { value: 'Hủy', text: 'Huỷ bỏ', color: '#d1332e' },
+    { value: 'Nháp', text: 'Nháp', color: '#f0ad4e' },
 ];
 
 function openOrderStatusModal(orderId, currentStatus) {
@@ -1848,7 +1973,7 @@ function openOrderStatusModal(orderId, currentStatus) {
 
     // Populate options
     container.innerHTML = '';
-    ORDER_STATUS_OPTIONS.forEach(option => {
+    ORDER_STATUS_OPTIONS.forEach((option) => {
         const btn = document.createElement('div');
         btn.className = 'status-btn';
         if (option.value === currentStatus) btn.classList.add('selected');
@@ -1881,9 +2006,9 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
             headers: {
                 ...headers,
                 'content-type': 'application/json;charset=utf-8',
-                'accept': '*/*'
+                accept: '*/*',
             },
-            body: null
+            body: null,
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1892,7 +2017,7 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
         window.notificationManager.show('Cập nhật trạng thái đơn hàng thành công', 'success');
 
         // Update local data
-        allData.forEach(order => {
+        allData.forEach((order) => {
             if (String(order.Id) === String(orderId)) {
                 order.Status = newValue;
                 order.StatusText = newText;
@@ -1901,9 +2026,9 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
 
         // Inline UI Update
         const badges = document.querySelectorAll(`.status-badge[data-order-id="${orderId}"]`);
-        badges.forEach(badge => {
-            badge.className = `status-badge ${(newValue === "Nháp" || newValue === "Draft") ? "status-draft" : (newValue === "Hủy" || newValue === "Cancel") ? "status-cancel" : "status-order"}`;
-            // Update color manually if needed, or rely on class. 
+        badges.forEach((badge) => {
+            badge.className = `status-badge ${newValue === 'Nháp' || newValue === 'Draft' ? 'status-draft' : newValue === 'Hủy' || newValue === 'Cancel' ? 'status-cancel' : 'status-order'}`;
+            // Update color manually if needed, or rely on class.
             // The existing logic uses classes, but we might want to force the color if it's custom.
             // For now, let's just update the text and rely on re-render or class.
             // Actually, the user provided specific colors for the options.
@@ -1915,7 +2040,6 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
 
         // If we want to be safe and consistent with filters:
         // performTableSearch(); // Optional, but inline is faster.
-
     } catch (error) {
         console.error('[ORDER] Update status failed:', error);
         window.notificationManager.show('Cập nhật trạng thái thất bại: ' + error.message, 'error');
@@ -1923,20 +2047,16 @@ async function updateOrderStatus(orderId, newValue, newText, newColor) {
 }
 
 function updateStats() {
-    const totalAmount = displayedData.reduce(
-        (sum, order) => sum + (order.TotalAmount || 0),
-        0,
-    );
-
+    const totalAmount = displayedData.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
 }
 
 function updatePageInfo() {
     const totalDisplayed = displayedData.length;
     const totalFiltered = filteredData.length;
-    document.getElementById("pageInfo").textContent =
-        `Hiển thị ${totalDisplayed.toLocaleString("vi-VN")} / ${totalFiltered.toLocaleString("vi-VN")}`;
-    document.getElementById("scrollHint").textContent =
-        totalDisplayed > 0 ? "✅ Đã hiển thị tất cả" : "";
+    document.getElementById('pageInfo').textContent =
+        `Hiển thị ${totalDisplayed.toLocaleString('vi-VN')} / ${totalFiltered.toLocaleString('vi-VN')}`;
+    document.getElementById('scrollHint').textContent =
+        totalDisplayed > 0 ? '✅ Đã hiển thị tất cả' : '';
 }
 
 // =====================================================
@@ -1945,24 +2065,21 @@ function updatePageInfo() {
 function sendDataToTab2() {
     // Only send metadata via postMessage (Tab2 can request full data if needed)
     const filterMeta = {
-        startDate: convertToUTC(document.getElementById("startDate").value),
-        endDate: convertToUTC(document.getElementById("endDate").value),
+        startDate: convertToUTC(document.getElementById('startDate').value),
+        endDate: convertToUTC(document.getElementById('endDate').value),
         campaignId: selectedCampaign?.campaignId || null,
-        campaignName: selectedCampaign?.displayName || "",
+        campaignName: selectedCampaign?.displayName || '',
         totalRecords: allData.length,
         timestamp: new Date().toISOString(),
     };
 
     if (window.parent) {
-        window.parent.postMessage(
-            { type: "FILTER_CHANGED", filter: filterMeta },
-            "*",
-        );
+        window.parent.postMessage({ type: 'FILTER_CHANGED', filter: filterMeta }, '*');
     }
 
     // Save only metadata to localStorage (no full data - prevents quota exceeded)
     try {
-        localStorage.setItem("orders_tab1_filter_data", JSON.stringify(filterMeta));
+        localStorage.setItem('orders_tab1_filter_data', JSON.stringify(filterMeta));
     } catch (e) {
         console.error('[TAB1] localStorage error:', e);
     }
@@ -1973,11 +2090,11 @@ function sendDataToTab2() {
 // =====================================================
 
 function handleSelectAll() {
-    const isChecked = document.getElementById("selectAll").checked;
+    const isChecked = document.getElementById('selectAll').checked;
 
     if (isChecked) {
         // Select ALL displayed data (not just visible rows)
-        displayedData.forEach(order => {
+        displayedData.forEach((order) => {
             selectedOrderIds.add(String(order.Id));
         });
     } else {
@@ -1992,14 +2109,16 @@ function handleSelectAll() {
     });
 
     // Update checkboxes in employee sections (when grouped by employee)
-    const employeeSections = document.querySelectorAll('.employee-section tbody input[type="checkbox"]');
+    const employeeSections = document.querySelectorAll(
+        '.employee-section tbody input[type="checkbox"]'
+    );
     employeeSections.forEach((cb) => {
         cb.checked = isChecked;
     });
 
     // Also update employee select all checkboxes
     const employeeSelectAlls = document.querySelectorAll('.employee-select-all');
-    employeeSelectAlls.forEach(cb => {
+    employeeSelectAlls.forEach((cb) => {
         cb.checked = isChecked;
     });
 
@@ -2016,7 +2135,7 @@ document.addEventListener('change', function (e) {
         } else {
             selectedOrderIds.delete(orderId);
             // Uncheck "Select All" if one is unchecked
-            document.getElementById("selectAll").checked = false;
+            document.getElementById('selectAll').checked = false;
         }
         updateActionButtons();
     }
@@ -2074,7 +2193,7 @@ function updateActionButtons() {
     const bulkSendBillBtn = document.getElementById('bulkSendBillBtn');
     if (bulkPrintBillBtn || bulkSendBillBtn) {
         let hasAnyInvoice = false;
-        let hasAnySendable = false;  // has invoice + Messenger info
+        let hasAnySendable = false; // has invoice + Messenger info
         if (checkedCount > 0 && window.InvoiceStatusStore) {
             const orderStore = window.OrderStore;
             const displayed = window.displayedData || [];
@@ -2082,8 +2201,8 @@ function updateActionButtons() {
                 if (!window.InvoiceStatusStore.get(id)) continue;
                 hasAnyInvoice = true;
                 if (!hasAnySendable) {
-                    const o = orderStore?.get(id)
-                        || displayed.find(x => String(x.Id) === String(id));
+                    const o =
+                        orderStore?.get(id) || displayed.find((x) => String(x.Id) === String(id));
                     if (o?.Facebook_ASUserId && o?.Facebook_PostId) hasAnySendable = true;
                 }
                 if (hasAnyInvoice && hasAnySendable) break;
@@ -2104,19 +2223,21 @@ function deselectAllOrders() {
 
     // Uncheck all checkboxes in the main table
     const mainCheckboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
-    mainCheckboxes.forEach(cb => {
+    mainCheckboxes.forEach((cb) => {
         cb.checked = false;
     });
 
     // Also uncheck in employee sections
-    const employeeCheckboxes = document.querySelectorAll('.employee-section input[type="checkbox"]');
-    employeeCheckboxes.forEach(cb => {
+    const employeeCheckboxes = document.querySelectorAll(
+        '.employee-section input[type="checkbox"]'
+    );
+    employeeCheckboxes.forEach((cb) => {
         cb.checked = false;
     });
 
     // Uncheck all employee "Select All" checkboxes
     const employeeSelectAlls = document.querySelectorAll('.employee-select-all');
-    employeeSelectAlls.forEach(cb => {
+    employeeSelectAlls.forEach((cb) => {
         cb.checked = false;
     });
 
@@ -2134,47 +2255,44 @@ function deselectAllOrders() {
 
 async function handleClearCache() {
     const confirmed = await window.notificationManager.confirm(
-        "Bạn có chắc muốn xóa toàn bộ cache?",
-        "Xác nhận xóa cache"
+        'Bạn có chắc muốn xóa toàn bộ cache?',
+        'Xác nhận xóa cache'
     );
     if (confirmed) {
-        window.cacheManager.clear("orders");
-        window.cacheManager.clear("campaigns");
-        window.notificationManager.success("Đã xóa cache");
+        window.cacheManager.clear('orders');
+        window.cacheManager.clear('campaigns');
+        window.notificationManager.success('Đã xóa cache');
         location.reload();
     }
 }
 
 function showLoading(show) {
-    document.getElementById("loadingOverlay").classList.toggle("show", show);
+    document.getElementById('loadingOverlay').classList.toggle('show', show);
 }
 
 function showInfoBanner(text) {
-    const banner = document.getElementById("infoBanner");
-    document.getElementById("infoText").textContent = text;
-    banner.style.display = "flex";
-    setTimeout(() => (banner.style.display = "none"), 5000);
+    const banner = document.getElementById('infoBanner');
+    document.getElementById('infoText').textContent = text;
+    banner.style.display = 'flex';
+    setTimeout(() => (banner.style.display = 'none'), 5000);
 }
 
 function showSaveIndicator(type, message) {
-    const indicator = document.getElementById("saveIndicator");
-    const text = document.getElementById("saveIndicatorText");
-    const icon = indicator.querySelector("i");
-    indicator.className = "save-indicator " + type;
+    const indicator = document.getElementById('saveIndicator');
+    const text = document.getElementById('saveIndicatorText');
+    const icon = indicator.querySelector('i');
+    indicator.className = 'save-indicator ' + type;
     text.textContent = message;
-    icon.className =
-        type === "success"
-            ? "fas fa-check-circle"
-            : "fas fa-exclamation-circle";
-    indicator.classList.add("show");
-    setTimeout(() => indicator.classList.remove("show"), 3000);
+    icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+    indicator.classList.add('show');
+    setTimeout(() => indicator.classList.remove('show'), 3000);
 }
 
 // ===============================================
 // EDIT ORDER MODAL
 // ===============================================
 (function initEditModal() {
-    if (document.getElementById("editOrderModal")) return;
+    if (document.getElementById('editOrderModal')) return;
     const modalHTML = `
         <div id="editOrderModal" class="edit-modal">
             <div class="edit-modal-content">
@@ -2202,7 +2320,7 @@ function showSaveIndicator(type, message) {
                 </div>
             </div>
         </div>`;
-    document.body.insertAdjacentHTML("beforeend", modalHTML);
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
 })();
 
 // ===============================================
@@ -2223,9 +2341,7 @@ async function _ensureDetailStockLoaded() {
     _detailStockPromise = (async () => {
         try {
             const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const headers = window.tokenManager
-                ? await window.tokenManager.getAuthHeader()
-                : {};
+            const headers = window.tokenManager ? await window.tokenManager.getAuthHeader() : {};
 
             const response = await fetch(`${PROXY_URL}/api/Product/ExportProductV2?Active=true`, {
                 method: 'POST',
@@ -2259,19 +2375,48 @@ async function _ensureDetailStockLoaded() {
             const columnNames = Object.keys(jsonData[0]);
 
             // Find stock column
-            const stockCandidates = ['SL Tồn kho', 'Tồn kho', 'SL tồn kho', 'Số lượng tồn', 'Số lượng thực tế', 'SL thực tế', 'QtyAvailable', 'Qty Available', 'SL Tồn', 'Tồn', 'Stock'];
-            let stockCol = stockCandidates.find(c => columnNames.includes(c));
-            if (!stockCol) stockCol = columnNames.find(col => { const l = col.toLowerCase(); return l.includes('tồn') || l.includes('qty') || l.includes('stock'); });
+            const stockCandidates = [
+                'SL Tồn kho',
+                'Tồn kho',
+                'SL tồn kho',
+                'Số lượng tồn',
+                'Số lượng thực tế',
+                'SL thực tế',
+                'QtyAvailable',
+                'Qty Available',
+                'SL Tồn',
+                'Tồn',
+                'Stock',
+            ];
+            let stockCol = stockCandidates.find((c) => columnNames.includes(c));
+            if (!stockCol)
+                stockCol = columnNames.find((col) => {
+                    const l = col.toLowerCase();
+                    return l.includes('tồn') || l.includes('qty') || l.includes('stock');
+                });
 
             // Find product code column
-            const codeCandidates = ['Mã sản phẩm', 'Mã SP', 'Mã', 'DefaultCode', 'Code', 'Mã sản phẩm (*)'];
-            let codeCol = codeCandidates.find(c => columnNames.includes(c));
-            if (!codeCol) codeCol = columnNames.find(col => { const l = col.toLowerCase(); return l.includes('mã') && !l.includes('nhóm'); });
+            const codeCandidates = [
+                'Mã sản phẩm',
+                'Mã SP',
+                'Mã',
+                'DefaultCode',
+                'Code',
+                'Mã sản phẩm (*)',
+            ];
+            let codeCol = codeCandidates.find((c) => columnNames.includes(c));
+            if (!codeCol)
+                codeCol = columnNames.find((col) => {
+                    const l = col.toLowerCase();
+                    return l.includes('mã') && !l.includes('nhóm');
+                });
 
             if (!stockCol || !codeCol) return;
 
-            jsonData.forEach(row => {
-                const code = String(row[codeCol] || '').toUpperCase().trim();
+            jsonData.forEach((row) => {
+                const code = String(row[codeCol] || '')
+                    .toUpperCase()
+                    .trim();
                 if (!code) return;
                 _detailStockMap.set(code, { qty: parseFloat(row[stockCol]) || 0 });
             });
@@ -2293,7 +2438,8 @@ function _renderDetailStockHeader() {
 
 function _renderDetailStockCell(detail) {
     const rawCode = detail.ProductCode || detail.DefaultCode;
-    if (!rawCode) return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">-</td>';
+    if (!rawCode)
+        return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">-</td>';
 
     const stock = _detailStockMap.get(rawCode.toUpperCase().trim());
     const qty = stock ? stock.qty : 0;
@@ -2326,8 +2472,8 @@ async function toggleProductDetail(orderId, sttCell) {
     }
 
     // Close all other open detail rows
-    document.querySelectorAll('.product-detail-row').forEach(row => row.remove());
-    document.querySelectorAll('.stt-expanded').forEach(el => el.classList.remove('stt-expanded'));
+    document.querySelectorAll('.product-detail-row').forEach((row) => row.remove());
+    document.querySelectorAll('.stt-expanded').forEach((el) => el.classList.remove('stt-expanded'));
 
     // Count columns for colspan
     const colCount = tr.children.length;
@@ -2347,7 +2493,13 @@ async function toggleProductDetail(orderId, sttCell) {
             const headers = await window.tokenManager.getAuthHeader();
             const res = await API_CONFIG.smartFetch(
                 `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
-                { headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' } }
+                {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                }
             );
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
@@ -2366,8 +2518,17 @@ async function toggleProductDetail(orderId, sttCell) {
         await _ensureDetailStockLoaded();
         const hasStock = _detailStockMap.size > 0;
 
-        const escapeHtml = (str) => str ? str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
-        const rows = details.map((p, i) => `
+        const escapeHtml = (str) =>
+            str
+                ? str
+                      .replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                : '';
+        const rows = details
+            .map(
+                (p, i) => `
             <tr>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                     <div style="font-weight: 500;">${p.ProductNameGet || p.ProductName || ''}</div>
@@ -2381,7 +2542,9 @@ async function toggleProductDetail(orderId, sttCell) {
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
                 ${hasStock ? _renderDetailStockCell(p) : ''}
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         loadingRow.innerHTML = `
             <td colspan="${colCount}" style="padding: 0; background: #f8fafc;">
@@ -2421,7 +2584,8 @@ function startInlineNoteEdit(wrapper) {
     input.type = 'text';
     input.value = noteValue;
     input.placeholder = 'Nhập ghi chú...';
-    input.style.cssText = 'width: 100%; padding: 2px 6px; border: 1px solid #3b82f6; border-radius: 3px; font-size: 11px; outline: none; box-sizing: border-box;';
+    input.style.cssText =
+        'width: 100%; padding: 2px 6px; border: 1px solid #3b82f6; border-radius: 3px; font-size: 11px; outline: none; box-sizing: border-box;';
 
     wrapper.innerHTML = '';
     wrapper.appendChild(input);
@@ -2435,7 +2599,10 @@ function startInlineNoteEdit(wrapper) {
         const newNote = input.value.trim();
         // Restore display
         if (newNote) {
-            wrapper.innerHTML = newNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            wrapper.innerHTML = newNote
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
         } else {
             wrapper.innerHTML = '<span style="color: #d1d5db;">+ Thêm ghi chú</span>';
         }
@@ -2448,11 +2615,11 @@ function startInlineNoteEdit(wrapper) {
             await saveInlineProductNote(orderId, productId, newNote);
             // Brief success flash
             wrapper.style.background = '#d1fae5';
-            setTimeout(() => wrapper.style.background = '', 800);
+            setTimeout(() => (wrapper.style.background = ''), 800);
         } catch (err) {
             console.error('[INLINE-NOTE] Save failed:', err);
             wrapper.style.background = '#fee2e2';
-            setTimeout(() => wrapper.style.background = '', 1500);
+            setTimeout(() => (wrapper.style.background = ''), 1500);
             if (window.notificationManager) {
                 window.notificationManager.show('Lỗi lưu ghi chú: ' + err.message, 'error');
             }
@@ -2468,7 +2635,10 @@ function startInlineNoteEdit(wrapper) {
         if (e.key === 'Escape') {
             // Restore original without saving
             if (noteValue) {
-                wrapper.innerHTML = noteValue.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                wrapper.innerHTML = noteValue
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
             } else {
                 wrapper.innerHTML = '<span style="color: #d1d5db;">+ Thêm ghi chú</span>';
             }
@@ -2482,14 +2652,14 @@ async function saveInlineProductNote(orderId, productId, newNote) {
 
     // Fetch fresh order data
     const res = await fetch(apiUrl, {
-        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' }
+        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
     });
     if (!res.ok) throw new Error(`Fetch order failed: HTTP ${res.status}`);
     const fullOrder = await res.json();
 
     // Find the product and update note
     const details = fullOrder.Details || [];
-    const idx = details.findIndex(d => d.ProductId === Number(productId));
+    const idx = details.findIndex((d) => d.ProductId === Number(productId));
     if (idx === -1) throw new Error('Không tìm thấy sản phẩm');
 
     details[idx].Note = newNote || null;
@@ -2497,10 +2667,11 @@ async function saveInlineProductNote(orderId, productId, newNote) {
     // Build PUT payload
     const payload = JSON.parse(JSON.stringify(fullOrder));
     if (!payload['@odata.context']) {
-        payload['@odata.context'] = 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+        payload['@odata.context'] =
+            'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
     }
     payload.Details = details;
-    payload.TotalAmount = details.reduce((sum, d) => sum + ((d.Quantity || 0) * (d.Price || 0)), 0);
+    payload.TotalAmount = details.reduce((sum, d) => sum + (d.Quantity || 0) * (d.Price || 0), 0);
     payload.TotalQuantity = details.reduce((sum, d) => sum + (d.Quantity || 0), 0);
 
     // PUT back
@@ -2508,7 +2679,7 @@ async function saveInlineProductNote(orderId, productId, newNote) {
     const putRes = await fetch(putUrl, {
         method: 'PUT',
         headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
     });
     if (!putRes.ok) {
         const errText = await putRes.text();
@@ -2521,6 +2692,7 @@ async function saveInlineProductNote(orderId, productId, newNote) {
         window.invalidateOrderDetailsCache(orderId);
     }
 
-    console.log(`[INLINE-NOTE] Saved note for order ${orderId}, product ${productId}: "${newNote}"`);
+    console.log(
+        `[INLINE-NOTE] Saved note for order ${orderId}, product ${productId}: "${newNote}"`
+    );
 }
-

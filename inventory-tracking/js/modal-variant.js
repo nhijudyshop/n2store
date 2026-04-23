@@ -14,7 +14,22 @@ const TPOS_ATTR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // Fallback defaults (shown while TPOS loads, or if TPOS fails)
 let VARIANT_COLORS = ['Trắng', 'Đen', 'Xám', 'Xanh', 'Vàng', 'Hồng', 'Cam', 'Tím', 'Đỏ', 'Nâu'];
-let VARIANT_SIZE_NUM = ['27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'];
+let VARIANT_SIZE_NUM = [
+    '27',
+    '28',
+    '29',
+    '30',
+    '31',
+    '32',
+    '33',
+    '34',
+    '35',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+];
 let VARIANT_SIZE_CHAR = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 /**
@@ -25,13 +40,15 @@ async function _loadTposAttributes(forceRefresh = false) {
     if (!forceRefresh) {
         try {
             const cached = JSON.parse(localStorage.getItem(TPOS_ATTR_CACHE_KEY) || 'null');
-            if (cached && cached.timestamp && (Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL)) {
+            if (cached && cached.timestamp && Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL) {
                 if (cached.colors) VARIANT_COLORS = cached.colors;
                 if (cached.sizeNum) VARIANT_SIZE_NUM = cached.sizeNum;
                 if (cached.sizeChar) VARIANT_SIZE_CHAR = cached.sizeChar;
                 return;
             }
-        } catch (_) { /* ignore */ }
+        } catch (_) {
+            /* ignore */
+        }
     }
 
     try {
@@ -45,9 +62,12 @@ async function _loadTposAttributes(forceRefresh = false) {
             return;
         }
 
-        const res = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductAttributeValue?$top=500&$orderby=AttributeId,Sequence', {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        const res = await fetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductAttributeValue?$top=500&$orderby=AttributeId,Sequence',
+            {
+                headers: { Authorization: 'Bearer ' + token },
+            }
+        );
         if (!res.ok) throw new Error('TPOS fetch failed: ' + res.status);
         const data = await res.json();
         const values = data.value || [];
@@ -67,13 +87,24 @@ async function _loadTposAttributes(forceRefresh = false) {
         if (sizeNum.length) VARIANT_SIZE_NUM = sizeNum;
         if (sizeChar.length) VARIANT_SIZE_CHAR = sizeChar;
 
-        localStorage.setItem(TPOS_ATTR_CACHE_KEY, JSON.stringify({
-            timestamp: Date.now(),
-            colors: VARIANT_COLORS,
-            sizeNum: VARIANT_SIZE_NUM,
-            sizeChar: VARIANT_SIZE_CHAR
-        }));
-        console.log('[VARIANT] Loaded TPOS attributes:', colors.length, 'colors,', sizeNum.length, 'sizes nums,', sizeChar.length, 'size chars');
+        localStorage.setItem(
+            TPOS_ATTR_CACHE_KEY,
+            JSON.stringify({
+                timestamp: Date.now(),
+                colors: VARIANT_COLORS,
+                sizeNum: VARIANT_SIZE_NUM,
+                sizeChar: VARIANT_SIZE_CHAR,
+            })
+        );
+        console.log(
+            '[VARIANT] Loaded TPOS attributes:',
+            colors.length,
+            'colors,',
+            sizeNum.length,
+            'sizes nums,',
+            sizeChar.length,
+            'size chars'
+        );
     } catch (err) {
         console.warn('[VARIANT] Failed to load TPOS attributes, using defaults:', err.message);
     }
@@ -102,8 +133,16 @@ async function openVariantModal(td) {
         const modal = document.getElementById('modalVariant');
         if (modal?.classList.contains('active')) {
             _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
-            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
-            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+            _renderVariantOptions(
+                'variantSizeNumList',
+                VARIANT_SIZE_NUM,
+                _variantSelections.sizeNum
+            );
+            _renderVariantOptions(
+                'variantSizeCharList',
+                VARIANT_SIZE_CHAR,
+                _variantSelections.sizeChar
+            );
         }
     });
 
@@ -115,7 +154,7 @@ async function openVariantModal(td) {
     let existingMauSac = [];
     if (invoiceId && !isNaN(productIdx)) {
         for (const ncc of globalState.nccList) {
-            const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+            const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
             if (dot?.sanPham?.[productIdx]?.mauSac) {
                 existingMauSac = dot.sanPham[productIdx].mauSac;
                 break;
@@ -134,7 +173,10 @@ async function openVariantModal(td) {
         const qty = item.soLuong || 0;
         _variantQuantities.set(comboKey, qty);
         // Parse parts and add to corresponding selection sets
-        const parts = comboKey.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean);
+        const parts = comboKey
+            .split(/\s*\/\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean);
         for (const part of parts) {
             if (VARIANT_COLORS.includes(part)) _variantSelections.color.add(part);
             else if (VARIANT_SIZE_NUM.includes(part)) _variantSelections.sizeNum.add(part);
@@ -152,7 +194,7 @@ async function openVariantModal(td) {
     _updateSummary();
 
     // Setup search listeners
-    document.querySelectorAll('.variant-search').forEach(input => {
+    document.querySelectorAll('.variant-search').forEach((input) => {
         input.oninput = (e) => _filterVariantOptions(e.target.dataset.target, e.target.value);
     });
 
@@ -167,8 +209,16 @@ async function openVariantModal(td) {
             window.notificationManager?.info('Đang tải từ TPOS...');
             await _loadTposAttributes(true);
             _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
-            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
-            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+            _renderVariantOptions(
+                'variantSizeNumList',
+                VARIANT_SIZE_NUM,
+                _variantSelections.sizeNum
+            );
+            _renderVariantOptions(
+                'variantSizeCharList',
+                VARIANT_SIZE_CHAR,
+                _variantSelections.sizeChar
+            );
             refreshBtn.disabled = false;
             window.notificationManager?.success('Đã cập nhật thuộc tính');
         };
@@ -182,48 +232,63 @@ function _renderVariantOptions(containerId, items, selectedSet) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    container.innerHTML = items.map(item => {
-        const checked = selectedSet.has(item);
-        return `
+    container.innerHTML = items
+        .map((item) => {
+            const checked = selectedSet.has(item);
+            return `
             <label class="variant-option" data-value="${_escAttr(item)}">
                 <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._toggleVariant('${containerId}', '${_escAttr(item)}', this.checked)">
                 <span>${item}</span>
             </label>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 function _filterVariantOptions(containerId, query) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const q = query.toLowerCase().trim();
-    container.querySelectorAll('.variant-option').forEach(el => {
+    container.querySelectorAll('.variant-option').forEach((el) => {
         const val = el.dataset.value.toLowerCase();
-        el.style.display = (!q || val.includes(q)) ? '' : 'none';
+        el.style.display = !q || val.includes(q) ? '' : 'none';
     });
 }
 
 function _toggleVariant(containerId, value, checked) {
-    const set = containerId === 'variantColorList' ? _variantSelections.color
-        : containerId === 'variantSizeNumList' ? _variantSelections.sizeNum
-        : _variantSelections.sizeChar;
+    const set =
+        containerId === 'variantColorList'
+            ? _variantSelections.color
+            : containerId === 'variantSizeNumList'
+              ? _variantSelections.sizeNum
+              : _variantSelections.sizeChar;
 
     if (checked) {
         set.add(value);
         // Mutually exclusive: SizeChữ and SizeSố can't both be selected
         if (containerId === 'variantSizeNumList' && _variantSelections.sizeChar.size > 0) {
             _variantSelections.sizeChar.clear();
-            _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
+            _renderVariantOptions(
+                'variantSizeCharList',
+                VARIANT_SIZE_CHAR,
+                _variantSelections.sizeChar
+            );
         } else if (containerId === 'variantSizeCharList' && _variantSelections.sizeNum.size > 0) {
             _variantSelections.sizeNum.clear();
-            _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
+            _renderVariantOptions(
+                'variantSizeNumList',
+                VARIANT_SIZE_NUM,
+                _variantSelections.sizeNum
+            );
         }
     } else {
         set.delete(value);
     }
 
     // Sync checkbox UI state (used by remove button)
-    const option = document.querySelector(`#${containerId} .variant-option[data-value="${_escAttr(value)}"] input`);
+    const option = document.querySelector(
+        `#${containerId} .variant-option[data-value="${_escAttr(value)}"] input`
+    );
     if (option) option.checked = checked;
 
     // Disable the "other" size group when one is selected
@@ -297,25 +362,28 @@ function _renderVariantPreview() {
     const combos = _generateCombinations();
 
     if (combos.length === 0) {
-        preview.innerHTML = '<div class="variant-preview-empty">Chọn thuộc tính để xem biến thể</div>';
+        preview.innerHTML =
+            '<div class="variant-preview-empty">Chọn thuộc tính để xem biến thể</div>';
         if (btnLabel) btnLabel.textContent = 'Tạo biến thể';
         return;
     }
 
-    preview.innerHTML = combos.map(combo => {
-        const key = _escAttr(combo);
-        const qty = _variantQuantities.get(combo) ?? 0;
-        const isChecked = !_variantUnchecked.has(combo);
-        return `
+    preview.innerHTML = combos
+        .map((combo) => {
+            const key = _escAttr(combo);
+            const qty = _variantQuantities.get(combo) ?? 0;
+            const isChecked = !_variantUnchecked.has(combo);
+            return `
             <div class="variant-preview-item ${isChecked ? '' : 'unchecked'}">
                 <input type="checkbox" class="variant-combo-check" ${isChecked ? 'checked' : ''} onchange="window._toggleVariantCombo('${key}', this.checked)">
                 <span class="variant-preview-name">${combo}</span>
                 <input type="number" class="variant-qty-input" min="0" value="${qty}" oninput="window._updateVariantQty('${key}', this.value)">
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 
-    const activeCount = combos.filter(c => !_variantUnchecked.has(c)).length;
+    const activeCount = combos.filter((c) => !_variantUnchecked.has(c)).length;
     if (btnLabel) btnLabel.textContent = `Tạo ${activeCount}/${combos.length} biến thể`;
 }
 
@@ -354,14 +422,17 @@ async function _saveVariants() {
     // Build mauSac array from active combinations
     const combos = _generateCombinations();
     const mauSac = combos
-        .filter(c => !_variantUnchecked.has(c))
-        .map(c => ({ mau: c, soLuong: _variantQuantities.get(c) || 0 }));
+        .filter((c) => !_variantUnchecked.has(c))
+        .map((c) => ({ mau: c, soLuong: _variantQuantities.get(c) || 0 }));
 
     // Find dotHang
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
     }
     if (!targetDot?.sanPham?.[productIdx]) {
         window.notificationManager?.error('Không tìm thấy sản phẩm');
@@ -377,13 +448,16 @@ async function _saveVariants() {
         product.thanhTien = (product.tongSoLuong || 0) * (product.giaDonVi || 0);
 
         // Recalculate invoice totals
-        targetDot.tongMon = targetDot.sanPham.reduce((s, p) => s + (p.tongSoLuong || p.soLuong || 0), 0);
+        targetDot.tongMon = targetDot.sanPham.reduce(
+            (s, p) => s + (p.tongSoLuong || p.soLuong || 0),
+            0
+        );
         targetDot.tongTienHD = targetDot.sanPham.reduce((s, p) => s + (p.thanhTien || 0), 0);
 
         await shipmentsApi.update(invoiceId, {
             sanPham: targetDot.sanPham,
             tongMon: targetDot.tongMon,
-            tongTienHD: targetDot.tongTienHD
+            tongTienHD: targetDot.tongTienHD,
         });
 
         flattenNCCData();

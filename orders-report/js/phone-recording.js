@@ -27,19 +27,27 @@ const PhoneRecording = (() => {
             req.onupgradeneeded = (e) => {
                 const d = e.target.result;
                 if (!d.objectStoreNames.contains(STORE)) {
-                    const store = d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    const store = d.createObjectStore(STORE, {
+                        keyPath: 'id',
+                        autoIncrement: true,
+                    });
                     store.createIndex('timestamp', 'timestamp', { unique: false });
                     store.createIndex('username', 'username', { unique: false });
                     store.createIndex('phone', 'phone', { unique: false });
                 }
             };
-            req.onsuccess = () => { db = req.result; resolve(db); };
+            req.onsuccess = () => {
+                db = req.result;
+                resolve(db);
+            };
             req.onerror = () => reject(req.error);
         });
     }
 
     // Always-on: recording luôn bật. Giữ tên isEnabled() để không phá API hiện tại.
-    function isEnabled() { return true; }
+    function isEnabled() {
+        return true;
+    }
 
     function _getRemoteTrack() {
         const audioEl = document.getElementById('pwRemoteAudio');
@@ -73,18 +81,25 @@ const PhoneRecording = (() => {
         try {
             const remoteStream = new MediaStream([remoteTrack]);
             audioCtx.createMediaStreamSource(remoteStream).connect(dest);
-        } catch (err) { console.warn('[PhoneRecording] connect remote failed:', err.message); }
+        } catch (err) {
+            console.warn('[PhoneRecording] connect remote failed:', err.message);
+        }
 
         // Local mic
         if (localStream) {
-            try { audioCtx.createMediaStreamSource(localStream).connect(dest); }
-            catch (err) { console.warn('[PhoneRecording] connect local failed:', err.message); }
+            try {
+                audioCtx.createMediaStreamSource(localStream).connect(dest);
+            } catch (err) {
+                console.warn('[PhoneRecording] connect local failed:', err.message);
+            }
         }
 
         chunks = [];
         const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            : MediaRecorder.isTypeSupported('audio/webm')
+              ? 'audio/webm'
+              : '';
 
         try {
             recorder = new MediaRecorder(dest.stream, mime ? { mimeType: mime } : undefined);
@@ -92,17 +107,36 @@ const PhoneRecording = (() => {
             console.error('[PhoneRecording] MediaRecorder init failed:', err.message);
             return false;
         }
-        recorder.ondataavailable = (e) => { if (e.data?.size > 0) chunks.push(e.data); };
+        recorder.ondataavailable = (e) => {
+            if (e.data?.size > 0) chunks.push(e.data);
+        };
         recorder.onstop = async () => {
             const blob = new Blob(chunks, { type: mime || 'audio/webm' });
-            try { await _saveRecording(blob); } catch (err) { console.error('[PhoneRecording] save failed:', err.message); }
+            try {
+                await _saveRecording(blob);
+            } catch (err) {
+                console.error('[PhoneRecording] save failed:', err.message);
+            }
             chunks = [];
             destStream = null;
-            if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-            if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
+            if (localStream) {
+                localStream.getTracks().forEach((t) => t.stop());
+                localStream = null;
+            }
+            if (audioCtx) {
+                try {
+                    audioCtx.close();
+                } catch {}
+                audioCtx = null;
+            }
             currentMeta = null;
         };
-        try { recorder.start(1000); } catch (err) { console.error('[PhoneRecording] start failed:', err.message); return false; }
+        try {
+            recorder.start(1000);
+        } catch (err) {
+            console.error('[PhoneRecording] start failed:', err.message);
+            return false;
+        }
 
         destStream = dest.stream;
         currentMeta = meta || {};
@@ -114,12 +148,26 @@ const PhoneRecording = (() => {
     async function stopRecording(extraMeta) {
         if (extraMeta) currentMeta = { ...currentMeta, ...extraMeta };
         if (!recorder) return;
-        if (recorder.state === 'inactive') { recorder = null; return; }
-        return new Promise(resolve => {
-            const r = recorder; recorder = null;
+        if (recorder.state === 'inactive') {
+            recorder = null;
+            return;
+        }
+        return new Promise((resolve) => {
+            const r = recorder;
+            recorder = null;
             const origOnStop = r.onstop;
-            r.onstop = async (ev) => { try { await origOnStop?.(ev); } finally { resolve(); } };
-            try { r.stop(); } catch { resolve(); }
+            r.onstop = async (ev) => {
+                try {
+                    await origOnStop?.(ev);
+                } finally {
+                    resolve();
+                }
+            };
+            try {
+                r.stop();
+            } catch {
+                resolve();
+            }
         });
     }
 
@@ -136,7 +184,7 @@ const PhoneRecording = (() => {
             direction: currentMeta?.direction || 'out',
             orderCode: currentMeta?.orderCode || '',
             mimeType: blob.type,
-            size: blob.size
+            size: blob.size,
         };
         const localId = await new Promise((resolve, reject) => {
             const tx = d.transaction(STORE, 'readwrite');
@@ -147,7 +195,9 @@ const PhoneRecording = (() => {
         });
         console.log('[PhoneRecording] saved local', localId, blob.size, 'bytes');
         // Fire-and-forget cloud upload (không block UI nếu mạng chậm/lỗi)
-        _uploadToCloud(blob, meta).catch(err => console.warn('[PhoneRecording] cloud upload failed:', err.message));
+        _uploadToCloud(blob, meta).catch((err) =>
+            console.warn('[PhoneRecording] cloud upload failed:', err.message)
+        );
         return localId;
     }
 
@@ -164,12 +214,12 @@ const PhoneRecording = (() => {
             duration: meta.duration || 0,
             mime_type: meta.mimeType || 'audio/webm',
             timestamp: meta.timestamp || Date.now(),
-            audio_b64
+            audio_b64,
         };
         const r = await fetch(CLOUD_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         if (!r.ok) {
             const t = await r.text().catch(() => '');
@@ -218,7 +268,11 @@ const PhoneRecording = (() => {
             req.onsuccess = () => {
                 const r = req.result;
                 if (!r?.blob) return resolve(null);
-                resolve({ url: URL.createObjectURL(r.blob), filename: `call-${id}-${r.phone || 'unknown'}.webm`, ...r });
+                resolve({
+                    url: URL.createObjectURL(r.blob),
+                    filename: `call-${id}-${r.phone || 'unknown'}.webm`,
+                    ...r,
+                });
             };
             req.onerror = () => reject(req.error);
         });
@@ -241,9 +295,14 @@ const PhoneRecording = (() => {
             const idx = tx.objectStore(STORE).index('timestamp');
             idx.openCursor(IDBKeyRange.upperBound(cutoff)).onsuccess = (e) => {
                 const cursor = e.target.result;
-                if (cursor) { cursor.delete(); cursor.continue(); }
+                if (cursor) {
+                    cursor.delete();
+                    cursor.continue();
+                }
             };
-        } catch (err) { console.warn('[PhoneRecording] cleanup failed:', err.message); }
+        } catch (err) {
+            console.warn('[PhoneRecording] cleanup failed:', err.message);
+        }
     }
 
     async function getStorageStats() {
@@ -251,18 +310,28 @@ const PhoneRecording = (() => {
             const recs = await listRecordings();
             const totalBytes = recs.reduce((sum, r) => sum + (r.size || 0), 0);
             return { count: recs.length, bytes: totalBytes };
-        } catch { return { count: 0, bytes: 0 }; }
+        } catch {
+            return { count: 0, bytes: 0 };
+        }
     }
 
     // Auto-cleanup shortly after load
     if (typeof window !== 'undefined') {
-        setTimeout(() => { try { cleanupOld(); } catch {} }, 5000);
+        setTimeout(() => {
+            try {
+                cleanupOld();
+            } catch {}
+        }, 5000);
     }
 
     return {
-        startRecording, stopRecording,
-        listRecordings, getRecordingUrl, deleteRecording,
-        isEnabled, getStorageStats
+        startRecording,
+        stopRecording,
+        listRecordings,
+        getRecordingUrl,
+        deleteRecording,
+        isEnabled,
+        getStorageStats,
     };
 })();
 

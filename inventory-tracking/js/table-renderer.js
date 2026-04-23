@@ -11,7 +11,12 @@
 /** Escape string for safe use in HTML attributes (onclick, title, data-*) */
 function _escAttr(str) {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/'/g, '&#39;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 // =====================================================
@@ -23,332 +28,332 @@ const CHINESE_TO_VIETNAMESE = {
     // COLORS - MÀU SẮC (颜色)
     // =====================================================
     // Màu cơ bản
-    '黑色': 'Đen',
-    '黑': 'Đen',
-    '白色': 'Trắng',
-    '白': 'Trắng',
-    '红色': 'Đỏ',
-    '红': 'Đỏ',
-    '蓝色': 'Xanh dương',
-    '蓝': 'Xanh dương',
-    '绿色': 'Xanh lá',
-    '绿': 'Xanh lá',
-    '黄色': 'Vàng',
-    '黄': 'Vàng',
-    '紫色': 'Tím',
-    '紫': 'Tím',
-    '粉色': 'Hồng',
-    '粉红色': 'Hồng phấn',
-    '粉': 'Hồng',
-    '灰色': 'Xám',
-    '灰': 'Xám',
-    '棕色': 'Nâu',
-    '棕': 'Nâu',
-    '橙色': 'Cam',
-    '橙': 'Cam',
-    '桔色': 'Cam',
-    '橘色': 'Cam',
+    黑色: 'Đen',
+    黑: 'Đen',
+    白色: 'Trắng',
+    白: 'Trắng',
+    红色: 'Đỏ',
+    红: 'Đỏ',
+    蓝色: 'Xanh dương',
+    蓝: 'Xanh dương',
+    绿色: 'Xanh lá',
+    绿: 'Xanh lá',
+    黄色: 'Vàng',
+    黄: 'Vàng',
+    紫色: 'Tím',
+    紫: 'Tím',
+    粉色: 'Hồng',
+    粉红色: 'Hồng phấn',
+    粉: 'Hồng',
+    灰色: 'Xám',
+    灰: 'Xám',
+    棕色: 'Nâu',
+    棕: 'Nâu',
+    橙色: 'Cam',
+    橙: 'Cam',
+    桔色: 'Cam',
+    橘色: 'Cam',
 
     // Màu đặc biệt / Hot trend
-    '咖啡色': 'Cà phê',
-    '咖色': 'Nâu cà phê',
-    '咖': 'Nâu cà phê',
-    '米色': 'Kem',
-    '米白色': 'Trắng kem',
-    '米白': 'Trắng kem',
-    '米': 'Kem',
-    '杏色': 'Hồng mơ',
-    '杏': 'Hồng mơ',
-    '酱色': 'Nâu đậm',
-    '酱红色': 'Đỏ nâu',
-    '酱': 'Nâu đậm',
-    '卡其色': 'Khaki',
-    '卡其': 'Khaki',
-    '驼色': 'Nâu lạc đà',
-    '驼': 'Lạc đà',
-    '藏青色': 'Xanh than',
-    '藏青': 'Xanh than',
-    '酒红色': 'Đỏ rượu vang',
-    '酒红': 'Đỏ rượu',
-    '墨绿色': 'Xanh rêu',
-    '墨绿': 'Xanh rêu',
-    '军绿色': 'Xanh quân đội',
-    '军绿': 'Xanh lính',
-    '焦糖色': 'Caramel',
-    '焦糖': 'Caramel',
-    '牛油果色': 'Xanh bơ',
-    '牛油果': 'Xanh bơ',
-    '奶白': 'Trắng sữa',
-    '奶油': 'Kem sữa',
-    '香槟色': 'Champagne',
-    '香槟': 'Champagne',
-    '银色': 'Bạc',
-    '银': 'Bạc',
-    '金色': 'Vàng gold',
-    '金': 'Vàng gold',
-    '玫红': 'Hồng cánh sen',
-    '玫瑰红': 'Hồng hoa hồng',
-    '宝蓝': 'Xanh hoàng gia',
-    '天蓝': 'Xanh da trời',
-    '湖蓝': 'Xanh hồ',
-    '雾蓝': 'Xanh sương mù',
-    '烟灰': 'Xám khói',
-    '炭灰': 'Xám than',
-    '花灰': 'Xám hoa',
-    '杂灰': 'Xám đốm',
-    '姜黄': 'Vàng nghệ',
-    '土黄': 'Vàng đất',
-    '芥末黄': 'Vàng mù tạt',
+    咖啡色: 'Cà phê',
+    咖色: 'Nâu cà phê',
+    咖: 'Nâu cà phê',
+    米色: 'Kem',
+    米白色: 'Trắng kem',
+    米白: 'Trắng kem',
+    米: 'Kem',
+    杏色: 'Hồng mơ',
+    杏: 'Hồng mơ',
+    酱色: 'Nâu đậm',
+    酱红色: 'Đỏ nâu',
+    酱: 'Nâu đậm',
+    卡其色: 'Khaki',
+    卡其: 'Khaki',
+    驼色: 'Nâu lạc đà',
+    驼: 'Lạc đà',
+    藏青色: 'Xanh than',
+    藏青: 'Xanh than',
+    酒红色: 'Đỏ rượu vang',
+    酒红: 'Đỏ rượu',
+    墨绿色: 'Xanh rêu',
+    墨绿: 'Xanh rêu',
+    军绿色: 'Xanh quân đội',
+    军绿: 'Xanh lính',
+    焦糖色: 'Caramel',
+    焦糖: 'Caramel',
+    牛油果色: 'Xanh bơ',
+    牛油果: 'Xanh bơ',
+    奶白: 'Trắng sữa',
+    奶油: 'Kem sữa',
+    香槟色: 'Champagne',
+    香槟: 'Champagne',
+    银色: 'Bạc',
+    银: 'Bạc',
+    金色: 'Vàng gold',
+    金: 'Vàng gold',
+    玫红: 'Hồng cánh sen',
+    玫瑰红: 'Hồng hoa hồng',
+    宝蓝: 'Xanh hoàng gia',
+    天蓝: 'Xanh da trời',
+    湖蓝: 'Xanh hồ',
+    雾蓝: 'Xanh sương mù',
+    烟灰: 'Xám khói',
+    炭灰: 'Xám than',
+    花灰: 'Xám hoa',
+    杂灰: 'Xám đốm',
+    姜黄: 'Vàng nghệ',
+    土黄: 'Vàng đất',
+    芥末黄: 'Vàng mù tạt',
 
     // Tiền tố màu
-    '浅': 'Nhạt',
-    '深': 'Đậm',
-    '浅灰': 'Xám nhạt',
-    '深灰': 'Xám đậm',
-    '浅蓝': 'Xanh nhạt',
-    '深蓝': 'Xanh đậm',
-    '浅绿': 'Xanh lá nhạt',
-    '深绿': 'Xanh lá đậm',
-    '浅粉': 'Hồng nhạt',
-    '深粉': 'Hồng đậm',
-    '浅紫': 'Tím nhạt',
-    '深紫': 'Tím đậm',
-    '浅咖': 'Nâu nhạt',
-    '深咖': 'Nâu đậm',
+    浅: 'Nhạt',
+    深: 'Đậm',
+    浅灰: 'Xám nhạt',
+    深灰: 'Xám đậm',
+    浅蓝: 'Xanh nhạt',
+    深蓝: 'Xanh đậm',
+    浅绿: 'Xanh lá nhạt',
+    深绿: 'Xanh lá đậm',
+    浅粉: 'Hồng nhạt',
+    深粉: 'Hồng đậm',
+    浅紫: 'Tím nhạt',
+    深紫: 'Tím đậm',
+    浅咖: 'Nâu nhạt',
+    深咖: 'Nâu đậm',
 
     // Viết tắt màu (phổ biến trong hóa đơn viết tay)
-    '兰': 'Xanh dương',  // Viết tắt của 蓝色
+    兰: 'Xanh dương', // Viết tắt của 蓝色
 
     // =====================================================
     // PATTERNS - HỌA TIẾT
     // =====================================================
-    '条': 'Sọc',
-    '条纹': 'Sọc',
-    '纹': 'Vân',
-    '格': 'Caro',
-    '格子': 'Caro',
-    '花': 'Hoa',
-    '碎花': 'Hoa nhỏ',
-    '大花': 'Hoa lớn',
-    '点': 'Chấm',
-    '波点': 'Chấm bi',
-    '印': 'In',
-    '印花': 'In hoa',
-    '刺绣': 'Thêu',
-    '绣花': 'Thêu hoa',
-    '山茶花': 'Hoa sơn trà',
-    '皇冠': 'Vương miện',
-    '字母': 'Chữ cái',
-    '数字': 'Số',
-    '卡通': 'Hoạt hình',
+    条: 'Sọc',
+    条纹: 'Sọc',
+    纹: 'Vân',
+    格: 'Caro',
+    格子: 'Caro',
+    花: 'Hoa',
+    碎花: 'Hoa nhỏ',
+    大花: 'Hoa lớn',
+    点: 'Chấm',
+    波点: 'Chấm bi',
+    印: 'In',
+    印花: 'In hoa',
+    刺绣: 'Thêu',
+    绣花: 'Thêu hoa',
+    山茶花: 'Hoa sơn trà',
+    皇冠: 'Vương miện',
+    字母: 'Chữ cái',
+    数字: 'Số',
+    卡通: 'Hoạt hình',
 
     // =====================================================
     // MATERIALS - CHẤT LIỆU (面料)
     // =====================================================
-    '棉': 'Cotton',
-    '纯棉': 'Cotton 100%',
-    '全棉': 'Cotton 100%',
-    '麻': 'Lanh',
-    '棉麻': 'Cotton lanh',
-    '丝': 'Lụa',
-    '真丝': 'Lụa thật',
-    '绒': 'Nhung',
-    '天鹅绒': 'Nhung thiên nga',
-    '金丝绒': 'Nhung vàng',
-    '毛': 'Len',
-    '羊毛': 'Len cừu',
-    '羊绒': 'Len cashmere',
-    '皮': 'Da',
-    '皮革': 'Da thuộc',
-    '革': 'Da thuộc',
-    '牛仔': 'Vải jean',
-    '雪纺': 'Voan',
-    '涤纶': 'Polyester',
-    '锦纶': 'Nylon',
-    '氨纶': 'Spandex',
-    '蕾丝': 'Ren',
-    '网纱': 'Lưới',
-    '针织': 'Dệt kim',
-    '梭织': 'Dệt thoi',
-    '弹力': 'Co giãn',
+    棉: 'Cotton',
+    纯棉: 'Cotton 100%',
+    全棉: 'Cotton 100%',
+    麻: 'Lanh',
+    棉麻: 'Cotton lanh',
+    丝: 'Lụa',
+    真丝: 'Lụa thật',
+    绒: 'Nhung',
+    天鹅绒: 'Nhung thiên nga',
+    金丝绒: 'Nhung vàng',
+    毛: 'Len',
+    羊毛: 'Len cừu',
+    羊绒: 'Len cashmere',
+    皮: 'Da',
+    皮革: 'Da thuộc',
+    革: 'Da thuộc',
+    牛仔: 'Vải jean',
+    雪纺: 'Voan',
+    涤纶: 'Polyester',
+    锦纶: 'Nylon',
+    氨纶: 'Spandex',
+    蕾丝: 'Ren',
+    网纱: 'Lưới',
+    针织: 'Dệt kim',
+    梭织: 'Dệt thoi',
+    弹力: 'Co giãn',
 
     // =====================================================
     // CLOTHING TYPES - LOẠI TRANG PHỤC (款式)
     // =====================================================
     // Áo
-    '上衣': 'Áo',
-    'T恤': 'Áo thun',
-    'T恤衫': 'Áo thun',
-    '衬衫': 'Áo sơ mi',
-    '衬衣': 'Áo sơ mi',
-    '外套': 'Áo khoác',
-    '夹克': 'Áo jacket',
-    '风衣': 'Áo măng tô',
-    '大衣': 'Áo khoác dài',
-    '棉衣': 'Áo cotton',
-    '棉袄': 'Áo bông',
-    '羽绒服': 'Áo phao',
-    '卫衣': 'Áo nỉ',
-    '毛衣': 'Áo len',
-    '针织衫': 'Áo len',
-    '打底衫': 'Áo lót',
-    '打底': 'Áo lót',
-    '马甲': 'Áo gile',
-    '背心': 'Áo ba lỗ',
-    '吊带': 'Dây đeo',
-    '吊带衫': 'Áo hai dây',
-    '西装': 'Vest',
-    '西服': 'Vest',
-    '开衫': 'Áo cardigan',
+    上衣: 'Áo',
+    T恤: 'Áo thun',
+    T恤衫: 'Áo thun',
+    衬衫: 'Áo sơ mi',
+    衬衣: 'Áo sơ mi',
+    外套: 'Áo khoác',
+    夹克: 'Áo jacket',
+    风衣: 'Áo măng tô',
+    大衣: 'Áo khoác dài',
+    棉衣: 'Áo cotton',
+    棉袄: 'Áo bông',
+    羽绒服: 'Áo phao',
+    卫衣: 'Áo nỉ',
+    毛衣: 'Áo len',
+    针织衫: 'Áo len',
+    打底衫: 'Áo lót',
+    打底: 'Áo lót',
+    马甲: 'Áo gile',
+    背心: 'Áo ba lỗ',
+    吊带: 'Dây đeo',
+    吊带衫: 'Áo hai dây',
+    西装: 'Vest',
+    西服: 'Vest',
+    开衫: 'Áo cardigan',
 
     // Quần
-    '裤': 'Quần',
-    '裤子': 'Quần',
-    '短裤': 'Quần short',
-    '长裤': 'Quần dài',
-    '牛仔裤': 'Quần jean',
-    '西裤': 'Quần tây',
-    '休闲裤': 'Quần casual',
-    '运动裤': 'Quần thể thao',
-    '阔腿裤': 'Quần ống rộng',
-    '喇叭裤': 'Quần ống loe',
-    '直筒裤': 'Quần ống đứng',
-    '九分裤': 'Quần 9 phân',
-    '七分裤': 'Quần 7 phân',
-    '五分裤': 'Quần 5 phân',
-    '打底裤': 'Quần legging',
+    裤: 'Quần',
+    裤子: 'Quần',
+    短裤: 'Quần short',
+    长裤: 'Quần dài',
+    牛仔裤: 'Quần jean',
+    西裤: 'Quần tây',
+    休闲裤: 'Quần casual',
+    运动裤: 'Quần thể thao',
+    阔腿裤: 'Quần ống rộng',
+    喇叭裤: 'Quần ống loe',
+    直筒裤: 'Quần ống đứng',
+    九分裤: 'Quần 9 phân',
+    七分裤: 'Quần 7 phân',
+    五分裤: 'Quần 5 phân',
+    打底裤: 'Quần legging',
 
     // Váy
-    '裙': 'Váy',
-    '裙子': 'Váy',
-    '连衣裙': 'Váy liền',
-    '半身裙': 'Chân váy',
-    '短裙': 'Váy ngắn',
-    '长裙': 'Váy dài',
-    '百褶裙': 'Váy xếp ly',
-    '包臀裙': 'Váy bút chì',
-    'A字裙': 'Váy chữ A',
-    '蓬蓬裙': 'Váy xòe',
+    裙: 'Váy',
+    裙子: 'Váy',
+    连衣裙: 'Váy liền',
+    半身裙: 'Chân váy',
+    短裙: 'Váy ngắn',
+    长裙: 'Váy dài',
+    百褶裙: 'Váy xếp ly',
+    包臀裙: 'Váy bút chì',
+    A字裙: 'Váy chữ A',
+    蓬蓬裙: 'Váy xòe',
 
     // Bộ đồ
-    '套装': 'Đồ bộ',
-    '两件套': 'Bộ 2 món',
-    '三件套': 'Bộ 3 món',
-    '四件套': 'Bộ 4 món',
-    '套': 'Bộ',
-    '睡衣': 'Đồ ngủ',
-    '家居服': 'Đồ mặc nhà',
-    '运动套装': 'Bộ thể thao',
+    套装: 'Đồ bộ',
+    两件套: 'Bộ 2 món',
+    三件套: 'Bộ 3 món',
+    四件套: 'Bộ 4 món',
+    套: 'Bộ',
+    睡衣: 'Đồ ngủ',
+    家居服: 'Đồ mặc nhà',
+    运动套装: 'Bộ thể thao',
 
     // Phụ kiện
-    '帽子': 'Mũ',
-    '围巾': 'Khăn choàng',
-    '手套': 'Găng tay',
-    '袜子': 'Tất',
-    '皮带': 'Thắt lưng',
-    '腰带': 'Dây lưng',
-    '包': 'Túi',
-    '手提包': 'Túi xách',
-    '单肩包': 'Túi đeo vai',
-    '斜挎包': 'Túi đeo chéo',
-    '双肩包': 'Balo',
+    帽子: 'Mũ',
+    围巾: 'Khăn choàng',
+    手套: 'Găng tay',
+    袜子: 'Tất',
+    皮带: 'Thắt lưng',
+    腰带: 'Dây lưng',
+    包: 'Túi',
+    手提包: 'Túi xách',
+    单肩包: 'Túi đeo vai',
+    斜挎包: 'Túi đeo chéo',
+    双肩包: 'Balo',
 
     // =====================================================
     // DESIGN DETAILS - CHI TIẾT THIẾT KẾ (细节)
     // =====================================================
     // Cổ áo
-    '领': 'Cổ',
-    '圆领': 'Cổ tròn',
-    'V领': 'Cổ chữ V',
-    '高领': 'Cổ cao',
-    '翻领': 'Cổ lật',
-    '方领': 'Cổ vuông',
-    '一字领': 'Cổ ngang',
-    '娃娃领': 'Cổ búp bê',
-    '立领': 'Cổ đứng',
-    '半高领': 'Cổ lọ',
-    '堆堆领': 'Cổ đống',
+    领: 'Cổ',
+    圆领: 'Cổ tròn',
+    V领: 'Cổ chữ V',
+    高领: 'Cổ cao',
+    翻领: 'Cổ lật',
+    方领: 'Cổ vuông',
+    一字领: 'Cổ ngang',
+    娃娃领: 'Cổ búp bê',
+    立领: 'Cổ đứng',
+    半高领: 'Cổ lọ',
+    堆堆领: 'Cổ đống',
 
     // Tay áo
-    '袖': 'Tay áo',
-    '长袖': 'Tay dài',
-    '短袖': 'Tay ngắn',
-    '七分袖': 'Tay 7 phân',
-    '无袖': 'Không tay',
-    '泡泡袖': 'Tay bồng',
-    '蝙蝠袖': 'Tay dơi',
-    '喇叭袖': 'Tay loe',
-    '灯笼袖': 'Tay lồng đèn',
+    袖: 'Tay áo',
+    长袖: 'Tay dài',
+    短袖: 'Tay ngắn',
+    七分袖: 'Tay 7 phân',
+    无袖: 'Không tay',
+    泡泡袖: 'Tay bồng',
+    蝙蝠袖: 'Tay dơi',
+    喇叭袖: 'Tay loe',
+    灯笼袖: 'Tay lồng đèn',
 
     // Dáng / Kiểu
-    '短款': 'Dáng ngắn',
-    '中长款': 'Dáng trung',
-    '长款': 'Dáng dài',
-    '修身': 'Ôm body',
-    '宽松': 'Rộng',
-    '直筒': 'Ống đứng',
-    '交叉': 'Chéo',
-    '斜角': 'Xéo góc',
-    '系带': 'Dây buộc',
-    '拉链': 'Khoá kéo',
-    '纽扣': 'Khuy',
-    '扣子': 'Nút',
-    '铆钉': 'Đinh tán',
-    '流苏': 'Tua rua',
-    '荷叶边': 'Viền lượn sóng',
-    '木耳边': 'Viền bèo',
-    '蝴蝶结': 'Nơ',
-    '腰带': 'Đai lưng',
-    '口袋': 'Túi',
-    '开叉': 'Xẻ',
-    '褶皱': 'Xếp ly',
-    '收腰': 'Eo',
+    短款: 'Dáng ngắn',
+    中长款: 'Dáng trung',
+    长款: 'Dáng dài',
+    修身: 'Ôm body',
+    宽松: 'Rộng',
+    直筒: 'Ống đứng',
+    交叉: 'Chéo',
+    斜角: 'Xéo góc',
+    系带: 'Dây buộc',
+    拉链: 'Khoá kéo',
+    纽扣: 'Khuy',
+    扣子: 'Nút',
+    铆钉: 'Đinh tán',
+    流苏: 'Tua rua',
+    荷叶边: 'Viền lượn sóng',
+    木耳边: 'Viền bèo',
+    蝴蝶结: 'Nơ',
+    腰带: 'Đai lưng',
+    口袋: 'Túi',
+    开叉: 'Xẻ',
+    褶皱: 'Xếp ly',
+    收腰: 'Eo',
 
     // =====================================================
     // SIZES - KÍCH THƯỚC
     // =====================================================
-    '均码': 'Freesize',
-    'F': 'Freesize',
-    '均': 'Freesize',
-    'S码': 'Size S',
-    'M码': 'Size M',
-    'L码': 'Size L',
-    'XL码': 'Size XL',
-    'XXL码': 'Size XXL',
-    '大码': 'Size lớn',
-    '加大码': 'Size cực lớn',
-    '件': 'Cái',
-    '条': 'Chiếc',
-    '手': '1 ri',
+    均码: 'Freesize',
+    F: 'Freesize',
+    均: 'Freesize',
+    S码: 'Size S',
+    M码: 'Size M',
+    L码: 'Size L',
+    XL码: 'Size XL',
+    XXL码: 'Size XXL',
+    大码: 'Size lớn',
+    加大码: 'Size cực lớn',
+    件: 'Cái',
+    条: 'Chiếc',
+    手: '1 ri',
 
     // =====================================================
     // ORDER STATUS - TÌNH TRẠNG ĐƠN HÀNG
     // =====================================================
-    '现货': 'Có sẵn',
-    '预售': 'Pre-order',
-    '欠货': 'Nợ hàng',
-    '退货': 'Trả hàng',
-    '拿货': 'Lấy hàng',
-    '补货': 'Bổ sung hàng',
-    '断货': 'Hết hàng',
-    '缺货': 'Thiếu hàng',
+    现货: 'Có sẵn',
+    预售: 'Pre-order',
+    欠货: 'Nợ hàng',
+    退货: 'Trả hàng',
+    拿货: 'Lấy hàng',
+    补货: 'Bổ sung hàng',
+    断货: 'Hết hàng',
+    缺货: 'Thiếu hàng',
 
     // =====================================================
     // COMMON TERMS - TỪ THÔNG DỤNG
     // =====================================================
-    '色': '',
-    '款': 'Kiểu',
-    '新款': 'Mẫu mới',
-    '热卖': 'Bán chạy',
-    '爆款': 'Hot',
-    '苏': 'Tô',
-    '号': 'Số',
-    '小计': 'Tạm tính',
-    '合计': 'Tổng cộng',
-    '销售合计': 'Tổng bán',
-    '数量': 'Số lượng',
-    '单价': 'Đơn giá',
-    '金额': 'Thành tiền'
+    色: '',
+    款: 'Kiểu',
+    新款: 'Mẫu mới',
+    热卖: 'Bán chạy',
+    爆款: 'Hot',
+    苏: 'Tô',
+    号: 'Số',
+    小计: 'Tạm tính',
+    合计: 'Tổng cộng',
+    销售合计: 'Tổng bán',
+    数量: 'Số lượng',
+    单价: 'Đơn giá',
+    金额: 'Thành tiền',
 };
 
 /**
@@ -379,7 +384,7 @@ function formatColors(mauSac) {
     if (!mauSac || mauSac.length === 0) {
         return '<span class="text-muted">-</span>';
     }
-    return mauSac.map(c => `${c.mau} - SL ${c.soLuong}`).join(', ');
+    return mauSac.map((c) => `${c.mau} - SL ${c.soLuong}`).join(', ');
 }
 
 /**
@@ -418,7 +423,7 @@ function renderShipments(shipments) {
 
     // Clear previous content (except loading/empty states)
     const cards = container.querySelectorAll('.shipment-card');
-    cards.forEach(card => card.remove());
+    cards.forEach((card) => card.remove());
 
     // Show empty state if no data
     if (!shipments || shipments.length === 0) {
@@ -430,11 +435,11 @@ function renderShipments(shipments) {
 
     // Cleanup stale ids before render
     if (window.UIState && typeof window.UIState.pruneExpanded === 'function') {
-        window.UIState.pruneExpanded(shipments.map(s => s.id));
+        window.UIState.pruneExpanded(shipments.map((s) => s.id));
     }
 
     // Render each shipment (expand state loaded from UIState, default collapsed)
-    shipments.forEach(shipment => {
+    shipments.forEach((shipment) => {
         const card = createShipmentCard(shipment);
         container.appendChild(card);
     });
@@ -475,9 +480,12 @@ function updateInventoryStatsBar() {
     }
 
     const shipments = globalState.shipments || [];
-    let tongKg = 0, tongHD = 0, tongCP = 0;
-    let tongHDVnd = 0, tongCPVnd = 0;
-    shipments.forEach(s => {
+    let tongKg = 0,
+        tongHD = 0,
+        tongCP = 0;
+    let tongHDVnd = 0,
+        tongCPVnd = 0;
+    shipments.forEach((s) => {
         const hd = parseFloat(s.tongTienHoaDon) || 0;
         const cp = parseFloat(s.tongChiPhi) || 0;
         const tg = parseFloat(s.tiGia) || 0;
@@ -488,10 +496,11 @@ function updateInventoryStatsBar() {
         tongCPVnd += cp * tg;
     });
 
-    let tongTT = 0, tongTTVnd = 0;
+    let tongTT = 0,
+        tongTTVnd = 0;
     if (typeof getAllDotsAggregated === 'function') {
         const dotEntries = getAllDotsAggregated();
-        dotEntries.forEach(e => {
+        dotEntries.forEach((e) => {
             const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
             const tg = parseFloat(e.tiGia) || 0;
             const tt = payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
@@ -553,25 +562,32 @@ function createShipmentCard(shipment) {
     const shipHD = parseFloat(shipment.tongTienHoaDon) || 0;
     const shipTiGia = parseFloat(shipment.tiGia) || 0;
     const shipHDVnd = shipHD * shipTiGia;
-    const vndPart = shipHDVnd > 0
-        ? ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round(shipHDVnd / 1000))})</span>`
-        : '';
-    const tongHDSuffix = (canViewTT && shipHD > 0)
-        ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">${formatNumber(shipHD)}</span>${vndPart}</span>`
-        : '';
+    const vndPart =
+        shipHDVnd > 0
+            ? ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round(shipHDVnd / 1000))})</span>`
+            : '';
+    const tongHDSuffix =
+        canViewTT && shipHD > 0
+            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">${formatNumber(shipHD)}</span>${vndPart}</span>`
+            : '';
     let packagesInfo;
     if (packages.length > 0) {
-        const packageWeightsHtml = packages.map((p, i) => {
-            const received = !!p.daNhan;
-            const receivedClass = received ? ' pkg-received' : '';
-            const checkedAttr = received ? ' checked' : '';
-            return `<label class="pkg-check-label" data-shipment="${shipment.id}" data-pkg-index="${i}" data-dot-id="${_escAttr(p._dotId || '')}" data-dot-kien-idx="${p._dotKienIdx ?? ''}">` +
-                `<input type="checkbox" class="pkg-check" onclick="event.stopPropagation(); togglePkgCheck(this)"${checkedAttr}>` +
-                `<span class="pkg-kg-text${receivedClass}">${p.soKg} KG</span></label>`;
-        }).join(', ');
-        const allChecked = packages.every(p => !!p.daNhan);
+        const packageWeightsHtml = packages
+            .map((p, i) => {
+                const received = !!p.daNhan;
+                const receivedClass = received ? ' pkg-received' : '';
+                const checkedAttr = received ? ' checked' : '';
+                return (
+                    `<label class="pkg-check-label" data-shipment="${shipment.id}" data-pkg-index="${i}" data-dot-id="${_escAttr(p._dotId || '')}" data-dot-kien-idx="${p._dotKienIdx ?? ''}">` +
+                    `<input type="checkbox" class="pkg-check" onclick="event.stopPropagation(); togglePkgCheck(this)"${checkedAttr}>` +
+                    `<span class="pkg-kg-text${receivedClass}">${p.soKg} KG</span></label>`
+                );
+            })
+            .join(', ');
+        const allChecked = packages.every((p) => !!p.daNhan);
         const checkAllAttr = allChecked ? ' checked' : '';
-        packagesInfo = `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}` +
+        packagesInfo =
+            `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}` +
             `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
             `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ"${checkAllAttr}>` +
             `</label>`;
@@ -594,16 +610,24 @@ function createShipmentCard(shipment) {
                 </span>
             </div>
             <div class="shipment-actions">
-                ${canEdit ? `
+                ${
+                    canEdit
+                        ? `
                     <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); editShipment('${shipment.id}')" title="Sửa">
                         <i data-lucide="edit"></i>
                     </button>
-                ` : ''}
-                ${canDelete ? `
+                `
+                        : ''
+                }
+                ${
+                    canDelete
+                        ? `
                     <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); deleteShipment('${shipment.id}')" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
-                ` : ''}
+                `
+                        : ''
+                }
                 <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); updateShortage('${shipment.id}')" title="Cập nhật thiếu">
                     <i data-lucide="clipboard-check"></i>
                 </button>
@@ -638,12 +662,16 @@ function renderPackagesSection(shipment) {
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
 
     // Render badges inline with header
-    const packageBadges = packages.map(p => `
+    const packageBadges = packages
+        .map(
+            (p) => `
         <span class="package-badge">
             <i data-lucide="package"></i>
             Kiện ${p.stt}: ${p.soKg} kg
         </span>
-    `).join('');
+    `
+        )
+        .join('');
 
     return `
         <div class="shipment-section packages-inline">
@@ -709,48 +737,19 @@ function renderInvoicesSection(shipment) {
 
         if (products.length === 0) {
             // No products - single row
-            const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
-            allRows.push(renderProductRow({
-                invoiceIdx,
-                invoiceClass,
-                sttNCC: hd.sttNCC,
-                tenNCC: hd.tenNCC || '',
-                productIdx: 0,
-                product: null,
-                isFirstRow: true,
-                isLastRow: true,
-                rowSpan: 1,
-                tongTienHD: invoiceTongTienHD,
-                tongMon: invoiceTongMon,
-                soMonThieu: hd.soMonThieu,
-                imageCount,
-
-                ghiChu: hd.ghiChu,
-                shipmentId: shipment.id,
-                invoiceId: hd.id || invoiceIdx,
-                costItem,
-                canViewCost,
-                hasSubInvoice,
-                subInvoice: hd.subInvoice,
-                anhHoaDon: hd.anhHoaDon,
-                batchNgay: shipment.ngayDiHang,
-                batchDotSo: shipment.dotSo || 1
-            }));
-            absoluteRowIdx++;
-        } else {
-            // Multiple products - cost assigned by absolute row index
-            products.forEach((product, productIdx) => {
-                const costItem = canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
-                allRows.push(renderProductRow({
+            const costItem =
+                canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
+            allRows.push(
+                renderProductRow({
                     invoiceIdx,
                     invoiceClass,
                     sttNCC: hd.sttNCC,
                     tenNCC: hd.tenNCC || '',
-                    productIdx,
-                    product,
-                    isFirstRow: productIdx === 0,
-                    isLastRow: productIdx === products.length - 1,
-                    rowSpan: products.length,
+                    productIdx: 0,
+                    product: null,
+                    isFirstRow: true,
+                    isLastRow: true,
+                    rowSpan: 1,
                     tongTienHD: invoiceTongTienHD,
                     tongMon: invoiceTongMon,
                     soMonThieu: hd.soMonThieu,
@@ -763,8 +762,43 @@ function renderInvoicesSection(shipment) {
                     canViewCost,
                     hasSubInvoice,
                     subInvoice: hd.subInvoice,
-                    anhHoaDon: hd.anhHoaDon
-                }));
+                    anhHoaDon: hd.anhHoaDon,
+                    batchNgay: shipment.ngayDiHang,
+                    batchDotSo: shipment.dotSo || 1,
+                })
+            );
+            absoluteRowIdx++;
+        } else {
+            // Multiple products - cost assigned by absolute row index
+            products.forEach((product, productIdx) => {
+                const costItem =
+                    canViewCost && absoluteRowIdx < costs.length ? costs[absoluteRowIdx] : null;
+                allRows.push(
+                    renderProductRow({
+                        invoiceIdx,
+                        invoiceClass,
+                        sttNCC: hd.sttNCC,
+                        tenNCC: hd.tenNCC || '',
+                        productIdx,
+                        product,
+                        isFirstRow: productIdx === 0,
+                        isLastRow: productIdx === products.length - 1,
+                        rowSpan: products.length,
+                        tongTienHD: invoiceTongTienHD,
+                        tongMon: invoiceTongMon,
+                        soMonThieu: hd.soMonThieu,
+                        imageCount,
+
+                        ghiChu: hd.ghiChu,
+                        shipmentId: shipment.id,
+                        invoiceId: hd.id || invoiceIdx,
+                        costItem,
+                        canViewCost,
+                        hasSubInvoice,
+                        subInvoice: hd.subInvoice,
+                        anhHoaDon: hd.anhHoaDon,
+                    })
+                );
                 absoluteRowIdx++;
             });
         }
@@ -818,33 +852,45 @@ function renderInvoicesSection(shipment) {
  * Images come from independent product_images table, mapped by NCC
  * Only rendered on first row of each invoice (isFirstRow), spans all product rows
  */
-function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImages, invoiceId, batchNgay, batchDotSo) {
+function _renderImageCell(
+    isFirstRow,
+    rowSpan,
+    sttNCC,
+    borderClass,
+    invoiceImages,
+    invoiceId,
+    batchNgay,
+    batchDotSo
+) {
     if (!isFirstRow) return ''; // Merged cell — skip non-first rows
 
     // Map productImages by (batch date, đợt, sttNCC) — real NCCs only (< 900).
     // sttNCC >= 900 = auto-assigned for name-only NCCs — no mapping.
-    const productImages = (sttNCC > 0 && sttNCC < 900)
-        ? getProductImagesForNcc(sttNCC, batchNgay, batchDotSo)
-        : [];
+    const productImages =
+        sttNCC > 0 && sttNCC < 900 ? getProductImagesForNcc(sttNCC, batchNgay, batchDotSo) : [];
     const invoiceImgs = invoiceImages || [];
     const allImages = [...productImages];
     for (const url of invoiceImgs) {
         if (!allImages.includes(url)) allImages.push(url);
     }
     const count = allImages.length;
-    const rowspanBorderClass = borderClass.replace('border-bottom-', 'border-bottom-') || borderClass;
+    const rowspanBorderClass =
+        borderClass.replace('border-bottom-', 'border-bottom-') || borderClass;
 
     const addBtn = invoiceId
         ? `<span class="image-add-hint" onclick="addTableImage('${invoiceId}')" title="Thêm ảnh"><i data-lucide="plus" style="width:14px;height:14px;color:var(--gray-400)"></i></span>`
         : '';
 
     if (count > 0) {
-        const thumbs = allImages.map(url => {
-            const delBtn = invoiceId && invoiceImgs.includes(url)
-                ? `<button class="cell-img-del" onclick="event.stopPropagation(); removeTableImage('${invoiceId}', '${url}')" title="Xóa ảnh">&times;</button>`
-                : '';
-            return `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}" onclick="openImageLightbox('${url}')"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div>${delBtn}</div>`;
-        }).join('');
+        const thumbs = allImages
+            .map((url) => {
+                const delBtn =
+                    invoiceId && invoiceImgs.includes(url)
+                        ? `<button class="cell-img-del" onclick="event.stopPropagation(); removeTableImage('${invoiceId}', '${url}')" title="Xóa ảnh">&times;</button>`
+                        : '';
+                return `<div class="cell-img-wrap" onmouseenter="_positionImgZoom(this)" onmouseleave="_hideImgZoom(this)"><img src="${url}" class="cell-img-thumb" alt="NCC ${sttNCC}" onclick="openImageLightbox('${url}')"><div class="cell-img-zoom"><img src="${url}" alt="NCC ${sttNCC}"></div>${delBtn}</div>`;
+            })
+            .join('');
 
         return `
             <td class="col-image ${rowspanBorderClass}" rowspan="${rowSpan}">
@@ -868,12 +914,29 @@ function _renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, invoiceImage
  */
 function renderProductRow(opts) {
     const {
-        invoiceIdx, invoiceClass, sttNCC, tenNCC, productIdx, product,
-        isFirstRow, isLastRow, rowSpan,
-        tongTienHD, tongMon, soMonThieu, imageCount, ghiChu,
-        shipmentId, invoiceId, costItem, canViewCost,
-        hasSubInvoice, subInvoice, anhHoaDon,
-        batchNgay, batchDotSo
+        invoiceIdx,
+        invoiceClass,
+        sttNCC,
+        tenNCC,
+        productIdx,
+        product,
+        isFirstRow,
+        isLastRow,
+        rowSpan,
+        tongTienHD,
+        tongMon,
+        soMonThieu,
+        imageCount,
+        ghiChu,
+        shipmentId,
+        invoiceId,
+        costItem,
+        canViewCost,
+        hasSubInvoice,
+        subInvoice,
+        anhHoaDon,
+        batchNgay,
+        batchDotSo,
     } = opts;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
@@ -881,14 +944,19 @@ function renderProductRow(opts) {
     // Extract product details for new columns
     const maSP = product?.maSP || '-';
     const moTa = product?.moTa || '-';
-    const colorDetails = product?.mauSac?.length > 0
-        ? formatColors(product.mauSac)
-        : (product?.soMau ? `${product.soMau} màu` : '-');
+    const colorDetails =
+        product?.mauSac?.length > 0
+            ? formatColors(product.mauSac)
+            : product?.soMau
+              ? `${product.soMau} màu`
+              : '-';
     const tongSoLuong = product?.tongSoLuong || product?.soLuong || '-';
     const giaDonVi = product?.giaDonVi || 0;
 
     // Inline edit data attributes
-    const editAttrs = product ? `data-invoice-id="${invoiceId}" data-product-idx="${productIdx}"` : '';
+    const editAttrs = product
+        ? `data-invoice-id="${invoiceId}" data-product-idx="${productIdx}"`
+        : '';
 
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
@@ -897,8 +965,14 @@ function renderProductRow(opts) {
     const borderClass = isLastRow ? 'invoice-border' : '';
 
     // Sub-invoice indicator and click handler
-    const subInvoiceIndicator = hasSubInvoice && isFirstRow ? `<span class="sub-invoice-indicator" title="Có hóa đơn phụ - Click để xem">▼</span>` : '';
-    const nccClickHandler = hasSubInvoice && isFirstRow ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"` : '';
+    const subInvoiceIndicator =
+        hasSubInvoice && isFirstRow
+            ? `<span class="sub-invoice-indicator" title="Có hóa đơn phụ - Click để xem">▼</span>`
+            : '';
+    const nccClickHandler =
+        hasSubInvoice && isFirstRow
+            ? `onclick="showSubInvoice('${shipmentId}', ${invoiceIdx}); event.stopPropagation();" style="cursor: pointer;"`
+            : '';
     const nccClass = hasSubInvoice ? 'has-sub-invoice' : '';
 
     // Display NCC: show tenNCC name. If no name, show sttNCC number as fallback.
@@ -923,7 +997,9 @@ function renderProductRow(opts) {
             <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
             <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
             <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
-            ${isFirstRow ? `
+            ${
+                isFirstRow
+                    ? `
                 <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
                 </td>
@@ -936,16 +1012,22 @@ function renderProductRow(opts) {
                     onclick="startInlineShortage(this)" title="Click để sửa">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
-            ` : ''}
+            `
+                    : ''
+            }
             ${_renderImageCell(isFirstRow, rowSpan, sttNCC, borderClass, anhHoaDon, invoiceId, batchNgay, batchDotSo)}
-            ${isFirstRow ? `
+            ${
+                isFirstRow
+                    ? `
                 <td class="col-invoice-note ${rowspanBorderClass}" rowspan="${rowSpan}">
-                    ${typeof NoteManager !== 'undefined'
-                        ? NoteManager.renderCell(invoiceId)
-                        : ''}
+                    ${typeof NoteManager !== 'undefined' ? NoteManager.renderCell(invoiceId) : ''}
                 </td>
-            ` : ''}
-            ${canViewCost ? `
+            `
+                    : ''
+            }
+            ${
+                canViewCost
+                    ? `
                 <td class="col-cost text-right cost-cell editable-cell"
                     data-cost-id="${costItem?.id || ''}"
                     data-invoice-id="${_escAttr(invoiceId)}"
@@ -958,11 +1040,12 @@ function renderProductRow(opts) {
                     ondblclick="startInlineEditCostNote(this)" title="Nhấp đúp để sửa">
                     ${costItem ? `<span class="cost-label">${costItem.loai || ''}</span>` : ''}
                 </td>
-            ` : ''}
+            `
+                    : ''
+            }
         </tr>
     `;
 }
-
 
 /**
  * Toggle visibility of Mô tả & Chi tiết màu sắc columns — apply to ALL tables
@@ -983,7 +1066,7 @@ function toggleDetailColumns(btn) {
  */
 function _applyDetailColsVisibility(visible) {
     const tables = document.querySelectorAll('table.invoice-table');
-    tables.forEach(t => {
+    tables.forEach((t) => {
         if (visible) t.classList.remove('detail-cols-hidden');
         else t.classList.add('detail-cols-hidden');
         const toggleBtn = t.querySelector('.detail-toggle');
@@ -1013,22 +1096,24 @@ function renderAdminNoteSection(shipment) {
  * View invoice images
  */
 function viewInvoiceImages(shipmentId, invoiceIdentifier) {
-    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === shipmentId);
     if (!shipment) return;
 
     // Find invoice by id, sttNCC, or index
     let invoiceIdx = -1;
 
     // Check if invoiceIdentifier is a number or numeric string (index)
-    const numericId = typeof invoiceIdentifier === 'number' ? invoiceIdentifier : parseInt(invoiceIdentifier, 10);
+    const numericId =
+        typeof invoiceIdentifier === 'number' ? invoiceIdentifier : parseInt(invoiceIdentifier, 10);
     if (!isNaN(numericId) && numericId >= 0 && numericId < (shipment.hoaDon?.length || 0)) {
         // It's a valid index
         invoiceIdx = numericId;
     } else if (typeof invoiceIdentifier === 'string') {
         // Try to find by id or sttNCC
-        invoiceIdx = shipment.hoaDon?.findIndex(hd =>
-            hd.id === invoiceIdentifier || String(hd.sttNCC) === invoiceIdentifier
-        ) ?? -1;
+        invoiceIdx =
+            shipment.hoaDon?.findIndex(
+                (hd) => hd.id === invoiceIdentifier || String(hd.sttNCC) === invoiceIdentifier
+            ) ?? -1;
     }
 
     if (invoiceIdx === -1 || !shipment.hoaDon?.[invoiceIdx]) {
@@ -1046,7 +1131,9 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
     const body = document.getElementById('imageViewerBody');
 
     if (body) {
-        body.innerHTML = invoice.anhHoaDon.map((url, index) => `
+        body.innerHTML = invoice.anhHoaDon
+            .map(
+                (url, index) => `
             <div class="image-item" style="position: relative;">
                 <img src="${url}" alt="Hóa đơn" onclick="openImageLightbox('${url}')" style="cursor: pointer;">
                 <button class="btn-delete-image" onclick="deleteInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
@@ -1056,7 +1143,9 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
                     font-size: 14px; line-height: 1; display: flex; align-items: center;
                     justify-content: center;">×</button>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     // Store current invoice index for re-render after delete
@@ -1073,7 +1162,7 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
     }
 
     try {
-        const shipment = globalState.shipments.find(s => s.id === shipmentId);
+        const shipment = globalState.shipments.find((s) => s.id === shipmentId);
         if (!shipment) {
             window.notificationManager?.error('Không tìm thấy shipment');
             return;
@@ -1098,7 +1187,7 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
         const updatedHoaDon = [...shipment.hoaDon];
         updatedHoaDon[invoiceIdx] = {
             ...invoice,
-            anhHoaDon: updatedImages
+            anhHoaDon: updatedImages,
         };
 
         // Update via API — update the individual dotHang (invoice)
@@ -1119,7 +1208,6 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
 
         window.notificationManager?.success('Đã xóa ảnh');
         console.log('[RENDERER] Image deleted from invoice');
-
     } catch (error) {
         console.error('[RENDERER] Delete image error:', error);
         window.notificationManager?.error('Lỗi xóa ảnh: ' + error.message);
@@ -1131,7 +1219,7 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
  * Displays the sub-invoice (invoice 2) in a modal table
  */
 function showSubInvoice(shipmentId, invoiceIdx) {
-    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === shipmentId);
     if (!shipment) {
         window.notificationManager?.info('Không tìm thấy shipment');
         return;
@@ -1150,7 +1238,12 @@ function showSubInvoice(shipmentId, invoiceIdx) {
     let productRows = '';
     products.forEach((product, idx) => {
         const text = product.rawText_vi || product.rawText || 'Sản phẩm ' + (idx + 1);
-        productRows += '<tr><td style="text-align:center;padding:8px;border:1px solid #ddd;">' + (idx + 1) + '</td><td style="padding:8px;border:1px solid #ddd;">' + text + '</td></tr>';
+        productRows +=
+            '<tr><td style="text-align:center;padding:8px;border:1px solid #ddd;">' +
+            (idx + 1) +
+            '</td><td style="padding:8px;border:1px solid #ddd;">' +
+            text +
+            '</td></tr>';
     });
 
     const tongMon = subInvoice.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
@@ -1160,25 +1253,48 @@ function showSubInvoice(shipmentId, invoiceIdx) {
     // Build modal HTML
     const modalHtml =
         '<div id="subInvoiceModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)window.closeSubInvoiceModal()">' +
-            '<div style="background:white;border-radius:12px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
-                '<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:16px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
-                    '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' + (invoice.tenNCC || invoice.sttNCC) + '</h2>' +
-                    '<button onclick="window.closeSubInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>' +
-                '</div>' +
-                '<div style="padding:20px;">' +
-                    '<div style="margin-bottom:15px;padding:12px;background:#f5f5f5;border-radius:8px;">' +
-                        '<p style="margin:5px 0;"><strong>Tiền HĐ:</strong> ' + tongTienHD.toLocaleString() + ' ¥</p>' +
-                        '<p style="margin:5px 0;"><strong>Tổng món:</strong> ' + tongMon + '</p>' +
-                        (subInvoice.ghiChu ? '<p style="margin:5px 0;"><strong>Ghi chú:</strong> ' + subInvoice.ghiChu + '</p>' : '') +
-                        (imageCount > 0 ? '<p style="margin:5px 0;"><strong>Ảnh:</strong> <span style="cursor:pointer;color:#3b82f6;" onclick="window.viewSubInvoiceImages(\'' + shipmentId + '\',' + invoiceIdx + ')">' + imageCount + ' ảnh (click để xem)</span></p>' : '') +
-                    '</div>' +
-                    '<table style="width:100%;border-collapse:collapse;">' +
-                        '<thead><tr style="background:#f0f0f0;"><th style="padding:10px;border:1px solid #ddd;width:60px;">STT</th><th style="padding:10px;border:1px solid #ddd;">Chi Tiết Sản Phẩm</th></tr></thead>' +
-                        '<tbody>' + (productRows || '<tr><td colspan="2" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>') + '</tbody>' +
-                        '<tfoot><tr style="background:#e8f4e8;font-weight:bold;"><td style="padding:10px;border:1px solid #ddd;text-align:right;">TỔNG:</td><td style="padding:10px;border:1px solid #ddd;">' + tongMon + ' món - ' + tongTienHD.toLocaleString() + ' ¥</td></tr></tfoot>' +
-                    '</table>' +
-                '</div>' +
-            '</div>' +
+        '<div style="background:white;border-radius:12px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+        '<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:16px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+        '<h2 style="margin:0;font-size:18px;">Hóa Đơn Phụ - NCC ' +
+        (invoice.tenNCC || invoice.sttNCC) +
+        '</h2>' +
+        '<button onclick="window.closeSubInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>' +
+        '</div>' +
+        '<div style="padding:20px;">' +
+        '<div style="margin-bottom:15px;padding:12px;background:#f5f5f5;border-radius:8px;">' +
+        '<p style="margin:5px 0;"><strong>Tiền HĐ:</strong> ' +
+        tongTienHD.toLocaleString() +
+        ' ¥</p>' +
+        '<p style="margin:5px 0;"><strong>Tổng món:</strong> ' +
+        tongMon +
+        '</p>' +
+        (subInvoice.ghiChu
+            ? '<p style="margin:5px 0;"><strong>Ghi chú:</strong> ' + subInvoice.ghiChu + '</p>'
+            : '') +
+        (imageCount > 0
+            ? '<p style="margin:5px 0;"><strong>Ảnh:</strong> <span style="cursor:pointer;color:#3b82f6;" onclick="window.viewSubInvoiceImages(\'' +
+              shipmentId +
+              "'," +
+              invoiceIdx +
+              ')">' +
+              imageCount +
+              ' ảnh (click để xem)</span></p>'
+            : '') +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<thead><tr style="background:#f0f0f0;"><th style="padding:10px;border:1px solid #ddd;width:60px;">STT</th><th style="padding:10px;border:1px solid #ddd;">Chi Tiết Sản Phẩm</th></tr></thead>' +
+        '<tbody>' +
+        (productRows ||
+            '<tr><td colspan="2" style="text-align:center;padding:20px;">Không có sản phẩm</td></tr>') +
+        '</tbody>' +
+        '<tfoot><tr style="background:#e8f4e8;font-weight:bold;"><td style="padding:10px;border:1px solid #ddd;text-align:right;">TỔNG:</td><td style="padding:10px;border:1px solid #ddd;">' +
+        tongMon +
+        ' món - ' +
+        tongTienHD.toLocaleString() +
+        ' ¥</td></tr></tfoot>' +
+        '</table>' +
+        '</div>' +
+        '</div>' +
         '</div>';
 
     // Remove existing modal
@@ -1205,7 +1321,7 @@ function closeSubInvoiceModal() {
  * View sub-invoice images
  */
 function viewSubInvoiceImages(shipmentId, invoiceIdx) {
-    const shipment = globalState.shipments.find(s => s.id === shipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === shipmentId);
     if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice?.anhHoaDon?.length) {
         window.notificationManager?.info('Không có ảnh hóa đơn phụ');
         return;
@@ -1217,7 +1333,9 @@ function viewSubInvoiceImages(shipmentId, invoiceIdx) {
     const body = document.getElementById('imageViewerBody');
 
     if (body) {
-        body.innerHTML = images.map((url, index) => `
+        body.innerHTML = images
+            .map(
+                (url, index) => `
             <div class="image-item" style="position: relative;">
                 <img src="${url}" alt="Hóa đơn phụ" onclick="openImageLightbox('${url}')" style="cursor: pointer;">
                 <button class="btn-delete-image" onclick="deleteSubInvoiceImage('${shipmentId}', ${invoiceIdx}, ${index})"
@@ -1227,7 +1345,9 @@ function viewSubInvoiceImages(shipmentId, invoiceIdx) {
                     font-size: 14px; line-height: 1; display: flex; align-items: center;
                     justify-content: center;">×</button>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     openModal('modalImageViewer');
@@ -1242,7 +1362,7 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
     }
 
     try {
-        const shipment = globalState.shipments.find(s => s.id === shipmentId);
+        const shipment = globalState.shipments.find((s) => s.id === shipmentId);
         if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice) {
             window.notificationManager?.error('Không tìm thấy hóa đơn phụ');
             return;
@@ -1264,8 +1384,8 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
             ...shipment.hoaDon[invoiceIdx],
             subInvoice: {
                 ...subInvoice,
-                anhHoaDon: updatedImages
-            }
+                anhHoaDon: updatedImages,
+            },
         };
 
         // Update via API
@@ -1312,7 +1432,8 @@ function startInlineShortage(td) {
     input.placeholder = '0';
     input.min = '0';
     input.max = String(tongMon);
-    input.style.cssText = 'width: 60px; text-align: center; font-weight: 700; font-size: inherit; padding: 2px 4px; border: 2px solid var(--primary, #4a7cff); border-radius: 4px; outline: none;';
+    input.style.cssText =
+        'width: 60px; text-align: center; font-weight: 700; font-size: inherit; padding: 2px 4px; border: 2px solid var(--primary, #4a7cff); border-radius: 4px; outline: none;';
 
     // Replace content
     td.innerHTML = '';
@@ -1321,13 +1442,18 @@ function startInlineShortage(td) {
     input.select();
 
     // Stop click from re-triggering
-    input.addEventListener('click', e => e.stopPropagation());
+    input.addEventListener('click', (e) => e.stopPropagation());
 
     // Save on blur or Enter
     input.addEventListener('blur', () => commitInlineShortage(td, input));
-    input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        if (e.key === 'Escape') { cancelInlineShortage(td); }
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        }
+        if (e.key === 'Escape') {
+            cancelInlineShortage(td);
+        }
     });
 }
 
@@ -1362,7 +1488,7 @@ async function commitInlineShortage(td, input) {
     try {
         await updateDotHangShortage(parseInt(sttNCC), invoiceId, {
             soMonThieu: newValue,
-            ghiChuThieu: ''
+            ghiChuThieu: '',
         });
 
         // Update data attribute
@@ -1373,7 +1499,6 @@ async function commitInlineShortage(td, input) {
 
         // Update footer total
         updateShortageFooterTotal(td);
-
     } catch (error) {
         console.error('[SHORTAGE] Inline save error:', error);
         // Restore old value on error
@@ -1392,7 +1517,7 @@ function updateShortageFooterTotal(td) {
 
     const shortageCells = table.querySelectorAll('tbody .col-shortage');
     let total = 0;
-    shortageCells.forEach(cell => {
+    shortageCells.forEach((cell) => {
         total += parseInt(cell.dataset.rawValue) || 0;
     });
 
@@ -1451,7 +1576,9 @@ const NCC_DONE_KEY = 'inventory_ncc_done';
 function _getNccDoneMap() {
     try {
         return JSON.parse(localStorage.getItem(NCC_DONE_KEY) || '{}');
-    } catch (_) { return {}; }
+    } catch (_) {
+        return {};
+    }
 }
 
 function _isNccDone(shipmentId, nccKey) {
@@ -1472,7 +1599,9 @@ function toggleNccDone(shipmentId, nccKey, checked) {
     localStorage.setItem(NCC_DONE_KEY, JSON.stringify(map));
 
     // Update all rows for this NCC in the DOM via checkbox's parent cell
-    const checkbox = document.querySelector(`.shipment-card[data-id="${shipmentId}"] .ncc-done-check[data-ncc-key="${nccKey}"]`);
+    const checkbox = document.querySelector(
+        `.shipment-card[data-id="${shipmentId}"] .ncc-done-check[data-ncc-key="${nccKey}"]`
+    );
     const nccCell = checkbox?.closest('.col-ncc');
     if (nccCell) {
         const tr = nccCell.closest('tr');
@@ -1530,7 +1659,7 @@ async function togglePkgCheck(checkbox) {
     const allChecks = badge.querySelectorAll('.pkg-check');
     const checkAll = badge.querySelector('.pkg-check-all');
     if (checkAll) {
-        checkAll.checked = Array.from(allChecks).every(c => c.checked);
+        checkAll.checked = Array.from(allChecks).every((c) => c.checked);
     }
 
     if (!dotId || isNaN(kienIdx)) {
@@ -1548,7 +1677,7 @@ async function togglePkgCheck(checkbox) {
         if (!nextChecked) kgText.classList.add('pkg-received');
         else kgText.classList.remove('pkg-received');
         if (checkAll) {
-            checkAll.checked = Array.from(allChecks).every(c => c.checked);
+            checkAll.checked = Array.from(allChecks).every((c) => c.checked);
         }
         window.notificationManager?.error('Không thể lưu: ' + error.message);
     } finally {
@@ -1566,14 +1695,16 @@ async function toggleAllPkgCheck(checkAllBox) {
     const allKgTexts = badge.querySelectorAll('.pkg-kg-text');
     const nextChecked = checkAllBox.checked;
 
-    allChecks.forEach(c => { c.checked = nextChecked; });
-    allKgTexts.forEach(t => {
+    allChecks.forEach((c) => {
+        c.checked = nextChecked;
+    });
+    allKgTexts.forEach((t) => {
         if (nextChecked) t.classList.add('pkg-received');
         else t.classList.remove('pkg-received');
     });
 
     const byDot = new Map();
-    allLabels.forEach(label => {
+    allLabels.forEach((label) => {
         const dotId = label.dataset.dotId;
         const kienIdx = parseInt(label.dataset.dotKienIdx);
         if (!dotId || isNaN(kienIdx)) return;
@@ -1600,8 +1731,10 @@ async function toggleAllPkgCheck(checkAllBox) {
     } catch (error) {
         console.error('[PKG-CHECK-ALL] Save failed:', error);
         checkAllBox.checked = !nextChecked;
-        allChecks.forEach(c => { c.checked = !nextChecked; });
-        allKgTexts.forEach(t => {
+        allChecks.forEach((c) => {
+            c.checked = !nextChecked;
+        });
+        allKgTexts.forEach((t) => {
             if (!nextChecked) t.classList.add('pkg-received');
             else t.classList.remove('pkg-received');
         });
@@ -1680,8 +1813,11 @@ function startInlineEditNcc(span) {
 
         let targetDot = null;
         for (const ncc of globalState.nccList) {
-            const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-            if (dot) { targetDot = dot; break; }
+            const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+            if (dot) {
+                targetDot = dot;
+                break;
+            }
         }
         if (!targetDot) {
             span.textContent = oldValue;
@@ -1702,8 +1838,15 @@ function startInlineEditNcc(span) {
 
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.removeEventListener('blur', commit); commit(); }
-        if (e.key === 'Escape') { input.removeEventListener('blur', commit); span.textContent = oldValue; }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            span.textContent = oldValue;
+        }
     });
 }
 
@@ -1752,8 +1895,10 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
     const newValue = input.value.trim();
     const isNumeric = field === 'tongSoLuong' || field === 'giaDonVi';
     const displayValue = isNumeric
-        ? (parseFloat(newValue) > 0 ? formatNumber(parseFloat(newValue)) : '-')
-        : (newValue || '-');
+        ? parseFloat(newValue) > 0
+            ? formatNumber(parseFloat(newValue))
+            : '-'
+        : newValue || '-';
 
     // No change
     if (newValue === oldValue || (newValue === '' && oldValue === '-')) {
@@ -1764,8 +1909,11 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
     // Find dotHang
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
     }
     if (!targetDot || !targetDot.sanPham?.[productIdx]) {
         td.textContent = oldValue;
@@ -1783,15 +1931,19 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
 
         // Recalculate totals
         if (field === 'tongSoLuong' || field === 'giaDonVi') {
-            product.thanhTien = (product.tongSoLuong || product.soLuong || 0) * (product.giaDonVi || 0);
-            targetDot.tongMon = targetDot.sanPham.reduce((s, p) => s + (p.tongSoLuong || p.soLuong || 0), 0);
+            product.thanhTien =
+                (product.tongSoLuong || product.soLuong || 0) * (product.giaDonVi || 0);
+            targetDot.tongMon = targetDot.sanPham.reduce(
+                (s, p) => s + (p.tongSoLuong || p.soLuong || 0),
+                0
+            );
             targetDot.tongTienHD = targetDot.sanPham.reduce((s, p) => s + (p.thanhTien || 0), 0);
         }
 
         await shipmentsApi.update(invoiceId, {
             sanPham: targetDot.sanPham,
             tongMon: targetDot.tongMon,
-            tongTienHD: targetDot.tongTienHD
+            tongTienHD: targetDot.tongTienHD,
         });
 
         td.textContent = displayValue;
@@ -1933,8 +2085,11 @@ async function _saveTableImages() {
     // Find dotHang
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
     }
     if (!targetDot) {
         window.notificationManager?.error('Không tìm thấy hóa đơn');
@@ -1983,12 +2138,15 @@ async function removeTableImage(invoiceId, imageUrl) {
 
     let targetDot = null;
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
-        if (dot) { targetDot = dot; break; }
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
     }
     if (!targetDot || !targetDot.anhHoaDon) return;
 
-    targetDot.anhHoaDon = targetDot.anhHoaDon.filter(u => u !== imageUrl);
+    targetDot.anhHoaDon = targetDot.anhHoaDon.filter((u) => u !== imageUrl);
 
     try {
         await shipmentsApi.update(invoiceId, { anhHoaDon: targetDot.anhHoaDon });
@@ -2007,8 +2165,8 @@ async function removeTableImage(invoiceId, imageUrl) {
 
 function _findCostByIdAcrossDots(costId) {
     for (const ncc of globalState.nccList) {
-        for (const dot of (ncc.dotHang || [])) {
-            const c = (dot.chiPhiHangVe || []).find(x => x.id === costId);
+        for (const dot of ncc.dotHang || []) {
+            const c = (dot.chiPhiHangVe || []).find((x) => x.id === costId);
             if (c) return { dot, cost: c };
         }
     }
@@ -2017,7 +2175,7 @@ function _findCostByIdAcrossDots(costId) {
 
 function _findDotByInvoiceId(invoiceId) {
     for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find(d => d.id === invoiceId);
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
         if (dot) return dot;
     }
     return null;
@@ -2036,7 +2194,7 @@ function _refreshCostTotal(td) {
     if (!table) return;
     const cells = table.querySelectorAll('tbody .cost-value');
     let total = 0;
-    cells.forEach(el => {
+    cells.forEach((el) => {
         const n = parseFloat(el.textContent.replace(/[.,\s]/g, '')) || 0;
         total += n;
     });
@@ -2053,7 +2211,7 @@ function startInlineEditCost(td) {
     if (!invoiceId) return;
 
     const oldEl = td.querySelector('.cost-value');
-    const oldSoTien = oldEl ? (parseFloat(oldEl.textContent.replace(/[.,\s]/g, '')) || 0) : 0;
+    const oldSoTien = oldEl ? parseFloat(oldEl.textContent.replace(/[.,\s]/g, '')) || 0 : 0;
 
     const input = document.createElement('input');
     input.type = 'number';
@@ -2066,7 +2224,9 @@ function startInlineEditCost(td) {
     input.focus();
     input.select();
 
-    const restore = () => { td.innerHTML = _renderCostValueHtml(oldSoTien); };
+    const restore = () => {
+        td.innerHTML = _renderCostValueHtml(oldSoTien);
+    };
     const commit = () => commitInlineEditCost(td, input, costId, invoiceId, oldSoTien);
 
     input.addEventListener('blur', commit);
@@ -2095,7 +2255,10 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
     let costRecord = null;
     if (costId) {
         const found = _findCostByIdAcrossDots(costId);
-        if (found) { targetDot = found.dot; costRecord = found.cost; }
+        if (found) {
+            targetDot = found.dot;
+            costRecord = found.cost;
+        }
     }
     if (!targetDot) {
         targetDot = _findDotByInvoiceId(invoiceId);
@@ -2111,7 +2274,9 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
 
         if (costRecord) {
             if (newSoTien === 0) {
-                targetDot.chiPhiHangVe = targetDot.chiPhiHangVe.filter(x => x.id !== costRecord.id);
+                targetDot.chiPhiHangVe = targetDot.chiPhiHangVe.filter(
+                    (x) => x.id !== costRecord.id
+                );
                 td.dataset.costId = '';
                 const noteCell = td.parentElement?.querySelector('.cost-note-cell');
                 if (noteCell) {
@@ -2133,7 +2298,7 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
 
         await shipmentsApi.update(targetDot.id, {
             chiPhiHangVe: targetDot.chiPhiHangVe,
-            tongChiPhi: targetDot.tongChiPhi
+            tongChiPhi: targetDot.tongChiPhi,
         });
 
         td.innerHTML = _renderCostValueHtml(newSoTien);
@@ -2167,7 +2332,9 @@ function startInlineEditCostNote(td) {
     input.focus();
     input.select();
 
-    const restore = () => { td.innerHTML = _renderCostNoteHtml(oldLoai); };
+    const restore = () => {
+        td.innerHTML = _renderCostNoteHtml(oldLoai);
+    };
     const commit = () => commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai);
 
     input.addEventListener('blur', commit);
@@ -2201,7 +2368,10 @@ async function commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai) {
     let costRecord = null;
     if (costId) {
         const found = _findCostByIdAcrossDots(costId);
-        if (found) { targetDot = found.dot; costRecord = found.cost; }
+        if (found) {
+            targetDot = found.dot;
+            costRecord = found.cost;
+        }
     }
     if (!targetDot) {
         targetDot = _findDotByInvoiceId(invoiceId);
@@ -2226,7 +2396,7 @@ async function commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai) {
         }
 
         await shipmentsApi.update(targetDot.id, {
-            chiPhiHangVe: targetDot.chiPhiHangVe
+            chiPhiHangVe: targetDot.chiPhiHangVe,
         });
 
         td.innerHTML = _renderCostNoteHtml(newLoai);
@@ -2247,7 +2417,7 @@ function _findDotsByDotSo(dotSo) {
     const ds = parseInt(dotSo, 10) || 1;
     const out = [];
     for (const ncc of globalState.nccList) {
-        for (const dot of (ncc.dotHang || [])) {
+        for (const dot of ncc.dotHang || []) {
             if ((dot.dotSo || 1) === ds) out.push(dot);
         }
     }
@@ -2263,7 +2433,7 @@ function _aggregateDotEntry(dotSo) {
     let tiGia = 0;
     const hdByDate = {};
     const cpByDate = {};
-    dots.forEach(d => {
+    dots.forEach((d) => {
         const ngay = d.ngayDiHang;
         if (ngay) dateSet.add(ngay);
         const hd = parseFloat(d.tongTienHD) || 0;
@@ -2272,8 +2442,11 @@ function _aggregateDotEntry(dotSo) {
         tongChiPhi += cp;
         if (hd > 0 && ngay) hdByDate[ngay] = (hdByDate[ngay] || 0) + hd;
         if (cp > 0 && ngay) cpByDate[ngay] = (cpByDate[ngay] || 0) + cp;
-        if ((!thanhToanCK || thanhToanCK.length === 0)
-            && Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0) {
+        if (
+            (!thanhToanCK || thanhToanCK.length === 0) &&
+            Array.isArray(d.thanhToanCK) &&
+            d.thanhToanCK.length > 0
+        ) {
             thanhToanCK = d.thanhToanCK;
         }
         if (!tiGia && d.tiGia) tiGia = parseFloat(d.tiGia) || 0;
@@ -2281,8 +2454,12 @@ function _aggregateDotEntry(dotSo) {
     return {
         dotSo: parseInt(dotSo, 10) || 1,
         ngayDiHangList: [...dateSet].sort((a, b) => new Date(b) - new Date(a)),
-        tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia,
-        hdByDate, cpByDate
+        tongTienHoaDon,
+        tongChiPhi,
+        thanhToanCK,
+        tiGia,
+        hdByDate,
+        cpByDate,
     };
 }
 
@@ -2316,21 +2493,28 @@ function _formatSoTienWithVnd(val, tiGia) {
 }
 
 function _renderBreakdownRows(breakdownObj, tiGia) {
-    const entries = Object.entries(breakdownObj || {}).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+    const entries = Object.entries(breakdownObj || {}).sort(
+        (a, b) => new Date(b[0]) - new Date(a[0])
+    );
     if (entries.length === 0) {
         return '<div class="pp-breakdown-empty">Chưa có dữ liệu theo ngày.</div>';
     }
-    return entries.map(([ngay, soTien]) => `
+    return entries
+        .map(
+            ([ngay, soTien]) => `
         <div class="pp-breakdown-row">
             <span class="bd-ngay">${formatDateDisplay(ngay)}</span>
             <span class="bd-so-tien">${formatNumber(soTien)}${_vndSuffixHtml(soTien, tiGia)}</span>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 function _renderPaymentRow(dotSo, tiGia, p) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
-    const soTienDisplay = soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
+    const soTienDisplay =
+        soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
     const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
     const ghiChu = p.ghiChu || '';
     const ghiChuTooltip = ghiChu ? _escAttr(ghiChu) : 'Nhấp đúp để sửa';
@@ -2353,7 +2537,7 @@ function _renderDotSectionBodyHtml(entry) {
     const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const totals = _calcPaymentTotals(entry);
     const dotAttr = entry.dotSo;
-    const rows = payments.map(p => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
+    const rows = payments.map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
     const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
     const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
 
@@ -2434,7 +2618,7 @@ function renderPaymentSlideOverBody() {
     if (!permissionHelper?.can('view_thanhToanCK')) {
         return '<div class="payment-empty">Không có quyền xem.</div>';
     }
-    const entries = (typeof getAllDotsAggregated === 'function') ? getAllDotsAggregated() : [];
+    const entries = typeof getAllDotsAggregated === 'function' ? getAllDotsAggregated() : [];
     if (entries.length === 0) {
         return '<div class="payment-empty">Chưa có đợt hàng nào. Thêm đợt hàng trước.</div>';
     }
@@ -2453,8 +2637,9 @@ function _refreshPaymentDotSectionUI(dotSo) {
     const entry = _aggregateDotEntry(dotSo);
 
     // Preserve breakdown expansion state across the re-render
-    const expandedKinds = [...section.querySelectorAll('.pp-line-expandable.expanded')]
-        .map(el => el.dataset.breakdownKind);
+    const expandedKinds = [...section.querySelectorAll('.pp-line-expandable.expanded')].map(
+        (el) => el.dataset.breakdownKind
+    );
 
     // Full re-render of both head and body so CÒN LẠI + tỉ giá + VND suffixes stay consistent.
     const headEl = section.querySelector('.payment-dot-head');
@@ -2463,7 +2648,7 @@ function _refreshPaymentDotSectionUI(dotSo) {
     if (bodyEl) bodyEl.innerHTML = _renderDotSectionBodyHtml(entry);
 
     // Restore breakdown expansion
-    expandedKinds.forEach(kind => {
+    expandedKinds.forEach((kind) => {
         const el = section.querySelector(`.pp-line-expandable[data-breakdown-kind="${kind}"]`);
         if (el) el.classList.add('expanded');
     });
@@ -2475,10 +2660,14 @@ async function _persistPaymentByDot(dotSo, patch) {
     const ds = parseInt(dotSo, 10) || 1;
     const dots = _findDotsByDotSo(ds);
     if (patch.thanhToanCK !== undefined) {
-        dots.forEach(d => { d.thanhToanCK = patch.thanhToanCK; });
+        dots.forEach((d) => {
+            d.thanhToanCK = patch.thanhToanCK;
+        });
     }
     if (patch.tiGia !== undefined) {
-        dots.forEach(d => { d.tiGia = patch.tiGia; });
+        dots.forEach((d) => {
+            d.tiGia = patch.tiGia;
+        });
     }
     await shipmentsApi.updatePaymentByDot(ds, patch);
     flattenNCCData();
@@ -2489,7 +2678,7 @@ async function _persistPaymentByDot(dotSo, patch) {
 function _getPaymentsForDot(dotSo) {
     const dots = _findDotsByDotSo(dotSo);
     if (dots.length === 0) return [];
-    const found = dots.find(d => Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0);
+    const found = dots.find((d) => Array.isArray(d.thanhToanCK) && d.thanhToanCK.length > 0);
     return found ? [...found.thanhToanCK] : [];
 }
 
@@ -2521,10 +2710,15 @@ function startInlineEditTiGia(el) {
     input.focus();
     input.select();
 
-    const restore = () => { el.textContent = oldVal > 0 ? String(oldVal) : '—'; };
+    const restore = () => {
+        el.textContent = oldVal > 0 ? String(oldVal) : '—';
+    };
     const commit = async () => {
         const newVal = parseFloat(input.value) || 0;
-        if (newVal === oldVal) { restore(); return; }
+        if (newVal === oldVal) {
+            restore();
+            return;
+        }
         el.textContent = newVal > 0 ? String(newVal) : '—';
         try {
             await _persistPaymentByDot(dotSo, { tiGia: newVal });
@@ -2538,8 +2732,15 @@ function startInlineEditTiGia(el) {
 
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.removeEventListener('blur', commit); commit(); }
-        if (e.key === 'Escape') { input.removeEventListener('blur', commit); restore(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            restore();
+        }
     });
 }
 
@@ -2555,7 +2756,7 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
     if (!paymentId || !field) return;
 
     const payments = _getPaymentsForDot(dotSo);
-    const record = payments.find(p => p.id === paymentId);
+    const record = payments.find((p) => p.id === paymentId);
     if (!record) return;
 
     const oldVal = record[field];
@@ -2564,17 +2765,22 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
     const input = document.createElement('input');
     input.type = inputType;
     input.className = 'inline-edit-input';
-    input.value = (oldVal === undefined || oldVal === null) ? '' : String(oldVal);
+    input.value = oldVal === undefined || oldVal === null ? '' : String(oldVal);
     el.innerHTML = '';
     el.appendChild(input);
     input.focus();
     input.select();
 
-    const restore = () => { el.innerHTML = oldDisplay; };
+    const restore = () => {
+        el.innerHTML = oldDisplay;
+    };
     const commit = async () => {
         const newVal = parser(input.value);
-        if (newVal === oldVal || (newVal === '' && !oldVal) || (Number.isNaN(newVal))) { restore(); return; }
-        const updated = payments.map(p => p.id === paymentId ? { ...p, [field]: newVal } : p);
+        if (newVal === oldVal || (newVal === '' && !oldVal) || Number.isNaN(newVal)) {
+            restore();
+            return;
+        }
+        const updated = payments.map((p) => (p.id === paymentId ? { ...p, [field]: newVal } : p));
         el.innerHTML = formatter(newVal);
         try {
             await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
@@ -2588,15 +2794,24 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
 
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.removeEventListener('blur', commit); commit(); }
-        if (e.key === 'Escape') { input.removeEventListener('blur', commit); restore(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            restore();
+        }
     });
 }
 
 function startInlineEditPaymentNgay(el) {
-    _startInlineEditPaymentGeneric(el, 'date',
-        v => v ? formatDateDisplay(v) : '—',
-        v => (v || '').trim()
+    _startInlineEditPaymentGeneric(
+        el,
+        'date',
+        (v) => (v ? formatDateDisplay(v) : '—'),
+        (v) => (v || '').trim()
     );
 }
 
@@ -2604,16 +2819,20 @@ function startInlineEditPaymentSoTien(el) {
     // Capture tỉ giá at handler-open time so optimistic UI includes VND suffix.
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
     const tiGia = _getTiGiaForDot(dotSo);
-    _startInlineEditPaymentGeneric(el, 'number',
-        v => _formatSoTienWithVnd(v, tiGia),
-        v => parseFloat(v) || 0
+    _startInlineEditPaymentGeneric(
+        el,
+        'number',
+        (v) => _formatSoTienWithVnd(v, tiGia),
+        (v) => parseFloat(v) || 0
     );
 }
 
 function startInlineEditPaymentNote(el) {
-    _startInlineEditPaymentGeneric(el, 'text',
-        v => _escAttr(v || ''),
-        v => (v || '').trim()
+    _startInlineEditPaymentGeneric(
+        el,
+        'text',
+        (v) => _escAttr(v || ''),
+        (v) => (v || '').trim()
     );
 }
 
@@ -2643,7 +2862,7 @@ async function deletePayment(btn) {
     const paymentId = btn.dataset.paymentId;
     const dotSo = parseInt(btn.dataset.dotSo, 10) || 1;
     const payments = _getPaymentsForDot(dotSo);
-    const updated = payments.filter(p => p.id !== paymentId);
+    const updated = payments.filter((p) => p.id !== paymentId);
 
     try {
         await _persistPaymentByDot(dotSo, { thanhToanCK: updated });

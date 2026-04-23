@@ -32,7 +32,9 @@ async function _lookupGlobalIdFromServer(pageId, psid, conversationId) {
         if (!r.ok) return null;
         const data = await r.json();
         if (data.found && data.globalUserId) {
-            console.log(`[EXT-SEND] ⚡ Server cache HIT: ${data.globalUserId} (resolved by ${data.resolvedBy}, useCount=${data.useCount})`);
+            console.log(
+                `[EXT-SEND] ⚡ Server cache HIT: ${data.globalUserId} (resolved by ${data.resolvedBy}, useCount=${data.useCount})`
+            );
             return data.globalUserId;
         }
         return null;
@@ -45,15 +47,26 @@ async function _lookupGlobalIdFromServer(pageId, psid, conversationId) {
 /**
  * Save resolved globalUserId to server cache for cross-client share.
  */
-async function _saveGlobalIdToServer(pageId, psid, globalUserId, conversationId, customerName, threadId) {
+async function _saveGlobalIdToServer(
+    pageId,
+    psid,
+    globalUserId,
+    conversationId,
+    customerName,
+    threadId
+) {
     try {
         const username = (window.authManager?.getAuthState?.() || {}).username || 'unknown';
         await fetch(FB_GLOBAL_ID_CACHE_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                pageId, psid, globalUserId,
-                conversationId, customerName, threadId,
+                pageId,
+                psid,
+                globalUserId,
+                conversationId,
+                customerName,
+                threadId,
                 resolvedBy: username,
             }),
         });
@@ -116,7 +129,9 @@ async function sendViaExtension(text, conv) {
 
     const raw = conv._raw || {};
     const psid = conv.psid || raw.from_psid || raw.from?.id || '';
-    const conversationUpdatedTime = conv.updated_at ? new Date(conv.updated_at).getTime() : Date.now();
+    const conversationUpdatedTime = conv.updated_at
+        ? new Date(conv.updated_at).getTime()
+        : Date.now();
     const accessToken = window.pancakeTokenManager?.currentToken || '';
 
     // ===== Resolve globalUserId (same 4-step fallback as inbox-chat.js) =====
@@ -193,8 +208,10 @@ async function sendViaExtension(text, conv) {
                 conversationUpdatedTime,
                 customerName: custName,
                 convType: conv.type || 'INBOX',
-                postId: null, convId: null,
-                taskId, from: 'WEBPAGE'
+                postId: null,
+                convId: null,
+                taskId,
+                from: 'WEBPAGE',
             });
         });
     } else if (!globalUserId) {
@@ -202,24 +219,29 @@ async function sendViaExtension(text, conv) {
     }
 
     if (!globalUserId) {
-        throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
+        throw new Error(
+            'Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.'
+        );
     }
 
     // Cache for next time (in-memory + server + harvester)
     window._globalIdCache[cacheKey] = globalUserId;
     if (conv.pageId && psid) {
         // Fire-and-forget — không block send flow
-        _saveGlobalIdToServer(
-            conv.pageId, psid, globalUserId,
-            cacheKey, custName, fbThreadId
-        );
+        _saveGlobalIdToServer(conv.pageId, psid, globalUserId, cacheKey, custName, fbThreadId);
         // Also push to GlobalIdHarvester for cross-session persistence
         try {
-            window.GlobalIdHarvester?.fromCustomers(conv.pageId, [{
-                fb_id: psid,
-                global_id: globalUserId,
-                name: custName,
-            }], { conversationId: conv.conversationId || conv.id, threadId: fbThreadId });
+            window.GlobalIdHarvester?.fromCustomers(
+                conv.pageId,
+                [
+                    {
+                        fb_id: psid,
+                        global_id: globalUserId,
+                        name: custName,
+                    },
+                ],
+                { conversationId: conv.conversationId || conv.id, threadId: fbThreadId }
+            );
         } catch (_) {}
     }
 
@@ -272,7 +294,7 @@ async function sendViaExtension(text, conv) {
             photoUrls: [],
             isBusiness: false, // MUST be false (same as inbox)
             taskId: sendTaskId,
-            from: 'WEBPAGE'
+            from: 'WEBPAGE',
         };
 
         _postToExtension(payload);
@@ -308,18 +330,20 @@ function buildConvData(pageId, psid) {
         _messagesData: storedData._messagesData || { customers: storedData.customers || [] },
         updated_at: storedData.updated_at || null,
         customerName: window.currentCustomerName || '',
-        type: storedData.type || window.currentConversationType || 'INBOX'
+        type: storedData.type || window.currentConversationType || 'INBOX',
     };
 
     // Merge from pancakeDataManager cache (additional source)
     if (window.pancakeDataManager?.inboxMapByPSID) {
         for (const [, cached] of window.pancakeDataManager.inboxMapByPSID) {
-            if (cached.id === window.currentConversationId ||
-                (String(cached.pageId) === String(pageId) && String(cached.psid) === String(psid))) {
+            if (
+                cached.id === window.currentConversationId ||
+                (String(cached.pageId) === String(pageId) && String(cached.psid) === String(psid))
+            ) {
                 // Merge page_customer from cache
                 if (!conv._raw.page_customer?.global_id) {
-                    const cachedGlobalId = cached._raw?.page_customer?.global_id
-                        || cached.page_customer?.global_id;
+                    const cachedGlobalId =
+                        cached._raw?.page_customer?.global_id || cached.page_customer?.global_id;
                     if (cachedGlobalId) {
                         if (!conv._raw.page_customer) conv._raw.page_customer = {};
                         conv._raw.page_customer.global_id = cachedGlobalId;
@@ -400,7 +424,7 @@ async function uploadImageViaExtension(file, pageId) {
             name: file.name || 'image.jpg',
             taskId,
             uploadId,
-            from: 'WEBPAGE'
+            from: 'WEBPAGE',
         });
     });
 }
@@ -447,7 +471,9 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
 
     const raw = conv._raw || {};
     const psid = conv.psid || raw.from_psid || raw.from?.id || '';
-    const conversationUpdatedTime = conv.updated_at ? new Date(conv.updated_at).getTime() : Date.now();
+    const conversationUpdatedTime = conv.updated_at
+        ? new Date(conv.updated_at).getTime()
+        : Date.now();
     const accessToken = window.pancakeTokenManager?.currentToken || '';
 
     // Resolve globalUserId (reuse cache from sendViaExtension)
@@ -469,15 +495,39 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
     if (!globalUserId && fbThreadId) {
         const taskId = Date.now();
         globalUserId = await new Promise((resolve) => {
-            const timeout = setTimeout(() => { window.removeEventListener('message', h); resolve(null); }, 60000);
+            const timeout = setTimeout(() => {
+                window.removeEventListener('message', h);
+                resolve(null);
+            }, 60000);
             const h = (e) => {
                 const d = e.data;
                 if (!d?.type || d.taskId !== taskId) return;
-                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', h); resolve(d.globalId); }
-                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', h); resolve(null); }
+                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS') {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', h);
+                    resolve(d.globalId);
+                }
+                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE') {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', h);
+                    resolve(null);
+                }
             };
             window.addEventListener('message', h);
-            _postToExtension({ type: 'GET_GLOBAL_ID_FOR_CONV', pageId: conv.pageId, threadId: fbThreadId, threadKey: 't_' + fbThreadId, isBusiness: true, conversationUpdatedTime, customerName: conv.customerName || '', convType: conv.type || 'INBOX', postId: null, convId: null, taskId, from: 'WEBPAGE' });
+            _postToExtension({
+                type: 'GET_GLOBAL_ID_FOR_CONV',
+                pageId: conv.pageId,
+                threadId: fbThreadId,
+                threadKey: 't_' + fbThreadId,
+                isBusiness: true,
+                conversationUpdatedTime,
+                customerName: conv.customerName || '',
+                convType: conv.type || 'INBOX',
+                postId: null,
+                convId: null,
+                taskId,
+                from: 'WEBPAGE',
+            });
         });
     }
 
@@ -488,11 +538,26 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
 
     // Save to server + harvest (same as sendViaExtension)
     if (conv.pageId && psid) {
-        _saveGlobalIdToServer(conv.pageId, psid, globalUserId, cacheKey, conv.customerName, fbThreadId);
+        _saveGlobalIdToServer(
+            conv.pageId,
+            psid,
+            globalUserId,
+            cacheKey,
+            conv.customerName,
+            fbThreadId
+        );
         try {
-            window.GlobalIdHarvester?.fromCustomers(conv.pageId, [{
-                fb_id: psid, global_id: globalUserId, name: conv.customerName,
-            }], { conversationId: conv.conversationId || conv.id, threadId: fbThreadId });
+            window.GlobalIdHarvester?.fromCustomers(
+                conv.pageId,
+                [
+                    {
+                        fb_id: psid,
+                        global_id: globalUserId,
+                        name: conv.customerName,
+                    },
+                ],
+                { conversationId: conv.conversationId || conv.id, threadId: fbThreadId }
+            );
         } catch (_) {}
     }
 
@@ -500,12 +565,23 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
     const sendTaskId = Date.now();
 
     return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension timeout (60s)')); }, 60000);
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', handler);
+            reject(new Error('Extension timeout (60s)'));
+        }, 60000);
         const handler = (e) => {
             const d = e.data;
             if (!d?.type || d.taskId !== sendTaskId) return;
-            if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
-            if (d.type === 'REPLY_INBOX_PHOTO_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Gửi ảnh thất bại')); }
+            if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                resolve(d);
+            }
+            if (d.type === 'REPLY_INBOX_PHOTO_FAILURE') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                reject(new Error(d.error || 'Gửi ảnh thất bại'));
+            }
         };
         window.addEventListener('message', handler);
 
@@ -529,7 +605,7 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
             photoUrls: [],
             isBusiness: false,
             taskId: sendTaskId,
-            from: 'WEBPAGE'
+            from: 'WEBPAGE',
         });
     });
 }
@@ -550,12 +626,23 @@ async function sendCommentViaExtension(text, pageId, postId, commentId) {
     const taskId = Date.now() + Math.random();
 
     return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension comment timeout (30s)')); }, 30000);
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', handler);
+            reject(new Error('Extension comment timeout (30s)'));
+        }, 30000);
         const handler = (e) => {
             const d = e.data;
             if (!d?.type || d.taskId !== taskId) return;
-            if (d.type === 'SEND_COMMENT_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
-            if (d.type === 'SEND_COMMENT_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Extension comment failed')); }
+            if (d.type === 'SEND_COMMENT_SUCCESS') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                resolve(d);
+            }
+            if (d.type === 'SEND_COMMENT_FAILURE') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                reject(new Error(d.error || 'Extension comment failed'));
+            }
         };
         window.addEventListener('message', handler);
 
@@ -566,7 +653,7 @@ async function sendCommentViaExtension(text, pageId, postId, commentId) {
             commentId: commentId || '',
             message: text,
             taskId,
-            from: 'WEBPAGE'
+            from: 'WEBPAGE',
         });
     });
 }
@@ -586,12 +673,23 @@ async function sendPrivateReplyViaExtension(text, pageId, commentId) {
     const taskId = Date.now() + Math.random();
 
     return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension private reply timeout (30s)')); }, 30000);
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', handler);
+            reject(new Error('Extension private reply timeout (30s)'));
+        }, 30000);
         const handler = (e) => {
             const d = e.data;
             if (!d?.type || d.taskId !== taskId) return;
-            if (d.type === 'SEND_PRIVATE_REPLY_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
-            if (d.type === 'SEND_PRIVATE_REPLY_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Extension private reply failed')); }
+            if (d.type === 'SEND_PRIVATE_REPLY_SUCCESS') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                resolve(d);
+            }
+            if (d.type === 'SEND_PRIVATE_REPLY_FAILURE') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                reject(new Error(d.error || 'Extension private reply failed'));
+            }
         };
         window.addEventListener('message', handler);
 
@@ -601,7 +699,7 @@ async function sendPrivateReplyViaExtension(text, pageId, commentId) {
             commentId,
             message: text,
             taskId,
-            from: 'WEBPAGE'
+            from: 'WEBPAGE',
         });
     });
 }
@@ -617,23 +715,34 @@ window.initExtensionPages = initExtensionPages;
 // =====================================================
 // EVENT LISTENER - Register immediately (same as inbox-main.js line 207)
 // =====================================================
-window.addEventListener('message', function(e) {
+window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || !d.type) return;
     var type = d.type;
 
     // Log extension-related events (same filter as inbox-main.js)
-    var isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
-        type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
-        type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
-        type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
-        type.includes('SEND_COMMENT') || type.includes('SEND_PRIVATE_REPLY') ||
+    var isExtEvent =
+        type.includes('EXTENSION') ||
+        type.includes('REPLY_INBOX') ||
+        type.includes('UPLOAD_INBOX') ||
+        type.includes('PREINITIALIZE') ||
+        type.includes('BUSINESS_CONTEXT') ||
+        type.includes('GLOBAL_ID') ||
+        type.includes('BATCH_GET') ||
+        type.includes('CHECK_EXTENSION') ||
+        type.includes('SEND_COMMENT') ||
+        type.includes('SEND_PRIVATE_REPLY') ||
         type === 'EXT_BRIDGE_PROBE_RESPONSE' ||
-        (d.from === 'EXTENSION');
+        d.from === 'EXTENSION';
 
     if (isExtEvent) {
-        window.pancakeExtension.lastEvents.push({ type: type, time: new Date().toISOString(), data: d });
-        if (window.pancakeExtension.lastEvents.length > 50) window.pancakeExtension.lastEvents.shift();
+        window.pancakeExtension.lastEvents.push({
+            type: type,
+            time: new Date().toISOString(),
+            data: d,
+        });
+        if (window.pancakeExtension.lastEvents.length > 50)
+            window.pancakeExtension.lastEvents.shift();
     }
 
     // EXTENSION_LOADED (relayed from main.html)
@@ -656,7 +765,10 @@ window.addEventListener('message', function(e) {
                 window.notificationManager.show('Pancake Extension đã kết nối', 'success');
             }
             if (window._extensionPageIds?.length) {
-                _postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: window._extensionPageIds });
+                _postToExtension({
+                    type: 'PREINITIALIZE_PAGES',
+                    pageIds: window._extensionPageIds,
+                });
             }
         }
     }
@@ -673,16 +785,15 @@ window.addEventListener('message', function(e) {
 if (window.parent !== window) {
     window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
 
-    setTimeout(function() {
+    setTimeout(function () {
         if (!window.pancakeExtension.connected) {
             window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
         }
     }, 2000);
 
-    setTimeout(function() {
+    setTimeout(function () {
         if (!window.pancakeExtension.connected) {
             window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
         }
     }, 5000);
 }
-

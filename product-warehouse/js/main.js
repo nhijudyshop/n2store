@@ -22,22 +22,22 @@
     // COLUMN DEFINITIONS (order matches screenshot)
     // =====================================================
     const COLUMNS = [
-        { key: 'code',           label: 'Mã',                  visible: true,  locked: false },
-        { key: 'name',           label: 'Tên',                 visible: true,  locked: false },
-        { key: 'group',          label: 'Nhóm sản phẩm',      visible: true,  locked: false },
-        { key: 'price',          label: 'Giá bán',             visible: true,  locked: false },
-        { key: 'defaultBuyPrice',label: 'Giá mua mặc định',   visible: true,  locked: false },
-        { key: 'costPrice',      label: 'Giá vốn',            visible: true,  locked: false },
-        { key: 'qtyActual',      label: 'Số lượng thực tế',   visible: true,  locked: false },
-        { key: 'qtyForecast',    label: 'Số lượng dự báo',    visible: true,  locked: false },
-        { key: 'unit',           label: 'Đơn vị',             visible: true,  locked: false },
-        { key: 'label',          label: 'Nhãn',               visible: true,  locked: false },
-        { key: 'active',         label: 'Hiệu lực',           visible: true,  locked: false },
-        { key: 'allCompany',     label: 'All company',         visible: true,  locked: false },
-        { key: 'note',           label: 'Ghi chú',            visible: true,  locked: false },
-        { key: 'createdAt',      label: 'Ngày tạo',           visible: true,  locked: false },
-        { key: 'company',        label: 'Công ty',            visible: true,  locked: false },
-        { key: 'creator',        label: 'Người tạo',          visible: true,  locked: false },
+        { key: 'code', label: 'Mã', visible: true, locked: false },
+        { key: 'name', label: 'Tên', visible: true, locked: false },
+        { key: 'group', label: 'Nhóm sản phẩm', visible: true, locked: false },
+        { key: 'price', label: 'Giá bán', visible: true, locked: false },
+        { key: 'defaultBuyPrice', label: 'Giá mua mặc định', visible: true, locked: false },
+        { key: 'costPrice', label: 'Giá vốn', visible: true, locked: false },
+        { key: 'qtyActual', label: 'Số lượng thực tế', visible: true, locked: false },
+        { key: 'qtyForecast', label: 'Số lượng dự báo', visible: true, locked: false },
+        { key: 'unit', label: 'Đơn vị', visible: true, locked: false },
+        { key: 'label', label: 'Nhãn', visible: true, locked: false },
+        { key: 'active', label: 'Hiệu lực', visible: true, locked: false },
+        { key: 'allCompany', label: 'All company', visible: true, locked: false },
+        { key: 'note', label: 'Ghi chú', visible: true, locked: false },
+        { key: 'createdAt', label: 'Ngày tạo', visible: true, locked: false },
+        { key: 'company', label: 'Công ty', visible: true, locked: false },
+        { key: 'creator', label: 'Người tạo', visible: true, locked: false },
     ];
 
     const STORAGE_KEY = 'n2store_warehouse_columns';
@@ -61,8 +61,8 @@
     // =====================================================
     // STATE
     // =====================================================
-    let pageProducts = [];   // current page data from API
-    let totalCount = 0;      // total from @odata.count
+    let pageProducts = []; // current page data from API
+    let totalCount = 0; // total from @odata.count
     let currentPage = 1;
     let pageSize = 50;
     let sortField = 'createdAt';
@@ -77,8 +77,8 @@
     let imageCache = {};
 
     // Variant expand state
-    let variantCache = {};        // templateId → variants array
-    let expandedIds = new Set();  // currently expanded template IDs
+    let variantCache = {}; // templateId → variants array
+    let expandedIds = new Set(); // currently expanded template IDs
 
     // =====================================================
     // DOM REFS
@@ -114,7 +114,7 @@
     async function searchProductsSuggestion(searchText) {
         if (!searchText || searchText.length < 2) return [];
         const rows = await WarehouseAPI.search(searchText, 10);
-        return rows.map(row => ({
+        return rows.map((row) => ({
             id: row.tpos_template_id || row.tpos_product_id,
             name: row.name_get || row.product_name,
             code: row.product_code,
@@ -136,12 +136,13 @@
             return;
         }
 
-        suggestionsDiv.innerHTML = suggestions.map(p => {
-            const imgHtml = p.image
-                ? `<img class="suggestion-img" src="${escapeHtml(p.image)}" alt="" loading="lazy">`
-                : `<span class="suggestion-img suggestion-img-empty"></span>`;
-            const qtyClass = p.qty <= 0 ? ' suggestion-qty-zero' : '';
-            return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
+        suggestionsDiv.innerHTML = suggestions
+            .map((p) => {
+                const imgHtml = p.image
+                    ? `<img class="suggestion-img" src="${escapeHtml(p.image)}" alt="" loading="lazy">`
+                    : `<span class="suggestion-img suggestion-img-empty"></span>`;
+                const qtyClass = p.qty <= 0 ? ' suggestion-qty-zero' : '';
+                return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
                 ${imgHtml}
                 <div class="suggestion-info">
                     <div class="suggestion-name"><strong>${escapeHtml(p.code)}</strong> — ${escapeHtml(p.name)}</div>
@@ -151,11 +152,12 @@
                     </div>
                 </div>
             </div>`;
-        }).join('');
+            })
+            .join('');
 
         suggestionsDiv.classList.add('show');
 
-        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item) => {
             item.addEventListener('click', () => {
                 const code = item.dataset.code;
                 const searchInput = $('#searchInput');
@@ -192,7 +194,7 @@
             // Find the row with an image_url to proxy
             let imgRow = result.product.image_url ? result.product : null;
             if (!imgRow && result.variants) {
-                imgRow = result.variants.find(v => v.image_url);
+                imgRow = result.variants.find((v) => v.image_url);
             }
 
             const imgUrl = imgRow ? WarehouseAPI.proxyImageUrl(imgRow) : null;
@@ -218,10 +220,10 @@
         // Only iterate main product rows (exclude expanded variant sub-rows) to avoid off-by-one
         // when mapping `rows[idx]` → `pageProducts[idx]`.
         const rows = $$('#productTableBody tr[data-template-id]');
-        rows.forEach(row => {
+        rows.forEach((row) => {
             const templateId = parseInt(row.dataset.templateId, 10);
             if (!templateId) return;
-            const product = pageProducts.find(p => p.id === templateId);
+            const product = pageProducts.find((p) => p.id === templateId);
             if (!product || product.image) return; // already has image
             if (imageCache[templateId] === null) return; // already checked, no image
 
@@ -277,8 +279,8 @@
 
         // Map Render DB rows to TPOS-compatible variant objects for rendering
         const variants = result.variants
-            .filter(v => v.active !== false)
-            .map(v => ({
+            .filter((v) => v.active !== false)
+            .map((v) => ({
                 Id: v.tpos_product_id,
                 DefaultCode: v.product_code,
                 NameGet: v.name_get || v.product_name,
@@ -299,11 +301,13 @@
 
     function formatAttributeValues(attrValues) {
         if (!attrValues || attrValues.length === 0) return '-';
-        return attrValues.map(a => {
-            const name = a.AttributeName || a.Attribute?.Name || '';
-            const value = a.Name || a.Value || '';
-            return name ? `${name}: ${value}` : value;
-        }).join(', ');
+        return attrValues
+            .map((a) => {
+                const name = a.AttributeName || a.Attribute?.Name || '';
+                const value = a.Name || a.Value || '';
+                return name ? `${name}: ${value}` : value;
+            })
+            .join(', ');
     }
 
     function renderVariantSubRow(variants, templateId, templateImage) {
@@ -313,16 +317,17 @@
             </tr>`;
         }
 
-        const rows = variants.map(v => {
-            const imgUrl = v.ImageUrl || templateImage || '';
-            const imgHtml = imgUrl
-                ? `<img class="variant-img" src="${escapeHtml(imgUrl)}" alt="" loading="lazy">`
-                : `<span class="variant-img-placeholder">-</span>`;
-            const qtyClass = (v.QtyAvailable || 0) <= 0 ? ' qty-zero' : '';
-            const price = v.PriceVariant || v.ListPrice || 0;
-            const cost = v.StandardPrice || 0;
+        const rows = variants
+            .map((v) => {
+                const imgUrl = v.ImageUrl || templateImage || '';
+                const imgHtml = imgUrl
+                    ? `<img class="variant-img" src="${escapeHtml(imgUrl)}" alt="" loading="lazy">`
+                    : `<span class="variant-img-placeholder">-</span>`;
+                const qtyClass = (v.QtyAvailable || 0) <= 0 ? ' qty-zero' : '';
+                const price = v.PriceVariant || v.ListPrice || 0;
+                const cost = v.StandardPrice || 0;
 
-            return `<tr>
+                return `<tr>
                 <td>${imgHtml}</td>
                 <td class="variant-code">${escapeHtml(v.DefaultCode || '')}</td>
                 <td>${escapeHtml(v.NameGet || '')}</td>
@@ -332,7 +337,8 @@
                 <td class="variant-qty${qtyClass}">${formatQty(v.QtyAvailable || 0)}</td>
                 <td class="variant-barcode">${escapeHtml(v.Barcode || v.DefaultCode || '')}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         return `<tr class="variant-expand-row" data-variant-for="${templateId}">
             <td colspan="20">
@@ -379,17 +385,19 @@
         const loadingRow = document.createElement('tr');
         loadingRow.className = 'variant-expand-row';
         loadingRow.setAttribute('data-variant-for', templateId);
-        loadingRow.innerHTML = '<td colspan="20"><div class="variant-loading">Đang tải biến thể...</div></td>';
+        loadingRow.innerHTML =
+            '<td colspan="20"><div class="variant-loading">Đang tải biến thể...</div></td>';
         rowElement.after(loadingRow);
 
         try {
             const variants = await fetchVariants(templateId);
-            const product = pageProducts.find(p => p.id === templateId);
+            const product = pageProducts.find((p) => p.id === templateId);
             const templateImage = product?.image || '';
             loadingRow.outerHTML = renderVariantSubRow(variants, templateId, templateImage);
         } catch (error) {
             console.error('[Warehouse] Variant load error:', error);
-            loadingRow.innerHTML = '<td colspan="20"><div class="variant-loading" style="color:#dc2626">Lỗi tải biến thể</div></td>';
+            loadingRow.innerHTML =
+                '<td colspan="20"><div class="variant-loading" style="color:#dc2626">Lỗi tải biến thể</div></td>';
         }
     }
 
@@ -399,9 +407,10 @@
     function mapProduct(row) {
         const cachedImg = imageCache[row.tpos_template_id];
         // Use proxied image URL to avoid CORS/auth issues with TPOS images
-        const img = (row.image_url && row.tpos_product_id)
-            ? `${RENDER_API}/image/${row.tpos_product_id}`
-            : (cachedImg || '');
+        const img =
+            row.image_url && row.tpos_product_id
+                ? `${RENDER_API}/image/${row.tpos_product_id}`
+                : cachedImg || '';
         return {
             id: row.tpos_template_id || row.tpos_product_id,
             code: row.product_code || '',
@@ -414,7 +423,11 @@
             qtyForecast: 0,
             unit: row.uom_name || '',
             // Tags: forward-compat — if Render sync includes tags JSONB, use it; else empty.
-            tags: Array.isArray(row.tags) ? row.tags : (row.tags && typeof row.tags === 'object' ? [row.tags] : []),
+            tags: Array.isArray(row.tags)
+                ? row.tags
+                : row.tags && typeof row.tags === 'object'
+                  ? [row.tags]
+                  : [],
             label: Array.isArray(row.tags) ? row.tags.length > 0 : false,
             active: row.active !== false,
             allCompany: false,
@@ -465,7 +478,10 @@
             if (ids && ids.length) {
                 // Cap at 500 IDs to avoid URL length limit
                 if (ids.length > 500) {
-                    showToast(`Nhãn khớp ${ids.length} SP — chỉ hiển thị 500 đầu (dùng search để thu hẹp)`, 'info');
+                    showToast(
+                        `Nhãn khớp ${ids.length} SP — chỉ hiển thị 500 đầu (dùng search để thu hẹp)`,
+                        'info'
+                    );
                 }
                 params.set('template_ids', ids.slice(0, 500).join(','));
             } else if (ids !== null) {
@@ -498,12 +514,16 @@
         if (action === 'sync_complete') {
             const stats = data.stats || {};
             const changed = (stats.inserted || 0) + (stats.updated || 0);
-            const typeLabel = data.syncType === 'full' ? 'toàn bộ' :
-                              data.syncType === 'realtime' ? 'realtime' : 'định kỳ';
+            const typeLabel =
+                data.syncType === 'full'
+                    ? 'toàn bộ'
+                    : data.syncType === 'realtime'
+                      ? 'realtime'
+                      : 'định kỳ';
             if (changed === 0 && !stats.deactivated) return; // nothing interesting
             const parts = [];
             if (stats.inserted) parts.push(`+${stats.inserted} mới`);
-            if (stats.updated)  parts.push(`${stats.updated} cập nhật`);
+            if (stats.updated) parts.push(`${stats.updated} cập nhật`);
             if (stats.deactivated) parts.push(`${stats.deactivated} ngừng`);
             message = `Đồng bộ TPOS (${typeLabel}): ${parts.join(', ') || 'không đổi'}`;
             level = 'success';
@@ -530,7 +550,12 @@
         const btn = $('#btnSyncTPOS');
         if (!btn || btn.disabled) return;
 
-        if (!confirm('Đồng bộ toàn bộ sản phẩm từ TPOS?\nThao tác này có thể mất vài phút (~4500 sản phẩm).')) return;
+        if (
+            !confirm(
+                'Đồng bộ toàn bộ sản phẩm từ TPOS?\nThao tác này có thể mất vài phút (~4500 sản phẩm).'
+            )
+        )
+            return;
 
         btn.disabled = true;
         btn.classList.add('syncing');
@@ -544,7 +569,9 @@
             const baseRes = await fetch(`${RENDER_API}/sync/status`);
             const baseJson = await baseRes.json().catch(() => ({}));
             baselineId = baseJson?.lastSync?.id || 0;
-        } catch (_) { /* best effort */ }
+        } catch (_) {
+            /* best effort */
+        }
 
         try {
             const res = await fetch(`${RENDER_API}/sync?type=full`, {
@@ -580,7 +607,7 @@
                 const last = json.lastSync;
 
                 // Only accept a log row that is NEWER than the baseline captured before trigger
-                const isNewer = last && (last.id > baselineId);
+                const isNewer = last && last.id > baselineId;
 
                 if (isNewer && last.sync_type === 'full') {
                     if (last.status === 'success') {
@@ -598,7 +625,10 @@
                     if (last.status === 'failed') {
                         clearInterval(_syncPollTimer);
                         _syncPollTimer = null;
-                        showToast('Đồng bộ thất bại: ' + (last.error_message || 'unknown'), 'error');
+                        showToast(
+                            'Đồng bộ thất bại: ' + (last.error_message || 'unknown'),
+                            'error'
+                        );
                         restoreSyncButton(btn, originalLabel);
                         return;
                     }
@@ -680,7 +710,7 @@
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
-                COLUMNS.forEach(col => {
+                COLUMNS.forEach((col) => {
                     if (parsed[col.key] !== undefined) {
                         col.visible = parsed[col.key];
                     }
@@ -694,16 +724,22 @@
 
     function saveColumnVisibility() {
         const data = {};
-        COLUMNS.forEach(col => { data[col.key] = col.visible; });
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+        COLUMNS.forEach((col) => {
+            data[col.key] = col.visible;
+        });
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     function syncColumnVisibilityToDOM() {
-        COLUMNS.forEach(col => {
+        COLUMNS.forEach((col) => {
             const th = $(`th[data-col="${col.key}"]`);
             if (th) th.style.display = col.visible ? '' : 'none';
 
-            $$(`td[data-col="${col.key}"]`).forEach(td => {
+            $$(`td[data-col="${col.key}"]`).forEach((td) => {
                 td.style.display = col.visible ? '' : 'none';
             });
         });
@@ -714,14 +750,16 @@
         const list = $('#columnSettingsList');
         if (!modal || !list) return;
 
-        list.innerHTML = COLUMNS.map(col => `
+        list.innerHTML = COLUMNS.map(
+            (col) => `
             <label class="column-setting-item ${col.visible ? 'checked' : ''}">
                 <input type="checkbox" data-col-key="${col.key}" ${col.visible ? 'checked' : ''}>
                 <span>${col.label}</span>
             </label>
-        `).join('');
+        `
+        ).join('');
 
-        list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        list.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
             cb.addEventListener('change', () => {
                 cb.closest('.column-setting-item').classList.toggle('checked', cb.checked);
             });
@@ -737,9 +775,9 @@
 
     function saveColumnSettingsFromModal() {
         const checkboxes = $$('#columnSettingsList input[type="checkbox"]');
-        checkboxes.forEach(cb => {
+        checkboxes.forEach((cb) => {
             const key = cb.dataset.colKey;
-            const col = COLUMNS.find(c => c.key === key);
+            const col = COLUMNS.find((c) => c.key === key);
             if (col) col.visible = cb.checked;
         });
         saveColumnVisibility();
@@ -748,10 +786,12 @@
     }
 
     function resetColumnDefaults() {
-        COLUMNS.forEach(col => { col.visible = true; });
+        COLUMNS.forEach((col) => {
+            col.visible = true;
+        });
         const list = $('#columnSettingsList');
         if (list) {
-            list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            list.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
                 cb.checked = true;
                 cb.closest('.column-setting-item').classList.add('checked');
             });
@@ -770,7 +810,8 @@
 
         // Update count
         const countEl = $('#productCount');
-        if (countEl) countEl.innerHTML = `<i data-lucide="package"></i> <strong>${totalCount}</strong> sản phẩm`;
+        if (countEl)
+            countEl.innerHTML = `<i data-lucide="package"></i> <strong>${totalCount}</strong> sản phẩm`;
 
         // Empty state
         const emptyState = $('#emptyState');
@@ -783,15 +824,16 @@
             if (pageProducts.length === 0) {
                 tableBody.innerHTML = '';
             } else {
-                tableBody.innerHTML = pageProducts.map(p => {
-                    const imageHtml = p.image
-                        ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.code)}" class="product-thumb" loading="lazy" onclick="window.warehouseApp.showImage(this.src)">`
-                        : `<div class="product-thumb-placeholder"><i data-lucide="image-off"></i></div>`;
+                tableBody.innerHTML = pageProducts
+                    .map((p) => {
+                        const imageHtml = p.image
+                            ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.code)}" class="product-thumb" loading="lazy" onclick="window.warehouseApp.showImage(this.src)">`
+                            : `<div class="product-thumb-placeholder"><i data-lucide="image-off"></i></div>`;
 
-                    const checked = selectedIds.has(p.id) ? 'checked' : '';
-                    const rowClass = selectedIds.has(p.id) ? ' selected' : '';
+                        const checked = selectedIds.has(p.id) ? 'checked' : '';
+                        const rowClass = selectedIds.has(p.id) ? ' selected' : '';
 
-                    return `<tr class="${rowClass}" data-template-id="${p.id}">
+                        return `<tr class="${rowClass}" data-template-id="${p.id}">
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
                             <div class="action-btns">
@@ -812,19 +854,24 @@
                         <td data-col="qtyActual" class="td-qty ${getQtyClass(p.qtyActual)}">${formatQty(p.qtyActual)}</td>
                         <td data-col="qtyForecast" class="td-qty">${formatQty(p.qtyForecast)}</td>
                         <td data-col="unit">${escapeHtml(p.unit)}</td>
-                        <td data-col="label">${p.tags && p.tags.length ? p.tags.map(t => `<span class="tag-chip" style="background:${t.Color||'#6366f1'};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-right:3px;display:inline-block;">${escapeHtml(t.Name||t.name||'')}</span>`).join('') : '-'}</td>
-                        <td data-col="active">${p.active
-                            ? '<span class="status-active"><i data-lucide="check-circle-2"></i></span>'
-                            : '<span class="status-inactive"><i data-lucide="x"></i></span>'}</td>
-                        <td data-col="allCompany">${p.allCompany
-                            ? '<span class="company-check"><i data-lucide="check"></i></span>'
-                            : '<span class="company-cross"><i data-lucide="x"></i></span>'}</td>
+                        <td data-col="label">${p.tags && p.tags.length ? p.tags.map((t) => `<span class="tag-chip" style="background:${t.Color || '#6366f1'};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;margin-right:3px;display:inline-block;">${escapeHtml(t.Name || t.name || '')}</span>`).join('') : '-'}</td>
+                        <td data-col="active">${
+                            p.active
+                                ? '<span class="status-active"><i data-lucide="check-circle-2"></i></span>'
+                                : '<span class="status-inactive"><i data-lucide="x"></i></span>'
+                        }</td>
+                        <td data-col="allCompany">${
+                            p.allCompany
+                                ? '<span class="company-check"><i data-lucide="check"></i></span>'
+                                : '<span class="company-cross"><i data-lucide="x"></i></span>'
+                        }</td>
                         <td data-col="note" class="td-note" title="${escapeHtml(p.note)}">${escapeHtml(p.note) || ''}</td>
                         <td data-col="createdAt" class="td-date">${p.createdAt || '-'}</td>
                         <td data-col="company" class="td-creator">${escapeHtml(p.company)}</td>
                         <td data-col="creator" class="td-creator">${escapeHtml(p.creator)}</td>
                     </tr>`;
-                }).join('');
+                    })
+                    .join('');
             }
         }
 
@@ -841,9 +888,10 @@
     function renderPagination(total, totalPages, start, end) {
         const info = $('#paginationInfo');
         if (info) {
-            info.textContent = total > 0
-                ? `Hiển thị ${start + 1} - ${end} / ${total} sản phẩm`
-                : 'Không có sản phẩm';
+            info.textContent =
+                total > 0
+                    ? `Hiển thị ${start + 1} - ${end} / ${total} sản phẩm`
+                    : 'Không có sản phẩm';
         }
 
         const btnPrev = $('#btnPrevPage');
@@ -860,7 +908,9 @@
             if (ep - sp < maxVisible - 1) sp = Math.max(1, ep - maxVisible + 1);
 
             for (let i = sp; i <= ep; i++) {
-                pages.push(`<button class="btn-page ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`);
+                pages.push(
+                    `<button class="btn-page ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`
+                );
             }
             pageNums.innerHTML = pages.join('');
         }
@@ -913,20 +963,29 @@
         });
 
         // Filters — reset to page 1 and re-fetch
-        $('#filterStock')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
-        $('#filterStatus')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
-        $('#filterGroup')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
+        $('#filterStock')?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchProducts();
+        });
+        $('#filterStatus')?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchProducts();
+        });
+        $('#filterGroup')?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchProducts();
+        });
 
         // Column filter toggle
-        $$('.th-filter-icon').forEach(icon => {
+        $$('.th-filter-icon').forEach((icon) => {
             icon.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const th = e.target.closest('th');
                 const input = th?.querySelector('.th-filter-input');
                 if (input) {
                     const wasActive = input.classList.contains('active');
-                    $$('.th-filter-input').forEach(i => i.classList.remove('active'));
-                    $$('.th-filter-icon').forEach(i => i.classList.remove('active'));
+                    $$('.th-filter-input').forEach((i) => i.classList.remove('active'));
+                    $$('.th-filter-icon').forEach((i) => i.classList.remove('active'));
                     if (!wasActive) {
                         input.classList.add('active');
                         icon.classList.add('active');
@@ -938,18 +997,22 @@
 
         // Column filter inputs — debounced re-fetch
         let colFilterTimeout;
-        $$('.th-filter-input').forEach(input => {
+        $$('.th-filter-input').forEach((input) => {
             input.addEventListener('input', () => {
                 clearTimeout(colFilterTimeout);
-                colFilterTimeout = setTimeout(() => { currentPage = 1; fetchProducts(); }, 400);
+                colFilterTimeout = setTimeout(() => {
+                    currentPage = 1;
+                    fetchProducts();
+                }, 400);
             });
             input.addEventListener('click', (e) => e.stopPropagation());
         });
 
         // Sort — server-side via $orderby
-        $$('.sortable').forEach(th => {
+        $$('.sortable').forEach((th) => {
             th.addEventListener('click', (e) => {
-                if (e.target.closest('.th-filter-input') || e.target.closest('.th-filter-icon')) return;
+                if (e.target.closest('.th-filter-input') || e.target.closest('.th-filter-icon'))
+                    return;
                 const field = th.dataset.sort;
                 if (!SORT_FIELD_MAP[field]) return;
                 if (sortField === field) {
@@ -958,7 +1021,7 @@
                     sortField = field;
                     sortDirection = 'asc';
                 }
-                $$('.sortable').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
+                $$('.sortable').forEach((t) => t.classList.remove('sort-asc', 'sort-desc'));
                 th.classList.add(`sort-${sortDirection}`);
                 currentPage = 1;
                 fetchProducts();
@@ -968,10 +1031,11 @@
         // Select all checkbox
         $('#selectAll')?.addEventListener('change', (e) => {
             const checked = e.target.checked;
-            $$('.row-checkbox').forEach(cb => {
+            $$('.row-checkbox').forEach((cb) => {
                 cb.checked = checked;
                 const id = parseInt(cb.dataset.id, 10);
-                if (checked) selectedIds.add(id); else selectedIds.delete(id);
+                if (checked) selectedIds.add(id);
+                else selectedIds.delete(id);
                 cb.closest('tr')?.classList.toggle('selected', checked);
             });
         });
@@ -980,7 +1044,8 @@
         $('#productTableBody')?.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-checkbox')) {
                 const id = parseInt(e.target.dataset.id, 10);
-                if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+                if (e.target.checked) selectedIds.add(id);
+                else selectedIds.delete(id);
                 e.target.closest('tr')?.classList.toggle('selected', e.target.checked);
             }
         });
@@ -1016,7 +1081,7 @@
                 const row = printBtn.closest('tr[data-template-id]');
                 if (row) {
                     const templateId = parseInt(row.dataset.templateId, 10);
-                    const product = pageProducts.find(p => p.id === templateId);
+                    const product = pageProducts.find((p) => p.id === templateId);
                     if (product) openBarcodePrint([product]);
                 }
                 return;
@@ -1050,13 +1115,16 @@
             }
 
             // Row click (exclude checkbox, actions buttons, image)
-            if (e.target.closest('.col-checkbox') ||
+            if (
+                e.target.closest('.col-checkbox') ||
                 e.target.closest('.btn-action-edit') ||
                 e.target.closest('.btn-action-stock') ||
                 e.target.closest('.btn-action-print') ||
                 e.target.closest('.btn-action-delete') ||
                 e.target.closest('.product-image-cell') ||
-                e.target.closest('.variant-expand-row')) return;
+                e.target.closest('.variant-expand-row')
+            )
+                return;
 
             const row = e.target.closest('tr[data-template-id]');
             if (row) {
@@ -1067,12 +1135,18 @@
 
         // Pagination — fetch new page
         $('#btnPrevPage')?.addEventListener('click', () => {
-            if (currentPage > 1) { currentPage--; fetchProducts(); }
+            if (currentPage > 1) {
+                currentPage--;
+                fetchProducts();
+            }
         });
 
         $('#btnNextPage')?.addEventListener('click', () => {
             const totalPages = Math.ceil(totalCount / pageSize);
-            if (currentPage < totalPages) { currentPage++; fetchProducts(); }
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchProducts();
+            }
         });
 
         $('#pageNumbers')?.addEventListener('click', (e) => {
@@ -1129,7 +1203,13 @@
         $('#confirmBulkPrice')?.addEventListener('click', confirmBulkPrice);
 
         // Tag filter — loads list lazily
-        $('#filterTag')?.addEventListener('focus', () => { populateTagFilter(); }, { once: true });
+        $('#filterTag')?.addEventListener(
+            'focus',
+            () => {
+                populateTagFilter();
+            },
+            { once: true }
+        );
         $('#filterTag')?.addEventListener('change', () => {
             currentPage = 1;
             fetchProducts();
@@ -1156,7 +1236,13 @@
                 showToast('Chưa có thuộc tính — không có gì để tạo biến thể', 'info');
                 return;
             }
-            if (editVariants.length && !confirm('Tạo lại biến thể sẽ giữ lại các biến thể khớp thuộc tính + tạo biến thể mới. Tiếp tục?')) return;
+            if (
+                editVariants.length &&
+                !confirm(
+                    'Tạo lại biến thể sẽ giữ lại các biến thể khớp thuộc tính + tạo biến thể mới. Tiếp tục?'
+                )
+            )
+                return;
             regenerateVariants();
             showToast(`Đã tạo ${editVariants.length} biến thể`, 'success');
         });
@@ -1173,14 +1259,22 @@
         $('#comboItemsList')?.addEventListener('change', (e) => {
             const qty = e.target.closest('[data-combo-qty]');
             const price = e.target.closest('[data-combo-price]');
-            if (qty) editComboProducts[parseInt(qty.dataset.comboQty)].Quantity = parseInt(qty.value) || 1;
-            if (price) editComboProducts[parseInt(price.dataset.comboPrice)].ProductPrice = parseFloat(price.value) || 0;
+            if (qty)
+                editComboProducts[parseInt(qty.dataset.comboQty)].Quantity =
+                    parseInt(qty.value) || 1;
+            if (price)
+                editComboProducts[parseInt(price.dataset.comboPrice)].ProductPrice =
+                    parseFloat(price.value) || 0;
         });
 
         // UOM Lines add/delete
         $('#btnAddUOMLine')?.addEventListener('click', () => {
             const defaultUOM = (cachedUOMs || [])[0];
-            editUOMLines.push({ UOMId: defaultUOM?.Id || 1, Name: defaultUOM?.Name || 'Cái', FactorInv: 1 });
+            editUOMLines.push({
+                UOMId: defaultUOM?.Id || 1,
+                Name: defaultUOM?.Name || 'Cái',
+                FactorInv: 1,
+            });
             renderUOMLines();
         });
         $('#uomLinesTbody')?.addEventListener('click', (e) => {
@@ -1287,7 +1381,7 @@
         );
         const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
         const response = await window.tokenManager.authenticatedFetch(url, {
-            headers: { 'Accept': 'application/json' }
+            headers: { Accept: 'application/json' },
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
@@ -1300,13 +1394,15 @@
         const fetchJSON = async (endpoint) => {
             const r = await window.tokenManager.authenticatedFetch(
                 `${PROXY_URL}/api/odata/${endpoint}`,
-                { headers: { 'Accept': 'application/json' } }
+                { headers: { Accept: 'application/json' } }
             );
             return r.ok ? (await r.json()).value || [] : [];
         };
 
         if (!cachedCategories) {
-            cachedCategories = await fetchJSON('ProductCategory?$orderby=CompleteName asc&$top=500');
+            cachedCategories = await fetchJSON(
+                'ProductCategory?$orderby=CompleteName asc&$top=500'
+            );
         }
         if (!cachedPOSCategories) {
             cachedPOSCategories = await fetchJSON('POSCategory?$orderby=Name asc&$top=500');
@@ -1320,12 +1416,15 @@
         const el = $(selectId);
         if (!el) return;
         const hasEmpty = el.querySelector('option[value=""]');
-        el.innerHTML = (hasEmpty ? '<option value="">-- Không --</option>' : '') +
-            items.map(it => {
-                const val = it[valueField];
-                const text = it[textField] || it.Name || '';
-                return `<option value="${val}"${val == selectedValue ? ' selected' : ''}>${escapeHtml(text)}</option>`;
-            }).join('');
+        el.innerHTML =
+            (hasEmpty ? '<option value="">-- Không --</option>' : '') +
+            items
+                .map((it) => {
+                    const val = it[valueField];
+                    const text = it[textField] || it.Name || '';
+                    return `<option value="${val}"${val == selectedValue ? ' selected' : ''}>${escapeHtml(text)}</option>`;
+                })
+                .join('');
     }
 
     /**
@@ -1339,7 +1438,7 @@
 
             const [detail] = await Promise.all([
                 fetchProductDetail(templateId),
-                ensureDropdownData()
+                ensureDropdownData(),
             ]);
             editingProduct = detail;
             editImageBase64 = null;
@@ -1360,7 +1459,9 @@
             // Image preview
             const imgPreview = $('#editImagePreview');
             if (imgPreview) {
-                const imgUrl = detail.ImageUrl || (detail.Image ? `data:image/png;base64,${detail.Image}` : '');
+                const imgUrl =
+                    detail.ImageUrl ||
+                    (detail.Image ? `data:image/png;base64,${detail.Image}` : '');
                 imgPreview.innerHTML = imgUrl
                     ? `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;">`
                     : '<span style="color:#9ca3af;font-size:11px;">No image</span>';
@@ -1473,7 +1574,9 @@
 
         // Categories & UOM
         payload.CategId = parseInt($('#editCategId').value) || payload.CategId;
-        payload.POSCategId = $('#editPOSCategId').value ? parseInt($('#editPOSCategId').value) : null;
+        payload.POSCategId = $('#editPOSCategId').value
+            ? parseInt($('#editPOSCategId').value)
+            : null;
         payload.UOMId = parseInt($('#editUOMId').value) || payload.UOMId;
         payload.UOMPOId = parseInt($('#editUOMPOId').value) || payload.UOMPOId;
         payload.Weight = parseFloat($('#editWeight').value) || 0;
@@ -1505,9 +1608,9 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -1528,7 +1631,7 @@
                         tposProductId: templateId,
                         tposTemplateId: templateId,
                     }),
-                }).catch(e => console.warn('[Edit] Notify image update failed:', e));
+                }).catch((e) => console.warn('[Edit] Notify image update failed:', e));
             }
 
             // Render DB lags behind: TPOS socket event (~instant) → listener debounce 3s
@@ -1561,15 +1664,15 @@
 
         // Convert product-warehouse format to barcode dialog format
         const order = {
-            items: products.map(p => ({
+            items: products.map((p) => ({
                 id: p.id,
                 productName: p.name || '',
                 productCode: p.code || '',
                 variant: '',
                 quantity: Math.max(1, Math.round(p.qtyActual || 1)),
                 sellingPrice: p.price || 0,
-                tposProductId: p.id // product-warehouse ID = TPOS ProductTemplate ID
-            }))
+                tposProductId: p.id, // product-warehouse ID = TPOS ProductTemplate ID
+            })),
         };
 
         window.BarcodeLabelDialog.open(order);
@@ -1577,8 +1680,8 @@
 
     // Expose for toolbar bulk print
     window.warehouseApp = window.warehouseApp || {};
-    window.warehouseApp.printBarcode = function() {
-        const selected = pageProducts.filter(p => selectedIds.has(p.id));
+    window.warehouseApp.printBarcode = function () {
+        const selected = pageProducts.filter((p) => selectedIds.has(p.id));
         if (!selected.length) {
             alert('Vui lòng chọn sản phẩm trước');
             return;
@@ -1587,10 +1690,14 @@
     };
 
     async function deleteProduct(templateId) {
-        const product = pageProducts.find(p => p.id === templateId);
+        const product = pageProducts.find((p) => p.id === templateId);
         const name = product ? `${product.code} - ${product.name}` : `ID ${templateId}`;
 
-        if (!confirm(`Xóa sản phẩm "${name}"?\n\nSản phẩm sẽ bị ngưng hoạt động (Archive) trên TPOS.`)) {
+        if (
+            !confirm(
+                `Xóa sản phẩm "${name}"?\n\nSản phẩm sẽ bị ngưng hoạt động (Archive) trên TPOS.`
+            )
+        ) {
             return;
         }
 
@@ -1608,9 +1715,9 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -1671,7 +1778,9 @@
             populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', 1);
 
             const imgPreview = $('#editImagePreview');
-            if (imgPreview) imgPreview.innerHTML = '<span style="color:#9ca3af;font-size:11px;">No image</span>';
+            if (imgPreview)
+                imgPreview.innerHTML =
+                    '<span style="color:#9ca3af;font-size:11px;">No image</span>';
 
             // Reset advanced sections + render empty tag picker
             resetAdvancedSections();
@@ -1695,11 +1804,16 @@
     function _uomPayload(u) {
         if (!u?.Id) return null;
         return {
-            Id: u.Id, Name: u.Name, NameNoSign: null,
-            Rounding: u.Rounding ?? 0.001, Active: true,
-            Factor: u.Factor ?? 1, FactorInv: u.FactorInv ?? 1,
+            Id: u.Id,
+            Name: u.Name,
+            NameNoSign: null,
+            Rounding: u.Rounding ?? 0.001,
+            Active: true,
+            Factor: u.Factor ?? 1,
+            FactorInv: u.FactorInv ?? 1,
             UOMType: u.UOMType || 'reference',
-            CategoryId: u.CategoryId ?? 1, CategoryName: u.CategoryName || 'Đơn vị'
+            CategoryId: u.CategoryId ?? 1,
+            CategoryName: u.CategoryName || 'Đơn vị',
         };
     }
 
@@ -1708,9 +1822,9 @@
      * Payload shape mirrors TPOS tpos-product-creator.js (verified against production).
      */
     function _buildInsertPayload(spec) {
-        const categ = cachedCategories?.find(c => c.Id == spec.categId) || null;
-        const uom = cachedUOMs?.find(u => u.Id == spec.uomId) || null;
-        const uomPO = cachedUOMs?.find(u => u.Id == spec.uomPOId) || uom;
+        const categ = cachedCategories?.find((c) => c.Id == spec.categId) || null;
+        const uom = cachedUOMs?.find((u) => u.Id == spec.uomId) || null;
+        const uomPO = cachedUOMs?.find((u) => u.Id == spec.uomPOId) || uom;
 
         return {
             Id: 0,
@@ -1751,7 +1865,8 @@
             SaleDelay: 0,
             InvoicePolicy: spec.invoicePolicy || 'order',
             PurchaseMethod: spec.purchaseMethod || 'receive',
-            PropertyValuation: null, Valuation: null,
+            PropertyValuation: null,
+            Valuation: null,
             AvailableInPOS: spec.availableInPOS !== false,
             POSCategId: spec.posCategId || null,
             CostMethod: null,
@@ -1761,26 +1876,46 @@
             Thumbnails: [],
             ProductVariantCount: 0,
             LastUpdated: null,
-            UOMCategId: null, BOMCount: 0, Volume: null,
-            CategNameNoSign: null, UOMNameNoSign: null, UOMPONameNoSign: null,
-            IsCombo: false, EnableAll: false, ComboPurchased: null,
-            TaxAmount: null, Version: 0,
-            VariantFirstId: null, VariantFistId: null,
+            UOMCategId: null,
+            BOMCount: 0,
+            Volume: null,
+            CategNameNoSign: null,
+            UOMNameNoSign: null,
+            UOMPONameNoSign: null,
+            IsCombo: false,
+            EnableAll: false,
+            ComboPurchased: null,
+            TaxAmount: null,
+            Version: 0,
+            VariantFirstId: null,
+            VariantFistId: null,
             ZaloProductId: null,
-            CompanyName: null, CompanyNameNoSign: null,
-            DateCreated: null, InitInventory: 0,
-            UOMViewId: null, ImporterId: null, ProducerId: null,
-            DistributorId: null, OriginCountryId: null,
-            Tags: null, CreatedByName: null, OrderTag: null,
-            StringExtraProperties: null, CreatedById: null, Error: null,
+            CompanyName: null,
+            CompanyNameNoSign: null,
+            DateCreated: null,
+            InitInventory: 0,
+            UOMViewId: null,
+            ImporterId: null,
+            ProducerId: null,
+            DistributorId: null,
+            OriginCountryId: null,
+            Tags: null,
+            CreatedByName: null,
+            OrderTag: null,
+            StringExtraProperties: null,
+            CreatedById: null,
+            Error: null,
             UOM: _uomPayload(uom),
             UOMPO: _uomPayload(uomPO),
-            Categ: categ ? {
-                Id: categ.Id, Name: categ.Name,
-                CompleteName: categ.CompleteName,
-                Type: categ.Type || 'normal',
-                IsPos: categ.IsPos !== false,
-            } : null,
+            Categ: categ
+                ? {
+                      Id: categ.Id,
+                      Name: categ.Name,
+                      CompleteName: categ.CompleteName,
+                      Type: categ.Type || 'normal',
+                      IsPos: categ.IsPos !== false,
+                  }
+                : null,
             AttributeLines: [],
             ProductVariants: [],
             UOMLines: [],
@@ -1799,12 +1934,12 @@
         for (let attempt = 0; attempt <= retries; attempt++) {
             const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: JSON.stringify(payload),
             });
             if (response.ok) return response.json();
             if (response.status === 429 && attempt < retries) {
-                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
                 continue;
             }
             const errData = await response.json().catch(() => ({}));
@@ -1820,12 +1955,22 @@
     async function saveCreateProduct() {
         const name = $('#editProductName').value.trim();
         const code = $('#editProductCode').value.trim();
-        if (!name) { showToast('Tên SP bắt buộc', 'error'); return; }
-        if (!code) { showToast('Mã SP bắt buộc', 'error'); return; }
-        if (!$('#editCategId').value) { showToast('Chọn Nhóm SP', 'error'); return; }
+        if (!name) {
+            showToast('Tên SP bắt buộc', 'error');
+            return;
+        }
+        if (!code) {
+            showToast('Mã SP bắt buộc', 'error');
+            return;
+        }
+        if (!$('#editCategId').value) {
+            showToast('Chọn Nhóm SP', 'error');
+            return;
+        }
 
         const spec = {
-            name, code,
+            name,
+            code,
             barcode: $('#editBarcode').value.trim(),
             listPrice: parseFloat($('#editListPrice').value) || 0,
             purchasePrice: parseFloat($('#editPurchasePrice').value) || 0,
@@ -1864,7 +2009,7 @@
             closeEditModal();
 
             // Kick incremental sync + delayed refresh
-            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
             setTimeout(() => fetchProducts(true), 5000);
         } catch (err) {
             console.error('[Create] InsertV2 failed:', err);
@@ -1884,10 +2029,14 @@
             // TPOS Tag entity filterable by Type='ProductTemplate' (observed in other ERP deployments).
             // Fallback: fetch all tags if filter unsupported.
             let url = `${PROXY_URL}/api/odata/Tag?$filter=Type eq 'ProductTemplate'&$orderby=Name asc&$top=500`;
-            let r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            let r = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
             if (!r.ok) {
                 url = `${PROXY_URL}/api/odata/Tag?$orderby=Name asc&$top=500`;
-                r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+                r = await window.tokenManager.authenticatedFetch(url, {
+                    headers: { Accept: 'application/json' },
+                });
             }
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
@@ -1904,8 +2053,11 @@
         const sel = $('#filterTag');
         if (!sel) return;
         const tags = await ensureTagList();
-        sel.innerHTML = '<option value="all">Tất cả</option>' +
-            tags.map(t => `<option value="${t.Id}">${escapeHtml(t.Name || '')}</option>`).join('');
+        sel.innerHTML =
+            '<option value="all">Tất cả</option>' +
+            tags
+                .map((t) => `<option value="${t.Id}">${escapeHtml(t.Name || '')}</option>`)
+                .join('');
         if (!tags.length) {
             const opt = sel.querySelector('option[value="all"]');
             if (opt) opt.textContent = 'Tất cả (chưa load được)';
@@ -1920,10 +2072,12 @@
         if (!tagId || tagId === 'all') return null;
         try {
             const url = `${PROXY_URL}/api/odata/ProductTemplate?$filter=Tags/any(t: t/Id eq ${tagId})&$top=2000&$select=Id`;
-            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            const r = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
-            return (data.value || []).map(t => t.Id);
+            return (data.value || []).map((t) => t.Id);
         } catch (err) {
             console.warn('[Tag Filter] Resolve failed:', err.message);
             showToast('Lỗi filter nhãn: ' + err.message, 'error');
@@ -1939,7 +2093,7 @@
         // CDN is in HTML with defer; wait for it (<=5s)
         for (let i = 0; i < 50; i++) {
             if (window.XLSX) return window.XLSX;
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise((r) => setTimeout(r, 100));
         }
         throw new Error('SheetJS chưa load được');
     }
@@ -1957,9 +2111,9 @@
             const resp = await fetch(`${RENDER_API}?${params.toString()}`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const json = await resp.json();
-            const rows = (json.data || []).map(r => ({
-                'Mã': r.product_code || '',
-                'Tên': r.product_name || r.name_get || '',
+            const rows = (json.data || []).map((r) => ({
+                Mã: r.product_code || '',
+                Tên: r.product_name || r.name_get || '',
                 'Nhóm SP': r.category || '',
                 'Giá bán': r.selling_price || 0,
                 'Giá mua': r.purchase_price || 0,
@@ -1967,7 +2121,7 @@
                 'Số lượng thực tế': r.tpos_qty_available ?? r.quantity ?? 0,
                 'Đơn vị': r.uom_name || '',
                 'Biến thể': r.variant || '',
-                'Barcode': r.barcode || '',
+                Barcode: r.barcode || '',
                 'Hiệu lực': r.active === false ? 'Không' : 'Có',
                 'Ngày tạo': r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '',
                 'TPOS Template ID': r.tpos_template_id || '',
@@ -1979,7 +2133,7 @@
 
             const now = new Date();
             const pad = (n) => String(n).padStart(2, '0');
-            const fname = `san-pham-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`;
+            const fname = `san-pham-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`;
             XLSX.writeFile(wb, fname);
             showToast(`Đã xuất ${rows.length} SP → ${fname}`, 'success');
         } catch (err) {
@@ -2005,8 +2159,11 @@
     let importRows = []; // parsed rows with validation info
 
     function _normKey(s) {
-        return String(s || '').trim().toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        return String(s || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
             .replace(/\s+/g, '_');
     }
 
@@ -2044,7 +2201,7 @@
                     const lastDot = s.lastIndexOf('.');
                     const decSep = lastComma > lastDot ? ',' : '.';
                     const thouSep = decSep === ',' ? '.' : ',';
-                    s = s.split(thouSep).join('');        // strip thousands
+                    s = s.split(thouSep).join(''); // strip thousands
                     if (decSep === ',') s = s.replace(',', '.');
                 }
                 const n = parseFloat(s);
@@ -2056,7 +2213,9 @@
         }
         // Resolve Nhóm SP & Đơn vị
         if (row['Nhóm SP']) {
-            const c = categMap.get(row['Nhóm SP'].toLowerCase()) || categMap.get(row['Nhóm SP'].toLowerCase().trim());
+            const c =
+                categMap.get(row['Nhóm SP'].toLowerCase()) ||
+                categMap.get(row['Nhóm SP'].toLowerCase().trim());
             if (c) row._categId = c.Id;
             else errors.push(`Nhóm SP "${row['Nhóm SP']}" không tồn tại`);
         }
@@ -2111,12 +2270,12 @@
                 return;
             }
             const categMap = new Map();
-            cachedCategories.forEach(c => {
+            cachedCategories.forEach((c) => {
                 categMap.set((c.CompleteName || '').toLowerCase(), c);
                 categMap.set((c.Name || '').toLowerCase(), c);
             });
             const uomMap = new Map();
-            cachedUOMs.forEach(u => uomMap.set((u.Name || '').toLowerCase(), u));
+            cachedUOMs.forEach((u) => uomMap.set((u.Name || '').toLowerCase(), u));
 
             // Existing codes from Render (approximate — use /search or full fetch)
             const existingCodes = new Set();
@@ -2124,11 +2283,21 @@
                 const r = await fetch(`${RENDER_API}?page=1&limit=5000&fields=product_code`);
                 if (r.ok) {
                     const j = await r.json();
-                    (j.data || []).forEach(p => existingCodes.add(String(p.product_code || '').trim().toUpperCase()));
+                    (j.data || []).forEach((p) =>
+                        existingCodes.add(
+                            String(p.product_code || '')
+                                .trim()
+                                .toUpperCase()
+                        )
+                    );
                 }
-            } catch (err) { console.warn('[Import] Existing codes fetch failed:', err.message); }
+            } catch (err) {
+                console.warn('[Import] Existing codes fetch failed:', err.message);
+            }
 
-            importRows = raw.map((r, i) => _validateImportRow(r, i, categMap, uomMap, existingCodes));
+            importRows = raw.map((r, i) =>
+                _validateImportRow(r, i, categMap, uomMap, existingCodes)
+            );
             renderImportPreview();
         } catch (err) {
             console.error('[Import] Parse failed:', err);
@@ -2138,7 +2307,7 @@
 
     function renderImportPreview() {
         const total = importRows.length;
-        const valid = importRows.filter(r => r._valid).length;
+        const valid = importRows.filter((r) => r._valid).length;
         const errors = total - valid;
         $('#importTotalRows').textContent = total;
         $('#importValidRows').textContent = valid;
@@ -2147,16 +2316,19 @@
 
         const thead = $('#importPreviewTable thead');
         const tbody = $('#importPreviewTable tbody');
-        const cols = ['Dòng', ...IMPORT_COLS.map(c => c.key), 'Lỗi'];
-        thead.innerHTML = `<tr>${cols.map(c => `<th style="padding:6px;border:1px solid #e5e7eb;text-align:left;">${c}</th>`).join('')}</tr>`;
-        tbody.innerHTML = importRows.slice(0, 200).map(r => {
-            const err = r._errors.join('; ');
-            return `<tr style="${r._valid ? '' : 'background:#fee2e2;'}">
+        const cols = ['Dòng', ...IMPORT_COLS.map((c) => c.key), 'Lỗi'];
+        thead.innerHTML = `<tr>${cols.map((c) => `<th style="padding:6px;border:1px solid #e5e7eb;text-align:left;">${c}</th>`).join('')}</tr>`;
+        tbody.innerHTML = importRows
+            .slice(0, 200)
+            .map((r) => {
+                const err = r._errors.join('; ');
+                return `<tr style="${r._valid ? '' : 'background:#fee2e2;'}">
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
-                ${IMPORT_COLS.map(c => `<td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r[c.key] || '')}</td>`).join('')}
+                ${IMPORT_COLS.map((c) => `<td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r[c.key] || '')}</td>`).join('')}
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;color:#dc2626;">${escapeHtml(err)}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         $('#importStepPick').style.display = 'none';
         $('#importStepPreview').style.display = 'block';
@@ -2164,7 +2336,7 @@
     }
 
     async function confirmImport() {
-        const rows = importRows.filter(r => r._valid);
+        const rows = importRows.filter((r) => r._valid);
         if (!rows.length) return;
         $('#importStepPreview').style.display = 'none';
         $('#importStepProgress').style.display = 'block';
@@ -2172,7 +2344,9 @@
 
         const errorsDiv = $('#importProgressErrors');
         errorsDiv.innerHTML = '';
-        let done = 0, ok = 0, failed = 0;
+        let done = 0,
+            ok = 0,
+            failed = 0;
 
         // Concurrency 3 with rate limit
         const queue = rows.slice();
@@ -2195,20 +2369,23 @@
                     ok++;
                 } catch (err) {
                     failed++;
-                    errorsDiv.insertAdjacentHTML('beforeend',
-                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row['Mã'])}): ${escapeHtml(err.message)}</div>`);
+                    errorsDiv.insertAdjacentHTML(
+                        'beforeend',
+                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row['Mã'])}): ${escapeHtml(err.message)}</div>`
+                    );
                 }
                 done++;
-                const pct = Math.round(done / rows.length * 100);
+                const pct = Math.round((done / rows.length) * 100);
                 $('#importProgressBar').style.width = pct + '%';
-                $('#importProgressText').textContent = `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
-                await new Promise(r => setTimeout(r, 200)); // rate limit
+                $('#importProgressText').textContent =
+                    `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
+                await new Promise((r) => setTimeout(r, 200)); // rate limit
             }
         });
         await Promise.all(workers);
 
         showToast(`Hoàn tất: ${ok} thành công, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
-        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
         setTimeout(() => {
             closeImportExcel();
             fetchProducts(true);
@@ -2216,22 +2393,26 @@
     }
 
     function downloadImportTemplate() {
-        ensureSheetJS().then(XLSX => {
-            const sample = [{
-                'Mã': 'SP001',
-                'Tên': 'Áo thun trắng',
-                'Giá bán': 150000,
-                'Giá mua': 80000,
-                'Giá vốn': 80000,
-                'Nhóm SP': 'Có thể bán',
-                'Đơn vị': 'Cái',
-                'Barcode': 'SP001',
-            }];
-            const ws = XLSX.utils.json_to_sheet(sample);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Mẫu');
-            XLSX.writeFile(wb, 'mau-nhap-san-pham.xlsx');
-        }).catch(err => showToast('Lỗi tạo mẫu: ' + err.message, 'error'));
+        ensureSheetJS()
+            .then((XLSX) => {
+                const sample = [
+                    {
+                        Mã: 'SP001',
+                        Tên: 'Áo thun trắng',
+                        'Giá bán': 150000,
+                        'Giá mua': 80000,
+                        'Giá vốn': 80000,
+                        'Nhóm SP': 'Có thể bán',
+                        'Đơn vị': 'Cái',
+                        Barcode: 'SP001',
+                    },
+                ];
+                const ws = XLSX.utils.json_to_sheet(sample);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Mẫu');
+                XLSX.writeFile(wb, 'mau-nhap-san-pham.xlsx');
+            })
+            .catch((err) => showToast('Lỗi tạo mẫu: ' + err.message, 'error'));
     }
 
     // =====================================================
@@ -2263,22 +2444,30 @@
             const wb = XLSX.read(buf, { type: 'array' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
-            if (!raw.length) { showToast('File trống', 'error'); return; }
+            if (!raw.length) {
+                showToast('File trống', 'error');
+                return;
+            }
 
             // Look up each code in Render
             showToast('Đang tra cứu SP...', 'info');
             const rows = [];
             for (let i = 0; i < raw.length; i++) {
                 const r = raw[i];
-                const codeKey = Object.keys(r).find(k => _normKey(k) === 'ma' || _normKey(k) === 'code' || _normKey(k) === 'default_code');
+                const codeKey = Object.keys(r).find(
+                    (k) =>
+                        _normKey(k) === 'ma' ||
+                        _normKey(k) === 'code' ||
+                        _normKey(k) === 'default_code'
+                );
                 const code = codeKey ? String(r[codeKey] || '').trim() : '';
                 if (!code) {
-                    rows.push({ _idx: i+2, code: '', error: 'Thiếu mã' });
+                    rows.push({ _idx: i + 2, code: '', error: 'Thiếu mã' });
                     continue;
                 }
                 const findNumKey = (...targets) => {
                     for (const t of targets) {
-                        const k = Object.keys(r).find(kk => _normKey(kk) === _normKey(t));
+                        const k = Object.keys(r).find((kk) => _normKey(kk) === _normKey(t));
                         if (k && r[k] !== '') return parseFloat(String(r[k]).replace(',', '.'));
                     }
                     return null;
@@ -2290,17 +2479,29 @@
                 // Find product via search
                 let product = null;
                 try {
-                    const sr = await fetch(`${RENDER_API}/search?q=${encodeURIComponent(code)}&limit=5`);
+                    const sr = await fetch(
+                        `${RENDER_API}/search?q=${encodeURIComponent(code)}&limit=5`
+                    );
                     if (sr.ok) {
                         const sj = await sr.json();
                         const list = sj.data || sj || [];
-                        product = list.find(p => String(p.product_code).trim().toUpperCase() === code.toUpperCase())
-                            || list.find(p => String(p.parent_product_code || '').trim().toUpperCase() === code.toUpperCase());
+                        product =
+                            list.find(
+                                (p) =>
+                                    String(p.product_code).trim().toUpperCase() ===
+                                    code.toUpperCase()
+                            ) ||
+                            list.find(
+                                (p) =>
+                                    String(p.parent_product_code || '')
+                                        .trim()
+                                        .toUpperCase() === code.toUpperCase()
+                            );
                     }
                 } catch {}
 
                 if (!product) {
-                    rows.push({ _idx: i+2, code, error: 'Không tìm thấy SP' });
+                    rows.push({ _idx: i + 2, code, error: 'Không tìm thấy SP' });
                     continue;
                 }
 
@@ -2313,12 +2514,18 @@
                     (newStandard !== null && newStandard !== oldStandard);
 
                 rows.push({
-                    _idx: i+2, code,
+                    _idx: i + 2,
+                    code,
                     templateId: product.tpos_template_id,
                     name: product.product_name || product.name_get || '',
-                    oldList, oldPurchase, oldStandard,
-                    newList, newPurchase, newStandard,
-                    changed, error: null,
+                    oldList,
+                    oldPurchase,
+                    oldStandard,
+                    newList,
+                    newPurchase,
+                    newStandard,
+                    changed,
+                    error: null,
                 });
             }
             bulkPriceRows = rows;
@@ -2331,16 +2538,16 @@
 
     function renderBulkPricePreview() {
         const total = bulkPriceRows.length;
-        const changed = bulkPriceRows.filter(r => r.changed && !r.error).length;
-        const unchanged = bulkPriceRows.filter(r => !r.changed && !r.error).length;
-        const missing = bulkPriceRows.filter(r => r.error).length;
+        const changed = bulkPriceRows.filter((r) => r.changed && !r.error).length;
+        const unchanged = bulkPriceRows.filter((r) => !r.changed && !r.error).length;
+        const missing = bulkPriceRows.filter((r) => r.error).length;
         $('#bulkPriceTotal').textContent = total;
         $('#bulkPriceChanged').textContent = changed;
         $('#bulkPriceUnchanged').textContent = unchanged;
         $('#bulkPriceMissing').textContent = missing;
         $('#bulkPriceChangedBtn').textContent = changed;
 
-        const fmt = (n) => n == null ? '—' : new Intl.NumberFormat('vi-VN').format(n);
+        const fmt = (n) => (n == null ? '—' : new Intl.NumberFormat('vi-VN').format(n));
         const diff = (o, n) => {
             if (n == null) return fmt(o);
             if (o === n) return fmt(o);
@@ -2359,15 +2566,17 @@
             <th style="padding:6px;border:1px solid #e5e7eb;">Giá vốn</th>
             <th style="padding:6px;border:1px solid #e5e7eb;">Ghi chú</th>
         </tr>`;
-        tbody.innerHTML = bulkPriceRows.slice(0, 500).map(r => {
-            if (r.error) {
-                return `<tr style="background:#fee2e2;">
+        tbody.innerHTML = bulkPriceRows
+            .slice(0, 500)
+            .map((r) => {
+                if (r.error) {
+                    return `<tr style="background:#fee2e2;">
                     <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
                     <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.code)}</td>
                     <td colspan="5" style="padding:4px 6px;border:1px solid #e5e7eb;color:#dc2626;">${escapeHtml(r.error)}</td>
                 </tr>`;
-            }
-            return `<tr style="${r.changed ? 'background:#f0fdf4;' : ''}">
+                }
+                return `<tr style="${r.changed ? 'background:#f0fdf4;' : ''}">
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;">${r._idx}</td>
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.code)}</td>
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;">${escapeHtml(r.name)}</td>
@@ -2376,7 +2585,8 @@
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;">${diff(r.oldStandard, r.newStandard)}</td>
                 <td style="padding:4px 6px;border:1px solid #e5e7eb;color:#6b7280;">${r.changed ? 'Sẽ cập nhật' : 'Không đổi'}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         $('#bulkPriceStepPick').style.display = 'none';
         $('#bulkPriceStepPreview').style.display = 'block';
@@ -2384,7 +2594,7 @@
     }
 
     async function confirmBulkPrice() {
-        const rows = bulkPriceRows.filter(r => r.changed && !r.error);
+        const rows = bulkPriceRows.filter((r) => r.changed && !r.error);
         if (!rows.length) return;
         $('#bulkPriceStepPreview').style.display = 'none';
         $('#bulkPriceStepProgress').style.display = 'block';
@@ -2392,7 +2602,9 @@
         const errorsDiv = $('#bulkPriceProgressErrors');
         errorsDiv.innerHTML = '';
 
-        let done = 0, ok = 0, failed = 0;
+        let done = 0,
+            ok = 0,
+            failed = 0;
         const queue = rows.slice();
         const workers = Array.from({ length: 3 }, async () => {
             while (queue.length) {
@@ -2409,7 +2621,7 @@
                     const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
                     const r = await window.tokenManager.authenticatedFetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                         body: JSON.stringify(payload),
                     });
                     if (!r.ok) {
@@ -2419,20 +2631,23 @@
                     ok++;
                 } catch (err) {
                     failed++;
-                    errorsDiv.insertAdjacentHTML('beforeend',
-                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row.code)}): ${escapeHtml(err.message)}</div>`);
+                    errorsDiv.insertAdjacentHTML(
+                        'beforeend',
+                        `<div style="color:#dc2626;">Dòng ${row._idx} (${escapeHtml(row.code)}): ${escapeHtml(err.message)}</div>`
+                    );
                 }
                 done++;
-                const pct = Math.round(done / rows.length * 100);
+                const pct = Math.round((done / rows.length) * 100);
                 $('#bulkPriceProgressBar').style.width = pct + '%';
-                $('#bulkPriceProgressText').textContent = `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
-                await new Promise(r => setTimeout(r, 250));
+                $('#bulkPriceProgressText').textContent =
+                    `${done} / ${rows.length} (OK: ${ok}, Lỗi: ${failed})`;
+                await new Promise((r) => setTimeout(r, 250));
             }
         });
         await Promise.all(workers);
 
         showToast(`Hoàn tất: ${ok} cập nhật, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
-        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
         setTimeout(() => {
             closeBulkPrice();
             fetchProducts(true);
@@ -2442,20 +2657,22 @@
     // =====================================================
     // PHASE 2+3: ATTRIBUTES, VARIANTS, COMBO, UOM LINES, SUPPLIER, AUDIT LOG
     // =====================================================
-    let cachedAttributes = null;        // ProductAttribute list (with Values)
-    let editAttributeLines = [];        // [{AttributeId, Attribute, Values:[]}]
-    let editVariants = [];              // working copy of ProductVariants (Id, DefaultCode, Barcode, PriceVariant, Active, AttributeValues)
-    let editComboProducts = [];         // [{ProductId, ProductNameGet, Quantity, ProductPrice}]
-    let editUOMLines = [];              // [{UOMId, FactorInv, Name}]
-    let editSupplierInfos = [];         // [{PartnerId, PartnerName, ProductCode, Price, MinQty}]
-    let editTagIds = new Set();         // Tag IDs selected for this product (quick lookup)
-    let editTagObjects = [];            // Full Tag objects — preserves Name/Color/other fields from TPOS
+    let cachedAttributes = null; // ProductAttribute list (with Values)
+    let editAttributeLines = []; // [{AttributeId, Attribute, Values:[]}]
+    let editVariants = []; // working copy of ProductVariants (Id, DefaultCode, Barcode, PriceVariant, Active, AttributeValues)
+    let editComboProducts = []; // [{ProductId, ProductNameGet, Quantity, ProductPrice}]
+    let editUOMLines = []; // [{UOMId, FactorInv, Name}]
+    let editSupplierInfos = []; // [{PartnerId, PartnerName, ProductCode, Price, MinQty}]
+    let editTagIds = new Set(); // Tag IDs selected for this product (quick lookup)
+    let editTagObjects = []; // Full Tag objects — preserves Name/Color/other fields from TPOS
 
     async function ensureAttributesList() {
         if (cachedAttributes) return cachedAttributes;
         try {
             const url = `${PROXY_URL}/api/odata/ProductAttribute?$expand=Values&$orderby=Id asc&$top=200`;
-            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            const r = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             cachedAttributes = data.value || [];
@@ -2471,19 +2688,22 @@
         const list = $('#attributeLinesList');
         if (!list) return;
         if (!editAttributeLines.length) {
-            list.innerHTML = '<div style="color:#9ca3af;font-size:12px;">Chưa có thuộc tính — SP không biến thể.</div>';
+            list.innerHTML =
+                '<div style="color:#9ca3af;font-size:12px;">Chưa có thuộc tính — SP không biến thể.</div>';
             return;
         }
-        list.innerHTML = editAttributeLines.map((line, idx) => {
-            const attr = line.Attribute || {};
-            const values = (line.Values || []).map(v => v.Name).join(', ');
-            return `<div style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;background:#fff;">
+        list.innerHTML = editAttributeLines
+            .map((line, idx) => {
+                const attr = line.Attribute || {};
+                const values = (line.Values || []).map((v) => v.Name).join(', ');
+                return `<div style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;background:#fff;">
                 <strong style="min-width:80px;font-size:12px;">${escapeHtml(attr.Name || '?')}</strong>
                 <span style="flex:1;font-size:11px;color:#6b7280;">${escapeHtml(values) || '(chưa chọn giá trị)'}</span>
                 <button type="button" data-edit-attr-line="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Sửa</button>
                 <button type="button" data-del-attr-line="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
             </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
     async function promptAttributeLine(existingIdx = null) {
@@ -2495,9 +2715,12 @@
         // Build picker: select Attribute + check Values
         const existing = existingIdx !== null ? editAttributeLines[existingIdx] : null;
 
-        const attrOpts = cachedAttributes.map(a =>
-            `<option value="${a.Id}"${existing && existing.AttributeId === a.Id ? ' selected' : ''}>${escapeHtml(a.Name)}</option>`
-        ).join('');
+        const attrOpts = cachedAttributes
+            .map(
+                (a) =>
+                    `<option value="${a.Id}"${existing && existing.AttributeId === a.Id ? ' selected' : ''}>${escapeHtml(a.Name)}</option>`
+            )
+            .join('');
 
         const dlg = document.createElement('div');
         dlg.className = 'column-settings-modal show';
@@ -2524,17 +2747,22 @@
 
         const renderValues = () => {
             const sel = dlg.querySelector('#_attrSel');
-            const attr = cachedAttributes.find(a => a.Id == sel.value);
-            const existingIds = new Set((existing?.Values || []).map(v => v.Id));
-            const vals = (attr?.Values || []);
+            const attr = cachedAttributes.find((a) => a.Id == sel.value);
+            const existingIds = new Set((existing?.Values || []).map((v) => v.Id));
+            const vals = attr?.Values || [];
             dlg.querySelector('#_attrValList').innerHTML = vals.length
-                ? vals.map(v => `<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" value="${v.Id}"${existingIds.has(v.Id) ? ' checked' : ''}> ${escapeHtml(v.Name)}</label>`).join('')
+                ? vals
+                      .map(
+                          (v) =>
+                              `<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" value="${v.Id}"${existingIds.has(v.Id) ? ' checked' : ''}> ${escapeHtml(v.Name)}</label>`
+                      )
+                      .join('')
                 : '<div style="color:#9ca3af;font-size:12px;">(Chưa có giá trị — tạo trên TPOS trước)</div>';
         };
         renderValues();
         dlg.querySelector('#_attrSel').addEventListener('change', renderValues);
 
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
             dlg.addEventListener('click', (e) => {
                 const act = e.target.closest('[data-act]')?.dataset.act;
                 if (act === 'cancel') {
@@ -2542,20 +2770,34 @@
                     resolve(null);
                 } else if (act === 'ok') {
                     const attrId = parseInt(dlg.querySelector('#_attrSel').value);
-                    const attr = cachedAttributes.find(a => a.Id === attrId);
-                    const checkedIds = Array.from(dlg.querySelectorAll('#_attrValList input:checked')).map(i => parseInt(i.value));
-                    const values = (attr?.Values || []).filter(v => checkedIds.includes(v.Id));
+                    const attr = cachedAttributes.find((a) => a.Id === attrId);
+                    const checkedIds = Array.from(
+                        dlg.querySelectorAll('#_attrValList input:checked')
+                    ).map((i) => parseInt(i.value));
+                    const values = (attr?.Values || []).filter((v) => checkedIds.includes(v.Id));
                     if (!attr || !values.length) {
                         showToast('Chọn ít nhất 1 giá trị', 'error');
                         return;
                     }
                     const line = {
                         AttributeId: attr.Id,
-                        Attribute: { Id: attr.Id, Name: attr.Name, Code: attr.Code || null, Sequence: null, CreateVariant: attr.CreateVariant !== false },
-                        Values: values.map(v => ({
-                            Id: v.Id, Name: v.Name, Code: v.Code || null,
-                            Sequence: v.Sequence || null, AttributeId: attr.Id, AttributeName: attr.Name,
-                            PriceExtra: v.PriceExtra || null, NameGet: v.Name, DateCreated: null,
+                        Attribute: {
+                            Id: attr.Id,
+                            Name: attr.Name,
+                            Code: attr.Code || null,
+                            Sequence: null,
+                            CreateVariant: attr.CreateVariant !== false,
+                        },
+                        Values: values.map((v) => ({
+                            Id: v.Id,
+                            Name: v.Name,
+                            Code: v.Code || null,
+                            Sequence: v.Sequence || null,
+                            AttributeId: attr.Id,
+                            AttributeName: attr.Name,
+                            PriceExtra: v.PriceExtra || null,
+                            NameGet: v.Name,
+                            DateCreated: null,
                         })),
                     };
                     if (existingIdx !== null) editAttributeLines[existingIdx] = line;
@@ -2583,7 +2825,7 @@
         for (const line of editAttributeLines) {
             const next = [];
             for (const combo of combos) {
-                for (const v of (line.Values || [])) {
+                for (const v of line.Values || []) {
                     next.push([...combo, v]);
                 }
             }
@@ -2592,7 +2834,11 @@
         }
 
         // Build lookup of existing by signature
-        const sig = (attrValues) => (attrValues || []).map(v => v.Id).sort((a,b)=>a-b).join('|');
+        const sig = (attrValues) =>
+            (attrValues || [])
+                .map((v) => v.Id)
+                .sort((a, b) => a - b)
+                .join('|');
         const existingBySig = new Map();
         for (const v of editVariants) {
             existingBySig.set(sig(v.AttributeValues || []), v);
@@ -2606,22 +2852,36 @@
             const existing = existingBySig.get(signature);
             if (existing) return existing;
             // New variant
-            const attrStr = combo.map(v => v.Name).join(', ');
+            const attrStr = combo.map((v) => v.Name).join(', ');
             return {
                 Id: 0,
-                DefaultCode: `${templateCode}-${combo.map(v => v.Code || v.Name).join('-')}`.replace(/\s+/g, ''),
+                DefaultCode:
+                    `${templateCode}-${combo.map((v) => v.Code || v.Name).join('-')}`.replace(
+                        /\s+/g,
+                        ''
+                    ),
                 Barcode: null,
                 PriceVariant: listPrice,
                 Active: true,
-                AttributeValues: combo.map(v => ({
-                    Id: v.Id, Name: v.Name, Code: v.Code || null,
-                    Sequence: v.Sequence || null, AttributeId: v.AttributeId, AttributeName: v.AttributeName,
-                    PriceExtra: v.PriceExtra || null, NameGet: v.Name, DateCreated: null,
+                AttributeValues: combo.map((v) => ({
+                    Id: v.Id,
+                    Name: v.Name,
+                    Code: v.Code || null,
+                    Sequence: v.Sequence || null,
+                    AttributeId: v.AttributeId,
+                    AttributeName: v.AttributeName,
+                    PriceExtra: v.PriceExtra || null,
+                    NameGet: v.Name,
+                    DateCreated: null,
                 })),
                 NameGet: `[${templateCode}] (${attrStr})`,
-                ListPrice: listPrice, StandardPrice: 0,
-                SaleOK: true, PurchaseOK: true, AvailableInPOS: true,
-                Type: 'product', TaxesIds: [],
+                ListPrice: listPrice,
+                StandardPrice: 0,
+                SaleOK: true,
+                PurchaseOK: true,
+                AvailableInPOS: true,
+                Type: 'product',
+                TaxesIds: [],
             };
         });
         renderVariantsTable();
@@ -2631,19 +2891,22 @@
         const tbody = $('#variantsTbody');
         if (!tbody) return;
         if (!editVariants.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;color:#9ca3af;text-align:center;">Chưa có biến thể</td></tr>';
+            tbody.innerHTML =
+                '<tr><td colspan="5" style="padding:10px;color:#9ca3af;text-align:center;">Chưa có biến thể</td></tr>';
             return;
         }
-        tbody.innerHTML = editVariants.map((v, idx) => {
-            const attrStr = (v.AttributeValues || []).map(a => a.Name).join(', ');
-            return `<tr data-variant-idx="${idx}">
+        tbody.innerHTML = editVariants
+            .map((v, idx) => {
+                const attrStr = (v.AttributeValues || []).map((a) => a.Name).join(', ');
+                return `<tr data-variant-idx="${idx}">
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;font-size:11px;">${escapeHtml(attrStr) || '—'}</td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="variant-input" data-field="DefaultCode" value="${escapeHtml(v.DefaultCode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="variant-input" data-field="Barcode" value="${escapeHtml(v.Barcode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="variant-input" data-field="PriceVariant" value="${v.PriceVariant || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;"><input type="checkbox" class="variant-input" data-field="Active" ${v.Active !== false ? 'checked' : ''}></td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function bindVariantsTableEvents() {
@@ -2658,7 +2921,8 @@
             const field = input.dataset.field;
             if (!editVariants[idx]) return;
             if (field === 'Active') editVariants[idx].Active = input.checked;
-            else if (field === 'PriceVariant') editVariants[idx].PriceVariant = parseFloat(input.value) || 0;
+            else if (field === 'PriceVariant')
+                editVariants[idx].PriceVariant = parseFloat(input.value) || 0;
             else editVariants[idx][field] = input.value.trim();
         });
     }
@@ -2670,13 +2934,17 @@
         if (!wrap || !list) return;
         wrap.style.display = $('#editIsCombo')?.checked ? 'block' : 'none';
         list.innerHTML = editComboProducts.length
-            ? editComboProducts.map((it, idx) => `
+            ? editComboProducts
+                  .map(
+                      (it, idx) => `
                 <div style="display:flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;">
                     <span style="flex:1;font-size:12px;">${escapeHtml(it.ProductNameGet || '?')}</span>
                     <input type="number" value="${it.Quantity || 1}" min="1" data-combo-qty="${idx}" style="width:60px;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;" title="Số lượng">
                     <input type="number" value="${it.ProductPrice || 0}" min="0" data-combo-price="${idx}" style="width:90px;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;" title="Đơn giá">
                     <button type="button" data-del-combo="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
-                </div>`).join('')
+                </div>`
+                  )
+                  .join('')
             : '<div style="color:#9ca3af;font-size:12px;">Chưa có SP con.</div>';
     }
 
@@ -2684,11 +2952,15 @@
         if (!query || query.length < 2) return [];
         try {
             const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=10&$filter=contains(NameGet,'${_odataStr(query)}') or contains(DefaultCode,'${_odataStr(query)}')`;
-            const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+            const r = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
             if (!r.ok) return [];
             const data = await r.json();
             return data.value || [];
-        } catch { return []; }
+        } catch {
+            return [];
+        }
     }
 
     function bindComboSearchEvents() {
@@ -2702,12 +2974,21 @@
             clearTimeout(timer);
             timer = setTimeout(async () => {
                 const q = input.value.trim();
-                if (!q) { results.style.display = 'none'; return; }
+                if (!q) {
+                    results.style.display = 'none';
+                    return;
+                }
                 const list = await searchComboProduct(q);
                 if (!list.length) {
-                    results.innerHTML = '<div style="padding:8px;color:#9ca3af;">Không tìm thấy</div>';
+                    results.innerHTML =
+                        '<div style="padding:8px;color:#9ca3af;">Không tìm thấy</div>';
                 } else {
-                    results.innerHTML = list.map(p => `<div data-combo-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">[${escapeHtml(p.DefaultCode||'')}] ${escapeHtml(p.Name||'')} — ${formatPrice(p.ListPrice||0)}</div>`).join('');
+                    results.innerHTML = list
+                        .map(
+                            (p) =>
+                                `<div data-combo-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">[${escapeHtml(p.DefaultCode || '')}] ${escapeHtml(p.Name || '')} — ${formatPrice(p.ListPrice || 0)}</div>`
+                        )
+                        .join('');
                 }
                 // Position it
                 const rect = input.getBoundingClientRect();
@@ -2716,15 +2997,23 @@
                 results.dataset.products = JSON.stringify(list);
             }, 300);
         });
-        input.addEventListener('blur', () => setTimeout(() => { results.style.display = 'none'; }, 200));
+        input.addEventListener('blur', () =>
+            setTimeout(() => {
+                results.style.display = 'none';
+            }, 200)
+        );
         results.addEventListener('mousedown', (e) => {
             const el = e.target.closest('[data-combo-add]');
             if (!el) return;
             const pid = parseInt(el.dataset.comboAdd);
             let list = [];
-            try { list = JSON.parse(results.dataset.products || '[]'); } catch { list = []; }
-            const product = list.find(p => p.Id === pid);
-            if (product && !editComboProducts.find(c => c.ProductId === pid)) {
+            try {
+                list = JSON.parse(results.dataset.products || '[]');
+            } catch {
+                list = [];
+            }
+            const product = list.find((p) => p.Id === pid);
+            if (product && !editComboProducts.find((c) => c.ProductId === pid)) {
                 editComboProducts.push({
                     ProductId: product.Id,
                     ProductNameGet: product.NameGet || `[${product.DefaultCode}] ${product.Name}`,
@@ -2743,14 +3032,19 @@
         const tbody = $('#uomLinesTbody');
         if (!tbody) return;
         if (!editUOMLines.length) {
-            tbody.innerHTML = '<tr><td colspan="3" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có ĐVT quy đổi</td></tr>';
+            tbody.innerHTML =
+                '<tr><td colspan="3" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có ĐVT quy đổi</td></tr>';
             return;
         }
-        tbody.innerHTML = editUOMLines.map((line, idx) => {
-            const uomOpts = (cachedUOMs || []).map(u =>
-                `<option value="${u.Id}"${u.Id == line.UOMId ? ' selected' : ''}>${escapeHtml(u.Name)}</option>`
-            ).join('');
-            return `
+        tbody.innerHTML = editUOMLines
+            .map((line, idx) => {
+                const uomOpts = (cachedUOMs || [])
+                    .map(
+                        (u) =>
+                            `<option value="${u.Id}"${u.Id == line.UOMId ? ' selected' : ''}>${escapeHtml(u.Name)}</option>`
+                    )
+                    .join('');
+                return `
             <tr data-uomline-idx="${idx}">
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;">
                     <select class="uomline-input" data-field="UOMId" style="width:100%;padding:2px 4px;font-size:11px;">${uomOpts}</select>
@@ -2762,7 +3056,8 @@
                     <button type="button" data-del-uomline="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button>
                 </td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function bindUOMLinesEvents() {
@@ -2778,7 +3073,7 @@
             const field = input.dataset.field;
             if (field === 'UOMId') {
                 const uomId = parseInt(input.value);
-                const uom = (cachedUOMs || []).find(u => u.Id === uomId);
+                const uom = (cachedUOMs || []).find((u) => u.Id === uomId);
                 editUOMLines[idx].UOMId = uomId;
                 editUOMLines[idx].Name = uom?.Name || '';
             } else {
@@ -2792,17 +3087,22 @@
         const tbody = $('#supplierTbody');
         if (!tbody) return;
         if (!editSupplierInfos.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có NCC</td></tr>';
+            tbody.innerHTML =
+                '<tr><td colspan="5" style="padding:8px;color:#9ca3af;text-align:center;font-size:12px;">Chưa có NCC</td></tr>';
             return;
         }
-        tbody.innerHTML = editSupplierInfos.map((s, idx) => `
+        tbody.innerHTML = editSupplierInfos
+            .map(
+                (s, idx) => `
             <tr data-supplier-idx="${idx}">
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;font-size:12px;">${escapeHtml(s.PartnerName || s.Partner?.Name || '?')}</td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="text" class="sup-input" data-field="ProductCode" value="${escapeHtml(s.ProductCode || '')}" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="sup-input" data-field="Price" value="${s.Price || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;"><input type="number" class="sup-input" data-field="MinQty" value="${s.MinQty || 0}" min="0" style="width:100%;padding:2px 4px;font-size:11px;border:1px solid #e5e7eb;border-radius:3px;text-align:right;"></td>
                 <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:center;"><button type="button" data-del-sup="${idx}" style="padding:2px 6px;font-size:11px;border:1px solid #fecaca;border-radius:4px;background:#fee2e2;color:#dc2626;cursor:pointer;">×</button></td>
-            </tr>`).join('');
+            </tr>`
+            )
+            .join('');
     }
 
     function bindSupplierEvents() {
@@ -2816,7 +3116,8 @@
                 const idx = parseInt(row.dataset.supplierIdx);
                 if (!editSupplierInfos[idx]) return;
                 const field = input.dataset.field;
-                editSupplierInfos[idx][field] = field === 'ProductCode' ? input.value.trim() : (parseFloat(input.value) || 0);
+                editSupplierInfos[idx][field] =
+                    field === 'ProductCode' ? input.value.trim() : parseFloat(input.value) || 0;
             });
         }
         const input = $('#supplierSearchInput');
@@ -2829,15 +3130,25 @@
             clearTimeout(timer);
             timer = setTimeout(async () => {
                 const q = input.value.trim();
-                if (q.length < 2) { results.style.display = 'none'; return; }
+                if (q.length < 2) {
+                    results.style.display = 'none';
+                    return;
+                }
                 try {
                     const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Supplier&Active=true&$top=10&$filter=contains(Name,'${_odataStr(q)}')`;
-                    const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+                    const r = await window.tokenManager.authenticatedFetch(url, {
+                        headers: { Accept: 'application/json' },
+                    });
                     if (!r.ok) throw new Error(`HTTP ${r.status}`);
                     const data = await r.json();
                     const list = data.value || [];
                     results.innerHTML = list.length
-                        ? list.map(p => `<div data-sup-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">${escapeHtml(p.Name||'')} — ${escapeHtml(p.Phone||'')}</div>`).join('')
+                        ? list
+                              .map(
+                                  (p) =>
+                                      `<div data-sup-add="${p.Id}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;">${escapeHtml(p.Name || '')} — ${escapeHtml(p.Phone || '')}</div>`
+                              )
+                              .join('')
                         : '<div style="padding:8px;color:#9ca3af;">Không tìm thấy</div>';
                     results.dataset.partners = JSON.stringify(list);
                     results.style.display = 'block';
@@ -2847,19 +3158,30 @@
                 }
             }, 300);
         });
-        input.addEventListener('blur', () => setTimeout(() => { results.style.display = 'none'; }, 200));
+        input.addEventListener('blur', () =>
+            setTimeout(() => {
+                results.style.display = 'none';
+            }, 200)
+        );
         results.addEventListener('mousedown', (e) => {
             const el = e.target.closest('[data-sup-add]');
             if (!el) return;
             const pid = parseInt(el.dataset.supAdd);
             let list = [];
-            try { list = JSON.parse(results.dataset.partners || '[]'); } catch { list = []; }
-            const p = list.find(x => x.Id === pid);
-            if (p && !editSupplierInfos.find(s => s.PartnerId === pid)) {
+            try {
+                list = JSON.parse(results.dataset.partners || '[]');
+            } catch {
+                list = [];
+            }
+            const p = list.find((x) => x.Id === pid);
+            if (p && !editSupplierInfos.find((s) => s.PartnerId === pid)) {
                 editSupplierInfos.push({
-                    PartnerId: p.Id, PartnerName: p.Name,
+                    PartnerId: p.Id,
+                    PartnerName: p.Name,
                     Partner: { Id: p.Id, Name: p.Name, Phone: p.Phone || null },
-                    ProductCode: '', Price: 0, MinQty: 0,
+                    ProductCode: '',
+                    Price: 0,
+                    MinQty: 0,
                 });
                 renderSuppliers();
             }
@@ -2874,15 +3196,18 @@
         if (!wrap) return;
         const tags = await ensureTagList();
         // Keep editTagIds in sync with productTags (source of truth for selection)
-        editTagIds = new Set((productTags || []).map(t => t.Id));
+        editTagIds = new Set((productTags || []).map((t) => t.Id));
         if (!tags.length) {
-            wrap.innerHTML = '<span style="font-size:12px;color:#9ca3af;">(Chưa load được nhãn từ TPOS)</span>';
+            wrap.innerHTML =
+                '<span style="font-size:12px;color:#9ca3af;">(Chưa load được nhãn từ TPOS)</span>';
             return;
         }
-        wrap.innerHTML = tags.map(t => {
-            const on = editTagIds.has(t.Id);
-            return `<button type="button" data-tag-id="${t.Id}" style="padding:4px 10px;border-radius:12px;border:1.5px solid ${t.Color || '#6366f1'};background:${on ? (t.Color || '#6366f1') : '#fff'};color:${on ? '#fff' : (t.Color || '#6366f1')};font-size:11px;cursor:pointer;">${escapeHtml(t.Name || '')}</button>`;
-        }).join('');
+        wrap.innerHTML = tags
+            .map((t) => {
+                const on = editTagIds.has(t.Id);
+                return `<button type="button" data-tag-id="${t.Id}" style="padding:4px 10px;border-radius:12px;border:1.5px solid ${t.Color || '#6366f1'};background:${on ? t.Color || '#6366f1' : '#fff'};color:${on ? '#fff' : t.Color || '#6366f1'};font-size:11px;cursor:pointer;">${escapeHtml(t.Name || '')}</button>`;
+            })
+            .join('');
     }
 
     function bindTagsPickerEvents() {
@@ -2895,14 +3220,14 @@
             const id = parseInt(btn.dataset.tagId);
             if (editTagIds.has(id)) {
                 editTagIds.delete(id);
-                editTagObjects = editTagObjects.filter(t => t.Id !== id);
+                editTagObjects = editTagObjects.filter((t) => t.Id !== id);
             } else {
                 editTagIds.add(id);
                 // Prefer the full object from editTagObjects (may have extra TPOS fields from original);
                 // fallback to cachedTags entry (has Name/Color); last resort: { Id } stub.
-                const existing = editTagObjects.find(t => t.Id === id);
+                const existing = editTagObjects.find((t) => t.Id === id);
                 if (!existing) {
-                    const cached = (cachedTags || []).find(t => t.Id === id);
+                    const cached = (cachedTags || []).find((t) => t.Id === id);
                     editTagObjects.push(cached ? { ...cached } : { Id: id });
                 }
             }
@@ -2925,27 +3250,41 @@
             let rows = null;
             for (const url of candidates) {
                 try {
-                    const r = await window.tokenManager.authenticatedFetch(url, { headers: { 'Accept': 'application/json' } });
+                    const r = await window.tokenManager.authenticatedFetch(url, {
+                        headers: { Accept: 'application/json' },
+                    });
                     if (!r.ok) continue;
                     const data = await r.json();
-                    rows = data.value || data.Items || data.data || (Array.isArray(data) ? data : null);
+                    rows =
+                        data.value ||
+                        data.Items ||
+                        data.data ||
+                        (Array.isArray(data) ? data : null);
                     if (rows) break;
-                } catch (err) { console.warn('[Audit] endpoint failed:', url, err.message); }
+                } catch (err) {
+                    console.warn('[Audit] endpoint failed:', url, err.message);
+                }
             }
             if (!rows) {
-                content.innerHTML = '<div style="color:#f59e0b;">Endpoint audit log của TPOS chưa xác định — không load được.</div>';
+                content.innerHTML =
+                    '<div style="color:#f59e0b;">Endpoint audit log của TPOS chưa xác định — không load được.</div>';
                 return;
             }
             if (!rows.length) {
                 content.innerHTML = '<div style="color:#9ca3af;">Không có lịch sử.</div>';
                 return;
             }
-            content.innerHTML = rows.slice(0, 30).map(r => `
+            content.innerHTML = rows
+                .slice(0, 30)
+                .map(
+                    (r) => `
                 <div style="padding:6px 8px;border-bottom:1px solid #f3f4f6;">
                     <div><strong>${escapeHtml(r.UserName || r.CreatedByName || 'Ẩn danh')}</strong> — <span style="color:#6b7280;">${escapeHtml(r.Action || r.ActionName || '')}</span></div>
                     <div style="font-size:11px;color:#9ca3af;">${escapeHtml(r.DateCreated || r.CreatedAt || '')}</div>
                     ${r.Details || r.Description ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(r.Details || r.Description)}</div>` : ''}
-                </div>`).join('');
+                </div>`
+                )
+                .join('');
         } catch (err) {
             content.innerHTML = `<div style="color:#dc2626;">Lỗi: ${escapeHtml(err.message)}</div>`;
         }
@@ -2959,7 +3298,7 @@
      */
     async function populateAdvancedSections(detail) {
         // AttributeLines — preserve full line objects (Attribute sub-object + Values array)
-        editAttributeLines = (detail.AttributeLines || []).map(l => ({
+        editAttributeLines = (detail.AttributeLines || []).map((l) => ({
             ...l, // passthrough all TPOS fields
             AttributeId: l.AttributeId || l.Attribute?.Id,
             Attribute: l.Attribute || { Id: l.AttributeId, Name: '?' },
@@ -2967,7 +3306,7 @@
         }));
 
         // ProductVariants — preserve FULL TPOS variant object; UI inputs only override what's edited
-        editVariants = (detail.ProductVariants || []).map(v => ({
+        editVariants = (detail.ProductVariants || []).map((v) => ({
             ...v, // passthrough every field TPOS returned
             // Normalized aliases for UI binding (mutating these updates the same properties)
             DefaultCode: v.DefaultCode || '',
@@ -2983,7 +3322,7 @@
         // Combo — preserve full combo line object
         const isComboEl = $('#editIsCombo');
         if (isComboEl) isComboEl.checked = !!detail.IsCombo;
-        editComboProducts = (detail.ComboProducts || []).map(c => ({
+        editComboProducts = (detail.ComboProducts || []).map((c) => ({
             ...c, // passthrough every TPOS field (Id, Discount, Sequence, Product sub-object, etc.)
             ProductNameGet: c.ProductNameGet || c.Product?.NameGet,
             Quantity: c.Quantity || 1,
@@ -2993,7 +3332,7 @@
         bindComboSearchEvents();
 
         // UOM Lines — preserve full line + nested UOM object
-        editUOMLines = (detail.UOMLines || []).map(u => ({
+        editUOMLines = (detail.UOMLines || []).map((u) => ({
             ...u, // passthrough every TPOS field
             Name: u.UOM?.Name || u.Name || '',
             FactorInv: u.FactorInv || 1,
@@ -3002,7 +3341,7 @@
         bindUOMLinesEvents();
 
         // Supplier infos — preserve full supplier line + Partner
-        editSupplierInfos = (detail.ProductSupplierInfos || []).map(s => ({
+        editSupplierInfos = (detail.ProductSupplierInfos || []).map((s) => ({
             ...s, // passthrough every TPOS field (Delay, CompanyId, etc.)
             PartnerName: s.Partner?.Name || s.PartnerName,
             Partner: s.Partner || null,
@@ -3041,8 +3380,14 @@
 
         // CRITICAL: clear _bound flags on containers so listeners re-attach after modal reopen.
         // Without this, Phase 2/3 sections become non-interactive on 2nd modal open.
-        ['#variantsTbody', '#uomLinesTbody', '#supplierTbody', '#tagsPickerList',
-         '#comboSearchInput', '#supplierSearchInput'].forEach(sel => {
+        [
+            '#variantsTbody',
+            '#uomLinesTbody',
+            '#supplierTbody',
+            '#tagsPickerList',
+            '#comboSearchInput',
+            '#supplierSearchInput',
+        ].forEach((sel) => {
             const el = $(sel);
             if (el) delete el._bound;
         });
@@ -3058,18 +3403,20 @@
      */
     function mergeAdvancedIntoPayload(payload) {
         // Attribute lines — spread original line verbatim; we don't hard-set internal fields.
-        payload.AttributeLines = editAttributeLines.map(l => ({ ...l }));
+        payload.AttributeLines = editAttributeLines.map((l) => ({ ...l }));
         payload.IsProductVariant = editAttributeLines.length > 0;
 
         // Variants — spread original TPOS variant; only override fields the user edited.
-        payload.ProductVariants = editVariants.map(v => {
+        payload.ProductVariants = editVariants.map((v) => {
             const merged = { ...v };
             // Ensure required linkage for InsertV2 — only set when missing/zero.
             if (!merged.Id) merged.Id = 0;
             if (!merged.ProductTmplId) merged.ProductTmplId = payload.Id || 0;
-            if (!merged.NameTemplate) merged.NameTemplate = payload.Name || payload.DefaultCode || '';
+            if (!merged.NameTemplate)
+                merged.NameTemplate = payload.Name || payload.DefaultCode || '';
             if (!merged.NameGet) {
-                merged.NameGet = `${payload.DefaultCode || ''} (${(merged.AttributeValues || []).map(a => a.Name).join(', ')})`.trim();
+                merged.NameGet =
+                    `${payload.DefaultCode || ''} (${(merged.AttributeValues || []).map((a) => a.Name).join(', ')})`.trim();
             }
             if (!merged.UOMId) merged.UOMId = payload.UOMId || 1;
             if (!merged.Type) merged.Type = 'product';
@@ -3079,21 +3426,21 @@
 
         // Combo — spread original combo line; respect IsCombo toggle from form.
         payload.IsCombo = !!$('#editIsCombo')?.checked;
-        payload.ComboProducts = payload.IsCombo ? editComboProducts.map(c => ({ ...c })) : [];
+        payload.ComboProducts = payload.IsCombo ? editComboProducts.map((c) => ({ ...c })) : [];
 
         // UOM Lines — spread original line; preserve nested UOM object unchanged,
         // fall back to cache lookup ONLY if TPOS didn't send UOM (e.g. new line added in UI).
-        payload.UOMLines = editUOMLines.map(u => {
+        payload.UOMLines = editUOMLines.map((u) => {
             const merged = { ...u };
             if (!merged.Id) merged.Id = 0;
             if (!merged.UOM) {
-                merged.UOM = (cachedUOMs || []).find(x => x.Id === merged.UOMId) || null;
+                merged.UOM = (cachedUOMs || []).find((x) => x.Id === merged.UOMId) || null;
             }
             return merged;
         });
 
         // Supplier infos — spread original supplier line (preserves Delay, CompanyId, etc.)
-        payload.ProductSupplierInfos = editSupplierInfos.map(s => {
+        payload.ProductSupplierInfos = editSupplierInfos.map((s) => {
             const merged = { ...s };
             if (!merged.Id) merged.Id = 0;
             return merged;
@@ -3101,7 +3448,7 @@
 
         // Tags — spread original Tag objects so Name/Color/other fields preserved.
         // Filter to only currently-selected IDs; add new entries from cache for newly-picked.
-        payload.Tags = editTagObjects.filter(t => editTagIds.has(t.Id)).map(t => ({ ...t }));
+        payload.Tags = editTagObjects.filter((t) => editTagIds.has(t.Id)).map((t) => ({ ...t }));
 
         return payload;
     }
@@ -3115,25 +3462,34 @@
         try {
             showToast('Đang tải tồn kho...', 'info');
             const detail = await fetchProductDetail(templateId);
-            const variants = (detail.ProductVariants || []).filter(v => v.Active !== false);
+            const variants = (detail.ProductVariants || []).filter((v) => v.Active !== false);
 
             stockAdjustCtx = {
                 templateId,
                 templateName: `${detail.DefaultCode || ''} - ${detail.Name || ''}`,
-                variants: variants.length ? variants : [{
-                    Id: detail.VariantFirstId || null,
-                    DefaultCode: detail.DefaultCode,
-                    NameGet: detail.NameGet || detail.Name,
-                    QtyAvailable: detail.QtyAvailable || 0,
-                }],
+                variants: variants.length
+                    ? variants
+                    : [
+                          {
+                              Id: detail.VariantFirstId || null,
+                              DefaultCode: detail.DefaultCode,
+                              NameGet: detail.NameGet || detail.Name,
+                              QtyAvailable: detail.QtyAvailable || 0,
+                          },
+                      ],
             };
 
-            $('#stockAdjustProductInfo').innerHTML = `<strong>${escapeHtml(stockAdjustCtx.templateName)}</strong>`;
+            $('#stockAdjustProductInfo').innerHTML =
+                `<strong>${escapeHtml(stockAdjustCtx.templateName)}</strong>`;
             const variantSelect = $('#stockAdjustVariantSelect');
-            variantSelect.innerHTML = stockAdjustCtx.variants.map((v, idx) =>
-                `<option value="${idx}">${escapeHtml(v.NameGet || v.DefaultCode || `BT ${idx+1}`)} — Tồn: ${v.QtyAvailable || 0}</option>`
-            ).join('');
-            $('#stockAdjustVariantPick').style.display = stockAdjustCtx.variants.length > 1 ? 'block' : 'none';
+            variantSelect.innerHTML = stockAdjustCtx.variants
+                .map(
+                    (v, idx) =>
+                        `<option value="${idx}">${escapeHtml(v.NameGet || v.DefaultCode || `BT ${idx + 1}`)} — Tồn: ${v.QtyAvailable || 0}</option>`
+                )
+                .join('');
+            $('#stockAdjustVariantPick').style.display =
+                stockAdjustCtx.variants.length > 1 ? 'block' : 'none';
 
             const updateCurrentQty = () => {
                 const idx = parseInt(variantSelect.value) || 0;
@@ -3162,9 +3518,15 @@
         if (!stockAdjustCtx) return;
         const idx = parseInt($('#stockAdjustVariantSelect').value) || 0;
         const variant = stockAdjustCtx.variants[idx];
-        if (!variant?.Id) { showToast('Không xác định được biến thể', 'error'); return; }
+        if (!variant?.Id) {
+            showToast('Không xác định được biến thể', 'error');
+            return;
+        }
         const newQty = parseFloat($('#stockAdjustNewQty').value);
-        if (isNaN(newQty) || newQty < 0) { showToast('Số lượng không hợp lệ', 'error'); return; }
+        if (isNaN(newQty) || newQty < 0) {
+            showToast('Số lượng không hợp lệ', 'error');
+            return;
+        }
 
         try {
             showToast('Đang điều chỉnh tồn...', 'info');
@@ -3175,7 +3537,7 @@
                     NewQuantity: newQty,
                     LocationId: 12, // default warehouse location (TPOS std)
                     Name: $('#stockAdjustReason').value || 'Điều chỉnh qua n2store',
-                }
+                },
             };
             // Try multiple action paths (TPOS variants differ per tenant)
             const candidates = [
@@ -3189,18 +3551,25 @@
                 try {
                     const r = await window.tokenManager.authenticatedFetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify(url.includes('ODataService') ? payload : payload.model),
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify(
+                            url.includes('ODataService') ? payload : payload.model
+                        ),
                     });
-                    if (r.ok) { ok = true; break; }
+                    if (r.ok) {
+                        ok = true;
+                        break;
+                    }
                     lastErr = `HTTP ${r.status} @ ${url}`;
-                } catch (e) { lastErr = e.message; }
+                } catch (e) {
+                    lastErr = e.message;
+                }
             }
             if (!ok) throw new Error(lastErr || 'Không endpoint nào thành công');
 
             showToast(`Đã điều chỉnh tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
             closeStockAdjust();
-            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
             setTimeout(() => fetchProducts(true), 5000);
         } catch (err) {
             console.error('[Stock] Adjust failed:', err);
@@ -3214,16 +3583,26 @@
     function toggleBulkMenu(show) {
         const menu = $('#bulkActionsMenu');
         if (!menu) return;
-        menu.style.display = show === undefined ? (menu.style.display === 'none' ? 'block' : 'none') : (show ? 'block' : 'none');
+        menu.style.display =
+            show === undefined
+                ? menu.style.display === 'none'
+                    ? 'block'
+                    : 'none'
+                : show
+                  ? 'block'
+                  : 'none';
     }
 
     async function handleBulkAction(action) {
         toggleBulkMenu(false);
         const ids = Array.from(selectedIds);
-        if (!ids.length) { showToast('Vui lòng chọn SP trước', 'error'); return; }
+        if (!ids.length) {
+            showToast('Vui lòng chọn SP trước', 'error');
+            return;
+        }
 
         if (action === 'print') {
-            const selected = pageProducts.filter(p => selectedIds.has(p.id));
+            const selected = pageProducts.filter((p) => selectedIds.has(p.id));
             openBarcodePrint(selected);
             return;
         }
@@ -3232,7 +3611,8 @@
             const verb = action === 'archive' ? 'ngưng hiệu lực' : 'kích hoạt lại';
             if (!confirm(`${verb.toUpperCase()} ${ids.length} SP?\n\nCó thể mất vài phút.`)) return;
             showToast(`Đang ${verb}...`, 'info');
-            let ok = 0, failed = 0;
+            let ok = 0,
+                failed = 0;
             const queue = ids.slice();
             const workers = Array.from({ length: 3 }, async () => {
                 while (queue.length) {
@@ -3245,17 +3625,24 @@
                         const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
                         const r = await window.tokenManager.authenticatedFetch(url, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                            },
                             body: JSON.stringify(payload),
                         });
-                        if (r.ok) ok++; else failed++;
-                    } catch (err) { failed++; console.warn('[BulkAction]', id, err.message); }
-                    await new Promise(r => setTimeout(r, 200));
+                        if (r.ok) ok++;
+                        else failed++;
+                    } catch (err) {
+                        failed++;
+                        console.warn('[BulkAction]', id, err.message);
+                    }
+                    await new Promise((r) => setTimeout(r, 200));
                 }
             });
             await Promise.all(workers);
             showToast(`Hoàn tất: ${ok} OK, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
-            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
             setTimeout(() => fetchProducts(true), 3000);
             return;
         }
@@ -3271,7 +3658,12 @@
         $('#bulkTagCount').innerHTML = `<strong>${ids.length}</strong> sản phẩm đã chọn`;
         const list = $('#bulkTagList');
         list.innerHTML = tags.length
-            ? tags.map(t => `<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:10px;border:1px solid ${t.Color || '#6366f1'};cursor:pointer;font-size:11px;"><input type="checkbox" value="${t.Id}"> ${escapeHtml(t.Name || '')}</label>`).join('')
+            ? tags
+                  .map(
+                      (t) =>
+                          `<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:10px;border:1px solid ${t.Color || '#6366f1'};cursor:pointer;font-size:11px;"><input type="checkbox" value="${t.Id}"> ${escapeHtml(t.Name || '')}</label>`
+                  )
+                  .join('')
             : '<div style="color:#9ca3af;font-size:12px;">Không load được danh sách nhãn.</div>';
         $('#bulkTagModal').dataset.ids = JSON.stringify(ids);
         $('#bulkTagModal').classList.add('show');
@@ -3284,15 +3676,30 @@
 
     async function confirmBulkTag() {
         let ids = [];
-        try { ids = JSON.parse($('#bulkTagModal').dataset.ids || '[]'); } catch { ids = []; }
-        if (!Array.isArray(ids) || !ids.length) { showToast('Không có SP được chọn', 'error'); return; }
+        try {
+            ids = JSON.parse($('#bulkTagModal').dataset.ids || '[]');
+        } catch {
+            ids = [];
+        }
+        if (!Array.isArray(ids) || !ids.length) {
+            showToast('Không có SP được chọn', 'error');
+            return;
+        }
         const mode = $('#bulkTagMode').value;
-        const selectedTagIds = Array.from($('#bulkTagList').querySelectorAll('input:checked')).map(i => parseInt(i.value));
-        if (!selectedTagIds.length) { showToast('Chọn ít nhất 1 nhãn', 'error'); return; }
-        const selectedTags = selectedTagIds.map(id => (cachedTags || []).find(t => t.Id === id) || { Id: id });
+        const selectedTagIds = Array.from($('#bulkTagList').querySelectorAll('input:checked')).map(
+            (i) => parseInt(i.value)
+        );
+        if (!selectedTagIds.length) {
+            showToast('Chọn ít nhất 1 nhãn', 'error');
+            return;
+        }
+        const selectedTags = selectedTagIds.map(
+            (id) => (cachedTags || []).find((t) => t.Id === id) || { Id: id }
+        );
 
         showToast(`Đang áp dụng cho ${ids.length} SP...`, 'info');
-        let ok = 0, failed = 0;
+        let ok = 0,
+            failed = 0;
         const queue = ids.slice();
         const workers = Array.from({ length: 3 }, async () => {
             while (queue.length) {
@@ -3305,28 +3712,36 @@
                     let newTags;
                     if (mode === 'replace') newTags = selectedTags;
                     else if (mode === 'add') {
-                        const existingIds = new Set(currentTags.map(t => t.Id));
-                        newTags = [...currentTags, ...selectedTags.filter(t => !existingIds.has(t.Id))];
-                    } else { // remove
+                        const existingIds = new Set(currentTags.map((t) => t.Id));
+                        newTags = [
+                            ...currentTags,
+                            ...selectedTags.filter((t) => !existingIds.has(t.Id)),
+                        ];
+                    } else {
+                        // remove
                         const removeIds = new Set(selectedTagIds);
-                        newTags = currentTags.filter(t => !removeIds.has(t.Id));
+                        newTags = currentTags.filter((t) => !removeIds.has(t.Id));
                     }
                     payload.Tags = newTags;
                     const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
                     const r = await window.tokenManager.authenticatedFetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                         body: JSON.stringify(payload),
                     });
-                    if (r.ok) ok++; else failed++;
-                } catch (err) { failed++; console.warn('[BulkTag]', id, err.message); }
-                await new Promise(r => setTimeout(r, 200));
+                    if (r.ok) ok++;
+                    else failed++;
+                } catch (err) {
+                    failed++;
+                    console.warn('[BulkTag]', id, err.message);
+                }
+                await new Promise((r) => setTimeout(r, 200));
             }
         });
         await Promise.all(workers);
         showToast(`Hoàn tất: ${ok} OK, ${failed} lỗi`, ok > 0 ? 'success' : 'error');
         closeBulkTagModal();
-        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(()=>{});
+        fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
         setTimeout(() => fetchProducts(true), 3000);
     }
 
@@ -3363,14 +3778,17 @@
             onReload: () => {
                 console.log('[ProductWarehouse] SSE triggered refresh');
                 variantCache = {}; // Clear variant cache on TPOS change
-                imageCache = {};   // Clear image cache
+                imageCache = {}; // Clear image cache
                 fetchProducts(true); // silent=true: no loading flash
             },
             ignoreActions: [], // Refresh on all TPOS changes
             debounceMs: 3000,
         });
 
-        console.log('[ProductWarehouse] Initialized with SSE real-time, total products:', totalCount);
+        console.log(
+            '[ProductWarehouse] Initialized with SSE real-time, total products:',
+            totalCount
+        );
     }
 
     // Preserve any keys already set earlier in the IIFE (e.g. `printBarcode` at line 1574).

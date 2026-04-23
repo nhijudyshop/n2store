@@ -30,7 +30,9 @@ const CelebrationManager = (() => {
         });
     }
 
-    function hasMotion() { return !!window.Motion; }
+    function hasMotion() {
+        return !!window.Motion;
+    }
 
     // --- Tracked timers ---
     function later(fn, ms) {
@@ -62,11 +64,15 @@ const CelebrationManager = (() => {
                 <div class="celebration-name">
                     Nhân viên <span class="highlight">${employee.name}</span> đã đạt KPI
                 </div>
-                ${kpiDetail ? `
+                ${
+                    kpiDetail
+                        ? `
                 <div class="celebration-detail">
                     <span class="celebration-detail-icon">💰</span>
                     <span class="celebration-detail-text">${kpiDetail}</span>
-                </div>` : ''}
+                </div>`
+                        : ''
+                }
                 <div class="celebration-close-hint">Nhấn để đóng</div>
             </div>
             <div class="celebration-particles"></div>
@@ -87,52 +93,72 @@ const CelebrationManager = (() => {
 
         // Wave 1: big burst from center (40 particles)
         for (let i = 0; i < 40; i++) {
-            later(() => spawnParticle(animate, container, colors, {
-                startX: 50, startY: 55,
-                endX: 5 + Math.random() * 90,
-                endY: -10 + Math.random() * 60,
-                size: 6 + Math.random() * 8,
-                duration: 1.5 + Math.random() * 1,
-            }), i * 15);
+            later(
+                () =>
+                    spawnParticle(animate, container, colors, {
+                        startX: 50,
+                        startY: 55,
+                        endX: 5 + Math.random() * 90,
+                        endY: -10 + Math.random() * 60,
+                        size: 6 + Math.random() * 8,
+                        duration: 1.5 + Math.random() * 1,
+                    }),
+                i * 15
+            );
         }
 
         // Wave 2: left cannon (20 particles)
         later(() => {
             for (let i = 0; i < 20; i++) {
-                later(() => spawnParticle(animate, container, colors, {
-                    startX: 0, startY: 65,
-                    endX: 15 + Math.random() * 50,
-                    endY: 5 + Math.random() * 40,
-                    size: 5 + Math.random() * 7,
-                    duration: 1.2 + Math.random() * 1,
-                }), i * 20);
+                later(
+                    () =>
+                        spawnParticle(animate, container, colors, {
+                            startX: 0,
+                            startY: 65,
+                            endX: 15 + Math.random() * 50,
+                            endY: 5 + Math.random() * 40,
+                            size: 5 + Math.random() * 7,
+                            duration: 1.2 + Math.random() * 1,
+                        }),
+                    i * 20
+                );
             }
         }, 400);
 
         // Wave 3: right cannon (20 particles)
         later(() => {
             for (let i = 0; i < 20; i++) {
-                later(() => spawnParticle(animate, container, colors, {
-                    startX: 100, startY: 65,
-                    endX: 35 + Math.random() * 50,
-                    endY: 5 + Math.random() * 40,
-                    size: 5 + Math.random() * 7,
-                    duration: 1.2 + Math.random() * 1,
-                }), i * 20);
+                later(
+                    () =>
+                        spawnParticle(animate, container, colors, {
+                            startX: 100,
+                            startY: 65,
+                            endX: 35 + Math.random() * 50,
+                            endY: 5 + Math.random() * 40,
+                            size: 5 + Math.random() * 7,
+                            duration: 1.2 + Math.random() * 1,
+                        }),
+                    i * 20
+                );
             }
         }, 600);
 
         // Wave 4: gentle rain (scattered, slower)
         later(() => {
             for (let i = 0; i < 25; i++) {
-                later(() => spawnParticle(animate, container, colors, {
-                    startX: Math.random() * 100, startY: -5,
-                    endX: Math.random() * 100,
-                    endY: 90 + Math.random() * 15,
-                    size: 4 + Math.random() * 6,
-                    duration: 2 + Math.random() * 1.5,
-                    gravity: true,
-                }), i * 80);
+                later(
+                    () =>
+                        spawnParticle(animate, container, colors, {
+                            startX: Math.random() * 100,
+                            startY: -5,
+                            endX: Math.random() * 100,
+                            endY: 90 + Math.random() * 15,
+                            size: 4 + Math.random() * 6,
+                            duration: 2 + Math.random() * 1.5,
+                            gravity: true,
+                        }),
+                    i * 80
+                );
             }
         }, 1500);
 
@@ -143,7 +169,8 @@ const CelebrationManager = (() => {
                 later(() => {
                     for (let i = 0; i < 15; i++) {
                         spawnParticle(animate, container, colors, {
-                            startX: cx, startY: 40,
+                            startX: cx,
+                            startY: 40,
                             endX: cx - 20 + Math.random() * 40,
                             endY: 5 + Math.random() * 50,
                             size: 5 + Math.random() * 8,
@@ -180,17 +207,21 @@ const CelebrationManager = (() => {
             ? opts.startY + (opts.endY - opts.startY) * 0.3
             : Math.min(opts.startY, opts.endY) - 5 - Math.random() * 15;
 
-        const ctrl = animate(el, {
-            x: [`0%`, `${(opts.endX - opts.startX) * 0.6}vw`, `${(opts.endX - opts.startX)}vw`],
-            y: [`0%`, `${(midY - opts.startY)}vh`, `${(opts.endY - opts.startY)}vh`],
-            rotate: [0, rotation],
-            scale: [0, 1.2, 0.3],
-            opacity: [0, 1, 1, 0],
-        }, {
-            duration: opts.duration,
-            easing: [0.25, 0.46, 0.45, 0.94],
-            onComplete: () => el.remove(),
-        });
+        const ctrl = animate(
+            el,
+            {
+                x: [`0%`, `${(opts.endX - opts.startX) * 0.6}vw`, `${opts.endX - opts.startX}vw`],
+                y: [`0%`, `${midY - opts.startY}vh`, `${opts.endY - opts.startY}vh`],
+                rotate: [0, rotation],
+                scale: [0, 1.2, 0.3],
+                opacity: [0, 1, 1, 0],
+            },
+            {
+                duration: opts.duration,
+                easing: [0.25, 0.46, 0.45, 0.94],
+                onComplete: () => el.remove(),
+            }
+        );
         cleanups.push(ctrl);
     }
 
@@ -206,8 +237,14 @@ const CelebrationManager = (() => {
             console.warn('[Celebration] Motion.dev unavailable, using CSS fallback');
             // CSS fallback — just show everything
             overlay.style.opacity = '1';
-            overlay.querySelectorAll('.celebration-card, .celebration-trophy, .celebration-title, .celebration-name, .celebration-detail, .celebration-close-hint')
-                .forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+            overlay
+                .querySelectorAll(
+                    '.celebration-card, .celebration-trophy, .celebration-title, .celebration-name, .celebration-detail, .celebration-close-hint'
+                )
+                .forEach((el) => {
+                    el.style.opacity = '1';
+                    el.style.transform = 'none';
+                });
             return;
         }
 
@@ -224,20 +261,23 @@ const CelebrationManager = (() => {
         animate(overlay, { opacity: [0, 1] }, { duration: 0.5, easing: 'ease-out' });
 
         // Card pop in
-        animate(card,
+        animate(
+            card,
             { opacity: [0, 1], scale: [0.7, 1.02, 1], y: [40, -5, 0] },
             { duration: 0.8, easing: [0.16, 1, 0.3, 1], delay: 0.15 }
         );
 
         // Trophy drop + bounce
-        animate(trophy,
+        animate(
+            trophy,
             { opacity: [0, 1], scale: [0, 1.3, 0.9, 1.05, 1], y: [-30, 0, -4, 0] },
             { duration: 0.8, easing: 'ease-out', delay: 0.4 }
         );
 
         // Trophy gentle float
         later(() => {
-            const ctrl = animate(trophy,
+            const ctrl = animate(
+                trophy,
                 { y: [0, -8, 0] },
                 { duration: 1.5, easing: 'ease-in-out', repeat: Infinity }
             );
@@ -245,14 +285,16 @@ const CelebrationManager = (() => {
         }, 1200);
 
         // Photo ring spin
-        const ringCtrl = animate(photoRing,
+        const ringCtrl = animate(
+            photoRing,
             { rotate: [0, 360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
         cleanups.push(ringCtrl);
 
         // Photo counter-rotate
-        const photoCtrl = animate(photo,
+        const photoCtrl = animate(
+            photo,
             { rotate: [0, -360] },
             { duration: 6, easing: 'linear', repeat: Infinity }
         );
@@ -261,7 +303,8 @@ const CelebrationManager = (() => {
         // Glow ring behind photo — slow counter-spin
         const glow = overlay.querySelector('.celebration-photo-glow');
         if (glow) {
-            const glowCtrl = animate(glow,
+            const glowCtrl = animate(
+                glow,
                 { rotate: [0, -360] },
                 { duration: 8, easing: 'linear', repeat: Infinity }
             );
@@ -270,7 +313,8 @@ const CelebrationManager = (() => {
 
         // Text stagger
         [title, nameEl, detail, hint].filter(Boolean).forEach((el, i) => {
-            animate(el,
+            animate(
+                el,
                 { opacity: [0, 1], y: [20, 0] },
                 { duration: 0.5, easing: [0.16, 1, 0.3, 1], delay: 0.6 + i * 0.12 }
             );
@@ -280,7 +324,10 @@ const CelebrationManager = (() => {
     // --- Main ---
     async function celebrate(employeeKey, kpiDetail) {
         const employee = EMPLOYEES[employeeKey];
-        if (!employee) { console.warn(`[Celebration] "${employeeKey}" not found`); return; }
+        if (!employee) {
+            console.warn(`[Celebration] "${employeeKey}" not found`);
+            return;
+        }
 
         createOverlay(employee, kpiDetail || null);
         animateEntrance();
@@ -293,7 +340,7 @@ const CelebrationManager = (() => {
     async function dismiss() {
         if (!overlay) return;
 
-        cleanups.forEach(c => {
+        cleanups.forEach((c) => {
             if (c.type === 'timeout') clearTimeout(c.id);
             else if (c.type === 'interval') clearInterval(c.id);
             else if (c && typeof c.stop === 'function') c.stop();
@@ -304,8 +351,12 @@ const CelebrationManager = (() => {
         try {
             const { animate } = await loadMotion();
             const card = overlay.querySelector('.celebration-card');
-            if (card) animate(card, { opacity: [1, 0], scale: [1, 0.85], y: [0, 20] },
-                { duration: 0.35, easing: 'ease-in' });
+            if (card)
+                animate(
+                    card,
+                    { opacity: [1, 0], scale: [1, 0.85], y: [0, 20] },
+                    { duration: 0.35, easing: 'ease-in' }
+                );
             animate(overlay, { opacity: [1, 0] }, { duration: 0.4, easing: 'ease-in' });
         } catch (e) {
             overlay.style.opacity = '0';
@@ -319,8 +370,13 @@ const CelebrationManager = (() => {
     // --- Admin check ---
     function isAdmin() {
         try {
-            return JSON.parse(localStorage.getItem('loginindex_auth') || '{}').userType === 'admin-authenticated';
-        } catch { return false; }
+            return (
+                JSON.parse(localStorage.getItem('loginindex_auth') || '{}').userType ===
+                'admin-authenticated'
+            );
+        } catch {
+            return false;
+        }
     }
 
     // --- Broadcast celebration to all clients via Render SSE ---
@@ -332,7 +388,9 @@ const CelebrationManager = (() => {
                 body: JSON.stringify({ employee: employeeKey, detail }),
             });
             const data = await res.json();
-            console.log(`[Celebration] 🎉 Broadcast sent, ${data.clientsNotified} clients notified`);
+            console.log(
+                `[Celebration] 🎉 Broadcast sent, ${data.clientsNotified} clients notified`
+            );
             // Also show locally in case SSE hasn't connected yet
             celebrate(employeeKey, detail);
         } catch (e) {

@@ -46,10 +46,13 @@ function requestTokenFromTab1() {
         window.addEventListener('message', messageHandler);
 
         // Send request via parent (main.html will route to Tab1)
-        window.parent.postMessage({
-            type: 'REQUEST_TOKEN_FROM_OVERVIEW',
-            requestId: requestId
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'REQUEST_TOKEN_FROM_OVERVIEW',
+                requestId: requestId,
+            },
+            '*'
+        );
 
         console.log('[REPORT] 🔑 Requesting token from Tab1 via postMessage...');
 
@@ -91,10 +94,10 @@ async function fetchCampaignsFromTPOS(dateFilter) {
     const response = await fetch(url, {
         method: 'GET',
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-            'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-        }
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+            tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+        },
     });
 
     if (!response.ok) {
@@ -106,14 +109,16 @@ async function fetchCampaignsFromTPOS(dateFilter) {
     const data = await response.json();
 
     // Extract campaigns from OData response
-    const campaigns = (data.value || []).map(c => ({
-        id: c.Id,                    // TPOS campaign Id (number)
-        name: c.Name,                // Campaign name
-        dateCreated: c.DateCreated   // Date created
+    const campaigns = (data.value || []).map((c) => ({
+        id: c.Id, // TPOS campaign Id (number)
+        name: c.Name, // Campaign name
+        dateCreated: c.DateCreated, // Date created
     }));
 
-    console.log(`[REPORT] ✅ Found ${campaigns.length} campaigns from TPOS for date ${dateFilter}:`,
-        campaigns.map(c => `${c.name} (Id: ${c.id})`));
+    console.log(
+        `[REPORT] ✅ Found ${campaigns.length} campaigns from TPOS for date ${dateFilter}:`,
+        campaigns.map((c) => `${c.name} (Id: ${c.id})`)
+    );
 
     return campaigns;
 }
@@ -142,9 +147,12 @@ function requestCampaignInfoFromTab1() {
         window.addEventListener('message', handler);
 
         // Request campaign info from Tab1 via parent
-        window.parent.postMessage({
-            type: 'REQUEST_CAMPAIGN_INFO'
-        }, '*');
+        window.parent.postMessage(
+            {
+                type: 'REQUEST_CAMPAIGN_INFO',
+            },
+            '*'
+        );
     });
 }
 
@@ -172,19 +180,25 @@ async function getCurrentSessionCampaigns() {
 
     // Strategy 2: Look up campaign's customStartDate from CampaignAPI
     if (!dateFilter) {
-        console.log('[REPORT] 📡 No date in campaign name, looking up customStartDate from CampaignAPI...');
+        console.log(
+            '[REPORT] 📡 No date in campaign name, looking up customStartDate from CampaignAPI...'
+        );
         try {
             const allCampaigns = await window.CampaignAPI.loadAll();
-            const matchedCampaign = allCampaigns.find(c => c.name === currentTableName);
+            const matchedCampaign = allCampaigns.find((c) => c.name === currentTableName);
 
             if (matchedCampaign && matchedCampaign.customStartDate) {
                 // Convert ISO date "2025-12-30T10:00:00" to "30/12/2025"
                 const isoDate = matchedCampaign.customStartDate.split('T')[0]; // "2025-12-30"
                 const [year, month, day] = isoDate.split('-');
                 dateFilter = `${day}/${month}/${year}`;
-                console.log(`[REPORT] 📅 Found customStartDate for "${currentTableName}": ${dateFilter}`);
+                console.log(
+                    `[REPORT] 📅 Found customStartDate for "${currentTableName}": ${dateFilter}`
+                );
             } else {
-                console.warn(`[REPORT] ⚠️ Campaign "${currentTableName}" not found or has no customStartDate`);
+                console.warn(
+                    `[REPORT] ⚠️ Campaign "${currentTableName}" not found or has no customStartDate`
+                );
             }
         } catch (error) {
             console.error('[REPORT] ❌ Error looking up campaign from API:', error);
@@ -245,10 +259,10 @@ async function fetchOrdersFromTPOS(campaignId) {
     const response = await fetch(`${WORKER_URL}${endpoint}`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ data: '{}' })
+        body: JSON.stringify({ data: '{}' }),
     });
 
     if (!response.ok) {
@@ -297,7 +311,7 @@ function parseProductsFromExcel(productsStr) {
 
     const details = [];
     // Split by newlines or common separators
-    const productLines = productsStr.split(/[\n\r]+/).filter(line => line.trim());
+    const productLines = productsStr.split(/[\n\r]+/).filter((line) => line.trim());
 
     for (const line of productLines) {
         try {
@@ -329,7 +343,7 @@ function parseProductsFromExcel(productsStr) {
                 ProductName: productName,
                 ProductNameGet: productNameGet,
                 Quantity: quantity,
-                Price: price
+                Price: price,
             });
         } catch (e) {
             console.warn('[REPORT] Error parsing product line:', line, e);
@@ -397,8 +411,13 @@ function parseExcelOrderData(orders) {
         const details = parseProductsFromExcel(productsStr);
 
         // Calculate total from Details if TotalAmount is missing
-        const totalFromDetails = details.reduce((sum, d) => sum + (d.Price * d.Quantity), 0);
-        const totalAmount = parseFloat(String(row['Tổng tiền'] || row['Total'] || 0).replace(/\./g, '').replace(',', '.')) || totalFromDetails;
+        const totalFromDetails = details.reduce((sum, d) => sum + d.Price * d.Quantity, 0);
+        const totalAmount =
+            parseFloat(
+                String(row['Tổng tiền'] || row['Total'] || 0)
+                    .replace(/\./g, '')
+                    .replace(',', '.')
+            ) || totalFromDetails;
 
         // Get customer name from various possible columns
         const customerName = row['Tên'] || row['Tên khách'] || row['Customer'] || '';
@@ -412,29 +431,29 @@ function parseExcelOrderData(orders) {
         return {
             // Core order fields - mapped from Excel columns
             Id: row['Mã'] || row['###'] || index + 1,
-            Code: String(row['Mã'] || ''),              // Cột D - Mã đơn hàng
+            Code: String(row['Mã'] || ''), // Cột D - Mã đơn hàng
 
             // Customer name - render uses Name || PartnerName fallback
-            Name: customerName,                         // Cột G - Tên khách
+            Name: customerName, // Cột G - Tên khách
 
             // Phone - render uses Telephone
-            Telephone: phone,                           // Cột I
+            Telephone: phone, // Cột I
 
             // Address
-            FullAddress: row['Địa chỉ'] || '',         // Cột K - Địa chỉ
+            FullAddress: row['Địa chỉ'] || '', // Cột K - Địa chỉ
 
             // Amount
-            TotalAmount: totalAmount,                   // Cột L - Tổng tiền
-            CashOnDelivery: totalAmount,                // Same as TotalAmount for Excel data
+            TotalAmount: totalAmount, // Cột L - Tổng tiền
+            CashOnDelivery: totalAmount, // Same as TotalAmount for Excel data
 
             // Status - render uses Status || State fallback
-            Status: status,                             // Cột M - Trạng thái
+            Status: status, // Cột M - Trạng thái
 
             // Date
             DateCreated: parseDateToISO(row['Ngày tạo']), // Cột N - Ngày tạo
 
             // Note
-            Note: row['Ghi chú'] || '',                // Cột R - Ghi chú
+            Note: row['Ghi chú'] || '', // Cột R - Ghi chú
 
             // Facebook ID
             Facebook_ASUserId: String(row['Facebook'] || ''), // Cột E - Facebook ID
@@ -443,22 +462,24 @@ function parseExcelOrderData(orders) {
             CustomerStatus: row['Trạng thái khách hàng'] || '', // Cột H
 
             // Carrier info
-            Carrier: row['Nhà mạng'] || '',            // Cột J
+            Carrier: row['Nhà mạng'] || '', // Cột J
 
             // Product details - parsed from Cột O (lean: no null/zero fields)
             Details: details,
 
             // Quantity summary
-            QuantityTotal: parseInt(row['Tổng số lượng SP'] || 0) || details.reduce((sum, d) => sum + d.Quantity, 0), // Cột P
+            QuantityTotal:
+                parseInt(row['Tổng số lượng SP'] || 0) ||
+                details.reduce((sum, d) => sum + d.Quantity, 0), // Cột P
 
             // User/Employee - Cột Q
             User: {
-                Name: row['Nhân viên'] || ''
+                Name: row['Nhân viên'] || '',
             },
 
             // CRMTeam/Channel - Cột C
             CRMTeam: {
-                Name: row['Kênh'] || ''
+                Name: row['Kênh'] || '',
             },
 
             // Tags - Cột S (Nhãn)
@@ -472,7 +493,7 @@ function parseExcelOrderData(orders) {
 
             // Source marker
             _source: 'excel',
-            _campaign: row._campaign || ''
+            _campaign: row._campaign || '',
         };
     });
 }
@@ -492,10 +513,10 @@ async function fetchAllCampaignsExcel() {
     console.log(`[REPORT] 📊 Fetching Excel from ${campaigns.length} campaigns...`);
 
     // Fetch from all campaigns in parallel
-    const fetchPromises = campaigns.map(campaign =>
+    const fetchPromises = campaigns.map((campaign) =>
         fetchOrdersFromTPOS(campaign.id)
-            .then(orders => orders.map(o => ({ ...o, _campaign: campaign.name })))
-            .catch(err => {
+            .then((orders) => orders.map((o) => ({ ...o, _campaign: campaign.name })))
+            .catch((err) => {
                 console.error(`[REPORT] ❌ Error fetching ${campaign.name}:`, err);
                 return [];
             })
@@ -504,28 +525,33 @@ async function fetchAllCampaignsExcel() {
     const results = await Promise.allSettled(fetchPromises);
 
     // Merge all orders
-    const allOrders = results
-        .filter(r => r.status === 'fulfilled')
-        .flatMap(r => r.value);
+    const allOrders = results.filter((r) => r.status === 'fulfilled').flatMap((r) => r.value);
 
-    console.log(`[REPORT] ✅ Fetched total ${allOrders.length} orders from ${campaigns.length} campaigns`);
+    console.log(
+        `[REPORT] ✅ Fetched total ${allOrders.length} orders from ${campaigns.length} campaigns`
+    );
     return allOrders;
 }
 
 // Broadcast table status to parent (main.html)
 function broadcastTableStatus() {
-    const isMatching = currentTableName && firebaseTableName &&
-        currentTableName === firebaseTableName;
+    const isMatching =
+        currentTableName && firebaseTableName && currentTableName === firebaseTableName;
 
-    window.parent.postMessage({
-        type: 'TABLE_STATUS_UPDATE',
-        currentTable: currentTableName,
-        firebaseTable: firebaseTableName,
-        firebaseFetchedAt: firebaseDataFetchedAt,
-        isMatching: isMatching
-    }, '*');
+    window.parent.postMessage(
+        {
+            type: 'TABLE_STATUS_UPDATE',
+            currentTable: currentTableName,
+            firebaseTable: firebaseTableName,
+            firebaseFetchedAt: firebaseDataFetchedAt,
+            isMatching: isMatching,
+        },
+        '*'
+    );
 
-    console.log(`[REPORT] 📡 Broadcast table status: current=${currentTableName}, firebase=${firebaseTableName}, match=${isMatching}`);
+    console.log(
+        `[REPORT] 📡 Broadcast table status: current=${currentTableName}, firebase=${firebaseTableName}, match=${isMatching}`
+    );
 
     // Update UI helper based on matching status
     updateTableHelperUI(!isMatching && currentTableName);

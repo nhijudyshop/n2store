@@ -20,7 +20,9 @@ const PhoneExtAssignment = (() => {
         } catch {}
     }
     function _saveToLocalStorage() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_data)); } catch {}
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
+        } catch {}
     }
 
     async function _fetchFromServer() {
@@ -45,10 +47,23 @@ const PhoneExtAssignment = (() => {
         if (_pollTimer) return;
         _pollTimer = setInterval(_fetchFromServer, POLL_INTERVAL);
     }
-    function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
+    function stopPolling() {
+        if (_pollTimer) {
+            clearInterval(_pollTimer);
+            _pollTimer = null;
+        }
+    }
 
-    function _notify() { _listeners.forEach(fn => { try { fn(_data); } catch {} }); }
-    function onChange(fn) { if (typeof fn === 'function') _listeners.push(fn); }
+    function _notify() {
+        _listeners.forEach((fn) => {
+            try {
+                fn(_data);
+            } catch {}
+        });
+    }
+    function onChange(fn) {
+        if (typeof fn === 'function') _listeners.push(fn);
+    }
 
     async function init() {
         if (_readyPromise) return _readyPromise;
@@ -63,7 +78,11 @@ const PhoneExtAssignment = (() => {
     }
 
     function getCurrentUserName() {
-        try { return window.authManager?.getAuthData?.()?.displayName || ''; } catch { return ''; }
+        try {
+            return window.authManager?.getAuthData?.()?.displayName || '';
+        } catch {
+            return '';
+        }
     }
     function isAdmin() {
         try {
@@ -74,11 +93,17 @@ const PhoneExtAssignment = (() => {
             if (auth?.roleTemplate === 'admin') return true;
             if (auth?.checkLogin === 0) return true;
             return false;
-        } catch { return false; }
+        } catch {
+            return false;
+        }
     }
 
-    function getMyExt() { return _data[getCurrentUserName()] || ''; }
-    function getAll() { return { ..._data }; }
+    function getMyExt() {
+        return _data[getCurrentUserName()] || '';
+    }
+    function getAll() {
+        return { ..._data };
+    }
     function getUserForExt(ext) {
         for (const [name, e] of Object.entries(_data)) {
             if (String(e) === String(ext)) return name;
@@ -98,31 +123,51 @@ const PhoneExtAssignment = (() => {
         _notify();
 
         try {
-            const r = await fetch(`${API_BASE}/ext-assignments/${encodeURIComponent(displayName)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ext: ext || '', assigned_by: getCurrentUserName() })
-            });
+            const r = await fetch(
+                `${API_BASE}/ext-assignments/${encodeURIComponent(displayName)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ext: ext || '', assigned_by: getCurrentUserName() }),
+                }
+            );
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            try { window.PhoneCloudSync?.logAudit?.(ext ? 'ext_assign' : 'ext_unassign', { target: displayName, prevExt, newExt: ext || '' }); } catch {}
+            try {
+                window.PhoneCloudSync?.logAudit?.(ext ? 'ext_assign' : 'ext_unassign', {
+                    target: displayName,
+                    prevExt,
+                    newExt: ext || '',
+                });
+            } catch {}
             // Re-fetch to stay in sync with server
             _fetchFromServer();
         } catch (err) {
             // Rollback local cache
-            if (prevExt) _data[displayName] = prevExt; else delete _data[displayName];
-            _saveToLocalStorage(); _notify();
+            if (prevExt) _data[displayName] = prevExt;
+            else delete _data[displayName];
+            _saveToLocalStorage();
+            _notify();
             console.error('[PhoneExtAssignment] save failed:', err.message);
             throw err;
         }
     }
-    async function removeAssignment(displayName) { return setAssignment(displayName, null); }
+    async function removeAssignment(displayName) {
+        return setAssignment(displayName, null);
+    }
 
     // === ADMIN MODAL ===
     let modalEl = null;
     async function openModal() {
-        if (!isAdmin()) { alert('Chỉ admin mới có quyền phân chia extension.'); return; }
+        if (!isAdmin()) {
+            alert('Chỉ admin mới có quyền phân chia extension.');
+            return;
+        }
         await init();
-        if (modalEl) { modalEl.style.display = 'flex'; renderModal(); return; }
+        if (modalEl) {
+            modalEl.style.display = 'flex';
+            renderModal();
+            return;
+        }
         const wrap = document.createElement('div');
         wrap.id = 'pwAssignModal';
         wrap.innerHTML = `
@@ -179,19 +224,24 @@ const PhoneExtAssignment = (() => {
         `;
         document.body.appendChild(wrap);
         modalEl = wrap;
-        wrap.addEventListener('click', (e) => { if (e.target === wrap) closeModal(); });
+        wrap.addEventListener('click', (e) => {
+            if (e.target === wrap) closeModal();
+        });
         await renderModal();
     }
 
     async function renderModal() {
-        const body = document.getElementById('pwaBody'); if (!body) return;
+        const body = document.getElementById('pwaBody');
+        if (!body) return;
         const loader = window.userEmployeeLoader;
         let users = [];
         if (loader) {
             try {
                 if (!loader.initialized) await loader.initialize();
                 users = await loader.loadUsers();
-            } catch (e) { console.warn('[PhoneExtAssignment] loadUsers failed:', e.message); }
+            } catch (e) {
+                console.warn('[PhoneExtAssignment] loadUsers failed:', e.message);
+            }
         }
         if (!users.length) {
             body.innerHTML = '<div class="pwa-empty">Không tải được danh sách nhân viên</div>';
@@ -201,22 +251,23 @@ const PhoneExtAssignment = (() => {
         let extensions = [];
         try {
             const raw = localStorage.getItem('phoneWidget_dbConfig');
-            if (raw) extensions = (JSON.parse(raw).sip_extensions || []);
+            if (raw) extensions = JSON.parse(raw).sip_extensions || [];
         } catch {}
         if (!extensions.length) extensions = [{ ext: '101', label: 'Ext 101' }];
 
         const extOptions = (currentExt) => {
             let opts = '<option value="">— Chưa gán —</option>';
-            extensions.forEach(e => {
+            extensions.forEach((e) => {
                 opts += `<option value="${e.ext}" ${String(currentExt) === String(e.ext) ? 'selected' : ''}>Ext ${e.ext}${e.label && e.label !== 'Ext ' + e.ext ? ' · ' + e.label : ''}</option>`;
             });
             return opts;
         };
 
-        body.innerHTML = users.map(u => {
-            const role = u.checkLogin === 0 ? 'Admin' : 'Nhân viên';
-            const assignedExt = _data[u.displayName] || '';
-            return `
+        body.innerHTML = users
+            .map((u) => {
+                const role = u.checkLogin === 0 ? 'Admin' : 'Nhân viên';
+                const assignedExt = _data[u.displayName] || '';
+                return `
                 <div class="pwa-row" data-name="${escapeAttr(u.displayName)}">
                     <div class="pwa-name">${escapeHtml(u.displayName)}<span class="pwa-role">· ${role}</span></div>
                     <span class="pwa-current" data-role="current">${assignedExt ? 'Ext ' + assignedExt : '—'}</span>
@@ -224,25 +275,42 @@ const PhoneExtAssignment = (() => {
                         ${extOptions(assignedExt)}
                     </select>
                 </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
-    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
-    function escapeAttr(s) { return escapeHtml(s); }
+    function escapeHtml(s) {
+        return String(s).replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+    }
+    function escapeAttr(s) {
+        return escapeHtml(s);
+    }
 
     async function _onSelectChange(selectEl) {
-        const row = selectEl.closest('.pwa-row'); if (!row) return;
+        const row = selectEl.closest('.pwa-row');
+        if (!row) return;
         const name = row.getAttribute('data-name');
         const ext = selectEl.value;
         let conflictUser = '';
         if (ext) {
             for (const [n, e] of Object.entries(_data)) {
-                if (n !== name && String(e) === String(ext)) { conflictUser = n; break; }
+                if (n !== name && String(e) === String(ext)) {
+                    conflictUser = n;
+                    break;
+                }
             }
         }
         if (conflictUser) {
-            const ok = confirm(`Ext ${ext} đang được gán cho ${conflictUser}. Chuyển sang ${name}?`);
-            if (!ok) { selectEl.value = _data[name] || ''; return; }
+            const ok = confirm(
+                `Ext ${ext} đang được gán cho ${conflictUser}. Chuyển sang ${name}?`
+            );
+            if (!ok) {
+                selectEl.value = _data[name] || '';
+                return;
+            }
             await setAssignment(conflictUser, null);
         }
         try {
@@ -257,12 +325,15 @@ const PhoneExtAssignment = (() => {
     }
 
     function flashSaved() {
-        const msg = document.getElementById('pwaMsg'); if (!msg) return;
+        const msg = document.getElementById('pwaMsg');
+        if (!msg) return;
         msg.classList.add('show');
         setTimeout(() => msg.classList.remove('show'), 1200);
     }
 
-    function closeModal() { if (modalEl) modalEl.style.display = 'none'; }
+    function closeModal() {
+        if (modalEl) modalEl.style.display = 'none';
+    }
 
     // Auto-init
     if (typeof window !== 'undefined') {
@@ -270,12 +341,19 @@ const PhoneExtAssignment = (() => {
     }
 
     return {
-        init, getMyExt, getAll, getUserForExt,
-        setAssignment, removeAssignment,
-        getCurrentUserName, isAdmin,
-        openModal, closeModal,
-        onChange, stopPolling,
-        _onSelectChange
+        init,
+        getMyExt,
+        getAll,
+        getUserForExt,
+        setAssignment,
+        removeAssignment,
+        getCurrentUserName,
+        isAdmin,
+        openModal,
+        closeModal,
+        onChange,
+        stopPolling,
+        _onSelectChange,
     };
 })();
 

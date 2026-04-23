@@ -91,7 +91,6 @@ async function saveExpense() {
         if (typeof loadFinanceData === 'function') {
             await loadFinanceData();
         }
-
     } catch (error) {
         console.error('[EXPENSE] Error saving:', error);
         window.notificationManager?.error('Khong the luu');

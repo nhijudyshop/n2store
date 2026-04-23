@@ -11,10 +11,11 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
-    const WORKER_URL = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const cache = new Map(); // phone → { data, ts }
     const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
@@ -157,34 +158,50 @@
 
         // Notes
         const allNotes = [
-            ...notes.map(n => ({ text: n.content, by: n.created_by, at: n.created_at, source: 'db' })),
-            ...pancakeNotes.map(n => ({
+            ...notes.map((n) => ({
+                text: n.content,
+                by: n.created_by,
+                at: n.created_at,
+                source: 'db',
+            })),
+            ...pancakeNotes.map((n) => ({
                 text: n.message || n.content || JSON.stringify(n),
                 by: n.created_by?.fb_name || 'Pancake',
-                at: n.created_at ? new Date(typeof n.created_at === 'number' ? n.created_at : n.created_at).toLocaleString('vi-VN') : '',
-                source: 'pancake'
-            }))
+                at: n.created_at
+                    ? new Date(
+                          typeof n.created_at === 'number' ? n.created_at : n.created_at
+                      ).toLocaleString('vi-VN')
+                    : '',
+                source: 'pancake',
+            })),
         ];
 
         let notesHtml = '';
         if (allNotes.length > 0) {
             notesHtml = `<div class="cip-notes-section">
                 <div class="cip-notes-title"><i class="fas fa-sticky-note"></i> Ghi chú (${allNotes.length})</div>
-                ${allNotes.slice(0, 5).map(n => `
+                ${allNotes
+                    .slice(0, 5)
+                    .map(
+                        (n) => `
                     <div class="cip-note ${n.source === 'pancake' ? 'cip-note-pancake' : ''}">
                         <div class="cip-note-text">${escapeHtml(typeof n.text === 'string' ? n.text : '')}</div>
                         <div class="cip-note-meta">${escapeHtml(n.by || '')} ${n.at ? '· ' + n.at : ''}</div>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
                 ${allNotes.length > 5 ? `<div class="cip-note-more">+${allNotes.length - 5} ghi chú khác</div>` : ''}
             </div>`;
         }
 
         // Add note input
-        const addNoteHtml = c.phone ? `<div class="cip-add-note">
+        const addNoteHtml = c.phone
+            ? `<div class="cip-add-note">
             <input type="text" id="cip-note-input" placeholder="Thêm ghi chú..." />
             <button onclick="window._cipAddNote('${escapeHtml(c.phone)}')"><i class="fas fa-paper-plane"></i></button>
-        </div>` : '';
+        </div>`
+            : '';
 
         container.innerHTML = `
             <div class="cip-info">${rows.join('')}</div>
@@ -195,7 +212,7 @@
 
     // ===== Add Note =====
 
-    window._cipAddNote = async function(phone) {
+    window._cipAddNote = async function (phone) {
         const input = document.getElementById('cip-note-input');
         if (!input || !input.value.trim()) return;
 
@@ -206,7 +223,7 @@
             const resp = await fetch(`${WORKER_URL}/api/v2/customers/${phone}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content, created_by: 'orders-report' })
+                body: JSON.stringify({ content, created_by: 'orders-report' }),
             });
             const data = await resp.json();
             if (data.success) {
@@ -251,7 +268,12 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function formatMoney(n) {
@@ -262,5 +284,4 @@
 
     window.openCustomerInfoPopup = openCustomerInfoPopup;
     window.closeCustomerInfoPopup = closeCustomerInfoPopup;
-
 })();

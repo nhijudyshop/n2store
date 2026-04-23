@@ -9,7 +9,7 @@
  *   All requests go through Cloudflare proxy to bypass CORS
  */
 
-window.TPOSClient = (function() {
+window.TPOSClient = (function () {
     'use strict';
 
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -38,11 +38,11 @@ window.TPOSClient = (function() {
 
     function getHeaders(authToken) {
         return {
-            'Authorization': `Bearer ${authToken}`,
+            Authorization: `Bearer ${authToken}`,
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'feature-version': '2',
-            'tposappversion': '6.2.6.1'
+            tposappversion: '6.2.6.1',
         };
     }
 
@@ -52,7 +52,7 @@ window.TPOSClient = (function() {
 
     function isTokenValid(companyId) {
         const t = tokenStore[companyId];
-        return t && t.access_token && t.expires_at && Date.now() < (t.expires_at - TOKEN_BUFFER);
+        return t && t.access_token && t.expires_at && Date.now() < t.expires_at - TOKEN_BUFFER;
     }
 
     function loadFromStorage(companyId) {
@@ -60,12 +60,18 @@ window.TPOSClient = (function() {
             const stored = localStorage.getItem(storageKey(companyId));
             if (stored) {
                 const data = JSON.parse(stored);
-                if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
+                if (
+                    data.access_token &&
+                    data.expires_at &&
+                    Date.now() < data.expires_at - TOKEN_BUFFER
+                ) {
                     tokenStore[companyId] = data;
                     return true;
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
         return false;
     }
 
@@ -79,7 +85,9 @@ window.TPOSClient = (function() {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
         return null;
     }
 
@@ -89,11 +97,13 @@ window.TPOSClient = (function() {
      */
     async function refreshWithToken(companyId, refreshToken) {
         try {
-            console.log(`[TPOS-Search] Refreshing token for company ${companyId} using refresh_token...`);
+            console.log(
+                `[TPOS-Search] Refreshing token for company ${companyId} using refresh_token...`
+            );
             const response = await fetch(TOKEN_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
             });
 
             if (!response.ok) {
@@ -118,11 +128,17 @@ window.TPOSClient = (function() {
             const doc = await firebase.firestore().collection('tokens').doc(docId).get();
             if (!doc.exists) return false;
             const data = doc.data();
-            if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
+            if (
+                data.access_token &&
+                data.expires_at &&
+                Date.now() < data.expires_at - TOKEN_BUFFER
+            ) {
                 tokenStore[companyId] = data;
                 try {
                     localStorage.setItem(storageKey(companyId), JSON.stringify(data));
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
                 console.log(`[TPOS-Search] Token loaded from Firestore for company ${companyId}`);
                 return true;
             }
@@ -133,28 +149,36 @@ window.TPOSClient = (function() {
     }
 
     function saveToken(companyId, tokenData) {
-        const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+        const expiresAt = Date.now() + tokenData.expires_in * 1000;
         const dataToSave = {
             access_token: tokenData.access_token,
             refresh_token: tokenData.refresh_token || null,
             token_type: 'Bearer',
             expires_in: tokenData.expires_in,
             expires_at: expiresAt,
-            issued_at: Date.now()
+            issued_at: Date.now(),
         };
         tokenStore[companyId] = dataToSave;
 
         try {
             localStorage.setItem(storageKey(companyId), JSON.stringify(dataToSave));
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
 
         // Also save to Firestore
         try {
             if (window.firebase && window.firebase.firestore) {
                 const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
-                firebase.firestore().collection('tokens').doc(docId).set(dataToSave, { merge: true });
+                firebase
+                    .firestore()
+                    .collection('tokens')
+                    .doc(docId)
+                    .set(dataToSave, { merge: true });
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     /**
@@ -167,7 +191,7 @@ window.TPOSClient = (function() {
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ companyId: cid })
+            body: JSON.stringify({ companyId: cid }),
         });
 
         if (!response.ok) {
@@ -187,7 +211,9 @@ window.TPOSClient = (function() {
      */
     async function switchCompanyToken(targetCompanyId, sourceCompanyId) {
         const srcCid = sourceCompanyId || getCompanyId();
-        console.log(`[TPOS-Search] Switching company ${srcCid} account to company ${targetCompanyId}...`);
+        console.log(
+            `[TPOS-Search] Switching company ${srcCid} account to company ${targetCompanyId}...`
+        );
 
         // Ensure a fresh token for the source company
         if (!isTokenValid(srcCid) || !tokenStore[srcCid]?.refresh_token) {
@@ -200,16 +226,20 @@ window.TPOSClient = (function() {
             method: 'POST',
             headers: {
                 ...getHeaders(currentToken.access_token),
-                'Content-Type': 'application/json;charset=UTF-8'
+                'Content-Type': 'application/json;charset=UTF-8',
             },
-            body: JSON.stringify({ companyId: targetCompanyId })
+            body: JSON.stringify({ companyId: targetCompanyId }),
         });
 
         // If 401, force fresh login and retry SwitchCompany once
         if (switchResponse.status === 401) {
             console.log('[TPOS-Search] SwitchCompany 401, forcing fresh login...');
             delete tokenStore[srcCid];
-            try { localStorage.removeItem(storageKey(srcCid)); } catch (e) { /* ignore */ }
+            try {
+                localStorage.removeItem(storageKey(srcCid));
+            } catch (e) {
+                /* ignore */
+            }
             await loginWithPassword(srcCid);
             currentToken = tokenStore[srcCid];
 
@@ -217,9 +247,9 @@ window.TPOSClient = (function() {
                 method: 'POST',
                 headers: {
                     ...getHeaders(currentToken.access_token),
-                    'Content-Type': 'application/json;charset=UTF-8'
+                    'Content-Type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ companyId: targetCompanyId })
+                body: JSON.stringify({ companyId: targetCompanyId }),
             });
         }
 
@@ -239,9 +269,9 @@ window.TPOSClient = (function() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${currentToken.access_token}`
+                Authorization: `Bearer ${currentToken.access_token}`,
             },
-            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
         });
 
         if (!refreshResponse.ok) {
@@ -272,7 +302,7 @@ window.TPOSClient = (function() {
         }
 
         // Check Firestore
-        if (await loadFromFirestore(companyId) && isTokenValid(companyId)) {
+        if ((await loadFromFirestore(companyId)) && isTokenValid(companyId)) {
             return tokenStore[companyId].access_token;
         }
 
@@ -322,18 +352,21 @@ window.TPOSClient = (function() {
             ...options,
             headers: {
                 ...getHeaders(authToken),
-                ...options.headers
-            }
+                ...options.headers,
+            },
         });
 
         // Handle auth failure: 401 OR 200+HTML (TPOS returns login page instead of 401)
-        const needsRetry = response.status === 401 ||
+        const needsRetry =
+            response.status === 401 ||
             (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
 
         if (needsRetry) {
             const companyId = getCompanyId();
             const reason = response.status === 401 ? '401' : '200+HTML';
-            console.log(`[TPOS-Search] ${reason} for company ${companyId}, checking for newer token...`);
+            console.log(
+                `[TPOS-Search] ${reason} for company ${companyId}, checking for newer token...`
+            );
 
             // Strategy: check if localStorage has a NEWER token (another tab may have refreshed)
             // Only do full re-login if no newer token is available
@@ -356,13 +389,17 @@ window.TPOSClient = (function() {
                 delete tokenStore[companyId];
                 try {
                     localStorage.removeItem(storageKey(companyId));
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
                 try {
                     if (window.firebase && window.firebase.firestore) {
                         const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
                         await firebase.firestore().collection('tokens').doc(docId).delete();
                     }
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
                 newToken = await getToken();
             }
 
@@ -370,8 +407,8 @@ window.TPOSClient = (function() {
                 ...options,
                 headers: {
                     ...getHeaders(newToken),
-                    ...options.headers
-                }
+                    ...options.headers,
+                },
             });
         }
 
@@ -393,12 +430,13 @@ window.TPOSClient = (function() {
 
         try {
             const code = productCode.trim().toUpperCase();
-            const url = `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2`
-                + `?Active=true`
-                + `&DefaultCode=${encodeURIComponent(code)}`
-                + `&$top=1`
-                + `&$orderby=DateCreated desc`
-                + `&$count=true`;
+            const url =
+                `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2` +
+                `?Active=true` +
+                `&DefaultCode=${encodeURIComponent(code)}` +
+                `&$top=1` +
+                `&$orderby=DateCreated desc` +
+                `&$count=true`;
 
             const response = await authenticatedFetch(url);
             if (!response.ok) return [];
@@ -421,12 +459,13 @@ window.TPOSClient = (function() {
         const prefix = category.toUpperCase();
 
         try {
-            const url = `${PROXY_URL}/api/odata/Product`
-                + `?$filter=Active eq true and startswith(DefaultCode,'${prefix}')`
-                + `&$orderby=Id desc`
-                + `&$top=100`
-                + `&$select=Id,DefaultCode`
-                + `&$count=true`;
+            const url =
+                `${PROXY_URL}/api/odata/Product` +
+                `?$filter=Active eq true and startswith(DefaultCode,'${prefix}')` +
+                `&$orderby=Id desc` +
+                `&$top=100` +
+                `&$select=Id,DefaultCode` +
+                `&$count=true`;
 
             console.log(`[TPOS-Search] getMaxProductCode query: ${url}`);
             const response = await authenticatedFetch(url);
@@ -440,7 +479,9 @@ window.TPOSClient = (function() {
             const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
             let maxNum = 0;
 
-            console.log(`[TPOS-Search] getMaxProductCode: ${data['@odata.count'] || data.value?.length || 0} products`);
+            console.log(
+                `[TPOS-Search] getMaxProductCode: ${data['@odata.count'] || data.value?.length || 0} products`
+            );
 
             if (data.value && data.value.length > 0) {
                 for (const product of data.value) {
@@ -470,11 +511,12 @@ window.TPOSClient = (function() {
         const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
 
         try {
-            const url = `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2`
-                + `?Active=true`
-                + `&$top=500`
-                + `&$orderby=DateCreated desc`
-                + `&$count=true`;
+            const url =
+                `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2` +
+                `?Active=true` +
+                `&$top=500` +
+                `&$orderby=DateCreated desc` +
+                `&$count=true`;
 
             const response = await authenticatedFetch(url);
             if (!response.ok) return 0;
@@ -493,7 +535,9 @@ window.TPOSClient = (function() {
                 }
             }
 
-            console.log(`[TPOS-Search] Fallback max for ${prefix}: ${maxNum} (from ${data.value?.length || 0} recent products)`);
+            console.log(
+                `[TPOS-Search] Fallback max for ${prefix}: ${maxNum} (from ${data.value?.length || 0} recent products)`
+            );
             return maxNum;
         } catch (error) {
             console.error('[TPOS-Search] fallback error:', error);
@@ -515,10 +559,14 @@ window.TPOSClient = (function() {
             }
             localStorage.removeItem('bearer_token_data');
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+        /* ignore */
+    }
 
     loadFromStorage(getCompanyId());
-    console.log(`[TPOS-Search] Loaded, company: ${getCompanyId()}, token valid: ${isTokenValid(getCompanyId())}`);
+    console.log(
+        `[TPOS-Search] Loaded, company: ${getCompanyId()}, token valid: ${isTokenValid(getCompanyId())}`
+    );
 
     // Sync token across tabs — when another tab refreshes token, update in-memory cache
     try {
@@ -530,13 +578,19 @@ window.TPOSClient = (function() {
                         const data = JSON.parse(e.newValue);
                         if (data.access_token) {
                             tokenStore[cid] = data;
-                            console.log(`[TPOS-Search] Token synced from another tab for company ${cid}`);
+                            console.log(
+                                `[TPOS-Search] Token synced from another tab for company ${cid}`
+                            );
                         }
-                    } catch (err) { /* ignore */ }
+                    } catch (err) {
+                        /* ignore */
+                    }
                 }
             }
         });
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+        /* ignore */
+    }
 
     return {
         searchProduct,
@@ -544,6 +598,6 @@ window.TPOSClient = (function() {
         getToken,
         authenticatedFetch,
         switchCompanyToken,
-        isTokenValid: () => isTokenValid(getCompanyId())
+        isTokenValid: () => isTokenValid(getCompanyId()),
     };
 })();

@@ -20,8 +20,8 @@ let dataReceivedFromTab1 = false; // Flag to track if data was received from Tab
 let currentProductFilter = ''; // Product search filter for detail list
 
 // Dedup tracking for loadTableDataFromFirebase()
-let _firebaseLoadPromise = null;   // In-flight load promise
-let _firebaseLoadedTable = null;   // Table already loaded successfully
+let _firebaseLoadPromise = null; // In-flight load promise
+let _firebaseLoadedTable = null; // Table already loaded successfully
 
 const STORAGE_KEY = 'report_order_details_by_table';
 const FIREBASE_PATH = 'report_order_details';
@@ -34,9 +34,9 @@ const BATCH_DELAY = 300; // 300ms between batches
 // =====================================================
 function getAuthData() {
     try {
-        let authData = sessionStorage.getItem("loginindex_auth");
+        let authData = sessionStorage.getItem('loginindex_auth');
         if (!authData) {
-            authData = localStorage.getItem("loginindex_auth");
+            authData = localStorage.getItem('loginindex_auth');
         }
         return authData ? JSON.parse(authData) : null;
     } catch (e) {
@@ -98,23 +98,53 @@ const DEFAULT_TRACKED_TAGS = [
     { pattern: 'xử lý', type: 'startsWith', displayName: 'Xử Lý + NV', color: '#f97316' },
     { pattern: 'chờ live', type: 'exact', displayName: 'Chờ Live', color: '#ec4899' },
     { pattern: 'chờ hàng', type: 'exact', displayName: 'Chờ Hàng', color: '#6366f1' },
-    { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' }
+    { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' },
 ];
 
 // =====================================================
 // TAG XL CONSTANTS (mirrored from tab1-processing-tags.js)
 // =====================================================
 const PTAG_CATEGORY_META = {
-    0: { name: 'ĐÃ RA ĐƠN', short: 'ĐÃ RA ĐƠN', icon: 'fa-check-circle', emoji: '🟢', color: '#10b981' },
-    1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'CHỜ ĐI ĐƠN', icon: 'fa-clock', emoji: '🔵', color: '#3b82f6' },
-    2: { name: 'MỤC XỬ LÝ', short: 'XỬ LÝ', icon: 'fa-exclamation-triangle', emoji: '🟠', color: '#f59e0b' },
-    3: { name: 'KHÔNG CẦN CHỐT', short: 'KO CẦN CHỐT', icon: 'fa-minus-circle', emoji: '⚪', color: '#6b7280' },
-    4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'KHÁCH XÃ', icon: 'fa-times-circle', emoji: '🔴', color: '#ef4444' }
+    0: {
+        name: 'ĐÃ RA ĐƠN',
+        short: 'ĐÃ RA ĐƠN',
+        icon: 'fa-check-circle',
+        emoji: '🟢',
+        color: '#10b981',
+    },
+    1: {
+        name: 'CHỜ ĐI ĐƠN (OKE)',
+        short: 'CHỜ ĐI ĐƠN',
+        icon: 'fa-clock',
+        emoji: '🔵',
+        color: '#3b82f6',
+    },
+    2: {
+        name: 'MỤC XỬ LÝ',
+        short: 'XỬ LÝ',
+        icon: 'fa-exclamation-triangle',
+        emoji: '🟠',
+        color: '#f59e0b',
+    },
+    3: {
+        name: 'KHÔNG CẦN CHỐT',
+        short: 'KO CẦN CHỐT',
+        icon: 'fa-minus-circle',
+        emoji: '⚪',
+        color: '#6b7280',
+    },
+    4: {
+        name: 'KHÁCH XÃ SAU CHỐT',
+        short: 'KHÁCH XÃ',
+        icon: 'fa-times-circle',
+        emoji: '🔴',
+        color: '#ef4444',
+    },
 };
 
 const PTAG_SUBSTATES_META = {
     OKIE_CHO_DI_DON: { label: 'OKIE CHỜ ĐI ĐƠN', color: '#3b82f6' },
-    CHO_HANG: { label: 'CHỜ HÀNG', color: '#f59e0b' }
+    CHO_HANG: { label: 'CHỜ HÀNG', color: '#f59e0b' },
 };
 
 const PTAG_SUBTAGS_META = {
@@ -127,14 +157,14 @@ const PTAG_SUBTAGS_META = {
     // Category 4
     NCC_HET_HANG: { label: 'NCC HẾT HÀNG', category: 4, icon: '🚫' },
     KHACH_HUY_DON: { label: 'KHÁCH HỦY NGUYÊN ĐƠN', category: 4, icon: '❌' },
-    KHACH_KO_LIEN_LAC: { label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', category: 4, icon: '📵' }
+    KHACH_KO_LIEN_LAC: { label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', category: 4, icon: '📵' },
 };
 
 const PTAG_FLAGS_META = {
     CHO_LIVE: { label: 'CHỜ LIVE', icon: '📺', color: '#ec4899' },
     QUA_LAY: { label: 'QUA LẤY', icon: '🏠', color: '#3b82f6' },
     GIU_DON: { label: 'GIỮ ĐƠN', icon: '⌛', color: '#8b5cf6' },
-    GIAM_GIA: { label: 'GIẢM GIÁ', icon: '🏷️', color: '#f59e0b' }
+    GIAM_GIA: { label: 'GIẢM GIÁ', icon: '🏷️', color: '#f59e0b' },
 };
 
 // Firebase paths for statistics
@@ -142,7 +172,7 @@ const TRACKED_TAGS_PATH = 'settings/tracked_tags';
 const EMPLOYEE_RANGES_PATH = 'settings/employee_ranges';
 
 // Firebase config - use shared config (loaded via shared/js/firebase-config.js)
-const _fbConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : FIREBASE_CONFIG;
+const _fbConfig = typeof firebaseConfig !== 'undefined' ? firebaseConfig : FIREBASE_CONFIG;
 
 // Initialize Firebase
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {

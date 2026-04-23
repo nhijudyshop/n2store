@@ -67,11 +67,13 @@ class OrderDetailDialog {
 
         // Calculate totals
         const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const calculatedTotal = items.reduce((sum, item) =>
-            sum + ((item.purchasePrice || 0) * (item.quantity || 0)), 0);
+        const calculatedTotal = items.reduce(
+            (sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 0),
+            0
+        );
 
         // Find failed sync items
-        const failedItems = items.filter(item => item.tposSyncStatus === 'failed');
+        const failedItems = items.filter((item) => item.tposSyncStatus === 'failed');
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
@@ -126,7 +128,9 @@ class OrderDetailDialog {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${items.map((item, index) => `
+                                    ${items
+                                        .map(
+                                            (item, index) => `
                                         <tr class="${item.tposSyncStatus === 'failed' ? 'row-error' : ''}">
                                             <td>${index + 1}</td>
                                             <td>${item.productName || 'Sản phẩm đã xóa'}</td>
@@ -137,33 +141,43 @@ class OrderDetailDialog {
                                             <td class="text-right">${config.formatVND((item.purchasePrice || 0) * (item.quantity || 0))}</td>
                                             <td>${this.renderSyncStatus(item)}</td>
                                         </tr>
-                                    `).join('')}
+                                    `
+                                        )
+                                        .join('')}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     <!-- Failed Items Section -->
-                    ${failedItems.length > 0 ? `
+                    ${
+                        failedItems.length > 0
+                            ? `
                         <div class="detail-failed-section">
                             <h3 class="detail-section-title text-danger">
                                 <i data-lucide="alert-circle"></i>
                                 Sản phẩm lỗi đồng bộ (${failedItems.length})
                             </h3>
                             <ul class="failed-items-list">
-                                ${failedItems.map(item => `
+                                ${failedItems
+                                    .map(
+                                        (item) => `
                                     <li class="failed-item">
                                         <span class="failed-item-name">${item.productName}</span>
                                         <span class="failed-item-error">${item.tposSyncError || 'Lỗi không xác định'}</span>
                                     </li>
-                                `).join('')}
+                                `
+                                    )
+                                    .join('')}
                             </ul>
                             <button class="btn btn-warning" id="btnRetryFailed">
                                 <i data-lucide="refresh-cw"></i>
                                 <span>Thử lại đồng bộ</span>
                             </button>
                         </div>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
                     <!-- Financial Summary -->
                     <div class="detail-summary">
@@ -186,12 +200,16 @@ class OrderDetailDialog {
                     </div>
 
                     <!-- Notes -->
-                    ${order.notes ? `
+                    ${
+                        order.notes
+                            ? `
                         <div class="detail-notes">
                             <h3 class="detail-section-title">Ghi chú</h3>
                             <p>${order.notes}</p>
                         </div>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
                     <!-- Timestamps -->
                     <div class="detail-timestamps">
@@ -242,8 +260,12 @@ class OrderDetailDialog {
      */
     bindEvents() {
         // Close buttons
-        this.modalElement.querySelector('#btnCloseDetail')?.addEventListener('click', () => this.close());
-        this.modalElement.querySelector('#btnCloseDetailFooter')?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCloseDetail')
+            ?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCloseDetailFooter')
+            ?.addEventListener('click', () => this.close());
 
         // Overlay click
         this.modalElement.addEventListener('click', (e) => {
@@ -312,13 +334,20 @@ class VariantGeneratorDialog {
             let current = '';
             let inQuotes = false;
             for (const ch of lines[i]) {
-                if (ch === '"') { inQuotes = !inQuotes; }
-                else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
-                else { current += ch; }
+                if (ch === '"') {
+                    inQuotes = !inQuotes;
+                } else if (ch === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
             }
             values.push(current.trim());
             const obj = {};
-            headers.forEach((h, idx) => { obj[h.trim()] = values[idx] || ''; });
+            headers.forEach((h, idx) => {
+                obj[h.trim()] = values[idx] || '';
+            });
             rows.push(obj);
         }
         return rows;
@@ -334,46 +363,50 @@ class VariantGeneratorDialog {
             const isPurchaseOrdersPage = window.location.pathname.includes('/purchase-orders/');
             const basePath = isPurchaseOrdersPage
                 ? window.location.pathname.split('/').slice(0, -1).join('/') + '/'
-                : window.location.pathname.split('/').slice(0, -1).join('/') + '/../purchase-orders/';
+                : window.location.pathname.split('/').slice(0, -1).join('/') +
+                  '/../purchase-orders/';
 
             const [attrsText, valsText] = await Promise.all([
-                fetch(`${basePath}product_attributes_rows.csv`).then(r => {
+                fetch(`${basePath}product_attributes_rows.csv`).then((r) => {
                     if (!r.ok) throw new Error(`Failed to fetch attributes: ${r.status}`);
                     return r.text();
                 }),
-                fetch(`${basePath}product_attribute_values_rows.csv`).then(r => {
+                fetch(`${basePath}product_attribute_values_rows.csv`).then((r) => {
                     if (!r.ok) throw new Error(`Failed to fetch attribute values: ${r.status}`);
                     return r.text();
-                })
+                }),
             ]);
 
             const attrsRows = this.parseCSV(attrsText);
             const valsRows = this.parseCSV(valsText);
 
             // Sort attributes by display_order
-            attrsRows.sort((a, b) => parseInt(a.display_order || 0) - parseInt(b.display_order || 0));
+            attrsRows.sort(
+                (a, b) => parseInt(a.display_order || 0) - parseInt(b.display_order || 0)
+            );
 
             // Key mapping: attribute name → internal key
-            const keyMap = { 'Màu': 'color', 'Size Số': 'sizeNumber', 'Size Chữ': 'sizeLetter' };
+            const keyMap = { Màu: 'color', 'Size Số': 'sizeNumber', 'Size Chữ': 'sizeLetter' };
 
             this.attributes = attrsRows
-                .filter(a => a.is_active === 'true')
-                .map(attr => {
+                .filter((a) => a.is_active === 'true')
+                .map((attr) => {
                     const key = keyMap[attr.name] || attr.name.replace(/\s+/g, '_').toLowerCase();
                     const attrValues = valsRows
-                        .filter(v => v.attribute_id === attr.id && v.is_active === 'true')
-                        .map(v => ({
+                        .filter((v) => v.attribute_id === attr.id && v.is_active === 'true')
+                        .map((v) => ({
                             id: v.id,
                             value: v.value,
                             code: v.code,
                             tpos_id: v.tpos_id,
-                            sequence: parseInt(v.sequence || 0)
+                            sequence: parseInt(v.sequence || 0),
                         }));
 
                     // Sort values using VariantUtils if available
                     const sortedValues = window.VariantUtils
-                        ? window.VariantUtils.sortAttributeValues(attrValues.map(v => ({ name: v.value, ...v })))
-                              .map(v => ({ ...v, value: v.name || v.value }))
+                        ? window.VariantUtils.sortAttributeValues(
+                              attrValues.map((v) => ({ name: v.value, ...v }))
+                          ).map((v) => ({ ...v, value: v.name || v.value }))
                         : attrValues;
 
                     return { id: attr.id, name: attr.name, key, values: sortedValues };
@@ -386,22 +419,67 @@ class VariantGeneratorDialog {
             for (const attr of this.attributes) {
                 this.attributeConfig[attr.key] = {
                     name: attr.name,
-                    values: attr.values.map(v => v.value),
-                    valueObjects: attr.values
+                    values: attr.values.map((v) => v.value),
+                    valueObjects: attr.values,
                 };
                 this.selected[attr.key] = [];
                 this.searchFilters[attr.key] = '';
             }
 
             this.csvLoaded = true;
-            console.log('[VariantGenerator] Loaded CSV data:', this.attributes.map(a => `${a.name}(${a.values.length})`).join(', '));
+            console.log(
+                '[VariantGenerator] Loaded CSV data:',
+                this.attributes.map((a) => `${a.name}(${a.values.length})`).join(', ')
+            );
         } catch (error) {
             console.error('[VariantGenerator] Failed to load CSV:', error);
             // Fallback to hardcoded values
             this.attributeConfig = {
-                color: { name: 'Màu', values: ['Trắng', 'Đen', 'Đỏ', 'Xanh', 'Xám', 'Nude', 'Vàng', 'Hồng', 'Nâu', 'Cam', 'Tím', 'Be', 'Kem'] },
-                sizeNumber: { name: 'Size Số', values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'] },
-                sizeLetter: { name: 'Size Chữ', values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'] }
+                color: {
+                    name: 'Màu',
+                    values: [
+                        'Trắng',
+                        'Đen',
+                        'Đỏ',
+                        'Xanh',
+                        'Xám',
+                        'Nude',
+                        'Vàng',
+                        'Hồng',
+                        'Nâu',
+                        'Cam',
+                        'Tím',
+                        'Be',
+                        'Kem',
+                    ],
+                },
+                sizeNumber: {
+                    name: 'Size Số',
+                    values: [
+                        '1',
+                        '2',
+                        '3',
+                        '4',
+                        '27',
+                        '28',
+                        '29',
+                        '30',
+                        '31',
+                        '32',
+                        '33',
+                        '34',
+                        '35',
+                        '36',
+                        '37',
+                        '38',
+                        '39',
+                        '40',
+                    ],
+                },
+                sizeLetter: {
+                    name: 'Size Chữ',
+                    values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'],
+                },
             };
             this.selected = { color: [], sizeNumber: [], sizeLetter: [] };
             this.searchFilters = { color: '', sizeNumber: '', sizeLetter: '' };
@@ -454,8 +532,8 @@ class VariantGeneratorDialog {
             if (this.selected[key] && this.selected[key].length > 0) {
                 const config = this.attributeConfig[key];
                 // Map selected values to objects with ID
-                const valuesWithIds = this.selected[key].map(val => {
-                    const obj = config.valueObjects?.find(v => v.value === val);
+                const valuesWithIds = this.selected[key].map((val) => {
+                    const obj = config.valueObjects?.find((v) => v.value === val);
                     return { value: val, id: obj?.id || null };
                 });
                 selectedArrays.push(valuesWithIds);
@@ -479,12 +557,15 @@ class VariantGeneratorDialog {
         };
 
         // Collect ALL selected attribute value IDs across all groups
-        const allSelectedIds = selectedArrays.flat().map(v => v.id).filter(Boolean);
+        const allSelectedIds = selectedArrays
+            .flat()
+            .map((v) => v.id)
+            .filter(Boolean);
 
         const combinations = combine(selectedArrays);
-        return combinations.map(combo => ({
-            variant: combo.map(c => c.value).join(' / '),
-            selectedAttributeValueIds: allSelectedIds
+        return combinations.map((combo) => ({
+            variant: combo.map((c) => c.value).join(' / '),
+            selectedAttributeValueIds: allSelectedIds,
         }));
     }
 
@@ -575,7 +656,9 @@ class VariantGeneratorDialog {
                 <!-- Body -->
                 <div style="flex: 1; overflow-y: auto; padding: 20px;">
                     <div style="display: grid; grid-template-columns: repeat(${Object.keys(this.attributeConfig).length + 1}, 1fr); gap: 16px; height: 100%;">
-                        ${Object.entries(this.attributeConfig).map(([key, config]) => `
+                        ${Object.entries(this.attributeConfig)
+                            .map(
+                                ([key, config]) => `
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
                             <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${config.name}</div>
                             <div style="padding: 8px;">
@@ -592,16 +675,22 @@ class VariantGeneratorDialog {
                                 ${this.renderCheckboxList(key)}
                             </div>
                         </div>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
 
                         <!-- Variant Preview Column -->
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
                             <div id="variantPreviewHeader" style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
                                 <span>Danh sách Biến Thể</span>
-                                ${combinations.length > 0 ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
+                                ${
+                                    combinations.length > 0
+                                        ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
                                     <input type="checkbox" id="variantSelectAll" checked style="width: 14px; height: 14px; accent-color: #3b82f6;">
                                     Chọn tất cả
-                                </label>` : ''}
+                                </label>`
+                                        : ''
+                                }
                             </div>
                             <div style="flex: 1; overflow-y: auto; padding: 12px; max-height: 350px;" id="variantPreviewList">
                                 ${this.renderVariantPreviewList(combinations)}
@@ -650,11 +739,13 @@ class VariantGeneratorDialog {
         const selected = this.selected[attributeKey];
         const filter = this.searchFilters[attributeKey].toLowerCase();
 
-        const filteredValues = config.values.filter(v =>
-            !filter || v.toLowerCase().includes(filter)
+        const filteredValues = config.values.filter(
+            (v) => !filter || v.toLowerCase().includes(filter)
         );
 
-        return filteredValues.map(value => `
+        return filteredValues
+            .map(
+                (value) => `
             <label style="
                 display: flex;
                 align-items: center;
@@ -671,21 +762,25 @@ class VariantGeneratorDialog {
                        style="width: 16px; height: 16px; accent-color: #3b82f6;">
                 <span style="font-size: 14px;">${value}</span>
             </label>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     renderVariantPreviewList(combinations) {
         if (combinations.length === 0) {
             return '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
         }
-        return combinations.map((v, idx) => {
-            const variant = v.variant || v;
-            const checked = this.variantChecked.has(variant);
-            return `<label style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; cursor: pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+        return combinations
+            .map((v, idx) => {
+                const variant = v.variant || v;
+                const checked = this.variantChecked.has(variant);
+                return `<label style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; cursor: pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
                 <input type="checkbox" data-variant-check="${idx}" value="${variant}" ${checked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: #3b82f6; flex-shrink: 0;">
                 <span>${variant}</span>
             </label>`;
-        }).join('');
+            })
+            .join('');
     }
 
     updateUI(autoSelectNew = true) {
@@ -696,7 +791,7 @@ class VariantGeneratorDialog {
         }
 
         // Update checkbox lists
-        Object.keys(this.attributeConfig).forEach(key => {
+        Object.keys(this.attributeConfig).forEach((key) => {
             const listEl = this.modalElement?.querySelector(`#${key}List`);
             if (listEl) {
                 listEl.innerHTML = this.renderCheckboxList(key);
@@ -707,7 +802,7 @@ class VariantGeneratorDialog {
         const combinations = this.generateCombinations();
 
         // Sync variantChecked with current combinations
-        const currentVariants = new Set(combinations.map(v => v.variant || v));
+        const currentVariants = new Set(combinations.map((v) => v.variant || v));
         // Remove stale entries (variants that no longer exist)
         for (const v of this.variantChecked) {
             if (!currentVariants.has(v)) this.variantChecked.delete(v);
@@ -727,17 +822,19 @@ class VariantGeneratorDialog {
         // Update select-all checkbox in header (re-render header if needed)
         const headerEl = this.modalElement?.querySelector('#variantPreviewHeader');
         if (headerEl) {
-            const selectAllHtml = combinations.length > 0
-                ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
+            const selectAllHtml =
+                combinations.length > 0
+                    ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
                     <input type="checkbox" id="variantSelectAll" style="width: 14px; height: 14px; accent-color: #3b82f6;">
                     Chọn tất cả
                 </label>`
-                : '';
+                    : '';
             headerEl.innerHTML = `<span>Danh sách Biến Thể</span>${selectAllHtml}`;
             const selectAllEl = headerEl.querySelector('#variantSelectAll');
             if (selectAllEl) {
                 selectAllEl.checked = this.variantChecked.size === combinations.length;
-                selectAllEl.indeterminate = this.variantChecked.size > 0 && this.variantChecked.size < combinations.length;
+                selectAllEl.indeterminate =
+                    this.variantChecked.size > 0 && this.variantChecked.size < combinations.length;
             }
         }
 
@@ -745,9 +842,10 @@ class VariantGeneratorDialog {
         const checkedCount = this.variantChecked.size;
         const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
         if (btnGenerate) {
-            btnGenerate.textContent = combinations.length > 0
-                ? `Tạo ${checkedCount}/${combinations.length} biến thể`
-                : 'Tạo 0 biến thể';
+            btnGenerate.textContent =
+                combinations.length > 0
+                    ? `Tạo ${checkedCount}/${combinations.length} biến thể`
+                    : 'Tạo 0 biến thể';
             btnGenerate.disabled = checkedCount === 0;
             btnGenerate.style.background = checkedCount > 0 ? '#3b82f6' : '#9ca3af';
             btnGenerate.style.cursor = checkedCount > 0 ? 'pointer' : 'not-allowed';
@@ -771,9 +869,10 @@ class VariantGeneratorDialog {
         // Update button
         const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
         if (btnGenerate) {
-            btnGenerate.textContent = combinations.length > 0
-                ? `Tạo ${checkedCount}/${combinations.length} biến thể`
-                : 'Tạo 0 biến thể';
+            btnGenerate.textContent =
+                combinations.length > 0
+                    ? `Tạo ${checkedCount}/${combinations.length} biến thể`
+                    : 'Tạo 0 biến thể';
             btnGenerate.disabled = checkedCount === 0;
             btnGenerate.style.background = checkedCount > 0 ? '#3b82f6' : '#9ca3af';
             btnGenerate.style.cursor = checkedCount > 0 ? 'pointer' : 'not-allowed';
@@ -784,8 +883,12 @@ class VariantGeneratorDialog {
         if (!this.modalElement) return;
 
         // Close buttons
-        this.modalElement.querySelector('#btnCloseVariant')?.addEventListener('click', () => this.close());
-        this.modalElement.querySelector('#btnCancelVariant')?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCloseVariant')
+            ?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCancelVariant')
+            ?.addEventListener('click', () => this.close());
 
         // Overlay click
         this.modalElement.addEventListener('click', (e) => {
@@ -813,11 +916,14 @@ class VariantGeneratorDialog {
                         this.selected[attr].push(value);
                     }
                 } else {
-                    this.selected[attr] = this.selected[attr].filter(v => v !== value);
+                    this.selected[attr] = this.selected[attr].filter((v) => v !== value);
                 }
 
                 this.updateUI(true);
-            } else if (e.target.type === 'checkbox' && e.target.dataset.variantCheck !== undefined) {
+            } else if (
+                e.target.type === 'checkbox' &&
+                e.target.dataset.variantCheck !== undefined
+            ) {
                 // Variant row checkbox - just update state, don't re-render list
                 const variant = e.target.value;
                 if (e.target.checked) {
@@ -830,7 +936,7 @@ class VariantGeneratorDialog {
                 // Select all / deselect all
                 const combinations = this.generateCombinations();
                 if (e.target.checked) {
-                    combinations.forEach(v => this.variantChecked.add(v.variant || v));
+                    combinations.forEach((v) => this.variantChecked.add(v.variant || v));
                 } else {
                     this.variantChecked.clear();
                 }
@@ -860,7 +966,9 @@ class VariantGeneratorDialog {
         // Generate variants - only pass checked variants to PO
         this.modalElement.querySelector('#btnGenerateVariants')?.addEventListener('click', () => {
             const combinations = this.generateCombinations();
-            const checkedCombinations = combinations.filter(v => this.variantChecked.has(v.variant || v));
+            const checkedCombinations = combinations.filter((v) =>
+                this.variantChecked.has(v.variant || v)
+            );
             if (checkedCombinations.length > 0 && this.onGenerate) {
                 this.onGenerate(checkedCombinations, this.baseProduct);
                 this.close();
@@ -977,27 +1085,64 @@ class SettingsDialog {
 
         // Create overlay
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;opacity:0;transition:opacity 0.2s';
+        overlay.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;opacity:0;transition:opacity 0.2s';
 
         // Build checkbox rows data
         const checkboxes = [
-            { id: 'enableRequireProductName', label: 'Bắt buộc tên sản phẩm', checked: s.enableRequireProductName },
-            { id: 'enableRequireProductCode', label: 'Bắt buộc mã sản phẩm', checked: s.enableRequireProductCode },
-            { id: 'enableRequireProductImages', label: 'Bắt buộc hình ảnh sản phẩm', checked: s.enableRequireProductImages },
-            { id: 'enableRequirePositivePurchasePrice', label: 'Giá mua phải > 0', checked: s.enableRequirePositivePurchasePrice },
-            { id: 'enableRequirePositiveSellingPrice', label: 'Giá bán phải > 0', checked: s.enableRequirePositiveSellingPrice },
-            { id: 'enableRequireSellingGreaterThanPurchase', label: 'Giá bán phải > Giá mua', checked: s.enableRequireSellingGreaterThanPurchase },
-            { id: 'enableRequireAtLeastOneItem', label: 'Phải có ít nhất 1 sản phẩm', checked: s.enableRequireAtLeastOneItem },
-            { id: 'enableRequireDuplicateCodeCheck', label: 'Kiểm tra trùng mã SP (cùng mã không biến thể / cùng mã+biến thể khác tên)', checked: s.enableRequireDuplicateCodeCheck },
+            {
+                id: 'enableRequireProductName',
+                label: 'Bắt buộc tên sản phẩm',
+                checked: s.enableRequireProductName,
+            },
+            {
+                id: 'enableRequireProductCode',
+                label: 'Bắt buộc mã sản phẩm',
+                checked: s.enableRequireProductCode,
+            },
+            {
+                id: 'enableRequireProductImages',
+                label: 'Bắt buộc hình ảnh sản phẩm',
+                checked: s.enableRequireProductImages,
+            },
+            {
+                id: 'enableRequirePositivePurchasePrice',
+                label: 'Giá mua phải > 0',
+                checked: s.enableRequirePositivePurchasePrice,
+            },
+            {
+                id: 'enableRequirePositiveSellingPrice',
+                label: 'Giá bán phải > 0',
+                checked: s.enableRequirePositiveSellingPrice,
+            },
+            {
+                id: 'enableRequireSellingGreaterThanPurchase',
+                label: 'Giá bán phải > Giá mua',
+                checked: s.enableRequireSellingGreaterThanPurchase,
+            },
+            {
+                id: 'enableRequireAtLeastOneItem',
+                label: 'Phải có ít nhất 1 sản phẩm',
+                checked: s.enableRequireAtLeastOneItem,
+            },
+            {
+                id: 'enableRequireDuplicateCodeCheck',
+                label: 'Kiểm tra trùng mã SP (cùng mã không biến thể / cùng mã+biến thể khác tên)',
+                checked: s.enableRequireDuplicateCodeCheck,
+            },
         ];
 
-        const checkboxHTML = checkboxes.map(cb => `
+        const checkboxHTML = checkboxes
+            .map(
+                (cb) => `
             <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;border-bottom:1px solid #f3f4f6">
                 <span style="font-size:14px;color:#374151">${cb.label}</span>
                 <input type="checkbox" id="${cb.id}" ${cb.checked ? 'checked' : ''}
                     style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
             </label>
-        `).join('');
+        `
+            )
+            .join('');
 
         overlay.innerHTML = `
             <div style="background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);width:90vw;max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
@@ -1120,7 +1265,9 @@ class SettingsDialog {
         this.modalElement = overlay;
 
         // Fade in
-        requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+        });
 
         this._bindEvents();
         this._updateValidationExample();
@@ -1132,8 +1279,14 @@ class SettingsDialog {
     _updateFormValues() {
         if (!this.modalElement) return;
         const s = this.settings;
-        const fields = ['minPurchasePrice', 'maxPurchasePrice', 'minSellingPrice', 'maxSellingPrice', 'minMargin'];
-        fields.forEach(f => {
+        const fields = [
+            'minPurchasePrice',
+            'maxPurchasePrice',
+            'minSellingPrice',
+            'maxSellingPrice',
+            'minMargin',
+        ];
+        fields.forEach((f) => {
             const input = this.modalElement.querySelector('#' + f);
             if (input) {
                 input.value = s[f] || 0;
@@ -1141,11 +1294,17 @@ class SettingsDialog {
             }
         });
         const boolFields = [
-            'enableRequireProductName', 'enableRequireProductCode', 'enableRequireProductImages',
-            'enableRequirePositivePurchasePrice', 'enableRequirePositiveSellingPrice',
-            'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem', 'enableRequireDuplicateCodeCheck', 'autoGenerateCode'
+            'enableRequireProductName',
+            'enableRequireProductCode',
+            'enableRequireProductImages',
+            'enableRequirePositivePurchasePrice',
+            'enableRequirePositiveSellingPrice',
+            'enableRequireSellingGreaterThanPurchase',
+            'enableRequireAtLeastOneItem',
+            'enableRequireDuplicateCodeCheck',
+            'autoGenerateCode',
         ];
-        boolFields.forEach(f => {
+        boolFields.forEach((f) => {
             const input = this.modalElement.querySelector('#' + f);
             if (input) input.checked = s[f] !== false;
         });
@@ -1172,44 +1331,71 @@ class SettingsDialog {
         // Price checks
         if (s.minPurchasePrice > 0) {
             const ok = exPurchase >= s.minPurchasePrice;
-            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} >= tối thiểu ${fmt(s.minPurchasePrice)}` });
+            checks.push({
+                ok,
+                text: `Giá mua ${fmt(exPurchase)} >= tối thiểu ${fmt(s.minPurchasePrice)}`,
+            });
         }
         if (s.maxPurchasePrice > 0) {
             const ok = exPurchase <= s.maxPurchasePrice;
-            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} <= tối đa ${fmt(s.maxPurchasePrice)}` });
+            checks.push({
+                ok,
+                text: `Giá mua ${fmt(exPurchase)} <= tối đa ${fmt(s.maxPurchasePrice)}`,
+            });
         }
         if (s.minSellingPrice > 0) {
             const ok = exSelling >= s.minSellingPrice;
-            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} >= tối thiểu ${fmt(s.minSellingPrice)}` });
+            checks.push({
+                ok,
+                text: `Giá bán ${fmt(exSelling)} >= tối thiểu ${fmt(s.minSellingPrice)}`,
+            });
         }
         if (s.maxSellingPrice > 0) {
             const ok = exSelling <= s.maxSellingPrice;
-            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} <= tối đa ${fmt(s.maxSellingPrice)}` });
+            checks.push({
+                ok,
+                text: `Giá bán ${fmt(exSelling)} <= tối đa ${fmt(s.maxSellingPrice)}`,
+            });
         }
         if (s.minMargin > 0) {
             const ok = exMargin >= s.minMargin;
-            checks.push({ ok, text: `Chênh lệch ${fmt(exMargin)} >= tối thiểu ${fmt(s.minMargin)}` });
+            checks.push({
+                ok,
+                text: `Chênh lệch ${fmt(exMargin)} >= tối thiểu ${fmt(s.minMargin)}`,
+            });
         }
 
         // Boolean checks
-        if (s.enableRequireProductName) checks.push({ ok: true, text: 'Tên sản phẩm: "Áo thun basic"' });
+        if (s.enableRequireProductName)
+            checks.push({ ok: true, text: 'Tên sản phẩm: "Áo thun basic"' });
         if (s.enableRequireProductCode) checks.push({ ok: true, text: 'Mã sản phẩm: "N001"' });
         if (s.enableRequireProductImages) checks.push({ ok: true, text: 'Hình ảnh: 1 ảnh' });
-        if (s.enableRequirePositivePurchasePrice) checks.push({ ok: exPurchase > 0, text: `Giá mua ${fmt(exPurchase)} > 0` });
-        if (s.enableRequirePositiveSellingPrice) checks.push({ ok: exSelling > 0, text: `Giá bán ${fmt(exSelling)} > 0` });
-        if (s.enableRequireSellingGreaterThanPurchase) checks.push({ ok: exSelling > exPurchase, text: `Giá bán > Giá mua (${fmt(exSelling)} > ${fmt(exPurchase)})` });
+        if (s.enableRequirePositivePurchasePrice)
+            checks.push({ ok: exPurchase > 0, text: `Giá mua ${fmt(exPurchase)} > 0` });
+        if (s.enableRequirePositiveSellingPrice)
+            checks.push({ ok: exSelling > 0, text: `Giá bán ${fmt(exSelling)} > 0` });
+        if (s.enableRequireSellingGreaterThanPurchase)
+            checks.push({
+                ok: exSelling > exPurchase,
+                text: `Giá bán > Giá mua (${fmt(exSelling)} > ${fmt(exPurchase)})`,
+            });
 
         if (checks.length === 0) {
-            el.innerHTML = '<span style="color:#9ca3af">Chưa có quy tắc nào được bật. Đặt giá trị > 0 hoặc bật checkbox để xem ví dụ.</span>';
+            el.innerHTML =
+                '<span style="color:#9ca3af">Chưa có quy tắc nào được bật. Đặt giá trị > 0 hoặc bật checkbox để xem ví dụ.</span>';
             return;
         }
 
         const header = `<div style="margin-bottom:8px;font-weight:500">SP ví dụ: Giá mua = ${fmt(exPurchase)}, Giá bán = ${fmt(exSelling)}</div>`;
-        const rows = checks.map(c => {
-            const icon = c.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>';
-            const color = c.ok ? '#374151' : '#dc2626';
-            return `<div style="display:flex;gap:6px;align-items:center;padding:2px 0;color:${color}">${icon} ${c.text}</div>`;
-        }).join('');
+        const rows = checks
+            .map((c) => {
+                const icon = c.ok
+                    ? '<span style="color:#16a34a">✓</span>'
+                    : '<span style="color:#dc2626">✗</span>';
+                const color = c.ok ? '#374151' : '#dc2626';
+                return `<div style="display:flex;gap:6px;align-items:center;padding:2px 0;color:${color}">${icon} ${c.text}</div>`;
+            })
+            .join('');
 
         el.innerHTML = header + rows;
     }
@@ -1230,7 +1416,7 @@ class SettingsDialog {
             maxPurchasePrice: 'previewMaxPurchase',
             minSellingPrice: 'previewMinSelling',
             maxSellingPrice: 'previewMaxSelling',
-            minMargin: 'previewMinMargin'
+            minMargin: 'previewMinMargin',
         };
         Object.entries(previewMap).forEach(([inputId, previewId]) => {
             el.querySelector('#' + inputId)?.addEventListener('input', (e) => {
@@ -1241,7 +1427,7 @@ class SettingsDialog {
         });
 
         // Checkboxes also update example
-        el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        el.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
             cb.addEventListener('change', () => this._updateValidationExample());
         });
 
@@ -1297,15 +1483,23 @@ class SettingsDialog {
             minSellingPrice: parseInt(el.querySelector('#minSellingPrice')?.value, 10) || 0,
             maxSellingPrice: parseInt(el.querySelector('#maxSellingPrice')?.value, 10) || 0,
             minMargin: parseInt(el.querySelector('#minMargin')?.value, 10) || 0,
-            enableRequireProductName: el.querySelector('#enableRequireProductName')?.checked ?? true,
-            enableRequireProductCode: el.querySelector('#enableRequireProductCode')?.checked ?? true,
-            enableRequireProductImages: el.querySelector('#enableRequireProductImages')?.checked ?? true,
-            enableRequirePositivePurchasePrice: el.querySelector('#enableRequirePositivePurchasePrice')?.checked ?? true,
-            enableRequirePositiveSellingPrice: el.querySelector('#enableRequirePositiveSellingPrice')?.checked ?? true,
-            enableRequireSellingGreaterThanPurchase: el.querySelector('#enableRequireSellingGreaterThanPurchase')?.checked ?? true,
-            enableRequireAtLeastOneItem: el.querySelector('#enableRequireAtLeastOneItem')?.checked ?? true,
-            enableRequireDuplicateCodeCheck: el.querySelector('#enableRequireDuplicateCodeCheck')?.checked ?? false,
-            autoGenerateCode: el.querySelector('#autoGenerateCode')?.checked ?? true
+            enableRequireProductName:
+                el.querySelector('#enableRequireProductName')?.checked ?? true,
+            enableRequireProductCode:
+                el.querySelector('#enableRequireProductCode')?.checked ?? true,
+            enableRequireProductImages:
+                el.querySelector('#enableRequireProductImages')?.checked ?? true,
+            enableRequirePositivePurchasePrice:
+                el.querySelector('#enableRequirePositivePurchasePrice')?.checked ?? true,
+            enableRequirePositiveSellingPrice:
+                el.querySelector('#enableRequirePositiveSellingPrice')?.checked ?? true,
+            enableRequireSellingGreaterThanPurchase:
+                el.querySelector('#enableRequireSellingGreaterThanPurchase')?.checked ?? true,
+            enableRequireAtLeastOneItem:
+                el.querySelector('#enableRequireAtLeastOneItem')?.checked ?? true,
+            enableRequireDuplicateCodeCheck:
+                el.querySelector('#enableRequireDuplicateCodeCheck')?.checked ?? false,
+            autoGenerateCode: el.querySelector('#autoGenerateCode')?.checked ?? true,
         };
     }
 }
@@ -1318,8 +1512,8 @@ class SettingsDialog {
 class InventoryPickerDialog {
     constructor() {
         this.modalElement = null;
-        this.products = [];           // Raw products from TPOS (Id, code, name, purchasePrice, costPrice)
-        this.filteredProducts = [];   // Filtered by search
+        this.products = []; // Raw products from TPOS (Id, code, name, purchasePrice, costPrice)
+        this.filteredProducts = []; // Filtered by search
         this.selectedProducts = new Map(); // Products with full details (after fetching)
         this.onSelect = null;
         this.searchTerm = '';
@@ -1402,7 +1596,9 @@ class InventoryPickerDialog {
                 if (cached) {
                     this.products = cached;
                     this.filteredProducts = [...this.products];
-                    console.log(`[InventoryPicker] Loaded ${this.products.length} products from cache`);
+                    console.log(
+                        `[InventoryPicker] Loaded ${this.products.length} products from cache`
+                    );
                     return;
                 }
             }
@@ -1417,16 +1613,13 @@ class InventoryPickerDialog {
                 ? `${this.proxyUrl}/api/Product/ExportFileWithVariantPrice`
                 : `${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`;
 
-            const response = await window.TPOSClient.authenticatedFetch(
-                endpoint,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        model: { Active: 'true' },
-                        ids: ''
-                    })
-                }
-            );
+            const response = await window.TPOSClient.authenticatedFetch(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({
+                    model: { Active: 'true' },
+                    ids: '',
+                }),
+            });
 
             if (!response.ok) {
                 throw new Error(`TPOS API error: ${response.status}`);
@@ -1449,7 +1642,12 @@ class InventoryPickerDialog {
                 // Parse theo INDEX (header: 1) để khớp với EnhancedProductSearchManager.
                 // Code sẽ trích từ prefix "[CODE] Name" trong tên (TPOS export tên variant theo format này).
                 const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                console.log('[InventoryPicker] VariantPrice Excel parsed, header:', jsonRows[0], 'sample:', jsonRows[1]);
+                console.log(
+                    '[InventoryPicker] VariantPrice Excel parsed, header:',
+                    jsonRows[0],
+                    'sample:',
+                    jsonRows[1]
+                );
 
                 const codeFromName = (name) => {
                     const m = String(name || '').match(/^\s*\[([^\]]+)\]/);
@@ -1475,16 +1673,32 @@ class InventoryPickerDialog {
             } else {
                 // StandardPriceV2 Excel: object-based, có Mã sản phẩm + Giá mua + Giá vốn (*).
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                console.log('[InventoryPicker] StandardPriceV2 Excel parsed, first row:', jsonData[0]);
+                console.log(
+                    '[InventoryPicker] StandardPriceV2 Excel parsed, first row:',
+                    jsonData[0]
+                );
 
-                this.products = jsonData.map(row => {
-                    const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
-                    const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
-                    const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
-                    const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
-                    const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
-                    return { id, code, name, purchasePrice, sellingPrice };
-                }).filter(p => p.id);
+                this.products = jsonData
+                    .map((row) => {
+                        const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
+                        const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
+                        const name =
+                            row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
+                        const purchasePrice =
+                            parseFloat(
+                                row['Giá mua'] ||
+                                    row['Giá vốn (*)'] ||
+                                    row['Giá vốn'] ||
+                                    row['StandardPrice'] ||
+                                    0
+                            ) || 0;
+                        const sellingPrice =
+                            parseFloat(
+                                row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0
+                            ) || 0;
+                        return { id, code, name, purchasePrice, sellingPrice };
+                    })
+                    .filter((p) => p.id);
             }
 
             this.filteredProducts = [...this.products];
@@ -1492,12 +1706,15 @@ class InventoryPickerDialog {
             // Save to localStorage cache
             this.saveToCache(this.products);
 
-            console.log(`[InventoryPicker] Loaded ${this.products.length} products from TPOS Excel`);
+            console.log(
+                `[InventoryPicker] Loaded ${this.products.length} products from TPOS Excel`
+            );
 
             if (window.notificationManager && forceReload) {
-                window.notificationManager.success(`Đã tải ${this.products.length} sản phẩm từ TPOS`);
+                window.notificationManager.success(
+                    `Đã tải ${this.products.length} sản phẩm từ TPOS`
+                );
             }
-
         } catch (error) {
             console.error('Error loading products from TPOS:', error);
 
@@ -1506,15 +1723,21 @@ class InventoryPickerDialog {
             if (cached) {
                 this.products = cached;
                 this.filteredProducts = [...this.products];
-                console.log(`[InventoryPicker] Error occurred, fallback to cache: ${this.products.length} products`);
+                console.log(
+                    `[InventoryPicker] Error occurred, fallback to cache: ${this.products.length} products`
+                );
                 if (window.notificationManager) {
-                    window.notificationManager.warning('Không thể tải từ TPOS, đang dùng dữ liệu đã lưu');
+                    window.notificationManager.warning(
+                        'Không thể tải từ TPOS, đang dùng dữ liệu đã lưu'
+                    );
                 }
             } else {
                 this.products = [];
                 this.filteredProducts = [];
                 if (window.notificationManager) {
-                    window.notificationManager.error('Không thể tải danh sách sản phẩm: ' + error.message);
+                    window.notificationManager.error(
+                        'Không thể tải danh sách sản phẩm: ' + error.message
+                    );
                 }
             }
         } finally {
@@ -1557,7 +1780,7 @@ class InventoryPickerDialog {
         try {
             const cacheData = {
                 data: products,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
             localStorage.setItem(this.getCacheKey(), JSON.stringify(cacheData));
             console.log(`[InventoryPicker] Saved ${products.length} products to cache`);
@@ -1598,10 +1821,13 @@ class InventoryPickerDialog {
             const { _raw, ...detailsWithoutRaw } = details;
             detailsMap[String(productId)] = {
                 ...detailsWithoutRaw,
-                cachedAt: Date.now()
+                cachedAt: Date.now(),
             };
 
-            localStorage.setItem(InventoryPickerDialog.DETAILS_CACHE_KEY, JSON.stringify(detailsMap));
+            localStorage.setItem(
+                InventoryPickerDialog.DETAILS_CACHE_KEY,
+                JSON.stringify(detailsMap)
+            );
         } catch (e) {
             console.warn('[InventoryPicker] Failed to cache product details:', e);
             if (e.name === 'QuotaExceededError') {
@@ -1621,7 +1847,9 @@ class InventoryPickerDialog {
             if (cached) {
                 const data = JSON.parse(cached);
                 this.selectedProducts = new Map(Object.entries(data));
-                console.log(`[InventoryPicker] Loaded ${this.selectedProducts.size} selected products from storage`);
+                console.log(
+                    `[InventoryPicker] Loaded ${this.selectedProducts.size} selected products from storage`
+                );
             } else {
                 this.selectedProducts = new Map();
             }
@@ -1638,7 +1866,9 @@ class InventoryPickerDialog {
         try {
             const data = Object.fromEntries(this.selectedProducts);
             localStorage.setItem(InventoryPickerDialog.SELECTED_CACHE_KEY, JSON.stringify(data));
-            console.log(`[InventoryPicker] Saved ${this.selectedProducts.size} selected products to storage`);
+            console.log(
+                `[InventoryPicker] Saved ${this.selectedProducts.size} selected products to storage`
+            );
         } catch (e) {
             console.warn('[InventoryPicker] Failed to save selected products:', e);
         }
@@ -1685,19 +1915,28 @@ class InventoryPickerDialog {
             let image = data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '';
             let purchasePrice = data.PurchasePrice || 0;
 
-            console.log(`[InventoryPicker] Variant ${productId}: image=${!!image}, purchasePrice=${purchasePrice}, ProductTmplId=${data.ProductTmplId}`);
+            console.log(
+                `[InventoryPicker] Variant ${productId}: image=${!!image}, purchasePrice=${purchasePrice}, ProductTmplId=${data.ProductTmplId}`
+            );
 
             // If variant has no image or no PurchasePrice, fetch from parent template
             if (data.ProductTmplId && (!image || !purchasePrice)) {
                 const templateData = await this.fetchParentTemplate(data.ProductTmplId);
-                console.log(`[InventoryPicker] Template ${data.ProductTmplId}:`, templateData ? `image=${!!templateData.ImageUrl}, PurchasePrice=${templateData.PurchasePrice}` : 'FAILED');
+                console.log(
+                    `[InventoryPicker] Template ${data.ProductTmplId}:`,
+                    templateData
+                        ? `image=${!!templateData.ImageUrl}, PurchasePrice=${templateData.PurchasePrice}`
+                        : 'FAILED'
+                );
                 if (templateData) {
                     if (!image) image = templateData.ImageUrl || '';
                     if (!purchasePrice) purchasePrice = templateData.PurchasePrice || 0;
                 }
             }
 
-            console.log(`[InventoryPicker] Final: image=${!!image}, purchasePrice=${purchasePrice}`);
+            console.log(
+                `[InventoryPicker] Final: image=${!!image}, purchasePrice=${purchasePrice}`
+            );
 
             // Map to our format - use original productId to preserve variant identity
             return {
@@ -1712,9 +1951,8 @@ class InventoryPickerDialog {
                 tposProductId: data.Id || null,
                 tposProductTmplId: data.ProductTmplId || null,
                 // Keep original data for reference
-                _raw: data
+                _raw: data,
             };
-
         } catch (error) {
             console.error(`Error fetching product ${productId}:`, error);
             return null;
@@ -1736,8 +1974,8 @@ class InventoryPickerDialog {
                 `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView?companyId=undefined&warehouseId=undefined`,
                 {
                     headers: {
-                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8'
-                    }
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                    },
                 }
             );
 
@@ -1989,27 +2227,32 @@ class InventoryPickerDialog {
                     </tr>
                 </thead>
                 <tbody>
-                    ${this.filteredProducts.map(product => {
-                        const isSelected = this.selectedProducts.has(String(product.id));
-                        // Get cached details if available
-                        const cachedDetails = this.getProductDetailsFromCache(product.id);
-                        const imageUrl = cachedDetails?.image || product.image || '';
-                        const productCode = product.code || '';
-                        const productName = product.name || '';
-                        const qtyAvailable = cachedDetails?.qtyAvailable ?? product.qtyAvailable ?? '-';
-                        const purchasePrice = cachedDetails?.purchasePrice || product.purchasePrice || 0;
-                        const sellingPrice = cachedDetails?.sellingPrice || product.sellingPrice || 0;
+                    ${this.filteredProducts
+                        .map((product) => {
+                            const isSelected = this.selectedProducts.has(String(product.id));
+                            // Get cached details if available
+                            const cachedDetails = this.getProductDetailsFromCache(product.id);
+                            const imageUrl = cachedDetails?.image || product.image || '';
+                            const productCode = product.code || '';
+                            const productName = product.name || '';
+                            const qtyAvailable =
+                                cachedDetails?.qtyAvailable ?? product.qtyAvailable ?? '-';
+                            const purchasePrice =
+                                cachedDetails?.purchasePrice || product.purchasePrice || 0;
+                            const sellingPrice =
+                                cachedDetails?.sellingPrice || product.sellingPrice || 0;
 
-                        return `
+                            return `
                             <tr data-product-id="${product.id}" style="
                                 cursor: pointer;
                                 transition: background 0.15s;
                                 ${isSelected ? 'background: #eff6ff;' : ''}
                             " onmouseover="if(!this.dataset.selected)this.style.background='#f9fafb'" onmouseout="if(!this.dataset.selected)this.style.background='${isSelected ? '#eff6ff' : 'transparent'}'" ${isSelected ? 'data-selected="true"' : ''}>
                                 <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6;" class="inventory-image-cell">
-                                    ${imageUrl
-                                        ? `<img src="${imageUrl}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${product.id}">`
-                                        : `<div class="inventory-thumb-placeholder" data-product-id="${product.id}" style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                                    ${
+                                        imageUrl
+                                            ? `<img src="${imageUrl}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${product.id}">`
+                                            : `<div class="inventory-thumb-placeholder" data-product-id="${product.id}" style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -2034,7 +2277,8 @@ class InventoryPickerDialog {
                                 </td>
                             </tr>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </tbody>
             </table>
         `;
@@ -2086,20 +2330,22 @@ class InventoryPickerDialog {
                     </tr>
                 </thead>
                 <tbody>
-                    ${selectedArray.map(product => {
-                        const imageUrl = product.image || '';
-                        const productCode = product.code || '';
-                        const productName = product.name || '';
-                        const qtyAvailable = product.qtyAvailable ?? '-';
-                        const purchasePrice = product.purchasePrice || 0;
-                        const sellingPrice = product.sellingPrice || 0;
+                    ${selectedArray
+                        .map((product) => {
+                            const imageUrl = product.image || '';
+                            const productCode = product.code || '';
+                            const productName = product.name || '';
+                            const qtyAvailable = product.qtyAvailable ?? '-';
+                            const purchasePrice = product.purchasePrice || 0;
+                            const sellingPrice = product.sellingPrice || 0;
 
-                        return `
+                            return `
                             <tr data-product-id="${product.id}" data-selected="true" style="background: #eff6ff; cursor: pointer;">
                                 <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6;" class="inventory-image-cell">
-                                    ${imageUrl
-                                        ? `<img src="${imageUrl}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${product.id}">`
-                                        : `<div class="inventory-thumb-placeholder" data-product-id="${product.id}" style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                                    ${
+                                        imageUrl
+                                            ? `<img src="${imageUrl}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${product.id}">`
+                                            : `<div class="inventory-thumb-placeholder" data-product-id="${product.id}" style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -2129,7 +2375,8 @@ class InventoryPickerDialog {
                                 </td>
                             </tr>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </tbody>
             </table>
         `;
@@ -2155,7 +2402,9 @@ class InventoryPickerDialog {
             // Update select-all checkbox state
             const selectAllCb = listContainer.querySelector('#selectAllCheckbox');
             if (selectAllCb && this.filteredProducts.length > 0) {
-                const allSelected = this.filteredProducts.every(p => this.selectedProducts.has(String(p.id)));
+                const allSelected = this.filteredProducts.every((p) =>
+                    this.selectedProducts.has(String(p.id))
+                );
                 selectAllCb.checked = allSelected;
             }
 
@@ -2170,7 +2419,7 @@ class InventoryPickerDialog {
             });
 
             // Bind events for remove individual product buttons
-            listContainer.querySelectorAll('.btn-remove-product').forEach(btn => {
+            listContainer.querySelectorAll('.btn-remove-product').forEach((btn) => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const productId = btn.dataset.id;
@@ -2189,7 +2438,12 @@ class InventoryPickerDialog {
                     countText.textContent = `Sản phẩm mới nhất (${this.products.length} SP trong kho)`;
                 }
             } else {
-                const modeLabel = this.searchMode === 'name' ? ' (theo tên)' : this.searchMode === 'code' ? ' (theo mã)' : '';
+                const modeLabel =
+                    this.searchMode === 'name'
+                        ? ' (theo tên)'
+                        : this.searchMode === 'code'
+                          ? ' (theo mã)'
+                          : '';
                 countText.textContent = `Tìm thấy ${this.filteredProducts.length} sản phẩm${modeLabel}`;
             }
         }
@@ -2210,9 +2464,11 @@ class InventoryPickerDialog {
 
         // Collect product IDs that don't have full details yet (image, qty, prices)
         const productsNeedingDetails = [];
-        const rows = this.modalElement.querySelectorAll('#inventoryProductsList tr[data-product-id]');
+        const rows = this.modalElement.querySelectorAll(
+            '#inventoryProductsList tr[data-product-id]'
+        );
 
-        rows.forEach(row => {
+        rows.forEach((row) => {
             const productId = row.dataset.productId;
             const cachedDetails = this.getProductDetailsFromCache(productId);
             if (!cachedDetails) {
@@ -2294,7 +2550,7 @@ class InventoryPickerDialog {
             selectAllCb.style.opacity = '1';
         }
         // Enable all product checkboxes
-        this.modalElement.querySelectorAll('.product-checkbox').forEach(cb => {
+        this.modalElement.querySelectorAll('.product-checkbox').forEach((cb) => {
             cb.disabled = false;
             cb.style.cursor = 'pointer';
             cb.style.opacity = '1';
@@ -2330,7 +2586,7 @@ class InventoryPickerDialog {
                 transition: 'opacity 0.12s ease, transform 0.12s ease',
                 display: 'block',
                 left: '0px',
-                top: '0px'
+                top: '0px',
             });
         };
 
@@ -2355,7 +2611,8 @@ class InventoryPickerDialog {
 
         const positionZoom = (e, el) => {
             const offset = 20;
-            const w = ZOOM_SIZE, h = ZOOM_SIZE;
+            const w = ZOOM_SIZE,
+                h = ZOOM_SIZE;
             let x = e.clientX + offset;
             let y = e.clientY - h / 2;
 
@@ -2423,20 +2680,22 @@ class InventoryPickerDialog {
         };
 
         // Helper: check if text contains ALL search words (multi-word fuzzy match)
-        const searchWords = this.searchTerm.split(/\s+/).filter(w => w.length > 0);
-        const matchesAllWords = (text) => searchWords.every(word => text.includes(word));
+        const searchWords = this.searchTerm.split(/\s+/).filter((w) => w.length > 0);
+        const matchesAllWords = (text) => searchWords.every((word) => text.includes(word));
 
         // Show newest products when no search term (max 50)
         if (this.searchTerm.length === 0) {
             this.filteredProducts = this.products.slice(0, 50);
         } else if (this.searchTerm.length === 1) {
             // 1 char: filter by code prefix only (fast, useful for category browsing)
-            this.filteredProducts = this.products.filter(p => {
-                const code = (p.code || '').toLowerCase();
-                return code.startsWith(this.searchTerm);
-            }).slice(0, 100);
+            this.filteredProducts = this.products
+                .filter((p) => {
+                    const code = (p.code || '').toLowerCase();
+                    return code.startsWith(this.searchTerm);
+                })
+                .slice(0, 100);
         } else {
-            this.filteredProducts = this.products.filter(p => {
+            this.filteredProducts = this.products.filter((p) => {
                 const fullName = (p.name || '').toLowerCase();
                 const code = (p.code || '').toLowerCase();
 
@@ -2548,7 +2807,7 @@ class InventoryPickerDialog {
         }
 
         // Get original product from Excel list (has full name with variant info)
-        const basicProduct = this.products.find(p => String(p.id) === productIdStr);
+        const basicProduct = this.products.find((p) => String(p.id) === productIdStr);
 
         if (productDetails) {
             // Preserve the original full name from Excel (includes variant prefix/suffix)
@@ -2662,8 +2921,12 @@ class InventoryPickerDialog {
 
     bindEvents() {
         // Close buttons
-        this.modalElement.querySelector('#btnCloseInventory')?.addEventListener('click', () => this.close());
-        this.modalElement.querySelector('#btnCancelInventory')?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCloseInventory')
+            ?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCancelInventory')
+            ?.addEventListener('click', () => this.close());
 
         // Deselect all button
         this.modalElement.querySelector('#btnDeselectAll')?.addEventListener('click', () => {
@@ -2673,32 +2936,34 @@ class InventoryPickerDialog {
         });
 
         // Reload button
-        this.modalElement.querySelector('#btnReloadInventory')?.addEventListener('click', async () => {
-            const btn = this.modalElement.querySelector('#btnReloadInventory');
-            const icon = btn?.querySelector('#reloadIcon');
+        this.modalElement
+            .querySelector('#btnReloadInventory')
+            ?.addEventListener('click', async () => {
+                const btn = this.modalElement.querySelector('#btnReloadInventory');
+                const icon = btn?.querySelector('#reloadIcon');
 
-            // Add spinning animation
-            if (icon) {
-                icon.style.animation = 'spin 1s linear infinite';
-            }
-            if (btn) {
-                btn.disabled = true;
-                btn.style.opacity = '0.6';
-            }
-
-            try {
-                await this.reloadProducts();
-            } finally {
-                // Remove spinning animation
+                // Add spinning animation
                 if (icon) {
-                    icon.style.animation = '';
+                    icon.style.animation = 'spin 1s linear infinite';
                 }
                 if (btn) {
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.6';
                 }
-            }
-        });
+
+                try {
+                    await this.reloadProducts();
+                } finally {
+                    // Remove spinning animation
+                    if (icon) {
+                        icon.style.animation = '';
+                    }
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                    }
+                }
+            });
 
         // Overlay click
         this.modalElement.addEventListener('click', (e) => {
@@ -2735,39 +3000,47 @@ class InventoryPickerDialog {
         });
 
         // Select products (using event delegation)
-        this.modalElement.querySelector('#inventoryProductsList')?.addEventListener('click', (e) => {
-            const row = e.target.closest('tr[data-product-id]');
-            if (!row) return;
-            // Block selection until details are loaded
-            if (this._loadingDetails) return;
+        this.modalElement
+            .querySelector('#inventoryProductsList')
+            ?.addEventListener('click', (e) => {
+                const row = e.target.closest('tr[data-product-id]');
+                if (!row) return;
+                // Block selection until details are loaded
+                if (this._loadingDetails) return;
 
-            const productId = row.dataset.productId;
-            this.handleProductSelect(productId, row);
-        });
+                const productId = row.dataset.productId;
+                this.handleProductSelect(productId, row);
+            });
 
         // Add selected products
-        this.modalElement.querySelector('#btnAddSelectedProducts')?.addEventListener('click', () => {
-            console.log('[InventoryPicker] btnAddSelectedProducts clicked');
-            console.log('[InventoryPicker] selectedProducts size:', this.selectedProducts.size);
-            console.log('[InventoryPicker] onSelect exists:', !!this.onSelect);
+        this.modalElement
+            .querySelector('#btnAddSelectedProducts')
+            ?.addEventListener('click', () => {
+                console.log('[InventoryPicker] btnAddSelectedProducts clicked');
+                console.log('[InventoryPicker] selectedProducts size:', this.selectedProducts.size);
+                console.log('[InventoryPicker] onSelect exists:', !!this.onSelect);
 
-            if (this.selectedProducts.size > 0 && this.onSelect) {
-                const productsArray = Array.from(this.selectedProducts.values());
-                console.log('[InventoryPicker] Products to add:', productsArray.length, productsArray);
+                if (this.selectedProducts.size > 0 && this.onSelect) {
+                    const productsArray = Array.from(this.selectedProducts.values());
+                    console.log(
+                        '[InventoryPicker] Products to add:',
+                        productsArray.length,
+                        productsArray
+                    );
 
-                try {
-                    this.onSelect(productsArray);
-                    console.log('[InventoryPicker] onSelect completed successfully');
-                } catch (error) {
-                    console.error('[InventoryPicker] onSelect ERROR:', error);
+                    try {
+                        this.onSelect(productsArray);
+                        console.log('[InventoryPicker] onSelect completed successfully');
+                    } catch (error) {
+                        console.error('[InventoryPicker] onSelect ERROR:', error);
+                    }
+
+                    this.clearSelectedFromStorage(); // Reset for next time
+                    this.close();
+                } else {
+                    console.log('[InventoryPicker] Skipping - no products or no callback');
                 }
-
-                this.clearSelectedFromStorage(); // Reset for next time
-                this.close();
-            } else {
-                console.log('[InventoryPicker] Skipping - no products or no callback');
-            }
-        });
+            });
     }
 }
 
@@ -2882,8 +3155,12 @@ class ShippingFeeDialog {
         const input = this.modalElement.querySelector('#shippingFeeInput');
 
         // Close buttons
-        this.modalElement.querySelector('#btnCloseShipping')?.addEventListener('click', () => this.close());
-        this.modalElement.querySelector('#btnCancelShipping')?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCloseShipping')
+            ?.addEventListener('click', () => this.close());
+        this.modalElement
+            .querySelector('#btnCancelShipping')
+            ?.addEventListener('click', () => this.close());
 
         // Overlay click
         this.modalElement.addEventListener('click', (e) => {
@@ -2897,7 +3174,7 @@ class ShippingFeeDialog {
         });
 
         // Preset buttons
-        this.modalElement.querySelectorAll('[data-amount]').forEach(btn => {
+        this.modalElement.querySelectorAll('[data-amount]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const amount = parseInt(btn.dataset.amount, 10);
                 input.value = amount ? amount.toLocaleString('vi-VN') : '0';
@@ -2994,19 +3271,17 @@ class VariantDropdownSelector {
             const db = firebase.firestore();
 
             // Query products where base_product_code matches and has variant
-            const snapshot = await db.collection('products')
+            const snapshot = await db
+                .collection('products')
                 .where('base_product_code', '==', this.baseProductCode)
                 .get();
 
             this.variants = snapshot.docs
-                .map(doc => ({
+                .map((doc) => ({
                     id: doc.id,
-                    ...doc.data()
+                    ...doc.data(),
                 }))
-                .filter(p =>
-                    p.variant &&
-                    p.product_code !== this.baseProductCode
-                );
+                .filter((p) => p.variant && p.product_code !== this.baseProductCode);
 
             // Sort variants
             if (window.VariantUtils) {
@@ -3076,7 +3351,9 @@ class VariantDropdownSelector {
 
         this.dropdown.innerHTML = `
             <div class="variant-dropdown-list">
-                ${this.variants.map(v => `
+                ${this.variants
+                    .map(
+                        (v) => `
                     <button type="button" class="variant-dropdown-item"
                             data-variant="${this.escapeHtml(v.variant || '')}"
                             data-code="${this.escapeHtml(v.product_code || '')}"
@@ -3084,7 +3361,9 @@ class VariantDropdownSelector {
                         <span class="variant-name">${v.variant || '-'}</span>
                         <span class="variant-code text-muted">${v.product_code || ''}</span>
                     </button>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
     }
@@ -3202,7 +3481,7 @@ class VariantDropdownSelector {
             const variantData = {
                 variant: item.dataset.variant,
                 product_code: item.dataset.code,
-                id: item.dataset.id
+                id: item.dataset.id,
             };
 
             this.selectVariant(variantData);

@@ -497,7 +497,7 @@ router.post('/kpi-base/batch', async (req, res) => {
             }
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -735,7 +735,7 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
             }
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -1256,7 +1256,7 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
 
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -2045,7 +2045,7 @@ router.patch('/processing-tags/config-merge', async (req, res) => {
 
             res.json({ success: true, configKey, totalDefs: defs.length });
         } catch (err) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw err;
         } finally {
             client.release();
@@ -2116,7 +2116,7 @@ async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow,
 
         await client.query('COMMIT');
     } catch (err) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         throw err;
     } finally {
         client.release();
@@ -2237,7 +2237,7 @@ router.put('/processing-tags/batch-save', async (req, res) => {
 
             res.json({ success: true, saved });
         } catch (err) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw err;
         } finally {
             client.release();
@@ -2399,7 +2399,7 @@ router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
             );
             await client.query('COMMIT');
         } catch (err) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw err;
         } finally {
             client.release();

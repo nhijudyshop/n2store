@@ -16,7 +16,7 @@
  *   const res = await fetchWithTimeout(url, { signal: ctrl.signal }, 8000);
  *   ctrl.abort(); // cancels regardless of timeout
  */
-(function() {
+(function () {
     'use strict';
 
     const DEFAULT_TIMEOUT_MS = 10000;
@@ -49,7 +49,9 @@
             return res;
         } catch (err) {
             if (err?.name === 'AbortError') {
-                const reason = externalSignal?.aborted ? 'cancelled' : `timeout after ${timeoutMs}ms`;
+                const reason = externalSignal?.aborted
+                    ? 'cancelled'
+                    : `timeout after ${timeoutMs}ms`;
                 const wrapped = new DOMException(`fetch ${reason}: ${url}`, 'AbortError');
                 wrapped.timeoutMs = timeoutMs;
                 wrapped.url = url;
@@ -60,7 +62,9 @@
             clearTimeout(timer);
             // Remove external signal listener to avoid leak when signal is long-lived
             if (externalSignal && abortHandler) {
-                try { externalSignal.removeEventListener('abort', abortHandler); } catch (_) {}
+                try {
+                    externalSignal.removeEventListener('abort', abortHandler);
+                } catch (_) {}
             }
         }
     }

@@ -14,12 +14,12 @@ let productSearchTimeout = null; // Renamed to avoid conflict with tab1-orders.j
 // ========================================
 
 async function showAddProductForm() {
-    const container = document.getElementById("addProductContainer");
+    const container = document.getElementById('addProductContainer');
     const manager = window.enhancedProductSearchManager;
 
     if (!manager) {
-        console.error("[SEARCH] Product manager not initialized");
-        alert("Hệ thống chưa sẵn sàng. Vui lòng tải lại trang.");
+        console.error('[SEARCH] Product manager not initialized');
+        alert('Hệ thống chưa sẵn sàng. Vui lòng tải lại trang.');
         return;
     }
 
@@ -29,8 +29,7 @@ async function showAddProductForm() {
 
     // Determine if we should fetch new Excel data
     const shouldFetchNew =
-        !wasOpen ||
-        (lastModalCloseTime && Date.now() - lastModalCloseTime > 5000);
+        !wasOpen || (lastModalCloseTime && Date.now() - lastModalCloseTime > 5000);
 
     try {
         // If not loaded or should fetch new, load Excel
@@ -38,34 +37,34 @@ async function showAddProductForm() {
             await manager.fetchExcelProducts(!manager.isLoaded);
         }
     } catch (error) {
-        console.error("[SEARCH] Error loading products:", error);
+        console.error('[SEARCH] Error loading products:', error);
 
         if (window.notificationManager) {
             window.notificationManager.error(
-                "Không thể tải danh sách sản phẩm. Vui lòng thử lại.",
-                4000,
+                'Không thể tải danh sách sản phẩm. Vui lòng thử lại.',
+                4000
             );
         } else {
-            alert("Không thể tải danh sách sản phẩm. Vui lòng thử lại.");
+            alert('Không thể tải danh sách sản phẩm. Vui lòng thử lại.');
         }
         return;
     }
 
     // Show modal
-    container.classList.add("active");
-    document.getElementById("productSearchInput").focus();
+    container.classList.add('active');
+    document.getElementById('productSearchInput').focus();
 
     // Update stats display
     updateProductStatsDisplay();
 }
 
 function hideAddProductForm() {
-    const container = document.getElementById("addProductContainer");
-    container.classList.remove("active");
+    const container = document.getElementById('addProductContainer');
+    container.classList.remove('active');
 
     // Clear search
-    document.getElementById("productSearchInput").value = "";
-    document.getElementById("searchResults").innerHTML =
+    document.getElementById('productSearchInput').value = '';
+    document.getElementById('searchResults').innerHTML =
         '<div class="no-results">Nhập từ khóa để tìm kiếm sản phẩm</div>';
 
     // Update state
@@ -80,13 +79,12 @@ function hideAddProductForm() {
 async function searchProducts(query) {
     if (productSearchTimeout) clearTimeout(productSearchTimeout);
 
-    const resultsDiv = document.getElementById("searchResults");
+    const resultsDiv = document.getElementById('searchResults');
     const manager = window.enhancedProductSearchManager;
 
     // Validate input
     if (!query || query.trim().length < 2) {
-        resultsDiv.innerHTML =
-            '<div class="no-results">Nhập ít nhất 2 ký tự để tìm kiếm</div>';
+        resultsDiv.innerHTML = '<div class="no-results">Nhập ít nhất 2 ký tự để tìm kiếm</div>';
         return;
     }
 
@@ -105,18 +103,15 @@ async function searchProducts(query) {
             const products = manager.search(query, 20);
 
             if (products.length === 0) {
-                resultsDiv.innerHTML =
-                    '<div class="no-results">Không tìm thấy sản phẩm nào</div>';
+                resultsDiv.innerHTML = '<div class="no-results">Không tìm thấy sản phẩm nào</div>';
                 return;
             }
 
             // Render search results
-            const resultsHTML = products
-                .map((product) => renderSearchResultItem(product))
-                .join("");
+            const resultsHTML = products.map((product) => renderSearchResultItem(product)).join('');
             resultsDiv.innerHTML = resultsHTML;
         } catch (error) {
-            console.error("[SEARCH] Error:", error);
+            console.error('[SEARCH] Error:', error);
             resultsDiv.innerHTML =
                 '<div class="no-results" style="color: #ef4444;">Lỗi khi tìm kiếm sản phẩm</div>';
         }
@@ -132,7 +127,7 @@ function renderSearchResultItem(product) {
     const displayPrice = product.Price || 0;
 
     // Escape quotes for onclick
-    const productJson = JSON.stringify(product).replace(/'/g, "&#39;");
+    const productJson = JSON.stringify(product).replace(/'/g, '&#39;');
 
     return `
         <div class="search-result-item" onclick='selectProductFromSuggestion(${product.Id}, ${productJson})'>
@@ -142,29 +137,28 @@ function renderSearchResultItem(product) {
                        class="search-result-image"
                        alt="${product.Name}"
                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
-                    : ""
+                    : ''
             }
             <div class="search-result-image" 
                  style="background: #f3f4f6; 
-                        display: ${hasImage ? "none" : "flex"}; 
+                        display: ${hasImage ? 'none' : 'flex'}; 
                         align-items: center; 
                         justify-content: center;">
                 <i class="fas fa-image" style="color: #d1d5db;"></i>
             </div>
             <div class="search-result-info">
                 <div class="search-result-name">${product.Name}</div>
-                ${product.Code ? `<div class="search-result-code">Mã: ${product.Code}</div>` : ""}
+                ${product.Code ? `<div class="search-result-code">Mã: ${product.Code}</div>` : ''}
                 ${
-                    product.QtyAvailable !== undefined &&
-                    product.QtyAvailable !== null
-                        ? `<div class="search-result-code" style="color: ${product.QtyAvailable > 0 ? "#059669" : "#ef4444"}">
+                    product.QtyAvailable !== undefined && product.QtyAvailable !== null
+                        ? `<div class="search-result-code" style="color: ${product.QtyAvailable > 0 ? '#059669' : '#ef4444'}">
                          Tồn: ${product.QtyAvailable}
                        </div>`
-                        : ""
+                        : ''
                 }
             </div>
             <div class="search-result-price">
-                ${displayPrice.toLocaleString("vi-VN")}đ
+                ${displayPrice.toLocaleString('vi-VN')}đ
             </div>
             ${
                 product.HasFullDetails
@@ -190,15 +184,15 @@ async function selectProductFromSuggestion(productId, suggestionData) {
         if (needsFullDetails) {
             if (window.notificationManager) {
                 notificationId = window.notificationManager.show(
-                    "Đang tải thông tin sản phẩm...",
-                    "info",
+                    'Đang tải thông tin sản phẩm...',
+                    'info',
                     0,
                     {
                         showOverlay: true,
                         persistent: true,
-                        icon: "package",
-                        title: "Tải sản phẩm",
-                    },
+                        icon: 'package',
+                        title: 'Tải sản phẩm',
+                    }
                 );
             }
         }
@@ -217,7 +211,7 @@ async function selectProductFromSuggestion(productId, suggestionData) {
         // Update stats display (suggestions might have been enriched)
         updateProductStatsDisplay();
     } catch (error) {
-        console.error("[SEARCH] Error selecting product:", error);
+        console.error('[SEARCH] Error selecting product:', error);
 
         if (notificationId && window.notificationManager) {
             window.notificationManager.remove(notificationId);
@@ -225,14 +219,12 @@ async function selectProductFromSuggestion(productId, suggestionData) {
 
         if (window.notificationManager) {
             window.notificationManager.error(
-                error.message || "Không thể tải thông tin sản phẩm",
+                error.message || 'Không thể tải thông tin sản phẩm',
                 4000,
-                "Lỗi",
+                'Lỗi'
             );
         } else {
-            alert(
-                `Lỗi: ${error.message || "Không thể tải thông tin sản phẩm"}`,
-            );
+            alert(`Lỗi: ${error.message || 'Không thể tải thông tin sản phẩm'}`);
         }
     }
 }
@@ -246,26 +238,26 @@ async function addProductToOrder(fullProduct) {
         // Prepare product data for order
         const productData = {
             Id: fullProduct.Id,
-            Code: fullProduct.DefaultCode || fullProduct.Barcode || "",
-            Name: fullProduct.Name || fullProduct.NameTemplate || "",
+            Code: fullProduct.DefaultCode || fullProduct.Barcode || '',
+            Name: fullProduct.Name || fullProduct.NameTemplate || '',
             Price: fullProduct.PriceVariant || fullProduct.ListPrice || 0,
             StandardPrice: fullProduct.StandardPrice || 0,
             ImageUrl: fullProduct.ImageUrl,
             Thumbnails: fullProduct.Thumbnails,
-            UOM: fullProduct.UOM?.Name || "Cái",
+            UOM: fullProduct.UOM?.Name || 'Cái',
             UOMId: fullProduct.UOMId || 1,
             QtyAvailable: fullProduct.QtyAvailable || 0,
-            Category: fullProduct.Categ?.Name || "",
+            Category: fullProduct.Categ?.Name || '',
             Barcode: fullProduct.Barcode,
             EAN13: fullProduct.EAN13,
         };
 
         // Check if there's an existing function to add product to order
-        if (typeof window.addProductToOrderList === "function") {
+        if (typeof window.addProductToOrderList === 'function') {
             window.addProductToOrderList(productData);
         } else {
             // If no existing function, you'll need to implement this based on your order management
-            console.warn("[SEARCH] No addProductToOrderList function found");
+            console.warn('[SEARCH] No addProductToOrderList function found');
 
             // Example: Add to a global order items array (adjust based on your implementation)
             if (!window.currentOrderItems) {
@@ -281,16 +273,13 @@ async function addProductToOrder(fullProduct) {
 
         // Show success notification
         if (window.notificationManager) {
-            window.notificationManager.success(
-                `Đã thêm ${productData.Name}`,
-                2000,
-            );
+            window.notificationManager.success(`Đã thêm ${productData.Name}`, 2000);
         }
 
         // Close modal after adding
         hideAddProductForm();
     } catch (error) {
-        console.error("[SEARCH] Error adding product to order:", error);
+        console.error('[SEARCH] Error adding product to order:', error);
         throw error;
     }
 }
@@ -304,26 +293,26 @@ function updateProductStatsDisplay() {
     const stats = manager.getStats();
 
     // Update or create stats display
-    let statsEl = document.querySelector(".product-stats-mini");
+    let statsEl = document.querySelector('.product-stats-mini');
 
     if (!statsEl) {
-        const searchContainer = document.querySelector(".add-product-search");
+        const searchContainer = document.querySelector('.add-product-search');
         if (!searchContainer) return;
 
-        statsEl = document.createElement("div");
-        statsEl.className = "product-stats-mini";
+        statsEl = document.createElement('div');
+        statsEl.className = 'product-stats-mini';
         searchContainer.insertBefore(statsEl, searchContainer.firstChild);
     }
 
     statsEl.innerHTML = `
         <div class="stat-item">
             <i class="fas fa-box" style="color: #6366f1;"></i>
-            <span class="stat-value">${stats.totalSuggestions.toLocaleString("vi-VN")}</span>
+            <span class="stat-value">${stats.totalSuggestions.toLocaleString('vi-VN')}</span>
             <span>sản phẩm</span>
         </div>
         <div class="stat-item">
             <i class="fas fa-check-circle" style="color: #10b981;"></i>
-            <span class="stat-value">${stats.enrichedSuggestions.toLocaleString("vi-VN")}</span>
+            <span class="stat-value">${stats.enrichedSuggestions.toLocaleString('vi-VN')}</span>
             <span>có hình ảnh</span>
         </div>
         <div class="stat-item">
@@ -334,22 +323,21 @@ function updateProductStatsDisplay() {
 }
 
 function addRefreshButton() {
-    const searchContainer = document.querySelector(".add-product-search");
+    const searchContainer = document.querySelector('.add-product-search');
     if (!searchContainer) return;
 
     // Check if button already exists
-    if (searchContainer.querySelector(".refresh-products-btn")) return;
+    if (searchContainer.querySelector('.refresh-products-btn')) return;
 
-    const refreshBtn = document.createElement("button");
-    refreshBtn.className = "refresh-products-btn";
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'refresh-products-btn';
     refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Làm mới';
-    refreshBtn.title = "Tải lại danh sách sản phẩm từ Excel";
+    refreshBtn.title = 'Tải lại danh sách sản phẩm từ Excel';
 
     refreshBtn.onclick = async () => {
         try {
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML =
-                '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
 
             await window.enhancedProductSearchManager.refresh();
 
@@ -359,18 +347,15 @@ function addRefreshButton() {
             updateProductStatsDisplay();
 
             setTimeout(() => {
-                refreshBtn.innerHTML =
-                    '<i class="fas fa-sync-alt"></i> Làm mới';
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Làm mới';
             }, 2000);
         } catch (error) {
-            console.error("Error refreshing:", error);
+            console.error('Error refreshing:', error);
             refreshBtn.disabled = false;
-            refreshBtn.innerHTML =
-                '<i class="fas fa-exclamation-triangle"></i> Thử lại';
+            refreshBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Thử lại';
 
             setTimeout(() => {
-                refreshBtn.innerHTML =
-                    '<i class="fas fa-sync-alt"></i> Làm mới';
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Làm mới';
             }, 2000);
         }
     };
@@ -379,18 +364,18 @@ function addRefreshButton() {
 }
 
 function addProductCountBadge() {
-    const searchContainer = document.querySelector(".add-product-search");
+    const searchContainer = document.querySelector('.add-product-search');
     if (!searchContainer) return;
 
     // Check if badge already exists
-    if (searchContainer.querySelector(".product-count-badge")) return;
+    if (searchContainer.querySelector('.product-count-badge')) return;
 
     const manager = window.enhancedProductSearchManager;
     const stats = manager.getStats();
 
-    const badge = document.createElement("div");
-    badge.className = "product-count-badge";
-    badge.textContent = `${stats.totalSuggestions.toLocaleString("vi-VN")} sản phẩm`;
+    const badge = document.createElement('div');
+    badge.className = 'product-count-badge';
+    badge.textContent = `${stats.totalSuggestions.toLocaleString('vi-VN')} sản phẩm`;
     badge.title = `Cập nhật: ${stats.lastFetch}\nCó hình ảnh: ${stats.enrichedSuggestions}`;
 
     searchContainer.appendChild(badge);
@@ -400,7 +385,7 @@ function addProductCountBadge() {
 // INITIALIZATION
 // ========================================
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener('DOMContentLoaded', function () {
     // Wait a bit for the UI to be ready
     setTimeout(() => {
         addRefreshButton();
@@ -409,19 +394,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 1000);
 
     // Bind search input if exists
-    const searchInput = document.getElementById("productSearchInput");
+    const searchInput = document.getElementById('productSearchInput');
     if (searchInput) {
-        searchInput.addEventListener("input", (e) => {
+        searchInput.addEventListener('input', (e) => {
             searchProducts(e.target.value);
         });
 
-        searchInput.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") {
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
                 hideAddProductForm();
             }
         });
     }
-
 });
 
 // ========================================
@@ -432,4 +416,3 @@ document.addEventListener("DOMContentLoaded", function () {
 window.showAddProductForm = showAddProductForm;
 window.hideAddProductForm = hideAddProductForm;
 window.searchProducts = searchProducts;
-

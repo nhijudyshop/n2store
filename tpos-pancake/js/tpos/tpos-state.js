@@ -9,7 +9,7 @@ const TposState = {
     // Selected entities
     selectedTeamId: null,
     selectedPage: null,
-    selectedPages: [],        // Multi-page support
+    selectedPages: [], // Multi-page support
     selectedCampaign: null,
 
     // Data lists
@@ -51,7 +51,9 @@ const TposState = {
     // /facebook/* routes (crm-teams, live-campaigns, comments, SSE) → Render server
     // /api/odata/*, /api/rest/*, /api/v2/* → CF Worker or Render server
     proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    workerUrl: (window.API_CONFIG ? window.API_CONFIG.WORKER_URL : 'https://chatomni-proxy.nhijudyshop.workers.dev'),
+    workerUrl: window.API_CONFIG
+        ? window.API_CONFIG.WORKER_URL
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev',
     tposPancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
     // CF Worker proxy — strips /api/ prefix then forwards to tomato.tpos.vn
     // (so `${tposBaseUrl}/rest/...` becomes tomato.tpos.vn/rest/... upstream while
@@ -92,7 +94,7 @@ const TposState = {
         return {
             partnerCache: this.partnerCache.size,
             sessionIndexMap: this.sessionIndexMap.size,
-            savedToTposIds: this.savedToTposIds.size
+            savedToTposIds: this.savedToTposIds.size,
         };
     },
 
@@ -115,7 +117,10 @@ const TposState = {
      */
     saveCampaignSelection() {
         if (this.selectedCampaignIds) {
-            localStorage.setItem('tpos_selected_campaigns', JSON.stringify(Array.from(this.selectedCampaignIds)));
+            localStorage.setItem(
+                'tpos_selected_campaigns',
+                JSON.stringify(Array.from(this.selectedCampaignIds))
+            );
         }
     },
 
@@ -127,8 +132,10 @@ const TposState = {
         try {
             const saved = localStorage.getItem('tpos_selected_campaigns');
             return saved ? JSON.parse(saved) : null;
-        } catch { return null; }
-    }
+        } catch {
+            return null;
+        }
+    },
 };
 
 // Export for script-tag usage

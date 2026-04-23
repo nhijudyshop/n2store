@@ -11,7 +11,11 @@ const PhoneCloudSync = (() => {
     let _lastPresence = null;
 
     function _currentUser() {
-        try { return window.authManager?.getAuthData?.()?.displayName || ''; } catch { return ''; }
+        try {
+            return window.authManager?.getAuthData?.()?.displayName || '';
+        } catch {
+            return '';
+        }
     }
 
     async function _post(path, body) {
@@ -19,9 +23,13 @@ const PhoneCloudSync = (() => {
             const r = await fetch(`${API_BASE}${path}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
-            if (!r.ok) { const t = await r.text().catch(() => ''); console.warn('[PhoneCloudSync]', path, r.status, t); return null; }
+            if (!r.ok) {
+                const t = await r.text().catch(() => '');
+                console.warn('[PhoneCloudSync]', path, r.status, t);
+                return null;
+            }
             return await r.json().catch(() => ({}));
         } catch (err) {
             console.warn('[PhoneCloudSync] POST', path, err.message);
@@ -33,7 +41,7 @@ const PhoneCloudSync = (() => {
             const r = await fetch(`${API_BASE}${path}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
             if (!r.ok) return null;
             return await r.json().catch(() => ({}));
@@ -55,7 +63,7 @@ const PhoneCloudSync = (() => {
             orderCode: entry.orderCode || null,
             outcome: entry.outcome || null,
             note: entry.note || null,
-            timestamp: entry.timestamp || Date.now()
+            timestamp: entry.timestamp || Date.now(),
         });
     }
 
@@ -66,12 +74,13 @@ const PhoneCloudSync = (() => {
             username: user,
             phone: phone,
             outcome: patch.outcome || null,
-            note: patch.note || null
+            note: patch.note || null,
         });
     }
 
     async function setPresence(state, extra = {}) {
-        const user = _currentUser(); if (!user) return;
+        const user = _currentUser();
+        if (!user) return;
         _lastPresence = {
             username: user,
             state,
@@ -79,7 +88,7 @@ const PhoneCloudSync = (() => {
             callPhone: extra.callPhone || null,
             callName: extra.callName || null,
             direction: extra.direction || null,
-            since: Date.now()
+            since: Date.now(),
         };
         await _post('/presence', _lastPresence);
     }
@@ -94,11 +103,15 @@ const PhoneCloudSync = (() => {
         }, 30000);
     }
     function stopHeartbeat() {
-        if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+        if (_presenceTimer) {
+            clearInterval(_presenceTimer);
+            _presenceTimer = null;
+        }
     }
 
     async function clearPresence() {
-        const user = _currentUser(); if (!user) return;
+        const user = _currentUser();
+        if (!user) return;
         await _post('/presence', { username: user, state: 'offline', since: Date.now() });
     }
 
@@ -107,7 +120,7 @@ const PhoneCloudSync = (() => {
             username: _currentUser(),
             action,
             detail: detail || {},
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
     }
 
@@ -115,19 +128,27 @@ const PhoneCloudSync = (() => {
     if (typeof window !== 'undefined') {
         window.addEventListener('beforeunload', () => {
             try {
-                const user = _currentUser(); if (!user) return;
-                const blob = new Blob([JSON.stringify({ username: user, state: 'offline', since: Date.now() })], { type: 'application/json' });
+                const user = _currentUser();
+                if (!user) return;
+                const blob = new Blob(
+                    [JSON.stringify({ username: user, state: 'offline', since: Date.now() })],
+                    { type: 'application/json' }
+                );
                 navigator.sendBeacon?.(`${API_BASE}/presence`, blob);
             } catch {}
         });
     }
 
     return {
-        logCall, updateLastCallOutcome,
-        setPresence, startHeartbeat, stopHeartbeat, clearPresence,
+        logCall,
+        updateLastCallOutcome,
+        setPresence,
+        startHeartbeat,
+        stopHeartbeat,
+        clearPresence,
         logAudit,
         getCurrentUser: _currentUser,
-        API_BASE
+        API_BASE,
     };
 })();
 
