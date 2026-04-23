@@ -338,7 +338,8 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
             id,
             `Nạp từ CK ${tx.code || tx.reference_code} (reprocess)`,
             tx.customer_id,
-            tx.transaction_date
+            tx.transaction_date,
+            tx.sepay_id
         );
 
         // 3. Mark as wallet processed
@@ -707,7 +708,8 @@ router.post('/:id/approve', async (req, res) => {
                     id,
                     `Nạp từ CK (Duyệt bởi ${verified_by})`,
                     tx.customer_id,
-                    tx.transaction_date
+                    tx.transaction_date,
+                    tx.sepay_id
                 );
 
                 // Mark as wallet processed
@@ -1349,7 +1351,8 @@ router.post('/bulk-approve', async (req, res) => {
                     txId,
                     `Nạp từ CK ${tx.code || tx.reference_code} (bulk approve)`,
                     tx.customer_id,
-                    tx.transaction_date
+                    tx.transaction_date,
+                    tx.sepay_id
                 );
 
                 // Update transaction

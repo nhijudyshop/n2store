@@ -394,7 +394,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
 
     // 1. Get transaction details
     const txResult = await db.query(
-        `SELECT id, content, transfer_amount, transfer_type, debt_added
+        `SELECT id, sepay_id, content, transfer_amount, transfer_type, debt_added
          FROM balance_history
          WHERE id = $1`,
         [transactionId]
@@ -493,7 +493,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                             amount,
                             transactionId,
                             `Nap tu CK (QR: ${qrCode})`,
-                            customerId
+                            customerId,
+                            null, // transactionDate not tracked here
+                            tx.sepay_id
                         );
                         console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
                         walletProcessedSuccess = true; // Only set true on SUCCESS
@@ -635,7 +637,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                         amount,
                         transactionId,
                         `Nap tu CK (Phone: ${exactPhone})`,
-                        customerId
+                        customerId,
+                        null,
+                        tx.sepay_id
                     );
                     console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
                     walletProcessedSuccess = true; // Only set true on SUCCESS
@@ -777,7 +781,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                             amount,
                             transactionId,
                             `Nap tu CK (Auto-matched: ${partialPhone})`,
-                            customerId
+                            customerId,
+                            null,
+                            tx.sepay_id
                         );
                         console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
                         walletProcessedSuccess = true; // Only set TRUE on success

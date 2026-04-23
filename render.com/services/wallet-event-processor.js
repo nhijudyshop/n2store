@@ -140,6 +140,7 @@ function calculateNewBalance(currentBalance, type, amount) {
  * @param {string|number} event.referenceId - Reference ID
  * @param {string} event.note - Transaction note
  * @param {number} event.customerId - Customer ID (optional)
+ * @param {number|null} event.sepayId - SePay bank transaction id (BANK_TRANSFER deposits only — enforces UNIQUE at DB level via migration 064)
  * @param {boolean} event.skipCommit - Skip commit (for external transaction management)
  * @returns {Promise<{success: boolean, transactionId: number, wallet: Object}>}
  */
@@ -154,6 +155,7 @@ async function processWalletEvent(db, event) {
         note,
         customerId = null,
         createdBy = null,
+        sepayId = null,
         skipCommit = false,
         transactionDate = null
     } = event;
@@ -257,13 +259,15 @@ async function processWalletEvent(db, event) {
         const updatedWallet = updatedWalletResult.rows[0];
 
         // 4. Create transaction record
+        // sepay_id is populated ONLY for BANK_TRANSFER deposits (migration 064 partial UNIQUE index)
+        // Null for all other types — partial index skips them.
         const insertColumns = `phone, wallet_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note, created_by${transactionDate ? ', created_at' : ''}`;
+                source, reference_type, reference_id, note, created_by, sepay_id${transactionDate ? ', created_at' : ''}`;
         const insertValues = transactionDate
-            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, ($14::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
-            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13';
+            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, ($15::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
+            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14';
         const insertParams = [
             phone,
             wallet.id,
@@ -277,7 +281,8 @@ async function processWalletEvent(db, event) {
             referenceType,
             referenceId?.toString(),
             note,
-            createdBy
+            createdBy,
+            sepayId
         ];
         if (transactionDate) {
             insertParams.push(transactionDate);
@@ -336,9 +341,13 @@ async function processWalletEvent(db, event) {
 
 /**
  * Process bank deposit (from balance_history link)
- * IMPORTANT: Includes idempotency check to prevent duplicate processing
+ * IMPORTANT: Includes idempotency check to prevent duplicate processing.
+ *
+ * @param {number|null} sepayId - SePay transaction id. When provided, stored on
+ *   wallet_transactions.sepay_id — the partial UNIQUE index from migration 064
+ *   guarantees at most one wallet deposit per SePay transaction at the DB level.
  */
-async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null, transactionDate = null) {
+async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null, transactionDate = null, sepayId = null) {
     // IDEMPOTENCY CHECK: Verify balance_history not already processed
     const checkResult = await db.query(
         'SELECT wallet_processed FROM balance_history WHERE id = $1',
@@ -374,7 +383,8 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
         referenceId: balanceHistoryId,
         note: note || `Nạp từ CK ngân hàng`,
         customerId,
-        transactionDate
+        transactionDate,
+        sepayId
     });
 }
 

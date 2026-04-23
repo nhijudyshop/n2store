@@ -55,7 +55,7 @@ cron.schedule('*/5 * * * *', async () => {
         // CRITICAL: Only process transactions that are APPROVED or AUTO_APPROVED
         // This prevents bypassing the accountant approval workflow for manual entries
         const unprocessedResult = await db.query(`
-            SELECT bh.id, bh.transfer_amount, bh.content, bh.code, bh.reference_code,
+            SELECT bh.id, bh.sepay_id, bh.transfer_amount, bh.content, bh.code, bh.reference_code,
                    bh.linked_customer_phone, c.id as customer_id
             FROM balance_history bh
             LEFT JOIN customers c ON c.phone = bh.linked_customer_phone
@@ -115,7 +115,9 @@ cron.schedule('*/5 * * * *', async () => {
                     tx.transfer_amount,
                     tx.id,
                     `Nạp từ CK ${tx.code || tx.reference_code || 'N/A'} (cron backup)`,
-                    customerId
+                    customerId,
+                    null,
+                    tx.sepay_id
                 );
 
                 // Mark as processed
