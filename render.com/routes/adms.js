@@ -105,7 +105,7 @@ async function parseAndInsertAttlog(body, pool) {
 
         await client.query('COMMIT');
     } catch (e) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[ADMS] Insert error:', e.message);
     } finally {
         client.release();

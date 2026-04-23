@@ -418,7 +418,7 @@ router.post('/tags', async (req, res) => {
             await client.query('COMMIT');
             res.json({ success: true, count: tags.length });
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -468,7 +468,7 @@ router.post('/migrate', async (req, res) => {
 
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();

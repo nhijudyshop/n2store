@@ -22,6 +22,7 @@ const { normalizePhone } = require('../../utils/customer-helpers');
 const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
 const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
 const { processDeposit } = require('../../services/wallet-event-processor');
+const { withTransaction } = require('../../db/with-transaction');
 const adminSettingsService = require('../../services/admin-settings-service');
 
 // =====================================================
@@ -166,7 +167,7 @@ router.get('/pending', async (req, res) => {
  * NEW: Fetches TPOS data and creates customer with full info
  */
 router.post('/:id/link', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const { phone, customer_name, auto_deposit = true } = req.body; // Default auto_deposit to true
 
@@ -179,6 +180,7 @@ router.post('/:id/link', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid phone number' });
     }
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -285,8 +287,10 @@ router.post('/:id/link', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to link transaction');
+    } finally {
+        db.release();
     }
 });
 
@@ -296,94 +300,91 @@ router.post('/:id/link', async (req, res) => {
  * Use case: Transaction was linked but wallet deposit failed
  */
 router.post('/:id/reprocess-wallet', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
 
     try {
-        await db.query('BEGIN');
+        const result = await withTransaction(pool, async (client) => {
+            const txResult = await client.query(
+                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                [parseInt(id)]
+            );
 
-        // 1. Get transaction and verify it's linked but not wallet processed
-        const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
-            [parseInt(id)]
-        );
-
-        if (txResult.rows.length === 0) {
-            await db.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Transaction not found' });
-        }
-
-        const tx = txResult.rows[0];
-
-        if (!tx.linked_customer_phone) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ success: false, error: 'Transaction is not linked to any customer. Use /link first.' });
-        }
-
-        if (tx.wallet_processed === true) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ success: false, error: 'Wallet already processed for this transaction' });
-        }
-
-        if (tx.transfer_amount <= 0) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ success: false, error: 'Transaction amount must be greater than 0' });
-        }
-
-        // 2. Process wallet deposit
-        const walletResult = await processDeposit(
-            db,
-            tx.linked_customer_phone,
-            tx.transfer_amount,
-            id,
-            `Nạp từ CK ${tx.code || tx.reference_code} (reprocess)`,
-            tx.customer_id,
-            tx.transaction_date,
-            tx.sepay_id
-        );
-
-        // 3. Mark as wallet processed
-        await db.query(`
-            UPDATE balance_history
-            SET wallet_processed = TRUE
-            WHERE id = $1
-        `, [id]);
-
-        // 4. Log activity
-        const reprocessActivityParams = [
-            tx.linked_customer_phone,
-            tx.customer_id,
-            `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-            `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - xử lý lại`,
-            id
-        ];
-        let reprocessActivityQuery = `
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
-            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
-        `;
-        if (tx.transaction_date) {
-            reprocessActivityParams.push(tx.transaction_date);
-        }
-        await db.query(reprocessActivityQuery, reprocessActivityParams);
-
-        await db.query('COMMIT');
-
-        console.log(`[BalanceHistory V2] ✅ Reprocessed wallet: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
-
-        res.json({
-            success: true,
-            message: 'Đã cộng tiền vào ví thành công',
-            data: {
-                transaction_id: id,
-                phone: tx.linked_customer_phone,
-                amount: parseFloat(tx.transfer_amount),
-                wallet_tx_id: walletResult.transactionId,
-                new_balance: walletResult.wallet.balance
+            if (txResult.rows.length === 0) {
+                return { status: 404, body: { success: false, error: 'Transaction not found' } };
             }
+
+            const tx = txResult.rows[0];
+
+            if (!tx.linked_customer_phone) {
+                return { status: 400, body: { success: false, error: 'Transaction is not linked to any customer. Use /link first.' } };
+            }
+
+            if (tx.wallet_processed === true) {
+                return { status: 400, body: { success: false, error: 'Wallet already processed for this transaction' } };
+            }
+
+            if (tx.transfer_amount <= 0) {
+                return { status: 400, body: { success: false, error: 'Transaction amount must be greater than 0' } };
+            }
+
+            const walletResult = await processDeposit(
+                client,
+                tx.linked_customer_phone,
+                tx.transfer_amount,
+                id,
+                `Nạp từ CK ${tx.code || tx.reference_code} (reprocess)`,
+                tx.customer_id,
+                tx.transaction_date,
+                tx.sepay_id
+            );
+
+            await client.query(`
+                UPDATE balance_history
+                SET wallet_processed = TRUE
+                WHERE id = $1
+            `, [id]);
+
+            // Log activity only when wallet was actually updated (not when sepay_id was skipped)
+            if (!walletResult.skipped) {
+                const reprocessActivityParams = [
+                    tx.linked_customer_phone,
+                    tx.customer_id,
+                    `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
+                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - xử lý lại`,
+                    id
+                ];
+                const reprocessActivityQuery = `
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                `;
+                if (tx.transaction_date) {
+                    reprocessActivityParams.push(tx.transaction_date);
+                }
+                await client.query(reprocessActivityQuery, reprocessActivityParams);
+            }
+
+            console.log(`[BalanceHistory V2] ✅ Reprocessed wallet: ${tx.linked_customer_phone} +${tx.transfer_amount}${walletResult.skipped ? ' (skipped: duplicate sepay_id)' : ''}`);
+
+            return {
+                status: 200,
+                body: {
+                    success: true,
+                    message: walletResult.skipped ? 'Đã đánh dấu xử lý, giao dịch đã từng được cộng ví trước đó' : 'Đã cộng tiền vào ví thành công',
+                    data: {
+                        transaction_id: id,
+                        phone: tx.linked_customer_phone,
+                        amount: parseFloat(tx.transfer_amount),
+                        wallet_tx_id: walletResult.transactionId,
+                        new_balance: walletResult.wallet?.balance,
+                        skipped: !!walletResult.skipped
+                    }
+                }
+            };
         });
 
+        res.status(result.status).json(result.body);
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to reprocess wallet');
     }
 });
@@ -393,9 +394,10 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
  * Unlink a transaction from customer (for corrections)
  */
 router.post('/:id/unlink', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -474,8 +476,10 @@ router.post('/:id/unlink', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to unlink transaction');
+    } finally {
+        db.release();
     }
 });
 
@@ -626,7 +630,7 @@ router.get('/verification-queue', async (req, res) => {
  * This will process wallet deposit
  */
 router.post('/:id/approve', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const { verified_by, note, verification_image_url } = req.body;
 
@@ -635,133 +639,146 @@ router.post('/:id/approve', async (req, res) => {
     }
 
     try {
-        await db.query('BEGIN');
+        const result = await withTransaction(pool, async (client) => {
+            // 1. Get transaction with real row lock (held until COMMIT)
+            const txResult = await client.query(
+                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                [parseInt(id)]
+            );
 
-        // 1. Get transaction and verify it's pending verification
-        const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
-            [parseInt(id)]
-        );
+            if (txResult.rows.length === 0) {
+                return { status: 404, body: { success: false, error: 'Transaction not found' } };
+            }
 
-        if (txResult.rows.length === 0) {
-            await db.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Transaction not found' });
-        }
+            const tx = txResult.rows[0];
 
-        const tx = txResult.rows[0];
+            if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
+                return {
+                    status: 400,
+                    body: {
+                        success: false,
+                        error: `Transaction is not pending verification. Current status: ${tx.verification_status}`
+                    }
+                };
+            }
 
-        // Check if it's pending verification
-        if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
-            await db.query('ROLLBACK');
-            return res.status(400).json({
-                success: false,
-                error: `Transaction is not pending verification. Current status: ${tx.verification_status}`
-            });
-        }
+            if (!tx.linked_customer_phone) {
+                return {
+                    status: 400,
+                    body: {
+                        success: false,
+                        error: 'Transaction is not linked to any customer. Link customer first.'
+                    }
+                };
+            }
 
-        // Check if customer is linked
-        if (!tx.linked_customer_phone) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({
-                success: false,
-                error: 'Transaction is not linked to any customer. Link customer first.'
-            });
-        }
-
-        // 2. Update verification status to APPROVED (with optional image URL)
-        // Build update query dynamically to handle optional image URL
-        let updateQuery = `
-            UPDATE balance_history
-            SET verification_status = 'APPROVED',
-                verified_by = $2,
-                verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
-                verification_note = COALESCE($3, verification_note)
-        `;
-        let updateParams = [id, verified_by, note];
-
-        // Only add image URL column if provided (requires DB column to exist)
-        if (verification_image_url) {
-            updateQuery = `
-                UPDATE balance_history
-                SET verification_status = 'APPROVED',
-                    verified_by = $2,
-                    verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
-                    verification_note = COALESCE($3, verification_note),
-                    verification_image_url = $4
-                WHERE id = $1
-            `;
-            updateParams = [id, verified_by, note, verification_image_url];
-        } else {
-            updateQuery += ` WHERE id = $1`;
-        }
-
-        await db.query(updateQuery, updateParams);
-
-        // 3. Process wallet deposit if not already processed
-        let walletResult = null;
-        if (!tx.wallet_processed && tx.transfer_amount > 0) {
-            try {
-                walletResult = await processDeposit(
-                    db,
-                    tx.linked_customer_phone,
-                    tx.transfer_amount,
-                    id,
-                    `Nạp từ CK (Duyệt bởi ${verified_by})`,
-                    tx.customer_id,
-                    tx.transaction_date,
-                    tx.sepay_id
-                );
-
-                // Mark as wallet processed
-                await db.query(`
+            // 2. Update verification status to APPROVED (with optional image URL)
+            let updateQuery;
+            let updateParams;
+            if (verification_image_url) {
+                updateQuery = `
                     UPDATE balance_history
-                    SET wallet_processed = TRUE
+                    SET verification_status = 'APPROVED',
+                        verified_by = $2,
+                        verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                        verification_note = COALESCE($3, verification_note),
+                        verification_image_url = $4
                     WHERE id = $1
-                `, [id]);
-
-                // Log activity
-                const activityParams = [
-                    tx.linked_customer_phone,
-                    tx.customer_id,
-                    `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
-                    id,
-                    verified_by || 'system'
-                ];
-                let activityQuery = `
-                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                 `;
-                if (tx.transaction_date) {
-                    activityParams.push(tx.transaction_date);
+                updateParams = [id, verified_by, note, verification_image_url];
+            } else {
+                updateQuery = `
+                    UPDATE balance_history
+                    SET verification_status = 'APPROVED',
+                        verified_by = $2,
+                        verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                        verification_note = COALESCE($3, verification_note)
+                    WHERE id = $1
+                `;
+                updateParams = [id, verified_by, note];
+            }
+            await client.query(updateQuery, updateParams);
+
+            // 3. Process wallet deposit if not already processed
+            // processDeposit + processWalletEvent run on THIS client — same transaction,
+            // same FOR UPDATE lock on wallet row, ON CONFLICT on sepay_id prevents double.
+            let walletResult = null;
+            if (!tx.wallet_processed && tx.transfer_amount > 0) {
+                try {
+                    walletResult = await processDeposit(
+                        client,
+                        tx.linked_customer_phone,
+                        tx.transfer_amount,
+                        id,
+                        `Nạp từ CK (Duyệt bởi ${verified_by})`,
+                        tx.customer_id,
+                        tx.transaction_date,
+                        tx.sepay_id
+                    );
+
+                    // Mark as wallet processed (only if wallet deposit actually happened, not skipped)
+                    if (!walletResult?.skipped) {
+                        await client.query(`
+                            UPDATE balance_history
+                            SET wallet_processed = TRUE
+                            WHERE id = $1
+                        `, [id]);
+
+                        const activityParams = [
+                            tx.linked_customer_phone,
+                            tx.customer_id,
+                            `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
+                            `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
+                            id,
+                            verified_by || 'system'
+                        ];
+                        const activityQuery = `
+                            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
+                            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                        `;
+                        if (tx.transaction_date) {
+                            activityParams.push(tx.transaction_date);
+                        }
+                        await client.query(activityQuery, activityParams);
+
+                        console.log(`[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
+                    } else {
+                        // Wallet was already credited by another path (ON CONFLICT on sepay_id).
+                        // Still mark as processed so future runs don't retry.
+                        await client.query(`
+                            UPDATE balance_history
+                            SET wallet_processed = TRUE
+                            WHERE id = $1
+                        `, [id]);
+                        console.log(`[BalanceHistory V2] ⚠️ Approved but wallet credit skipped (already processed via sepay_id=${tx.sepay_id})`);
+                    }
+                } catch (walletErr) {
+                    console.error('[BalanceHistory V2] Wallet update failed — rolling back approval:', walletErr.message);
+                    // Rethrow so withTransaction rolls back — keeps balance_history + wallet consistent
+                    throw walletErr;
                 }
-                await db.query(activityQuery, activityParams);
-
-                console.log(`[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
-            } catch (walletErr) {
-                console.error('[BalanceHistory V2] Wallet update failed:', walletErr.message);
-                // Don't rollback - approval is more important, wallet can be retried
             }
-        }
 
-        await db.query('COMMIT');
-
-        res.json({
-            success: true,
-            message: 'Đã duyệt và cộng tiền vào ví thành công',
-            data: {
-                transaction_id: id,
-                phone: tx.linked_customer_phone,
-                amount: parseFloat(tx.transfer_amount),
-                verification_status: 'APPROVED',
-                verified_by,
-                wallet_processed: !!walletResult,
-                new_balance: walletResult?.wallet?.balance
-            }
+            return {
+                status: 200,
+                body: {
+                    success: true,
+                    message: 'Đã duyệt và cộng tiền vào ví thành công',
+                    data: {
+                        transaction_id: id,
+                        phone: tx.linked_customer_phone,
+                        amount: parseFloat(tx.transfer_amount),
+                        verification_status: 'APPROVED',
+                        verified_by,
+                        wallet_processed: !!walletResult && !walletResult.skipped,
+                        new_balance: walletResult?.wallet?.balance
+                    }
+                }
+            };
         });
 
+        res.status(result.status).json(result.body);
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to approve transaction');
     }
 });
@@ -772,7 +789,7 @@ router.post('/:id/approve', async (req, res) => {
  * Transaction will NOT be processed to wallet
  */
 router.post('/:id/reject', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const { verified_by, reason } = req.body;
 
@@ -784,6 +801,7 @@ router.post('/:id/reject', async (req, res) => {
         return res.status(400).json({ success: false, error: 'reason is required for rejection' });
     }
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -842,8 +860,10 @@ router.post('/:id/reject', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to reject transaction');
+    } finally {
+        db.release();
     }
 });
 
@@ -853,7 +873,7 @@ router.post('/:id/reject', async (req, res) => {
  * This sets PENDING_VERIFICATION - requires accountant approval
  */
 router.post('/:id/resolve-match', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const { phone, performed_by, note } = req.body;
 
@@ -866,6 +886,7 @@ router.post('/:id/resolve-match', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Invalid phone number' });
     }
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -966,8 +987,10 @@ router.post('/:id/resolve-match', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to resolve match');
+    } finally {
+        db.release();
     }
 });
 
@@ -1288,7 +1311,7 @@ router.get('/approved-today', async (req, res) => {
  * Bulk approve multiple transactions
  */
 router.post('/bulk-approve', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { transaction_ids, verified_by } = req.body;
 
     if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
@@ -1299,53 +1322,39 @@ router.post('/bulk-approve', async (req, res) => {
         return res.status(400).json({ success: false, error: 'verified_by is required' });
     }
 
-    try {
-        await db.query('BEGIN');
+    let approved = 0;
+    let failed = 0;
+    const results = [];
 
-        let approved = 0;
-        let failed = 0;
-        const results = [];
-
-        for (const txId of transaction_ids) {
-            try {
-                // Get transaction
-                const txResult = await db.query(
+    // Each tx in its own transaction — one failure shouldn't rollback the whole batch.
+    for (const txId of transaction_ids) {
+        try {
+            const outcome = await withTransaction(pool, async (client) => {
+                const txResult = await client.query(
                     'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
                     [parseInt(txId)]
                 );
 
                 if (txResult.rows.length === 0) {
-                    results.push({ id: txId, success: false, error: 'Not found' });
-                    failed++;
-                    continue;
+                    return { success: false, error: 'Not found' };
                 }
 
                 const tx = txResult.rows[0];
 
-                // Skip if already processed
                 if (tx.wallet_processed === true) {
-                    results.push({ id: txId, success: false, error: 'Already processed' });
-                    failed++;
-                    continue;
+                    return { success: false, error: 'Already processed' };
                 }
 
-                // Skip if not pending verification
                 if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
-                    results.push({ id: txId, success: false, error: `Status: ${tx.verification_status}` });
-                    failed++;
-                    continue;
+                    return { success: false, error: `Status: ${tx.verification_status}` };
                 }
 
-                // Skip if no customer linked
                 if (!tx.linked_customer_phone) {
-                    results.push({ id: txId, success: false, error: 'No customer linked' });
-                    failed++;
-                    continue;
+                    return { success: false, error: 'No customer linked' };
                 }
 
-                // Process wallet deposit
                 const walletResult = await processDeposit(
-                    db,
+                    client,
                     tx.linked_customer_phone,
                     tx.transfer_amount,
                     txId,
@@ -1355,8 +1364,7 @@ router.post('/bulk-approve', async (req, res) => {
                     tx.sepay_id
                 );
 
-                // Update transaction
-                await db.query(`
+                await client.query(`
                     UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
@@ -1366,37 +1374,37 @@ router.post('/bulk-approve', async (req, res) => {
                     WHERE id = $1
                 `, [txId, verified_by]);
 
-                results.push({
-                    id: txId,
+                return {
                     success: true,
                     amount: parseFloat(tx.transfer_amount),
-                    new_balance: walletResult.wallet.balance
-                });
-                approved++;
+                    new_balance: walletResult.wallet?.balance,
+                    skipped: !!walletResult.skipped
+                };
+            });
 
-            } catch (txError) {
-                console.error(`[BULK APPROVE] Error processing tx ${txId}:`, txError.message);
-                results.push({ id: txId, success: false, error: txError.message });
+            if (outcome.success) {
+                results.push({ id: txId, ...outcome });
+                approved++;
+            } else {
+                results.push({ id: txId, ...outcome });
                 failed++;
             }
+        } catch (txError) {
+            console.error(`[BULK APPROVE] Error processing tx ${txId}:`, txError.message);
+            results.push({ id: txId, success: false, error: txError.message });
+            failed++;
         }
-
-        await db.query('COMMIT');
-
-        console.log(`[BULK APPROVE] Approved ${approved}, Failed ${failed} by ${verified_by}`);
-
-        res.json({
-            success: true,
-            approved,
-            failed,
-            total: transaction_ids.length,
-            results
-        });
-
-    } catch (error) {
-        await db.query('ROLLBACK');
-        handleError(res, error, 'Failed to bulk approve');
     }
+
+    console.log(`[BULK APPROVE] Approved ${approved}, Failed ${failed} by ${verified_by}`);
+
+    res.json({
+        success: true,
+        approved,
+        failed,
+        total: transaction_ids.length,
+        results
+    });
 });
 
 /**
@@ -1521,7 +1529,7 @@ router.put('/settings/auto-approve', async (req, res) => {
  * Used for final verification by management
  */
 router.post('/:id/manager-review', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const { manager_review_note, reviewed_by } = req.body;
 
@@ -1529,6 +1537,7 @@ router.post('/:id/manager-review', async (req, res) => {
         return res.status(400).json({ success: false, error: 'reviewed_by is required' });
     }
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -1596,8 +1605,10 @@ router.post('/:id/manager-review', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to mark transaction as reviewed');
+    } finally {
+        db.release();
     }
 });
 
@@ -1762,7 +1773,7 @@ router.get('/:id/can-adjust', async (req, res) => {
  * - performed_by: email người thực hiện
  */
 router.post('/:id/adjust', async (req, res) => {
-    const db = req.app.locals.chatDb;
+    const pool = req.app.locals.chatDb;
     const { id } = req.params;
     const {
         adjustment_type,
@@ -1802,6 +1813,7 @@ router.post('/:id/adjust', async (req, res) => {
         });
     }
 
+    const db = await pool.connect();
     try {
         await db.query('BEGIN');
 
@@ -2071,8 +2083,10 @@ router.post('/:id/adjust', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to create adjustment');
+    } finally {
+        db.release();
     }
 });
 

@@ -387,7 +387,7 @@ router.post('/batch-template', verifyToken, requireUserMgmt, async (req, res) =>
             }
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -647,7 +647,7 @@ router.post('/migrate/bulk', async (req, res) => {
 
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();

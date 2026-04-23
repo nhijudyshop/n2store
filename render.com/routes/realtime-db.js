@@ -932,15 +932,17 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
  * Prevents race conditions from concurrent client-side read-modify-write.
  */
 router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+    const { userId, date } = req.params;
+    const { orderCode, orderId, stt, campaignName, netProducts, kpi,
+            hasDiscrepancy, details, userName } = req.body;
+
+    if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
+
+    const client = await pool.connect();
     try {
-        const { userId, date } = req.params;
-        const { orderCode, orderId, stt, campaignName, netProducts, kpi,
-                hasDiscrepancy, details, userName } = req.body;
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-
-        if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
-
         const orderObj = JSON.stringify({
             orderCode, orderId: orderId || null, stt: stt || 0,
             campaignName: campaignName || null,
@@ -951,10 +953,10 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
         });
 
         // Atomic: upsert row, then upsert order within JSONB array, recalc totals
-        await pool.query('BEGIN');
+        await client.query('BEGIN');
 
         // Ensure row exists
-        await pool.query(`
+        await client.query(`
             INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
             VALUES ($1, $2, $3, 0, 0, '[]')
             ON CONFLICT (user_id, stat_date) DO UPDATE SET
@@ -962,7 +964,7 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
         `, [userId, userName || null, date]);
 
         // Remove old entry for this orderCode (if exists), then append new one
-        await pool.query(`
+        await client.query(`
             UPDATE kpi_statistics
             SET orders = (
                 SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
@@ -973,7 +975,7 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
         `, [userId, orderCode, `[${orderObj}]`, date]);
 
         // Recalculate totals from the orders array
-        await pool.query(`
+        await client.query(`
             UPDATE kpi_statistics
             SET total_net_products = COALESCE((
                     SELECT SUM((elem->>'netProducts')::int)
@@ -987,12 +989,14 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
             WHERE user_id = $1 AND stat_date = $2
         `, [userId, date]);
 
-        await pool.query('COMMIT');
+        await client.query('COMMIT');
         res.json({ success: true, userId, date, orderCode });
     } catch (error) {
-        try { await req.app.locals.chatDb?.query('ROLLBACK'); } catch (e) {}
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[REALTIME-DB] PATCH /kpi-statistics order error:', error);
         res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
     }
 });
 

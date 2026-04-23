@@ -25,6 +25,7 @@ const express = require('express');
 const router = express.Router();
 const { normalizePhone } = require('../../utils/customer-helpers');
 const { processManualDeposit, processDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
+const { withTransaction } = require('../../db/with-transaction');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -1037,30 +1038,33 @@ router.post('/cron/process-bank', async (req, res) => {
                     continue;
                 }
 
-                // Use processDeposit for wallet update + SSE emission (has idempotency check)
-                const result = await processDeposit(
-                    db,
-                    normalizedPhone,
-                    parseFloat(tx.amount),
-                    tx.id,
-                    tx.description || 'Chuyển khoản ngân hàng',
-                    null,
-                    tx.transaction_date,
-                    tx.sepay_id || null
-                );
+                // Atomic per-tx: processDeposit (runs on client, skips its own wrap)
+                // + UPDATE balance_history + INSERT activity all share one transaction.
+                const result = await withTransaction(db, async (client) => {
+                    const depositResult = await processDeposit(
+                        client,
+                        normalizedPhone,
+                        parseFloat(tx.amount),
+                        tx.id,
+                        tx.description || 'Chuyển khoản ngân hàng',
+                        null,
+                        tx.transaction_date,
+                        tx.sepay_id || null
+                    );
 
-                // Mark as processed (processDeposit checks but doesn't set wallet_processed)
-                await db.query(`
-                    UPDATE balance_history
-                    SET wallet_processed = TRUE, customer_phone = $2
-                    WHERE id = $1
-                `, [tx.id, normalizedPhone]);
+                    await client.query(`
+                        UPDATE balance_history
+                        SET wallet_processed = TRUE, customer_phone = $2
+                        WHERE id = $1
+                    `, [tx.id, normalizedPhone]);
 
-                // Log activity (not handled by processWalletEvent)
-                await db.query(`
-                    INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
-                    VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'account_balance', 'green')
-                `, [normalizedPhone, `Nạp tiền: ${parseFloat(tx.amount).toLocaleString()}đ`, tx.description || 'Chuyển khoản ngân hàng']);
+                    await client.query(`
+                        INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
+                        VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'account_balance', 'green')
+                    `, [normalizedPhone, `Nạp tiền: ${parseFloat(tx.amount).toLocaleString()}đ`, tx.description || 'Chuyển khoản ngân hàng']);
+
+                    return depositResult;
+                });
 
                 processed.push({
                     id: tx.id,
@@ -1083,7 +1087,6 @@ router.post('/cron/process-bank', async (req, res) => {
             }
         });
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to process bank transactions');
     }
 });
@@ -1127,139 +1130,139 @@ router.post('/adjustment', async (req, res) => {
     }
 
     try {
-        await db.query('BEGIN');
+        const { walletTxId, affectedWallet, adjustment } = await withTransaction(db, async (client) => {
+            let walletTxId = null;
+            let affectedWallet = null;
 
-        let walletTxId = null;
-        let affectedWallet = null;
+            // Process based on adjustment type
+            if (adjustment_type === 'WRONG_MAPPING_DEBIT' && wrong_customer_phone) {
+                // Debit from wrong customer (they shouldn't have received this money)
+                const normalizedPhone = normalizePhone(wrong_customer_phone);
 
-        // Process based on adjustment type
-        if (adjustment_type === 'WRONG_MAPPING_DEBIT' && wrong_customer_phone) {
-            // Debit from wrong customer (they shouldn't have received this money)
-            const normalizedPhone = normalizePhone(wrong_customer_phone);
+                const walletResult = await client.query(`
+                    UPDATE customer_wallets
+                    SET balance = balance - $2, updated_at = NOW()
+                    WHERE phone = $1
+                    RETURNING *
+                `, [normalizedPhone, Math.abs(amount)]);
 
-            const walletResult = await db.query(`
-                UPDATE customer_wallets
-                SET balance = balance - $2, updated_at = NOW()
-                WHERE phone = $1
-                RETURNING *
-            `, [normalizedPhone, Math.abs(amount)]);
+                if (walletResult.rows.length > 0) {
+                    affectedWallet = walletResult.rows[0];
 
-            if (walletResult.rows.length > 0) {
-                affectedWallet = walletResult.rows[0];
-
-                // Log wallet transaction
-                const txResult = await db.query(`
-                    INSERT INTO wallet_transactions
-                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
-                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
-                    RETURNING id
-                `, [
-                    normalizedPhone,
-                    affectedWallet.id,
-                    -Math.abs(amount),
-                    parseFloat(affectedWallet.balance) + Math.abs(amount),
-                    affectedWallet.balance,
-                    original_transaction_id,
-                    `Điều chỉnh: ${reason}`
-                ]);
-                walletTxId = txResult.rows[0].id;
+                    // Log wallet transaction
+                    const txResult = await client.query(`
+                        INSERT INTO wallet_transactions
+                        (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                        VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
+                        RETURNING id
+                    `, [
+                        normalizedPhone,
+                        affectedWallet.id,
+                        -Math.abs(amount),
+                        parseFloat(affectedWallet.balance) + Math.abs(amount),
+                        affectedWallet.balance,
+                        original_transaction_id,
+                        `Điều chỉnh: ${reason}`
+                    ]);
+                    walletTxId = txResult.rows[0].id;
+                }
             }
-        }
 
-        if (adjustment_type === 'WRONG_MAPPING_CREDIT' && correct_customer_phone) {
-            // Credit to correct customer
-            const normalizedPhone = normalizePhone(correct_customer_phone);
+            if (adjustment_type === 'WRONG_MAPPING_CREDIT' && correct_customer_phone) {
+                // Credit to correct customer
+                const normalizedPhone = normalizePhone(correct_customer_phone);
 
-            // Get or create wallet for correct customer
-            const walletResult = await db.query(`
-                INSERT INTO customer_wallets (phone, balance)
-                VALUES ($1, $2)
-                ON CONFLICT (phone) DO UPDATE
-                SET balance = customer_wallets.balance + $2, updated_at = NOW()
-                RETURNING *
-            `, [normalizedPhone, Math.abs(amount)]);
+                // Get or create wallet for correct customer
+                const walletResult = await client.query(`
+                    INSERT INTO customer_wallets (phone, balance)
+                    VALUES ($1, $2)
+                    ON CONFLICT (phone) DO UPDATE
+                    SET balance = customer_wallets.balance + $2, updated_at = NOW()
+                    RETURNING *
+                `, [normalizedPhone, Math.abs(amount)]);
 
-            if (walletResult.rows.length > 0) {
-                affectedWallet = walletResult.rows[0];
+                if (walletResult.rows.length > 0) {
+                    affectedWallet = walletResult.rows[0];
 
-                // Log wallet transaction
-                const txResult = await db.query(`
-                    INSERT INTO wallet_transactions
-                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
-                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
-                    RETURNING id
-                `, [
-                    normalizedPhone,
-                    affectedWallet.id,
-                    Math.abs(amount),
-                    parseFloat(affectedWallet.balance) - Math.abs(amount),
-                    affectedWallet.balance,
-                    original_transaction_id,
-                    `Điều chỉnh: ${reason}`
-                ]);
-                walletTxId = txResult.rows[0].id;
+                    // Log wallet transaction
+                    const txResult = await client.query(`
+                        INSERT INTO wallet_transactions
+                        (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                        VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
+                        RETURNING id
+                    `, [
+                        normalizedPhone,
+                        affectedWallet.id,
+                        Math.abs(amount),
+                        parseFloat(affectedWallet.balance) - Math.abs(amount),
+                        affectedWallet.balance,
+                        original_transaction_id,
+                        `Điều chỉnh: ${reason}`
+                    ]);
+                    walletTxId = txResult.rows[0].id;
+                }
             }
-        }
 
-        if (adjustment_type === 'DUPLICATE_REVERSAL' && wrong_customer_phone) {
-            // Reverse duplicate entry
-            const normalizedPhone = normalizePhone(wrong_customer_phone);
+            if (adjustment_type === 'DUPLICATE_REVERSAL' && wrong_customer_phone) {
+                // Reverse duplicate entry
+                const normalizedPhone = normalizePhone(wrong_customer_phone);
 
-            const walletResult = await db.query(`
-                UPDATE customer_wallets
-                SET balance = balance - $2, updated_at = NOW()
-                WHERE phone = $1
-                RETURNING *
-            `, [normalizedPhone, Math.abs(amount)]);
+                const walletResult = await client.query(`
+                    UPDATE customer_wallets
+                    SET balance = balance - $2, updated_at = NOW()
+                    WHERE phone = $1
+                    RETURNING *
+                `, [normalizedPhone, Math.abs(amount)]);
 
-            if (walletResult.rows.length > 0) {
-                affectedWallet = walletResult.rows[0];
+                if (walletResult.rows.length > 0) {
+                    affectedWallet = walletResult.rows[0];
 
-                const txResult = await db.query(`
-                    INSERT INTO wallet_transactions
-                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
-                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'DUPLICATE_REVERSAL', $6, $7)
-                    RETURNING id
-                `, [
-                    normalizedPhone,
-                    affectedWallet.id,
-                    -Math.abs(amount),
-                    parseFloat(affectedWallet.balance) + Math.abs(amount),
-                    affectedWallet.balance,
-                    original_transaction_id,
-                    `Hoàn tác trùng: ${reason}`
-                ]);
-                walletTxId = txResult.rows[0].id;
+                    const txResult = await client.query(`
+                        INSERT INTO wallet_transactions
+                        (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                        VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'DUPLICATE_REVERSAL', $6, $7)
+                        RETURNING id
+                    `, [
+                        normalizedPhone,
+                        affectedWallet.id,
+                        -Math.abs(amount),
+                        parseFloat(affectedWallet.balance) + Math.abs(amount),
+                        affectedWallet.balance,
+                        original_transaction_id,
+                        `Hoàn tác trùng: ${reason}`
+                    ]);
+                    walletTxId = txResult.rows[0].id;
+                }
             }
-        }
 
-        // Record the adjustment
-        const adjustmentResult = await db.query(`
-            INSERT INTO wallet_adjustments (
+            // Record the adjustment
+            const adjustmentResult = await client.query(`
+                INSERT INTO wallet_adjustments (
+                    original_transaction_id,
+                    wallet_transaction_id,
+                    adjustment_type,
+                    wrong_customer_phone,
+                    correct_customer_phone,
+                    adjustment_amount,
+                    reason,
+                    created_by,
+                    approved_by,
+                    approved_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CURRENT_TIMESTAMP)
+                RETURNING *
+            `, [
                 original_transaction_id,
-                wallet_transaction_id,
+                walletTxId,
                 adjustment_type,
-                wrong_customer_phone,
-                correct_customer_phone,
-                adjustment_amount,
+                wrong_customer_phone ? normalizePhone(wrong_customer_phone) : null,
+                correct_customer_phone ? normalizePhone(correct_customer_phone) : null,
+                amount,
                 reason,
-                created_by,
-                approved_by,
-                approved_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CURRENT_TIMESTAMP)
-            RETURNING *
-        `, [
-            original_transaction_id,
-            walletTxId,
-            adjustment_type,
-            wrong_customer_phone ? normalizePhone(wrong_customer_phone) : null,
-            correct_customer_phone ? normalizePhone(correct_customer_phone) : null,
-            amount,
-            reason,
-            created_by
-        ]);
+                created_by
+            ]);
 
-        await db.query('COMMIT');
+            return { walletTxId, affectedWallet, adjustment: adjustmentResult.rows[0] };
+        });
 
         console.log(`[Wallets V2] ✅ Adjustment created: ${adjustment_type} by ${created_by}`);
 
@@ -1267,7 +1270,7 @@ router.post('/adjustment', async (req, res) => {
             success: true,
             message: 'Điều chỉnh ví thành công',
             data: {
-                adjustment: adjustmentResult.rows[0],
+                adjustment,
                 wallet_transaction_id: walletTxId,
                 affected_wallet: affectedWallet ? {
                     phone: affectedWallet.phone,
@@ -1277,7 +1280,6 @@ router.post('/adjustment', async (req, res) => {
         });
 
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to create wallet adjustment');
     }
 });
@@ -1405,97 +1407,100 @@ router.post('/refund-by-order', async (req, res) => {
         const realUsed = parseFloat(withdrawal.real_used) || 0;
 
         // Step 2: Refund to wallet (transaction: wallet update + transaction log + withdrawal status)
-        await db.query('BEGIN');
+        let wallet, balanceBefore, virtualBefore, txResult;
+        try {
+            ({ wallet, balanceBefore, virtualBefore, txResult } = await withTransaction(db, async (client) => {
+                const walletResult = await client.query(`
+                    SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE
+                `, [normalizedPhone]);
 
-        // Get current wallet
-        const walletResult = await db.query(`
-            SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE
-        `, [normalizedPhone]);
+                if (walletResult.rows.length === 0) {
+                    const notFound = new Error('Wallet not found');
+                    notFound.statusCode = 404;
+                    throw notFound;
+                }
 
-        if (walletResult.rows.length === 0) {
-            await db.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Wallet not found' });
-        }
+                const wallet = walletResult.rows[0];
+                const balanceBefore = parseFloat(wallet.balance);
+                const virtualBefore = parseFloat(wallet.virtual_balance);
 
-        const wallet = walletResult.rows[0];
-        const balanceBefore = parseFloat(wallet.balance);
-        const virtualBefore = parseFloat(wallet.virtual_balance);
+                if (realUsed > 0) {
+                    await client.query(`
+                        UPDATE customer_wallets
+                        SET balance = balance + $2, updated_at = NOW()
+                        WHERE phone = $1
+                    `, [normalizedPhone, realUsed]);
+                }
 
-        // Refund real balance portion
-        if (realUsed > 0) {
-            await db.query(`
-                UPDATE customer_wallets
-                SET balance = balance + $2, updated_at = NOW()
-                WHERE phone = $1
-            `, [normalizedPhone, realUsed]);
-        }
+                if (virtualUsed > 0) {
+                    await client.query(`
+                        UPDATE customer_wallets
+                        SET virtual_balance = virtual_balance + $2, updated_at = NOW()
+                        WHERE phone = $1
+                    `, [normalizedPhone, virtualUsed]);
 
-        // Refund virtual balance portion (re-credit virtual credits)
-        if (virtualUsed > 0) {
-            await db.query(`
-                UPDATE customer_wallets
-                SET virtual_balance = virtual_balance + $2, updated_at = NOW()
-                WHERE phone = $1
-            `, [normalizedPhone, virtualUsed]);
+                    let virtualRemaining = virtualUsed;
+                    const creditsToRestore = await client.query(`
+                        SELECT id, original_amount, remaining_amount
+                        FROM virtual_credits
+                        WHERE phone = $1 AND status IN ('USED', 'ACTIVE')
+                          AND expires_at > NOW()
+                        ORDER BY expires_at ASC
+                    `, [normalizedPhone]);
 
-            // Restore consumed virtual credits (FIFO by expires_at, may span multiple records)
-            let virtualRemaining = virtualUsed;
-            const creditsToRestore = await db.query(`
-                SELECT id, original_amount, remaining_amount
-                FROM virtual_credits
-                WHERE phone = $1 AND status IN ('USED', 'ACTIVE')
-                  AND expires_at > NOW()
-                ORDER BY expires_at ASC
-            `, [normalizedPhone]);
+                    for (const credit of creditsToRestore.rows) {
+                        if (virtualRemaining <= 0) break;
+                        const canRestore = Math.min(
+                            virtualRemaining,
+                            parseFloat(credit.original_amount) - parseFloat(credit.remaining_amount)
+                        );
+                        if (canRestore <= 0) continue;
 
-            for (const credit of creditsToRestore.rows) {
-                if (virtualRemaining <= 0) break;
-                const canRestore = Math.min(
-                    virtualRemaining,
-                    parseFloat(credit.original_amount) - parseFloat(credit.remaining_amount)
-                );
-                if (canRestore <= 0) continue;
+                        await client.query(`
+                            UPDATE virtual_credits
+                            SET remaining_amount = remaining_amount + $2,
+                                status = 'ACTIVE',
+                                note = COALESCE($3, note),
+                                updated_at = NOW()
+                            WHERE id = $1
+                        `, [credit.id, canRestore, original_note || null]);
+                        virtualRemaining -= canRestore;
+                    }
+                }
 
-                await db.query(`
-                    UPDATE virtual_credits
-                    SET remaining_amount = remaining_amount + $2,
-                        status = 'ACTIVE',
-                        note = COALESCE($3, note),
-                        updated_at = NOW()
+                const txNote = original_note
+                    ? `${original_note} (hoàn từ đơn hủy #${order_id})`
+                    : `Hoàn tiền hủy đơn #${order_id} (Thật: ${realUsed.toLocaleString()}đ, Công nợ: ${virtualUsed.toLocaleString()}đ)`;
+                const txResult = await client.query(`
+                    INSERT INTO wallet_transactions
+                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note, created_by)
+                    VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'ORDER_CANCEL_REFUND', $6, $7, $8)
+                    RETURNING id
+                `, [
+                    normalizedPhone,
+                    wallet.id,
+                    refundAmount,
+                    balanceBefore + virtualBefore,
+                    balanceBefore + virtualBefore + refundAmount,
+                    order_id,
+                    txNote,
+                    created_by || 'system'
+                ]);
+
+                await client.query(`
+                    UPDATE pending_wallet_withdrawals
+                    SET status = 'CANCELLED', last_error = $2, updated_at = NOW()
                     WHERE id = $1
-                `, [credit.id, canRestore, original_note || null]);
-                virtualRemaining -= canRestore;
+                `, [withdrawal.id, `Refunded: ${reason || 'Đơn hàng bị hủy'}`]);
+
+                return { wallet, balanceBefore, virtualBefore, txResult };
+            }));
+        } catch (err) {
+            if (err.statusCode === 404) {
+                return res.status(404).json({ success: false, error: err.message });
             }
+            throw err;
         }
-
-        // Step 3: Log wallet transaction (refund)
-        const txNote = original_note
-            ? `${original_note} (hoàn từ đơn hủy #${order_id})`
-            : `Hoàn tiền hủy đơn #${order_id} (Thật: ${realUsed.toLocaleString()}đ, Công nợ: ${virtualUsed.toLocaleString()}đ)`;
-        const txResult = await db.query(`
-            INSERT INTO wallet_transactions
-            (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note, created_by)
-            VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'ORDER_CANCEL_REFUND', $6, $7, $8)
-            RETURNING id
-        `, [
-            normalizedPhone,
-            wallet.id,
-            refundAmount,
-            balanceBefore + virtualBefore,
-            balanceBefore + virtualBefore + refundAmount,
-            order_id,
-            txNote,
-            created_by || 'system'
-        ]);
-
-        // Step 4: Mark withdrawal as REFUNDED
-        await db.query(`
-            UPDATE pending_wallet_withdrawals
-            SET status = 'CANCELLED', last_error = $2, updated_at = NOW()
-            WHERE id = $1
-        `, [withdrawal.id, `Refunded: ${reason || 'Đơn hàng bị hủy'}`]);
-
-        await db.query('COMMIT');
 
         console.log(`[Wallets V2] ✅ Refund for order ${order_id}: ${refundAmount}đ (real: ${realUsed}, virtual: ${virtualUsed})`);
 
@@ -1539,7 +1544,6 @@ router.post('/refund-by-order', async (req, res) => {
             }
         });
     } catch (error) {
-        await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to refund wallet');
     }
 });

@@ -24,6 +24,7 @@
  */
 
 const EventEmitter = require('events');
+const { withTransaction } = require('../db/with-transaction');
 
 // =====================================================
 // EVENT EMITTER FOR SSE BROADCAST
@@ -128,23 +129,52 @@ function calculateNewBalance(currentBalance, type, amount) {
 // =====================================================
 
 /**
- * Process a wallet event (atomic operation)
+ * Process a wallet event (atomic operation).
  *
- * @param {Object} db - Database connection
- * @param {Object} event - Event data
- * @param {string} event.type - Event type (DEPOSIT, WITHDRAW, etc.)
- * @param {string} event.phone - Customer phone
- * @param {number} event.amount - Transaction amount
- * @param {string} event.source - Source (BANK_TRANSFER, TICKET_REFUND, etc.)
- * @param {string} event.referenceType - Reference type (balance_history, ticket, etc.)
- * @param {string|number} event.referenceId - Reference ID
- * @param {string} event.note - Transaction note
- * @param {number} event.customerId - Customer ID (optional)
- * @param {number|null} event.sepayId - SePay bank transaction id (BANK_TRANSFER deposits only — enforces UNIQUE at DB level via migration 064)
- * @param {boolean} event.skipCommit - Skip commit (for external transaction management)
- * @returns {Promise<{success: boolean, transactionId: number, wallet: Object}>}
+ * Accepts EITHER a pg.Pool or a pg.Client:
+ *   - If pool → this function wraps the work in `withTransaction` (single client,
+ *     real BEGIN/COMMIT/FOR UPDATE).
+ *   - If client → caller already owns a transaction, we run on it directly and
+ *     do NOT commit/rollback here. `event.skipCommit = true` forces this mode
+ *     even for a pool-like object, kept for backwards compat.
+ *
+ * Order of operations (fixed in Sprint 2 refactor to prevent double-crediting):
+ *   1. SELECT customer_wallets FOR UPDATE — row lock held until COMMIT.
+ *   2. INSERT wallet_transactions with ON CONFLICT (sepay_id) DO NOTHING.
+ *      If INSERT returns 0 rows (duplicate sepay_id), we return {skipped:true}
+ *      WITHOUT updating the balance. This prevents the classic bug where the
+ *      wallet UPDATE was committed before the INSERT failed UNIQUE and rolled
+ *      back — doubling the balance but leaving only one transaction row.
+ *   3. UPDATE customer_wallets balance ONLY if INSERT succeeded.
+ *
+ * @param {import('pg').Pool | import('pg').PoolClient} db
+ * @param {Object} event
+ * @param {string} event.type - DEPOSIT | WITHDRAW | VIRTUAL_* | ADJUSTMENT
+ * @param {string} event.phone
+ * @param {number} event.amount
+ * @param {string} event.source
+ * @param {string} event.referenceType - balance_history | ticket | order | manual
+ * @param {string|number} event.referenceId
+ * @param {string} event.note
+ * @param {number} [event.customerId]
+ * @param {number|null} [event.sepayId] - BANK_TRANSFER deposits only; drives the partial UNIQUE index from migration 064
+ * @param {boolean} [event.skipCommit] - deprecated; prefer passing a client directly
+ * @param {string|Date|null} [event.transactionDate]
+ * @returns {Promise<{success:boolean, transactionId?:number, wallet:Object, skipped?:boolean, reason?:string}>}
  */
 async function processWalletEvent(db, event) {
+    const isPool = db && typeof db.connect === 'function' && !event.skipCommit;
+    if (isPool) {
+        return withTransaction(db, (client) => runWalletEvent(client, event));
+    }
+    return runWalletEvent(db, event);
+}
+
+/**
+ * Inner worker — operates on a dedicated client (no BEGIN/COMMIT here).
+ * Caller must own the transaction.
+ */
+async function runWalletEvent(client, event) {
     const {
         type,
         phone,
@@ -156,7 +186,6 @@ async function processWalletEvent(db, event) {
         customerId = null,
         createdBy = null,
         sepayId = null,
-        skipCommit = false,
         transactionDate = null
     } = event;
 
@@ -171,55 +200,120 @@ async function processWalletEvent(db, event) {
 
     console.log(`[WALLET-PROCESSOR] Processing ${type}: ${phone} - ${amountNum}`);
 
-    const startedTransaction = !skipCommit;
+    // 1. Get or create wallet (row lock held until caller's COMMIT)
+    const walletResult = await client.query(`
+        SELECT id, phone, customer_id, balance, virtual_balance,
+               total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
+        FROM customer_wallets
+        WHERE phone = $1
+        FOR UPDATE
+    `, [phone]);
 
-    try {
-        if (startedTransaction) {
-            await db.query('BEGIN');
-        }
+    let wallet;
+    if (walletResult.rows.length === 0) {
+        const createResult = await client.query(`
+            INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
+            VALUES ($1, $2, 0, 0)
+            ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
+            RETURNING id, phone, customer_id, balance, virtual_balance,
+                      total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
+        `, [phone, customerId]);
+        wallet = createResult.rows[0];
+        console.log(`[WALLET-PROCESSOR] Created wallet for ${phone}`);
+    } else {
+        wallet = walletResult.rows[0];
+    }
 
-        // 1. Get or create wallet (with lock)
-        const walletResult = await db.query(`
-            SELECT id, phone, customer_id, balance, virtual_balance,
-                   total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
-            FROM customer_wallets
-            WHERE phone = $1
-            FOR UPDATE
-        `, [phone]);
+    // 2. Compute new balances (both real + virtual, so we have consistent before/after snapshots)
+    const isVirtualType = type.startsWith('VIRTUAL_');
+    const currentBalance = isVirtualType ? wallet.virtual_balance : wallet.balance;
+    const newBalance = calculateNewBalance(currentBalance, type, amountNum);
 
-        let wallet;
-        if (walletResult.rows.length === 0) {
-            // Create wallet
-            const createResult = await db.query(`
-                INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
-                VALUES ($1, $2, 0, 0)
-                RETURNING id, phone, customer_id, balance, virtual_balance,
-                          total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
-            `, [phone, customerId]);
-            wallet = createResult.rows[0];
-            console.log(`[WALLET-PROCESSOR] Created wallet for ${phone}`);
-        } else {
-            wallet = walletResult.rows[0];
-        }
+    const balanceBefore = parseFloat(wallet.balance);
+    const balanceAfter = isVirtualType ? balanceBefore : newBalance;
+    const virtualBefore = parseFloat(wallet.virtual_balance);
+    const virtualAfter = isVirtualType ? newBalance : virtualBefore;
 
-        // 2. Calculate new balance
-        const isVirtualType = type.startsWith('VIRTUAL_');
-        const currentBalance = isVirtualType ? wallet.virtual_balance : wallet.balance;
-        const newBalance = calculateNewBalance(currentBalance, type, amountNum);
+    // 3. INSERT wallet_transactions FIRST (ON CONFLICT DO NOTHING for sepay_id uniqueness).
+    //    If this conflicts, we know another code path already processed the same bank tx
+    //    → return skipped, DO NOT touch the balance.
+    const insertColumns = `phone, wallet_id, type, amount,
+            balance_before, balance_after,
+            virtual_balance_before, virtual_balance_after,
+            source, reference_type, reference_id, note, created_by, sepay_id${transactionDate ? ', created_at' : ''}`;
+    const insertValues = transactionDate
+        ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, ($15::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
+        : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14';
+    const insertParams = [
+        phone,
+        wallet.id,
+        type,
+        amountNum,
+        balanceBefore,
+        balanceAfter,
+        virtualBefore,
+        virtualAfter,
+        source,
+        referenceType,
+        referenceId?.toString(),
+        note,
+        createdBy,
+        sepayId
+    ];
+    if (transactionDate) {
+        insertParams.push(transactionDate);
+    }
 
-        // 3. Update wallet balance
-        let updateQuery;
-        let updateParams;
+    // ON CONFLICT DO NOTHING only matters when sepay_id is NOT NULL (partial index
+    // from migration 064). For non-bank transactions sepay_id is NULL and the
+    // clause is a safe no-op.
+    const txResult = await client.query(`
+        INSERT INTO wallet_transactions (${insertColumns})
+        VALUES (${insertValues})
+        ON CONFLICT (sepay_id) WHERE sepay_id IS NOT NULL DO NOTHING
+        RETURNING id
+    `, insertParams);
 
-        if (isVirtualType) {
-            // Virtual balance update
-            const totalField = type === WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED
-                ? 'total_virtual_issued'
-                : 'total_virtual_used';
+    if (txResult.rowCount === 0) {
+        // Duplicate sepay_id — another path already credited this bank transaction.
+        console.log(`[WALLET-PROCESSOR] ⚠️ Duplicate sepay_id=${sepayId} — skipping wallet update for ${phone}`);
+        return {
+            success: true,
+            skipped: true,
+            reason: `Duplicate sepay_id=${sepayId}`,
+            wallet
+        };
+    }
 
+    const transactionId = txResult.rows[0].id;
+
+    // 4. UPDATE wallet balance (safe — we hold the row lock from step 1,
+    //    and INSERT succeeded so we know this is a fresh transaction)
+    let updateQuery;
+    let updateParams;
+    if (isVirtualType) {
+        const totalField = type === WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED
+            ? 'total_virtual_issued'
+            : 'total_virtual_used';
+        updateQuery = `
+            UPDATE customer_wallets
+            SET virtual_balance = $2,
+                ${totalField} = ${totalField} + $3,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+        `;
+        updateParams = [wallet.id, newBalance, Math.abs(amountNum)];
+    } else {
+        const totalField = type === WALLET_EVENT_TYPES.DEPOSIT
+            ? 'total_deposited'
+            : type === WALLET_EVENT_TYPES.WITHDRAW
+                ? 'total_withdrawn'
+                : null;
+        if (totalField) {
             updateQuery = `
                 UPDATE customer_wallets
-                SET virtual_balance = $2,
+                SET balance = $2,
                     ${totalField} = ${totalField} + $3,
                     updated_at = NOW()
                 WHERE id = $1
@@ -227,112 +321,47 @@ async function processWalletEvent(db, event) {
             `;
             updateParams = [wallet.id, newBalance, Math.abs(amountNum)];
         } else {
-            // Real balance update
-            const totalField = type === WALLET_EVENT_TYPES.DEPOSIT
-                ? 'total_deposited'
-                : type === WALLET_EVENT_TYPES.WITHDRAW
-                    ? 'total_withdrawn'
-                    : null;
-
-            if (totalField) {
-                updateQuery = `
-                    UPDATE customer_wallets
-                    SET balance = $2,
-                        ${totalField} = ${totalField} + $3,
-                        updated_at = NOW()
-                    WHERE id = $1
-                    RETURNING *
-                `;
-                updateParams = [wallet.id, newBalance, Math.abs(amountNum)];
-            } else {
-                updateQuery = `
-                    UPDATE customer_wallets
-                    SET balance = $2, updated_at = NOW()
-                    WHERE id = $1
-                    RETURNING *
-                `;
-                updateParams = [wallet.id, newBalance];
-            }
+            updateQuery = `
+                UPDATE customer_wallets
+                SET balance = $2, updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            `;
+            updateParams = [wallet.id, newBalance];
         }
+    }
 
-        const updatedWalletResult = await db.query(updateQuery, updateParams);
-        const updatedWallet = updatedWalletResult.rows[0];
+    const updatedWalletResult = await client.query(updateQuery, updateParams);
+    const updatedWallet = updatedWalletResult.rows[0];
 
-        // 4. Create transaction record
-        // sepay_id is populated ONLY for BANK_TRANSFER deposits (migration 064 partial UNIQUE index)
-        // Null for all other types — partial index skips them.
-        const insertColumns = `phone, wallet_id, type, amount,
-                balance_before, balance_after,
-                virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note, created_by, sepay_id${transactionDate ? ', created_at' : ''}`;
-        const insertValues = transactionDate
-            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, ($15::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
-            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14';
-        const insertParams = [
-            phone,
-            wallet.id,
+    console.log(`[WALLET-PROCESSOR] ✅ ${type} completed: ${phone} - ${amountNum} (TX: ${transactionId})`);
+
+    // 5. Emit SSE event (safe to emit before commit — if this transaction rolls back later
+    //    the UI will reconcile on next SSE tick. Previously we emitted inside the old
+    //    BEGIN/COMMIT block which was a no-op on pool anyway.)
+    const eventData = {
+        phone,
+        wallet: updatedWallet,
+        transaction: {
+            id: transactionId,
             type,
-            amountNum,
-            isVirtualType ? wallet.balance : wallet.balance,
-            isVirtualType ? wallet.balance : newBalance,
-            isVirtualType ? wallet.virtual_balance : wallet.virtual_balance,
-            isVirtualType ? newBalance : wallet.virtual_balance,
+            amount: amountNum,
             source,
             referenceType,
-            referenceId?.toString(),
-            note,
-            createdBy,
-            sepayId
-        ];
-        if (transactionDate) {
-            insertParams.push(transactionDate);
-        }
-        const txResult = await db.query(`
-            INSERT INTO wallet_transactions (${insertColumns})
-            VALUES (${insertValues})
-            RETURNING id
-        `, insertParams);
+            referenceId,
+            note
+        },
+        timestamp: new Date().toISOString()
+    };
 
-        const transactionId = txResult.rows[0].id;
+    walletEvents.emit('wallet:update', eventData);
+    walletEvents.emit(`wallet:${phone}`, eventData);
 
-        if (startedTransaction) {
-            await db.query('COMMIT');
-        }
-
-        console.log(`[WALLET-PROCESSOR] ✅ ${type} completed: ${phone} - ${amountNum} (TX: ${transactionId})`);
-
-        // 5. Emit SSE event
-        const eventData = {
-            phone,
-            wallet: updatedWallet,
-            transaction: {
-                id: transactionId,
-                type,
-                amount: amountNum,
-                source,
-                referenceType,
-                referenceId,
-                note
-            },
-            timestamp: new Date().toISOString()
-        };
-
-        walletEvents.emit('wallet:update', eventData);
-        walletEvents.emit(`wallet:${phone}`, eventData);
-
-        return {
-            success: true,
-            transactionId,
-            wallet: updatedWallet
-        };
-
-    } catch (error) {
-        if (startedTransaction) {
-            await db.query('ROLLBACK');
-        }
-        console.error(`[WALLET-PROCESSOR] ❌ Error processing ${type} for ${phone}:`, error);
-        throw error;
-    }
+    return {
+        success: true,
+        transactionId,
+        wallet: updatedWallet
+    };
 }
 
 // =====================================================
@@ -429,21 +458,20 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
 async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30, createdBy = null) {
     console.log(`[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`);
 
+    const isPool = db && typeof db.connect === 'function';
+    const runner = isPool
+        ? (fn) => withTransaction(db, fn)
+        : (fn) => fn(db);
+
     try {
-        // First create the virtual credit record
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+        return await runner(async (client) => {
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-        console.log(`[WALLET-PROCESSOR] Getting/creating wallet for ${phone}`);
-        const wallet = await getOrCreateWallet(db, phone);
-        console.log(`[WALLET-PROCESSOR] Wallet obtained: id=${wallet.id}`);
+            const wallet = await getOrCreateWallet(client, phone);
+            console.log(`[WALLET-PROCESSOR] Wallet obtained: id=${wallet.id}`);
 
-        // Start transaction
-        await db.query('BEGIN');
-
-        try {
-            console.log(`[WALLET-PROCESSOR] Inserting virtual_credits record...`);
-            const insertResult = await db.query(`
+            const insertResult = await client.query(`
                 INSERT INTO virtual_credits (
                     phone, wallet_id, original_amount, remaining_amount,
                     expires_at, source_type, source_id, note, status
@@ -452,14 +480,11 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                 RETURNING id
             `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
             const virtualCreditId = insertResult.rows[0].id;
-            console.log(`[WALLET-PROCESSOR] Virtual credit record inserted successfully, id: ${virtualCreditId}`);
 
-            // Update wallet virtual_balance and record transaction
-            console.log(`[WALLET-PROCESSOR] Updating wallet virtual_balance...`);
             const newVirtualBalance = parseFloat(wallet.virtual_balance || 0) + parseFloat(amount);
             const newTotalVirtualIssued = parseFloat(wallet.total_virtual_issued || 0) + parseFloat(amount);
 
-            const updateResult = await db.query(`
+            const updateResult = await client.query(`
                 UPDATE customer_wallets
                 SET virtual_balance = $2,
                     total_virtual_issued = $3,
@@ -468,8 +493,7 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                 RETURNING *
             `, [wallet.id, newVirtualBalance, newTotalVirtualIssued]);
 
-            // Record wallet transaction for virtual credit issuance
-            await db.query(`
+            await client.query(`
                 INSERT INTO wallet_transactions (
                     phone, wallet_id, type, amount,
                     balance_before, balance_after,
@@ -479,20 +503,17 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     'VIRTUAL_CREDIT_ISSUE', 'virtual_credit', $7, $8, $9)
             `, [
                 phone, wallet.id, amount,
-                parseFloat(wallet.balance || 0),           // balance unchanged
-                parseFloat(wallet.virtual_balance || 0),   // virtual_balance before
-                newVirtualBalance,                          // virtual_balance after
+                parseFloat(wallet.balance || 0),
+                parseFloat(wallet.virtual_balance || 0),
+                newVirtualBalance,
                 String(virtualCreditId),
                 reason,
                 createdBy
             ]);
 
-            await db.query('COMMIT');
-
             const updatedWallet = updateResult.rows[0];
             console.log(`[WALLET-PROCESSOR] ✅ Virtual credit issued successfully: ${phone} +${amount}đ (virtual_balance: ${newVirtualBalance})`);
 
-            // Emit SSE event for realtime update (must use 'wallet:update' to match SSE route listener)
             const eventData = {
                 phone,
                 wallet: updatedWallet,
@@ -521,13 +542,9 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     reason
                 }
             };
-        } catch (txError) {
-            await db.query('ROLLBACK');
-            throw txError;
-        }
+        });
     } catch (error) {
         console.error(`[WALLET-PROCESSOR] issueVirtualCredit FAILED:`, error.message);
-        console.error(`[WALLET-PROCESSOR] Error details:`, error);
         throw error;
     }
 }

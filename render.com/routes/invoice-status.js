@@ -227,7 +227,7 @@ router.post('/entries/batch', async (req, res) => {
             await client.query('COMMIT');
             res.json({ success: true, count: entries.length });
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -408,7 +408,7 @@ router.post('/refresh-from-tpos', async (req, res) => {
                     }
                     await client.query('COMMIT');
                 } catch (txErr) {
-                    await client.query('ROLLBACK');
+                    await client.query('ROLLBACK').catch(() => {});
                     errors++;
                     console.error('[INVOICE-REFRESH] Tx failed:', txErr.message);
                 } finally {

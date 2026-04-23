@@ -24,6 +24,7 @@ const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
 const { processDeposit, processManualDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
+const { withTransaction } = require('../../db/with-transaction');
 
 // Try to import SSE router for notifications
 let sseRouter;
@@ -445,131 +446,125 @@ router.post('/:id/resolve', async (req, res) => {
     const { compensation_amount, compensation_type = 'virtual_credit', note, performed_by } = req.body;
 
     try {
-        await db.query('BEGIN');
+        let ticketIdForFetch;
+        try {
+            ticketIdForFetch = await withTransaction(db, async (client) => {
+                const ticketResult = await client.query(`
+                    SELECT * FROM customer_tickets
+                    WHERE (ticket_code = $1 OR firebase_id = $1 OR id = $2) AND status != 'DELETED'
+                    FOR UPDATE
+                `, [id, parseInt(id) || 0]);
 
-        // Get ticket
-        const ticketResult = await db.query(`
-            SELECT * FROM customer_tickets
-            WHERE (ticket_code = $1 OR firebase_id = $1 OR id = $2) AND status != 'DELETED'
-            FOR UPDATE
-        `, [id, parseInt(id) || 0]);
+                if (ticketResult.rows.length === 0) {
+                    const notFound = new Error('Ticket not found');
+                    notFound.statusCode = 404;
+                    throw notFound;
+                }
 
-        if (ticketResult.rows.length === 0) {
-            await db.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Ticket not found' });
-        }
+                const ticket = ticketResult.rows[0];
+                const updates = {
+                    status: 'COMPLETED',
+                    completed_at: new Date().toISOString()
+                };
 
-        const ticket = ticketResult.rows[0];
-        const updates = {
-            status: 'COMPLETED',
-            completed_at: new Date().toISOString()
-        };
+                if (compensation_amount && compensation_amount > 0) {
+                    const typeLabelMap = {
+                        'RETURN_SHIPPER': 'Thu Về',
+                        'RETURN_CLIENT': 'Khách Gửi',
+                        'BOOM': 'Boom Hàng',
+                        'FIX_COD': 'Sửa COD'
+                    };
+                    const typeLabel = typeLabelMap[ticket.type] || ticket.type || 'Ticket';
+                    const orderRef = ticket.order_id || ticket.ticket_code;
+                    const internalNoteStr = (ticket.internal_note || '').trim();
+                    const unifiedNote = internalNoteStr
+                        ? `Công Nợ Ảo Từ ${typeLabel} (${orderRef}) - ${internalNoteStr}`
+                        : `Công Nợ Ảo Từ ${typeLabel} (${orderRef})`;
+                    const walletNoteForVC = note || unifiedNote;
+                    const walletNoteForDeposit = note || unifiedNote;
 
-        // Issue compensation if requested
-        if (compensation_amount && compensation_amount > 0) {
-            // Build wallet note: "Công Nợ Ảo Từ {Loại} ({order_id}) - {internal_note}"
-            const typeLabelMap = {
-                'RETURN_SHIPPER': 'Thu Về',
-                'RETURN_CLIENT': 'Khách Gửi',
-                'BOOM': 'Boom Hàng',
-                'FIX_COD': 'Sửa COD'
-            };
-            const typeLabel = typeLabelMap[ticket.type] || ticket.type || 'Ticket';
-            const orderRef = ticket.order_id || ticket.ticket_code;
-            const internalNoteStr = (ticket.internal_note || '').trim();
-            const unifiedNote = internalNoteStr
-                ? `Công Nợ Ảo Từ ${typeLabel} (${orderRef}) - ${internalNoteStr}`
-                : `Công Nợ Ảo Từ ${typeLabel} (${orderRef})`;
-            const walletNoteForVC = note || unifiedNote;
-            const walletNoteForDeposit = note || unifiedNote;
+                    if (compensation_type === 'virtual_credit') {
+                        await issueVirtualCredit(
+                            client,
+                            ticket.phone,
+                            compensation_amount,
+                            ticket.ticket_code,
+                            walletNoteForVC,
+                            15
+                        );
+                        updates.virtual_credit_amount = compensation_amount;
+                        updates.wallet_credited = true;
 
-            if (compensation_type === 'virtual_credit') {
-                // Use centralized wallet-event-processor for virtual credit
-                const vcResult = await issueVirtualCredit(
-                    db,
-                    ticket.phone,
+                    } else if (compensation_type === 'deposit') {
+                        await processManualDeposit(
+                            client,
+                            ticket.phone,
+                            compensation_amount,
+                            'RETURN_GOODS',
+                            ticket.ticket_code,
+                            walletNoteForDeposit,
+                            ticket.customer_id
+                        );
+                        updates.refund_amount = compensation_amount;
+                        updates.wallet_credited = true;
+                    }
+                }
+
+                const actionLog = {
+                    action: 'resolved',
+                    old_status: ticket.status,
+                    new_status: 'COMPLETED',
                     compensation_amount,
-                    ticket.ticket_code,
-                    walletNoteForVC,
-                    15 // expires in 15 days
-                );
+                    compensation_type,
+                    performed_by: performed_by || 'system',
+                    performed_at: new Date().toISOString(),
+                    note
+                };
+                const actionHistory = ticket.action_history || [];
+                actionHistory.push(actionLog);
 
-                updates.virtual_credit_amount = compensation_amount;
-                updates.wallet_credited = true;
+                await client.query(`
+                    UPDATE customer_tickets
+                    SET status = $2, completed_at = $3,
+                        virtual_credit_id = COALESCE($4, virtual_credit_id),
+                        virtual_credit_amount = COALESCE($5, virtual_credit_amount),
+                        refund_amount = COALESCE($6, refund_amount),
+                        wallet_credited = COALESCE($7, wallet_credited),
+                        action_history = $8,
+                        updated_at = NOW()
+                    WHERE id = $1
+                `, [
+                    ticket.id, updates.status, updates.completed_at,
+                    updates.virtual_credit_id, updates.virtual_credit_amount,
+                    updates.refund_amount, updates.wallet_credited,
+                    JSON.stringify(actionHistory)
+                ]);
 
-            } else if (compensation_type === 'deposit') {
-                // Use processManualDeposit for RETURN_CLIENT (return goods)
-                // processDeposit is only for bank transfers with balance_history
-                await processManualDeposit(
-                    db,
-                    ticket.phone,
-                    compensation_amount,
-                    'RETURN_GOODS', // Source: hàng trả về
-                    ticket.ticket_code, // Reference ID
-                    walletNoteForDeposit,
-                    ticket.customer_id
-                );
+                await client.query(`
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                    VALUES ($1, $2, 'TICKET_COMPLETED', $3, $4, 'ticket', $5, 'check-circle', 'green')
+                `, [
+                    ticket.phone, ticket.customer_id,
+                    `Hoàn thành ticket ${ticket.ticket_code}`,
+                    compensation_amount ? `Bồi thường: ${parseFloat(compensation_amount).toLocaleString()}đ` : 'Không bồi thường',
+                    ticket.ticket_code
+                ]);
 
-                updates.refund_amount = compensation_amount;
-                updates.wallet_credited = true;
+                return ticket.id;
+            });
+        } catch (err) {
+            if (err.statusCode === 404) {
+                return res.status(404).json({ success: false, error: err.message });
             }
+            throw err;
         }
 
-        // Update action history
-        const actionLog = {
-            action: 'resolved',
-            old_status: ticket.status,
-            new_status: 'COMPLETED',
-            compensation_amount,
-            compensation_type,
-            performed_by: performed_by || 'system',
-            performed_at: new Date().toISOString(),
-            note
-        };
+        const updatedResult = await db.query('SELECT * FROM customer_tickets WHERE id = $1', [ticketIdForFetch]);
 
-        const actionHistory = ticket.action_history || [];
-        actionHistory.push(actionLog);
-
-        // Update ticket
-        await db.query(`
-            UPDATE customer_tickets
-            SET status = $2, completed_at = $3,
-                virtual_credit_id = COALESCE($4, virtual_credit_id),
-                virtual_credit_amount = COALESCE($5, virtual_credit_amount),
-                refund_amount = COALESCE($6, refund_amount),
-                wallet_credited = COALESCE($7, wallet_credited),
-                action_history = $8,
-                updated_at = NOW()
-            WHERE id = $1
-        `, [
-            ticket.id, updates.status, updates.completed_at,
-            updates.virtual_credit_id, updates.virtual_credit_amount,
-            updates.refund_amount, updates.wallet_credited,
-            JSON.stringify(actionHistory)
-        ]);
-
-        // Log activity
-        await db.query(`
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'TICKET_COMPLETED', $3, $4, 'ticket', $5, 'check-circle', 'green')
-        `, [
-            ticket.phone, ticket.customer_id,
-            `Hoàn thành ticket ${ticket.ticket_code}`,
-            compensation_amount ? `Bồi thường: ${parseFloat(compensation_amount).toLocaleString()}đ` : 'Không bồi thường',
-            ticket.ticket_code
-        ]);
-
-        await db.query('COMMIT');
-
-        // Fetch updated ticket
-        const updatedResult = await db.query('SELECT * FROM customer_tickets WHERE id = $1', [ticket.id]);
-
-        // Notify SSE clients
         sseRouter.notifyClients('tickets', { action: 'resolved', ticket: updatedResult.rows[0] }, 'update');
 
         res.json({ success: true, data: updatedResult.rows[0] });
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to resolve ticket');
     }
 });
@@ -658,171 +653,159 @@ router.post('/:id/cancel', async (req, res) => {
     const { performed_by, reason } = req.body;
 
     try {
-        await db.query('BEGIN');
+        let ticketIdForFetch, virtualCreditCancelled;
+        try {
+            ({ ticketIdForFetch, virtualCreditCancelled } = await withTransaction(db, async (client) => {
+                const findResult = await client.query(`
+                    SELECT * FROM customer_tickets
+                    WHERE (ticket_code = $1 OR firebase_id = $1 OR id = $2) AND status NOT IN ('DELETED', 'CANCELLED')
+                    FOR UPDATE
+                `, [id, parseInt(id) || 0]);
 
-        // Find ticket
-        const findResult = await db.query(`
-            SELECT * FROM customer_tickets
-            WHERE (ticket_code = $1 OR firebase_id = $1 OR id = $2) AND status NOT IN ('DELETED', 'CANCELLED')
-            FOR UPDATE
-        `, [id, parseInt(id) || 0]);
-
-        if (findResult.rows.length === 0) {
-            await db.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Ticket not found or already cancelled' });
-        }
-
-        const ticket = findResult.rows[0];
-
-        // =====================================================
-        // BLOCK cancel if any action has been performed
-        // Only allow cancel on PENDING_GOODS with no operations done
-        // =====================================================
-        if (ticket.status !== 'PENDING_GOODS') {
-            await db.query('ROLLBACK');
-            const statusLabels = {
-                'PENDING_FINANCE': 'đã nhận hàng (chờ đối soát)',
-                'COMPLETED': 'đã hoàn tất',
-                'PENDING': 'đang chờ xử lý'
-            };
-            const label = statusLabels[ticket.status] || ticket.status;
-            return res.status(400).json({
-                success: false,
-                error: 'CANNOT_CANCEL_PROCESSED',
-                message: `Không thể hủy: Phiếu ${label}. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.`
-            });
-        }
-
-        // =====================================================
-        // RETURN_SHIPPER: Check virtual credit usage before allowing cancel
-        // If credit is unused → cancel credit + cancel ticket
-        // If credit is used (partially or fully) → block cancel
-        // =====================================================
-        let virtualCreditCancelled = false;
-        if (ticket.type === 'RETURN_SHIPPER') {
-            const creditResult = await db.query(`
-                SELECT id, original_amount, remaining_amount, used_in_orders, wallet_id
-                FROM virtual_credits
-                WHERE (source_id IN ($1, $2) OR id = $3)
-                  AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
-            `, [ticket.ticket_code, ticket.order_id, parseInt(ticket.virtual_credit_id) || 0]);
-
-            if (creditResult.rows.length > 0) {
-                const vc = creditResult.rows[0];
-                const usedOrders = vc.used_in_orders || [];
-                const originalAmount = parseFloat(vc.original_amount);
-                const remainingAmount = parseFloat(vc.remaining_amount);
-                const usedAmount = originalAmount - remainingAmount;
-
-                // Check if virtual credit has been used - BLOCK CANCEL
-                if (usedOrders.length > 0 || remainingAmount < originalAmount) {
-                    await db.query('ROLLBACK');
-                    return res.status(400).json({
-                        success: false,
-                        error: 'CANNOT_CANCEL_USED_CREDIT',
-                        message: `Không thể hủy: Công nợ ảo đã được sử dụng (đã dùng: ${usedAmount.toLocaleString()}đ / ${originalAmount.toLocaleString()}đ)`,
-                        usedAmount,
-                        originalAmount,
-                        remainingAmount
-                    });
+                if (findResult.rows.length === 0) {
+                    const err = new Error('Ticket not found or already cancelled');
+                    err.statusCode = 404;
+                    throw err;
                 }
 
-                // Cancel unused virtual credit
-                await db.query(`
-                    UPDATE virtual_credits
-                    SET status = 'CANCELLED', updated_at = NOW()
-                    WHERE id = $1
-                `, [vc.id]);
+                const ticket = findResult.rows[0];
 
-                // Update wallet virtual_balance and log transaction
-                if (vc.wallet_id) {
-                    const walletBefore = await db.query(
-                        'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
-                        [vc.wallet_id]
-                    );
-                    const virtualBalanceBefore = parseFloat(walletBefore.rows[0]?.virtual_balance || 0);
-                    const virtualBalanceAfter = virtualBalanceBefore - originalAmount;
+                if (ticket.status !== 'PENDING_GOODS') {
+                    const statusLabels = {
+                        'PENDING_FINANCE': 'đã nhận hàng (chờ đối soát)',
+                        'COMPLETED': 'đã hoàn tất',
+                        'PENDING': 'đang chờ xử lý'
+                    };
+                    const label = statusLabels[ticket.status] || ticket.status;
+                    const err = new Error(`Không thể hủy: Phiếu ${label}. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.`);
+                    err.statusCode = 400;
+                    err.errorCode = 'CANNOT_CANCEL_PROCESSED';
+                    throw err;
+                }
 
-                    await db.query(`
-                        UPDATE customer_wallets
-                        SET virtual_balance = virtual_balance - $1, updated_at = NOW()
-                        WHERE id = $2
-                    `, [originalAmount, vc.wallet_id]);
+                let virtualCreditCancelled = false;
+                if (ticket.type === 'RETURN_SHIPPER') {
+                    const creditResult = await client.query(`
+                        SELECT id, original_amount, remaining_amount, used_in_orders, wallet_id
+                        FROM virtual_credits
+                        WHERE (source_id IN ($1, $2) OR id = $3)
+                          AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
+                    `, [ticket.ticket_code, ticket.order_id, parseInt(ticket.virtual_credit_id) || 0]);
 
-                    await db.query(`
-                        INSERT INTO wallet_transactions (
-                            phone, wallet_id, type, amount,
-                            virtual_balance_before, virtual_balance_after,
-                            source, reference_type, reference_id, note
-                        ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
-                            'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
-                    `, [
-                        ticket.phone,
-                        vc.wallet_id,
-                        -originalAmount,
-                        virtualBalanceBefore,
-                        virtualBalanceAfter,
-                        ticket.ticket_code,
-                        `Thu hồi công nợ ảo - Hủy phiếu ${ticket.ticket_code}`
-                    ]);
+                    if (creditResult.rows.length > 0) {
+                        const vc = creditResult.rows[0];
+                        const usedOrders = vc.used_in_orders || [];
+                        const originalAmount = parseFloat(vc.original_amount);
+                        const remainingAmount = parseFloat(vc.remaining_amount);
+                        const usedAmount = originalAmount - remainingAmount;
 
-                    // Post-deduction verification: confirm wallet balance was actually reduced
-                    const walletAfterVerify = await db.query(
-                        'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
-                        [vc.wallet_id]
-                    );
-                    const verifiedBalance = parseFloat(walletAfterVerify.rows[0]?.virtual_balance || 0);
-                    if (verifiedBalance > virtualBalanceBefore) {
-                        await db.query('ROLLBACK');
-                        console.error(`[Tickets V2] CRITICAL: Wallet verification failed for ticket ${ticket.ticket_code}. Before: ${virtualBalanceBefore}, After: ${verifiedBalance}`);
-                        return res.status(500).json({
-                            success: false,
-                            error: 'WALLET_VERIFICATION_FAILED',
-                            message: 'Lỗi xác thực ví: Số dư không khớp sau khi trừ công nợ. Vui lòng thử lại.'
-                        });
+                        if (usedOrders.length > 0 || remainingAmount < originalAmount) {
+                            const err = new Error(`Không thể hủy: Công nợ ảo đã được sử dụng (đã dùng: ${usedAmount.toLocaleString()}đ / ${originalAmount.toLocaleString()}đ)`);
+                            err.statusCode = 400;
+                            err.errorCode = 'CANNOT_CANCEL_USED_CREDIT';
+                            err.extra = { usedAmount, originalAmount, remainingAmount };
+                            throw err;
+                        }
+
+                        await client.query(`
+                            UPDATE virtual_credits
+                            SET status = 'CANCELLED', updated_at = NOW()
+                            WHERE id = $1
+                        `, [vc.id]);
+
+                        if (vc.wallet_id) {
+                            const walletBefore = await client.query(
+                                'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
+                                [vc.wallet_id]
+                            );
+                            const virtualBalanceBefore = parseFloat(walletBefore.rows[0]?.virtual_balance || 0);
+                            const virtualBalanceAfter = virtualBalanceBefore - originalAmount;
+
+                            await client.query(`
+                                UPDATE customer_wallets
+                                SET virtual_balance = virtual_balance - $1, updated_at = NOW()
+                                WHERE id = $2
+                            `, [originalAmount, vc.wallet_id]);
+
+                            await client.query(`
+                                INSERT INTO wallet_transactions (
+                                    phone, wallet_id, type, amount,
+                                    virtual_balance_before, virtual_balance_after,
+                                    source, reference_type, reference_id, note
+                                ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
+                                    'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
+                            `, [
+                                ticket.phone,
+                                vc.wallet_id,
+                                -originalAmount,
+                                virtualBalanceBefore,
+                                virtualBalanceAfter,
+                                ticket.ticket_code,
+                                `Thu hồi công nợ ảo - Hủy phiếu ${ticket.ticket_code}`
+                            ]);
+
+                            const walletAfterVerify = await client.query(
+                                'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
+                                [vc.wallet_id]
+                            );
+                            const verifiedBalance = parseFloat(walletAfterVerify.rows[0]?.virtual_balance || 0);
+                            if (verifiedBalance > virtualBalanceBefore) {
+                                console.error(`[Tickets V2] CRITICAL: Wallet verification failed for ticket ${ticket.ticket_code}. Before: ${virtualBalanceBefore}, After: ${verifiedBalance}`);
+                                const err = new Error('Lỗi xác thực ví: Số dư không khớp sau khi trừ công nợ. Vui lòng thử lại.');
+                                err.statusCode = 500;
+                                err.errorCode = 'WALLET_VERIFICATION_FAILED';
+                                throw err;
+                            }
+                            console.log(`[Tickets V2] Wallet verification passed. Balance: ${virtualBalanceBefore} → ${verifiedBalance} (deducted ${originalAmount}đ)`);
+                        }
+
+                        virtualCreditCancelled = true;
+                        console.log(`[Tickets V2] Cancelled virtual credit ${vc.id} (${originalAmount}đ) for cancelled ticket ${ticket.ticket_code}`);
                     }
-                    console.log(`[Tickets V2] Wallet verification passed. Balance: ${virtualBalanceBefore} → ${verifiedBalance} (deducted ${originalAmount}đ)`);
                 }
 
-                virtualCreditCancelled = true;
-                console.log(`[Tickets V2] Cancelled virtual credit ${vc.id} (${originalAmount}đ) for cancelled ticket ${ticket.ticket_code}`);
+                const actionLog = {
+                    action: 'cancelled',
+                    old_status: ticket.status,
+                    new_status: 'CANCELLED',
+                    performed_by: performed_by || 'system',
+                    performed_at: new Date().toISOString(),
+                    reason: reason || ''
+                };
+                const actionHistory = ticket.action_history || [];
+                actionHistory.push(actionLog);
+
+                await client.query(`
+                    UPDATE customer_tickets
+                    SET status = 'CANCELLED', action_history = $2, updated_at = NOW()
+                    WHERE id = $1
+                `, [ticket.id, JSON.stringify(actionHistory)]);
+
+                const activityTitle = virtualCreditCancelled
+                    ? `Hủy ticket ${ticket.ticket_code} + Hủy công nợ ảo`
+                    : `Hủy ticket ${ticket.ticket_code}`;
+                await client.query(`
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, reference_type, reference_id, icon, color)
+                    VALUES ($1, $2, 'TICKET_CANCELLED', $3, 'ticket', $4, 'x-circle', 'gray')
+                `, [ticket.phone, ticket.customer_id, activityTitle, ticket.ticket_code]);
+
+                return { ticketIdForFetch: ticket.id, virtualCreditCancelled };
+            }));
+        } catch (err) {
+            if (err.statusCode) {
+                const body = {
+                    success: false,
+                    error: err.errorCode || undefined,
+                    message: err.message
+                };
+                if (err.extra) Object.assign(body, err.extra);
+                return res.status(err.statusCode).json(body);
             }
+            throw err;
         }
 
-        // Update action history
-        const actionLog = {
-            action: 'cancelled',
-            old_status: ticket.status,
-            new_status: 'CANCELLED',
-            performed_by: performed_by || 'system',
-            performed_at: new Date().toISOString(),
-            reason: reason || ''
-        };
-        const actionHistory = ticket.action_history || [];
-        actionHistory.push(actionLog);
+        const updatedResult = await db.query('SELECT * FROM customer_tickets WHERE id = $1', [ticketIdForFetch]);
 
-        // Set status to CANCELLED
-        await db.query(`
-            UPDATE customer_tickets
-            SET status = 'CANCELLED', action_history = $2, updated_at = NOW()
-            WHERE id = $1
-        `, [ticket.id, JSON.stringify(actionHistory)]);
-
-        // Log activity
-        const activityTitle = virtualCreditCancelled
-            ? `Hủy ticket ${ticket.ticket_code} + Hủy công nợ ảo`
-            : `Hủy ticket ${ticket.ticket_code}`;
-        await db.query(`
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'TICKET_CANCELLED', $3, 'ticket', $4, 'x-circle', 'gray')
-        `, [ticket.phone, ticket.customer_id, activityTitle, ticket.ticket_code]);
-
-        await db.query('COMMIT');
-
-        // Fetch updated ticket
-        const updatedResult = await db.query('SELECT * FROM customer_tickets WHERE id = $1', [ticket.id]);
-
-        // Notify SSE clients
         sseRouter.notifyClients('tickets', { action: 'cancelled', ticket: updatedResult.rows[0] }, 'update');
 
         res.json({
@@ -832,7 +815,6 @@ router.post('/:id/cancel', async (req, res) => {
             virtualCreditCancelled
         });
     } catch (error) {
-        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to cancel ticket');
     }
 });

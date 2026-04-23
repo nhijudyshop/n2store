@@ -186,7 +186,7 @@ router.post('/upsert-batch', async (req, res) => {
             await client.query('COMMIT');
             res.json({ success: true, upserted, skipped });
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();
@@ -379,7 +379,7 @@ router.post('/sync', async (req, res) => {
                 }
                 await client.query('COMMIT');
             } catch (e) {
-                await client.query('ROLLBACK');
+                await client.query('ROLLBACK').catch(() => {});
                 throw e;
             } finally {
                 client.release();

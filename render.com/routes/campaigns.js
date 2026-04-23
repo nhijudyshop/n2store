@@ -360,7 +360,7 @@ router.post('/batch', async (req, res) => {
             }
             await client.query('COMMIT');
         } catch (e) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw e;
         } finally {
             client.release();

@@ -211,7 +211,7 @@ router.put('/bulk', async (req, res) => {
             await client.query('COMMIT');
             res.json({ success: true, count: replies.length });
         } catch (err) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw err;
         } finally {
             client.release();

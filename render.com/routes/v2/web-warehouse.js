@@ -715,7 +715,7 @@ router.post('/batch', async (req, res) => {
             results
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Batch upsert failed');
     } finally {
         client.release();
@@ -784,7 +784,7 @@ router.post('/subtract', async (req, res) => {
             results
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Subtract failed');
     } finally {
         client.release();
@@ -1284,7 +1284,7 @@ router.post('/confirm-sale', async (req, res) => {
             }
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Confirm sale failed');
     } finally {
         client.release();
@@ -1385,7 +1385,7 @@ router.post('/return', async (req, res) => {
             returned: { productCode, quantity, orderId }
         });
     } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Return failed');
     } finally {
         client.release();

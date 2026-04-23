@@ -1079,8 +1079,9 @@ router.get('/product-images', async (req, res) => {
 });
 
 router.put('/product-images', async (req, res) => {
+    const pool = getDb(req);
+    const db = await pool.connect();
     try {
-        const db = getDb(req);
         // body: { ngay_di_hang?, dot_so?, rows: [{ ncc, urls }] }
         // Scoped replace if (date, dot) provided; else legacy full replace within the
         // canonical default batch (2026-04-10, 1) — used by pre-batch-UI clients.
@@ -1120,9 +1121,11 @@ router.put('/product-images', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        await getDb(req).query('ROLLBACK').catch(() => {});
+        await db.query('ROLLBACK').catch(() => {});
         console.error('[inventory] PUT /product-images error:', err.message);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        db.release();
     }
 });
 
