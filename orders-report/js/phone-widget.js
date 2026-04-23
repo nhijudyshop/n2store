@@ -1790,6 +1790,83 @@ const PhoneWidget = (() => {
         });
     }
 
+    // === HEALTH WATCHDOG ===
+    // Vấn đề đã biết: tab ẩn lâu → browser throttle timers → JsSIP register expire,
+    // WebSocket transport bị NAT/proxy cut silent → không fire 'disconnected' →
+    // user mở lại tab thấy "mất kết nối" và không tự reconnect.
+    //
+    // Fix: 3 lớp phòng thủ:
+    //   1) Visibility change: khi tab visible lại → reset backoff + force register refresh
+    //      (nếu stale → registrationFailed/disconnected sẽ fire → scheduleReconnect)
+    //   2) Online event: khi network online trở lại → reset backoff + kick init ngay
+    //   3) Watchdog interval 45s: nếu phone null (chưa init) hoặc không registered và
+    //      không có reconnectTimer đang chạy → trigger reconnect không delay
+
+    function _forceReconnectNow(reason) {
+        addLog(`Force reconnect: ${reason}`, 'error');
+        cancelReconnect();
+        // Tear down stale phone object
+        if (phone) {
+            try { phone.stop(); } catch {}
+            phone = null;
+        }
+        isRegistered = false;
+        init();
+    }
+
+    function _healthCheck() {
+        // Không động nếu đang có cuộc gọi — tránh disrupt audio
+        if (currentSession || incomingSession) return;
+        // Nếu đang có reconnect timer chạy → để nó tự xử lý (tránh double-init)
+        if (reconnectTimer) return;
+        // Nếu không có ext config → widget chưa setup, skip
+        if (!config.extension || !config.authId || !config.password) return;
+
+        if (!phone) {
+            _forceReconnectNow('watchdog: no phone instance');
+            return;
+        }
+        if (!isRegistered) {
+            _forceReconnectNow('watchdog: not registered');
+            return;
+        }
+        // Phone exists và registered. Kiểm tra WS transport health (JsSIP internals).
+        // Nếu WS readyState != OPEN, transport dead → tear down.
+        try {
+            const transport = phone._transport;
+            const ws = transport?.socket?._ws || transport?._ws;
+            const readyState = ws?.readyState;
+            // WebSocket.OPEN === 1. Nếu readyState != 1 và transport đã init → stale.
+            if (ws && readyState != null && readyState !== 1) {
+                _forceReconnectNow(`watchdog: WS readyState=${readyState}`);
+            }
+        } catch {
+            // Accessing internals failed — không tear down, để tự nhiên.
+        }
+    }
+
+    // Visibility: tab quay lại foreground → health check ngay
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            _healthCheck();
+        }
+    });
+
+    // Network: online trở lại → reset backoff + kick reconnect ngay (nếu cần)
+    window.addEventListener('online', () => {
+        addLog('Network online — resetting reconnect backoff');
+        if (reconnectTimer) {
+            // Nếu đang pending reconnect, cancel để kick ngay không chờ backoff lớn
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            reconnectAttempt = 0;
+        }
+        _healthCheck();
+    });
+
+    // Watchdog interval — 45s (dưới register_expires=120s để detect stale sớm)
+    setInterval(_healthCheck, 45000);
+
     // Initialize FAB badge state on widget creation (attach to fabEl creation)
     function _initFabBadgeOnLoad() {
         // Defer until FAB exists
