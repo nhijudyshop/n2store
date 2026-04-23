@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [render][wallet][revert] Revert Sprint 2 theo yêu cầu user — giữ Sprint 1 (DB layer)
+| | |
+|---|---|
+| **Files** | Git revert 2 commits: `92dc57c7` (hotfix detect pool vs client) + `5ac26479` (Sprint 2 withTransaction + INSERT-first). Tạo 2 revert commits: `f8ffda7d` + `6a55e872`. Kết quả: xóa `render.com/db/with-transaction.js`, restore [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js) + [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) + [render.com/cron/scheduler.js](../render.com/cron/scheduler.js) về trạng thái sau Sprint 1. |
+| **Chi tiết** | User quyết định revert Sprint 2 hoàn toàn. Sprint 1 được giữ lại: migration 064 (sepay_id column + partial UNIQUE index) vẫn trên DB, code vẫn pass `bh.sepay_id` xuống processDeposit ở 5 nơi. **Hệ quả**: DB-layer protection vẫn hoạt động — 2 wallet_tx với cùng sepay_id sẽ bị UNIQUE chặn ở dòng INSERT thứ 2. **Rủi ro còn**: pool/transaction bug quay lại — nếu 2 request concurrent, có thể UPDATE balance 2 lần rồi INSERT thứ 2 fail UNIQUE → balance inflated dù chỉ 1 wallet_tx. Đây là lý do Sprint 2 được tạo ban đầu, nhưng user chọn accept risk này. |
+| **Status** | ✅ Reverted và push. Code state = sau Sprint 1. |
+
 ### [render][wallet][critical] Sprint 1 — Migration 064 + sepay_id column chặn double credit ở DB layer
 | | |
 |---|---|
