@@ -163,16 +163,8 @@ function calculateNewBalance(currentBalance, type, amount) {
  * @returns {Promise<{success:boolean, transactionId?:number, wallet:Object, skipped?:boolean, reason?:string}>}
  */
 async function processWalletEvent(db, event) {
-    // Distinguish pg.Pool vs pg.PoolClient:
-    //   - Both have `.connect()` and `.query()` → can't use `.connect` to detect.
-    //   - Only PoolClient has `.release()` → presence of release ⇒ client (caller owns tx).
-    //   - Pool has `.totalCount` / `.idleCount` (stats) — extra signal.
-    // If caller explicitly sets `event.skipCommit`, honor legacy contract
-    // (treat `db` as-is, don't wrap).
-    const isClient = !!(db && typeof db.release === 'function');
-    const shouldWrap = !isClient && !event.skipCommit && db && typeof db.connect === 'function';
-
-    if (shouldWrap) {
+    const isPool = db && typeof db.connect === 'function' && !event.skipCommit;
+    if (isPool) {
         return withTransaction(db, (client) => runWalletEvent(client, event));
     }
     return runWalletEvent(db, event);
