@@ -670,7 +670,9 @@ function registerRoutes(router, helpers) {
                         tx.transfer_amount,
                         id,
                         `Nap tu CK (Auto-approved by ${entered_by})`,
-                        customerId || tx.customer_id
+                        customerId || tx.customer_id,
+                        tx.transaction_date || null,
+                        tx.sepay_id || null
                     );
 
                     // Mark as wallet processed
