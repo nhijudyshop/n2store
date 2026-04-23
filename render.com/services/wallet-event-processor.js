@@ -163,8 +163,16 @@ function calculateNewBalance(currentBalance, type, amount) {
  * @returns {Promise<{success:boolean, transactionId?:number, wallet:Object, skipped?:boolean, reason?:string}>}
  */
 async function processWalletEvent(db, event) {
-    const isPool = db && typeof db.connect === 'function' && !event.skipCommit;
-    if (isPool) {
+    // Distinguish pg.Pool vs pg.PoolClient:
+    //   - Both have `.connect()` and `.query()` → can't use `.connect` to detect.
+    //   - Only PoolClient has `.release()` → presence of release ⇒ client (caller owns tx).
+    // Without this check, /approve calls processDeposit(client, ...) and we wrap
+    // client in withTransaction → client.connect() → "Client has already been
+    // connected. You cannot reuse a client" → route 500.
+    const isClient = !!(db && typeof db.release === 'function');
+    const shouldWrap = !isClient && !event.skipCommit && db && typeof db.connect === 'function';
+
+    if (shouldWrap) {
         return withTransaction(db, (client) => runWalletEvent(client, event));
     }
     return runWalletEvent(db, event);
@@ -458,8 +466,10 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
 async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30, createdBy = null) {
     console.log(`[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`);
 
-    const isPool = db && typeof db.connect === 'function';
-    const runner = isPool
+    // Same detection fix as processWalletEvent: PoolClient also has `.connect`,
+    // so check `.release` (only present on clients) to decide whether to wrap.
+    const isClient = !!(db && typeof db.release === 'function');
+    const runner = !isClient && db && typeof db.connect === 'function'
         ? (fn) => withTransaction(db, fn)
         : (fn) => fn(db);
 
