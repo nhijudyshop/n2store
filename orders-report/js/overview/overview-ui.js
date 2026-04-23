@@ -1271,7 +1271,7 @@ function renderProductsList(products) {
                 <td style="padding: 10px; text-align: center;">
                     ${
                         image
-                            ? `<img src="${image}" alt="${name}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;">`
+                            ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(image) : image}" alt="${name}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;">`
                             : `<div style="width: 45px; height: 45px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #cbd5e1;"></i></div>`
                     }
                 </td>
