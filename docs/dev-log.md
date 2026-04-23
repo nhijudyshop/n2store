@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [render][wallet][recovery] Khôi phục balance 92 ví bị Migration 063 bơm sai — dùng balance_after của wallet_tx cuối
+| | |
+|---|---|
+| **Files** | [docs/migration-063-affected-wallets.md](migration-063-affected-wallets.md) (danh sách 93 ví có stored != SUM, gồm Nhóm A 39 ví + Nhóm B 54 ví). [docs/migration-063-recovery-plan.md](migration-063-recovery-plan.md) (plan chi tiết từng ví trước khi apply). Data change: 92 dòng `customer_wallets.balance` được UPDATE về giá trị `balance_after` của wallet_transaction mới nhất của mỗi ví. |
+| **Chi tiết** | **Insight của user**: Trong `customer_activities` UI, mỗi dòng hoạt động ví hiển thị "→ XYK" cuối dòng = balance ngay sau giao dịch đó. Dòng trên cùng = mới nhất. Giá trị này được snapshot tại thời điểm giao dịch (lưu trong cột `wallet_transactions.balance_after`), **không bị Migration 063 Step 2 (công thức WITHDRAW flip sign) đụng vào**. Verify 3 ví mẫu user chỉ: 0896875227 → 0đ, 0906252809 → 0đ, 0949015004 → 365,000đ — tất cả khớp. **Lưu ý**: phải query với TẤT CẢ type (kể cả VIRTUAL_DEBIT/VIRTUAL_CREDIT), không chỉ DEPOSIT/WITHDRAW/ADJUSTMENT — vì giao dịch mới nhất có thể là VIRTUAL_DEBIT. **Apply**: 93 ví có stored sai, 92 ví được UPDATE, 1 ví (0123456788) đã đúng sẵn vì vừa có giao dịch mới. Tổng chênh lệch đã trả: ~295 triệu đồng. Tất cả 92 ví giờ khớp 100% với giá trị UI hiển thị. |
+| **Status** | ✅ Applied. Spot-check 5 ví: 0896875227=0, 0906252809=0, 0949015004=365K, 0933608739=2.47M, 0123456788=2K — tất cả khớp UI. 234 dòng wallet_transactions bị Migration 063 Step 1 xóa oan vẫn MẤT — không khôi phục được nếu không có DB backup. Nhưng balance ví đã đúng. |
+
 ### [render][wallet][revert] Revert Sprint 2 theo yêu cầu user — giữ Sprint 1 (DB layer)
 | | |
 |---|---|
