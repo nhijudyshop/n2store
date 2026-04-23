@@ -8,6 +8,13 @@
 
 ## 2026-04-23
 
+### [render][wallet][hotfix] Sprint 2 hotfix — Fix `processWalletEvent` nhầm client thành pool ⇒ /approve trả 500
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js) — đổi detection pool/client từ `typeof db.connect === 'function'` sang `typeof db.release === 'function'` để phân biệt. |
+| **Chi tiết** | **Bug sau Sprint 2**: /approve gọi `processDeposit(client, ...)` → processWalletEvent check `typeof db.connect === 'function'` để detect pool. NHƯNG cả `pg.Pool` VÀ `pg.PoolClient` đều có `.connect()` method → client bị nhầm thành pool → wrap thêm withTransaction → `client.connect()` throw `Client has already been connected. You cannot reuse a client` → route trả 500. User gặp lỗi khi duyệt bh #3764 (khách 0123456788, 2000đ). **Fix**: dùng `typeof db.release === 'function'` để detect client (chỉ PoolClient có `.release()` để trả về pool). Pool không có. Thêm fallback: chỉ wrap khi không phải client + không có skipCommit + có `.connect()`. Verify bằng test end-to-end: tạo bh tạm, gọi processDeposit(client, ...) trong transaction → chạy qua runWalletEvent trực tiếp không wrap thêm, trả về `{success:true, txId}` đúng. |
+| **Status** | ✅ Fixed. Deploy ngay sau Sprint 2 commit. |
+
 ### [render][wallet][critical] Sprint 2 — Refactor pool→client transaction, INSERT-first + ON CONFLICT chặn double credit ở app layer
 | | |
 |---|---|
