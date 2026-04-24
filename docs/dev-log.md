@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-24
+
+### [shared][images] Proactive HTML string rewrite cho TPOS URL — fix dứt điểm `ERR_HTTP2_SERVER_REFUSED_STREAM`
+| | |
+|---|---|
+| **Files** | MODIFIED: [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js) — thêm hook `innerHTML` setter + `insertAdjacentHTML` rewrite raw TPOS CDN URL (`<img src="https://vn.img1.tpos.vn/...">`) thành proxy URL (`<img src="https://chatomni-proxy.../api/image-proxy?url=...">`) **TRƯỚC KHI** browser parser chạm vào string. |
+| **Chi tiết** | **Root cause**: 3 round fix trước (commit `55462c83`, `c3fee3f3`, `8a97a3d6`) sửa tất cả `<img src>` trong code `orders-report/js/**/*.js` để route qua proxy. Playwright probe lại vẫn thấy **472 direct request tới `vn.img1.tpos.vn` + 171 `ERR_HTTP2_SERVER_REFUSED_STREAM`**. Trace thêm (hook `img.src` setter, `innerHTML` setter, `insertAdjacentHTML`, `DOMParser`, `Range.createContextualFragment`, `fetch`, `XHR`, `setAttribute`) ở context level — báo cáo `count=0` ở tất cả frames. DOM snapshot cho thấy **742 images trong tab1-orders iframe nhưng 0 image có raw TPOS URL + 0 match `vn.img1.tpos.vn` trong toàn bộ outerHTML**. Kết luận: raw URL bị rewrite xong bởi `MutationObserver` đã tồn tại trong `tpos-image-proxy.js` — NHƯNG observer chỉ fire SAU khi DOM parse xong `<img>` tag → browser đã start load raw URL → hit HTTP/2 stream limit trước khi observer kịp rewrite src. **Fix thật**: override `Element.prototype.innerHTML` setter + `insertAdjacentHTML` để regex-replace raw TPOS URL trong HTML string TRƯỚC KHI native setter parse HTML → parser chỉ thấy proxied URL → không còn request raw → hết REFUSED_STREAM. Regex `/(<img\b[^>]*?\bsrc=["'])(https?:\/\/vn\.img1\.tpos\.vn[^"']+)(["'])/gi` chỉ match tag `<img>` với TPOS URL, skip PROXIED_PATTERN đã rewrite. Early return nếu string không chứa `vn.img1.tpos.vn` → không ảnh hưởng perf innerHTML calls thông thường. `MutationObserver` vẫn giữ làm backup cho các path không đi qua innerHTML (createElement+src=, cloneNode). |
+| **Status** | ✅ Code done. 1 file pass `node --check`. Expect **472 direct → ~0 direct / 472 proxied** sau deploy. Verify: load main.html, đếm network tab — không còn request trực tiếp `vn.img1.tpos.vn`, chỉ còn `chatomni-proxy.../api/image-proxy?url=...`. |
+
 ## 2026-04-23
 
 ### [orders][ptag-cell] Icon máy in trên badge CHỜ LIVE / QUA LẤY / GIỮ ĐƠN khi `pickingSlipPrinted`
@@ -1212,17 +1221,6 @@
 |---|---|
 | **Files** | `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab1/tab1-edit-modal.js`, `orders-report/js/tab-kpi-commission.js` |
 | **Chi tiết** | **Bug A (CRITICAL):** Đơn tính KPI trùng cross-day — dùng BASE creation date thay vì today. **Bug B:** ProductId=null → Number(null)=0 gây false match — thêm null check. **Bug C:** Input qty trực tiếp (không dùng +/-) không log audit — tính delta từ oldQty→newQty. **Bug D:** Nút "Đối soát" không hoạt động vì thiếu reconcileKPI() — implement so sánh audit logs vs TPOS thực tế. **Bug E:** out_of_range flag bị bỏ qua khi tính KPI — filter ra khỏi calculation. **Bug F:** Stale orders đếm không nhất quán giữa summary/table/modal/export — thống nhất `_stale` check. |
-| **Status** | ✅ Done |
-
----
-
-## 2026-04-16
-
-### [orders][render] KPI Hoa Hồng: fix 5 bugs nghiêm trọng + cải thiện
-| | |
-|---|---|
-| **Files** | `render.com/routes/realtime-db.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab1/tab1-edit-modal.js` |
-| **Chi tiết** | **Bug 1 (CRITICAL):** Race condition saveKPIStatistics — chuyển sang atomic PATCH endpoint server-side, xóa client-side read-modify-write. **Bug 2:** PUT /kpi-base DO NOTHING → DO UPDATE SET stt (cho phép recover STT). **Bug 3:** Timing filter `>` → `>=` (audit log cùng ms với BASE không bị loại). **Bug 4:** Edit modal không log audit khi tăng qty SP đã có → log mọi add operation. **Bug 5:** Dedup check 5s trên server tránh double-count. **Phase 2:** Batch limit 500, date filter cho GET /kpi-statistics. |
 | **Status** | ✅ Done |
 
 ---

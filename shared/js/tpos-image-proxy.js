@@ -143,6 +143,40 @@
         }
     }
 
+    // Proactive HTML string rewrite — ngăn browser parser load raw TPOS URL ngay từ đầu.
+    // MutationObserver bên dưới chỉ rewrite sau khi DOM đã parse → browser đã bắn request raw
+    // → vẫn có thể hit HTTP/2 REFUSED_STREAM. Hook này rewrite string trước khi parser chạm vào.
+    // Chỉ trigger khi string chứa TPOS URL, nên không ảnh hưởng perf đa số innerHTML calls.
+    const IMG_SRC_RE = /(<img\b[^>]*?\bsrc=["'])(https?:\/\/vn\.img1\.tpos\.vn[^"']+)(["'])/gi;
+    function rewriteHtmlString(s) {
+        if (typeof s !== 'string') return s;
+        if (!TPOS_CDN_PATTERN.test(s)) return s;
+        return s.replace(IMG_SRC_RE, (_, pre, url, post) => {
+            if (PROXIED_PATTERN.test(url)) return pre + url + post;
+            return pre + proxyImageUrl(url) + post;
+        });
+    }
+
+    try {
+        const htmlDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        if (htmlDesc && htmlDesc.set && htmlDesc.configurable !== false) {
+            Object.defineProperty(Element.prototype, 'innerHTML', {
+                ...htmlDesc,
+                set(v) {
+                    return htmlDesc.set.call(this, rewriteHtmlString(v));
+                },
+            });
+        }
+        const iah = Element.prototype.insertAdjacentHTML;
+        if (typeof iah === 'function') {
+            Element.prototype.insertAdjacentHTML = function (position, html) {
+                return iah.call(this, position, rewriteHtmlString(html));
+            };
+        }
+    } catch (_) {
+        // Best-effort — if prototype hardening blocks redefine, MutationObserver still catches.
+    }
+
     // Observe DOM for new images
     if (typeof MutationObserver !== 'undefined') {
         const observer = new MutationObserver((mutations) => {
