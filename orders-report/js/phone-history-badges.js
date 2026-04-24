@@ -38,7 +38,9 @@ const PhoneHistoryBadges = (() => {
 
     async function loadHistory(force = false) {
         if (loading) return;
-        if (!force && callsByPhone.size > 0 && Date.now() - lastLoadAt < CACHE_TTL_MS) return;
+        // Cache by `lastLoadAt` — works even when both maps are empty (no
+        // history + no recordings) so we don't hammer the API.
+        if (!force && lastLoadAt > 0 && Date.now() - lastLoadAt < CACHE_TTL_MS) return;
         loading = true;
         try {
             const since = Date.now() - MAX_HISTORY_DAYS * 86400000;
@@ -568,9 +570,12 @@ const PhoneHistoryBadges = (() => {
     }
     function _makeBadge(phone, counts) {
         const badge = document.createElement('span');
-        badge.className = 'phone-hist-badge' + (counts.missed > 0 ? ' has-missed' : '');
+        const cls = ['phone-hist-badge'];
+        if (counts.missed > 0) cls.push('has-missed');
+        if (counts.recordings > 0) cls.push('has-recording');
+        badge.className = cls.join(' ');
         badge.dataset.phone = phone;
-        badge.dataset.sig = `${counts.total}|${counts.missed}`;
+        badge.dataset.sig = `${counts.total}|${counts.missed}|${counts.recordings}`;
         badge.innerHTML = _badgeContent(counts);
         badge.addEventListener('mouseenter', () => _showTooltip(badge, phone));
         badge.addEventListener('mouseleave', _hideTooltip);

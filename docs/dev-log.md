@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][phone-history] Fix badge mới: sig + class has-recording setup ở `_makeBadge`, cache key theo `lastLoadAt`
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — `_makeBadge()` giờ set `has-recording` class + `dataset.sig` gồm cả `counts.recordings` ngay lúc tạo (trước chỉ `_updateBadge` mới xử lý, badge mới tạo sẽ sai signature → lần update kế tiếp `sig` khác → re-render thừa). `loadHistory()` cache dùng `lastLoadAt > 0` thay vì `callsByPhone.size > 0` để không spam API khi DB trống. |
+| **Chi tiết** | Self-review sau commit trước (badge merge). Phát hiện: (1) badge mới (phone có recording lần đầu) chưa set `has-recording` class → mất màu tím tới khi observer fire lần 2; (2) `dataset.sig` bị thiếu recording count → lần `_updateBadge` kế tiếp luôn thấy sig khác → re-render thừa; (3) nếu DB không có history/recording, `callsByPhone.size === 0` → cache fail → mỗi lần `loadHistory` đều gọi API. Fix cả 3 trong 1 commit. |
+| **Status** | ✅ Done. Logic verify bằng `node --check` pass, không regression hành vi cũ. |
+
 ### [orders][phone-history] Cột SĐT hiện badge lịch sử + ghi âm (merge call-history + call-recordings)
 | | |
 |---|---|
