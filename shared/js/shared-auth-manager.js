@@ -30,267 +30,270 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     var logger = (typeof window !== 'undefined' && window.logger) || console;
 
     class AuthManager {
-    constructor(options = {}) {
-        this.storageKey = options.storageKey || 'loginindex_auth';
-        this.redirectUrl = options.redirectUrl || '/index.html';
-        this.sessionDuration = options.sessionDuration || 8 * 60 * 60 * 1000; // 8 hours
-        this.rememberDuration = options.rememberDuration || 30 * 24 * 60 * 60 * 1000; // 30 days
-        this.requiredPermissions = options.requiredPermissions || [];
-    }
-
-    /**
-     * Check if user is authenticated
-     * @returns {boolean}
-     */
-    isAuthenticated() {
-        const authData = this.getAuthData();
-        if (!authData) return false;
-
-        // Check if session expired
-        if (this.isSessionExpired(authData)) {
-            this.logout('Session expired');
-            return false;
+        constructor(options = {}) {
+            this.storageKey = options.storageKey || 'loginindex_auth';
+            this.redirectUrl = options.redirectUrl || '/index.html';
+            this.sessionDuration = options.sessionDuration || 8 * 60 * 60 * 1000; // 8 hours
+            this.rememberDuration = options.rememberDuration || 30 * 24 * 60 * 60 * 1000; // 30 days
+            this.requiredPermissions = options.requiredPermissions || [];
         }
 
-        return authData.isLoggedIn === 'true' || authData.isLoggedIn === true;
-    }
+        /**
+         * Check if user is authenticated
+         * @returns {boolean}
+         */
+        isAuthenticated() {
+            const authData = this.getAuthData();
+            if (!authData) return false;
 
-    /**
-     * Get auth data from storage
-     * @returns {object|null}
-     */
-    getAuthData() {
-        try {
-            // Try sessionStorage first (session-only login)
-            let authDataStr = sessionStorage.getItem(this.storageKey);
-            let storage = 'session';
-
-            // If not in session, try localStorage (remember me)
-            if (!authDataStr) {
-                authDataStr = localStorage.getItem(this.storageKey);
-                storage = 'local';
+            // Check if session expired
+            if (this.isSessionExpired(authData)) {
+                this.logout('Session expired');
+                return false;
             }
 
-            if (!authDataStr) return null;
-
-            const authData = JSON.parse(authDataStr);
-            authData._storage = storage;
-            return authData;
-        } catch (error) {
-            logger.error('Error reading auth data:', error);
-            return null;
+            return authData.isLoggedIn === 'true' || authData.isLoggedIn === true;
         }
-    }
 
-    /**
-     * Alias for getAuthData (backward compatibility)
-     * @returns {object|null}
-     */
-    getAuthState() {
-        return this.getAuthData();
-    }
+        /**
+         * Get auth data from storage
+         * @returns {object|null}
+         */
+        getAuthData() {
+            try {
+                // Try sessionStorage first (session-only login)
+                let authDataStr = sessionStorage.getItem(this.storageKey);
+                let storage = 'session';
 
-    /**
-     * Save auth data to storage
-     * @param {object} authData
-     * @param {boolean} rememberMe
-     */
-    saveAuthData(authData, rememberMe = false) {
-        try {
-            const dataToSave = {
-                ...authData,
-                timestamp: Date.now(),
-                expiresAt: Date.now() + (rememberMe ? this.rememberDuration : this.sessionDuration),
-                isRemembered: rememberMe
-            };
+                // If not in session, try localStorage (remember me)
+                if (!authDataStr) {
+                    authDataStr = localStorage.getItem(this.storageKey);
+                    storage = 'local';
+                }
 
-            const authDataStr = JSON.stringify(dataToSave);
+                if (!authDataStr) return null;
 
-            if (rememberMe) {
-                localStorage.setItem(this.storageKey, authDataStr);
-            } else {
-                sessionStorage.setItem(this.storageKey, authDataStr);
+                const authData = JSON.parse(authDataStr);
+                authData._storage = storage;
+                return authData;
+            } catch (error) {
+                logger.error('Error reading auth data:', error);
+                return null;
             }
-
-            logger.log('✅ Auth data saved to', rememberMe ? 'localStorage' : 'sessionStorage');
-        } catch (error) {
-            logger.error('Error saving auth data:', error);
-        }
-    }
-
-    /**
-     * Check if session is expired
-     * @param {object} authData
-     * @returns {boolean}
-     */
-    isSessionExpired(authData) {
-        if (!authData.expiresAt) {
-            // Legacy data without expiry - check timestamp
-            const duration = authData.isRemembered ? this.rememberDuration : this.sessionDuration;
-            return Date.now() - (authData.timestamp || 0) > duration;
-        }
-        return Date.now() > authData.expiresAt;
-    }
-
-    /**
-     * Get user info
-     * @returns {object|null}
-     */
-    getUserInfo() {
-        const authData = this.getAuthData();
-        if (!authData) return null;
-
-        return {
-            username: authData.username,
-            displayName: authData.displayName,
-            checkLogin: authData.checkLogin,
-            uid: authData.uid,
-            userType: authData.userType,
-            pagePermissions: authData.pagePermissions || []
-        };
-    }
-
-    /**
-     * Check if user has permission for current page
-     * ALL users (including Admin) check detailedPermissions - NO bypass
-     * @param {string} pageName
-     * @returns {boolean}
-     */
-    hasPagePermission(pageName) {
-        const authData = this.getAuthData();
-        if (!authData) return false;
-
-        // ALL users check detailedPermissions - NO bypass
-        if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
-            const pagePerms = authData.detailedPermissions[pageName];
-            return Object.values(pagePerms).some(v => v === true);
         }
 
-        return false;
-    }
-
-    // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
-
-    // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
-
-    /**
-     * Check if user has specific detailed permission
-     * ALL users (including Admin) check detailedPermissions - NO bypass
-     * @param {string} pageId
-     * @param {string} action
-     * @returns {boolean}
-     */
-    hasDetailedPermission(pageId, action) {
-        const authData = this.getAuthData();
-        // ALL users check detailedPermissions - NO bypass
-        if (!authData?.detailedPermissions?.[pageId]) return false;
-        return authData.detailedPermissions[pageId][action] === true;
-    }
-
-    /**
-     * Check if user has admin template (for UI display only)
-     * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
-     * @returns {boolean}
-     */
-    isAdminTemplate() {
-        const authData = this.getAuthData();
-        return authData?.roleTemplate === 'admin';
-    }
-
-    // isAdmin() — REMOVED: use isAdminTemplate() instead
-
-    // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
-
-    /**
-     * Logout user
-     * @param {string} reason
-     */
-    logout(reason = '') {
-        if (reason) {
-            logger.log('Logging out:', reason);
+        /**
+         * Alias for getAuthData (backward compatibility)
+         * @returns {object|null}
+         */
+        getAuthState() {
+            return this.getAuthData();
         }
 
-        // Clear both storages
-        sessionStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.storageKey);
+        /**
+         * Save auth data to storage
+         * @param {object} authData
+         * @param {boolean} rememberMe
+         */
+        saveAuthData(authData, rememberMe = false) {
+            try {
+                const dataToSave = {
+                    ...authData,
+                    timestamp: Date.now(),
+                    expiresAt:
+                        Date.now() + (rememberMe ? this.rememberDuration : this.sessionDuration),
+                    isRemembered: rememberMe,
+                };
 
-        // Redirect to login
-        if (typeof window !== 'undefined') {
-            window.location.href = this.redirectUrl;
-        }
-    }
+                const authDataStr = JSON.stringify(dataToSave);
 
-    /**
-     * Verify authentication and redirect if not authenticated
-     * @returns {boolean}
-     */
-    requireAuth() {
-        if (!this.isAuthenticated()) {
-            logger.log('Not authenticated, redirecting to login...');
-            this.logout('Authentication required');
-            return false;
-        }
-        return true;
-    }
+                if (rememberMe) {
+                    localStorage.setItem(this.storageKey, authDataStr);
+                } else {
+                    sessionStorage.setItem(this.storageKey, authDataStr);
+                }
 
-    /**
-     * Verify page permission and redirect if not authorized
-     * @param {string} pageName
-     * @returns {boolean}
-     */
-    requirePagePermission(pageName) {
-        if (!this.requireAuth()) return false;
-
-        if (!this.hasPagePermission(pageName)) {
-            logger.warn('Access denied to page:', pageName);
-            alert('Bạn không có quyền truy cập trang này');
-            window.location.href = '/live/index.html';
-            return false;
+                logger.log('✅ Auth data saved to', rememberMe ? 'localStorage' : 'sessionStorage');
+            } catch (error) {
+                logger.error('Error saving auth data:', error);
+            }
         }
 
-        return true;
-    }
+        /**
+         * Check if session is expired
+         * @param {object} authData
+         * @returns {boolean}
+         */
+        isSessionExpired(authData) {
+            if (!authData.expiresAt) {
+                // Legacy data without expiry - check timestamp
+                const duration = authData.isRemembered
+                    ? this.rememberDuration
+                    : this.sessionDuration;
+                return Date.now() - (authData.timestamp || 0) > duration;
+            }
+            return Date.now() > authData.expiresAt;
+        }
 
-    // getRoleInfo() — REMOVED: legacy checkLogin-based role info, use standalone getRoleInfo() in common-utils for UI display
+        /**
+         * Get user info
+         * @returns {object|null}
+         */
+        getUserInfo() {
+            const authData = this.getAuthData();
+            if (!authData) return null;
 
-    /**
-     * Extend session (refresh expiry time)
-     */
-    extendSession() {
-        const authData = this.getAuthData();
-        if (!authData) return;
-
-        const isRemembered = authData.isRemembered || authData._storage === 'local';
-        this.saveAuthData(authData, isRemembered);
-        logger.log('✅ Session extended');
-    }
-
-    /**
-     * Get session info
-     * @returns {object}
-     */
-    getSessionInfo() {
-        const authData = this.getAuthData();
-        if (!authData) {
             return {
-                authenticated: false,
-                expiresIn: 0,
-                storage: null
+                username: authData.username,
+                displayName: authData.displayName,
+                checkLogin: authData.checkLogin,
+                uid: authData.uid,
+                userType: authData.userType,
+                pagePermissions: authData.pagePermissions || [],
             };
         }
 
-        const now = Date.now();
-        const expiresIn = authData.expiresAt ? authData.expiresAt - now : 0;
+        /**
+         * Check if user has permission for current page
+         * ALL users (including Admin) check detailedPermissions - NO bypass
+         * @param {string} pageName
+         * @returns {boolean}
+         */
+        hasPagePermission(pageName) {
+            const authData = this.getAuthData();
+            if (!authData) return false;
 
-        return {
-            authenticated: true,
-            expiresIn: Math.max(0, expiresIn),
-            expiresInMinutes: Math.floor(expiresIn / 60000),
-            storage: authData._storage,
-            isRemembered: authData.isRemembered || false,
-            user: this.getUserInfo()
-        };
-    }
+            // ALL users check detailedPermissions - NO bypass
+            if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
+                const pagePerms = authData.detailedPermissions[pageName];
+                return Object.values(pagePerms).some((v) => v === true);
+            }
+
+            return false;
+        }
+
+        // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+
+        // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+
+        /**
+         * Check if user has specific detailed permission
+         * ALL users (including Admin) check detailedPermissions - NO bypass
+         * @param {string} pageId
+         * @param {string} action
+         * @returns {boolean}
+         */
+        hasDetailedPermission(pageId, action) {
+            const authData = this.getAuthData();
+            // ALL users check detailedPermissions - NO bypass
+            if (!authData?.detailedPermissions?.[pageId]) return false;
+            return authData.detailedPermissions[pageId][action] === true;
+        }
+
+        /**
+         * Check if user has admin template (for UI display only)
+         * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
+         * @returns {boolean}
+         */
+        isAdminTemplate() {
+            const authData = this.getAuthData();
+            return authData?.roleTemplate === 'admin';
+        }
+
+        // isAdmin() — REMOVED: use isAdminTemplate() instead
+
+        // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
+
+        /**
+         * Logout user
+         * @param {string} reason
+         */
+        logout(reason = '') {
+            if (reason) {
+                logger.log('Logging out:', reason);
+            }
+
+            // Clear both storages
+            sessionStorage.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
+
+            // Redirect to login
+            if (typeof window !== 'undefined') {
+                window.location.href = this.redirectUrl;
+            }
+        }
+
+        /**
+         * Verify authentication and redirect if not authenticated
+         * @returns {boolean}
+         */
+        requireAuth() {
+            if (!this.isAuthenticated()) {
+                logger.log('Not authenticated, redirecting to login...');
+                this.logout('Authentication required');
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * Verify page permission and redirect if not authorized
+         * @param {string} pageName
+         * @returns {boolean}
+         */
+        requirePagePermission(pageName) {
+            if (!this.requireAuth()) return false;
+
+            if (!this.hasPagePermission(pageName)) {
+                logger.warn('Access denied to page:', pageName);
+                alert('Bạn không có quyền truy cập trang này');
+                window.location.href = '/live/index.html';
+                return false;
+            }
+
+            return true;
+        }
+
+        // getRoleInfo() — REMOVED: legacy checkLogin-based role info, use standalone getRoleInfo() in common-utils for UI display
+
+        /**
+         * Extend session (refresh expiry time)
+         */
+        extendSession() {
+            const authData = this.getAuthData();
+            if (!authData) return;
+
+            const isRemembered = authData.isRemembered || authData._storage === 'local';
+            this.saveAuthData(authData, isRemembered);
+            logger.log('✅ Session extended');
+        }
+
+        /**
+         * Get session info
+         * @returns {object}
+         */
+        getSessionInfo() {
+            const authData = this.getAuthData();
+            if (!authData) {
+                return {
+                    authenticated: false,
+                    expiresIn: 0,
+                    storage: null,
+                };
+            }
+
+            const now = Date.now();
+            const expiresIn = authData.expiresAt ? authData.expiresAt - now : 0;
+
+            return {
+                authenticated: true,
+                expiresIn: Math.max(0, expiresIn),
+                expiresInMinutes: Math.floor(expiresIn / 60000),
+                storage: authData._storage,
+                isRemembered: authData.isRemembered || false,
+                user: this.getUserInfo(),
+            };
+        }
     }
 
     // Export to window
