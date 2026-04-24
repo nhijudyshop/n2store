@@ -317,7 +317,10 @@
                 <label>Trạng thái</label>
                 <select id="editStatus">
                     ${['draft', 'confirmed', 'cancelled', 'delivered']
-                        .map((s) => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${STATUS_META[s].label}</option>`)
+                        .map(
+                            (s) =>
+                                `<option value="${s}" ${s === o.status ? 'selected' : ''}>${STATUS_META[s].label}</option>`
+                        )
                         .join('')}
                 </select>
             </div>
@@ -423,16 +426,17 @@
                 box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2-products/index.html" target="_blank">Mở kho →</a></div>`;
                 return;
             }
-            box.innerHTML = items.map((p) => {
-                const existing = EDIT_LINES.find((l) => l.productCode === p.code);
-                const qtyBadge = existing
-                    ? `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${existing.quantity}</span>`
-                    : '';
-                const img = p.imageUrl
-                    ? `<img src="${escapeHtml(p.imageUrl)}" class="pick-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+            box.innerHTML = items
+                .map((p) => {
+                    const existing = EDIT_LINES.find((l) => l.productCode === p.code);
+                    const qtyBadge = existing
+                        ? `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${existing.quantity}</span>`
+                        : '';
+                    const img = p.imageUrl
+                        ? `<img src="${escapeHtml(p.imageUrl)}" class="pick-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                        <span class="pick-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
-                    : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
-                return `
+                        : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
+                    return `
                     <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}">
                         ${qtyBadge}
                         ${img}
@@ -443,7 +447,8 @@
                         <div class="pick-price">${(p.price || 0).toLocaleString('vi-VN')}đ</div>
                         <button class="pick-add-btn" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
                     </div>`;
-            }).join('');
+                })
+                .join('');
             if (window.lucide) lucide.createIcons();
         } catch (e) {
             box.innerHTML = `<div class="picker-empty" style="color:#ef4444;">Lỗi: ${escapeHtml(e.message)}</div>`;
@@ -486,7 +491,10 @@
             badge.innerHTML = `<i data-lucide="shopping-cart"></i>SL: ${newQty}`;
         } else {
             item.classList.add('in-order');
-            item.insertAdjacentHTML('afterbegin', `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${newQty}</span>`);
+            item.insertAdjacentHTML(
+                'afterbegin',
+                `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${newQty}</span>`
+            );
         }
         if (window.lucide) lucide.createIcons();
     }
@@ -502,12 +510,14 @@
             return;
         }
 
-        let totalQty = 0, totalAmount = 0;
+        let totalQty = 0,
+            totalAmount = 0;
         tb.innerHTML = EDIT_LINES.map((l, i) => {
             const qty = Number(l.quantity) || 0;
             const price = Number(l.price) || 0;
             const amount = qty * price;
-            totalQty += qty; totalAmount += amount;
+            totalQty += qty;
+            totalAmount += amount;
             const img = l.imageUrl
                 ? `<img src="${escapeHtml(l.imageUrl)}" class="line-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                    <span class="line-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
@@ -664,13 +674,11 @@
             });
         });
 
-        // Modal
+        // Modal — click overlay KHÔNG đóng modal (tránh mất data khi nhập dở).
+        // Chỉ X / Hủy / ESC mới đóng.
         $('#btnCloseModal')?.addEventListener('click', closeEdit);
         $('#btnCancelEdit')?.addEventListener('click', closeEdit);
         $('#btnSaveEdit')?.addEventListener('click', saveEdit);
-        modal()?.addEventListener('click', (e) => {
-            if (e.target === modal()) closeEdit();
-        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal()?.classList.contains('active')) closeEdit();
         });

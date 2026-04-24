@@ -12,9 +12,9 @@
         page: 1,
         limit: 200,
         search: '',
-        activeOnly: false,    // 'all' (false) vs 'true' (active only)
+        activeOnly: false, // 'all' (false) vs 'true' (active only)
         loading: false,
-        editingCode: null,    // null = creating, string = editing
+        editingCode: null, // null = creating, string = editing
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -47,15 +47,16 @@
             </td></tr>`;
             return;
         }
-        tbody().innerHTML = items.map((p, idx) => {
-            const n = (STATE.page - 1) * STATE.limit + idx + 1;
-            const imgHtml = p.imageUrl
-                ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"
-                       onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">`
-                  + `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
-                : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
-            const stockClass = p.stock === 0 ? 'zero' : (p.stock < 5 ? 'low' : '');
-            return `
+        tbody().innerHTML = items
+            .map((p, idx) => {
+                const n = (STATE.page - 1) * STATE.limit + idx + 1;
+                const imgHtml = p.imageUrl
+                    ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"
+                       onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">` +
+                      `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
+                    : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
+                const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
+                return `
                 <tr data-code="${escapeHtml(p.code)}">
                     <td>${n}</td>
                     <td>${imgHtml}</td>
@@ -65,9 +66,11 @@
                     <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
-                        ${p.isActive
-                            ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
-                            : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`}
+                        ${
+                            p.isActive
+                                ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
+                                : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`
+                        }
                     </td>
                     <td>
                         <div class="row-actions">
@@ -77,7 +80,8 @@
                         </div>
                     </td>
                 </tr>`;
-        }).join('');
+            })
+            .join('');
         if (window.lucide) lucide.createIcons();
     }
 
@@ -85,7 +89,9 @@
         const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
         const cur = STATE.page;
         const html = [];
-        html.push(`<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur - 1})">‹</button>`);
+        html.push(
+            `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur - 1})">‹</button>`
+        );
         const start = Math.max(1, cur - 2);
         const end = Math.min(totalPages, start + 4);
         if (start > 1) {
@@ -93,14 +99,22 @@
             if (start > 2) html.push(`<span class="page-info">…</span>`);
         }
         for (let p = start; p <= end; p++) {
-            html.push(`<button class="page-btn ${p === cur ? 'active' : ''}" onclick="Web2ProductsApp.goPage(${p})">${p}</button>`);
+            html.push(
+                `<button class="page-btn ${p === cur ? 'active' : ''}" onclick="Web2ProductsApp.goPage(${p})">${p}</button>`
+            );
         }
         if (end < totalPages) {
             if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
-            html.push(`<button class="page-btn" onclick="Web2ProductsApp.goPage(${totalPages})">${totalPages}</button>`);
+            html.push(
+                `<button class="page-btn" onclick="Web2ProductsApp.goPage(${totalPages})">${totalPages}</button>`
+            );
         }
-        html.push(`<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur + 1})">›</button>`);
-        html.push(`<span class="page-info">${STATE.total.toLocaleString('vi-VN')} SP — trang ${cur}/${totalPages}</span>`);
+        html.push(
+            `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur + 1})">›</button>`
+        );
+        html.push(
+            `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} SP — trang ${cur}/${totalPages}</span>`
+        );
         pag().innerHTML = html.join('');
     }
 
@@ -180,7 +194,8 @@
         const p = STATE.products.find((x) => x.code === code);
         if (!p) return;
         STATE.editingCode = code;
-        $('#productModalTitle').innerHTML = `<i data-lucide="pencil"></i><span>Sửa sản phẩm ${escapeHtml(code)}</span>`;
+        $('#productModalTitle').innerHTML =
+            `<i data-lucide="pencil"></i><span>Sửa sản phẩm ${escapeHtml(code)}</span>`;
         $('#pmCode').value = p.code;
         $('#pmCode').disabled = true;
         $('#pmName').value = p.name || '';
@@ -299,10 +314,17 @@
         $('#btnClearFilter')?.addEventListener('click', clearFilters);
         $('#btnRefresh')?.addEventListener('click', load);
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
-        $('#filterSearch')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+        $('#filterSearch')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyFilters();
+        });
         $('#filterSearchClear')?.addEventListener('click', () => {
             const el = $('#filterSearch');
-            if (el) { el.value = ''; STATE.search = ''; STATE.page = 1; load(); }
+            if (el) {
+                el.value = '';
+                STATE.search = '';
+                STATE.page = 1;
+                load();
+            }
         });
         $('#filterActive')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
@@ -311,8 +333,11 @@
         $('#btnCloseProductModal')?.addEventListener('click', closeModal);
         $('#btnCancelProduct')?.addEventListener('click', closeModal);
         $('#btnSaveProduct')?.addEventListener('click', saveModal);
-        modal()?.addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal()?.classList.contains('active')) closeModal(); });
+        // Intentionally NOT closing on overlay click — protect in-progress data.
+        // Only X button / Hủy button / ESC close the modal.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal()?.classList.contains('active')) closeModal();
+        });
 
         // Image preview on input
         $('#pmImage')?.addEventListener('input', (e) => updateImagePreview(e.target.value.trim()));
