@@ -55,10 +55,10 @@
     }
 
     const STATUS_META = {
-        draft:     { label: 'Nháp',        icon: 'file' },
+        draft: { label: 'Nháp', icon: 'file' },
         confirmed: { label: 'Đã xác nhận', icon: 'check' },
-        cancelled: { label: 'Đã hủy',      icon: 'x' },
-        delivered: { label: 'Đã giao',     icon: 'truck' },
+        cancelled: { label: 'Đã hủy', icon: 'x' },
+        delivered: { label: 'Đã giao', icon: 'truck' },
     };
     function statusBadge(status) {
         const meta = STATUS_META[status] || { label: status || '—', icon: 'help-circle' };
@@ -69,7 +69,17 @@
 
     // Gradient color for avatar placeholder (consistent per name)
     function avatarColor(name) {
-        const colors = ['#6366f1','#8b5cf6','#ec4899','#ef4444','#f59e0b','#10b981','#3b82f6','#06b6d4','#a855f7'];
+        const colors = [
+            '#6366f1',
+            '#8b5cf6',
+            '#ec4899',
+            '#ef4444',
+            '#f59e0b',
+            '#10b981',
+            '#3b82f6',
+            '#06b6d4',
+            '#a855f7',
+        ];
         const s = (name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
         return colors[s % colors.length];
     }
@@ -91,10 +101,13 @@
             </td></tr>`;
             return;
         }
-        tbody().innerHTML = orders.map((o) => {
-            const time = formatTimeSplit(o.createdAt);
-            const fbShort = o.fbUserId ? `${o.fbUserId.slice(0, 6)}…${o.fbUserId.slice(-4)}` : '';
-            return `
+        tbody().innerHTML = orders
+            .map((o) => {
+                const time = formatTimeSplit(o.createdAt);
+                const fbShort = o.fbUserId
+                    ? `${o.fbUserId.slice(0, 6)}…${o.fbUserId.slice(-4)}`
+                    : '';
+                return `
                 <tr data-code="${escapeHtml(o.code)}">
                     <td class="col-check"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
                     <td class="col-actions">
@@ -128,9 +141,11 @@
                             </div>
                         </div>
                     </td>
-                    <td class="phone-cell">${o.phone
-                        ? `<a href="tel:${escapeHtml(o.phone)}" title="Gọi">${escapeHtml(o.phone)}</a>`
-                        : '—'}</td>
+                    <td class="phone-cell">${
+                        o.phone
+                            ? `<a href="tel:${escapeHtml(o.phone)}" title="Gọi">${escapeHtml(o.phone)}</a>`
+                            : '—'
+                    }</td>
                     <td><div class="address-cell" title="${escapeHtml(o.address || '')}">${escapeHtml(o.address || '—')}</div></td>
                     <td><div class="note-cell" title="${escapeHtml(o.note || '')}">${escapeHtml(o.note || '—')}</div></td>
                     <td>${statusBadge(o.status)}</td>
@@ -140,7 +155,8 @@
                     </td>
                     <td class="creator-cell" title="${escapeHtml(o.createdBy || '')}">${escapeHtml(o.createdByName || o.createdBy || '—')}</td>
                 </tr>`;
-        }).join('');
+            })
+            .join('');
         if (window.lucide) lucide.createIcons();
     }
 
@@ -148,7 +164,9 @@
         const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
         const cur = STATE.page;
         const html = [];
-        html.push(`<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="NativeOrdersApp.goPage(${cur - 1})">‹</button>`);
+        html.push(
+            `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="NativeOrdersApp.goPage(${cur - 1})">‹</button>`
+        );
         const start = Math.max(1, cur - 2);
         const end = Math.min(totalPages, start + 4);
         if (start > 1) {
@@ -156,14 +174,22 @@
             if (start > 2) html.push(`<span class="page-info">…</span>`);
         }
         for (let p = start; p <= end; p++) {
-            html.push(`<button class="page-btn ${p === cur ? 'active' : ''}" onclick="NativeOrdersApp.goPage(${p})">${p}</button>`);
+            html.push(
+                `<button class="page-btn ${p === cur ? 'active' : ''}" onclick="NativeOrdersApp.goPage(${p})">${p}</button>`
+            );
         }
         if (end < totalPages) {
             if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
-            html.push(`<button class="page-btn" onclick="NativeOrdersApp.goPage(${totalPages})">${totalPages}</button>`);
+            html.push(
+                `<button class="page-btn" onclick="NativeOrdersApp.goPage(${totalPages})">${totalPages}</button>`
+            );
         }
-        html.push(`<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="NativeOrdersApp.goPage(${cur + 1})">›</button>`);
-        html.push(`<span class="page-info">${STATE.total.toLocaleString('vi-VN')} đơn — trang ${cur}/${totalPages}</span>`);
+        html.push(
+            `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="NativeOrdersApp.goPage(${cur + 1})">›</button>`
+        );
+        html.push(
+            `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} đơn — trang ${cur}/${totalPages}</span>`
+        );
         pag().innerHTML = html.join('');
     }
 
@@ -261,9 +287,13 @@
             <div class="field-row">
                 <label>Trạng thái</label>
                 <select id="editStatus">
-                    ${['draft', 'confirmed', 'cancelled', 'delivered'].map((s) => `
+                    ${['draft', 'confirmed', 'cancelled', 'delivered']
+                        .map(
+                            (s) => `
                         <option value="${s}" ${s === o.status ? 'selected' : ''}>${STATUS_META[s].label}</option>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </select>
             </div>
             <details class="fb-context">
@@ -353,25 +383,38 @@
         $('#btnApplyFilter')?.addEventListener('click', applyFilters);
         $('#btnClearFilter')?.addEventListener('click', clearFilters);
         $('#btnRefresh')?.addEventListener('click', load);
-        $('#filterSearch')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+        $('#filterSearch')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyFilters();
+        });
         $('#filterSearchClear')?.addEventListener('click', () => {
             const el = $('#filterSearch');
-            if (el) { el.value = ''; STATE.search = ''; STATE.page = 1; load(); }
+            if (el) {
+                el.value = '';
+                STATE.search = '';
+                STATE.page = 1;
+                load();
+            }
         });
         $('#filterStatus')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
 
         // Check-all
         $('#checkAll')?.addEventListener('change', (e) => {
-            document.querySelectorAll('.row-check').forEach((c) => { c.checked = e.target.checked; });
+            document.querySelectorAll('.row-check').forEach((c) => {
+                c.checked = e.target.checked;
+            });
         });
 
         // Modal
         $('#btnCloseModal')?.addEventListener('click', closeEdit);
         $('#btnCancelEdit')?.addEventListener('click', closeEdit);
         $('#btnSaveEdit')?.addEventListener('click', saveEdit);
-        modal()?.addEventListener('click', (e) => { if (e.target === modal()) closeEdit(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal()?.classList.contains('active')) closeEdit(); });
+        modal()?.addEventListener('click', (e) => {
+            if (e.target === modal()) closeEdit();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal()?.classList.contains('active')) closeEdit();
+        });
 
         // First load
         load();
