@@ -2148,14 +2148,40 @@
         const ddEl = wrapper.firstElementChild;
         document.body.appendChild(ddEl);
 
-        // Position
+        // Position — robust clamp to viewport để dropdown không bị kéo lên trên/ra ngoài màn hình.
+        // Khi dropdown cao hơn cả không gian trên + dưới anchor thì shrink max-height + clamp top=4.
+        const MARGIN = 8;
         const ddRect = ddEl.getBoundingClientRect();
-        let top = rect.bottom + 4;
+        const spaceBelow = window.innerHeight - rect.bottom - MARGIN;
+        const spaceAbove = rect.top - MARGIN;
+        let top;
+
+        if (ddRect.height <= spaceBelow) {
+            // Fits below anchor — preferred
+            top = rect.bottom + 4;
+        } else if (ddRect.height <= spaceAbove) {
+            // Fits above anchor
+            top = rect.top - ddRect.height - 4;
+        } else {
+            // Doesn't fit either side — pin to top of viewport and shrink to viewport height
+            top = MARGIN;
+            const maxH = window.innerHeight - MARGIN * 2;
+            ddEl.style.maxHeight = maxH + 'px';
+            // Tag list cũng phải co theo để pills container + border + list đều nằm trong khung
+            const listEl = ddEl.querySelector('.ptag-dd-list');
+            if (listEl) {
+                // Pills container cap 140 + input/padding ~60 → dành cho list phần còn lại
+                const listMaxH = Math.max(180, maxH - 200);
+                listEl.style.maxHeight = listMaxH + 'px';
+            }
+        }
+
+        // Final clamps
+        top = Math.max(MARGIN, Math.min(top, window.innerHeight - Math.min(ddRect.height, window.innerHeight - MARGIN * 2) - MARGIN));
         let left = rect.left;
-        if (top + ddRect.height > window.innerHeight) top = rect.top - ddRect.height - 4;
-        if (left + ddRect.width > window.innerWidth) left = window.innerWidth - ddRect.width - 8;
+        if (left + ddRect.width > window.innerWidth) left = window.innerWidth - ddRect.width - MARGIN;
         ddEl.style.top = top + 'px';
-        ddEl.style.left = Math.max(4, left) + 'px';
+        ddEl.style.left = Math.max(MARGIN, left) + 'px';
 
         _currentDropdown = ddEl;
 

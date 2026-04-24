@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][ptag] Fix dropdown Tag XL bị kéo lên trên viewport khi flip + clamp vào khung hiển thị
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ptagOpenDropdown` line ~2151: thay logic position 2 dòng đơn giản bằng algorithm 3-case (fit-below / fit-above / shrink-and-pin) + final clamp top vào `[MARGIN, innerHeight - effectiveHeight - MARGIN]`. Khi không đủ chỗ cả trên & dưới anchor, set `style.maxHeight = innerHeight - 16` cho dropdown + list để nằm gọn trong viewport. |
+| **Chi tiết** | **User report**: Sau khi widen dropdown lên 960px + max-height 600, khi anchor nằm ở nửa dưới màn hình, code cũ flip dropdown lên trên bằng `top = rect.top - ddRect.height - 4`. Với rect.top=150 và ddRect.height=600 → `top=-454`. Không clamp → dropdown kéo lên trên viewport, nửa trên (pills container + input search) bị che mất, user chỉ thấy nửa cuối list. **Root cause**: code cũ chỉ check `top + height > innerHeight` (overflow dưới) mà KHÔNG check `top < 0` (overflow trên). Và chỉ `Math.max(4, left)` cho left, không làm tương tự cho top. **Fix**: (1) tính `spaceBelow` và `spaceAbove` từ anchor rect; (2) ưu tiên fit dưới → thử fit trên → nếu cả 2 đều không đủ thì pin top=MARGIN và shrink `maxHeight` về `innerHeight - 16` (dropdown) và `innerHeight - 200` (list phần scroll) để toàn bộ khung nằm gọn trong viewport; (3) final clamp `top` luôn ∈ [MARGIN, innerHeight - effectiveHeight - MARGIN]. |
+| **Status** | ✅ Done. Test cases: (a) anchor ở top màn hình → dropdown hiện dưới; (b) anchor ở bottom → flip lên trên, không bị cắt; (c) anchor ở giữa màn hình ngắn (h<700px) → pin top=8, dropdown tự co cao bằng viewport, scroll nội bộ; (d) anchor gần mép phải → reposition left như cũ. |
+
 ### [orders][edit-modal] Fix thêm SP vào giỏ rỗng không hiện trong "Danh sách sản phẩm"
 | | |
 |---|---|
