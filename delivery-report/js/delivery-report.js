@@ -44,10 +44,9 @@
             keyword: '',
         },
 
-        // Sort state for amountTotal / cashOnDelivery columns
-        sort: {
-            column: null, // 'amountTotal' | 'cashOnDelivery' | null
-            direction: 'asc', // 'asc' | 'desc'
+        // Header filter: Công nợ < Tổng tiền (toggle khi click cột Công nợ)
+        filter: {
+            debtLessThanTotal: false,
         },
 
         // Column visibility (default: only key columns visible)
@@ -84,7 +83,7 @@
         setDefaultDates();
         bindFilterEvents();
         bindColumnToggle();
-        bindSortableHeaders();
+        bindFilterableHeaders();
         applyColumnVisibility();
         loadFiltersFromStorage();
 
@@ -217,69 +216,46 @@
     }
 
     // =====================================================
-    // SORTABLE HEADERS (amountTotal + cashOnDelivery)
+    // CỘT CÔNG NỢ: click toggle filter "Công nợ < Tổng tiền"
     // =====================================================
-    const SORTABLE_COLUMNS = {
-        amountTotal: 'AmountTotal',
-        cashOnDelivery: 'CashOnDelivery',
-    };
-
-    function bindSortableHeaders() {
-        Object.keys(SORTABLE_COLUMNS).forEach((colKey) => {
-            const th = document.querySelector(`.dr-table thead th[data-col="${colKey}"]`);
-            if (!th) return;
-            if (!th.querySelector('.sort-icon')) {
-                const icon = document.createElement('i');
-                icon.className = 'fas fa-sort sort-icon';
-                th.appendChild(document.createTextNode(' '));
-                th.appendChild(icon);
-            }
-            th.addEventListener('click', () => {
-                const sort = DeliveryReportState.sort;
-                if (sort.column === colKey) {
-                    if (sort.direction === 'asc') {
-                        sort.direction = 'desc';
-                    } else {
-                        sort.column = null;
-                        sort.direction = 'asc';
-                    }
-                } else {
-                    sort.column = colKey;
-                    sort.direction = 'asc';
-                }
-                DeliveryReportState.currentPage = 1;
-                renderTable();
-            });
+    function bindFilterableHeaders() {
+        const th = document.querySelector('.dr-table thead th[data-col="cashOnDelivery"]');
+        if (!th) return;
+        if (!th.querySelector('.sort-icon')) {
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-filter sort-icon';
+            th.appendChild(document.createTextNode(' '));
+            th.appendChild(icon);
+        }
+        th.addEventListener('click', () => {
+            DeliveryReportState.filter.debtLessThanTotal =
+                !DeliveryReportState.filter.debtLessThanTotal;
+            DeliveryReportState.currentPage = 1;
+            renderTable();
         });
-        updateSortIndicators();
+        updateFilterIndicators();
     }
 
-    function updateSortIndicators() {
-        const { column, direction } = DeliveryReportState.sort;
-        Object.keys(SORTABLE_COLUMNS).forEach((colKey) => {
-            const th = document.querySelector(`.dr-table thead th[data-col="${colKey}"]`);
-            if (!th) return;
-            const icon = th.querySelector('.sort-icon');
-            if (!icon) return;
-            if (column === colKey) {
-                icon.className = `fas fa-sort-${direction === 'asc' ? 'up' : 'down'} sort-icon`;
-                icon.style.color = '#4f46e5';
-            } else {
-                icon.className = 'fas fa-sort sort-icon';
-                icon.style.color = '';
-            }
-        });
+    function updateFilterIndicators() {
+        const th = document.querySelector('.dr-table thead th[data-col="cashOnDelivery"]');
+        if (!th) return;
+        const icon = th.querySelector('.sort-icon');
+        if (!icon) return;
+        if (DeliveryReportState.filter.debtLessThanTotal) {
+            icon.style.color = '#4f46e5';
+            th.title = 'Đang lọc: Công nợ < Tổng tiền (click để bỏ lọc)';
+        } else {
+            icon.style.color = '';
+            th.title = 'Click để lọc: Công nợ < Tổng tiền';
+        }
     }
 
-    function applySorting(data) {
-        const { column, direction } = DeliveryReportState.sort;
-        if (!column || !SORTABLE_COLUMNS[column]) return data;
-        const field = SORTABLE_COLUMNS[column];
-        const mul = direction === 'asc' ? 1 : -1;
-        return data.slice().sort((a, b) => {
-            const av = Number(a[field]) || 0;
-            const bv = Number(b[field]) || 0;
-            return (av - bv) * mul;
+    function applyDebtFilter(data) {
+        if (!DeliveryReportState.filter.debtLessThanTotal) return data;
+        return data.filter((item) => {
+            const cod = Number(item.CashOnDelivery) || 0;
+            const total = Number(item.AmountTotal) || 0;
+            return cod < total;
         });
     }
 
@@ -475,9 +451,9 @@
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
 
-        const allData = applySorting(getFilteredData());
+        const allData = applyDebtFilter(getFilteredData());
         DeliveryReportState.totalCount = allData.length;
-        updateSortIndicators();
+        updateFilterIndicators();
 
         if (!allData || allData.length === 0) {
             tbody.innerHTML = `<tr><td colspan="13" class="dr-empty"><i class="fas fa-inbox"></i>Không có dữ liệu</td></tr>`;
