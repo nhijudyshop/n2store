@@ -5018,7 +5018,10 @@
                 type,
                 results,
                 summary: {
-                    totalSuccess: results.success.reduce((sum, r) => sum + r.sttList.length, 0),
+                    totalSuccess: results.success.reduce(
+                        (sum, r) => sum + r.sttList.length + (r.redirectedList || []).length,
+                        0
+                    ),
                     totalFailed: results.failed.reduce((sum, r) => sum + r.sttList.length, 0),
                 },
             };
@@ -5100,16 +5103,37 @@
                 ? '<span style="color:#10b981;">GÁN</span>'
                 : '<span style="color:#ef4444;">GỠ</span>';
 
+        // Recompute totals từ results thực để entries cũ (summary thiếu redirectedList) cũng hiển thị đúng
+        const totalSuccess = (results?.success || []).reduce(
+            (sum, r) => sum + (r.sttList || []).length + (r.redirectedList || []).length,
+            0
+        );
+        const totalFailed = (results?.failed || []).reduce(
+            (sum, r) => sum + (r.sttList || []).length,
+            0
+        );
+
         let successHtml = '';
         if (results?.success?.length > 0) {
             successHtml = `<div style="margin-top:8px;">
-                <div style="font-weight:600;color:#10b981;font-size:12px;margin-bottom:4px;"><i class="fas fa-check-circle"></i> Thành công (${summary.totalSuccess} đơn):</div>
+                <div style="font-weight:600;color:#10b981;font-size:12px;margin-bottom:4px;"><i class="fas fa-check-circle"></i> Thành công (${totalSuccess} đơn):</div>
                 ${results.success
-                    .map(
-                        (r) => `<div style="padding:2px 0;font-size:12px;">
-                    <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span> STT ${(r.sttList || []).join(', ')}
-                </div>`
-                    )
+                    .map((r) => {
+                        const sttList = r.sttList || [];
+                        const redirectedList = r.redirectedList || [];
+                        let html = `<div style="padding:2px 0;font-size:12px;">
+                    <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span>${sttList.length > 0 ? ' STT ' + sttList.join(', ') : ''}
+                </div>`;
+                        if (redirectedList.length > 0) {
+                            html += redirectedList
+                                .map(
+                                    (rd) =>
+                                        `<div style="padding:2px 0 2px 12px;font-size:11px;color:#6b7280;">↳ STT ${rd.original} → chuyển sang STT ${rd.redirectTo} (đơn gộp)</div>`
+                                )
+                                .join('');
+                        }
+                        return html;
+                    })
                     .join('')}
             </div>`;
         }
@@ -5117,7 +5141,7 @@
         let failedHtml = '';
         if (results?.failed?.length > 0) {
             failedHtml = `<div style="margin-top:6px;">
-                <div style="font-weight:600;color:#ef4444;font-size:12px;margin-bottom:4px;"><i class="fas fa-times-circle"></i> Thất bại (${summary.totalFailed} đơn):</div>
+                <div style="font-weight:600;color:#ef4444;font-size:12px;margin-bottom:4px;"><i class="fas fa-times-circle"></i> Thất bại (${totalFailed} đơn):</div>
                 ${results.failed
                     .map(
                         (r) => `<div style="padding:2px 0;font-size:12px;">
@@ -5137,8 +5161,8 @@
                 </div>
                 <div class="history-summary">
                     ${typeLabel}
-                    <span class="success-count"><i class="fas fa-check"></i> ${summary?.totalSuccess || 0}</span>
-                    <span class="failed-count"><i class="fas fa-times"></i> ${summary?.totalFailed || 0}</span>
+                    <span class="success-count"><i class="fas fa-check"></i> ${totalSuccess}</span>
+                    <span class="failed-count"><i class="fas fa-times"></i> ${totalFailed}</span>
                     <i class="fas fa-chevron-down expand-icon"></i>
                 </div>
             </div>
@@ -5177,8 +5201,14 @@
         const filtered = [];
         for (const entry of all) {
             const successMatched = (entry.results?.success || [])
-                .map((r) => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
-                .filter((r) => r.sttList.length > 0);
+                .map((r) => ({
+                    ...r,
+                    sttList: (r.sttList || []).filter(matchStt),
+                    redirectedList: (r.redirectedList || []).filter(
+                        (rd) => matchStt(rd.original) || matchStt(rd.redirectTo)
+                    ),
+                }))
+                .filter((r) => r.sttList.length > 0 || r.redirectedList.length > 0);
             const failedMatched = (entry.results?.failed || [])
                 .map((r) => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
                 .filter((r) => r.sttList.length > 0);
@@ -5188,7 +5218,10 @@
                 results: { success: successMatched, failed: failedMatched },
                 summary: {
                     ...(entry.summary || {}),
-                    totalSuccess: successMatched.reduce((s, r) => s + r.sttList.length, 0),
+                    totalSuccess: successMatched.reduce(
+                        (s, r) => s + r.sttList.length + (r.redirectedList || []).length,
+                        0
+                    ),
                     totalFailed: failedMatched.reduce((s, r) => s + r.sttList.length, 0),
                 },
             });

@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][tag-t] Fix Lịch Sử Tag T Chờ Hàng không hiển thị redirected STT (đồng bộ với Kết Quả Gán)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — 3 bugs ở modal Lịch Sử (khác với 80aee5fd đã fix cho `tab1-bulk-tags.js`, đây là modal riêng `_ttagMgrShowHistory`): (1) `_ttagMgrSaveHistory` line 5015-5019: `summary.totalSuccess` cộng thêm `redirectedList.length`; (2) `_ttagMgrRenderHistoryItem` line 5096+: compute `totalSuccess`/`totalFailed` từ results thực lúc render (cover entries cũ đã lưu sai), render block `↳ STT X → chuyển sang STT Y (đơn gộp)` giống Kết Quả; (3) `_ttagMgrFilterHistory` line 5169+: filter xét cả `redirectedList.original` và `redirectedList.redirectTo`. |
+| **Chi tiết** | **User report**: Sau fix redirect đọc XL (commit 18165dc7), Kết Quả Gán Tag hiển thị đúng "Thành công (5 đơn)" với 3 redirected STT 589→655. Nhưng mở Lịch Sử cùng entry chỉ thấy "Thành công (2 đơn)" và các tag có STT bị redirect hết (QUẨN LOE ĐEN, SET NƠ HỒNG) hiện "STT " rỗng. **Root cause**: save/render history trong modal Tag T Chờ Hàng chỉ xử lý `sttList`, không biết về `redirectedList` (field thêm cho redirect feature ở commit 18165dc7). **Fix**: đồng bộ 3 nơi — save summary, render item (cover cả entries cũ bằng recompute), filter. Pattern giống commit 80aee5fd đã áp cho modal Bulk Tags khác. **Không migrate data cũ**: entries trên Firebase vẫn có summary thiếu, nhưng render đã recompute nên hiển thị đúng. |
+| **Status** | ✅ Done. Cần test: (a) gán tag T cho đơn đã gộp → mở Lịch Sử → entry mới hiển thị đúng tổng và có dấu ↳. (b) entries cũ (trước fix): header vẫn đúng vì recompute lúc render. (c) filter theo STT 589 hoặc 655 → entry có redirectedList phải match. |
+
 ### [render][worker][orders] Native Orders — thay nút "Tạo đơn" TPOS bằng đơn web-native trong tpos-pancake
 | | |
 |---|---|
