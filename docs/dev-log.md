@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [supplier-debt] Cho phép kéo xếp thứ tự tất cả rows (bỏ hạn chế cùng ngày)
+| | |
+|---|---|
+| **Files** | MODIFIED: [supplier-debt/js/main.js](../supplier-debt/js/main.js) — `RowOrderStore` chuyển từ key `${supplier}_${date}` sang `${supplier}__all` (1 list per supplier). `applyCustomRowOrder` rewrite: sort theo stored order, rows mới chưa có trong order append cuối. Render row: tất cả `<tr>` đều `draggable="true"` + drag handle (bỏ check `dateGroups.get(dateStr).length > 1`). Drag handlers: bỏ check `dataset.date` cùng nhau, chỉ check cùng table; lưu full DOM order vào Firebase. |
+| **Chi tiết** | **User request**: "Phần kéo xếp thứ tự này hiện tại đang cùng ngày -> cho tất cả đều kéo xếp thứ tự được dù khác ngày". **Trước**: chỉ rows trong cùng ngày mới kéo được (vì `dateGroups` check), order lưu key `supplier_date` → mỗi ngày 1 list riêng. **Sau**: bất kỳ row nào cũng kéo thả lên/xuống, kể cả khác ngày. Order lưu 1 list per supplier (`supplier__all`). Khi user kéo, snapshot toàn bộ DOM order → save Firebase → re-render → balance recalculate từ thứ tự mới. **Backward compat**: data cũ keyed bằng `supplier_date` vẫn còn trong Firestore nhưng không được dùng (key mới có suffix `__all`). |
+| **Status** | ✅ Done. Test: (1) F5 trang supplier-debt, expand 1 NCC → tab Công nợ hiện drag handle ⠿ ở MỌI dòng (kể cả ngày chỉ có 1 dòng); (2) kéo dòng 02/04 xuống dưới dòng 05/04 → thứ tự cập nhật, Nợ đầu kỳ/cuối kỳ recompute lại theo thứ tự mới; (3) reload trang → thứ tự mới giữ nguyên (Firebase persisted). |
+
 ### [orders][kpi] Audit fix — KPI sale flag checkbox: 2 bug + 1 race condition
 | | |
 |---|---|
