@@ -261,6 +261,22 @@ Server map snake_case DB → camelCase API:
 
 ---
 
+## 6b. Luật hiển thị nút "Tạo đơn"
+
+Đây là rule render ở [tpos-comment-list.js:508-520](../../../tpos-pancake/js/tpos/tpos-comment-list.js#L508-L520):
+
+| Trạng thái khách | Render |
+|---|---|
+| **Chưa có đơn nào** (không có entry trong `sessionIndexMap`) | Nút giỏ tím clickable |
+| **Có đơn TPOS cũ** (`sessionInfo.code` tồn tại, `source !== 'NATIVE_WEB'`) | Nút giỏ tím clickable **+** icon `package-check` xanh lá đứng cạnh làm indicator |
+| **Có đơn NATIVE_WEB rồi** (`source === 'NATIVE_WEB'`) | Chỉ icon `package-open` tím — KHÔNG còn nút (tránh trùng) |
+
+Backend vẫn có bảo vệ idempotency qua UNIQUE index trên `fb_comment_id`, nhưng UI chủ động ẩn nút khi đơn web đã tồn tại để tránh user bấm lặp.
+
+> **Gotcha**: nếu user thấy icon `package-check` **xanh lá** (không có nút giỏ tím bên cạnh) → code build cũ, cần hard-refresh. Bản mới luôn hiện nút trừ khi đã có đơn web.
+
+---
+
 ## 7. Chặng 7 — Client state + UI update
 
 File: [tpos-pancake/js/tpos/tpos-comment-list.js:973-1017](../../../tpos-pancake/js/tpos/tpos-comment-list.js#L973-L1017).

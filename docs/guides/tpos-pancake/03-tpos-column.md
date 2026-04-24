@@ -618,13 +618,11 @@ renderConversationItem(comment) {
             </div>
 
             <div class="tpos-conv-actions">
-                ${!sessionInfo?.code
-                    ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn web" style="color:#7c3aed;" onclick="event.stopPropagation();TposCommentList.createOrder('${fromId}','${SharedUtils.escapeHtml(fromName)}','${id}')">
+                ${sessionInfo?.source === 'NATIVE_WEB'
+                    ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;"><i data-lucide="package-open" style="width:13px;height:13px;"></i></span>`
+                    : `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn web${sessionInfo?.code ? ' (đã có đơn TPOS ' + sessionInfo.code + ')' : ''}" style="color:#7c3aed;" onclick="event.stopPropagation();TposCommentList.createOrder('${fromId}','${SharedUtils.escapeHtml(fromName)}','${id}')">
                          <i data-lucide="shopping-cart" style="width:13px;height:13px;"></i>
-                       </button>`
-                    : sessionInfo.source === 'NATIVE_WEB'
-                        ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;"><i data-lucide="package-open" style="width:13px;height:13px;"></i></span>`
-                        : `<span title="Đơn TPOS: ${sessionInfo.code}" style="color:#10b981;padding:4px;"><i data-lucide="package-check" style="width:13px;height:13px;"></i></span>`
+                       </button>${sessionInfo?.code ? `<span title="Đơn TPOS cũ: ${sessionInfo.code}" style="color:#10b981;padding:4px;"><i data-lucide="package-check" style="width:13px;height:13px;"></i></span>` : ''}`
                 }
                 <button class="tpos-action-btn" title="Xem info" onclick="event.stopPropagation();TposCustomerPanel.showCustomerInfo('${fromId}','${SharedUtils.escapeHtml(fromName)}')">
                     <i data-lucide="user" style="width:13px;height:13px;"></i>
