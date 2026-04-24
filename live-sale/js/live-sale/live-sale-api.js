@@ -89,14 +89,16 @@ const LiveSaleApi = {
      * Phase 1 stub: returns empty list.
      */
     async loadLiveCampaigns(fbPageId) {
+        const state = window.LiveSaleState;
         try {
             const data = await lsFetch(
                 `/api/v2/live-sale/live-videos?page_id=${encodeURIComponent(fbPageId)}`
             );
             const list = data?.data?.videos || data?.videos || [];
-            const state = window.LiveSaleState;
             if (state) {
                 state.liveSessions = list;
+                state.liveVideosHint = data?.hint || null;
+                state.liveVideosMessage = data?.message || null;
                 // Back-compat: keep a `liveCampaigns` alias shaped like TPOS data.
                 state.liveCampaigns = list.map((v) => ({
                     Id: v.id || v.fb_live_id || v.fb_post_id,
@@ -108,14 +110,41 @@ const LiveSaleApi = {
             }
             return list;
         } catch (err) {
-            console.warn('[LiveSale API] loadLiveCampaigns stub returning empty:', err.message);
-            const state = window.LiveSaleState;
+            console.warn('[LiveSale API] loadLiveCampaigns returning empty:', err.message);
             if (state) {
                 state.liveSessions = [];
                 state.liveCampaigns = [];
+                state.liveVideosHint = 'error';
+                state.liveVideosMessage = err.message;
             }
             return [];
         }
+    },
+
+    /**
+     * Register a manually pasted post/live ID as a synthetic live campaign.
+     * Used when the page has no FB Graph token yet — user pastes a Facebook
+     * post URL / ID and we treat it like a live campaign entry.
+     */
+    registerManualPost(fbPageId, rawPostId, title) {
+        const state = window.LiveSaleState;
+        if (!state || !rawPostId) return null;
+        const postId = String(rawPostId).trim();
+        if (!postId) return null;
+
+        const entry = {
+            Id: postId,
+            Name: title || `Post ${postId}`,
+            Facebook_UserId: fbPageId,
+            Facebook_LiveId: postId,
+            Facebook_UserName: state.selectedPage?.name || '',
+            _manual: true,
+        };
+        const existing = (state.liveCampaigns || []).find((c) => c.Id === postId);
+        if (!existing) {
+            state.liveCampaigns = [entry, ...(state.liveCampaigns || [])];
+        }
+        return entry;
     },
 
     async loadLiveCampaignsFromAllPages() {

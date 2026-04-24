@@ -21,15 +21,52 @@ const LiveSaleCommentList = {
                 <select id="tposLiveCampaignSelect" class="ls-select" style="flex:1;min-width:0;">
                     <option value="">— Chọn live —</option>
                 </select>
+                <input id="lsManualPostId" class="ls-select" type="text"
+                       placeholder="Hoặc dán Post/Live ID"
+                       style="flex:1;min-width:0;padding-left:10px;"
+                       title="Dán Facebook post ID hoặc live video ID để bắt đầu khi chưa có FB token" />
             `;
             const pageSel = topbar.querySelector('#tposCrmTeamSelect');
             const camSel = topbar.querySelector('#tposLiveCampaignSelect');
+            const manualInput = topbar.querySelector('#lsManualPostId');
             pageSel?.addEventListener('change', (e) => {
                 window.eventBus?.emit('tpos:crmTeamChanged', e.target.value);
             });
             camSel?.addEventListener('change', (e) => {
                 const v = e.target.value;
                 window.eventBus?.emit('tpos:liveCampaignChanged', v);
+            });
+            const triggerManual = () => {
+                const raw = (manualInput?.value || '').trim();
+                if (!raw) return;
+                const postId = this.extractPostId(raw);
+                if (!postId) {
+                    window.notificationManager?.show('Không nhận diện được Post ID', 'error');
+                    return;
+                }
+                const st = window.LiveSaleState;
+                const pageId = st?.selectedPage?.fb_page_id || st?.selectedPage?.Facebook_PageId;
+                if (!pageId) {
+                    window.notificationManager?.show('Chọn page trước', 'warning');
+                    return;
+                }
+                const entry = window.LiveSaleApi?.registerManualPost(pageId, postId);
+                this.renderLiveCampaignOptions();
+                if (entry) {
+                    const sel = document.getElementById('tposLiveCampaignSelect');
+                    if (sel) sel.value = entry.Id;
+                    window.eventBus?.emit('tpos:liveCampaignChanged', entry.Id);
+                }
+            };
+            manualInput?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    triggerManual();
+                }
+            });
+            manualInput?.addEventListener('blur', () => {
+                // auto-trigger on blur if something typed
+                if ((manualInput.value || '').trim().length > 5) triggerManual();
             });
         }
 
@@ -40,12 +77,34 @@ const LiveSaleCommentList = {
                     <div class="ls-empty-state">
                         <i data-lucide="shopping-cart" style="width:48px;height:48px;opacity:0.25;"></i>
                         <p>Chọn page và live để bắt đầu.</p>
-                        <small style="color:var(--gray-500)">LiveSale (web-native) — phase 1 foundation</small>
+                        <small style="color:var(--gray-500)">LiveSale (web-native) — phase 3</small>
                     </div>
                 </div>
             `;
             if (window.lucide?.createIcons) window.lucide.createIcons();
         }
+    },
+
+    /**
+     * Pull a Facebook post/live video ID out of a pasted URL or raw ID.
+     * Accepts:
+     *   - "1234567890_9876543210"  (post id with underscore)
+     *   - "1234567890"             (numeric id)
+     *   - URLs containing "/posts/{id}", "/videos/{id}", "/live/?v={id}"
+     */
+    extractPostId(input) {
+        if (!input) return '';
+        const s = String(input).trim();
+        // Direct id patterns
+        const compound = s.match(/(\d{6,})[_/](\d{6,})/);
+        if (compound) return `${compound[1]}_${compound[2]}`;
+        const urlMatch = s.match(/(?:posts|videos|live|permalink\.php\?story_fbid=|v=)\/?([0-9]{6,})/i);
+        if (urlMatch) return urlMatch[1];
+        const numeric = s.match(/^[0-9]{6,}$/);
+        if (numeric) return s;
+        // Fallback: anything that looks like 10+ digits
+        const anyNum = s.match(/\d{10,}/);
+        return anyNum ? anyNum[0] : '';
     },
 
     renderCrmTeamOptions() {
@@ -70,11 +129,21 @@ const LiveSaleCommentList = {
         if (!sel) return;
         const state = window.LiveSaleState;
         const list = state?.liveCampaigns || [];
-        const opts = ['<option value="">— Chọn live —</option>'];
+        const placeholder =
+            list.length === 0 && state?.liveVideosHint === 'no_fb_token'
+                ? '— Dán Post ID bên phải —'
+                : list.length === 0 && state?.liveVideosHint
+                    ? '— Không có live, dán Post ID —'
+                    : '— Chọn live —';
+        const opts = [`<option value="">${escapeForAttr(placeholder)}</option>`];
         for (const c of list) {
-            opts.push(`<option value="${escapeForAttr(c.Id)}">${escapeForAttr(c.Name)}</option>`);
+            const prefix = c._manual ? '📎 ' : '';
+            opts.push(`<option value="${escapeForAttr(c.Id)}">${prefix}${escapeForAttr(c.Name)}</option>`);
         }
         sel.innerHTML = opts.join('');
+        if (state?.liveVideosMessage && list.length === 0) {
+            sel.title = state.liveVideosMessage;
+        }
     },
 
     showLoading() {

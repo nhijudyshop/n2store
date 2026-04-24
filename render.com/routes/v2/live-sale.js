@@ -60,20 +60,88 @@ router.get('/pages', async (req, res) => {
     if (!db) return res.status(503).json({ success: false, error: 'DB unavailable' });
 
     try {
+        // Merge Pancake pages + any pages with direct FB Graph tokens.
         const r = await db.query(`
-            SELECT page_id, page_name, updated_at
-              FROM pancake_page_access_tokens
-             ORDER BY COALESCE(page_name, page_id) ASC
+            WITH combined AS (
+                SELECT page_id, page_name, updated_at, FALSE AS has_fb_token
+                  FROM pancake_page_access_tokens
+                UNION ALL
+                SELECT fb_page_id AS page_id, page_name, updated_at, TRUE AS has_fb_token
+                  FROM live_sale_fb_tokens
+            )
+            SELECT page_id,
+                   MAX(page_name)  AS page_name,
+                   BOOL_OR(has_fb_token) AS has_fb_token,
+                   MAX(updated_at) AS updated_at
+              FROM combined
+             GROUP BY page_id
+             ORDER BY COALESCE(MAX(page_name), page_id) ASC
         `);
         const pages = r.rows.map((row) => ({
             id: row.page_id,
             fb_page_id: row.page_id,
             name: row.page_name || row.page_id,
+            has_fb_token: row.has_fb_token,
             updated_at: row.updated_at,
         }));
         res.json({ success: true, data: { pages } });
     } catch (err) {
         handleError(res, err, 'pages list failed');
+    }
+});
+
+// =====================================================
+// FB GRAPH PAGE ACCESS TOKENS (admin-managed)
+// =====================================================
+
+router.get('/fb-tokens', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    if (!db) return res.status(503).json({ success: false, error: 'DB unavailable' });
+    try {
+        const r = await db.query(
+            `SELECT fb_page_id, page_name, expires_at, generated_by, updated_at
+               FROM live_sale_fb_tokens
+              ORDER BY updated_at DESC`,
+        );
+        res.json({ success: true, data: { tokens: r.rows } });
+    } catch (err) {
+        handleError(res, err, 'fb-tokens list failed');
+    }
+});
+
+router.put('/fb-tokens/:pageId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    if (!db) return res.status(503).json({ success: false, error: 'DB unavailable' });
+    const { pageId } = req.params;
+    const { access_token, page_name, expires_at } = req.body || {};
+    if (!access_token) return res.status(400).json({ success: false, error: 'access_token required' });
+    try {
+        const r = await db.query(
+            `INSERT INTO live_sale_fb_tokens (fb_page_id, access_token, page_name, expires_at, generated_by, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (fb_page_id) DO UPDATE
+               SET access_token = EXCLUDED.access_token,
+                   page_name    = COALESCE(EXCLUDED.page_name, live_sale_fb_tokens.page_name),
+                   expires_at   = COALESCE(EXCLUDED.expires_at, live_sale_fb_tokens.expires_at),
+                   generated_by = COALESCE(EXCLUDED.generated_by, live_sale_fb_tokens.generated_by),
+                   updated_at   = NOW()
+             RETURNING fb_page_id, page_name, expires_at, generated_by, updated_at`,
+            [pageId, access_token, page_name || null, expires_at || null, req.headers['x-user'] || null],
+        );
+        res.json({ success: true, data: r.rows[0] });
+    } catch (err) {
+        handleError(res, err, 'fb-token upsert failed');
+    }
+});
+
+router.delete('/fb-tokens/:pageId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    if (!db) return res.status(503).json({ success: false, error: 'DB unavailable' });
+    try {
+        await db.query('DELETE FROM live_sale_fb_tokens WHERE fb_page_id = $1', [req.params.pageId]);
+        res.json({ success: true });
+    } catch (err) {
+        handleError(res, err, 'fb-token delete failed');
     }
 });
 
@@ -89,22 +157,40 @@ router.get('/live-videos', async (req, res) => {
     if (!pageId) return res.status(400).json({ success: false, error: 'page_id required' });
 
     try {
-        const r = await db.query(
-            'SELECT token FROM pancake_page_access_tokens WHERE page_id = $1 LIMIT 1',
+        // Prefer a real FB Graph token from live_sale_fb_tokens.
+        // Pancake JWTs (pancake_page_access_tokens) are NOT valid for graph.facebook.com —
+        // FB will reject them with OAuthException code 190 / "Bad signature".
+        const fbRow = await db.query(
+            'SELECT access_token FROM live_sale_fb_tokens WHERE fb_page_id = $1 LIMIT 1',
             [pageId],
         );
-        if (r.rows.length === 0 || !r.rows[0].token) {
-            return res.status(404).json({ success: false, error: 'no access_token for page' });
+        const fbToken = fbRow.rows[0]?.access_token;
+
+        if (!fbToken) {
+            // No FB Graph token configured for this page. Don't fail the UI —
+            // tell the frontend to show a "paste post ID" input instead.
+            return res.json({
+                success: true,
+                data: { videos: [] },
+                hint: 'no_fb_token',
+                message: 'Chưa có FB Graph token cho page này. Dán Post ID thủ công hoặc set token qua PUT /api/v2/live-sale/fb-tokens/:page_id.',
+            });
         }
-        const token = r.rows[0].token;
 
         const fields = 'id,title,description,status,permalink_url,creation_time,embed_html';
-        const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/live_videos?fields=${fields}&limit=20&access_token=${encodeURIComponent(token)}`;
+        const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/live_videos?fields=${fields}&limit=20&access_token=${encodeURIComponent(fbToken)}`;
 
         const resp = await fetch(fbUrl);
         if (!resp.ok) {
             const text = await resp.text().catch(() => '');
-            return res.status(resp.status).json({ success: false, error: 'FB Graph failed', details: text.slice(0, 400) });
+            // Graceful fallback — return empty list with a hint so UI stays usable.
+            return res.json({
+                success: true,
+                data: { videos: [] },
+                hint: 'fb_graph_failed',
+                message: `FB Graph trả lỗi ${resp.status}. Token có thể đã hết hạn — cập nhật qua PUT /api/v2/live-sale/fb-tokens/:page_id.`,
+                details: text.slice(0, 300),
+            });
         }
         const body = await resp.json();
         const videos = (body.data || []).map((v) => ({
@@ -119,7 +205,14 @@ router.get('/live-videos', async (req, res) => {
         }));
         res.json({ success: true, data: { videos } });
     } catch (err) {
-        handleError(res, err, 'live-videos fetch failed');
+        // Last-resort soft-fail: keep UI alive with empty list + error info
+        console.warn('[LIVE-SALE] live-videos fetch failed:', err.message);
+        res.json({
+            success: true,
+            data: { videos: [] },
+            hint: 'error',
+            message: err.message,
+        });
     }
 });
 

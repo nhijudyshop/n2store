@@ -13,6 +13,19 @@
 -- Idempotent — safe to re-run (all CREATE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
 -- =====================================================
 
+-- ---- live_sale_fb_tokens ---------------------------------------------------
+-- Real Facebook Graph page access tokens (independent of Pancake JWTs stored
+-- in pancake_page_access_tokens). Admins set these manually via the
+-- POST /api/v2/live-sale/fb-tokens/:page_id endpoint.
+CREATE TABLE IF NOT EXISTS live_sale_fb_tokens (
+    fb_page_id    VARCHAR(100) PRIMARY KEY,
+    page_name     VARCHAR(255),
+    access_token  TEXT NOT NULL,
+    expires_at    TIMESTAMPTZ,
+    generated_by  VARCHAR(64),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ---- customers.facebook_id --------------------------------------------------
 
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS facebook_id VARCHAR(64);
