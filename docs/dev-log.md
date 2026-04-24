@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [shared][nav] Thêm group sidebar "Web 2.0" + di chuyển tpos-pancake & native-orders vào đó
+| | |
+|---|---|
+| **Files** | MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — (1) thêm entry `MENU_CONFIG` mới cho `native-orders` (icon `package-open`, href `../native-orders/index.html`, `publicAccess: true`); (2) đổi `DEFAULT_GROUPS_CONFIG` — bỏ `'tpos-pancake'` khỏi group "Đơn Hàng", thêm group mới `{ name: 'Web 2.0', icon: 'globe', items: ['tpos-pancake', 'native-orders'] }`; (3) thêm `MenuLayoutStore._applyOneTimeMigrations()` chạy sau `_loadFromAPI()` trong `init()`: nếu localStorage chưa có flag `n2shop_migration_web2_applied`, remove `tpos-pancake` + `native-orders` khỏi mọi group hiện tại, tạo/update group `Web 2.0` chứa cả 2 (dedupe), lọc bỏ group rỗng, set flag, save local + server (`this.saveLayout()`). |
+| **Chi tiết** | **User request**: "tạo 1 group web 2.0 ở menu sidebar navigation modern → di chuyển native-order, tpos-pancake vào". Default config mới chỉ áp cho user chưa có saved layout; user cũ đã có `tpos-pancake` trong group "Đơn Hàng" từ trước (do layout sync Firestore + localStorage) → cần migration chủ động. **Migration một lần mỗi browser**: flag `n2shop_migration_web2_applied='1'` lưu localStorage — chạy qua một lần thì không bao giờ chạy lại, user có thể tự drag sang group khác nếu muốn mà không bị reset. **Không phá layout user**: migration chỉ động đến 2 item cụ thể; mọi custom khác (vị trí group, thứ tự item khác) được giữ nguyên. **Server sync best-effort**: nếu `saveLayout()` lỗi → localStorage vẫn persist, lần sau vẫn không chạy lại migration. |
+| **Status** | ✅ Done — push. Test: (1) hard refresh bất kỳ trang nào load `navigation-modern.js` → sidebar phải có group mới "Web 2.0" (icon globe) chứa Tpos - Pancake + Đơn Web (Native); (2) group "Đơn Hàng" giờ còn 3 item (orders-report, order-management, order-log); (3) console log `[NAV] Migration Web 2.0 applied...`; (4) refresh lần 2 → không log migration nữa, layout ổn định; (5) user tự drag item khác vào/ra Web 2.0 → lưu được, migration không can thiệp. |
+
 ### [orders][kpi] Bỏ cutoff + detail modal: cột KPI + highlight row tính KPI
 | | |
 |---|---|

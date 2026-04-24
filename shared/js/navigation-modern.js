@@ -143,6 +143,15 @@ const MENU_CONFIG = [
         permissionRequired: 'tpos-pancake',
     },
     {
+        href: '../native-orders/index.html',
+        icon: 'package-open',
+        text: 'Đơn Web (Native)',
+        shortText: 'Đơn Web',
+        pageIdentifier: 'native-orders',
+        permissionRequired: 'native-orders',
+        publicAccess: true,
+    },
+    {
         href: '../delivery-report/index.html',
         icon: 'truck',
         text: 'Thống Kê Giao Hàng',
@@ -500,7 +509,12 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: 'Đơn Hàng',
         icon: 'shopping-cart',
-        items: ['orders-report', 'order-management', 'order-log', 'tpos-pancake'],
+        items: ['orders-report', 'order-management', 'order-log'],
+    },
+    {
+        name: 'Web 2.0',
+        icon: 'globe',
+        items: ['tpos-pancake', 'native-orders'],
     },
     {
         name: 'Kho & Nhập Hàng',
@@ -563,10 +577,67 @@ const MenuLayoutStore = {
         // Load from API (async)
         await this._loadFromAPI();
 
+        // One-time migrations (new groups / moved items) — runs once per client
+        this._applyOneTimeMigrations();
+
         // Poll for updates every 5 minutes (replaces real-time listener)
         this._startPolling();
 
         return this._layout;
+    },
+
+    /**
+     * Apply one-time migrations tracked via localStorage flags.
+     * Currently: MIGRATION_WEB2 — create "Web 2.0" group and move tpos-pancake,
+     * native-orders into it (removes them from wherever they are now).
+     * Each migration runs once per browser; user can still customize afterward.
+     */
+    _applyOneTimeMigrations() {
+        try {
+            const MIGRATION_WEB2_KEY = 'n2shop_migration_web2_applied';
+            if (localStorage.getItem(MIGRATION_WEB2_KEY) === '1') return;
+            if (!this._layout) return;
+
+            const MOVE_ITEMS = ['tpos-pancake', 'native-orders'];
+            const GROUP_NAME = 'Web 2.0';
+            const GROUP_ICON = 'globe';
+
+            // Remove target items from any existing group / ungrouped
+            this._layout.groups = this._layout.groups.map((g) => ({
+                ...g,
+                items: g.items.filter((id) => !MOVE_ITEMS.includes(id)),
+            }));
+            this._layout.ungroupedItems = (this._layout.ungroupedItems || []).filter(
+                (id) => !MOVE_ITEMS.includes(id)
+            );
+
+            // Find or create "Web 2.0" group, assign items (dedupe)
+            let web2 = this._layout.groups.find((g) => g.name === GROUP_NAME);
+            if (!web2) {
+                web2 = {
+                    id: `group_${Date.now()}_web2`,
+                    name: GROUP_NAME,
+                    icon: GROUP_ICON,
+                    collapsed: false,
+                    items: [],
+                };
+                this._layout.groups.push(web2);
+            }
+            MOVE_ITEMS.forEach((id) => { if (!web2.items.includes(id)) web2.items.push(id); });
+
+            // Drop empty groups (e.g. if tpos-pancake was the only item somewhere)
+            this._layout.groups = this._layout.groups.filter((g) => g.items.length > 0);
+
+            localStorage.setItem(MIGRATION_WEB2_KEY, '1');
+            this._saveToLocalStorage();
+            // Best-effort server sync; if it fails, localStorage still persists
+            if (typeof this.saveLayout === 'function') {
+                try { this.saveLayout(this._layout); } catch { /* ignore */ }
+            }
+            console.log('[NAV] Migration Web 2.0 applied — moved tpos-pancake + native-orders into new group');
+        } catch (e) {
+            console.warn('[NAV] Migration failed:', e.message);
+        }
     },
 
     /**
