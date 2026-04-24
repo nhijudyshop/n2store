@@ -2159,7 +2159,7 @@ async function assignTagsAfterMerge(cluster) {
  *
  * SOURCE (đơn nguồn):
  *   - Reset sạch: flags = [], tTags = [], category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT.
- *   - Add tTag động `Gộp X Y Z` để đánh dấu đã gộp về group nào.
+ *   - KHÔNG gắn tTag `Gộp X Y Z` vào source (chỉ TARGET có marker gộp).
  *
  * Tất cả call đều dùng `{ suppressSync: true }` — không trigger XL→TPOS sync.
  */
@@ -2277,7 +2277,7 @@ async function assignTagXLAfterMerge(cluster) {
             console.error(`[MERGE-PTAG] Failed to add merge tag to target ${targetCode}:`, e);
         }
 
-        // ===== SOURCES: reset sạch, chỉ giữ marker gộp =====
+        // ===== SOURCES: reset sạch, KHÔNG gắn merge tag (chỉ target mới có "Gộp X Y Z") =====
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
             try {
@@ -2287,12 +2287,12 @@ async function assignTagXLAfterMerge(cluster) {
                         category: 3,
                         subTag: 'DA_GOP_KHONG_CHOT',
                         flags: [],
-                        tTags: [{ id: mergeTagId, name: mergeTagName }],
+                        tTags: [],
                     },
                     'Hệ thống (gộp đơn)'
                 );
                 console.log(
-                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${mergeTagName}`
+                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT`
                 );
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
