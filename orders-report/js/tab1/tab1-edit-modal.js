@@ -69,6 +69,13 @@ function updateModalWithData(data) {
         'vi-VN'
     );
     document.getElementById('editProductCount').textContent = data.Details?.length || 0;
+
+    // Pre-load KPI sale flags cho order này (non-blocking). Cache sẽ sẵn sàng
+    // trước khi user switch sang tab "Sản phẩm".
+    if (data.Code && window.KpiSaleFlagStore) {
+        window.KpiSaleFlagStore.load(data.Code).catch(() => {});
+    }
+
     switchEditTab('info');
 
     // 🔄 Refresh inline search UI after data is loaded
@@ -294,8 +301,14 @@ function renderProductsTab(data) {
         return `<div class="info-card">${inlineSearchHTML}<div class="empty-state"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm</p></div></div>`;
     }
 
+    const orderCode = data.Code || '';
     const productsHTML = data.Details.map(
-        (p, i) => `
+        (p, i) => {
+            const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+                ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+                : false);
+            const disabled = !p.ProductId || !orderCode;
+            return `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
             <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
@@ -304,8 +317,10 @@ function renderProductsTab(data) {
             <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
             <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
             <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`
+        </tr>`;
+        }
     ).join('');
 
     return `
@@ -313,12 +328,39 @@ function renderProductsTab(data) {
             ${inlineSearchHTML}
             <h4 style="margin-top: 24px;"><i class="fas fa-box"></i> Danh sách sản phẩm (${data.Details.length})</h4>
             <table class="products-table">
-                <thead><tr><th>#</th><th>Ảnh</th><th>Sản phẩm</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th><th>Ghi chú</th><th style="text-align: center;">Thao tác</th></tr></thead>
+                <thead><tr><th>#</th><th>Ảnh</th><th>Sản phẩm</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th><th>Ghi chú</th><th style="text-align: center;" title="Tick để đánh dấu SP là bán hàng, tính KPI">KPI</th><th style="text-align: center;">Thao tác</th></tr></thead>
                 <tbody id="productsTableBody">${productsHTML}</tbody>
-                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</td><td colspan="2"></td></tr></tfoot>
+                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</td><td colspan="3"></td></tr></tfoot>
             </table>
         </div>`;
 }
+
+/**
+ * Handler cho checkbox "KPI" trên từng dòng SP trong modal Sửa đơn hàng.
+ * Gọi bởi onchange trong renderProductsTab().
+ * Upsert flag → store tự trigger recalc KPI.
+ */
+async function handleKpiSaleToggle(orderCode, productId, checked) {
+    if (!orderCode || !productId) return;
+    if (!window.KpiSaleFlagStore) {
+        console.warn('[KPI Toggle] KpiSaleFlagStore chưa sẵn sàng');
+        return;
+    }
+    try {
+        await window.KpiSaleFlagStore.set(orderCode, productId, checked);
+    } catch (e) {
+        console.error('[KPI Toggle] set failed:', e?.message);
+        if (window.notificationManager?.error) {
+            window.notificationManager.error(`Không lưu được đánh dấu KPI: ${e?.message || e}`);
+        }
+        // Revert checkbox state về giá trị cũ
+        const cb = document.querySelector(
+            `.kpi-sale-check[data-product-id="${productId}"]`
+        );
+        if (cb) cb.checked = !checked;
+    }
+}
+window.handleKpiSaleToggle = handleKpiSaleToggle;
 
 function renderDeliveryTab(data) {
     return `<div class="empty-state"><p>Thông tin giao hàng</p></div>`;

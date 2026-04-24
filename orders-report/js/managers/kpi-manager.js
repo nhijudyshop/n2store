@@ -26,6 +26,12 @@
     // KPI mode: 'fixed' = 5000đ/SP, 'value' = theo giá SP thực tế
     let KPI_MODE = 'fixed';
 
+    // Ngày release tính năng checkbox "SP bán hàng" (ISO UTC).
+    // Orders có kpi_base.created_at ≥ giá trị này → áp dụng strict mode:
+    //   SP sau BASE phải có kpi_sale_flag.is_sale_product = TRUE thì mới được tính KPI.
+    // Orders trước cutoff → legacy: bỏ qua flag, tính KPI như cũ.
+    const KPI_SALE_FLAG_EFFECTIVE_FROM = '2026-04-24T00:00:00Z';
+
     // ========================================
     // REST API Helper
     // ========================================
@@ -544,15 +550,58 @@
                 } catch (e) {}
             }
 
+            // Xác định có áp dụng strict mode (dùng sale flag) hay không.
+            // Orders sau cutoff → strict: SP chưa check flag sẽ không tính KPI.
+            // Orders trước cutoff → legacy: bỏ qua flag (tính như cũ).
+            const baseCreated = base.createdAt ? new Date(base.createdAt) : null;
+            const strictMode = baseCreated && baseCreated >= new Date(KPI_SALE_FLAG_EFFECTIVE_FROM);
+
+            let flagMap = null;
+            if (strictMode) {
+                try {
+                    if (window.KpiSaleFlagStore && typeof window.KpiSaleFlagStore.load === 'function') {
+                        flagMap = await window.KpiSaleFlagStore.load(orderCode);
+                    } else {
+                        // Fallback: trực tiếp gọi API nếu store chưa load (vd. worker tick)
+                        const resp = await kpiAPI(
+                            'GET',
+                            `/kpi-sale-flag/${encodeURIComponent(orderCode)}`
+                        );
+                        flagMap = new Map();
+                        for (const f of resp.flags || []) {
+                            flagMap.set(String(f.productId), f.isSaleProduct === true);
+                        }
+                    }
+                } catch (e) {
+                    // Fail-safe: không crash KPI calc. Coi như không có flag nào
+                    // (strict mode: mọi SP sau BASE không được tính vì default FALSE).
+                    console.warn('[KPI] load sale flags failed:', e?.message);
+                    flagMap = new Map();
+                }
+            }
+
             // Compute net per user from remaining stack entries
             const perUserNet = {};
             const perUserKPI = {};
             let totalNet = 0;
             let totalKPIAmount = 0;
+            let excludedCount = 0;
 
             for (const [pid, data] of Object.entries(netPerProduct)) {
                 const unitKPI =
                     KPI_MODE === 'value' && data.price > 0 ? data.price : KPI_AMOUNT_PER_DIFFERENCE;
+
+                // Strict mode: SP phải được sale tick flag mới được tính KPI.
+                // Default FALSE (chưa check) → skip. Legacy mode (flagMap=null) → không filter.
+                if (strictMode) {
+                    const isSale = flagMap && flagMap.get(pid) === true;
+                    if (!isSale) {
+                        data.net = 0;
+                        data.excludedBySaleFlag = true;
+                        excludedCount++;
+                        continue;
+                    }
+                }
 
                 let productNet = 0;
                 for (const entry of stackPerProduct[pid]) {
@@ -576,6 +625,8 @@
                 perUserNet,
                 perUserKPI,
                 perUserNames,
+                strictMode: !!strictMode,
+                excludedCount,
             };
         } catch (e) {
             console.error('[KPI] calculateNetKPI error:', e);

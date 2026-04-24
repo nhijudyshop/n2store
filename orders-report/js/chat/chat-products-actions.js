@@ -633,6 +633,44 @@
     };
 
     // =====================================================
+    // KPI SALE FLAG TOGGLE (chat modal)
+    // =====================================================
+
+    /**
+     * Toggle KPI sale flag cho SP trong chat modal.
+     * Gọi bởi onchange trong renderMainProductRow().
+     * Upsert qua KpiSaleFlagStore → store tự trigger recalc KPI.
+     */
+    window.handleChatKpiSaleToggle = async function (productId, checked) {
+        productId = Number(productId);
+        const orderCode = window.currentChatOrderData?.Code || '';
+        if (!orderCode || !productId) {
+            console.warn('[ChatKPIToggle] thiếu orderCode hoặc productId');
+            return;
+        }
+        if (!window.KpiSaleFlagStore) {
+            console.warn('[ChatKPIToggle] KpiSaleFlagStore chưa sẵn sàng');
+            return;
+        }
+
+        try {
+            await window.KpiSaleFlagStore.set(orderCode, productId, checked);
+        } catch (e) {
+            console.error('[ChatKPIToggle] set failed:', e?.message);
+            if (window.notificationManager?.error) {
+                window.notificationManager.error(
+                    `Không lưu được đánh dấu KPI: ${e?.message || e}`
+                );
+            }
+            // Revert checkbox UI
+            const cb = document.querySelector(
+                `.chat-kpi-check[data-product-id="${productId}"]`
+            );
+            if (cb) cb.checked = !checked;
+        }
+    };
+
+    // =====================================================
     // HELPERS
     // =====================================================
 

@@ -789,6 +789,121 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
 });
 
 // =====================================================
+// KPI SALE FLAG API
+// Per-product-line: sale tự đánh dấu SP là "bán hàng thật" để tính KPI
+// =====================================================
+
+/**
+ * GET /api/realtime/kpi-sale-flag/:orderCode
+ * Trả về danh sách flags cho mọi product_id đã được user đánh dấu.
+ * Không có row nào → [] (mọi SP mặc định FALSE = không tính KPI với orders post-cutoff).
+ */
+router.get('/kpi-sale-flag/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            `SELECT order_code, product_id, is_sale_product, set_by_user_id, set_by_user_name, updated_at
+             FROM kpi_sale_flag WHERE order_code = $1`,
+            [orderCode]
+        );
+
+        res.json({
+            flags: result.rows.map(r => ({
+                orderCode: r.order_code,
+                productId: Number(r.product_id),
+                isSaleProduct: r.is_sale_product,
+                setByUserId: r.set_by_user_id,
+                setByUserName: r.set_by_user_name,
+                updatedAt: r.updated_at
+            }))
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-sale-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/kpi-sale-flag/:orderCode/:productId
+ * Body: { isSaleProduct: boolean, userId?: string, userName?: string }
+ * Upsert flag cho một line. Trả về row mới.
+ */
+router.put('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
+    try {
+        const { orderCode, productId } = req.params;
+        const { isSaleProduct, userId, userName } = req.body || {};
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (typeof isSaleProduct !== 'boolean') {
+            return res.status(400).json({ error: 'isSaleProduct must be boolean' });
+        }
+        const pid = Number(productId);
+        if (!Number.isFinite(pid) || pid <= 0) {
+            return res.status(400).json({ error: 'Invalid productId' });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO kpi_sale_flag (order_code, product_id, is_sale_product, set_by_user_id, set_by_user_name, updated_at)
+             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+             ON CONFLICT (order_code, product_id) DO UPDATE SET
+               is_sale_product = EXCLUDED.is_sale_product,
+               set_by_user_id = EXCLUDED.set_by_user_id,
+               set_by_user_name = EXCLUDED.set_by_user_name,
+               updated_at = CURRENT_TIMESTAMP
+             RETURNING order_code, product_id, is_sale_product, set_by_user_id, set_by_user_name, updated_at`,
+            [orderCode, pid, isSaleProduct, userId || null, userName || null]
+        );
+
+        const row = result.rows[0];
+        res.json({
+            success: true,
+            flag: {
+                orderCode: row.order_code,
+                productId: Number(row.product_id),
+                isSaleProduct: row.is_sale_product,
+                setByUserId: row.set_by_user_id,
+                setByUserName: row.set_by_user_name,
+                updatedAt: row.updated_at
+            }
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /kpi-sale-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/kpi-sale-flag/:orderCode/:productId
+ * Xóa flag cho một line (reset về default FALSE).
+ */
+router.delete('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
+    try {
+        const { orderCode, productId } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const pid = Number(productId);
+        if (!Number.isFinite(pid) || pid <= 0) {
+            return res.status(400).json({ error: 'Invalid productId' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM kpi_sale_flag WHERE order_code = $1 AND product_id = $2',
+            [orderCode, pid]
+        );
+
+        res.json({ success: true, deleted: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /kpi-sale-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // REPORT ORDER DETAILS API
 // =====================================================
 

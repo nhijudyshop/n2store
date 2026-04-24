@@ -2499,6 +2499,21 @@ button[onclick*='showAddProductForm'] {
     border-color: #3b82f6;
 }
 
+/* KPI sale flag checkbox trong modal Sửa đơn hàng */
+.kpi-sale-check {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #6366f1;
+    margin: 0;
+    vertical-align: middle;
+}
+
+.kpi-sale-check:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
 .btn-edit-item,
 .btn-delete-item,
 .btn-save-item,

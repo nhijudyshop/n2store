@@ -2554,6 +2554,32 @@ div.chat-product-image i {
     white-space: nowrap;
 }
 
+/* KPI sale flag toggle inline trong chat product row */
+.chat-kpi-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: #6366f1;
+    cursor: pointer;
+    user-select: none;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.chat-kpi-toggle:hover {
+    background: #eef2ff;
+}
+
+.chat-kpi-check {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
 /* ===== Order Footer (per reference: premium total display) ===== */
 .chat-order-footer {
     display: flex;

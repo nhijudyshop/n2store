@@ -166,6 +166,15 @@
                 window.setupHeldProductsListener();
             }
 
+            // Pre-load KPI sale flags để render có dữ liệu. Non-blocking nếu store chưa sẵn sàng.
+            if (orderData.Code && window.KpiSaleFlagStore) {
+                try {
+                    await window.KpiSaleFlagStore.load(orderData.Code);
+                } catch (e) {
+                    console.warn('[ChatProducts-UI] pre-load sale flags failed:', e?.message);
+                }
+            }
+
             // Render
             renderChatProductsTable();
 
@@ -312,6 +321,20 @@
             ? `<img src="${imgSrc}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
             : `<div class="chat-product-image" style="background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
 
+        const orderCode = window.currentChatOrderData?.Code || '';
+        const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+            ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+            : false);
+        const kpiToggleHtml = (orderCode && p.ProductId)
+            ? `<label class="chat-kpi-toggle" title="Tick = SP bán hàng, được tính KPI">
+                    <input type="checkbox" class="chat-kpi-check"
+                        data-product-id="${p.ProductId}"
+                        ${isSale ? 'checked' : ''}
+                        onchange="window.handleChatKpiSaleToggle(${p.ProductId}, this.checked)">
+                    <span>KPI</span>
+               </label>`
+            : '';
+
         return `
         <tr class="chat-product-row" data-product-id="${p.ProductId}">
             <td style="width: 48px;">${imgHtml}</td>
@@ -320,6 +343,7 @@
                 <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px; flex-wrap: wrap;">
                     <span class="chat-main-badge"><i class="fas fa-check-circle"></i> Chính</span>
                     ${productCode ? `<span style="font-size: 10px; color: #6b7280;">Mã: ${productCode}</span>` : ''}
+                    ${kpiToggleHtml}
                 </div>
                 <input type="text" class="chat-product-note" value="${(p.Note || '').replace(/"/g, '&quot;')}" placeholder="Ghi chú"
                     onblur="window.updateChatProductNote(${p.ProductId}, this.value)">
