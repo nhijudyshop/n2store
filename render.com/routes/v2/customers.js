@@ -603,17 +603,43 @@ router.get('/:id', async (req, res) => {
         `, [phone]);
 
         // Get recent wallet transactions (with balance_before/after for "Số dư sau" display)
-        const walletTxResult = await db.query(`
-            SELECT id, phone, type, amount,
-                balance_before, balance_after,
-                virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note, created_by,
-                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
-            FROM wallet_transactions
-            WHERE phone = $1
-            ORDER BY created_at DESC
+        // LEFT JOIN balance_history so CK Sepay rows carry the approval image URL
+        const walletTxQuery = `
+            SELECT wt.id, wt.phone, wt.type, wt.amount,
+                wt.balance_before, wt.balance_after,
+                wt.virtual_balance_before, wt.virtual_balance_after,
+                wt.source, wt.reference_type, wt.reference_id, wt.note, wt.created_by,
+                (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                bh.verification_image_url AS sepay_image_url
+            FROM wallet_transactions wt
+            LEFT JOIN balance_history bh
+              ON wt.reference_type = 'balance_history'
+             AND wt.reference_id = bh.id::text
+            WHERE wt.phone = $1
+            ORDER BY wt.created_at DESC
             LIMIT 20
-        `, [phone]);
+        `;
+        let walletTxResult;
+        try {
+            walletTxResult = await db.query(walletTxQuery, [phone]);
+        } catch (queryError) {
+            // Fallback: balance_history.verification_image_url column may not exist in older envs
+            if (queryError.message && queryError.message.includes('verification_image_url')) {
+                walletTxResult = await db.query(`
+                    SELECT id, phone, type, amount,
+                        balance_before, balance_after,
+                        virtual_balance_before, virtual_balance_after,
+                        source, reference_type, reference_id, note, created_by,
+                        (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    FROM wallet_transactions
+                    WHERE phone = $1
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                `, [phone]);
+            } else {
+                throw queryError;
+            }
+        }
 
         // Enrich ADJUSTMENT rows with wallet_adjustments metadata (Node-side, no SQL cast).
         // Wrapped in try/catch — if enrich fails, return raw rows instead of 500.
