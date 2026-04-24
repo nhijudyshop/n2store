@@ -47,15 +47,24 @@
     }
 
     /**
-     * Detect ticket-linked transaction (VIRTUAL_CREDIT from RETURN_SHIPPER,
-     * DEPOSIT from RETURN_CLIENT, etc.). Match TV-YYYY-NNNNN in any ref field.
+     * Detect ticket-linked transaction. Accepts either:
+     *   - TV-YYYY-NNNNN  (ticket_code — direct lookup)
+     *   - NJD/YYYY/NNNNN (order_id — viewer resolves via searchTicketsServer)
+     *
+     * Why both: VIRTUAL_CREDIT from "Thu Về" and other ticket-driven tx often
+     * embed only the NJD order id in note (e.g. "Cộng Nợ Ảo Từ Thu Về (NJD/2026/62709)…").
      */
     function getTicketCode(tx) {
         if (!tx) return null;
         const fields = [tx.reference_id, tx.note, tx.source].filter(Boolean);
+        // Prefer TV- code first (direct match); fall back to NJD order id.
         for (const f of fields) {
             const m = String(f).match(/TV-\d{4}-\d+/);
             if (m) return m[0];
+        }
+        for (const f of fields) {
+            const m = String(f).match(/NJD\/\d{4}\/\d+/i);
+            if (m) return m[0].toUpperCase();
         }
         return null;
     }

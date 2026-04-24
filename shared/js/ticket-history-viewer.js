@@ -353,15 +353,47 @@
         `;
     }
 
-    async function show(ticketCode) {
-        if (!ticketCode) { alert('Không có mã phiếu'); return; }
+    /**
+     * Resolve a user-supplied identifier to a ticket object.
+     * Accepts either a ticket_code (TV-YYYY-NNNNN) or an order_id (NJD/YYYY/NNNNN).
+     */
+    async function resolveTicket(api, identifier) {
+        const id = String(identifier || '').trim();
+
+        // Ticket code: direct fetch.
+        if (/^TV-\d{4}-\d+$/i.test(id)) {
+            const res = await api.getTicket(id);
+            return res && res.data ? res.data : res;
+        }
+
+        // Order id: search server-side for any ticket linked to this NJD.
+        if (/^NJD\/\d{4}\/\d+$/i.test(id)) {
+            if (typeof api.searchTicketsServer !== 'function') {
+                throw new Error('ApiService.searchTicketsServer không khả dụng');
+            }
+            const results = await api.searchTicketsServer(id);
+            if (!Array.isArray(results) || results.length === 0) {
+                throw new Error(`Không tìm thấy phiếu cho đơn ${id}`);
+            }
+            // Prefer non-cancelled, then most recent. searchTicketsServer already
+            // sorts by created_at DESC on the backend — respect that unless a
+            // cancelled row happens to be first.
+            const active = results.find((t) => t.status !== 'CANCELLED');
+            return active || results[0];
+        }
+
+        throw new Error(`Mã phiếu không hợp lệ: ${id}`);
+    }
+
+    async function show(identifier) {
+        if (!identifier) { alert('Không có mã phiếu'); return; }
 
         injectStyle();
         const modal = ensureModal();
         const titleEl = modal.querySelector('.thv-title');
         const bodyEl = modal.querySelector('.thv-body');
 
-        titleEl.textContent = `Lịch sử phiếu ${ticketCode}`;
+        titleEl.textContent = `Lịch sử phiếu ${identifier}`;
         bodyEl.innerHTML = `<div class="thv-loading">Đang tải chi tiết phiếu…</div>`;
         modal.classList.add('thv-open');
 
@@ -370,12 +402,12 @@
             if (!api || typeof api.getTicket !== 'function') {
                 throw new Error('ApiService.getTicket không khả dụng');
             }
-            const res = await api.getTicket(ticketCode);
-            // api.getTicket may return the ticket object directly OR {success, data}
-            const ticket = res && res.data ? res.data : res;
+            const ticket = await resolveTicket(api, identifier);
             if (!ticket) {
                 throw new Error('Không tìm thấy phiếu');
             }
+            const ticketCode = ticket.ticketCode || ticket.ticket_code || ticket.firebaseId || identifier;
+            titleEl.textContent = `Lịch sử phiếu ${ticketCode}`;
             const steps = buildTimeline(ticket);
             const logs = await fetchAuditLogs(ticketCode);
             const enriched = enrichSteps(steps, logs);
