@@ -245,8 +245,14 @@
     async function handleInvoiceUpdate(data) {
         const eventData = data.data || {};
         const action = data.action || eventData.action;
-        const invoiceNumber = eventData.data?.Order?.Code; // e.g. "NJD/2026/60576"
-        const message = eventData.message || '';
+        // TPOS payload: thử cả lowercase (data) và capital (Data) để defensive
+        // với format biến đổi theo API version. Một số path: root.Order.Code.
+        const invoiceNumber =
+            eventData.data?.Order?.Code ||
+            eventData.Data?.Order?.Code ||
+            eventData.Order?.Code ||
+            ''; // e.g. "NJD/2026/60576"
+        const message = eventData.message || eventData.Message || '';
 
         if (!invoiceNumber) {
             console.log('[TPOS-RT] Invoice event without Order.Code, skipping');
