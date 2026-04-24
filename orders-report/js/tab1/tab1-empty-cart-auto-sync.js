@@ -91,8 +91,16 @@
     /**
      * Remove TPOS tag "GIỎ TRỐNG" from a single order via AssignTag (replace).
      * Updates local OrderStore + row UI on success.
+     *
+     * DISABLED (2026-04-24): Đồng bộ Web → TPOS đã bị tắt theo yêu cầu.
+     * Function no-op để giữ backward compat với callers. Body cũ giữ nguyên
+     * phòng khi cần revert. Reverse sync TPOS → Web vẫn hoạt động bình thường.
      */
     async function _removeGioTrongTagTPOS(order) {
+        console.log(`${LOG} Web→TPOS removal DISABLED — skip ${order?.Code || ''}`);
+        return false;
+
+        // eslint-disable-next-line no-unreachable
         if (!order || !order.Id) return false;
         const tags = _parseTags(order.Tags);
         const filtered = tags.filter(

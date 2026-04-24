@@ -380,8 +380,18 @@
     /**
      * @param {string} orderCode
      * @param {string} reason - 'category', 'flag', 'ttag-add', 'ttag-remove' (for logging)
+     *
+     * DISABLED (2026-04-24): Đồng bộ XL → TPOS đã bị tắt theo yêu cầu.
+     * Chỉ giữ reverse sync TPOS → XL (handleTPOSTagsChanged).
+     * Các call sites từ tab1-processing-tags.js (category/flag/T-tag/bill) vẫn gọi
+     * nhưng function no-op để giữ backward compat. Body cũ giữ nguyên bên dưới
+     * phòng khi cần revert.
      */
     async function syncXLToTPOS(orderCode, reason) {
+        console.log(`${LOG} [XL→TPOS] DISABLED — skip ${reason || ''} ${orderCode}`);
+        return;
+
+        // eslint-disable-next-line no-unreachable
         if (_syncingReverse.has(orderCode)) {
             console.log(`${LOG} [XL→TPOS] Skip ${orderCode} — đang reverse sync`);
             return;
