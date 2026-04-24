@@ -457,6 +457,17 @@
                         <option value="huy_cho_ra_don">Hủy chờ ra đơn</option>
                     </select>
                 </div>
+
+                <!-- Call History Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Cuộc gọi:</label>
+                    <select id="callHistoryFilter" onchange="performTableSearch(); window.FilterPersistence?.scheduleSave();" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="has_history">Có lịch sử</option>
+                        <option value="has_recording">Có ghi âm</option>
+                        <option value="no_history">Chưa gọi</option>
+                    </select>
+                </div>
             </div>
             <div class="search-info">
                 <div style="display:flex;align-items:center;gap:8px;">

@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][filter] Thêm filter "Cuộc gọi" — lọc đơn theo có/không có lịch sử cuộc gọi + ghi âm
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<select id="callHistoryFilter">` sau `fulfillmentFilter` với 4 option: Tất cả / Có lịch sử / Có ghi âm / Chưa gọi. MODIFIED: [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js) — thêm block apply filter dùng `window.PhoneHistoryBadges.getStats(phone).counts` (total + recordings). MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — sau `renderBadges()` trong `loadHistory()`, nếu filter đang active → gọi `window.performTableSearch()` để re-apply filter khi data API về. MODIFIED: [orders-report/js/tab1/tab1-filter-persistence.js](../orders-report/js/tab1/tab1-filter-persistence.js) — persist `callHistoryFilter` trong snapshot.selects (save/apply/migrate). |
+| **Chi tiết** | **User request**: "filter cái nào có lịch sử cuộc gọi". Filter dropdown dùng cùng source data như badge (PhoneHistoryBadges cache: call-history + call-recordings từ Render DB). 4 options: `all` (default), `has_history` (có call-history HOẶC recording), `has_recording` (chỉ ghi âm), `no_history` (chưa từng gọi). **Race condition**: user chọn filter ngay sau khi page load → lúc đó `PhoneHistoryBadges` chưa fetch xong → filter trả rỗng. Fix: trong `loadHistory()`, sau khi build xong cache, nếu filter đang active → tự động gọi `performTableSearch()` để re-filter. Persistence: lưu filter value vào localStorage như các filter khác, reload trang vẫn giữ. |
+| **Status** | ✅ Done. Verify: mở filter "Cuộc gọi" → "Có lịch sử" → bảng chỉ còn đơn có phone xuất hiện trong Render DB call-history/recordings; chọn "Có ghi âm" → chỉ đơn có phone trong `/call-recordings`; chọn "Chưa gọi" → đơn có phone chưa từng gọi. Reload trang → filter giữ nguyên. |
+
 ### [orders][phone-history] Fix badge mới: sig + class has-recording setup ở `_makeBadge`, cache key theo `lastLoadAt`
 | | |
 |---|---|

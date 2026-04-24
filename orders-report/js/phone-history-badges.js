@@ -47,10 +47,14 @@ const PhoneHistoryBadges = (() => {
             const [historyRes, recRes] = await Promise.all([
                 fetch(`${API}/call-history?from=${since}&limit=${MAX_ROWS}`, {
                     cache: 'no-store',
-                }).then((r) => r.json()).catch(() => ({})),
+                })
+                    .then((r) => r.json())
+                    .catch(() => ({})),
                 fetch(`${API}/call-recordings?limit=${MAX_ROWS}`, {
                     cache: 'no-store',
-                }).then((r) => r.json()).catch(() => ({})),
+                })
+                    .then((r) => r.json())
+                    .catch(() => ({})),
             ]);
 
             const next = new Map();
@@ -83,6 +87,14 @@ const PhoneHistoryBadges = (() => {
 
             lastLoadAt = Date.now();
             renderBadges();
+            // Re-apply filter nếu user đang lọc theo lịch sử cuộc gọi — data
+            // vừa về từ API, filter chạy lần đầu khi table render có thể ra rỗng.
+            try {
+                const flt = document.getElementById('callHistoryFilter')?.value;
+                if (flt && flt !== 'all' && typeof window.performTableSearch === 'function') {
+                    window.performTableSearch();
+                }
+            } catch {}
         } catch (err) {
             console.warn('[PhoneHistoryBadges]', err.message);
         } finally {

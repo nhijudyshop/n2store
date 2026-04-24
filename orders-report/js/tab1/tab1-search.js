@@ -287,6 +287,24 @@ function _applyFiltersExceptProcessingTag() {
         }
     }
 
+    // Apply Call History Filter — dựa vào PhoneHistoryBadges cache
+    // (call-history + call-recordings từ Render DB, refresh mỗi 2 phút)
+    const callHistoryFilter =
+        document.getElementById('callHistoryFilter')?.value || 'all';
+    if (callHistoryFilter !== 'all' && window.PhoneHistoryBadges?.getStats) {
+        tempData = tempData.filter((order) => {
+            const phone = String(order.Telephone || '').replace(/[^\d+]/g, '');
+            if (!phone) return callHistoryFilter === 'no_history';
+            const { counts } = window.PhoneHistoryBadges.getStats(phone);
+            const hasHistory = (counts?.total || 0) > 0;
+            const hasRecording = (counts?.recordings || 0) > 0;
+            if (callHistoryFilter === 'has_history') return hasHistory || hasRecording;
+            if (callHistoryFilter === 'has_recording') return hasRecording;
+            if (callHistoryFilter === 'no_history') return !hasHistory && !hasRecording;
+            return true;
+        });
+    }
+
     // (2026-04-20) Helper: kiểm 1 tag có phải "GIỎ TRỐNG" hay không (diacritic-insensitive).
     // Bảo toàn kể cả khi Unicode normalization khác (NFC vs NFD) hoặc tag name có space thừa.
     const _isGioTrongTagName = (name) => {

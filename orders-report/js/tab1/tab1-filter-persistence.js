@@ -119,6 +119,7 @@
                 conversationFilter: _getSelectValue('conversationFilter'),
                 statusFilter: _getSelectValue('statusFilter'),
                 fulfillmentFilter: _getSelectValue('fulfillmentFilter'),
+                callHistoryFilter: _getSelectValue('callHistoryFilter'),
             },
             tags: {
                 selected:
@@ -187,6 +188,7 @@
             _setSelectValue('conversationFilter', sel.conversationFilter);
             _setSelectValue('statusFilter', sel.statusFilter);
             _setSelectValue('fulfillmentFilter', sel.fulfillmentFilter);
+            _setSelectValue('callHistoryFilter', sel.callHistoryFilter);
         } catch (e) {
             console.warn('[FILTER-PERSIST] apply selects err:', e);
         }
@@ -280,6 +282,7 @@
                 conversationFilter: null,
                 statusFilter: null,
                 fulfillmentFilter: null,
+                callHistoryFilter: null,
             },
             tags: {
                 selected: json('orderTableSelectedTags', []),
