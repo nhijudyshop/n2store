@@ -686,6 +686,81 @@ function createRouter() {
         }
     });
 
+    // One-shot backfill: sửa phone cho recordings đã sync bằng daemon trước khi
+    // fix — nó lưu số line công ty (outboundPublicNumber) vào cột phone thay vì
+    // số khách (call.to). Ghép recording ↔ call-history qua (ext, timestamp ±30s,
+    // direction) rồi copy phone đúng + set call_history_id.
+    // Body: { dryRun?: bool, toleranceMs?: number } — default dryRun=false, 30000ms.
+    router.post('/call-recordings/remap-phones', async (req, res) => {
+        try {
+            const db = req.app.locals.chatDb;
+            const tolerance = Math.max(
+                1000,
+                parseInt(req.body?.toleranceMs, 10) || 30000
+            );
+            const dryRun = !!req.body?.dryRun;
+
+            // Chỉ sửa recording từ sync daemon — recording từ browser MediaRecorder
+            // (CSKH etc) có phone đúng từ đầu.
+            const candidates = await db.query(
+                `SELECT r.id, r.phone AS rec_phone, r.ext, r.direction,
+                        r.timestamp AS rec_ts, r.call_history_id
+                 FROM phone_call_recordings r
+                 WHERE r.username = 'oncallcx-portal-sync'`
+            );
+
+            const results = [];
+            let updated = 0,
+                skipped = 0;
+            for (const row of candidates.rows) {
+                const matchQ = await db.query(
+                    `SELECT id, phone FROM phone_call_history
+                     WHERE ext = $1 AND direction = $2
+                       AND ABS(timestamp - $3) < $4
+                     ORDER BY ABS(timestamp - $3) ASC
+                     LIMIT 1`,
+                    [row.ext, row.direction, row.rec_ts, tolerance]
+                );
+                const hit = matchQ.rows[0];
+                if (!hit) {
+                    skipped++;
+                    continue;
+                }
+                if (hit.phone === row.rec_phone && row.call_history_id === hit.id) {
+                    skipped++;
+                    continue;
+                }
+                results.push({
+                    id: row.id,
+                    oldPhone: row.rec_phone,
+                    newPhone: hit.phone,
+                    callHistoryId: hit.id,
+                });
+                if (!dryRun) {
+                    await db.query(
+                        `UPDATE phone_call_recordings
+                         SET phone = $1, call_history_id = $2
+                         WHERE id = $3`,
+                        [hit.phone, hit.id, row.id]
+                    );
+                    updated++;
+                }
+            }
+            res.json({
+                success: true,
+                dryRun,
+                scanned: candidates.rows.length,
+                changes: results.length,
+                updated,
+                skipped,
+                sample: results.slice(0, 20),
+            });
+        } catch (err) {
+            console.error(`${MODULE} remap-phones error:`, err.message);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     // --- AUTO-REGISTER LOCK (singleton: chỉ 1 máy giữ lock cùng lúc) ---
     const LOCK_EXPIRY_MS = 90000; // 90s không heartbeat → hết hạn
 

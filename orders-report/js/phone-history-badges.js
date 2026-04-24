@@ -620,9 +620,7 @@ const PhoneHistoryBadges = (() => {
                 // là <span>. Nếu dùng `span:last-of-type` thuần, lần render kế
                 // tiếp badge sẽ là span cuối → textContent = "📞 3" →
                 // stripPhone → "3" → counts=0 → xoá badge → flicker vô hạn.
-                const phoneSpan = cell.querySelector(
-                    'span:not(.phone-hist-badge):not(.highlight)'
-                );
+                const phoneSpan = cell.querySelector('span:not(.phone-hist-badge):not(.highlight)');
                 const phoneText =
                     phoneSpan?.textContent ||
                     (existing?.dataset.phone ?? '') ||

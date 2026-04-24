@@ -222,8 +222,17 @@ async function main() {
             debug(`Got ${wav.length}B`);
 
             // Prepare metadata
+            // OUTBOUND portal CDR:
+            //   from = '102' (ext)
+            //   to = '0363954281' (customer dialed)
+            //   outboundPublicNumber = '0994325426' (company SIP line ~ caller ID)
+            // Trước đây dùng `outboundPublicNumber || to` cho phone → ghi đè mọi
+            // recording thành số line công ty, frontend không thể match theo phone
+            // khách. Đổi sang `to || outboundPublicNumber` để giữ số khách thật.
             const direction = detectDirection(call);
-            const phone = direction === 'out' ? call.outboundPublicNumber || call.to : call.from;
+            const phone = direction === 'out'
+                ? call.to || call.outboundPublicNumber
+                : call.from;
             const ext = direction === 'out' ? call.from : call.to;
             const meta = {
                 phone,
