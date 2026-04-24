@@ -698,7 +698,9 @@
                 } catch (e) {}
             }
 
-            // Atomic server-side upsert — no client-side read-modify-write race condition
+            // Atomic server-side upsert — no client-side read-modify-write race condition.
+            // Chỉ lưu strict KPI (SP đã tick). Full mode ở dashboard = UI filter trên
+            // cùng data này (ẩn/hiện 0đ), không cần persist thêm legacy fields.
             await kpiAPI('PATCH', `/kpi-statistics/${encodeURIComponent(userId)}/${date}/order`, {
                 orderCode: statistics.orderCode,
                 orderId: statistics.orderId || null,
@@ -706,10 +708,6 @@
                 campaignName: statistics.campaignName || null,
                 netProducts: statistics.netProducts || 0,
                 kpi: statistics.kpi || 0,
-                // Legacy KPI (pre-sale-flag feature) — persist để dashboard toggle
-                // "Hiển thị đầy đủ" mode sum được mà không phải recompute.
-                netProductsLegacy: statistics.netProductsLegacy || 0,
-                kpiLegacy: statistics.kpiLegacy || 0,
                 hasDiscrepancy: statistics.hasDiscrepancy || false,
                 details: statistics.details || {},
                 userName,

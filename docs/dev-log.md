@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][kpi] Toggle mode = UI filter thuần, không dual-compute — fix semantics
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — (1) XÓA hàm `mergeBaseOnlyOrders()` + call trong `applyFilters()` (commit 171fb470 sai hướng đã revert lần cuối); (2) `aggregateByEmployee`: Simple mode ẩn user có `totalKPI=0 && totalNetProducts=0`; (3) `renderEmployeeOrdersTable` modal L1: Simple ẩn đơn KPI=0, Full hiện tất cả; (4) `renderNetKPITab` modal L2: Simple filter `.filter((p) => !simpleMode || !p.excluded)` → chỉ hiện SP tick; Full hiện cả SP tick (xanh) + SP chưa tick (trắng, 0đ). MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — `saveKPIStatistics()` bỏ `netProductsLegacy` + `kpiLegacy` khỏi PATCH body (backend không accept, chỉ lưu strict). Giữ nguyên: `calculateNetKPI()` dual-compute internally, `recalculateAndSaveKPI()` union-skip-guard (`if (userKPI<=0 && userKPILegacy<=0) continue`) để order có upsell chưa tick vẫn được save với kpi=0. |
+| **Chi tiết** | **User feedback thứ 5 (CAPS LOCK)** — định nghĩa lại chính xác 2 mode sau 5 commit sai hướng: **Mode Full ("Hiển thị tất cả")**: bảng chính + modal Chi tiết KPI hiện đầy đủ mọi đơn (kể cả KPI=0). Detail modal "So sánh KPI" hiện TẤT CẢ SP — SP tick KPI>0 + tô xanh lá nhạt, SP chưa tick KPI=0đ + trắng. **Mode Simple ("Chỉ có KPI")**: bảng chính ẨN user KPI=0; modal Chi tiết KPI ẨN đơn KPI=0; detail modal ẨN dòng SP chưa tick (chỉ hiện SP tick). **Không cần dual-compute** — chỉ là filter UI trên cùng strict data. **Không cần merge kpi-base** — chỉ hiện user/order trong kpi_statistics. Union-skip-guard trong save đã đủ để đơn có upsell chưa tick tồn tại trong kpi_statistics (kpi=0, netProducts=0) → Full mode thấy được. **Migration bắt buộc**: user click "Tính lại KPI toàn bộ" 1 lần sau deploy → recompute + save lại tất cả (các đơn chưa tick giờ sẽ được persist với kpi=0). **Không đụng**: variant filter 4 conditions, stack-based attribution, sale flag store + checkbox UI, recalc-on-toggle, `KPI_SALE_FLAG_EFFECTIVE_FROM=2020`. |
+| **Status** | ✅ Code done, syntax check pass. Verify: **Mode Simple** (default): bảng chính chỉ user có KPI > 0; Chi tiết KPI-My chỉ đơn có KPI > 0; So sánh KPI chỉ SP được tick (5000đ + xanh). **Mode Full**: bảng chính thêm user KPI=0 (chỉ trong kpi_statistics, không có 523 "Không xác định" rác); Chi tiết KPI-My có thêm đơn KPI=0đ; So sánh KPI hiện cả 3 SP (1 ticked xanh 5000đ, 2 unticked trắng 0đ, tổng 5000đ). Click "Tính lại KPI toàn bộ" 1 lần để migration orders chưa tick. |
+
 ### [orders][kpi] Dual-compute: Full mode = legacy KPI (pre-feature), Simple = strict KPI (ticked only)
 | | |
 |---|---|

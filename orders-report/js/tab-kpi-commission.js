@@ -614,93 +614,11 @@ const KPICommission = {
             }
         }
 
-        // FULL MODE: bổ sung đơn có BASE nhưng chưa có entry trong kpi_statistics
-        // (KPI = 0 do sale chưa tick SP nào). Fetch kpi_base metadata và merge vào.
-        if (this.state.displayMode === 'full') {
-            try {
-                await this.mergeBaseOnlyOrders(filtered);
-            } catch (e) {
-                console.warn('[KPI Tab] mergeBaseOnlyOrders failed:', e?.message);
-            }
-        }
-
         this.state.filteredData = filtered;
 
         // Update UI
         this.updateSummaryCards(filtered);
         await this.renderKPITable(filtered);
-    },
-
-    /**
-     * Fetch kpi_base metadata qua REST endpoint /kpi-base/list-meta + merge
-     * những đơn chưa có entry trong kpi_statistics vào mảng filtered (full mode).
-     *
-     * Mutates `filtered` in-place:
-     *   - đơn đã có trong statsData → skip (giữ dữ liệu KPI thật)
-     *   - đơn có BASE chưa có trong statsData → thêm synthetic order (kpi=0, netProducts=0)
-     *   - user không có trong filtered nhưng có BASE → thêm user mới với orders synthetic
-     */
-    async mergeBaseOnlyOrders(filtered) {
-        const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
-        const { campaign, employee, dateFrom, dateTo } = this.state.filters;
-
-        const qs = new URLSearchParams();
-        if (dateFrom) qs.append('dateFrom', dateFrom);
-        if (dateTo) qs.append('dateTo', dateTo);
-        if (campaign) qs.append('campaign', campaign);
-        const url = `${KPI_API}/kpi-base/list-meta${qs.toString() ? '?' + qs.toString() : ''}`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const bases = data.bases || [];
-
-        // Index filtered by userId + orderCode set để check nhanh
-        const byUser = new Map();
-        for (const emp of filtered) {
-            const orderCodes = new Set(emp.orders.map((o) => o.orderCode));
-            byUser.set(emp.userId, { emp, orderCodes });
-        }
-
-        for (const b of bases) {
-            // Respect employee filter (đã filter qua campaign + date ở backend).
-            if (employee && b.userId !== employee) continue;
-
-            const synthetic = {
-                orderCode: b.orderCode,
-                orderId: b.orderId,
-                stt: b.stt,
-                campaignName: b.campaignName,
-                netProducts: 0,
-                kpi: 0,
-                hasDiscrepancy: false,
-                details: {},
-                date: b.createdAt
-                    ? new Date(b.createdAt).toISOString().substring(0, 10)
-                    : '',
-                _fromBaseOnly: true,
-            };
-
-            const entry = byUser.get(b.userId);
-            if (!entry) {
-                // User chưa có trong filtered → thêm mới
-                const newEmp = {
-                    userId: b.userId,
-                    userName: b.userName || b.userId,
-                    orders: [synthetic],
-                };
-                filtered.push(newEmp);
-                byUser.set(b.userId, {
-                    emp: newEmp,
-                    orderCodes: new Set([b.orderCode]),
-                });
-            } else if (!entry.orderCodes.has(b.orderCode)) {
-                // User đã có nhưng chưa có đơn này → append synthetic
-                entry.emp.orders.push(synthetic);
-                entry.orderCodes.add(b.orderCode);
-            }
-            // else: đơn đã có KPI thật trong statsData → không override
-        }
     },
 
     // ========================================
@@ -1010,7 +928,10 @@ const KPICommission = {
     // AGGREGATE BY EMPLOYEE (12.7)
     // ========================================
     async aggregateByEmployee(filteredData) {
-        // filteredData is already grouped by employee from applyFilters
+        // filteredData is already grouped by employee from applyFilters.
+        // Sum strict KPI (order.kpi) cho mọi mode. Simple mode: ẨN user có
+        // totalKPI = 0 (không có SP nào được tick trong các đơn của user).
+        const simpleMode = this.state.displayMode === 'simple';
         const results = [];
         for (const emp of filteredData) {
             let totalNetProducts = 0;
@@ -1020,6 +941,9 @@ const KPICommission = {
                 totalNetProducts += order.netProducts || 0;
                 totalKPI += order.kpi || 0;
             }
+
+            // Simple mode: ẨN user có totalKPI = 0 (không có đơn nào được tính KPI)
+            if (simpleMode && totalKPI <= 0 && totalNetProducts <= 0) continue;
 
             // Resolve employee name (Bug #4 fix - never show raw userId)
             const resolvedName = await this.resolveEmployeeName(emp.userId);
@@ -1114,11 +1038,14 @@ const KPICommission = {
         const tbody = document.getElementById('modalL1TableBody');
         if (!tbody) return;
 
+        const simpleMode = this.state.displayMode === 'simple';
         let html = '';
         orders.forEach((order) => {
-            // Ẩn đơn stale hoặc SP NET = 0 và KPI = 0
+            // Luôn ẩn đơn stale.
             if (order._stale) return;
-            if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
+            // Simple mode: ẩn đơn 0 KPI (không có SP nào được tick trong đơn).
+            // Full mode: hiện đầy đủ, kể cả đơn KPI = 0 để user review.
+            if (simpleMode && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
 
@@ -1259,26 +1186,31 @@ const KPICommission = {
                 }
             }
 
-            const products = Object.entries(kpiResult.details || {}).map(([pid, data]) => {
-                const isSaleChecked = !!(window.KpiSaleFlagStore
-                    && window.KpiSaleFlagStore.get(orderCode, pid));
-                const excluded = data.excludedBySaleFlag === true;
-                const unitKPI = data.unitKPI || this.KPI_PER_PRODUCT;
-                // KPI = 0 cho SP bị loại (chưa tick); ngược lại = net * unitKPI.
-                // Dùng cờ excluded do calculateNetKPI gán để đồng nhất với logic server-side.
-                const kpi = excluded ? 0 : (data.net || 0) * unitKPI;
-                return {
-                    pid,
-                    code: data.code || '',
-                    name: data.name || '',
-                    added: data.added || 0,
-                    removed: data.removed || 0,
-                    net: data.net || 0,
-                    kpi,
-                    excluded,
-                    isSaleChecked,
-                };
-            });
+            const simpleMode = this.state.displayMode === 'simple';
+
+            const products = Object.entries(kpiResult.details || {})
+                .map(([pid, data]) => {
+                    const isSaleChecked = !!(window.KpiSaleFlagStore
+                        && window.KpiSaleFlagStore.get(orderCode, pid));
+                    const excluded = data.excludedBySaleFlag === true;
+                    const unitKPI = data.unitKPI || this.KPI_PER_PRODUCT;
+                    // KPI = 0 cho SP bị loại (chưa tick); ngược lại = net * unitKPI.
+                    const kpi = excluded ? 0 : (data.net || 0) * unitKPI;
+                    return {
+                        pid,
+                        code: data.code || '',
+                        name: data.name || '',
+                        added: data.added || 0,
+                        removed: data.removed || 0,
+                        net: data.net || 0,
+                        kpi,
+                        excluded,
+                        isSaleChecked,
+                    };
+                })
+                // Simple mode: chỉ show SP được tick (KPI > 0). Full mode: show tất cả
+                // (row KPI > 0 tô xanh, row 0đ trắng — user review được SP nào chưa tick).
+                .filter((p) => !simpleMode || !p.excluded);
 
             this.hideEl('kpiCompareLoading');
 
