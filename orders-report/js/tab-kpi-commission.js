@@ -1103,15 +1103,35 @@ const KPICommission = {
                 ? await window.kpiManager.calculateNetKPI(orderCode)
                 : { details: {}, netProducts: 0, kpiAmount: 0 };
 
-            const products = Object.entries(kpiResult.details || {}).map(([pid, data]) => ({
-                pid,
-                code: data.code || '',
-                name: data.name || '',
-                added: data.added || 0,
-                removed: data.removed || 0,
-                net: data.net || 0,
-                kpi: (data.net || 0) * this.KPI_PER_PRODUCT,
-            }));
+            // 3. Load sale flags cho orderCode này → highlight row nào được tick tính KPI
+            if (window.KpiSaleFlagStore) {
+                try {
+                    await window.KpiSaleFlagStore.load(orderCode);
+                } catch (e) {
+                    console.warn('[KPI Tab] load sale flags failed:', e?.message);
+                }
+            }
+
+            const products = Object.entries(kpiResult.details || {}).map(([pid, data]) => {
+                const isSaleChecked = !!(window.KpiSaleFlagStore
+                    && window.KpiSaleFlagStore.get(orderCode, pid));
+                const excluded = data.excludedBySaleFlag === true;
+                const unitKPI = data.unitKPI || this.KPI_PER_PRODUCT;
+                // KPI = 0 cho SP bị loại (chưa tick); ngược lại = net * unitKPI.
+                // Dùng cờ excluded do calculateNetKPI gán để đồng nhất với logic server-side.
+                const kpi = excluded ? 0 : (data.net || 0) * unitKPI;
+                return {
+                    pid,
+                    code: data.code || '',
+                    name: data.name || '',
+                    added: data.added || 0,
+                    removed: data.removed || 0,
+                    net: data.net || 0,
+                    kpi,
+                    excluded,
+                    isSaleChecked,
+                };
+            });
 
             this.hideEl('kpiCompareLoading');
 
@@ -1130,7 +1150,8 @@ const KPICommission = {
             let totalAdded = 0,
                 totalRemoved = 0,
                 totalNet = 0,
-                totalKPI = 0;
+                totalKPI = 0,
+                totalChecked = 0;
             let html = '';
 
             products.forEach((p, idx) => {
@@ -1138,14 +1159,21 @@ const KPICommission = {
                 totalRemoved += p.removed;
                 totalNet += p.net;
                 totalKPI += p.kpi;
+                if (p.isSaleChecked) totalChecked++;
 
-                html += `<tr>
+                const rowClass = p.isSaleChecked ? 'kpi-row-checked' : '';
+                const checkIcon = p.isSaleChecked
+                    ? '<span class="kpi-check-yes" title="Đã tick là SP bán hàng">✓</span>'
+                    : '<span class="kpi-check-no" title="Chưa tick — không tính KPI">—</span>';
+
+                html += `<tr class="${rowClass}">
                     <td>${idx + 1}</td>
                     <td>${this.escapeHtml(p.code)}</td>
                     <td>${this.escapeHtml(p.name)}</td>
                     <td class="action-add">+${p.added}</td>
                     <td class="action-remove">-${p.removed}</td>
                     <td><strong>${p.net}</strong></td>
+                    <td style="text-align:center;">${checkIcon}</td>
                     <td>${this.formatCurrency(p.kpi)}</td>
                 </tr>`;
             });
@@ -1158,6 +1186,7 @@ const KPICommission = {
                     <td class="action-add"><strong>+${totalAdded}</strong></td>
                     <td class="action-remove"><strong>-${totalRemoved}</strong></td>
                     <td><strong>${totalNet}</strong></td>
+                    <td style="text-align:center;"><strong>${totalChecked}/${products.length}</strong></td>
                     <td><strong>${this.formatCurrency(totalKPI)}</strong></td>
                 </tr>`;
             }

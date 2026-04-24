@@ -26,11 +26,17 @@
     // KPI mode: 'fixed' = 5000đ/SP, 'value' = theo giá SP thực tế
     let KPI_MODE = 'fixed';
 
-    // Ngày release tính năng checkbox "SP bán hàng" (ISO UTC).
+    // Cutoff cho tính năng checkbox "SP bán hàng" (ISO UTC).
     // Orders có kpi_base.created_at ≥ giá trị này → áp dụng strict mode:
     //   SP sau BASE phải có kpi_sale_flag.is_sale_product = TRUE thì mới được tính KPI.
     // Orders trước cutoff → legacy: bỏ qua flag, tính KPI như cũ.
-    const KPI_SALE_FLAG_EFFECTIVE_FROM = '2026-04-24T00:00:00Z';
+    //
+    // LỊCH SỬ:
+    //   - 2026-04-24: release, cutoff = 2026-04-24 (chỉ new orders từ đó trở đi strict)
+    //   - 2026-04-24 (update): user phản hồi "Tính lại KPI" vẫn tính theo logic cũ cho
+    //     đơn test (22/04), không respect checkbox → lùi cutoff về quá khứ xa để
+    //     MỌI đơn áp dụng strict mode, flag TRUE mới tính KPI.
+    const KPI_SALE_FLAG_EFFECTIVE_FROM = '2020-01-01T00:00:00Z';
 
     // ========================================
     // REST API Helper
@@ -596,28 +602,35 @@
                 const unitKPI =
                     KPI_MODE === 'value' && data.price > 0 ? data.price : KPI_AMOUNT_PER_DIFFERENCE;
 
-                // Strict mode: SP phải được sale tick flag mới được tính KPI.
-                // Default FALSE (chưa check) → skip. Legacy mode (flagMap=null) → không filter.
-                if (strictMode) {
-                    const isSale = flagMap && flagMap.get(pid) === true;
-                    if (!isSale) {
-                        data.net = 0;
-                        data.excludedBySaleFlag = true;
-                        excludedCount++;
-                        continue;
-                    }
-                }
-
+                // (A) Tính real NET qty (thực tế đã add/remove) — luôn set data.net
+                // để detail modal hiển thị đủ thông tin cho cả SP bị loại khỏi KPI.
                 let productNet = 0;
                 for (const entry of stackPerProduct[pid]) {
                     if (entry.qty <= 0) continue;
                     productNet += entry.qty;
+                }
+                data.net = productNet;
+                data.unitKPI = unitKPI;
+
+                // (B) Strict mode: SP phải được sale tick flag mới được tính KPI.
+                // Default FALSE (chưa check) → skip aggregation. Legacy (flagMap=null) → không filter.
+                if (strictMode) {
+                    const isSale = flagMap && flagMap.get(pid) === true;
+                    if (!isSale) {
+                        data.excludedBySaleFlag = true;
+                        excludedCount++;
+                        continue;  // NET hiển thị thật, nhưng KPI không cộng vào tổng
+                    }
+                }
+
+                // (C) Aggregate per-user attribution + tổng KPI chỉ cho SP qualifying
+                for (const entry of stackPerProduct[pid]) {
+                    if (entry.qty <= 0) continue;
                     perUserNet[entry.userId] = (perUserNet[entry.userId] || 0) + entry.qty;
                     perUserKPI[entry.userId] =
                         (perUserKPI[entry.userId] || 0) + entry.qty * unitKPI;
                     data.perUser[entry.userId] = (data.perUser[entry.userId] || 0) + entry.qty;
                 }
-                data.net = productNet;
                 totalNet += productNet;
                 totalKPIAmount += productNet * unitKPI;
             }

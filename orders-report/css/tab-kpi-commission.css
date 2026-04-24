@@ -256,6 +256,32 @@ body {
 
 .kpi-main-table tbody tr:hover { background: var(--gray-50, #f8fafc); }
 
+/* SP được sale tick là "SP bán hàng" → row tô xanh nhạt nhẹ (hơn hover). */
+.kpi-main-table tbody tr.kpi-row-checked {
+    background: #ecfdf5; /* emerald-50 */
+}
+.kpi-main-table tbody tr.kpi-row-checked:hover {
+    background: #d1fae5; /* emerald-100 */
+}
+
+/* Ô "KPI" (icon check hoặc dấu gạch) trong cột mới. */
+.kpi-check-yes {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+}
+.kpi-check-no {
+    display: inline-block;
+    color: #9ca3af;
+    font-weight: 700;
+}
+
 .kpi-main-table tfoot td {
     padding: 12px 16px;
     font-weight: 700;
