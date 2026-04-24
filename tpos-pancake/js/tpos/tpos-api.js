@@ -514,48 +514,8 @@ const TposApi = {
         }
     },
 
-    /**
-     * Create a SaleOnline_Order from a Facebook comment
-     * @param {object} params
-     * @param {number} params.crmTeamId - CRM Team ID
-     * @param {string} params.userName - Facebook user name
-     * @param {string} params.userId - Facebook AS User ID
-     * @param {string} params.postId - Full post ID (pageId_postId)
-     * @param {string} params.commentId - Facebook comment ID
-     * @param {string} [params.phone] - Customer phone
-     * @param {string} [params.address] - Customer address
-     * @param {string} [params.note] - Order note
-     * @returns {Promise<object|null>} Created order or null
-     */
-    async createOrderFromComment(params) {
-        try {
-            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order`;
-            const body = {
-                CRMTeamId: params.crmTeamId,
-                Facebook_UserName: params.userName,
-                Facebook_ASUserId: params.userId,
-                Facebook_PostId: params.postId,
-                Facebook_CommentId: params.commentId,
-            };
-            if (params.note) body.Note = params.note;
-
-            const response = await this.authenticatedFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error?.message || `HTTP ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('[TPOS-API] createOrderFromComment error:', error);
-            throw error;
-        }
-    },
+    // createOrderFromComment REMOVED — tpos-pancake page now creates
+    // orders via NativeOrdersApi.createFromComment() (PostgreSQL, not TPOS).
 };
 
 // Export for script-tag usage

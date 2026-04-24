@@ -34,9 +34,9 @@ class TposChatManager {
 
         // Smart cache config
         this.cacheConfig = {
-            maxSize: 200,           // Max entries per cache
-            ttl: 10 * 60 * 1000,    // 10 minutes TTL
-            cleanupInterval: 5 * 60 * 1000  // Cleanup every 5 minutes
+            maxSize: 200, // Max entries per cache
+            ttl: 10 * 60 * 1000, // 10 minutes TTL
+            cleanupInterval: 5 * 60 * 1000, // Cleanup every 5 minutes
         };
 
         // Partner cache: userId -> { data, timestamp }
@@ -93,7 +93,9 @@ class TposChatManager {
             const crmSelect = document.getElementById('tposCrmTeamSelect');
             if (crmSelect) {
                 // Check if the saved value exists in options
-                const optionExists = Array.from(crmSelect.options).some(opt => opt.value === savedPage);
+                const optionExists = Array.from(crmSelect.options).some(
+                    (opt) => opt.value === savedPage
+                );
                 if (optionExists) {
                     crmSelect.value = savedPage;
                     this.onCrmTeamChange(savedPage);
@@ -204,7 +206,9 @@ class TposChatManager {
         // Live Campaign selector
         const campaignSelect = document.getElementById('tposLiveCampaignSelect');
         if (campaignSelect) {
-            campaignSelect.addEventListener('change', (e) => this.onLiveCampaignChange(e.target.value));
+            campaignSelect.addEventListener('change', (e) =>
+                this.onLiveCampaignChange(e.target.value)
+            );
         }
 
         // Refresh button
@@ -240,7 +244,8 @@ class TposChatManager {
         const loadMoreContainer = document.getElementById('tposLoadMore');
         if (loadMoreContainer) {
             // Show spinner when loading more or when there's more to load
-            loadMoreContainer.style.display = (this.isLoading && this.comments.length > 0) || this.hasMore ? 'flex' : 'none';
+            loadMoreContainer.style.display =
+                (this.isLoading && this.comments.length > 0) || this.hasMore ? 'flex' : 'none';
 
             // Refresh icon if showing
             if (loadMoreContainer.style.display !== 'none' && typeof lucide !== 'undefined') {
@@ -275,10 +280,10 @@ class TposChatManager {
         let response = await fetch(url, {
             ...options,
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                ...options.headers
-            }
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+                ...options.headers,
+            },
         });
 
         // Auto-retry on 401: refresh token and retry once
@@ -291,10 +296,10 @@ class TposChatManager {
                     response = await fetch(url, {
                         ...options,
                         headers: {
-                            'Authorization': `Bearer ${newToken}`,
-                            'Accept': 'application/json',
-                            ...options.headers
-                        }
+                            Authorization: `Bearer ${newToken}`,
+                            Accept: 'application/json',
+                            ...options.headers,
+                        },
                     });
                 }
             }
@@ -308,7 +313,9 @@ class TposChatManager {
      */
     async loadCRMTeams() {
         try {
-            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/crm-teams`);
+            const response = await this.authenticatedFetch(
+                `${this.proxyBaseUrl}/facebook/crm-teams`
+            );
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
@@ -317,7 +324,6 @@ class TposChatManager {
 
             console.log('[TPOS-CHAT] Loaded CRM Teams:', this.crmTeams.length);
             this.renderCrmTeamOptions();
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading CRM Teams:', error);
         }
@@ -328,19 +334,20 @@ class TposChatManager {
      */
     async loadLiveCampaigns(pageId) {
         try {
-            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=20`);
+            const response = await this.authenticatedFetch(
+                `${this.proxyBaseUrl}/facebook/live-campaigns?top=20`
+            );
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
             const data = await response.json();
             // Filter campaigns by pageId
-            this.liveCampaigns = (data.value || []).filter(c =>
-                c.Facebook_UserId === pageId && c.Facebook_LiveId
+            this.liveCampaigns = (data.value || []).filter(
+                (c) => c.Facebook_UserId === pageId && c.Facebook_LiveId
             );
 
             console.log('[TPOS-CHAT] Loaded Live Campaigns:', this.liveCampaigns.length);
             this.renderLiveCampaignOptions();
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading Live Campaigns:', error);
         }
@@ -351,21 +358,25 @@ class TposChatManager {
      */
     async loadLiveCampaignsFromAllPages() {
         try {
-            const response = await this.authenticatedFetch(`${this.proxyBaseUrl}/facebook/live-campaigns?top=50`);
+            const response = await this.authenticatedFetch(
+                `${this.proxyBaseUrl}/facebook/live-campaigns?top=50`
+            );
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
 
             const data = await response.json();
-            const allPageIds = this.allPages.map(p => p.Facebook_PageId);
+            const allPageIds = this.allPages.map((p) => p.Facebook_PageId);
 
             // Filter campaigns that belong to any of the selected pages
-            this.liveCampaigns = (data.value || []).filter(c =>
-                allPageIds.includes(c.Facebook_UserId) && c.Facebook_LiveId
+            this.liveCampaigns = (data.value || []).filter(
+                (c) => allPageIds.includes(c.Facebook_UserId) && c.Facebook_LiveId
             );
 
-            console.log('[TPOS-CHAT] Loaded Live Campaigns from all pages:', this.liveCampaigns.length);
+            console.log(
+                '[TPOS-CHAT] Loaded Live Campaigns from all pages:',
+                this.liveCampaigns.length
+            );
             this.renderLiveCampaignOptions();
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading Live Campaigns:', error);
         }
@@ -418,9 +429,9 @@ class TposChatManager {
 
             const response = await fetch(url, {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
             });
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -438,7 +449,12 @@ class TposChatManager {
             this.nextPageUrl = data.paging?.next || null;
             this.hasMore = !!this.nextPageUrl;
 
-            console.log('[TPOS-CHAT] Loaded comments:', newComments.length, 'Total:', this.comments.length);
+            console.log(
+                '[TPOS-CHAT] Loaded comments:',
+                newComments.length,
+                'Total:',
+                this.comments.length
+            );
             this.renderComments();
 
             // Start SSE and load SessionIndex after loading initial comments
@@ -449,7 +465,6 @@ class TposChatManager {
 
             // Load partner info for comments (async, will re-render when done)
             this.loadPartnerInfoForComments();
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading comments:', error);
             if (listContainer) {
@@ -495,9 +510,9 @@ class TposChatManager {
 
             const response = await fetch(url, {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
             });
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -508,7 +523,7 @@ class TposChatManager {
             // Clear and rebuild map
             this.sessionIndexMap.clear();
 
-            orders.forEach(item => {
+            orders.forEach((item) => {
                 const asuid = item.asuid || item.id;
                 if (asuid && item.orders && item.orders.length > 0) {
                     // Use the first order's index (usually the earliest)
@@ -516,7 +531,7 @@ class TposChatManager {
                     this.sessionIndexMap.set(asuid, {
                         index: firstOrder.index,
                         session: firstOrder.session,
-                        code: firstOrder.code
+                        code: firstOrder.code,
                     });
                 }
             });
@@ -527,7 +542,6 @@ class TposChatManager {
             if (this.comments.length > 0) {
                 this.renderComments();
             }
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading SessionIndex:', error);
         }
@@ -550,7 +564,7 @@ class TposChatManager {
         const postId = this.selectedCampaign.Facebook_LiveId;
 
         // Get token synchronously (it should be cached)
-        this.getToken().then(token => {
+        this.getToken().then((token) => {
             if (!token) {
                 console.error('[TPOS-CHAT] No token for SSE');
                 return;
@@ -617,7 +631,7 @@ class TposChatManager {
 
         // Check if from any selected pages (multi-page mode)
         if (this.selectedPages.length > 0) {
-            const selectedPageIds = this.selectedPages.map(p => p.Facebook_PageId);
+            const selectedPageIds = this.selectedPages.map((p) => p.Facebook_PageId);
             if (selectedPageIds.includes(fromId)) {
                 return true;
             }
@@ -643,13 +657,19 @@ class TposChatManager {
 
             if (!Array.isArray(comments)) return;
 
-            comments.forEach(comment => {
+            comments.forEach((comment) => {
                 // Check if comment already exists
-                const exists = this.comments.some(c => c.id === comment.id);
+                const exists = this.comments.some((c) => c.id === comment.id);
 
                 if (!exists) {
                     const isStaff = this.isPageOrStaffComment(comment);
-                    console.log('[TPOS-CHAT] 💬 New comment:', comment.from?.name, '-', comment.message?.substring(0, 30), isStaff ? '(staff)' : '(customer)');
+                    console.log(
+                        '[TPOS-CHAT] 💬 New comment:',
+                        comment.from?.name,
+                        '-',
+                        comment.message?.substring(0, 30),
+                        isStaff ? '(staff)' : '(customer)'
+                    );
 
                     if (isStaff) {
                         // Staff/Page comment - add to end, don't highlight or scroll
@@ -662,7 +682,9 @@ class TposChatManager {
 
                         // Highlight and scroll to new customer comment
                         setTimeout(() => {
-                            const item = document.querySelector(`[data-comment-id="${comment.id}"]`);
+                            const item = document.querySelector(
+                                `[data-comment-id="${comment.id}"]`
+                            );
                             if (item) {
                                 item.classList.add('highlight');
                                 item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -690,14 +712,14 @@ class TposChatManager {
 
         // Collect all pages first
         this.allPages = [];
-        this.crmTeams.forEach(team => {
+        this.crmTeams.forEach((team) => {
             if (team.Childs && team.Childs.length > 0) {
-                team.Childs.forEach(page => {
+                team.Childs.forEach((page) => {
                     if (page.Facebook_PageId && page.Facebook_TypeId === 'Page') {
                         this.allPages.push({
                             ...page,
                             teamId: team.Id,
-                            teamName: team.Name
+                            teamName: team.Name,
                         });
                     }
                 });
@@ -711,11 +733,11 @@ class TposChatManager {
             options += `<option value="all">📋 Tất cả Pages (${this.allPages.length})</option>`;
         }
 
-        this.crmTeams.forEach(team => {
+        this.crmTeams.forEach((team) => {
             // Add parent team as optgroup
             if (team.Childs && team.Childs.length > 0) {
                 options += `<optgroup label="${this.escapeHtml(team.Name)}">`;
-                team.Childs.forEach(page => {
+                team.Childs.forEach((page) => {
                     if (page.Facebook_PageId && page.Facebook_TypeId === 'Page') {
                         options += `<option value="${team.Id}:${page.Id}" data-page-id="${page.Facebook_PageId}">
                             ${this.escapeHtml(page.Facebook_PageName || page.Name)}
@@ -739,7 +761,7 @@ class TposChatManager {
 
         let options = '<option value="">Chọn Live Campaign...</option>';
 
-        this.liveCampaigns.forEach(campaign => {
+        this.liveCampaigns.forEach((campaign) => {
             options += `<option value="${campaign.Id}">
                 ${this.escapeHtml(campaign.Name)} (${campaign.Facebook_UserName || ''})
             </option>`;
@@ -770,7 +792,9 @@ class TposChatManager {
             return;
         }
 
-        listContainer.innerHTML = this.comments.map(comment => this.renderCommentItem(comment)).join('');
+        listContainer.innerHTML = this.comments
+            .map((comment) => this.renderCommentItem(comment))
+            .join('');
 
         // Update load more indicator (show when loading more)
         this.updateLoadMoreIndicator();
@@ -809,7 +833,7 @@ class TposChatManager {
             'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
             'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
             'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
         ];
         const colorIndex = fromName.charCodeAt(0) % colors.length;
         const gradientColor = colors[colorIndex];
@@ -825,37 +849,42 @@ class TposChatManager {
         const debt = this.getDebtForPhone(phone);
         const debtDisplay = debt !== null && debt !== undefined ? this.formatDebt(debt) : '';
         // Respect debt display settings
-        const hasDebt = this.showDebt && (
-            (debt && debt > 0) || // Has positive debt
-            (this.showZeroDebt && debt !== null && debt !== undefined) // Show zero debt if enabled
-        );
+        const hasDebt =
+            this.showDebt &&
+            ((debt && debt > 0) || // Has positive debt
+                (this.showZeroDebt && debt !== null && debt !== undefined)); // Show zero debt if enabled
 
         // Check if already saved to Tpos (also check Pancake's cache)
-        const isSavedToTpos = this.savedToTposIds.has(fromId) ||
-            (window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId));
+        const isSavedToTpos =
+            this.savedToTposIds.has(fromId) ||
+            window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId);
 
         // Status dropdown options
         const statusOptions = this.getStatusOptions();
 
         // Build status dropdown HTML
-        const statusDropdownHtml = statusOptions.map(opt =>
-            `<div class="inline-status-option" style="padding: 6px 10px; cursor: pointer; font-size: 12px;"
+        const statusDropdownHtml = statusOptions
+            .map(
+                (opt) =>
+                    `<div class="inline-status-option" style="padding: 6px 10px; cursor: pointer; font-size: 12px;"
                  onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
                  onclick="event.stopPropagation(); window.tposChatManager.selectInlineStatus('${fromId}', '${opt.value}', '${opt.text}')">
                 ${opt.text}
             </div>`
-        ).join('');
+            )
+            .join('');
 
         return `
             <div class="tpos-conversation-item ${isHidden ? 'is-hidden' : ''}"
                  data-comment-id="${id}"
                  onclick="window.tposChatManager.selectComment('${id}')">
                 <div class="tpos-conv-avatar">
-                    ${pictureUrl
-                ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    ${
+                        pictureUrl
+                            ? `<img src="${pictureUrl}" class="avatar-img" alt="${this.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                            <div class="avatar-placeholder" style="display: none; background: ${gradientColor};">${initial}</div>`
-                : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
-            }
+                            : `<div class="avatar-placeholder" style="background: ${gradientColor};">${initial}</div>`
+                    }
                     ${sessionIndexBadge}
                     <span class="channel-badge">
                         <i data-lucide="facebook" class="channel-icon fb"></i>
@@ -915,11 +944,12 @@ class TposChatManager {
                     <button class="tpos-action-btn tpos-phone-btn" title="Xem thông tin khách hàng" onclick="event.stopPropagation(); window.tposChatManager.showCustomerInfo('${fromId}', '${this.escapeHtml(fromName)}')">
                         <i data-lucide="phone"></i>
                     </button>
-                    ${isSavedToTpos
-                        ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color: #10b981; padding: 4px;">
+                    ${
+                        isSavedToTpos
+                            ? `<span class="tpos-saved-badge" title="Đã lưu vào Tpos" style="color: #10b981; padding: 4px;">
                                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
                            </span>`
-                        : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleSaveToTpos('${fromId}', '${this.escapeHtml(fromName)}')">
+                            : `<button class="tpos-action-btn tpos-save-btn" title="Lưu vào Tpos (Pancake)" onclick="event.stopPropagation(); window.tposChatManager.handleSaveToTpos('${fromId}', '${this.escapeHtml(fromName)}')">
                                <i data-lucide="plus"></i>
                            </button>`
                     }
@@ -980,7 +1010,7 @@ class TposChatManager {
             // Find the selected page
             for (const team of this.crmTeams) {
                 if (team.Id === this.selectedTeamId) {
-                    this.selectedPage = team.Childs?.find(p => p.Id === parseInt(pageId));
+                    this.selectedPage = team.Childs?.find((p) => p.Id === parseInt(pageId));
                     break;
                 }
             }
@@ -1031,16 +1061,23 @@ class TposChatManager {
         // Clear caches when switching campaigns to free memory
         this.clearAllCaches();
 
-        this.selectedCampaign = this.liveCampaigns.find(c => c.Id === campaignId);
+        this.selectedCampaign = this.liveCampaigns.find((c) => c.Id === campaignId);
 
         if (this.selectedCampaign) {
             // When multiple pages selected, update selectedPage to match campaign's page
             if (this.selectedPages.length > 1) {
                 const campaignPageId = this.selectedCampaign.Facebook_UserId;
-                this.selectedPage = this.allPages.find(p => p.Facebook_PageId === campaignPageId) || this.selectedPage;
+                this.selectedPage =
+                    this.allPages.find((p) => p.Facebook_PageId === campaignPageId) ||
+                    this.selectedPage;
             }
 
-            console.log('[TPOS-CHAT] Selected campaign:', this.selectedCampaign.Name, '- Page:', this.selectedPage?.Facebook_PageName);
+            console.log(
+                '[TPOS-CHAT] Selected campaign:',
+                this.selectedCampaign.Name,
+                '- Page:',
+                this.selectedPage?.Facebook_PageName
+            );
             await this.loadComments();
         }
     }
@@ -1050,7 +1087,7 @@ class TposChatManager {
      */
     selectComment(commentId) {
         // Update selection UI
-        document.querySelectorAll('.tpos-conversation-item').forEach(item => {
+        document.querySelectorAll('.tpos-conversation-item').forEach((item) => {
             item.classList.remove('selected');
         });
         const selectedItem = document.querySelector(`[data-comment-id="${commentId}"]`);
@@ -1059,11 +1096,13 @@ class TposChatManager {
         }
 
         // Dispatch event for other components
-        const comment = this.comments.find(c => c.id === commentId);
+        const comment = this.comments.find((c) => c.id === commentId);
         if (comment) {
-            window.dispatchEvent(new CustomEvent('tposCommentSelected', {
-                detail: { comment }
-            }));
+            window.dispatchEvent(
+                new CustomEvent('tposCommentSelected', {
+                    detail: { comment },
+                })
+            );
         }
     }
 
@@ -1128,8 +1167,10 @@ class TposChatManager {
         const notes = [
             phone ? `SĐT: ${phone}` : '',
             address ? `Địa chỉ: ${address}` : '',
-            this.selectedCampaign?.title ? `Campaign: ${this.selectedCampaign.title}` : ''
-        ].filter(Boolean).join(' | ');
+            this.selectedCampaign?.title ? `Campaign: ${this.selectedCampaign.title}` : '',
+        ]
+            .filter(Boolean)
+            .join(' | ');
 
         const requestBody = {
             customerId,
@@ -1137,7 +1178,7 @@ class TposChatManager {
             pageId: this.selectedPage?.id || null,
             pageName: this.selectedPage?.name || null,
             savedBy: 'TPOS Comment',
-            notes: notes || null
+            notes: notes || null,
         };
         console.log('[TPOS-SAVE] 📤 Request body:', JSON.stringify(requestBody, null, 2));
         console.log('[TPOS-SAVE] API URL:', `${this.tposPancakeUrl}/api/tpos-saved`);
@@ -1146,7 +1187,7 @@ class TposChatManager {
             const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
             });
 
             console.log('[TPOS-SAVE] Response status:', response.status);
@@ -1160,7 +1201,10 @@ class TposChatManager {
 
                 // Track locally to hide "+" button
                 this.savedToTposIds.add(customerId);
-                console.log('[TPOS-SAVE] Added to savedToTposIds:', Array.from(this.savedToTposIds));
+                console.log(
+                    '[TPOS-SAVE] Added to savedToTposIds:',
+                    Array.from(this.savedToTposIds)
+                );
 
                 // Update Pancake's saved IDs cache
                 if (window.pancakeChatManager) {
@@ -1203,7 +1247,9 @@ class TposChatManager {
         if (!container) return;
 
         // Find button by onclick attribute containing the customerId
-        const saveBtn = container.querySelector(`button[onclick*="handleSaveToTpos('${customerId}'"]`);
+        const saveBtn = container.querySelector(
+            `button[onclick*="handleSaveToTpos('${customerId}'"]`
+        );
         if (saveBtn) {
             // Replace button with checkmark span
             const checkmark = document.createElement('span');
@@ -1257,7 +1303,8 @@ class TposChatManager {
 
         try {
             // Get CRM Team ID - use selectedTeamId or extract from selectedPage
-            const crmTeamId = this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id;
+            const crmTeamId =
+                this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id;
 
             if (!crmTeamId) {
                 throw new Error('Không xác định được CRM Team ID');
@@ -1278,7 +1325,6 @@ class TposChatManager {
 
             // Render the customer info
             this.renderCustomerInfoModal(data, customerName);
-
         } catch (error) {
             console.error('[TPOS-CHAT] Error loading customer info:', error);
             bodyEl.innerHTML = `
@@ -1308,7 +1354,7 @@ class TposChatManager {
             { value: '#d9534f_Nguy hiểm', text: 'Nguy hiểm', color: '#d9534f' },
             { value: '#337ab7_Thân thiết', text: 'Thân thiết', color: '#337ab7' },
             { value: '#9c27b0_Vip', text: 'Vip', color: '#9c27b0' },
-            { value: '#ff9800_VIP', text: 'VIP', color: '#ff9800' }
+            { value: '#ff9800_VIP', text: 'VIP', color: '#ff9800' },
         ];
     }
 
@@ -1324,9 +1370,9 @@ class TposChatManager {
             const response = await this.authenticatedFetch(apiUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json;charset=UTF-8'
+                    'Content-Type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({ status: statusValue })
+                body: JSON.stringify({ status: statusValue }),
             });
 
             if (!response.ok) {
@@ -1344,7 +1390,10 @@ class TposChatManager {
         } catch (error) {
             console.error('[TPOS-CHAT] Error updating status:', error);
             if (window.notificationManager) {
-                window.notificationManager.show(`Lỗi cập nhật trạng thái: ${error.message}`, 'error');
+                window.notificationManager.show(
+                    `Lỗi cập nhật trạng thái: ${error.message}`,
+                    'error'
+                );
             }
             return false;
         }
@@ -1368,16 +1417,20 @@ class TposChatManager {
         // Status options
         const statusOptions = this.getStatusOptions();
         const currentStatus = partner.StatusText || 'Bình thường';
-        const currentStatusOption = statusOptions.find(s => s.text === currentStatus) || statusOptions[0];
+        const currentStatusOption =
+            statusOptions.find((s) => s.text === currentStatus) || statusOptions[0];
 
         // Build status dropdown options HTML (simple text only)
-        const statusOptionsHtml = statusOptions.map(opt =>
-            `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; font-size: 13px;"
+        const statusOptionsHtml = statusOptions
+            .map(
+                (opt) =>
+                    `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; font-size: 13px;"
                  onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
                  onclick="window.tposChatManager.selectStatus('${opt.value}', '${opt.text}')">
                 ${opt.text}
             </div>`
-        ).join('');
+            )
+            .join('');
 
         // Status badge class for order
         const getStatusClass = (status) => {
@@ -1391,7 +1444,11 @@ class TposChatManager {
         const formatDate = (dateStr) => {
             if (!dateStr) return '-';
             const date = new Date(dateStr);
-            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            return (
+                date.toLocaleDateString('vi-VN') +
+                ' ' +
+                date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            );
         };
 
         bodyEl.innerHTML = `
@@ -1428,12 +1485,16 @@ class TposChatManager {
                     <label>Địa chỉ:</label>
                     <span>${partner.FullAddress || partner.Street || '-'}</span>
                 </div>
-                ${partner.Comment ? `
+                ${
+                    partner.Comment
+                        ? `
                 <div class="customer-field">
                     <label>Ghi chú:</label>
                     <span>${this.escapeHtml(partner.Comment)}</span>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <!-- Revenue Info -->
@@ -1446,7 +1507,9 @@ class TposChatManager {
             </div>
 
             <!-- Order Info -->
-            ${order.Id ? `
+            ${
+                order.Id
+                    ? `
             <div class="customer-section">
                 <h4><i data-lucide="shopping-bag" style="width: 16px; height: 16px;"></i> Đơn hàng gần nhất</h4>
                 <table class="order-table">
@@ -1465,19 +1528,25 @@ class TposChatManager {
                         </tr>
                     </tbody>
                 </table>
-                ${order.Note ? `
+                ${
+                    order.Note
+                        ? `
                 <div style="margin-top: 12px; padding: 8px 12px; background: #fef3c7; border-radius: 6px;">
                     <strong style="font-size: 12px; color: #92400e;">Ghi chú đơn:</strong>
                     <p style="margin: 4px 0 0; font-size: 13px; color: #92400e;">${this.escapeHtml(order.Note)}</p>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
-            ` : `
+            `
+                    : `
             <div class="customer-section">
                 <h4><i data-lucide="shopping-bag" style="width: 16px; height: 16px;"></i> Đơn hàng</h4>
                 <p style="color: #6b7280; font-size: 13px; text-align: center; padding: 20px 0;">Chưa có đơn hàng</p>
             </div>
-            `}
+            `
+            }
 
             <!-- Actions -->
             <div style="display: flex; gap: 12px; margin-top: 20px;">
@@ -1485,13 +1554,17 @@ class TposChatManager {
                         style="flex: 1; padding: 10px 16px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     Đóng
                 </button>
-                ${order.Code ? `
+                ${
+                    order.Code
+                        ? `
                 <button onclick="window.open('https://tomato.tpos.vn/sale-online/order/${order.Id}', '_blank')"
                         style="flex: 1; padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     <i data-lucide="external-link" style="width: 14px; height: 14px; display: inline; vertical-align: middle;"></i>
                     Mở đơn trên TPOS
                 </button>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
 
@@ -1560,7 +1633,8 @@ class TposChatManager {
         // Fetch partner info
         const fetchPromise = (async () => {
             try {
-                const crmTeamId = this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id;
+                const crmTeamId =
+                    this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id;
                 if (!crmTeamId) return null;
 
                 const apiUrl = `${this.tposBaseUrl}/rest/v2.0/chatomni/info/${crmTeamId}_${userId}`;
@@ -1591,13 +1665,13 @@ class TposChatManager {
      */
     async loadPartnerInfoForComments() {
         // Get unique user IDs
-        const userIds = [...new Set(this.comments.map(c => c.from?.id).filter(Boolean))];
+        const userIds = [...new Set(this.comments.map((c) => c.from?.id).filter(Boolean))];
 
         // Fetch in parallel (limit to 5 concurrent requests)
         const batchSize = 5;
         for (let i = 0; i < userIds.length; i += batchSize) {
             const batch = userIds.slice(i, i + batchSize);
-            await Promise.all(batch.map(userId => this.getPartnerInfo(userId)));
+            await Promise.all(batch.map((userId) => this.getPartnerInfo(userId)));
         }
 
         // Re-render to show partner info
@@ -1630,9 +1704,9 @@ class TposChatManager {
             const response = await fetch(`${this.proxyBaseUrl}/api/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ phones: uniquePhones })
+                body: JSON.stringify({ phones: uniquePhones }),
             });
 
             if (!response.ok) {
@@ -1647,7 +1721,11 @@ class TposChatManager {
                     this.setDebtCache(this.normalizePhone(phone), walletData.total || 0);
                 }
 
-                console.log('[TPOS-CHAT] Loaded wallet balance for', Object.keys(result.data).length, 'phones');
+                console.log(
+                    '[TPOS-CHAT] Loaded wallet balance for',
+                    Object.keys(result.data).length,
+                    'phones'
+                );
 
                 // Re-render to show balance
                 this.renderComments();
@@ -1718,7 +1796,7 @@ class TposChatManager {
             // Merge updates into partner model
             const model = {
                 ...partner,
-                ...updates.fields
+                ...updates.fields,
             };
 
             const apiUrl = `${this.proxyBaseUrl}/api/odata/SaleOnline_Order/ODataService.CreateUpdatePartner`;
@@ -1727,13 +1805,17 @@ class TposChatManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=UTF-8',
-                    'tposappversion': '6.1.8.1',
-                    'x-requested-with': 'XMLHttpRequest'
+                    tposappversion: '6.1.8.1',
+                    'x-requested-with': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({
                     model: model,
-                    teamId: teamId || this.selectedTeamId || this.selectedPage?.CRMTeamId || this.selectedPage?.Id
-                })
+                    teamId:
+                        teamId ||
+                        this.selectedTeamId ||
+                        this.selectedPage?.CRMTeamId ||
+                        this.selectedPage?.Id,
+                }),
             });
 
             if (!response.ok) {
@@ -1770,14 +1852,15 @@ class TposChatManager {
 
         // Show loading
         if (saveBtn) {
-            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
             saveBtn.disabled = true;
         }
 
         try {
             await this.savePartnerData(null, {
                 userId: userId,
-                fields: { Phone: newPhone }
+                fields: { Phone: newPhone },
             });
 
             if (window.notificationManager) {
@@ -1786,9 +1869,11 @@ class TposChatManager {
 
             // Update UI
             if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                saveBtn.innerHTML =
+                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
                 setTimeout(() => {
-                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.innerHTML =
+                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                     saveBtn.disabled = false;
                     if (window.lucide) lucide.createIcons();
                 }, 1500);
@@ -1817,14 +1902,15 @@ class TposChatManager {
 
         // Show loading
         if (saveBtn) {
-            saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
+            saveBtn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
             saveBtn.disabled = true;
         }
 
         try {
             await this.savePartnerData(null, {
                 userId: userId,
-                fields: { Street: newAddress }
+                fields: { Street: newAddress },
             });
 
             if (window.notificationManager) {
@@ -1833,9 +1919,11 @@ class TposChatManager {
 
             // Update UI
             if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
+                saveBtn.innerHTML =
+                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
                 setTimeout(() => {
-                    saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
+                    saveBtn.innerHTML =
+                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
                     saveBtn.disabled = false;
                     if (window.lucide) lucide.createIcons();
                 }, 1500);
@@ -1890,9 +1978,9 @@ class TposChatManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json;charset=UTF-8',
-                    'tposappversion': '6.1.8.1'
+                    tposappversion: '6.1.8.1',
                 },
-                body: JSON.stringify({ status: value })
+                body: JSON.stringify({ status: value }),
             });
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -1920,7 +2008,7 @@ class TposChatManager {
 
         // TODO: Implement API call to hide/show comment
         // For now, just update local state
-        const comment = this.comments.find(c => c.id === commentId);
+        const comment = this.comments.find((c) => c.id === commentId);
         if (comment) {
             comment.is_hidden = hide;
             this.renderComments();
@@ -1970,7 +2058,11 @@ class TposChatManager {
             this.cleanupExpiredCache();
         }, this.cacheConfig.cleanupInterval);
 
-        console.log('[TPOS-CHAT] Cache cleanup started (interval:', this.cacheConfig.cleanupInterval / 1000, 's)');
+        console.log(
+            '[TPOS-CHAT] Cache cleanup started (interval:',
+            this.cacheConfig.cleanupInterval / 1000,
+            's)'
+        );
     }
 
     /**
@@ -1984,7 +2076,7 @@ class TposChatManager {
 
         this.partnerCache.set(userId, {
             data: data,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
     }
 
@@ -2017,7 +2109,7 @@ class TposChatManager {
 
         this.debtCache.set(phone, {
             amount: amount,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
     }
 
@@ -2041,8 +2133,9 @@ class TposChatManager {
      * Evict oldest entries from a cache map
      */
     evictOldestEntries(cacheMap, count) {
-        const entries = Array.from(cacheMap.entries())
-            .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+        const entries = Array.from(cacheMap.entries()).sort(
+            (a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0)
+        );
 
         const toRemove = entries.slice(0, count);
         toRemove.forEach(([key]) => cacheMap.delete(key));
@@ -2101,7 +2194,7 @@ class TposChatManager {
             debtCache: this.debtCache.size,
             sessionIndexMap: this.sessionIndexMap.size,
             maxSize: this.cacheConfig.maxSize,
-            ttlMinutes: this.cacheConfig.ttl / 60000
+            ttlMinutes: this.cacheConfig.ttl / 60000,
         };
     }
 
@@ -2147,11 +2240,19 @@ class TposChatManager {
 
         // This week
         if (diff < 7 * 24 * 60 * 60 * 1000) {
-            return date.toLocaleDateString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleDateString('vi-VN', {
+                weekday: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
         }
 
         // Older
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
     }
 
     escapeHtml(str) {

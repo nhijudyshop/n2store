@@ -30,7 +30,7 @@
         // CF maps /api/rest/* → tomato.tpos.vn/rest/*, /api/odata/* → tomato.tpos.vn/odata/*
         // =====================================================
         tposBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
-        tposDirectUrl: 'https://tomato.tpos.vn',  // preserved for non-fetch uses (window.open, links, etc.)
+        tposDirectUrl: 'https://tomato.tpos.vn', // preserved for non-fetch uses (window.open, links, etc.)
 
         // =====================================================
         // COMMON HEADERS
@@ -38,18 +38,18 @@
         getHeaders: function (token) {
             return {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'tposappversion': this.tposAppVersion,
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                Accept: 'application/json',
+                tposappversion: this.tposAppVersion,
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
         },
 
         // Get just the version header
         getVersionHeader: function () {
             return {
-                'tposappversion': this.tposAppVersion
+                tposappversion: this.tposAppVersion,
             };
-        }
+        },
     };
 
     // Export for different module systems
@@ -58,12 +58,19 @@
         module.exports = TPOS_CONFIG;
     } else if (typeof define === 'function' && define.amd) {
         // AMD
-        define(function () { return TPOS_CONFIG; });
+        define(function () {
+            return TPOS_CONFIG;
+        });
     } else {
         // Browser global
         global.TPOS_CONFIG = TPOS_CONFIG;
     }
-
-})(typeof globalThis !== 'undefined' ? globalThis :
-    typeof window !== 'undefined' ? window :
-        typeof global !== 'undefined' ? global : this);
+})(
+    typeof globalThis !== 'undefined'
+        ? globalThis
+        : typeof window !== 'undefined'
+          ? window
+          : typeof global !== 'undefined'
+            ? global
+            : this
+);
