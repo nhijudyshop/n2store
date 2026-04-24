@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][chotdon-panel] Bulk-KDH expand 1 STT thành mọi đơn trùng — user tự pick đúng đơn
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) — đổi `findOrderBySTT()` → `findAllOrdersBySTT()` quét cả `displayedData` lẫn `OrderStore.getAll()`, dedup theo `Code/Id`, trả Array. `onInputChange` expand mỗi STT thành nhiều entry, key dạng `${stt}:${code}` để giữ trạng thái selected qua re-input. Default selection: 1 đơn → tick; nhiều đơn (duplicate) → chỉ tick đơn đang trong `displayedCodes` (đơn user nhìn thấy), đơn khác untick. `toggleRow(key, ...)` thay vì `toggleRow(stt, ...)`. Render thêm 2 badge: "trong bảng" (xanh, với đơn duplicate đang ở `displayedData`) + "trùng STT" (vàng, với mọi đơn duplicate). MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.bulk-kdh-dup-badge` (vàng amber) + `.bulk-kdh-inview-badge` (xanh emerald), pill 10px uppercase. |
+| **Chi tiết** | **User request**: "gõ 313 sẽ hiện tất cả STT 313 để cho chọn" — vì SessionIndex trùng giữa các session live, gõ 1 STT cần cho user thấy mọi candidate và pick đơn đúng (thay vì hệ thống tự đoán). **Logic mới**: parse "313" → `findAllOrdersBySTT(313)` quét toàn bộ dataset → có thể trả 5 đơn cùng SessionIndex 313 từ 5 session khác. Render 5 row, mỗi row checkbox riêng. Đơn nào đang trong bảng hiện tại (sau filter "huynh thanh dat") → tick mặc định + badge xanh "trong bảng"; đơn khác → untick + badge vàng "trùng STT". User có thể tick thêm/bỏ tùy ý. Re-input giữ trạng thái qua key compound `stt+Code`. Nếu chỉ 1 candidate → tick mặc định, không có badge (UX cũ). Nếu KHÔNG đơn nào trong bảng + có duplicate → tất cả untick, user phải explicitly chọn (an toàn hơn auto-pick sai). |
+| **Status** | ✅ Done. Verify: filter "huynh thanh dat" → mở modal KDH → nhập 313 → nếu STT 313 trùng nhiều: thấy nhiều row, "Huỳnh Thành Đạt" tick + badge xanh "TRONG BẢNG", các đơn khác untick + badge vàng "TRÙNG STT"; tick thêm 1 đơn khác → summary update; click Xác nhận → chỉ gán những đơn được tick. |
+
 ### [orders][chotdon-panel] Bulk-KDH thêm checkbox chọn từng STT + select-all
 | | |
 |---|---|

@@ -12,8 +12,9 @@
     const SUBTAG_KEY = 'KHONG_DE_HANG';
     const CATEGORY = 3; // KHÔNG CẦN CHỐT
 
-    // State
-    let parsedSTTs = []; // {stt, order|null, error|null}
+    // State — MỖI ENTRY là 1 candidate: {stt, order|null, error|null, selected, key}
+    // 1 STT input có thể expand thành nhiều entry nếu nhiều đơn cùng SessionIndex.
+    let parsedSTTs = [];
 
     // ===== Parse helpers =====
     // Hỗ trợ "1, 2, 3", "1-5", "1 5-10 15", xuống dòng đều OK.
@@ -37,20 +38,33 @@
         return Array.from(result).sort((x, y) => x - y);
     }
 
-    function findOrderBySTT(stt) {
-        // Ưu tiên displayedData (đơn user đang nhìn trong bảng sau filter/search) —
-        // OrderStore index toàn bộ dataset có thể trùng SessionIndex giữa các session live.
-        const list = (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
-        const fromDisplayed =
-            list.find(
-                (o) => o && (o.SessionIndex === stt || String(o.SessionIndex) === String(stt))
-            ) || null;
-        if (fromDisplayed) return fromDisplayed;
-        // Fallback: OrderStore (chỉ khi không có gì trong bảng hiện tại).
-        if (window.OrderStore && typeof window.OrderStore.getBySTT === 'function') {
-            return window.OrderStore.getBySTT(stt) || null;
+    // Trả về TẤT CẢ đơn có SessionIndex = stt (có thể trùng giữa các session live).
+    // Dedup theo Code/Id. Đơn trong displayedData được đặt trước (priority) để user chọn dễ.
+    function findAllOrdersBySTT(stt) {
+        const seen = new Map(); // key = Code || Id, value = order
+        const matches = (o) =>
+            o && (o.SessionIndex === stt || String(o.SessionIndex) === String(stt));
+        const add = (o) => {
+            if (!o) return;
+            const key = o.Code || o.Id;
+            if (key && !seen.has(key)) seen.set(key, o);
+        };
+        // 1. displayedData trước (đơn user đang nhìn trong bảng).
+        const list =
+            (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
+        list.filter(matches).forEach(add);
+        // 2. OrderStore.getAll() — quét toàn bộ dataset để thấy mọi STT trùng.
+        if (window.OrderStore && typeof window.OrderStore.getAll === 'function') {
+            try {
+                window.OrderStore.getAll().filter(matches).forEach(add);
+            } catch (_) {
+                // Fallback nếu getAll lỗi: dùng getBySTT (chỉ trả 1 đơn).
+                if (typeof window.OrderStore.getBySTT === 'function') {
+                    add(window.OrderStore.getBySTT(stt));
+                }
+            }
         }
-        return null;
+        return Array.from(seen.values());
     }
 
     // ===== Open / close =====
@@ -79,22 +93,56 @@
     function onInputChange() {
         const raw = (document.getElementById('bulkKdhSttInput') || {}).value || '';
         const stts = parseSTTInput(raw);
-        // Giữ trạng thái selected của STT đã có (khi user gõ thêm/bớt) — default true cho row mới.
-        const prevSel = new Map(parsedSTTs.map((p) => [p.stt, p.selected !== false]));
-        parsedSTTs = stts.map((stt) => {
-            const order = findOrderBySTT(stt);
-            return {
-                stt,
-                order,
-                error: order ? null : 'STT không tồn tại trong danh sách hiện tại',
-                selected: prevSel.has(stt) ? prevSel.get(stt) : true,
-            };
-        });
+        // displayedData lookup nhanh để mark đơn nào "đang trong bảng".
+        const displayedCodes = new Set(
+            ((typeof window.displayedData !== 'undefined' && window.displayedData) || [])
+                .map((o) => o && (o.Code || o.Id))
+                .filter(Boolean)
+        );
+        // Giữ trạng thái selected cũ theo key (stt+Code) khi user gõ thêm/bớt.
+        const prevSel = new Map(parsedSTTs.map((p) => [p.key, p.selected]));
+        const next = [];
+        for (const stt of stts) {
+            const orders = findAllOrdersBySTT(stt);
+            if (orders.length === 0) {
+                next.push({
+                    stt,
+                    order: null,
+                    error: 'STT không tồn tại trong danh sách',
+                    selected: false,
+                    key: `err:${stt}`,
+                });
+                continue;
+            }
+            for (const order of orders) {
+                const code = order.Code || order.Id || '';
+                const key = `${stt}:${code}`;
+                const isDuplicate = orders.length > 1;
+                const inDisplayed = displayedCodes.has(code);
+                // Default selection rules:
+                //  - Giữ nguyên nếu user đã tick/untick rồi.
+                //  - Nếu chỉ 1 đơn: tick mặc định.
+                //  - Nếu nhiều đơn (duplicate): chỉ tick đơn nằm trong bảng hiện tại
+                //    (để user thấy ngay đơn đúng) — đơn khác mặc định untick.
+                //    Nếu KHÔNG đơn nào trong bảng → untick hết, user phải tự chọn.
+                const defaultSel = isDuplicate ? inDisplayed : true;
+                next.push({
+                    stt,
+                    order,
+                    error: null,
+                    selected: prevSel.has(key) ? prevSel.get(key) : defaultSel,
+                    key,
+                    isDuplicate,
+                    inDisplayed,
+                });
+            }
+        }
+        parsedSTTs = next;
         renderPreview();
     }
 
-    function toggleRow(stt, checked) {
-        const row = parsedSTTs.find((p) => p.stt === stt);
+    function toggleRow(key, checked) {
+        const row = parsedSTTs.find((p) => p.key === key);
         if (row) {
             row.selected = !!checked;
             updateSummaryAndConfirm();
@@ -150,13 +198,21 @@
             .map((p) => {
                 if (p.order) {
                     const name = p.order.Name || p.order.PartnerName || '(không tên)';
-                    const code = p.order.Code || '';
-                    const checked = p.selected !== false ? 'checked' : '';
+                    const code = p.order.Code || p.order.Id || '';
+                    const checked = p.selected ? 'checked' : '';
+                    const dupBadge = p.isDuplicate
+                        ? `<span class="bulk-kdh-dup-badge" title="Có nhiều đơn cùng STT — hãy chọn đơn đúng">trùng STT</span>`
+                        : '';
+                    const inViewBadge = p.isDuplicate && p.inDisplayed
+                        ? `<span class="bulk-kdh-inview-badge" title="Đơn này đang hiện trong bảng">trong bảng</span>`
+                        : '';
                     return `<label class="bulk-kdh-row bulk-kdh-row--ok ${checked ? '' : 'bulk-kdh-row--unchecked'}">
-                        <input type="checkbox" class="bulk-kdh-row-cb" ${checked} data-stt="${p.stt}" />
+                        <input type="checkbox" class="bulk-kdh-row-cb" ${checked} data-key="${escapeAttr(p.key)}" />
                         <span class="bulk-kdh-stt">STT ${p.stt}</span>
                         <span class="bulk-kdh-name">${escapeHtml(name)}</span>
                         <span class="bulk-kdh-code">${escapeHtml(code)}</span>
+                        ${inViewBadge}
+                        ${dupBadge}
                     </label>`;
                 }
                 return `<div class="bulk-kdh-row bulk-kdh-row--err">
@@ -167,12 +223,11 @@
             .join('');
         previewEl.innerHTML = rowsHtml;
 
-        // Wire checkbox listeners (event delegation lite — query rồi attach)
+        // Wire checkbox listeners
         previewEl.querySelectorAll('.bulk-kdh-row-cb').forEach((cb) => {
             cb.addEventListener('change', (e) => {
-                const stt = parseInt(cb.getAttribute('data-stt'), 10);
-                toggleRow(stt, e.target.checked);
-                // Update visual unchecked state
+                const key = cb.getAttribute('data-key');
+                toggleRow(key, e.target.checked);
                 const row = cb.closest('.bulk-kdh-row');
                 if (row) row.classList.toggle('bulk-kdh-row--unchecked', !e.target.checked);
             });
@@ -194,6 +249,11 @@
                     "'": '&#39;',
                 })[c]
         );
+    }
+
+    // Cho data-attribute — chỉ cần escape quote.
+    function escapeAttr(s) {
+        return String(s || '').replace(/"/g, '&quot;');
     }
 
     // ===== Apply =====
