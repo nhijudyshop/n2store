@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][realtime] Fix bỏ qua đơn mới khi bảng load nhiều campaign (HOUSE + STORE)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) — thay campaign filter (so `LiveCampaignId` với top-STT order) bằng date-range filter khớp với `customStartDate`/`customEndDate` của UI. Thêm helper `isWithinActiveDateRange(order)`. Áp dụng ở `handleNewOrder` và `fetchMissingFromBuffer` (STT gap-fill). |
+| **Chi tiết** | **Bug**: khi bảng đang ở chế độ "khoảng ngày" (ví dụ 25/03 - 24/04, 67 ngày → chứa cả campaign HOUSE và STORE), đơn real-time mới tạo ở TPOS có campaign KHÁC với campaign của đơn STT cao nhất sẽ bị skip → không tự vào bảng. Ví dụ: đơn top là HOUSE 387; đơn mới 388 của STORE → bị chặn bởi so sánh `order.LiveCampaignId !== highestSTTOrder.LiveCampaignId`. **Root cause**: filter gốc thiết kế cho chế độ xem 1 campaign, nhưng hiện tại load theo ngày là phổ biến và chứa multi-campaign. Cùng vấn đề với đơn không có campaign (tạo thủ công qua "Tạo đơn" hoặc từ native-orders). **Fix**: check scope theo NGÀY (match với `filter` của `fetchOrders`) — đơn chỉ bị skip nếu `DateCreated` nằm ngoài `[customStartDate, customEndDate]`. Nếu input trống hoặc parse lỗi → fail-open (cho phép). |
+| **Status** | ✅ Done — cần verify: (1) mở orders-report với khoảng ngày gồm nhiều campaign, (2) tạo đơn TPOS trên campaign khác với top-STT, (3) đơn mới phải auto xuất hiện đầu bảng trong vài giây, có toast "Đơn mới #STT", và console log `[TPOS-RT] New order: ...` + `Added order to table: ...`. |
+
 ### [orders][kpi] Checkbox "KPI" trên từng dòng SP — sale tự đánh dấu SP được tính KPI
 | | |
 |---|---|
@@ -28,7 +35,6 @@
 | **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `transferProcessingTags()` line 1325+: phân loại `sourceTTags` thành `transferableTTags` (non-marker) và `markerTTags` (id match `/^GOP_\d+(_\d+)*$/`). Chỉ transfer `transferableTTags` sang target; source giữ lại `markerTTags` thay vì clear về `[]`. |
 | **Chi tiết** | **User report**: Đơn 589 trước gộp có tag `Gộp 589 655` (merge marker tTag `GOP_589_655`). Khi user gán Tag T vào STT 589 qua modal "Quản Lý Tag T Chờ Hàng", logic redirect chuyển tag T sang STT 655 + gọi `transferProcessingTags(589, 655)` để chuyển flags/tTags. Trước fix, line 1374-1376 wipe sạch `sourceData.tTags = []` → đơn 589 mất tag `Gộp 589 655`, vi phạm invariant của commit 2238c8f2 ("source giữ nguyên mọi tTag GOP_* sau khi gộp"). **Fix**: merge marker tag (id dạng `GOP_<digits>(_<digits>)*`) là tag tracking cụm gộp, PHẢI stay trên source. Trong transfer: (a) không đẩy marker sang target (target đã có từ lần merge gốc); (b) khi clear source, gán `sourceData.tTags = markerTTags` thay vì `[]`. Regex khớp chính xác convention ở tab1-merge.js line 2200. |
 | **Status** | ✅ Done. Cần test: (a) gộp 2 đơn 589+655 → cả 2 có tag `Gộp 589 655`, 589 thêm sub-tag `DA_GOP_KHONG_CHOT`; (b) mở "Quản Lý Tag T" → gán tag T cho STT 589 → tag redirect sang 655; (c) verify 589 VẪN có `Gộp 589 655` + `DA_GOP_KHONG_CHOT`; (d) nếu 589 trước đó có tag T khác (non-marker), các tag đó sẽ transfer sang 655 như cũ. |
-
 ### [inventory] Modal "Thêm Đợt Hàng Mới": không đóng khi click overlay + fix paste ảnh nhân bản N lần
 | | |
 |---|---|

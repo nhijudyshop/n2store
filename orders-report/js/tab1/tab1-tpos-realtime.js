@@ -104,21 +104,16 @@
         const order = await fetchOrderByCode(code);
         if (!order) return;
 
-        // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất trong bảng
-        if (typeof allData !== 'undefined' && allData.length > 0) {
-            const highestSTTOrder = allData.reduce(
-                (max, o) => ((o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max),
-                allData[0]
+        // Date-range filter: chỉ thêm đơn nằm trong khoảng ngày đang xem.
+        // Trước đây so sánh theo LiveCampaignId với đơn STT cao nhất — sai khi
+        // bảng load theo ngày gồm nhiều campaign (HOUSE + STORE) hoặc đơn không
+        // có campaign (manual "Tạo đơn"). Fix: dùng scope ngày của UI — khớp với
+        // filter dùng ở fetchOrders() khi load initial data.
+        if (!isWithinActiveDateRange(order)) {
+            console.log(
+                `[TPOS-RT] Skipping order ${code}: DateCreated=${order.DateCreated} outside active range`
             );
-            if (
-                highestSTTOrder.LiveCampaignId &&
-                order.LiveCampaignId !== highestSTTOrder.LiveCampaignId
-            ) {
-                console.log(
-                    `[TPOS-RT] Skipping order ${code}: campaign ${order.LiveCampaignId} ≠ table campaign ${highestSTTOrder.LiveCampaignId}`
-                );
-                return;
-            }
+            return;
         }
 
         // Add to table
@@ -376,6 +371,33 @@
         }
     }
 
+    // ===== Date-Range Scope Check =====
+    // Trả về true nếu đơn nằm trong khoảng ngày UI đang hiển thị (khớp với
+    // filter dùng ở fetchOrders). Dùng thay cho campaign filter cũ để bảng
+    // multi-campaign (load theo ngày) không bị chặn đơn real-time.
+    function isWithinActiveDateRange(order) {
+        const orderDateStr = order?.DateCreated;
+        if (!orderDateStr) return true; // No date on order → don't block
+
+        const startInput = document.getElementById('customStartDate');
+        const endInput = document.getElementById('customEndDate');
+        const startVal = startInput?.value || '';
+        const endVal = endInput?.value || '';
+        if (!startVal || !endVal) return true; // No active range → allow all
+
+        const orderTime = new Date(orderDateStr).getTime();
+        const startTime = new Date(startVal).getTime();
+        const endTime = new Date(endVal).getTime();
+        if (
+            !Number.isFinite(orderTime) ||
+            !Number.isFinite(startTime) ||
+            !Number.isFinite(endTime)
+        ) {
+            return true; // Parse error → fail open (don't block)
+        }
+        return orderTime >= startTime && orderTime <= endTime;
+    }
+
     // ===== Fetch Order from OData API =====
     async function fetchOrderByCode(code) {
         try {
@@ -631,16 +653,11 @@
                 if (allData.find((o) => o.Code === code)) continue;
                 const order = await fetchOrderByCode(code);
                 if (order) {
-                    // Campaign filter: chỉ thêm đơn cùng campaign với đơn STT cao nhất
-                    const topOrder = allData.reduce(
-                        (max, o) => ((o.SessionIndex || 0) > (max.SessionIndex || 0) ? o : max),
-                        allData[0]
-                    );
-                    if (
-                        topOrder?.LiveCampaignId &&
-                        order.LiveCampaignId !== topOrder.LiveCampaignId
-                    ) {
-                        console.log(`[TPOS-RT] Gap fill skip ${code}: different campaign`);
+                    // Date-range filter: giống handleNewOrder, tránh thêm đơn ngoài scope.
+                    if (!isWithinActiveDateRange(order)) {
+                        console.log(
+                            `[TPOS-RT] Gap fill skip ${code}: outside active date range`
+                        );
                         continue;
                     }
                     addOrderToTable(order);
