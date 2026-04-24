@@ -1,0 +1,136 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+    <title>Đơn Web (Native Orders) — N2Store</title>
+
+    <link rel="stylesheet" href="css/native-orders.css?v=20260424">
+
+    <!-- Lucide icons -->
+    <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+    <!-- Firebase compat (cho AuthManager) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <!-- Shared lib -->
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ========== TOPBAR ========== -->
+<header class="topbar">
+    <div class="topbar-left">
+        <a href="../tpos-pancake/index.html" class="back-link" title="Về trang TPOS × Pancake">
+            <i data-lucide="arrow-left"></i>
+        </a>
+        <i data-lucide="package-open" class="brand-icon"></i>
+        <h1 class="brand-title">Đơn Web</h1>
+        <span class="brand-sub">Native orders ghi tại Render PostgreSQL</span>
+    </div>
+    <div class="topbar-right">
+        <span class="counter" id="totalCounter">— đơn</span>
+        <button class="btn btn-secondary" id="btnRefresh" title="Tải lại">
+            <i data-lucide="refresh-cw"></i>
+            <span>Tải lại</span>
+        </button>
+    </div>
+</header>
+
+<!-- ========== TOOLBAR ========== -->
+<section class="toolbar">
+    <div class="filter-group">
+        <input type="text" id="filterSearch" class="input" placeholder="Tìm theo SĐT, tên, mã đơn, ghi chú..." style="min-width:280px;flex:1;">
+    </div>
+    <div class="filter-group">
+        <label class="label">Trạng thái</label>
+        <select id="filterStatus" class="input">
+            <option value="all">Tất cả</option>
+            <option value="draft">Nháp</option>
+            <option value="confirmed">Đã xác nhận</option>
+            <option value="cancelled">Đã hủy</option>
+            <option value="delivered">Đã giao</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label class="label">Limit</label>
+        <select id="filterLimit" class="input">
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200" selected>200</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+        </select>
+    </div>
+    <div class="filter-actions">
+        <button class="btn btn-primary" id="btnApplyFilter">
+            <i data-lucide="filter"></i> Áp dụng
+        </button>
+        <button class="btn btn-ghost" id="btnClearFilter">
+            <i data-lucide="x"></i> Xóa lọc
+        </button>
+    </div>
+</section>
+
+<!-- ========== TABLE ========== -->
+<main class="main-content">
+    <div class="table-wrapper">
+        <table class="orders-table" id="ordersTable">
+            <thead>
+                <tr>
+                    <th style="width:160px;">Mã đơn</th>
+                    <th style="width:50px;">STT</th>
+                    <th>Khách</th>
+                    <th style="width:120px;">SĐT</th>
+                    <th>Địa chỉ</th>
+                    <th>Ghi chú</th>
+                    <th style="width:120px;">Trạng thái</th>
+                    <th style="width:140px;">Tạo lúc</th>
+                    <th style="width:130px;">Người tạo</th>
+                    <th style="width:160px;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="ordersTbody">
+                <tr><td colspan="10" class="loading-row">
+                    <div class="spinner"></div> Đang tải dữ liệu...
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+</main>
+
+<!-- ========== EDIT MODAL ========== -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-content" style="min-width:520px;max-width:640px;">
+        <div class="modal-header">
+            <h3 id="editModalTitle">Chỉnh sửa đơn</h3>
+            <button class="btn-icon" id="btnCloseModal" title="Đóng">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="editModalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="btnCancelEdit">Hủy</button>
+            <button class="btn btn-primary" id="btnSaveEdit">
+                <i data-lucide="save"></i> Lưu
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== APP SCRIPTS ========== -->
+<script src="js/native-orders-api.js?v=20260424"></script>
+<script src="js/native-orders-app.js?v=20260424"></script>
+</body>
+</html>

@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [native-orders] Trang mới hiển thị các đơn web đã lưu (PostgreSQL native_orders)
+| | |
+|---|---|
+| **Files** | NEW: [native-orders/index.html](../native-orders/index.html) — topbar (logo + back link về tpos-pancake + counter + refresh) + toolbar filter (search/status/limit) + table 10 cột (mã, STT, khách, SĐT, địa chỉ, note, status, time, người tạo, hành động) + modal edit + pagination. NEW: [native-orders/css/native-orders.css](../native-orders/css/native-orders.css) — design tokens + table sticky header + status badges (draft/confirmed/cancelled/delivered) + modal styling. NEW: [native-orders/js/native-orders-api.js](../native-orders/js/native-orders-api.js) — client wrap `health/list/getByUser/update/remove` qua `https://chatomni-proxy.nhijudyshop.workers.dev/api/native-orders/*`. NEW: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) — STATE + render rows/pagination/counter, filter wiring (search/status/limit), edit modal (customerName/phone/address/note/status), quick action xác nhận/hủy/xóa, copy mã đơn. MODIFIED: [tpos-pancake/index.html](../tpos-pancake/index.html) — thêm icon `package-open` tím ở topbar phải để mở `../native-orders/index.html`. |
+| **Chi tiết** | **User request**: "Tạo 1 trang để hiển thị các đơn được bấm lưu ở render db". Trang chuẩn theo Option A trong [docs/guides/tpos-pancake/08-create-order-data-flow.md](guides/tpos-pancake/08-create-order-data-flow.md) (tab/page riêng đọc native_orders, không đụng orders-report). API endpoint đã sẵn ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js)) → frontend chỉ cần list/edit/delete. **UX**: filter combo (search-by-text + status enum + limit), pagination 5 trang xung quanh trang hiện tại + nút prev/next + ellipsis, click mã copy clipboard, edit inline qua modal hiện đầy đủ field metadata FB (read-only details), 3 quick action (sửa, ✅ confirm, ✕ cancel, 🗑 delete). **Auth**: chỉ load shared lib (auth-manager, notification-system, firebase-config) — endpoint native-orders public, không cần token. **Style**: nhất quán với palette tpos-pancake (primary #6366f1, native #7c3aed), font Inter + Manrope, sticky table header, hover row highlight. |
+| **Status** | ✅ Done — push xong. Test: (1) bấm icon `package-open` tím ở topbar tpos-pancake → mở trang `../native-orders/index.html` → bảng load các đơn đã lưu (sort theo `created_at DESC`); (2) gõ SĐT/tên/mã vào ô tìm + bấm Áp dụng → list filter; (3) đổi status dropdown → reload theo trạng thái; (4) sửa 1 đơn → modal mở → đổi note + Save → row update inline; (5) xóa đơn → confirm → row biến mất. |
+
 ### [orders][edit-modal] Fix surgical update bị mất cột KPI checkbox
 | | |
 |---|---|
