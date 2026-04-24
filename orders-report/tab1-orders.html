@@ -29,6 +29,10 @@
 
     <link rel="stylesheet" href="css/tab1-stock-status.css" />
 
+    <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite innerHTML / img.src trước khi
+         bất kỳ code nào render <img src="https://vn.img1.tpos.vn/...">. Nếu load muộn,
+         browser parser đã start network request raw URL → hit HTTP/2 stream limit. -->
+    <script src="../shared/js/tpos-image-proxy.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
     <script src="js/utils/fetch-with-timeout.js"></script>
@@ -1289,7 +1293,7 @@
         }
     </script>
     <!-- Note: notification-system.js is loaded by compat.js ES Module -->
-    <script src="../shared/js/tpos-image-proxy.js"></script>
+    <!-- tpos-image-proxy.js moved to <head> (line ~32) để hook chạy SỚM NHẤT, trước mọi render. -->
     <script src="../shared/js/pancake-token-manager.js"></script>
     <script src="js/managers/global-id-harvester.js"></script>
     <script src="js/managers/pancake-data-manager.js?v=2"></script>
@@ -1354,6 +1358,9 @@
 
     <!-- 6b. Processing Tags: Tag xử lý chốt đơn -->
     <script src="js/tab1/tab1-processing-tags.js"></script>
+
+    <!-- 6b1a. Bulk subtag KHÔNG ĐỂ HÀNG: gán hàng loạt theo STT -->
+    <script src="js/tab1/tab1-bulk-subtag-khong-de-hang.js"></script>
 
     <!-- 6b2. Exclude Tag XL: Filter ẩn đơn theo Tag XL -->
     <script src="js/tab1/tab1-ptag-xl-exclude.js"></script>
@@ -1685,6 +1692,49 @@
             <div class="bulk-tag-modal-footer">
                 <button class="bulk-tag-btn-cancel" onclick="closeBulkTagHistoryModal()">
                     <i class="fas fa-times"></i> Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Subtag KHÔNG ĐỂ HÀNG Modal -->
+    <div class="bulk-kdh-modal" id="bulkSubtagKhongDeHangModal">
+        <div class="bulk-kdh-modal-content">
+            <div class="bulk-kdh-modal-header">
+                <div class="bulk-kdh-header-info">
+                    <h3><i class="fas fa-box-open"></i> Gán "KHÔNG ĐỂ HÀNG" hàng loạt</h3>
+                    <p>Nhập STT đơn hàng — hỗ trợ <code>1, 2, 3</code> hoặc khoảng <code>5-10</code></p>
+                </div>
+                <button class="bulk-kdh-close" onclick="closeBulkSubtagKhongDeHangModal()" title="Đóng (Esc)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="bulk-kdh-modal-body">
+                <label for="bulkKdhSttInput" class="bulk-kdh-label">STT đơn hàng</label>
+                <textarea id="bulkKdhSttInput" class="bulk-kdh-input"
+                    placeholder="VD: 691, 690, 685-688, 670"
+                    rows="3" autocomplete="off" spellcheck="false"></textarea>
+
+                <div class="bulk-kdh-summary-row">
+                    <span class="bulk-kdh-summary" id="bulkKdhSummary"></span>
+                </div>
+
+                <div class="bulk-kdh-preview" id="bulkKdhPreview">
+                    <div class="bulk-kdh-empty">
+                        <i class="fas fa-inbox"></i>
+                        <p>Nhập STT để xem trước đơn hàng sẽ được gán tag.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bulk-kdh-modal-footer">
+                <button class="bulk-kdh-btn bulk-kdh-btn-cancel" onclick="closeBulkSubtagKhongDeHangModal()">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button class="bulk-kdh-btn bulk-kdh-btn-confirm" id="bulkKdhConfirmBtn"
+                    onclick="executeBulkSubtagKhongDeHangAssign()" disabled>
+                    <i class="fas fa-check"></i> Xác nhận gán
                 </button>
             </div>
         </div>
