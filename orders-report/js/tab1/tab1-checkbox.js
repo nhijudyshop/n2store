@@ -233,8 +233,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const menu = document.getElementById('selectAllMenu');
 
     // ----- Individual checkbox change (giữ hành vi cũ) -----
+    // Scope vào #tableBody + .employee-section tbody (orders table chính + employee view)
+    // để không bắt nhầm checkbox trong modal/chat (.kpi-sale-check, .chat-kpi-check).
     document.addEventListener('change', function (e) {
-        if (e.target.matches('tbody input[type="checkbox"]')) {
+        if (e.target.matches('#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]')) {
             if (typeof updateActionButtons === 'function') updateActionButtons();
             updateSelectAllHeaderState();
         }

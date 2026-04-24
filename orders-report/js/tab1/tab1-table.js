@@ -2127,8 +2127,11 @@ function handleSelectAll() {
 }
 
 // Global event listener for checkbox changes (Delegation)
+// Scope vào #tableBody + .employee-section tbody (orders table chính + view theo nhân viên)
+// để không bắt nhầm checkbox trong modal Sửa đơn hàng (.kpi-sale-check)
+// hay chat panel (.chat-kpi-check).
 document.addEventListener('change', function (e) {
-    if (e.target.matches('tbody input[type="checkbox"]')) {
+    if (e.target.matches('#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]')) {
         const orderId = e.target.value;
         if (e.target.checked) {
             selectedOrderIds.add(orderId);
