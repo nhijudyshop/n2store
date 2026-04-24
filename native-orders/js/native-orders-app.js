@@ -96,7 +96,9 @@
         if (!o.fbUserId) {
             return `<div class="cust-avatar" style="background:${color};">${char}</div>`;
         }
-        const url = `${WORKER_URL}/api/fb-avatar?id=${encodeURIComponent(o.fbUserId)}${o.fbPageId ? '&page_id=' + encodeURIComponent(o.fbPageId) : ''}`;
+        // CF Worker /api/fb-avatar expects ?id= + &page= (not &page_id=).
+        // Same signature as tpos-pancake (SharedUtils.getAvatarUrl) + orders-report (tab1-table.js).
+        const url = `${WORKER_URL}/api/fb-avatar?id=${encodeURIComponent(o.fbUserId)}${o.fbPageId ? '&page=' + encodeURIComponent(o.fbPageId) : ''}`;
         return `
             <div class="cust-avatar" style="background:${color};">
                 <span class="cust-avatar-initial">${char}</span>
