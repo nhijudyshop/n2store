@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [inventory] Modal "Thêm Đợt Hàng Mới": không đóng khi click overlay + fix paste ảnh nhân bản N lần
+| | |
+|---|---|
+| **Files** | MODIFIED: [inventory-tracking/js/main.js](../inventory-tracking/js/main.js) — `setupModalCloseListeners` thêm `modalShipment` vào set loại trừ overlay-click (cùng với `modalImageManager`). MODIFIED: [inventory-tracking/js/modal-shipment.js](../inventory-tracking/js/modal-shipment.js) — thêm module-scope flag `_shipmentListenersInitialized`; tách `setupShipmentFormListeners` thành 2 phần: (a) per-open cho listener gắn trực tiếp vào element trong `modalShipmentBody` (bị innerHTML huỷ mỗi open: btnAddInvoice/btnAddInvoiceAI/btnAddCost/packagesInput/shipmentDate + updatePackageTotals/updateCostTotal); (b) once-only cho listener trên element persistent (document paste, delegation click/change/input trên modalShipmentBody, mouseover/mouseout, btnSaveShipment). |
+| **Chi tiết** | **Bug 1**: click ra ngoài modal "Thêm Đợt Hàng Mới" làm đóng modal → mất data user đang nhập. Fix: exclusion set gồm `modalImageManager` + `modalShipment`, overlay không còn bind click-close cho 2 modal này. Escape + nút Hủy + nút X vẫn hoạt động bình thường. **Bug 2**: Ctrl+V paste ảnh vào ô upload trong modal Thêm Đợt Hàng ra 5 tấm cùng lúc (hoặc N tấm sau N lần mở lại modal). Root cause: `openShipmentModal()` gọi `setupShipmentFormListeners()` mỗi lần mở, hàm này đăng ký `document.addEventListener('paste', ...)` mới mỗi lần → N copy paste handler trên document → 1 lần paste sẽ fire N lần và mỗi lần push cùng 1 file vào `handleInvoiceImageFiles`. Fix: guard flag one-time cho các listener trên element persistent; riêng listener gắn trực tiếp vào element con bên trong modalShipmentBody (bị innerHTML replace mỗi open) vẫn phải re-attach mỗi lần. |
+| **Status** | 🔄 Code done — chờ user verify trên nhijudyshop.github.io/n2store/inventory-tracking/index.html: (1) Mở modal "Thêm Đợt Hàng Mới" → click ra vùng xám ngoài modal → modal phải đứng yên. (2) Nhấn X hoặc Hủy → modal đóng. (3) Mở/đóng modal 5 lần liên tiếp, mở lần thứ 6 → Ctrl+V dán ảnh → chỉ 1 tấm được thêm vào preview. |
+
 ### [orders][tag-t] Fix Lịch Sử Tag T Chờ Hàng không hiển thị redirected STT (đồng bộ với Kết Quả Gán)
 | | |
 |---|---|

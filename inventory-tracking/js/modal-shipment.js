@@ -5,6 +5,7 @@
 // =====================================================
 
 let currentShipmentData = null;
+let _shipmentListenersInitialized = false;
 
 /**
  * Check if a (date, dotSo) tuple already has kienHang in existing shipments
@@ -269,16 +270,11 @@ function renderInvoiceForm(invoice, index) {
  * Setup form event listeners
  */
 function setupShipmentFormListeners() {
-    // Add invoice
+    // Per-open: these target elements inside modalShipmentBody, which is
+    // replaced via innerHTML each open, so listeners must be re-attached.
     document.getElementById('btnAddInvoice')?.addEventListener('click', addInvoiceForm);
-
-    // Add invoice with AI
     document.getElementById('btnAddInvoiceAI')?.addEventListener('click', openAIImageUploader);
-
-    // Add cost
     document.getElementById('btnAddCost')?.addEventListener('click', addCostRow);
-
-    // Packages input listener
     document.getElementById('packagesInput')?.addEventListener('input', updatePackageTotals);
 
     // Date change → update default đợt from API + re-check kienHang visibility (add mode only)
@@ -298,6 +294,16 @@ function setupShipmentFormListeners() {
             }
         }
     });
+
+    // Initial calculations (form DOM just re-rendered)
+    updatePackageTotals();
+    updateCostTotal();
+
+    // Listeners below target persistent elements (document + modalShipmentBody +
+    // footer buttons). Register once — otherwise paste/click/input handlers
+    // accumulate on each open, causing Ctrl+V to paste N copies after N opens.
+    if (_shipmentListenersInitialized) return;
+    _shipmentListenersInitialized = true;
 
     // Remove buttons delegation
     document.getElementById('modalShipmentBody')?.addEventListener('click', (e) => {
@@ -390,10 +396,6 @@ function setupShipmentFormListeners() {
 
     // Save button
     document.getElementById('btnSaveShipment')?.addEventListener('click', saveShipment);
-
-    // Initial calculations
-    updatePackageTotals();
-    updateCostTotal();
 }
 
 function addInvoiceForm() {

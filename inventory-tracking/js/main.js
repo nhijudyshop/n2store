@@ -412,7 +412,8 @@ class InventoryTrackingApp {
             const overlay = modal.querySelector('.modal-overlay');
             const closeBtn = modal.querySelector('.modal-close');
 
-            if (overlay && modal.id !== 'modalImageManager') {
+            const overlayCloseExcluded = new Set(['modalImageManager', 'modalShipment']);
+            if (overlay && !overlayCloseExcluded.has(modal.id)) {
                 overlay.addEventListener('click', () => this.closeModal(modal.id));
             }
             if (closeBtn) {
