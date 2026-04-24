@@ -623,7 +623,9 @@ const MenuLayoutStore = {
                 };
                 this._layout.groups.push(web2);
             }
-            MOVE_ITEMS.forEach((id) => { if (!web2.items.includes(id)) web2.items.push(id); });
+            MOVE_ITEMS.forEach((id) => {
+                if (!web2.items.includes(id)) web2.items.push(id);
+            });
 
             // Drop empty groups (e.g. if tpos-pancake was the only item somewhere)
             this._layout.groups = this._layout.groups.filter((g) => g.items.length > 0);
@@ -632,9 +634,15 @@ const MenuLayoutStore = {
             this._saveToLocalStorage();
             // Best-effort server sync; if it fails, localStorage still persists
             if (typeof this.saveLayout === 'function') {
-                try { this.saveLayout(this._layout); } catch { /* ignore */ }
+                try {
+                    this.saveLayout(this._layout);
+                } catch {
+                    /* ignore */
+                }
             }
-            console.log('[NAV] Migration Web 2.0 applied — moved tpos-pancake + native-orders into new group');
+            console.log(
+                '[NAV] Migration Web 2.0 applied — moved tpos-pancake + native-orders into new group'
+            );
         } catch (e) {
             console.warn('[NAV] Migration failed:', e.message);
         }
