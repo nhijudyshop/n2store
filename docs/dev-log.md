@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][kpi] Fix "Tính lại KPI toàn bộ" chỉ process 1/N đơn — source từ kpi_base thay vì kpi_statistics
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) `recomputeAllKPI()` line 1852-1876 — đổi source orderCodes từ `GET /kpi-statistics` sang `GET /kpi-base/list-meta` (support filter dateFrom/dateTo/campaign sẵn). Loop over `bases` thay vì `statistics.orders`. |
+| **Chi tiết** | **User report**: bấm "Tính lại KPI toàn bộ" → dialog báo "Hoàn tất: 1/1 đơn" thay vì 3182 đơn. **Root cause** (DB check trước đó): `kpi_statistics` chỉ có 1 order trong JSONB orders (user My, KPI 5000đ). Source code cũ lấy orderCodes bằng `SELECT orders FROM kpi_statistics` → chỉ 1 → loop 1 → done. 3181 đơn trong `kpi_base` chưa có trong statistics → **KHÔNG được migrate**. **Fix**: `kpi_base` là source of truth cho đơn có BASE (immutable, lưu khi bulk send xong). Dùng endpoint `/kpi-base/list-meta` (đã có từ commit 171fb470, giữ lại) → 3182 orderCodes → loop đầy đủ. Support filter campaign từ `this.state.filters.campaign` (trước đây không pass). |
+| **Status** | ✅ Code done, syntax pass. Verify: refresh trang KPI tab → click "Tính lại KPI toàn bộ" → dialog hiện "3182/3182 đơn" (hoặc theo filter). Sau đó kpi_statistics sẽ có mọi đơn có upsell (KPI>0 cho đơn tick, KPI=0 cho đơn chưa tick). Mode Full hiện đầy đủ. |
+
 ### [orders][kpi] Toggle mode = UI filter thuần, không dual-compute — fix semantics
 | | |
 |---|---|

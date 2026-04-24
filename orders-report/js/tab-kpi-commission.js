@@ -1849,21 +1849,26 @@ const KPICommission = {
         }
 
         try {
-            // 1) Lấy danh sách orderCode cần tính lại
+            // 1) Lấy danh sách orderCode cần tính lại.
+            //    PHẢI lấy từ kpi_base (source of truth của đơn có BASE) — không phải
+            //    kpi_statistics (chỉ chứa đơn ĐÃ CÓ KPI > 0 hoặc đã được save).
+            //    Trước đây source từ kpi_statistics → đơn có BASE nhưng chưa tick SP
+            //    nào (KPI=0) bị bỏ qua → không migrate được.
+            //    Dùng endpoint /kpi-base/list-meta có support filter date/campaign.
+            const campaign = this.state.filters.campaign || '';
             const qs = new URLSearchParams();
             if (dateFrom) qs.append('dateFrom', dateFrom);
             if (dateTo) qs.append('dateTo', dateTo);
-            const statsRes = await window.kpiManager.kpiAPI(
+            if (campaign) qs.append('campaign', campaign);
+            const basesRes = await window.kpiManager.kpiAPI(
                 'GET',
-                `/kpi-statistics${qs.toString() ? '?' + qs.toString() : ''}`
+                `/kpi-base/list-meta${qs.toString() ? '?' + qs.toString() : ''}`
             );
-            const statistics = (statsRes && statsRes.statistics) || [];
+            const bases = (basesRes && basesRes.bases) || [];
 
             const orderCodes = new Set();
-            for (const s of statistics) {
-                for (const o of s.orders || []) {
-                    if (o && o.orderCode) orderCodes.add(o.orderCode);
-                }
+            for (const b of bases) {
+                if (b && b.orderCode) orderCodes.add(b.orderCode);
             }
 
             const total = orderCodes.size;
