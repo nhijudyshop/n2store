@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][edit-modal] Fix surgical update bị mất cột KPI checkbox
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `refreshProductsTableOnly()` line 1040-1060: thêm cột `<td>` KPI checkbox vào template row, khớp với `renderProductsTab()` line 320. Đồng bộ logic `isSale`/`disabled` + handler `handleKpiSaleToggle`. |
+| **Chi tiết** | **User report**: sau khi click "+ Thêm" trong modal Sửa đơn hàng, các dòng SP mất ô checkbox cột "KPI" — nút edit/delete bị dồn sang vị trí cột KPI, cột "Thao tác" trống. **Root cause**: commit `fcaa0504` thêm cột KPI vào thead + `renderProductsTab()` nhưng quên update template trong `refreshProductsTableOnly()` (hàm surgical update chạy sau mỗi add/delete/qty-change). Khi surgical update chạy, rows mới thiếu 1 `<td>` → column misalignment. **Fix**: copy cột KPI từ `renderProductsTab()` (line 320) vào template của `refreshProductsTableOnly()`, dùng cùng logic `KpiSaleFlagStore.get(orderCode, productId)` để hiển thị state checkbox đúng. |
+| **Status** | ✅ Done. Cần test: (1) mở đơn có SP + tick KPI vài dòng → thêm SP mới → KPI state các dòng cũ giữ nguyên, dòng mới uncheck mặc định; (2) tăng/giảm SL → KPI checkbox vẫn hiện, không lệch cột; (3) xóa 1 SP → bảng còn lại đúng cấu trúc 9 cột. |
+
 ### [orders][ptag] Fix dropdown Tag XL bị kéo lên trên viewport khi flip + clamp vào khung hiển thị
 | | |
 |---|---|

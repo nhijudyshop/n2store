@@ -1037,8 +1037,14 @@ function refreshProductsTableOnly() {
         return;
     }
 
+    const orderCode = data.Code || '';
     tbody.innerHTML = data.Details.map(
-        (p, i) => `
+        (p, i) => {
+            const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+                ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+                : false);
+            const disabled = !p.ProductId || !orderCode;
+            return `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
             <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
@@ -1047,8 +1053,10 @@ function refreshProductsTableOnly() {
             <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
             <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
             <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`
+        </tr>`;
+        }
     ).join('');
 
     // Update product count header
