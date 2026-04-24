@@ -591,11 +591,20 @@
                 }
             }
 
-            // Compute net per user from remaining stack entries
+            // Compute net per user từ remaining stack entries.
+            // DUAL aggregation: compute đồng thời strict (chỉ SP tick) + legacy
+            // (mọi SP qualify, bỏ qua sale flag — pre-feature behavior).
+            //   - strict → lưu vào order.kpi, order.netProducts + total_kpi DB column
+            //   - legacy → lưu vào order.kpiLegacy, order.netProductsLegacy (JSONB)
+            //     → dashboard "Hiển thị đầy đủ" mode sum từ đây ở client.
             const perUserNet = {};
             const perUserKPI = {};
+            const perUserNetLegacy = {};
+            const perUserKPILegacy = {};
             let totalNet = 0;
             let totalKPIAmount = 0;
+            let totalNetLegacy = 0;
+            let totalKPIAmountLegacy = 0;
             let excludedCount = 0;
 
             for (const [pid, data] of Object.entries(netPerProduct)) {
@@ -612,18 +621,30 @@
                 data.net = productNet;
                 data.unitKPI = unitKPI;
 
-                // (B) Strict mode: SP phải được sale tick flag mới được tính KPI.
-                // Default FALSE (chưa check) → skip aggregation. Legacy (flagMap=null) → không filter.
+                // (B) LEGACY aggregation — LUÔN count, không filter flag.
+                // Tương đương pre-feature: mọi SP qualify variants đều tính KPI.
+                for (const entry of stackPerProduct[pid]) {
+                    if (entry.qty <= 0) continue;
+                    perUserNetLegacy[entry.userId] =
+                        (perUserNetLegacy[entry.userId] || 0) + entry.qty;
+                    perUserKPILegacy[entry.userId] =
+                        (perUserKPILegacy[entry.userId] || 0) + entry.qty * unitKPI;
+                }
+                totalNetLegacy += productNet;
+                totalKPIAmountLegacy += productNet * unitKPI;
+
+                // (C) Strict mode: SP phải được sale tick flag mới cộng vào strict total.
+                // Default FALSE (chưa check) → skip aggregation strict. Legacy vẫn counted ở (B).
                 if (strictMode) {
                     const isSale = flagMap && flagMap.get(pid) === true;
                     if (!isSale) {
                         data.excludedBySaleFlag = true;
                         excludedCount++;
-                        continue;  // NET hiển thị thật, nhưng KPI không cộng vào tổng
+                        continue;
                     }
                 }
 
-                // (C) Aggregate per-user attribution + tổng KPI chỉ cho SP qualifying
+                // (D) STRICT aggregation — chỉ SP qualifying (hoặc không strict mode)
                 for (const entry of stackPerProduct[pid]) {
                     if (entry.qty <= 0) continue;
                     perUserNet[entry.userId] = (perUserNet[entry.userId] || 0) + entry.qty;
@@ -638,10 +659,14 @@
             return {
                 netProducts: totalNet,
                 kpiAmount: totalKPIAmount,
+                netProductsLegacy: totalNetLegacy,
+                kpiAmountLegacy: totalKPIAmountLegacy,
                 details: netPerProduct,
                 baseProductCount: baseProductIds.size,
                 perUserNet,
                 perUserKPI,
+                perUserNetLegacy,
+                perUserKPILegacy,
                 perUserNames,
                 strictMode: !!strictMode,
                 excludedCount,
@@ -681,6 +706,10 @@
                 campaignName: statistics.campaignName || null,
                 netProducts: statistics.netProducts || 0,
                 kpi: statistics.kpi || 0,
+                // Legacy KPI (pre-sale-flag feature) — persist để dashboard toggle
+                // "Hiển thị đầy đủ" mode sum được mà không phải recompute.
+                netProductsLegacy: statistics.netProductsLegacy || 0,
+                kpiLegacy: statistics.kpiLegacy || 0,
                 hasDiscrepancy: statistics.hasDiscrepancy || false,
                 details: statistics.details || {},
                 userName,
@@ -738,12 +767,18 @@
                 console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
             }
 
-            // Ghi entry cho TỪNG user có KPI > 0. Đơn không có upsell → không ghi entry nào.
-            const userIds = Object.keys(result.perUserKPI || {});
+            // Ghi entry cho mỗi user có KPI > 0 ở strict HOẶC legacy. Đơn không có
+            // upsell (cả 2 = 0) → không ghi. Dashboard full mode đọc legacy từ JSONB.
+            const userIds = new Set([
+                ...Object.keys(result.perUserKPI || {}),
+                ...Object.keys(result.perUserKPILegacy || {}),
+            ]);
             for (const userId of userIds) {
                 const userKPI = result.perUserKPI[userId] || 0;
                 const userNet = result.perUserNet[userId] || 0;
-                if (userKPI <= 0) continue;
+                const userKPILegacy = result.perUserKPILegacy[userId] || 0;
+                const userNetLegacy = result.perUserNetLegacy[userId] || 0;
+                if (userKPI <= 0 && userKPILegacy <= 0) continue;
 
                 await saveKPIStatistics(userId, baseDate, {
                     orderCode: orderCode,
@@ -752,6 +787,8 @@
                     campaignName: base.campaignName || null,
                     netProducts: userNet,
                     kpi: userKPI,
+                    netProductsLegacy: userNetLegacy,
+                    kpiLegacy: userKPILegacy,
                     hasDiscrepancy: false,
                     details: result.details,
                     userName: result.perUserNames[userId] || null,

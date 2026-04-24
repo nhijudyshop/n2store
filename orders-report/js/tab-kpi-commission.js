@@ -523,9 +523,11 @@ const KPICommission = {
     // ========================================
     /**
      * Toggle giữa 2 chế độ hiển thị:
-     *   - 'simple' (default): ẩn đơn/user có KPI = 0 (chỉ xem KPI có giá trị).
-     *   - 'full': hiển thị TẤT CẢ đơn kể cả chưa tick — giúp sale review lại SP nào chưa được đánh dấu.
-     * Persist localStorage, re-apply filters sau khi đổi.
+     *   - 'simple' (default, strict): chỉ count SP đã tick (post-feature behavior).
+     *   - 'full' (legacy): count MỌI SP qualify variants, bỏ qua sale flag
+     *     (pre-feature behavior — như trước khi thêm checkbox).
+     * Dashboard swap giữa order.kpi ↔ order.kpiLegacy ngay (dữ liệu đã persist).
+     * Persist localStorage, re-apply filters + refresh detail modal (nếu đang mở).
      */
     toggleDisplayMode() {
         const next = this.state.displayMode === 'simple' ? 'full' : 'simple';
@@ -534,6 +536,16 @@ const KPICommission = {
         this.updateDisplayModeLabel();
         // Re-apply filter + render với mode mới
         this.applyFilters();
+        // Nếu modal chi tiết KPI (Modal L1) đang mở → re-render table theo mode mới
+        const modalL1 = document.getElementById('modalEmployeeOrders');
+        if (modalL1 && modalL1.style.display !== 'none' && this.state.currentEmployeeOrders) {
+            this.filterEmployeeOrders();
+        }
+        // Nếu modal chi tiết đơn (Modal L2) đang mở trên tab "So sánh KPI" → re-render
+        const modalL2 = document.getElementById('modalOrderDetails');
+        if (modalL2 && modalL2.style.display !== 'none' && this.state.currentOrderId) {
+            this.renderNetKPITab(this.state.currentOrderId);
+        }
     },
 
     /** Update label + icon trên nút toggle dựa trên state hiện tại. */

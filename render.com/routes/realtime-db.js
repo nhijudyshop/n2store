@@ -1110,6 +1110,7 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
 
     const { userId, date } = req.params;
     const { orderCode, orderId, stt, campaignName, netProducts, kpi,
+            netProductsLegacy, kpiLegacy,
             hasDiscrepancy, details, userName } = req.body;
 
     if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
@@ -1120,6 +1121,10 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
             orderCode, orderId: orderId || null, stt: stt || 0,
             campaignName: campaignName || null,
             netProducts: netProducts || 0, kpi: kpi || 0,
+            // Legacy (pre-sale-flag) numbers — dashboard "Hiển thị đầy đủ" mode
+            // sum 2 field này ở client-side. Lưu 0 nếu client không pass để backward-compat.
+            netProductsLegacy: netProductsLegacy || 0,
+            kpiLegacy: kpiLegacy || 0,
             hasDiscrepancy: hasDiscrepancy || false,
             details: details || {},
             updatedAt: new Date().toISOString()
