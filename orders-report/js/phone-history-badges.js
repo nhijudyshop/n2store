@@ -616,9 +616,18 @@ const PhoneHistoryBadges = (() => {
             cells.forEach((cell) => {
                 const container = cell.querySelector('div') || cell;
                 const existing = container.querySelector('.phone-hist-badge');
-                // Extract phone from cell (last span)
-                const span = cell.querySelector('span:last-of-type');
-                const phoneText = span?.textContent || cell.textContent || '';
+                // Extract phone from cell — EXCLUDE chính badge, vì badge cũng
+                // là <span>. Nếu dùng `span:last-of-type` thuần, lần render kế
+                // tiếp badge sẽ là span cuối → textContent = "📞 3" →
+                // stripPhone → "3" → counts=0 → xoá badge → flicker vô hạn.
+                const phoneSpan = cell.querySelector(
+                    'span:not(.phone-hist-badge):not(.highlight)'
+                );
+                const phoneText =
+                    phoneSpan?.textContent ||
+                    (existing?.dataset.phone ?? '') ||
+                    (cell.getAttribute('data-phone') ?? '') ||
+                    '';
                 const phone = stripPhone(phoneText);
                 if (!phone) {
                     if (existing) existing.remove();

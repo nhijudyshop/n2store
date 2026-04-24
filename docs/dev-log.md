@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][phone-history] Fix flicker badge SĐT — đổi selector từ `span:last-of-type` sang `span:not(.phone-hist-badge)`
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) `renderBadges()` — thay `cell.querySelector('span:last-of-type')` bằng `cell.querySelector('span:not(.phone-hist-badge):not(.highlight)')` + fallback chain `existing?.dataset.phone`/`cell.getAttribute('data-phone')`/`''`. |
+| **Chi tiết** | **User report**: badge cột SĐT flicker liên tục "ẩn -> hiện -> ẩn -> hiện...". **Root cause**: sau khi badge được append vào cell, badge CŨNG là `<span class="phone-hist-badge">📞 3</span>`, nên `span:last-of-type` lần render kế tiếp trả về CHÍNH badge. `phoneText = "📞 3"` → `stripPhone` → `"3"` → `getCountsFor("3")` → `counts = 0` → code xoá badge. Mỗi external mutation (SSE debt update, tpos-realtime refresh, filter re-apply...) trigger `scheduleRender` 400ms → `renderBadges` → xoá-hoặc-thêm tuỳ lượt → loop vô hạn khi có nhiều mutation source. **Fix**: loại trừ `.phone-hist-badge` + `.highlight` ra khỏi selector; `querySelector` giờ lấy span phone thật sự (luôn là span duy nhất khớp). Thêm fallback đọc phone từ `dataset.phone` của badge (nếu badge đã có) để render vẫn chạy đúng khi cell tạm thời mid-re-render. |
+| **Status** | ✅ Fixed. Verify: mở filter "Có lịch sử" → badge cột SĐT phải stable, không còn flicker khi có SSE events hay filter re-apply. |
+
 ### [orders][filter] Thêm filter "Cuộc gọi" — lọc đơn theo có/không có lịch sử cuộc gọi + ghi âm
 | | |
 |---|---|
