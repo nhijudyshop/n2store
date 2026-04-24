@@ -4717,16 +4717,9 @@
                     );
 
                     try {
+                        // Chỉ redirect tag T hiện tại sang đơn đích, KHÔNG transfer các tag khác của source.
+                        // Source giữ nguyên flags/tTags/markers đã có (kể cả tag T gán trước đó).
                         await assignTTagToOrder(String(replacementOrder.Code), tagEntry.tagId);
-                        // Transfer processing tags (flags + tTags) from blocked order to replacement
-                        try {
-                            await transferProcessingTags(
-                                String(order.Code),
-                                String(replacementOrder.Code)
-                            );
-                        } catch (e) {
-                            console.warn(`${PTAG_LOG} Transfer processing tags failed:`, e);
-                        }
                         redirectedSTT.push({
                             original: originalSTT,
                             redirectTo: replacementOrder.SessionIndex,

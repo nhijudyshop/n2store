@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][tag-t] Redirect chỉ chuyển tag T đang gán, không đụng các tag có sẵn trên source
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ttagMgrExecuteAssign()` line 4719-4733: xoá lời gọi `transferProcessingTags(source, target)` trong nhánh redirect. Chỉ còn `assignTTagToOrder(replacementOrder.Code, tagEntry.tagId)` — gán đúng 1 tag T đang bulk-assign sang đơn đích. |
+| **Chi tiết** | **User report**: Gán 3 tag T5 (ÂM SIÊU TỐC, SET 2D REN NÂU HP, CHỞ SET CV BBR NÂU) cho STT 589 (đơn gộp) → redirect sang 655. Nhưng 655 nhận thêm cả T4 QUẦN KEM KHÂN đã có sẵn trên 589 → không mong muốn. **Root cause**: redirect flow (thêm ở commit 18165dc7) gọi `transferProcessingTags(589, 655)` để chuyển toàn bộ flags/tTags từ source sang target — logic này hợp lý khi muốn "dọn sạch đơn nguồn đã gộp", nhưng vi phạm kỳ vọng user của tính năng bulk-assign Tag T: "chỉ redirect tag đang gán, không đụng các tag khác". **Fix**: bỏ hẳn `transferProcessingTags` trong nhánh redirect của modal Tag T Chờ Hàng. Source giữ nguyên 100% state (tTags, flags, marker GOP_*), chỉ đơn đích nhận tag T mới. **Hàm `transferProcessingTags` không đụng**: vẫn dùng bởi `tab1-bulk-tags.js` (2 callsites) cho flow gán tag TPOS hàng loạt; fix marker-preserve ở commit 6ad06941 vẫn có ý nghĩa cho các caller đó. |
+| **Status** | ✅ Done. Cần test: (a) đơn 589 (source gộp) có sẵn T4 QUẦN KEM KHÂN; (b) vào modal Quản Lý Tag T, gán T5 CHỞ SET CV BBR NÂU cho STT 589 → redirect sang 655; (c) verify 655 chỉ có thêm T5 CHỞ SET CV BBR NÂU; 589 VẪN có T4 QUẦN KEM KHÂN + Gộp 589 655 + GIỎ TRỐNG + ĐÃ GỘP KHÔNG CHỐT nguyên vẹn. |
+
 ### [orders][tag-t] Fix redirect gán Tag T đơn gộp xoá mất tag `Gộp X Y Z` trên đơn nguồn
 | | |
 |---|---|
