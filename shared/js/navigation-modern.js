@@ -698,7 +698,11 @@ const MenuLayoutStore = {
             localStorage.setItem(FLAG, '1');
             this._saveToLocalStorage();
             if (typeof this.saveLayout === 'function') {
-                try { this.saveLayout(this._layout); } catch { /* ignore */ }
+                try {
+                    this.saveLayout(this._layout);
+                } catch {
+                    /* ignore */
+                }
             }
             console.log('[NAV] Migration Web 2.0 Products applied — web2-products → Web 2.0 group');
         } catch (e) {
