@@ -152,6 +152,15 @@ const MENU_CONFIG = [
         publicAccess: true,
     },
     {
+        href: '../web2-products/index.html',
+        icon: 'box',
+        text: 'Kho SP Web 2.0',
+        shortText: 'Kho SP',
+        pageIdentifier: 'web2-products',
+        permissionRequired: 'web2-products',
+        publicAccess: true,
+    },
+    {
         href: '../delivery-report/index.html',
         icon: 'truck',
         text: 'Thống Kê Giao Hàng',
@@ -514,7 +523,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: 'Web 2.0',
         icon: 'globe',
-        items: ['tpos-pancake', 'native-orders'],
+        items: ['tpos-pancake', 'native-orders', 'web2-products'],
     },
     {
         name: 'Kho & Nhập Hàng',
@@ -579,6 +588,7 @@ const MenuLayoutStore = {
 
         // One-time migrations (new groups / moved items) — runs once per client
         this._applyOneTimeMigrations();
+        this._applyOneTimeMigrationsWeb2Products();
 
         // Poll for updates every 5 minutes (replaces real-time listener)
         this._startPolling();
@@ -645,6 +655,54 @@ const MenuLayoutStore = {
             );
         } catch (e) {
             console.warn('[NAV] Migration failed:', e.message);
+        }
+    },
+
+    /**
+     * Second migration: after we add the Kho SP page, ensure it's assigned to
+     * the "Web 2.0" group for users who already ran the first migration.
+     * Runs once per browser (flag n2shop_migration_web2_products_applied).
+     */
+    _applyOneTimeMigrationsWeb2Products() {
+        try {
+            const FLAG = 'n2shop_migration_web2_products_applied';
+            if (localStorage.getItem(FLAG) === '1') return;
+            if (!this._layout) return;
+
+            const ITEM = 'web2-products';
+            // Remove from any existing group / ungrouped first to avoid duplicates
+            this._layout.groups = this._layout.groups.map((g) => ({
+                ...g,
+                items: g.items.filter((id) => id !== ITEM),
+            }));
+            this._layout.ungroupedItems = (this._layout.ungroupedItems || []).filter(
+                (id) => id !== ITEM
+            );
+
+            // Find or create "Web 2.0" group
+            let web2 = this._layout.groups.find((g) => g.name === 'Web 2.0');
+            if (!web2) {
+                web2 = {
+                    id: `group_${Date.now()}_web2`,
+                    name: 'Web 2.0',
+                    icon: 'globe',
+                    collapsed: false,
+                    items: [],
+                };
+                this._layout.groups.push(web2);
+            }
+            if (!web2.items.includes(ITEM)) web2.items.push(ITEM);
+
+            this._layout.groups = this._layout.groups.filter((g) => g.items.length > 0);
+
+            localStorage.setItem(FLAG, '1');
+            this._saveToLocalStorage();
+            if (typeof this.saveLayout === 'function') {
+                try { this.saveLayout(this._layout); } catch { /* ignore */ }
+            }
+            console.log('[NAV] Migration Web 2.0 Products applied — web2-products → Web 2.0 group');
+        } catch (e) {
+            console.warn('[NAV] Migration (web2-products) failed:', e.message);
         }
     },
 

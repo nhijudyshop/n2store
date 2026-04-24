@@ -106,6 +106,9 @@ export const ROUTES = {
     // Native Orders (PostgreSQL - web-native orders from tpos-pancake button)
     NATIVE_ORDERS: { pattern: '/api/native-orders/*' },
 
+    // Web 2.0 Products — kho sản phẩm cho native_orders
+    WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -179,6 +182,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
+    if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products') return 'WEB2_PRODUCTS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';

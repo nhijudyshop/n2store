@@ -283,19 +283,27 @@
     }
 
     // ---------- Modal (edit) ----------
+    // Working copy of current order's lines while modal is open.
+    let EDIT_LINES = [];
+    let EDIT_SEARCH_DEBOUNCE;
+
     function openEdit(code) {
         const o = STATE.orders.find((x) => x.code === code);
         if (!o) return;
         STATE.editingCode = code;
+        EDIT_LINES = Array.isArray(o.products) ? o.products.map((p) => ({ ...p })) : [];
+
         modalTitle().innerHTML = `<i data-lucide="pencil"></i><span>Chỉnh sửa đơn ${escapeHtml(code)}</span>`;
         modalBody().innerHTML = `
-            <div class="field-row">
-                <label>Tên khách</label>
-                <input id="editCustomerName" value="${escapeHtml(o.customerName || '')}" placeholder="Tên khách hàng">
-            </div>
-            <div class="field-row">
-                <label>Số điện thoại</label>
-                <input id="editPhone" value="${escapeHtml(o.phone || '')}" placeholder="0901234567">
+            <div class="field-row-grid">
+                <div class="field-row">
+                    <label>Tên khách</label>
+                    <input id="editCustomerName" value="${escapeHtml(o.customerName || '')}" placeholder="Tên khách hàng">
+                </div>
+                <div class="field-row">
+                    <label>Số điện thoại</label>
+                    <input id="editPhone" value="${escapeHtml(o.phone || '')}" placeholder="0901234567">
+                </div>
             </div>
             <div class="field-row">
                 <label>Địa chỉ</label>
@@ -309,14 +317,53 @@
                 <label>Trạng thái</label>
                 <select id="editStatus">
                     ${['draft', 'confirmed', 'cancelled', 'delivered']
-                        .map(
-                            (s) => `
-                        <option value="${s}" ${s === o.status ? 'selected' : ''}>${STATUS_META[s].label}</option>
-                    `
-                        )
+                        .map((s) => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${STATUS_META[s].label}</option>`)
                         .join('')}
                 </select>
             </div>
+
+            <!-- ========== PRODUCTS SECTION ========== -->
+            <div class="products-section">
+                <div class="products-header">
+                    <span class="products-title">
+                        <i data-lucide="package"></i>
+                        Sản phẩm trong đơn
+                    </span>
+                    <span class="products-totals" id="editProductsTotals">—</span>
+                </div>
+
+                <div class="product-picker">
+                    <div class="search-wrapper" style="flex:1;max-width:100%;">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="productPickerInput" class="search-input"
+                               placeholder="Tìm theo mã SP hoặc tên… (gõ ≥ 2 ký tự)"
+                               autocomplete="off">
+                    </div>
+                    <a class="btn-ghost" href="../web2-products/index.html" target="_blank" rel="noopener"
+                       title="Mở kho để thêm SP mới">
+                        <i data-lucide="external-link"></i> Kho SP
+                    </a>
+                </div>
+                <div class="product-picker-results" id="productPickerResults" style="display:none;"></div>
+
+                <div class="order-lines-wrapper">
+                    <table class="order-lines-table">
+                        <thead>
+                            <tr>
+                                <th style="width:48px;">#</th>
+                                <th style="width:56px;">ẢNH</th>
+                                <th>SẢN PHẨM</th>
+                                <th style="width:120px;">SL</th>
+                                <th style="width:120px;">ĐƠN GIÁ</th>
+                                <th style="width:130px;">THÀNH TIỀN</th>
+                                <th style="width:56px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderLinesTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <details class="fb-context">
                 <summary>Facebook context (read-only) — trace về comment nguồn</summary>
                 <div class="fb-context-body">
@@ -330,13 +377,193 @@
                 </div>
             </details>
         `;
+
+        // Wire picker + lines
+        renderOrderLines();
+        const pickerInput = $('#productPickerInput');
+        pickerInput?.addEventListener('input', (e) => {
+            clearTimeout(EDIT_SEARCH_DEBOUNCE);
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                $('#productPickerResults').style.display = 'none';
+                return;
+            }
+            EDIT_SEARCH_DEBOUNCE = setTimeout(() => searchPickerProducts(q), 300);
+        });
+        document.addEventListener('click', _pickerOutsideClick);
+
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
     }
     function closeEdit() {
         STATE.editingCode = null;
+        EDIT_LINES = [];
+        document.removeEventListener('click', _pickerOutsideClick);
         modal().classList.remove('active');
     }
+
+    // ---------- Product picker helpers ----------
+    function _pickerOutsideClick(e) {
+        const picker = $('#productPickerResults');
+        if (!picker) return;
+        if (!e.target.closest('.product-picker') && !e.target.closest('#productPickerResults')) {
+            picker.style.display = 'none';
+        }
+    }
+
+    async function searchPickerProducts(q) {
+        const box = $('#productPickerResults');
+        if (!box) return;
+        box.innerHTML = `<div class="picker-loading"><div class="spinner"></div>Đang tìm...</div>`;
+        box.style.display = 'block';
+        try {
+            const resp = await window.NativeOrdersApi.searchProducts({ search: q, limit: 20 });
+            const items = resp.products || [];
+            if (!items.length) {
+                box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2-products/index.html" target="_blank">Mở kho →</a></div>`;
+                return;
+            }
+            box.innerHTML = items.map((p) => {
+                const existing = EDIT_LINES.find((l) => l.productCode === p.code);
+                const qtyBadge = existing
+                    ? `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${existing.quantity}</span>`
+                    : '';
+                const img = p.imageUrl
+                    ? `<img src="${escapeHtml(p.imageUrl)}" class="pick-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+                       <span class="pick-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
+                    : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
+                return `
+                    <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}">
+                        ${qtyBadge}
+                        ${img}
+                        <div class="pick-info">
+                            <div class="pick-name">${escapeHtml(p.name)}</div>
+                            <div class="pick-code">Mã: ${escapeHtml(p.code)}</div>
+                        </div>
+                        <div class="pick-price">${(p.price || 0).toLocaleString('vi-VN')}đ</div>
+                        <button class="pick-add-btn" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
+                    </div>`;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            box.innerHTML = `<div class="picker-empty" style="color:#ef4444;">Lỗi: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
+    function addLineFromPicker(code) {
+        const box = $('#productPickerResults');
+        const item = box?.querySelector(`.pick-item[data-code="${CSS.escape(code)}"]`);
+        if (!item) return;
+        // Reconstruct minimal product from DOM
+        const name = item.querySelector('.pick-name')?.textContent.trim();
+        const priceText = item.querySelector('.pick-price')?.textContent || '0';
+        const price = Number(priceText.replace(/[^\d]/g, '')) || 0;
+        const imgEl = item.querySelector('.pick-img');
+        const imageUrl = imgEl?.getAttribute('src') || null;
+
+        const existing = EDIT_LINES.find((l) => l.productCode === code);
+        if (existing) {
+            existing.quantity = (Number(existing.quantity) || 0) + 1;
+            existing.total = existing.quantity * existing.price;
+        } else {
+            EDIT_LINES.push({
+                productCode: code,
+                name,
+                price,
+                quantity: 1,
+                imageUrl,
+                note: '',
+                total: price,
+                addedAt: Date.now(),
+            });
+        }
+        renderOrderLines();
+
+        // Update badge on the picked item
+        const badge = item.querySelector('.pick-qty-badge');
+        const newQty = EDIT_LINES.find((l) => l.productCode === code).quantity;
+        if (badge) {
+            badge.innerHTML = `<i data-lucide="shopping-cart"></i>SL: ${newQty}`;
+        } else {
+            item.classList.add('in-order');
+            item.insertAdjacentHTML('afterbegin', `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${newQty}</span>`);
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function renderOrderLines() {
+        const tb = $('#orderLinesTbody');
+        const totals = $('#editProductsTotals');
+        if (!tb) return;
+
+        if (!EDIT_LINES.length) {
+            tb.innerHTML = `<tr><td colspan="7" class="empty-lines">Chưa có sản phẩm — gõ mã/tên SP ở trên để tìm và thêm</td></tr>`;
+            if (totals) totals.textContent = '0 SP · 0đ';
+            return;
+        }
+
+        let totalQty = 0, totalAmount = 0;
+        tb.innerHTML = EDIT_LINES.map((l, i) => {
+            const qty = Number(l.quantity) || 0;
+            const price = Number(l.price) || 0;
+            const amount = qty * price;
+            totalQty += qty; totalAmount += amount;
+            const img = l.imageUrl
+                ? `<img src="${escapeHtml(l.imageUrl)}" class="line-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+                   <span class="line-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
+                : `<span class="line-img-ph"><i data-lucide="image"></i></span>`;
+            return `
+                <tr data-idx="${i}">
+                    <td>${i + 1}</td>
+                    <td>${img}</td>
+                    <td>
+                        <div class="line-name">${escapeHtml(l.name || '—')}</div>
+                        <div class="line-code">${escapeHtml(l.productCode || '')}</div>
+                    </td>
+                    <td>
+                        <div class="qty-ctl">
+                            <button onclick="NativeOrdersApp.changeLineQty(${i}, -1)"><i data-lucide="minus"></i></button>
+                            <input type="number" min="1" value="${qty}" onchange="NativeOrdersApp.setLineQty(${i}, this.value)">
+                            <button onclick="NativeOrdersApp.changeLineQty(${i}, 1)"><i data-lucide="plus"></i></button>
+                        </div>
+                    </td>
+                    <td class="line-price">${price.toLocaleString('vi-VN')}đ</td>
+                    <td class="line-amount">${amount.toLocaleString('vi-VN')}đ</td>
+                    <td>
+                        <button class="btn-action act-delete" title="Xóa" onclick="NativeOrdersApp.removeLine(${i})"><i data-lucide="trash-2"></i></button>
+                    </td>
+                </tr>`;
+        }).join('');
+
+        if (totals) {
+            totals.textContent = `${totalQty} SP · ${totalAmount.toLocaleString('vi-VN')}đ`;
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function changeLineQty(idx, delta) {
+        const line = EDIT_LINES[idx];
+        if (!line) return;
+        const nextQty = Math.max(1, (Number(line.quantity) || 0) + delta);
+        line.quantity = nextQty;
+        line.total = nextQty * (Number(line.price) || 0);
+        renderOrderLines();
+    }
+
+    function setLineQty(idx, val) {
+        const line = EDIT_LINES[idx];
+        if (!line) return;
+        const q = Math.max(1, parseInt(val, 10) || 1);
+        line.quantity = q;
+        line.total = q * (Number(line.price) || 0);
+        renderOrderLines();
+    }
+
+    function removeLine(idx) {
+        EDIT_LINES.splice(idx, 1);
+        renderOrderLines();
+    }
+
     async function saveEdit() {
         if (!STATE.editingCode) return;
         const fields = {
@@ -345,6 +572,17 @@
             address: $('#editAddress').value.trim(),
             note: $('#editNote').value.trim(),
             status: $('#editStatus').value,
+            // Send current working copy — backend recomputes totalQuantity/totalAmount.
+            products: EDIT_LINES.map((l) => ({
+                productCode: l.productCode,
+                name: l.name,
+                price: Number(l.price) || 0,
+                quantity: Number(l.quantity) || 0,
+                imageUrl: l.imageUrl || null,
+                note: l.note || null,
+                total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
+                addedAt: l.addedAt || Date.now(),
+            })),
         };
         try {
             const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
@@ -448,6 +686,11 @@
         copyCode,
         goPage,
         toggleFilter,
+        // Product picker + line management (inline onclicks)
+        addLineFromPicker,
+        changeLineQty,
+        setLineQty,
+        removeLine,
     };
 
     if (document.readyState === 'loading') {

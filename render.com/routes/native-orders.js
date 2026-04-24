@@ -320,6 +320,24 @@ router.patch('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
+        const body = { ...req.body };
+
+        // If client sends `products`, auto-recompute total_quantity + total_amount
+        // (prevents mismatch between list + totals). Client MAY still override by
+        // sending totalQuantity/totalAmount explicitly — respected below.
+        if (Array.isArray(body.products)) {
+            if (body.totalQuantity === undefined) {
+                body.totalQuantity = body.products.reduce(
+                    (s, p) => s + (Number(p.quantity) || 0), 0
+                );
+            }
+            if (body.totalAmount === undefined) {
+                body.totalAmount = body.products.reduce(
+                    (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0), 0
+                );
+            }
+        }
+
         const allowed = {
             customerName: 'customer_name',
             phone: 'phone',
@@ -334,8 +352,8 @@ router.patch('/:code', async (req, res) => {
         const sets = [];
         const params = [];
         for (const [k, col] of Object.entries(allowed)) {
-            if (req.body[k] === undefined) continue;
-            params.push(k === 'products' || k === 'tags' ? JSON.stringify(req.body[k]) : req.body[k]);
+            if (body[k] === undefined) continue;
+            params.push(k === 'products' || k === 'tags' ? JSON.stringify(body[k]) : body[k]);
             sets.push(`${col} = $${params.length}`);
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });

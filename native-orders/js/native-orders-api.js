@@ -9,6 +9,7 @@
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = `${WORKER_URL}/api/native-orders`;
+    const PRODUCTS_BASE = `${WORKER_URL}/api/web2-products`;
 
     async function _fetchJson(url, options = {}) {
         const res = await fetch(url, {
@@ -73,6 +74,15 @@
 
         async remove(code) {
             return _fetchJson(`${BASE}/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        },
+
+        // ===== Product picker helper (hits web2-products API) =====
+        async searchProducts({ search, limit = 20 } = {}) {
+            const qs = new URLSearchParams();
+            if (search) qs.set('search', search);
+            qs.set('activeOnly', 'true');
+            qs.set('limit', String(limit));
+            return _fetchJson(`${PRODUCTS_BASE}/list?${qs}`);
         },
     };
 

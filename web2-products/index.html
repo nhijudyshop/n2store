@@ -1,0 +1,194 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+    <title>Kho Sản Phẩm Web 2.0 — N2Store</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Share CSS with native-orders cho consistency, plus local overrides -->
+    <link rel="stylesheet" href="../native-orders/css/native-orders.css?v=20260424e">
+    <link rel="stylesheet" href="css/web2-products.css?v=20260424a">
+
+    <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
+</head>
+<body>
+
+<main class="main-content">
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <div class="tab-nav-content">
+            <a class="tab-button" data-tab="native-orders" href="../native-orders/index.html">
+                <i data-lucide="package-open" class="tab-icon"></i>
+                Đơn Web
+            </a>
+            <a class="tab-button" data-tab="tpos-pancake" href="../tpos-pancake/index.html">
+                <i data-lucide="shopping-cart" class="tab-icon"></i>
+                TPOS × Pancake
+            </a>
+            <a class="tab-button active" data-tab="web2-products" href="#">
+                <i data-lucide="box" class="tab-icon"></i>
+                Kho Sản Phẩm
+            </a>
+            <div class="tab-spacer"></div>
+            <div class="topbar-actions">
+                <span class="counter-pill" id="totalCounter">— sản phẩm</span>
+                <span class="source-pill">web2_products</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar / actions -->
+    <section class="search-section">
+        <div class="filter-row">
+            <div class="search-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" class="search-input" id="filterSearch"
+                    placeholder="Tìm theo mã SP hoặc tên..."
+                    autocomplete="off">
+                <button class="search-clear" id="filterSearchClear" title="Xóa">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="filter-chip-group">
+                <label class="chip-label chip-label-primary">
+                    <i data-lucide="eye"></i> Hiển thị:
+                </label>
+                <div class="chip-select-wrapper">
+                    <select id="filterActive" class="chip-select chip-select-primary">
+                        <option value="true">Đang bán</option>
+                        <option value="all" selected>Tất cả</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="chip-caret"></i>
+                </div>
+            </div>
+
+            <div class="filter-chip-group">
+                <label class="chip-label chip-label-muted">
+                    <i data-lucide="list"></i> Limit:
+                </label>
+                <div class="chip-select-wrapper">
+                    <select id="filterLimit" class="chip-select chip-select-muted">
+                        <option value="100">100 / trang</option>
+                        <option value="200" selected>200 / trang</option>
+                        <option value="500">500 / trang</option>
+                        <option value="1000">1000 / trang</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="chip-caret"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-info">
+            <div class="search-info-left">
+                <span class="search-result-count" id="searchResultCount">0</span>
+                <span class="search-result-label">sản phẩm</span>
+            </div>
+            <div class="search-info-right">
+                <button class="btn-reload" id="btnRefresh"><i data-lucide="refresh-cw"></i> Tải lại</button>
+                <button class="btn-settings" id="btnApplyFilter"><i data-lucide="filter"></i> Áp dụng</button>
+                <button class="btn-ghost" id="btnClearFilter"><i data-lucide="x"></i> Xóa lọc</button>
+                <button class="btn-primary" id="btnCreateProduct"><i data-lucide="plus"></i> Thêm SP</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Table -->
+    <section class="table-section">
+        <div class="table-scroll">
+            <table class="data-table" id="productsTable">
+                <thead>
+                    <tr>
+                        <th style="width:48px;">#</th>
+                        <th style="width:72px;">ẢNH</th>
+                        <th style="width:140px;">MÃ SP</th>
+                        <th>TÊN SẢN PHẨM</th>
+                        <th style="width:120px;">GIÁ</th>
+                        <th style="width:80px;">TỒN</th>
+                        <th>GHI CHÚ</th>
+                        <th style="width:110px;">TRẠNG THÁI</th>
+                        <th style="width:140px;">THAO TÁC</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTbody">
+                    <tr><td colspan="9" class="loading-row">
+                        <div class="spinner"></div> Đang tải dữ liệu...
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+    </section>
+</main>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="productModal">
+    <div class="modal-content" style="min-width:520px;max-width:640px;">
+        <div class="modal-header">
+            <h3 id="productModalTitle">
+                <i data-lucide="box"></i>
+                <span>Thêm sản phẩm</span>
+            </h3>
+            <button class="btn-icon-round" id="btnCloseProductModal"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="field-row">
+                <label>Mã SP *</label>
+                <input id="pmCode" placeholder="VD: SP-001" autocomplete="off">
+            </div>
+            <div class="field-row">
+                <label>Tên sản phẩm *</label>
+                <input id="pmName" placeholder="Tên hiển thị" autocomplete="off">
+            </div>
+            <div class="field-row-grid">
+                <div class="field-row">
+                    <label>Giá (đ)</label>
+                    <input id="pmPrice" type="number" min="0" step="1000" value="0">
+                </div>
+                <div class="field-row">
+                    <label>Tồn kho</label>
+                    <input id="pmStock" type="number" step="1" value="0">
+                </div>
+            </div>
+            <div class="field-row">
+                <label>Link ảnh</label>
+                <input id="pmImage" placeholder="https://..." autocomplete="off">
+                <div class="image-preview" id="pmImagePreview" style="display:none;"><img id="pmImagePreviewImg"></div>
+            </div>
+            <div class="field-row">
+                <label>Ghi chú</label>
+                <textarea id="pmNote" placeholder="Size/màu/tag..."></textarea>
+            </div>
+            <div class="field-row">
+                <label>Trạng thái</label>
+                <select id="pmIsActive">
+                    <option value="true" selected>Đang bán</option>
+                    <option value="false">Tạm dừng</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-ghost" id="btnCancelProduct">Hủy</button>
+            <button class="btn-primary" id="btnSaveProduct"><i data-lucide="save"></i> Lưu</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/web2-products-api.js?v=20260424a"></script>
+<script src="js/web2-products-app.js?v=20260424a"></script>
+</body>
+</html>

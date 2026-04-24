@@ -1,0 +1,76 @@
+/* Web2 Products — local overrides on top of native-orders CSS */
+
+.product-image {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: var(--gray-100);
+    display: block;
+}
+.product-image-placeholder {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: var(--gray-100);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-400);
+}
+.product-image-placeholder i { width: 22px; height: 22px; }
+
+.code-badge.code-product {
+    background: #fef3c7;
+    color: #92400e;
+}
+.code-badge.code-product:hover { border-color: var(--warning); }
+
+.price-cell {
+    font-weight: 700;
+    color: var(--gray-900);
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    white-space: nowrap;
+}
+.stock-cell {
+    font-weight: 600;
+    color: var(--gray-700);
+    text-align: center;
+}
+.stock-cell.low { color: var(--warning); }
+.stock-cell.zero { color: var(--danger); }
+
+.active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.active-badge i { width: 11px; height: 11px; }
+.active-yes { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.active-no  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+.field-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.image-preview {
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--gray-50);
+    border-radius: 6px;
+    border: 1px dashed var(--gray-300);
+    text-align: center;
+}
+.image-preview img {
+    max-width: 180px;
+    max-height: 120px;
+    border-radius: 6px;
+    display: inline-block;
+}
