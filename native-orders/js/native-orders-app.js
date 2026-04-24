@@ -285,7 +285,6 @@
     // ---------- Modal (edit) ----------
     // Working copy of current order's lines while modal is open.
     let EDIT_LINES = [];
-    let EDIT_SEARCH_DEBOUNCE;
 
     function openEdit(code) {
         const o = STATE.orders.find((x) => x.code === code);
@@ -383,15 +382,18 @@
 
         // Wire picker + lines
         renderOrderLines();
+
+        // Load product cache in background (so typing is instant)
+        EDIT_PRODUCTS_CACHE = null;
+        loadEditProductsCache();
+
         const pickerInput = $('#productPickerInput');
         pickerInput?.addEventListener('input', (e) => {
-            clearTimeout(EDIT_SEARCH_DEBOUNCE);
-            const q = e.target.value.trim();
-            if (q.length < 2) {
-                $('#productPickerResults').style.display = 'none';
-                return;
-            }
-            EDIT_SEARCH_DEBOUNCE = setTimeout(() => searchPickerProducts(q), 300);
+            searchPickerProducts(e.target.value.trim());
+        });
+        // Show first 20 on focus (empty query) so user can browse without typing
+        pickerInput?.addEventListener('focus', () => {
+            searchPickerProducts(pickerInput.value.trim());
         });
         document.addEventListener('click', _pickerOutsideClick);
 
@@ -406,6 +408,10 @@
     }
 
     // ---------- Product picker helpers ----------
+    // All active products cached once per modal open — search is client-side
+    // so Vietnamese diacritics don't matter ("ao nau" matches "ÁO NÂU M").
+    let EDIT_PRODUCTS_CACHE = null;
+
     function _pickerOutsideClick(e) {
         const picker = $('#productPickerResults');
         if (!picker) return;
@@ -414,45 +420,81 @@
         }
     }
 
-    async function searchPickerProducts(q) {
+    // Strip Vietnamese diacritics + đ/Đ → lowercased plain ASCII
+    function stripVi(s) {
+        return (s || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .toLowerCase()
+            .trim();
+    }
+
+    async function loadEditProductsCache() {
+        try {
+            const resp = await window.NativeOrdersApi.searchProducts({ search: '', limit: 1000 });
+            EDIT_PRODUCTS_CACHE = resp.products || [];
+        } catch (e) {
+            console.warn('[picker] loadEditProductsCache failed:', e.message);
+            EDIT_PRODUCTS_CACHE = [];
+        }
+    }
+
+    function _renderPickItem(p) {
+        const existing = EDIT_LINES.find((l) => l.productCode === p.code);
+        const qtyBadge = existing
+            ? `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${existing.quantity}</span>`
+            : '';
+        const img = p.imageUrl
+            ? `<img src="${escapeHtml(p.imageUrl)}" class="pick-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+               <span class="pick-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
+            : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
+        return `
+            <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}">
+                ${qtyBadge}
+                ${img}
+                <div class="pick-info">
+                    <div class="pick-name">${escapeHtml(p.name)}</div>
+                    <div class="pick-code">Mã: ${escapeHtml(p.code)}</div>
+                </div>
+                <div class="pick-price">${(p.price || 0).toLocaleString('vi-VN')}đ</div>
+                <button class="pick-add-btn" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
+            </div>`;
+    }
+
+    function searchPickerProducts(q) {
         const box = $('#productPickerResults');
         if (!box) return;
-        box.innerHTML = `<div class="picker-loading"><div class="spinner"></div>Đang tìm...</div>`;
-        box.style.display = 'block';
-        try {
-            const resp = await window.NativeOrdersApi.searchProducts({ search: q, limit: 20 });
-            const items = resp.products || [];
-            if (!items.length) {
-                box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2-products/index.html" target="_blank">Mở kho →</a></div>`;
-                return;
-            }
-            box.innerHTML = items
-                .map((p) => {
-                    const existing = EDIT_LINES.find((l) => l.productCode === p.code);
-                    const qtyBadge = existing
-                        ? `<span class="pick-qty-badge"><i data-lucide="shopping-cart"></i>SL: ${existing.quantity}</span>`
-                        : '';
-                    const img = p.imageUrl
-                        ? `<img src="${escapeHtml(p.imageUrl)}" class="pick-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
-                       <span class="pick-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
-                        : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
-                    return `
-                    <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}">
-                        ${qtyBadge}
-                        ${img}
-                        <div class="pick-info">
-                            <div class="pick-name">${escapeHtml(p.name)}</div>
-                            <div class="pick-code">Mã: ${escapeHtml(p.code)}</div>
-                        </div>
-                        <div class="pick-price">${(p.price || 0).toLocaleString('vi-VN')}đ</div>
-                        <button class="pick-add-btn" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
-                    </div>`;
-                })
-                .join('');
-            if (window.lucide) lucide.createIcons();
-        } catch (e) {
-            box.innerHTML = `<div class="picker-empty" style="color:#ef4444;">Lỗi: ${escapeHtml(e.message)}</div>`;
+
+        // Cache still loading
+        if (EDIT_PRODUCTS_CACHE === null) {
+            box.innerHTML = `<div class="picker-loading"><div class="spinner"></div>Đang tải kho SP...</div>`;
+            box.style.display = 'block';
+            return;
         }
+        if (!EDIT_PRODUCTS_CACHE.length) {
+            box.innerHTML = `<div class="picker-empty">Kho SP trống — <a href="../web2-products/index.html" target="_blank">mở kho tạo SP</a></div>`;
+            box.style.display = 'block';
+            return;
+        }
+
+        const qn = stripVi(q);
+        const filtered = qn
+            ? EDIT_PRODUCTS_CACHE.filter(
+                  (p) => stripVi(p.code).includes(qn) || stripVi(p.name).includes(qn)
+              )
+            : EDIT_PRODUCTS_CACHE;
+        const items = filtered.slice(0, 20);
+
+        if (!items.length) {
+            box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2-products/index.html" target="_blank">Mở kho →</a></div>`;
+            box.style.display = 'block';
+            return;
+        }
+        box.innerHTML = items.map(_renderPickItem).join('');
+        box.style.display = 'block';
+        if (window.lucide) lucide.createIcons();
     }
 
     function addLineFromPicker(code) {
