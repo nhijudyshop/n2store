@@ -428,15 +428,48 @@ const TposColumnManager = {
             const map = await window.TposApi.loadSessionIndex(postId);
             // Merge into existing map (for multi-campaign)
             for (const [k, v] of map) {
+                // Preserve native-web entries — don't let TPOS data overwrite them
+                const existing = state.sessionIndexMap.get(k);
+                if (existing?.source === 'NATIVE_WEB') continue;
                 state.sessionIndexMap.set(k, v);
             }
             console.log('[TPOS-INIT] SessionIndex loaded, total:', state.sessionIndexMap.size);
+
+            // Hydrate native-web orders for this post (non-blocking)
+            this.loadNativeOrdersForPost(postId).catch(() => {});
 
             if (state.comments.length > 0) {
                 window.TposCommentList.renderComments();
             }
         } catch (error) {
             console.error('[TPOS-INIT] Error loading SessionIndex:', error);
+        }
+    },
+
+    /**
+     * Load native-web orders for a post and merge into sessionIndexMap
+     * so previously created native orders show their badge on load.
+     * @param {string} postId - Facebook post id
+     */
+    async loadNativeOrdersForPost(postId) {
+        const state = window.TposState;
+        if (!postId || !window.NativeOrdersApi) return;
+        try {
+            const resp = await window.NativeOrdersApi.list({ fbPostId: postId, limit: 1000 });
+            const orders = resp?.orders || [];
+            for (const o of orders) {
+                if (!o.fbUserId) continue;
+                state.sessionIndexMap.set(o.fbUserId, {
+                    index: o.sessionIndex || '?',
+                    code: o.code,
+                    source: 'NATIVE_WEB',
+                });
+            }
+            if (orders.length > 0 && state.comments.length > 0) {
+                window.TposCommentList.renderComments();
+            }
+        } catch (e) {
+            console.warn('[TPOS-INIT] loadNativeOrdersForPost failed:', e.message);
         }
     },
 

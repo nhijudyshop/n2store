@@ -398,7 +398,9 @@ const TposCommentList = {
             ? `<span class="session-index-badge" title="STT: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
             : '';
         const orderBadge = sessionInfo?.code
-            ? `<span class="order-code-badge" title="Đơn ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
+            ? (sessionInfo.source === 'NATIVE_WEB'
+                ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
+                : `<span class="order-code-badge" title="Đơn TPOS ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`)
             : '';
 
         // Gradient placeholder
@@ -471,7 +473,7 @@ const TposCommentList = {
                         <div class="tpos-conv-header">
                             <span class="customer-name" onclick="event.stopPropagation(); TposCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
                             ${isMultiPage ? `<span class="tpos-tag" style="${pageBadgeColor}">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
-                            ${orderBadge ? `<span class="order-code-badge" style="background:#dbeafe;color:#1d4ed8;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>` : ''}
+                            ${orderBadge || ''}
                             ${isHidden ? '<span class="tpos-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
                         </div>
                     </div>
@@ -507,12 +509,16 @@ const TposCommentList = {
                 <div class="tpos-conv-actions">
                     ${
                         !sessionInfo?.code
-                            ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn" style="color:var(--primary);" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                            ? `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn web" style="color:#7c3aed;" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
                                <i data-lucide="shopping-cart" style="width:13px;height:13px;"></i>
                            </button>`
-                            : `<span title="Đơn: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
-                               <i data-lucide="package-check" style="width:13px;height:13px;"></i>
-                           </span>`
+                            : sessionInfo.source === 'NATIVE_WEB'
+                                ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;">
+                                   <i data-lucide="package-open" style="width:13px;height:13px;"></i>
+                               </span>`
+                                : `<span title="Đơn TPOS: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
+                                   <i data-lucide="package-check" style="width:13px;height:13px;"></i>
+                               </span>`
                     }
                     <button class="tpos-action-btn" title="Xem info" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
                         <i data-lucide="user" style="width:13px;height:13px;"></i>
@@ -909,7 +915,10 @@ const TposCommentList = {
     },
 
     /**
-     * Create a TPOS order from a comment
+     * Create a NATIVE-WEB order from a comment.
+     * NOTE: This no longer hits TPOS. It writes to our own PostgreSQL
+     * via /api/native-orders/from-comment. Orders are tagged
+     * source='NATIVE_WEB' so they are clearly distinct from TPOS orders.
      * @param {string} fromId - Facebook user ID
      * @param {string} fromName - Customer name
      * @param {string} commentId - Comment ID
@@ -917,21 +926,21 @@ const TposCommentList = {
     async createOrder(fromId, fromName, commentId) {
         const state = window.TposState;
 
-        // Find the comment to get its page info (important for multi-campaign)
         const comment = state.comments.find((c) => c.id === commentId);
         const pageObj = comment?._pageObj || state.selectedPage;
         const crmTeamId = pageObj?.Id;
         const postId = comment?._campaignId
             ? state.liveCampaigns.find((c) => c.Id === comment._campaignId)?.Facebook_LiveId
             : state.selectedCampaign?.Facebook_LiveId;
+        const fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId;
+        const message = comment?.message || '';
 
-        if (!crmTeamId || !postId) {
-            if (window.notificationManager)
-                window.notificationManager.show('Chưa chọn campaign', 'error');
-            return;
-        }
+        // Inline field values (user may have typed into phone/addr inputs)
+        const phoneEl = document.getElementById(`phone-${fromId}`);
+        const addrEl = document.getElementById(`addr-${fromId}`);
+        const phone = phoneEl ? phoneEl.value.trim() : '';
+        const address = addrEl ? addrEl.value.trim() : '';
 
-        // Update button to loading
         const btn = document.getElementById(`create-order-${fromId}`);
         if (btn) {
             btn.innerHTML =
@@ -941,49 +950,62 @@ const TposCommentList = {
         }
 
         try {
-            const order = await window.TposApi.createOrderFromComment({
-                crmTeamId,
-                userName: fromName,
-                userId: fromId,
-                postId,
-                commentId,
+            if (!window.NativeOrdersApi) {
+                throw new Error('NativeOrdersApi not loaded');
+            }
+
+            const currentUser = window.AuthManager?.getCurrentUser?.() || {};
+
+            const resp = await window.NativeOrdersApi.createFromComment({
+                fbUserId: fromId,
+                fbUserName: fromName,
+                fbPageId: fbPageId ? String(fbPageId) : null,
+                fbPostId: postId || null,
+                fbCommentId: commentId,
+                crmTeamId: crmTeamId || null,
+                message,
+                phone,
+                address,
+                createdBy: currentUser.uid || currentUser.email || null,
+                createdByName: currentUser.displayName || currentUser.email || null,
             });
 
-            if (order && order.Code) {
-                // Update session index map
-                state.sessionIndexMap.set(fromId, {
-                    index: order.SessionIndex || '?',
-                    session: order.Session,
-                    code: order.Code,
-                });
+            const order = resp?.order;
+            if (!order || !order.code) {
+                throw new Error('Server did not return an order');
+            }
 
-                // Replace button with order badge
-                if (btn) {
-                    btn.outerHTML = `<span title="Đơn: ${order.Code} (STT ${order.SessionIndex})" style="color:#10b981;padding:4px;font-size:10px;font-weight:700;">
-                        <i data-lucide="package-check" style="width:14px;height:14px;"></i>
-                    </span>`;
-                }
+            state.sessionIndexMap.set(fromId, {
+                index: order.sessionIndex || '?',
+                code: order.code,
+                source: 'NATIVE_WEB',
+            });
 
-                // Add order badge to name row
-                const header = btn
-                    ?.closest('.tpos-conversation-item')
-                    ?.querySelector('.tpos-conv-header');
-                if (header && !header.querySelector('.order-code-badge')) {
-                    header.insertAdjacentHTML(
-                        'beforeend',
-                        `<span class="order-code-badge" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;">${order.Code}</span>`
-                    );
-                }
+            if (btn) {
+                btn.outerHTML = `<span title="Đơn web: ${order.code} (STT ${order.sessionIndex})" style="color:#7c3aed;padding:4px;">
+                    <i data-lucide="package-open" style="width:14px;height:14px;"></i>
+                </span>`;
+            }
 
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-                if (window.notificationManager)
-                    window.notificationManager.show(
-                        `Đã tạo đơn ${order.Code} (STT: ${order.SessionIndex})`,
-                        'success'
-                    );
+            const header = btn
+                ?.closest('.tpos-conversation-item')
+                ?.querySelector('.tpos-conv-header');
+            if (header && !header.querySelector('.order-code-badge')) {
+                header.insertAdjacentHTML(
+                    'beforeend',
+                    `<span class="order-code-badge" title="Đơn web ${order.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;">${order.code}</span>`
+                );
+            }
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (window.notificationManager) {
+                const label = resp.idempotent ? 'Đơn web đã tồn tại' : 'Đã tạo đơn web';
+                window.notificationManager.show(
+                    `${label} ${order.code} (STT: ${order.sessionIndex})`,
+                    'success'
+                );
             }
         } catch (error) {
-            // Restore button
             if (btn) {
                 btn.innerHTML =
                     '<i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>';
@@ -991,7 +1013,7 @@ const TposCommentList = {
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
             if (window.notificationManager)
-                window.notificationManager.show('Lỗi tạo đơn: ' + error.message, 'error');
+                window.notificationManager.show('Lỗi tạo đơn web: ' + error.message, 'error');
         }
     },
 

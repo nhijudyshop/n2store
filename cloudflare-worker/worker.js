@@ -174,6 +174,8 @@ async function routeRequest(request, env, ctx) {
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'SOCIAL_ORDERS':
                     return handleCustomer360Proxy(request, url, pathname);
+                case 'NATIVE_ORDERS':
+                    return handleCustomer360Proxy(request, url, pathname);
                 case 'ORDER_NOTES':
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_FIREBASE':

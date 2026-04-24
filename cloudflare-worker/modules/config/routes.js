@@ -103,6 +103,9 @@ export const ROUTES = {
     // Social Orders (PostgreSQL - replaces Firestore for don-inbox)
     SOCIAL_ORDERS: { pattern: '/api/social-orders/*' },
 
+    // Native Orders (PostgreSQL - web-native orders from tpos-pancake button)
+    NATIVE_ORDERS: { pattern: '/api/native-orders/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -175,6 +178,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/invoice-mapping/')) return 'INVOICE_MAPPING';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
+    if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
