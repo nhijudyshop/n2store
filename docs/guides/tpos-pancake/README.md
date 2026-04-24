@@ -22,7 +22,9 @@ Làm tuần tự từ Phase 0 → Phase 18. Mỗi phase có: **mục tiêu → f
 | 3 | [03-tpos-column.md](03-tpos-column.md) | Phase 5-10: TPOS token, state, API, native-orders, comment list, SSE realtime, customer panel, init |
 | 4 | [04-pancake-column.md](04-pancake-column.md) | Phase 11-16: Pancake token, state, API, page selector, conversation list, chat window, WS realtime, context menu, init |
 | 5 | [05-wiring-and-verify.md](05-wiring-and-verify.md) | Phase 17-18: app-init, cross-column events, smoke test checklist |
-| 6 | [99-appendix.md](99-appendix.md) | Full reference: state shape, API tables, event bus, localStorage keys, Firestore schema, backend endpoints |
+| 6 | [06-css-item-styles.md](06-css-item-styles.md) | CSS đầy đủ cho conversation cards (TPOS + Pancake) |
+| 7 | [07-tpos-action-handlers.md](07-tpos-action-handlers.md) | Bổ sung: các action handler còn thiếu của TposCommentList (renderComments, status dropdown, save phone/address, reply, v.v.) |
+| 8 | [99-appendix.md](99-appendix.md) | Full reference: state shape, API tables, event bus, localStorage keys, Firestore schema, backend endpoints |
 
 ## Cây thư mục cuối cùng
 
