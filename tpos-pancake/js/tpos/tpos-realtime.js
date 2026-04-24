@@ -18,6 +18,12 @@ const TposRealtime = {
     serverBaseUrl: 'https://n2store-realtime.onrender.com',
     wsUrl: 'wss://n2store-realtime.onrender.com',
 
+    // SSE retry config per connection key
+    SSE_MAX_RETRIES: 5,
+    SSE_BASE_DELAY_MS: 3000,
+    SSE_MAX_DELAY_MS: 60000,
+    _sseRetryState: new Map(), // key -> { attempts, timer, lastOpenAt }
+
     // =====================================================
     // SSE - Live Comment Stream
     // =====================================================
@@ -59,35 +65,81 @@ const TposRealtime = {
             // Don't open duplicate
             if (state._sseConnections.has(sseKey)) return;
 
+            // Get or init retry state for this key
+            let retry = this._sseRetryState.get(sseKey);
+            if (!retry) {
+                retry = { attempts: 0, timer: null, lastOpenAt: 0 };
+                this._sseRetryState.set(sseKey, retry);
+            }
+            if (retry.timer) {
+                clearTimeout(retry.timer);
+                retry.timer = null;
+            }
+
             console.log(`[TPOS-RT] Starting SSE for ${pageName || pageId}...`);
             const es = new EventSource(sseUrl);
 
             es.onopen = () => {
                 console.log(`[TPOS-RT] SSE connected: ${pageName || sseKey}`);
                 state.sseConnected = true;
+                retry.lastOpenAt = Date.now();
+                // Reset attempts only if connection stayed open for >3s (real success)
+                // otherwise leave attempts so backoff continues
                 window.TposCommentList.updateConnectionStatus(true, 'sse');
             };
 
             es.onmessage = (event) => {
+                // First real message = confirmed healthy connection, reset attempts
+                if (retry.attempts > 0) retry.attempts = 0;
                 this.handleSSEMessage(event.data, pageName);
             };
 
             es.onerror = () => {
-                console.error(`[TPOS-RT] SSE error: ${pageName || sseKey}`);
+                // Only react once per error burst
+                if (!state._sseConnections.has(sseKey)) return;
                 state._sseConnections.delete(sseKey);
                 es.close();
+
+                const openedFor = retry.lastOpenAt ? Date.now() - retry.lastOpenAt : 0;
+                // If connection never opened or dropped immediately (<2s), count as retry
+                if (openedFor < 2000) {
+                    retry.attempts++;
+                } else {
+                    // Stable connection dropped — restart attempt counter
+                    retry.attempts = 1;
+                }
 
                 if (state._sseConnections.size === 0) {
                     state.sseConnected = false;
                     window.TposCommentList.updateConnectionStatus(false, 'sse');
                 }
 
-                // Reconnect after 5s
-                setTimeout(() => {
-                    if (state.selectedCampaignIds?.size > 0 || state.selectedCampaign) {
+                // Stop retrying after max attempts
+                if (retry.attempts > this.SSE_MAX_RETRIES) {
+                    console.warn(
+                        `[TPOS-RT] SSE giving up for ${pageName || sseKey} after ${retry.attempts - 1} retries`
+                    );
+                    return;
+                }
+
+                // Exponential backoff with jitter
+                const base = Math.min(
+                    this.SSE_BASE_DELAY_MS * Math.pow(2, retry.attempts - 1),
+                    this.SSE_MAX_DELAY_MS
+                );
+                const delay = Math.floor(base + Math.random() * 1000);
+                console.warn(
+                    `[TPOS-RT] SSE error for ${pageName || sseKey}, retry ${retry.attempts}/${this.SSE_MAX_RETRIES} in ${Math.round(delay / 1000)}s`
+                );
+
+                retry.timer = setTimeout(() => {
+                    retry.timer = null;
+                    const stillSelected =
+                        state.selectedCampaignIds?.size > 0 || state.selectedCampaign;
+                    if (stillSelected) {
                         this.startSSE(pageId, postId, pageName);
                     }
-                }, 5000);
+                }, delay);
             };
 
             state._sseConnections.set(sseKey, es);
@@ -110,6 +162,15 @@ const TposRealtime = {
             }
             state._sseConnections.clear();
         }
+
+        // Cancel any pending SSE reconnect timers
+        for (const [key, retry] of this._sseRetryState) {
+            if (retry.timer) {
+                clearTimeout(retry.timer);
+                retry.timer = null;
+            }
+        }
+        this._sseRetryState.clear();
 
         // Backward compat
         if (state.eventSource) {

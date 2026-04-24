@@ -172,14 +172,35 @@ const TposApi = {
             url += `&after=${encodeURIComponent(afterCursor)}`;
         }
 
-        const response = await fetch(url, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/json',
-            },
-        });
+        const headers = {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+        };
 
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        // One retry on transient 5xx/network errors (Cloudflare proxy often flaps)
+        let response;
+        let lastErr;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                response = await fetch(url, { headers });
+                if (response.ok) break;
+                if (response.status >= 500 && attempt === 0) {
+                    await new Promise((r) => setTimeout(r, 800));
+                    continue;
+                }
+                throw new Error(`API error: ${response.status}`);
+            } catch (err) {
+                lastErr = err;
+                if (attempt === 0) {
+                    await new Promise((r) => setTimeout(r, 800));
+                    continue;
+                }
+                throw err;
+            }
+        }
+        if (!response || !response.ok) {
+            throw lastErr || new Error(`API error: ${response?.status ?? 'unknown'}`);
+        }
 
         const data = await response.json();
         return {

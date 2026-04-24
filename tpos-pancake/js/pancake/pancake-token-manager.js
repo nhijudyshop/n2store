@@ -202,11 +202,9 @@ class PancakeTokenManager {
      * @returns {Promise} - Resolves with result or null on timeout
      */
     async withTimeout(promise, timeoutMs = 5000, operationName = 'Firebase operation') {
+        // Caller is responsible for logging context (whether localStorage fallback exists)
         const timeoutPromise = new Promise((resolve) => {
-            setTimeout(() => {
-                console.warn(`[PANCAKE-TOKEN] ${operationName} timed out after ${timeoutMs}ms`);
-                resolve(null);
-            }, timeoutMs);
+            setTimeout(() => resolve(null), timeoutMs);
         });
         return Promise.race([promise, timeoutPromise]);
     }
@@ -224,7 +222,13 @@ class PancakeTokenManager {
             );
 
             if (!doc) {
-                console.warn('[PANCAKE-TOKEN] loadAccounts timed out, using localStorage data');
+                // Firestore slow/offline — localStorage already holds a usable copy
+                const hasLocal = this.currentToken || Object.keys(this.pageAccessTokens).length > 0;
+                if (hasLocal) {
+                    console.info('[PANCAKE-TOKEN] loadAccounts: using localStorage (Firestore slow)');
+                } else {
+                    console.warn('[PANCAKE-TOKEN] loadAccounts timed out, no local data');
+                }
                 return false;
             }
 
@@ -922,7 +926,13 @@ class PancakeTokenManager {
             );
 
             if (!doc) {
-                console.warn('[PANCAKE-TOKEN] loadPageAccessTokens timed out, using localStorage data');
+                // Firestore slow/offline — localStorage already holds a usable copy
+                const hasLocal = Object.keys(this.pageAccessTokens).length > 0;
+                if (hasLocal) {
+                    console.info('[PANCAKE-TOKEN] loadPageAccessTokens: using localStorage (Firestore slow)');
+                } else {
+                    console.warn('[PANCAKE-TOKEN] loadPageAccessTokens timed out, no local data');
+                }
                 return;
             }
 

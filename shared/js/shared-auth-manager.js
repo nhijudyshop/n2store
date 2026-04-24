@@ -20,11 +20,8 @@
  * Please migrate to ES modules when possible.
  */
 
-// Log deprecation warning once
-if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
-    console.warn('[AuthManager] ⚠️ DEPRECATED: shared-auth-manager.js sẽ bị xóa. Dùng ES module từ /shared/browser/auth-manager.js');
-    window._sharedAuthManagerWarned = true;
-}
+// Deprecation notice is tracked in the file header comment above.
+// No runtime warning: this file is still actively used via script tags across all pages.
 
 // Prevent redeclaration if already loaded
 if (typeof window !== 'undefined' && window.AuthManager) {

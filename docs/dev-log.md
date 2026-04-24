@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [tpos-pancake] Fix SSE reconnect loop + giảm log noise + retry comments 500
+| | |
+|---|---|
+| **Files** | MODIFIED: [tpos-pancake/js/tpos/tpos-realtime.js](../tpos-pancake/js/tpos/tpos-realtime.js) — `startSSE()` giờ dùng exponential backoff (base 3s, max 60s) + max 5 retries per SSE key, guard chống duplicate reconnect, reset attempts khi có message đầu tiên về; `stopSSE()` clear cả retry timers. MODIFIED: [tpos-pancake/js/pancake/pancake-token-manager.js](../tpos-pancake/js/pancake/pancake-token-manager.js) — `withTimeout()` không tự log nữa; `loadAccounts()` + `loadPageAccessTokens()` log `info` khi có localStorage fallback, chỉ `warn` khi thật sự không có data. MODIFIED: [tpos-pancake/js/tpos/tpos-api.js](../tpos-pancake/js/tpos/tpos-api.js) — `loadComments()` retry 1 lần với delay 800ms khi gặp 5xx/network error (CF proxy flap). MODIFIED: [shared/js/shared-auth-manager.js](../shared/js/shared-auth-manager.js) — bỏ `console.warn` deprecated mỗi page load; file còn active via script tags, deprecated ghi ở header comment. |
+| **Chi tiết** | **User report**: mở `tpos-pancake/index.html` thấy console spam: `[TPOS-RT] SSE error: Nhi Judy House` lặp vô hạn mỗi 5s, `[PANCAKE-TOKEN] loadAccounts timed out after 5000ms`, `[AuthManager] ⚠️ DEPRECATED`, `Failed to load resource: 500`. **Root cause**: (1) SSE `onerror` hardcode `setTimeout(startSSE, 5000)` → không backoff, không max retry → khi server từ chối, reconnect spam vô hạn. (2) Firestore slow 5s → `withTimeout` log warn dù localStorage đã có data đầy đủ → noise. (3) Comments endpoint 500 transient từ CF proxy → không retry → comment panel trống. (4) `shared-auth-manager.js` vẫn dùng qua script-tag ở mọi page nhưng log deprecated mỗi page load. **Fix**: exponential backoff SSE với retry state Map (key-per-connection, attempts reset nếu connection stable >2s hoặc có message đến); silence token-manager timeout khi có localStorage; retry `loadComments` 1 lần với 800ms delay cho 5xx; bỏ runtime warning của shared-auth-manager (deprecated vẫn ghi ở header). |
+| **Status** | ✅ Fixed. Verify: mở tpos-pancake → console không còn spam SSE error mỗi 5s (tối đa 5 lần rồi dừng với warning cảnh báo), không còn warning timeout khi Firestore slow, không còn deprecated AuthManager warning, comment load 500 sẽ retry tự động. |
+
 ### [orders][phone-history] Fix flicker badge SĐT — đổi selector từ `span:last-of-type` sang `span:not(.phone-hist-badge)`
 | | |
 |---|---|
