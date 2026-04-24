@@ -259,12 +259,52 @@ class OnCallPortalClient {
 
     // ==================== Public APIs ====================
 
-    /** List calls from pbxCalls.xhtml */
-    async listCalls({ page = 1 } = {}) {
+    /**
+     * List calls from pbxCalls.xhtml.
+     * `rows` tăng rppDD (rows-per-page) qua AJAX paginate event để lấy nhiều
+     * calls hơn — portal default chỉ ~12 rows, cố bump lên 100 cho history sync.
+     */
+    async listCalls({ page = 1, rows = 100 } = {}) {
         const url = `${PORTAL_BASE}/portal/pbxCalls.xhtml`;
-        const { html } = await this.getPage(url);
+        let { html, viewState, nonce } = await this.getPage(url);
+
+        // Bump rppDD nếu rows > default detected. Best-effort — nếu AJAX fail,
+        // fallback về default HTML.
+        if (rows && rows > 12 && viewState) {
+            try {
+                const pageFields = {
+                    'javax.faces.partial.ajax': 'true',
+                    'javax.faces.source': 'content:calls:calls',
+                    'javax.faces.partial.execute': 'content:calls:calls',
+                    'javax.faces.partial.render': 'content:calls:calls',
+                    'javax.faces.behavior.event': 'page',
+                    'javax.faces.partial.event': 'page',
+                    'content:calls:calls_pagination': 'true',
+                    'content:calls:calls_first': '0',
+                    'content:calls:calls_rows': String(rows),
+                    'content:calls:calls_rppDD': String(rows),
+                    'content:calls:calls_reflowDD': '0_0',
+                    'content_SUBMIT': '1',
+                    'javax.faces.ViewState': viewState,
+                    'primefaces.nonce': nonce || '',
+                };
+                const pgResp = await this.postAjax(url, pageFields);
+                // Response XML có update block chứa HTML mới của table.
+                // Extract đoạn HTML trong CDATA rồi parse lại.
+                const cdataMatch = pgResp.text.match(
+                    /<update id="content:calls:calls"><!\[CDATA\[([\s\S]*?)\]\]><\/update>/
+                );
+                if (cdataMatch) {
+                    html = cdataMatch[1];
+                    this._log(`Paginate OK — bumped to ${rows} rows`);
+                }
+            } catch (err) {
+                this._log(`Paginate failed (${err.message}), using default page`);
+            }
+        }
+
         const headers = parseTableHeaders(html, 'content:calls:calls');
-        const rows = parseTableRows(html, 'content:calls:calls');
+        const rows_ = parseTableRows(html, 'content:calls:calls');
         // Map cells → fields (cell[0] is radio, skip)
         const calls = rows.map(r => {
             const c = r.cells;
