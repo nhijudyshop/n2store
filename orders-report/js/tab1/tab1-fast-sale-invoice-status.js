@@ -2021,6 +2021,18 @@
         const showState = invoiceData.ShowState || '';
         const stateCode = invoiceData.StateCode || 'None';
         const isMergeCancel = invoiceData.IsMergeCancel === true;
+
+        // Nếu phiếu đã huỷ → ẩn khỏi cột PHIẾU BÁN HÀNG (user request).
+        // Áp dụng cho cả synthetic entry cũ lẫn bill bị huỷ từ TPOS.
+        const isCancelled =
+            invoiceData.State === 'cancel' ||
+            stateCode === 'cancel' ||
+            isMergeCancel ||
+            showState === 'Huỷ bỏ' ||
+            showState === 'Hủy bỏ';
+        if (isCancelled) {
+            return '<span style="color: #9ca3af;">−</span>';
+        }
         const showStateConfig = getShowStateConfig(showState);
         const stateCodeConfig = getStateCodeConfig(stateCode, isMergeCancel);
         const stateCodeStyle = stateCodeConfig.style || '';

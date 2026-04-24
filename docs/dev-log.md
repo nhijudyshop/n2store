@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][fast-sale] Hủy đơn → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (không còn badge "Huỷ bỏ")
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — `renderInvoiceStatusCell()` thêm early-return "−" khi `invoiceData` cancelled (State/StateCode/ShowState = cancel/Huỷ bỏ hoặc IsMergeCancel=true). MODIFIED: [orders-report/js/tab1/tab1-fast-sale-workflow.js](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — `confirmCancelOrderFromMain()` xoá block tạo `syntheticCancelInv` + `InvoiceStatusStore.set` sau khi delete, xoá luôn IIFE fetch OData để re-sync cancelled state. Sau cancel: `InvoiceStatusStore.delete` + re-render cell → renderInvoiceStatusCell tự trả "−". |
+| **Chi tiết** | **User request**: "Hủy xong phải xóa luôn ở cột phiếu bán hàng đi" — cột PBH không được hiện badge "Huỷ bỏ | nvkt | 2026/62881" nữa. **Trước**: sau confirm cancel, code tạo synthetic entry `{ShowState:'Huỷ bỏ', State:'cancel', StateCode:'cancel'}` rồi `InvoiceStatusStore.set` → lưu lại vào Firebase → cell render strikethrough badge "Huỷ bỏ". Ngoài ra còn IIFE fetch OData sau đó set lần 2. **Sau**: chỉ `delete` entry mới nhất, không ghi synthetic. `renderInvoiceStatusCell` thêm check `isCancelled` (bao các variant: dấu huyền `Huỷ` + `Hủy`, `State='cancel'`, `StateCode='cancel'`, `IsMergeCancel=true`) → trả về "−" sớm, bypass toàn bộ block render badge/button. Xử lý đồng nhất cả đơn cancel mới lẫn synthetic entry cũ đã lỡ lưu Firebase trước đó (vd STT 84 trong ảnh). Cell Ra đơn ("fulfillment") vẫn dùng `injectDeleteEntry` riêng — không ảnh hưởng. |
+| **Status** | ✅ Done. Verify: Mở modal "Nhờ Hủy Đơn" từ cột PBH → nhập lý do → Xác nhận hủy → row giữ nguyên, nhưng cột PHIẾU BÁN HÀNG chuyển sang "−" (không còn badge đỏ gạch chân). Đơn cancel từ trước (STT 84) sau F5 cũng hiện "−" thay vì "Hủy bỏ 2026/62880". |
+
 ### [orders][chotdon-panel] Bulk-KDH expand 1 STT thành mọi đơn trùng — user tự pick đúng đơn
 | | |
 |---|---|

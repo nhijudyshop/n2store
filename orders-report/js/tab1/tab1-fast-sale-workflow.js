@@ -1579,88 +1579,11 @@
             );
             closeCancelOrderModal();
 
-            // Tạo synthetic entry "Huỷ bỏ" ngay lập tức để UI update không phụ thuộc OData.
-            // TPOS ActionCancel đã thành công ở Step 1 → state thật sự là cancel.
-            const orderShim = {
-                Id: saleOnlineId,
-                Code: invoiceData.Reference || order.Reference,
-                Name: invoiceData.PartnerDisplayName || order.PartnerDisplayName || '',
-                Telephone: invoiceData.ReceiverPhone || order.Phone || '',
-                Address: invoiceData.ReceiverAddress || '',
-            };
-            const syntheticCancelInv = {
-                ...invoiceData,
-                ShowState: 'Huỷ bỏ',
-                State: 'cancel',
-                StateCode: 'cancel',
-                Error: reason,
-            };
-            if (window.InvoiceStatusStore?.set) {
-                window.InvoiceStatusStore.set(saleOnlineId, syntheticCancelInv, orderShim);
-            }
+            // Hủy xong → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (user request).
+            // Không tạo synthetic "Huỷ bỏ" nữa; để renderInvoiceStatusCell render "−"
+            // khi InvoiceStatusStore không còn entry latest active.
 
-            // Fetch fresh invoice từ TPOS OData (best-effort, chạy background) để đồng bộ authoritative state.
-            // Không block UI update - nếu fetch thành công sẽ re-render cell lần nữa.
-            (async () => {
-                try {
-                    const invNumber = order.Number;
-                    if (!invNumber || !window.tokenManager?.getAuthHeader) return;
-                    const tposOData =
-                        window.API_CONFIG?.TPOS_ODATA ||
-                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-                    const headers = await window.tokenManager.getAuthHeader();
-                    const filter = `(Type eq 'invoice' and contains(Number,'${invNumber}'))`;
-                    const url =
-                        `${tposOData}/FastSaleOrder/ODataService.GetView` +
-                        `?$top=20&$orderby=DateInvoice desc` +
-                        `&$filter=${encodeURIComponent(filter)}&$count=true`;
-                    const resp = await fetch(url, {
-                        headers: { ...headers, accept: 'application/json' },
-                    });
-                    if (!resp.ok) return;
-                    const result = await resp.json();
-                    const inv = (result?.value || [])[0];
-                    if (!inv || !window.InvoiceStatusStore) return;
-                    // Safeguard: TPOS OData có thể eventually-consistent sau ActionCancel.
-                    // Chỉ overwrite synthetic "Huỷ bỏ" nếu TPOS cũng confirm cancel state.
-                    // Nếu TPOS trả stale "Đã xác nhận" thì KHÔNG overwrite → synthetic giữ nguyên.
-                    const tposShowState = inv.ShowState || '';
-                    const tposState = inv.State || '';
-                    const tposIsCancelled =
-                        tposState === 'cancel' ||
-                        tposShowState === 'Huỷ bỏ' ||
-                        tposShowState === 'Hủy bỏ' ||
-                        inv.IsMergeCancel === true;
-                    if (!tposIsCancelled) {
-                        console.warn(
-                            '[WORKFLOW] ⚠️ TPOS stale state after cancel, giữ synthetic:',
-                            invNumber,
-                            '→',
-                            tposShowState
-                        );
-                        return;
-                    }
-                    window.InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
-                    const laterRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
-                    const laterCell = laterRow?.querySelector('td[data-column="invoice-status"]');
-                    if (laterCell && typeof window.renderInvoiceStatusCell === 'function') {
-                        laterCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
-                    }
-                    console.log(
-                        '[WORKFLOW] 🔄 Refreshed PBH after cancel:',
-                        invNumber,
-                        '→',
-                        inv.ShowState
-                    );
-                } catch (refreshErr) {
-                    console.warn(
-                        '[WORKFLOW] OData refresh after cancel failed:',
-                        refreshErr.message
-                    );
-                }
-            })();
-
-            // Update main table UI ngay lập tức với synthetic "Huỷ bỏ" state
+            // Update main table UI — renderInvoiceStatusCell sẽ trả "−" do entry đã bị xoá.
             const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
             if (row) {
                 const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
