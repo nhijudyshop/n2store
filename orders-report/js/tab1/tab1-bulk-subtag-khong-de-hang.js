@@ -38,12 +38,17 @@
     }
 
     function findOrderBySTT(stt) {
-        if (window.OrderStore && typeof window.OrderStore.getBySTT === 'function') {
-            const o = window.OrderStore.getBySTT(stt);
-            if (o) return o;
-        }
+        // Ưu tiên displayedData (đơn user đang nhìn trong bảng sau filter/search) —
+        // OrderStore index toàn bộ dataset có thể trùng SessionIndex giữa các session live.
         const list = (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
-        return list.find((o) => o && o.SessionIndex === stt) || null;
+        const fromDisplayed =
+            list.find((o) => o && (o.SessionIndex === stt || String(o.SessionIndex) === String(stt))) || null;
+        if (fromDisplayed) return fromDisplayed;
+        // Fallback: OrderStore (chỉ khi không có gì trong bảng hiện tại).
+        if (window.OrderStore && typeof window.OrderStore.getBySTT === 'function') {
+            return window.OrderStore.getBySTT(stt) || null;
+        }
+        return null;
     }
 
     // ===== Open / close =====

@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][chotdon-panel] Fix bulk-KDH lookup STT — ưu tiên `displayedData` thay vì `OrderStore` toàn cục
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) `findOrderBySTT()` — đảo thứ tự: search `window.displayedData` trước, fallback `OrderStore.getBySTT()` chỉ khi không có. |
+| **Chi tiết** | **Bug**: Bảng filter "huynh thanh dat" hiển thị STT 313 = Huỳnh Thành Đạt, nhưng modal nhập 313 lại preview "Mỹ Linh / 260303260". **Root cause**: `OrderStore._ordersBySTT` index toàn bộ ~5023 đơn theo `SessionIndex`. Nếu dataset spans nhiều session live (date range 25/3-24/4 = ~30 ngày), `SessionIndex` có thể TRÙNG giữa các session khác nhau (mỗi session reset counter). `Map.set` ghi đè → entry trong OrderStore là đơn sau cùng load có cùng STT, không phải đơn user đang xem. **Fix**: tra `displayedData` (đơn đang hiển thị sau filter) trước → khớp đúng với những gì user thấy. Fallback OrderStore khi đơn không có trong bảng hiện tại (vd user filter ẩn nhưng vẫn muốn gán). Hỗ trợ cả `===` và `String() === String()` để loose-compare số/chuỗi STT. |
+| **Status** | ✅ Fixed. Verify: filter "huynh thanh dat" → mở modal KDH → nhập 313 → preview phải ra "Huỳnh Thành Đạt 0123456788" thay vì "Mỹ Linh". |
+
 ### [orders][chotdon-panel] Fix `Cannot read properties of undefined (reading 'show')` sau khi gán KDH
 | | |
 |---|---|
