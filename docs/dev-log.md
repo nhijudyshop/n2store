@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [live-sale] Phase 3d — đổi sang Pancake `/conversations?type=COMMENT` vì `/posts` bị `start_time is required!` cố chấp
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/v2/live-sale.js](../render.com/routes/v2/live-sale.js) — `fetchPancakeLivePosts()` viết lại hoàn toàn: thay vì gọi `/api/public_api/v1/pages/{id}/posts` (endpoint này từ chối mọi `start_time` mình pass), giờ gọi `/api/public_api/v2/pages/{id}/conversations?type=COMMENT&page_number=1|2&page_size=50`, group theo `post_id`, đếm comment, sort theo `last_updated` desc. Mỗi post_id trả về thành 1 "video" với title = "{N} bình luận — {tên user mới nhất}" hoặc snippet comment mới. |
+| **Chi tiết** | **Test sau Phase 3c**: `/live-videos` vẫn trả `pancake_empty`. **Debug sâu**: thử mọi variant `start_time` (ms, seconds, ISO date, POST body, form-urlencoded, direct curl) — **tất cả đều trả** `{"message":"start_time is required!"}`. Pancake `/v1/posts` endpoint từ chối mọi format mình pass — có thể đã deprecated hoặc param parsing thay đổi. **Workaround**: dùng endpoint `/v2/pages/{id}/conversations?type=COMMENT` (đã verify works, trả 60 conversations với customer data đầy đủ + `post_id`). Group by `post_id` → được danh sách posts đang active với số comment. Test trên page 117267091364524: 60 convs → 5 unique post_ids (post top 32 comments). Approach này có advantage: chỉ show posts ĐANG có comment activity — đúng mục đích LiveSale (bán live qua comment). Title post: "{N} bình luận — {tên user}" giúp user chọn đúng live. **Next**: verify sau Render deploy. |
+| **Status** | 🔄 Deploy in progress. Phase 3c pages endpoint đã verify OK (Nhi Judy House, Nhi Judy Ơi, NhiJudy Store). Sau Phase 3d deploy sẽ có posts list thật. |
+
 ### [live-sale] Phase 3c — fix Pancake API params + resolve page names từ pancake_accounts.pages JSONB
 | | |
 |---|---|

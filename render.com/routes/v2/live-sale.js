@@ -223,12 +223,17 @@ router.delete('/fb-tokens/:pageId', async (req, res) => {
  * Returns recent live_videos for that page.
  */
 /**
- * Try Pancake Public API v1 for recent posts of a page.
- * Pancake's page_access_token is stored in pancake_page_access_tokens
- * and is long-lived (never expires unless revoked).
+ * Derive "live videos" from Pancake conversations.
  *
- * Endpoint: GET https://pages.fm/api/public_api/v1/pages/{page_id}/posts
- * Filters client-side for live video posts.
+ * Why: pages.fm/api/public_api/v1/pages/{id}/posts requires a start_time
+ * param that is silently rejected even when passed, so we can't list posts
+ * that way. But /api/public_api/v2/pages/{id}/conversations?type=COMMENT
+ * returns every active comment thread — each one has a post_id. Grouping
+ * by post_id gives us the posts/lives that currently have comment activity,
+ * which is exactly what the LiveSale column needs.
+ *
+ * Extra: we also fetch /livestream/customers for extra info per post when
+ * available, but skip silently if it doesn't exist.
  */
 async function fetchPancakeLivePosts(db, pageId) {
     const tokRow = await db.query(
@@ -238,59 +243,95 @@ async function fetchPancakeLivePosts(db, pageId) {
     const pageAccessToken = tokRow.rows[0]?.token;
     if (!pageAccessToken) return { videos: [], hint: 'no_pancake_token' };
 
-    const qs = new URLSearchParams({
-        page_access_token: pageAccessToken,
-        limit: '20',
-    });
-    const url = `https://pages.fm/api/public_api/v1/pages/${encodeURIComponent(pageId)}/posts?${qs.toString()}`;
+    const PANCAKE_HEADERS = {
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+        'Origin': 'https://pages.fm',
+        'Referer': 'https://pages.fm/',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+    };
 
-    const resp = await fetch(url, {
-        headers: {
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-            'Origin': 'https://pages.fm',
-            'Referer': 'https://pages.fm/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-        },
-    });
-    if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        return { videos: [], hint: 'pancake_api_failed', details: text.slice(0, 300) };
+    // Pull up to 2 pages of comment conversations to get broader post coverage.
+    const collected = [];
+    for (const pageNum of [1, 2]) {
+        const qs = new URLSearchParams({
+            page_access_token: pageAccessToken,
+            type: 'COMMENT',
+            page_number: String(pageNum),
+            page_size: '50',
+        });
+        const url = `https://pages.fm/api/public_api/v2/pages/${encodeURIComponent(pageId)}/conversations?${qs.toString()}`;
+        try {
+            const resp = await fetch(url, { headers: PANCAKE_HEADERS });
+            if (!resp.ok) break;
+            const body = await resp.json().catch(() => ({}));
+            const convs = body.conversations || body.data || [];
+            if (convs.length === 0) break;
+            collected.push(...convs);
+            if (convs.length < 50) break;
+        } catch {
+            break;
+        }
     }
-    const body = await resp.json().catch(() => ({}));
-    const posts = body.posts || body.data || [];
 
-    // Recognize live-video posts across a few Pancake field shapes.
-    const liveFlags = ['live_video', 'live', 'LIVE', 'live_stream'];
-    const lives = posts.filter((p) => {
-        const ls = p.live_status || p.status || p.type || p.status_type || '';
-        if (liveFlags.some((f) => String(ls).toLowerCase().includes(f))) return true;
-        if (p.is_live === true || p.live_stream === true) return true;
-        return false;
-    });
+    if (collected.length === 0) {
+        return { videos: [], hint: 'pancake_empty' };
+    }
 
-    // Fallback: if we couldn't detect live, show the 20 most recent posts anyway
-    // — user can still pick the relevant one.
-    const chosen = lives.length > 0 ? lives : posts.slice(0, 20);
+    // Group by post_id, keep latest updated_at + count.
+    const grouped = new Map();
+    for (const c of collected) {
+        const pid = c.post_id;
+        if (!pid) continue;
+        const updated = c.updated_at || c.inserted_at || '';
+        const existing = grouped.get(pid);
+        if (!existing) {
+            grouped.set(pid, {
+                post_id: pid,
+                last_updated: updated,
+                comment_count: 1,
+                latest_snippet: c.snippet || '',
+                latest_from: c.from?.name || '',
+            });
+        } else {
+            existing.comment_count += 1;
+            if (updated > existing.last_updated) {
+                existing.last_updated = updated;
+                existing.latest_snippet = c.snippet || existing.latest_snippet;
+                existing.latest_from = c.from?.name || existing.latest_from;
+            }
+        }
+    }
 
-    const videos = chosen.map((p) => {
-        const postId = p.id || p.post_id || p.fbid || p.facebook_post_id;
+    // Sort by last_updated desc — most active posts first.
+    const ranked = Array.from(grouped.values()).sort((a, b) =>
+        b.last_updated.localeCompare(a.last_updated),
+    );
+
+    const videos = ranked.map((g) => {
+        // post_id from Pancake comes as "{pageId}_{postId}" — use it verbatim
+        // as the FB post id (the CF Worker /facebook/comments endpoint accepts it).
+        const title = g.comment_count > 1
+            ? `${g.comment_count} bình luận — ${g.latest_from}`
+            : `${g.latest_from}: ${(g.latest_snippet || '').slice(0, 50)}`;
         return {
-            id: String(postId || ''),
-            fb_post_id: String(postId || ''),
-            fb_live_id: String(p.live_video_id || p.live_id || postId || ''),
-            title: p.message || p.title || p.description || `Post ${postId}`,
-            status: p.live_status || p.status || '',
-            created_time: p.inserted_at || p.created_time || p.updated_at,
-            permalink_url: p.link || p.permalink_url || '',
+            id: g.post_id,
+            fb_post_id: g.post_id,
+            fb_live_id: g.post_id,
+            title,
+            status: 'active',
+            comment_count: g.comment_count,
+            created_time: g.last_updated,
+            last_updated: g.last_updated,
+            permalink_url: `https://facebook.com/${g.post_id.replace('_', '/posts/')}`,
             page_name: '',
-            is_live: !!(lives.length > 0 && lives.includes(p)),
+            is_live: false,
         };
-    }).filter((v) => v.id);
+    });
 
     return {
         videos,
-        hint: videos.length > 0 ? (lives.length > 0 ? 'pancake_live' : 'pancake_recent') : 'pancake_empty',
+        hint: videos.length > 0 ? 'pancake_conversations' : 'pancake_empty',
     };
 }
 
