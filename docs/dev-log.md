@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [render][oncallcx] Fix sync daemon ghi nhầm phone công ty thay vì phone khách + endpoint backfill
+| | |
+|---|---|
+| **Files** | MODIFIED: [scripts/oncallcx-sync-daemon.js](../scripts/oncallcx-sync-daemon.js) `main()` line 226 — outbound phone đổi từ `outboundPublicNumber \|\| to` sang `to \|\| outboundPublicNumber`. MODIFIED: [render.com/routes/oncall-sip-proxy.js](../render.com/routes/oncall-sip-proxy.js) — thêm endpoint `POST /api/oncall/call-recordings/remap-phones` (body `{dryRun?, toleranceMs?}`) scan recording `username=oncallcx-portal-sync`, ghép với `phone_call_history` qua `ext + direction + |ts diff| < 30s`, copy phone đúng + set `call_history_id`. |
+| **Chi tiết** | **User report**: bấm badge lịch sử cuộc gọi trên đơn phone 0363954281 → tab Ghi âm hiện `0` dù thực tế có 3 cuộc gọi. **Root cause**: OnCallCX CDR có 3 cột số: `from` (ext 102), `to` (số khách 0363954281), `outboundPublicNumber` (số line công ty 0994325426 dùng làm caller ID). Daemon sync lưu `outboundPublicNumber` vào cột `phone` → mọi recording từ ext 102 đều có phone = 0994325426 (line công ty), không có phone khách. Check Render DB: 20 recordings `oncallcx-portal-sync` đều phone=0994325426, trong khi call-history đúng phone từng khách. **Fix**: (1) daemon giờ dùng `call.to` cho outbound (số khách dialed) — recording mới sẽ đúng; (2) endpoint backfill để sửa 20 record đã sync sai: ghép timestamp ±30s với ext trong phone_call_history → copy phone đúng + set call_history_id (null trước đây) → frontend query theo phone khách sẽ tìm được recording tương ứng. |
+| **Status** | ✅ Done code. **Cần trigger backfill sau khi Render deploy**: `curl -X POST https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/call-recordings/remap-phones -H 'Content-Type: application/json' -d '{"dryRun":false}'`. Restart daemon (hoặc đợi 5 phút) để new calls dùng phone đúng. |
+
 ### [tpos-pancake] Fix SSE reconnect loop + giảm log noise + retry comments 500
 | | |
 |---|---|

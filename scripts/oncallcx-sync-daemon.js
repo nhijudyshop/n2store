@@ -230,9 +230,7 @@ async function main() {
             // recording thành số line công ty, frontend không thể match theo phone
             // khách. Đổi sang `to || outboundPublicNumber` để giữ số khách thật.
             const direction = detectDirection(call);
-            const phone = direction === 'out'
-                ? call.to || call.outboundPublicNumber
-                : call.from;
+            const phone = direction === 'out' ? call.to || call.outboundPublicNumber : call.from;
             const ext = direction === 'out' ? call.from : call.to;
             const meta = {
                 phone,
