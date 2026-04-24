@@ -44,6 +44,12 @@
             keyword: '',
         },
 
+        // Sort state for amountTotal / cashOnDelivery columns
+        sort: {
+            column: null, // 'amountTotal' | 'cashOnDelivery' | null
+            direction: 'asc', // 'asc' | 'desc'
+        },
+
         // Column visibility (default: only key columns visible)
         columns: {
             index: true,
@@ -78,6 +84,7 @@
         setDefaultDates();
         bindFilterEvents();
         bindColumnToggle();
+        bindSortableHeaders();
         applyColumnVisibility();
         loadFiltersFromStorage();
 
@@ -206,6 +213,73 @@
                 DeliveryReportState.columns[cb.dataset.col] = cb.checked;
                 applyColumnVisibility();
             });
+        });
+    }
+
+    // =====================================================
+    // SORTABLE HEADERS (amountTotal + cashOnDelivery)
+    // =====================================================
+    const SORTABLE_COLUMNS = {
+        amountTotal: 'AmountTotal',
+        cashOnDelivery: 'CashOnDelivery',
+    };
+
+    function bindSortableHeaders() {
+        Object.keys(SORTABLE_COLUMNS).forEach((colKey) => {
+            const th = document.querySelector(`.dr-table thead th[data-col="${colKey}"]`);
+            if (!th) return;
+            if (!th.querySelector('.sort-icon')) {
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-sort sort-icon';
+                th.appendChild(document.createTextNode(' '));
+                th.appendChild(icon);
+            }
+            th.addEventListener('click', () => {
+                const sort = DeliveryReportState.sort;
+                if (sort.column === colKey) {
+                    if (sort.direction === 'asc') {
+                        sort.direction = 'desc';
+                    } else {
+                        sort.column = null;
+                        sort.direction = 'asc';
+                    }
+                } else {
+                    sort.column = colKey;
+                    sort.direction = 'asc';
+                }
+                DeliveryReportState.currentPage = 1;
+                renderTable();
+            });
+        });
+        updateSortIndicators();
+    }
+
+    function updateSortIndicators() {
+        const { column, direction } = DeliveryReportState.sort;
+        Object.keys(SORTABLE_COLUMNS).forEach((colKey) => {
+            const th = document.querySelector(`.dr-table thead th[data-col="${colKey}"]`);
+            if (!th) return;
+            const icon = th.querySelector('.sort-icon');
+            if (!icon) return;
+            if (column === colKey) {
+                icon.className = `fas fa-sort-${direction === 'asc' ? 'up' : 'down'} sort-icon`;
+                icon.style.color = '#4f46e5';
+            } else {
+                icon.className = 'fas fa-sort sort-icon';
+                icon.style.color = '';
+            }
+        });
+    }
+
+    function applySorting(data) {
+        const { column, direction } = DeliveryReportState.sort;
+        if (!column || !SORTABLE_COLUMNS[column]) return data;
+        const field = SORTABLE_COLUMNS[column];
+        const mul = direction === 'asc' ? 1 : -1;
+        return data.slice().sort((a, b) => {
+            const av = Number(a[field]) || 0;
+            const bv = Number(b[field]) || 0;
+            return (av - bv) * mul;
         });
     }
 
@@ -401,8 +475,9 @@
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
 
-        const allData = getFilteredData();
+        const allData = applySorting(getFilteredData());
         DeliveryReportState.totalCount = allData.length;
+        updateSortIndicators();
 
         if (!allData || allData.length === 0) {
             tbody.innerHTML = `<tr><td colspan="13" class="dr-empty"><i class="fas fa-inbox"></i>Không có dữ liệu</td></tr>`;
