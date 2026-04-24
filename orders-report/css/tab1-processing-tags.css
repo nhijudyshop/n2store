@@ -2972,3 +2972,47 @@ label.bulk-kdh-row:hover { background: #f9fafb; }
     cursor: not-allowed;
     box-shadow: none;
 }
+
+/* =====================================================
+   TAG XL COLUMN WIDTH CONSTRAINT (~40 chars = 320px)
+   Flag badges: wrap inline, KHÔNG cắt chữ (full label)
+   T-tag badges: mỗi cái 1 dòng, truncate ellipsis, giữ nút ×
+   ===================================================== */
+td[data-column="processing-tag"],
+th[data-column="processing-tag"] {
+    max-width: 320px;
+}
+td[data-column="processing-tag"] .ptag-cell {
+    max-width: 320px;
+    min-width: 0;
+}
+td[data-column="processing-tag"] .ptag-cell-buttons {
+    flex-wrap: nowrap;
+}
+td[data-column="processing-tag"] .ptag-cell-badges {
+    max-width: 100%;
+    min-width: 0;
+}
+td[data-column="processing-tag"] .ptag-cell-flags-row {
+    max-width: 100%;
+}
+td[data-column="processing-tag"] .ptag-cell-ttag-row {
+    max-width: 100%;
+    width: 100%;
+}
+td[data-column="processing-tag"] .ptag-ttag-badge {
+    max-width: 100%;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+}
+.ptag-ttag-badge .ptag-badge-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ptag-badge-remove {
+    flex-shrink: 0;
+}

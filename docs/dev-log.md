@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][ptag] Giới hạn chiều ngang cột TAG XL (max 40 ký tự ≈ 320px)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — append block CSS cuối file: `td[data-column="processing-tag"]` max-width 320px; `.ptag-cell`, `.ptag-cell-badges`, `.ptag-cell-flags-row`, `.ptag-cell-ttag-row` max-width 100%/min-width 0; `.ptag-ttag-badge` display inline-flex + max-width 100%; `.ptag-ttag-badge .ptag-badge-label` flex 1 1 auto + overflow hidden + text-overflow ellipsis + white-space nowrap; `.ptag-badge-remove` flex-shrink 0 (nút × luôn visible). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) L1861 — wrap `${tLabel}` vào `<span class="ptag-badge-label">` + thêm `title` attr cho tooltip khi truncate. |
+| **Chi tiết** | **User report**: cột TAG XL đang hiển thị chiều ngang quá dài (do T-tag có label rất dài kiểu `T2 ÁO ĐỎ KIỂU KÈM CHỮ NOTHING IS TOBE GOT WITH OUT PAIN BUT POVERATY`) → kéo column ép các cột GHI CHÚ / KHÁCH HÀNG bị hẹp. User muốn max ~40 ký tự thô. **Phân loại hành vi**: (1) **Flag badges** (CHỜ HÀNG, TRỪ CÔNG NỢ, CK, GỌI BÁO HÀNG CHẬM KNM) — giữ wrap inline (`.ptag-cell-flags-row` đã có `flex-wrap: wrap`), khi nhiều flag vượt 1 dòng → xuống dòng, KHÔNG cắt chữ (full label). (2) **T-tags** (T2/T3 đặc điểm sản phẩm) — mỗi cái 1 dòng riêng (`.ptag-cell-ttag-row` flex-direction: column), khi label quá dài → truncate `…`, nút × luôn visible ở cuối (flex-shrink: 0). **Technique**: CSS flex với label span (`flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis`) + remove button (`flex-shrink: 0`). `title` attr cho UX fallback (hover tooltip hiện full label). **Không đụng**: HTML header (min-width:110px + max-width:320px OK), flag badge render, category badge, GIỎ TRỐNG virtual. |
+| **Status** | ✅ Code done. Test: (1) mở `orders-report/main.html` tab QUẢN LÝ ĐƠN HÀNG; (2) tìm đơn 637 (hoặc đơn có T-tag dài): T-tag bị ellipsize, nút × visible cuối, hover hiện tooltip full label; (3) đơn 455/487: flag `CK`, `GỌI BÁO HÀNG CHẬM KNM`, `CHỜ HÀNG VỀ` wrap inline + xuống dòng khi không đủ, KHÔNG cắt chữ; (4) cột GHI CHÚ / KHÁCH HÀNG không còn bị ép; (5) click × trên T-tag truncate vẫn xóa được (onclick giữ nguyên). |
+
 ### [supplier-debt] Cho phép kéo xếp thứ tự tất cả rows (bỏ hạn chế cùng ngày)
 | | |
 |---|---|

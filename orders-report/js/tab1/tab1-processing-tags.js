@@ -1858,7 +1858,8 @@
                     : ProcessingTagState.getTTagLabel(tId);
             const bgColor = _ptagGetTTagColor(tId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oc}', '${tId.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
-            ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
+            const tTitleAttr = String(tLabel).replace(/"/g, '&quot;');
+            ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};" title="${tTitleAttr}"><span class="ptag-badge-label">${tLabel}</span>${removeBtn}</span>`;
         });
 
         // Prepend virtual GIỎ TRỐNG badge nếu đơn SL=0 (trước category badge)
