@@ -70,9 +70,7 @@ function loadState() {
         const s = JSON.parse(raw);
         return {
             syncedRowKeys: Array.isArray(s.syncedRowKeys) ? s.syncedRowKeys : [],
-            noRecordingRowKeys: Array.isArray(s.noRecordingRowKeys)
-                ? s.noRecordingRowKeys
-                : [],
+            noRecordingRowKeys: Array.isArray(s.noRecordingRowKeys) ? s.noRecordingRowKeys : [],
             lastSyncAt: s.lastSyncAt || 0,
         };
     } catch (e) {

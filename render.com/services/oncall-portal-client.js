@@ -304,9 +304,9 @@ class OnCallPortalClient {
         }
 
         const headers = parseTableHeaders(html, 'content:calls:calls');
-        const rows_ = parseTableRows(html, 'content:calls:calls');
+        const tableRows = parseTableRows(html, 'content:calls:calls');
         // Map cells → fields (cell[0] is radio, skip)
-        const calls = rows.map(r => {
+        const calls = tableRows.map((r) => {
             const c = r.cells;
             return {
                 rowKey: r.dataRk,
