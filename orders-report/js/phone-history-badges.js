@@ -9,6 +9,7 @@ const PhoneHistoryBadges = (() => {
     const MAX_ROWS = 5000;
 
     let callsByPhone = new Map(); // phone → calls[] (newest first)
+    let recordingsByPhone = new Map(); // phone → recordings[] (newest first)
     let lastLoadAt = 0;
     let loading = false;
     let tooltipEl = null;
@@ -41,26 +42,45 @@ const PhoneHistoryBadges = (() => {
         loading = true;
         try {
             const since = Date.now() - MAX_HISTORY_DAYS * 86400000;
-            const r = await fetch(`${API}/call-history?from=${since}&limit=${MAX_ROWS}`, {
-                cache: 'no-store',
-            });
-            const d = await r.json();
-            if (d?.success) {
-                const next = new Map();
-                (d.rows || []).forEach((c) => {
+            const [historyRes, recRes] = await Promise.all([
+                fetch(`${API}/call-history?from=${since}&limit=${MAX_ROWS}`, {
+                    cache: 'no-store',
+                }).then((r) => r.json()).catch(() => ({})),
+                fetch(`${API}/call-recordings?limit=${MAX_ROWS}`, {
+                    cache: 'no-store',
+                }).then((r) => r.json()).catch(() => ({})),
+            ]);
+
+            const next = new Map();
+            if (historyRes?.success) {
+                (historyRes.rows || []).forEach((c) => {
                     const p = stripPhone(c.phone);
                     if (!p) return;
                     if (!next.has(p)) next.set(p, []);
                     next.get(p).push(c);
                 });
-                // Ensure newest first per phone
                 next.forEach((arr) =>
                     arr.sort((a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10))
                 );
-                callsByPhone = next;
-                lastLoadAt = Date.now();
-                renderBadges();
             }
+            callsByPhone = next;
+
+            const recMap = new Map();
+            if (Array.isArray(recRes?.rows)) {
+                recRes.rows.forEach((rec) => {
+                    const p = stripPhone(rec.phone);
+                    if (!p) return;
+                    if (!recMap.has(p)) recMap.set(p, []);
+                    recMap.get(p).push(rec);
+                });
+                recMap.forEach((arr) =>
+                    arr.sort((a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10))
+                );
+            }
+            recordingsByPhone = recMap;
+
+            lastLoadAt = Date.now();
+            renderBadges();
         } catch (err) {
             console.warn('[PhoneHistoryBadges]', err.message);
         } finally {
@@ -71,11 +91,18 @@ const PhoneHistoryBadges = (() => {
     function getCountsFor(phone) {
         const p = stripPhone(phone);
         const calls = callsByPhone.get(p) || [];
-        const counts = { total: calls.length, out: 0, in: 0, missed: 0 };
+        const recordings = recordingsByPhone.get(p) || [];
+        const counts = {
+            total: calls.length,
+            out: 0,
+            in: 0,
+            missed: 0,
+            recordings: recordings.length,
+        };
         calls.forEach((c) => {
             counts[c.direction === 'missed' ? 'missed' : c.direction === 'in' ? 'in' : 'out']++;
         });
-        return { counts, calls };
+        return { counts, calls, recordings };
     }
 
     function _ensureStyles() {
@@ -94,6 +121,9 @@ const PhoneHistoryBadges = (() => {
         .phone-hist-badge:hover { background: rgba(59,130,246,.25); transform: scale(1.05); }
         .phone-hist-badge.has-missed { background: rgba(239,68,68,.15); color: #b91c1c; }
         .phone-hist-badge.has-missed:hover { background: rgba(239,68,68,.28); }
+        .phone-hist-badge.has-recording { background: rgba(124,58,237,.12); color: #6d28d9; border: 1px solid rgba(124,58,237,.3); }
+        .phone-hist-badge.has-recording:hover { background: rgba(124,58,237,.22); }
+        .phone-hist-badge.has-recording.has-missed { background: rgba(239,68,68,.15); color: #b91c1c; border: 1px solid rgba(239,68,68,.3); }
         .phone-hist-tooltip {
             position: fixed; z-index: 100000; pointer-events: none;
             background: #0f172a; color: #e2e8f0;
@@ -129,8 +159,8 @@ const PhoneHistoryBadges = (() => {
 
     function _showTooltip(target, phone) {
         _ensureStyles();
-        const { counts, calls } = getCountsFor(phone);
-        if (!calls.length) return;
+        const { counts, calls, recordings } = getCountsFor(phone);
+        if (!calls.length && !recordings.length) return;
 
         if (tooltipEl) tooltipEl.remove();
         tooltipEl = document.createElement('div');
@@ -140,8 +170,11 @@ const PhoneHistoryBadges = (() => {
         if (counts.out) statsParts.push(`<span style="color:#4ade80">↗ ${counts.out}</span>`);
         if (counts.in) statsParts.push(`<span style="color:#60a5fa">↙ ${counts.in}</span>`);
         if (counts.missed) statsParts.push(`<span style="color:#f87171">✕ ${counts.missed}</span>`);
+        if (counts.recordings)
+            statsParts.push(`<span style="color:#c4b5fd">▶ ${counts.recordings} ghi âm</span>`);
 
-        const recent = calls.slice(0, 8);
+        const rowsArr = calls.length ? calls : recordings;
+        const recent = rowsArr.slice(0, 8);
         tooltipEl.innerHTML = `
             <div class="phb-head">
                 <span class="phb-phone">${phone}</span>
@@ -161,7 +194,7 @@ const PhoneHistoryBadges = (() => {
                     )
                     .join('')}
             </div>
-            ${calls.length > recent.length ? `<div class="phb-more">+ ${calls.length - recent.length} cuộc gọi khác</div>` : ''}
+            ${rowsArr.length > recent.length ? `<div class="phb-more">+ ${rowsArr.length - recent.length} mục khác — bấm để mở</div>` : '<div class="phb-more">Bấm để mở + nghe ghi âm</div>'}
         `;
         document.body.appendChild(tooltipEl);
 
@@ -184,13 +217,27 @@ const PhoneHistoryBadges = (() => {
     }
 
     function _badgeContent(counts) {
-        return `📞 ${counts.total}${counts.missed ? ` <span style="color:#b91c1c">✕${counts.missed}</span>` : ''}`;
+        const hasCalls = counts.total > 0;
+        const parts = [];
+        if (hasCalls) {
+            parts.push(`📞 ${counts.total}`);
+            if (counts.missed) parts.push(`<span style="color:#b91c1c">✕${counts.missed}</span>`);
+        }
+        if (counts.recordings > 0) {
+            parts.push(
+                `<span class="phb-rec-ico" style="color:#7c3aed">▶ ${counts.recordings}</span>`
+            );
+        }
+        return parts.join(' ');
     }
     function _updateBadge(badge, phone, counts) {
         const wantMissed = counts.missed > 0;
         const hasMissed = badge.classList.contains('has-missed');
         if (wantMissed !== hasMissed) badge.classList.toggle('has-missed', wantMissed);
-        const sig = `${counts.total}|${counts.missed}`;
+        const wantRec = counts.recordings > 0;
+        const hasRec = badge.classList.contains('has-recording');
+        if (wantRec !== hasRec) badge.classList.toggle('has-recording', wantRec);
+        const sig = `${counts.total}|${counts.missed}|${counts.recordings}`;
         if (badge.dataset.sig !== sig) {
             badge.dataset.sig = sig;
             badge.innerHTML = _badgeContent(counts);
@@ -323,9 +370,11 @@ const PhoneHistoryBadges = (() => {
         // Close existing
         document.getElementById('phoneHistModal')?.remove();
 
-        const { counts, calls } = getCountsFor(phone);
-        const firstCall = calls[0] || {};
+        const { counts, calls, recordings } = getCountsFor(phone);
+        const firstCall = calls[0] || recordings[0] || {};
         const displayName = firstCall.name || '';
+        // Default to recordings tab when user only has ghi âm but no OnCallCX call-history
+        const defaultTab = counts.total === 0 && counts.recordings > 0 ? 'render' : 'oncall';
 
         const overlay = document.createElement('div');
         overlay.id = 'phoneHistModal';
@@ -341,24 +390,24 @@ const PhoneHistoryBadges = (() => {
                     <button class="phm-close" aria-label="Đóng">×</button>
                 </div>
                 <div class="phm-tabs">
-                    <button class="phm-tab active" data-phm-tab="oncall">
+                    <button class="phm-tab ${defaultTab === 'oncall' ? 'active' : ''}" data-phm-tab="oncall">
                         <span>OnCallCX</span>
                         <span class="phm-count">${counts.total}</span>
                     </button>
-                    <button class="phm-tab" data-phm-tab="render">
-                        <span>Render DB</span>
-                        <span class="phm-count" data-phm-render-count>…</span>
+                    <button class="phm-tab ${defaultTab === 'render' ? 'active' : ''}" data-phm-tab="render">
+                        <span>Ghi âm</span>
+                        <span class="phm-count" data-phm-render-count>${counts.recordings || '…'}</span>
                     </button>
                 </div>
                 <div class="phm-body">
-                    <div data-phm-pane="oncall">${_renderOncallPane(phone, calls, counts)}</div>
-                    <div data-phm-pane="render" style="display:none">
+                    <div data-phm-pane="oncall" style="display:${defaultTab === 'oncall' ? '' : 'none'}">${_renderOncallPane(phone, calls, counts)}</div>
+                    <div data-phm-pane="render" style="display:${defaultTab === 'render' ? '' : 'none'}">
                         <div class="phm-loading">Đang tải ghi âm…</div>
                     </div>
                 </div>
                 <div class="phm-foot">
                     <div style="font-size:11px;color:#64748b">
-                        Admin only · ${counts.total} cuộc gọi · ${counts.out} gọi ra · ${counts.in} gọi vào${counts.missed ? ` · <span style="color:#b91c1c;font-weight:600">${counts.missed} nhỡ</span>` : ''}
+                        ${counts.total} cuộc gọi · ${counts.out} gọi ra · ${counts.in} gọi vào${counts.missed ? ` · <span style="color:#b91c1c;font-weight:600">${counts.missed} nhỡ</span>` : ''}${counts.recordings ? ` · <span style="color:#6d28d9;font-weight:600">▶ ${counts.recordings} ghi âm</span>` : ''}
                     </div>
                     <div style="display:flex;gap:6px">
                         <button class="phm-btn green" data-phm-call><span>📞</span> Gọi ngay</button>
@@ -528,13 +577,11 @@ const PhoneHistoryBadges = (() => {
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
             _hideTooltip();
-            if (_isAdmin()) {
-                _openHistoryModal(phone);
-            } else {
-                try {
-                    window.PhoneWidget?.makeCall?.(phone);
-                } catch {}
-            }
+            // Always open the modal — inside the modal there's a "Gọi ngay"
+            // button plus the recordings tab with audio player. Admin-only gate
+            // here hid the play button from non-admin staff who still need to
+            // listen to calls they made.
+            _openHistoryModal(phone);
         });
         return badge;
     }
@@ -561,14 +608,14 @@ const PhoneHistoryBadges = (() => {
                     return;
                 }
                 const { counts } = getCountsFor(phone);
-                if (counts.total === 0) {
+                if (counts.total === 0 && counts.recordings === 0) {
                     if (existing) existing.remove();
                     return;
                 }
                 // Idempotent: keep existing badge — only update content if counts changed
                 // (avoids remove→recreate flicker that kills the tooltip mid-hover)
                 if (existing && existing.dataset.phone === phone) {
-                    const newSig = `${counts.total}|${counts.missed}`;
+                    const newSig = `${counts.total}|${counts.missed}|${counts.recordings}`;
                     if (existing.dataset.sig === newSig) return; // no change → skip
                     _updateBadge(existing, phone, counts);
                     return;
@@ -648,11 +695,16 @@ const PhoneHistoryBadges = (() => {
         return getCountsFor(phone);
     }
 
-    // Boot: load history after table likely rendered
+    // Boot: load history ASAP — observer picks up rows as they render.
+    // Previous 3s delay meant users saw no badge on initial paint if they
+    // looked at the table immediately.
     if (typeof window !== 'undefined') {
-        setTimeout(() => {
-            loadHistory().then(_observeTable);
-        }, 3000);
+        const boot = () => loadHistory().then(_observeTable);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 500));
+        } else {
+            setTimeout(boot, 500);
+        }
         // Auto-refresh every 2 min (in case new calls logged)
         setInterval(() => loadHistory(), CACHE_TTL_MS);
     }

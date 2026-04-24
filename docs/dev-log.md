@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][phone-history] Cột SĐT hiện badge lịch sử + ghi âm (merge call-history + call-recordings)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — `loadHistory()` giờ fetch song song `/call-history` + `/call-recordings`, build thêm `recordingsByPhone`. `getCountsFor()` trả thêm `recordings[]` + `counts.recordings`. `renderBadges()` hiện badge nếu có call-history HOẶC recording (trước chỉ có call-history). `_badgeContent()` hiện `▶ N` tím khi có ghi âm. CSS thêm `.has-recording` (tím). `_openHistoryModal()` auto-switch sang tab "Ghi âm" khi phone chỉ có recording không có OnCallCX history. Click badge không còn gate admin — mọi user đều có thể bấm mở modal nghe ghi âm. Boot delay 3s → 500ms + DOMContentLoaded. |
+| **Chi tiết** | **User request (hình 2, 3)**: cột SĐT không hiện lịch sử cuộc gọi, mong có nút play như hình 1 (Quản Lý Tổng Đài — `phone-management/index.html`). **Before**: `phone-history-badges.js` chỉ load `/call-history` → badge `📞 N` chỉ hiện khi phone có entry trong bảng `phone_call_history`. Phone có ghi âm nhưng không có call-history (vd 0994325426 — 20+ ghi âm từ `oncallcx-portal-sync` nhưng không log qua outbound SIP flow) → không có badge. Modal click cũng gate `_isAdmin()` → non-admin không thấy play button. **After**: load cả 2 source Render DB song song, badge xuất hiện nếu union > 0, màu tím khi có ghi âm, click mở modal → tab "Ghi âm" auto-active nếu chỉ có recording → `<audio controls>` inline + nút tải về/xoá cho từng ghi âm (endpoint `/api/oncall/call-recordings/:id/audio`). **Data verified qua API**: 46 call-history rows trong 4 ngày qua (Unique 22 phones), 24 recording rows (2 unique phones: 0994325426 + 0909160601). Phone trong đơn của user trong screenshot mostly = 0 cho cả 2 → đúng là không có badge; nhưng STT 84 (0906952802) có 8 call-history → trước cũng phải hiện mà user báo không thấy → timing fix (boot 3s → 500ms) + rebind lại khi table re-render. |
+| **Status** | ✅ Done. Verify: admin/nhân viên mở trang → sau ~0.5s badge `📞 N` xuất hiện bên số điện thoại cho phone có call-history; badge tím `▶ N` xuất hiện khi có ghi âm; hover → tooltip preview 8 cuộc gần nhất; click → modal 2 tab (OnCallCX + Ghi âm) với audio player inline; tab Ghi âm hiển thị sẵn khi phone chỉ có recording. |
+
 ### [orders][fast-sale] Hủy đơn → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (không còn badge "Huỷ bỏ")
 | | |
 |---|---|
