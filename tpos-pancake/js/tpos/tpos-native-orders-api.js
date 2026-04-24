@@ -11,7 +11,8 @@
 
 const NativeOrdersApi = {
     _getBaseUrl() {
-        const root = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const root =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         return `${root}/api/native-orders`;
     },
 
@@ -24,7 +25,11 @@ const NativeOrdersApi = {
             },
         });
         let data = null;
-        try { data = await response.json(); } catch { /* non-json */ }
+        try {
+            data = await response.json();
+        } catch {
+            /* non-json */
+        }
         if (!response.ok) {
             const msg = data?.error || `HTTP ${response.status}`;
             throw new Error(msg);

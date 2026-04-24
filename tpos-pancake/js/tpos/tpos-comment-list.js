@@ -398,9 +398,9 @@ const TposCommentList = {
             ? `<span class="session-index-badge" title="STT: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
             : '';
         const orderBadge = sessionInfo?.code
-            ? (sessionInfo.source === 'NATIVE_WEB'
+            ? sessionInfo.source === 'NATIVE_WEB'
                 ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
-                : `<span class="order-code-badge" title="Đơn TPOS ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`)
+                : `<span class="order-code-badge" title="Đơn TPOS ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
             : '';
 
         // Gradient placeholder
@@ -513,10 +513,10 @@ const TposCommentList = {
                                <i data-lucide="shopping-cart" style="width:13px;height:13px;"></i>
                            </button>`
                             : sessionInfo.source === 'NATIVE_WEB'
-                                ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;">
+                              ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;">
                                    <i data-lucide="package-open" style="width:13px;height:13px;"></i>
                                </span>`
-                                : `<span title="Đơn TPOS: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
+                              : `<span title="Đơn TPOS: ${sessionInfo.code}" style="color:#10b981;padding:4px;">
                                    <i data-lucide="package-check" style="width:13px;height:13px;"></i>
                                </span>`
                     }
