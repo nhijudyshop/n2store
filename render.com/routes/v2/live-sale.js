@@ -63,15 +63,14 @@ router.get('/pages', async (req, res) => {
         // Merge Pancake pages + any pages with direct FB Graph tokens.
         const r = await db.query(`
             WITH combined AS (
-                SELECT page_id, page_name, token, updated_at, FALSE AS has_fb_token
+                SELECT page_id, page_name, updated_at, FALSE AS has_fb_token
                   FROM pancake_page_access_tokens
                 UNION ALL
-                SELECT fb_page_id AS page_id, page_name, NULL::text AS token, updated_at, TRUE AS has_fb_token
+                SELECT fb_page_id AS page_id, page_name, updated_at, TRUE AS has_fb_token
                   FROM live_sale_fb_tokens
             )
             SELECT page_id,
                    MAX(page_name)  AS page_name,
-                   MAX(token)      AS pancake_token,
                    BOOL_OR(has_fb_token) AS has_fb_token,
                    MAX(updated_at) AS updated_at
               FROM combined
@@ -79,41 +78,84 @@ router.get('/pages', async (req, res) => {
              ORDER BY COALESCE(MAX(page_name), page_id) ASC
         `);
 
-        // For pages missing a name, try to resolve it via Pancake Public API
-        // (fire-and-forget; cache resolved name back into the DB).
-        const pages = [];
-        for (const row of r.rows) {
-            let name = row.page_name;
-            if (!name && row.pancake_token) {
+        // Resolve missing page names. Strategy:
+        //   1. pancake_accounts.pages (JSONB cache) — no upstream call needed
+        //   2. upstream pancake.vn/api/v1/pages — only if step 1 didn't cover everything
+        const needsName = r.rows.some((row) => !row.page_name);
+        const nameMap = new Map();
+        if (needsName) {
+            try {
+                // Step 1: pull cached pages from pancake_accounts
+                const cached = await db.query(
+                    `SELECT pages FROM pancake_accounts WHERE pages IS NOT NULL AND pages::text <> '[]'`,
+                );
+                for (const row of cached.rows) {
+                    const list = Array.isArray(row.pages) ? row.pages : [];
+                    for (const p of list) {
+                        if (p?.id && p?.name) nameMap.set(String(p.id), p.name);
+                    }
+                }
+            } catch (e) {
+                console.warn('[LIVE-SALE] pages JSONB read failed:', e.message);
+            }
+
+            // Step 2: upstream call for anything still missing
+            const stillMissing = r.rows.some(
+                (row) => !row.page_name && !nameMap.has(String(row.page_id)),
+            );
+            if (stillMissing) {
                 try {
-                    const resp = await fetch(
-                        `https://pages.fm/api/public_api/v1/pages?access_token=${encodeURIComponent(row.pancake_token)}`,
-                        { headers: { Accept: 'application/json' } },
+                    const acc = await db.query(
+                        `SELECT token FROM pancake_accounts
+                          WHERE is_active = TRUE AND token IS NOT NULL
+                          ORDER BY last_used_at DESC NULLS LAST LIMIT 1`,
                     );
-                    if (resp.ok) {
-                        const body = await resp.json().catch(() => ({}));
-                        const list = body.categorized?.activated || body.data || body.pages || [];
-                        const match = list.find((p) => String(p.id) === String(row.page_id));
-                        if (match?.name) {
-                            name = match.name;
-                            db.query(
-                                'UPDATE pancake_page_access_tokens SET page_name = $1 WHERE page_id = $2',
-                                [name, row.page_id],
-                            ).catch(() => {});
+                    const userJwt = acc.rows[0]?.token;
+                    if (userJwt) {
+                        const resp = await fetch(
+                            `https://pancake.vn/api/v1/pages?access_token=${encodeURIComponent(userJwt)}`,
+                            {
+                                headers: {
+                                    'Accept': 'application/json, text/plain, */*',
+                                    'Origin': 'https://pancake.vn',
+                                    'Referer': 'https://pancake.vn/',
+                                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+                                },
+                            },
+                        );
+                        if (resp.ok) {
+                            const body = await resp.json().catch(() => ({}));
+                            const list = body.categorized?.activated || body.data?.activated || body.pages || [];
+                            for (const p of list) {
+                                if (p.id && p.name) nameMap.set(String(p.id), p.name);
+                            }
+                        } else {
+                            console.warn('[LIVE-SALE] pancake /pages resolution HTTP', resp.status);
                         }
                     }
-                } catch {
-                    // resolution is best-effort
+                } catch (e) {
+                    console.warn('[LIVE-SALE] name resolution failed:', e.message);
                 }
             }
-            pages.push({
-                id: row.page_id,
-                fb_page_id: row.page_id,
-                name: name || row.page_id,
-                has_fb_token: row.has_fb_token,
-                updated_at: row.updated_at,
-            });
+
+            // Persist resolved names back (fire-and-forget)
+            for (const row of r.rows) {
+                if (!row.page_name && nameMap.has(row.page_id)) {
+                    db.query(
+                        'UPDATE pancake_page_access_tokens SET page_name = $1 WHERE page_id = $2',
+                        [nameMap.get(row.page_id), row.page_id],
+                    ).catch(() => {});
+                }
+            }
         }
+
+        const pages = r.rows.map((row) => ({
+            id: row.page_id,
+            fb_page_id: row.page_id,
+            name: row.page_name || nameMap.get(row.page_id) || row.page_id,
+            has_fb_token: row.has_fb_token,
+            updated_at: row.updated_at,
+        }));
         res.json({ success: true, data: { pages } });
     } catch (err) {
         handleError(res, err, 'pages list failed');
@@ -198,14 +240,17 @@ async function fetchPancakeLivePosts(db, pageId) {
 
     const qs = new URLSearchParams({
         page_access_token: pageAccessToken,
-        page_number: '1',
+        limit: '20',
     });
     const url = `https://pages.fm/api/public_api/v1/pages/${encodeURIComponent(pageId)}/posts?${qs.toString()}`;
 
     const resp = await fetch(url, {
         headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+            'Origin': 'https://pages.fm',
+            'Referer': 'https://pages.fm/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
         },
     });
     if (!resp.ok) {

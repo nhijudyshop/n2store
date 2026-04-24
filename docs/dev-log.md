@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [live-sale] Phase 3c — fix Pancake API params + resolve page names từ pancake_accounts.pages JSONB
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/v2/live-sale.js](../render.com/routes/v2/live-sale.js) — `fetchPancakeLivePosts()` sửa param `page_number=1` → `limit=20`, thêm headers đầy đủ (Accept, Accept-Language, Origin, Referer, User-Agent) giống CF Worker. `/pages` name resolution strategy mới: (1) đọc `pancake_accounts.pages` JSONB (có cache sẵn name cho từng page theo user), (2) fallback call `pancake.vn/api/v1/pages?access_token={user_jwt}` (user JWT từ `pancake_accounts.token`, KHÔNG phải page_access_token), (3) persist resolved names về `pancake_page_access_tokens.page_name`. |
+| **Chi tiết** | **User report (log test)**: `/api/v2/live-sale/live-videos?page_id=...` trả `{videos:[], hint:'pancake_empty'}` — Pancake API trả rỗng. `/pages` trả `name=page_id` raw. **Root cause 1** (posts rỗng): mình dùng `page_number=1` nhưng existing tpos-pancake code dùng `limit=20`, và thiếu headers Origin/Referer/User-Agent mà Pancake check. **Root cause 2** (page name raw): dùng `page_access_token` (per-page) để call `/pages` endpoint (user-level) — sai token type. `/pages` endpoint yêu cầu **user JWT** (`pancake_accounts.token`). Thêm phát hiện: `pancake_accounts.pages` column là JSONB đã cache sẵn page list với names → ưu tiên đọc từ đây, tránh upstream call mỗi lần. **Flow mới cho /pages**: (a) SQL join lấy pages + page_name từ DB; (b) nếu thiếu name, đọc từ `pancake_accounts.pages` JSONB (free, no network); (c) nếu còn thiếu, mới gọi upstream `/api/v1/pages`; (d) persist names về DB. |
+| **Status** | ✅ Done. Sau Render redeploy (~1-2 phút): page dropdown hiện tên thật; live dropdown có 20 posts gần nhất nếu Pancake trả posts — không còn empty nếu page có posts. Nếu vẫn empty nghĩa là page thật sự không có posts public, vẫn có manual Post ID input fallback. |
+
 ### [live-sale] Phase 3b — dùng Pancake JWT lấy live posts + resolve tên page
 | | |
 |---|---|
