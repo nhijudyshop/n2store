@@ -87,6 +87,25 @@
         return ((name || '?').trim().charAt(0) || '?').toUpperCase();
     }
 
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    // Render avatar: FB proxy image overlaid on colored initial; on error the
+    // img element removes itself so the initial stays visible underneath.
+    function renderAvatar(o) {
+        const color = avatarColor(o.customerName);
+        const char = firstChar(o.customerName);
+        if (!o.fbUserId) {
+            return `<div class="cust-avatar" style="background:${color};">${char}</div>`;
+        }
+        const url = `${WORKER_URL}/api/fb-avatar?id=${encodeURIComponent(o.fbUserId)}${o.fbPageId ? '&page_id=' + encodeURIComponent(o.fbPageId) : ''}`;
+        return `
+            <div class="cust-avatar" style="background:${color};">
+                <span class="cust-avatar-initial">${char}</span>
+                <img class="cust-avatar-img" src="${url}" alt="" loading="lazy"
+                     onload="this.classList.add('loaded')"
+                     onerror="this.remove()">
+            </div>`;
+    }
+
     function notify(msg, type = 'info') {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type);
         else console.log(`[${type}]`, msg);
@@ -134,7 +153,7 @@
                     <td class="stt-cell">${o.sessionIndex ?? '—'}</td>
                     <td>
                         <div class="customer-cell">
-                            <div class="cust-avatar" style="background:${avatarColor(o.customerName)};">${firstChar(o.customerName)}</div>
+                            ${renderAvatar(o)}
                             <div class="cust-info">
                                 <div class="cust-name">${escapeHtml(o.customerName || '—')}</div>
                                 ${o.fbUserId ? `<div class="cust-sub"><i data-lucide="facebook"></i>${fbShort}</div>` : ''}

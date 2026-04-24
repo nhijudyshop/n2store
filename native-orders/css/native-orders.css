@@ -521,7 +521,27 @@ body { display: flex; flex-direction: column; }
     color: white;
     font-weight: 700;
     font-size: 13px;
+    position: relative;
+    overflow: hidden;
 }
+.cust-avatar-initial {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cust-avatar-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.25s;
+    background: inherit;
+}
+.cust-avatar-img.loaded { opacity: 1; }
 .cust-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cust-name {
     font-weight: 600;
