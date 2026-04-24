@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [live-sale] Phase 3b — dùng Pancake JWT lấy live posts + resolve tên page
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/v2/live-sale.js](../render.com/routes/v2/live-sale.js) — `/live-videos` giờ **3-tier fallback**: (1) `live_sale_fb_tokens` (FB Graph), (2) Pancake Public API v1 `/pages/{id}/posts` với token từ `pancake_page_access_tokens`, (3) soft-fail với hint. Thêm helper `fetchPancakeLivePosts(db, pageId)` — lọc posts có `live_status/type/status_type` chứa 'live_video'/'live'/'LIVE', fallback 20 posts gần nhất nếu không detect được live flag. `/pages` giờ **enrich tên page** từ Pancake `/api/public_api/v1/pages?access_token=...` nếu DB thiếu `page_name`, cache lại vào DB (fire-and-forget UPDATE). |
+| **Chi tiết** | **User suggest**: "Có thể dùng token pancake lấy page và id post live". Đúng: Pancake JWT từ `pancake_page_access_tokens` CÓ thể gọi Pancake Public API (`pages.fm/api/public_api/v1/*`), không phải FB Graph. **Pipeline mới** (`/live-videos`): thử FB Graph trước (nếu admin đã set fb-token) → fallback sang Pancake `/pages/{id}/posts` → soft-fail. **Live detection**: Pancake có nhiều field shapes, nên check `live_status`, `status`, `type`, `status_type` chứa chuỗi live-related, `is_live`, `live_stream`. Nếu không detect được live, trả 20 posts mới nhất (user chọn thủ công). Response thêm field `source: 'fb_graph' \| 'pancake'` để frontend biết nguồn. **Page name**: DB chỉ có `page_id` raw (112678138086607...). Enrich bằng cách gọi Pancake `/pages?access_token=...` → match page → set `page_name`, update lại DB để lần sau query nhanh. Tạm thời endpoint chậm hơn khi thiếu name (N+1 call Pancake), nhưng self-healing — chạy vài lần là cache xong. |
+| **Status** | ✅ Done. Sau Render redeploy (~1-2 phút): dropdown page sẽ hiển thị tên thật (nếu Pancake trả về data), dropdown live sẽ có posts/live từ Pancake. Nếu Pancake có live thật sẽ hiện prefix 'is_live=true', không thì hiện 20 posts gần nhất để user chọn. |
+
 ### [live-sale] Phase 3a — fix FB Graph "Bad signature" + manual Post-ID fallback
 | | |
 |---|---|

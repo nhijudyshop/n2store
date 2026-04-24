@@ -63,27 +63,57 @@ router.get('/pages', async (req, res) => {
         // Merge Pancake pages + any pages with direct FB Graph tokens.
         const r = await db.query(`
             WITH combined AS (
-                SELECT page_id, page_name, updated_at, FALSE AS has_fb_token
+                SELECT page_id, page_name, token, updated_at, FALSE AS has_fb_token
                   FROM pancake_page_access_tokens
                 UNION ALL
-                SELECT fb_page_id AS page_id, page_name, updated_at, TRUE AS has_fb_token
+                SELECT fb_page_id AS page_id, page_name, NULL::text AS token, updated_at, TRUE AS has_fb_token
                   FROM live_sale_fb_tokens
             )
             SELECT page_id,
                    MAX(page_name)  AS page_name,
+                   MAX(token)      AS pancake_token,
                    BOOL_OR(has_fb_token) AS has_fb_token,
                    MAX(updated_at) AS updated_at
               FROM combined
              GROUP BY page_id
              ORDER BY COALESCE(MAX(page_name), page_id) ASC
         `);
-        const pages = r.rows.map((row) => ({
-            id: row.page_id,
-            fb_page_id: row.page_id,
-            name: row.page_name || row.page_id,
-            has_fb_token: row.has_fb_token,
-            updated_at: row.updated_at,
-        }));
+
+        // For pages missing a name, try to resolve it via Pancake Public API
+        // (fire-and-forget; cache resolved name back into the DB).
+        const pages = [];
+        for (const row of r.rows) {
+            let name = row.page_name;
+            if (!name && row.pancake_token) {
+                try {
+                    const resp = await fetch(
+                        `https://pages.fm/api/public_api/v1/pages?access_token=${encodeURIComponent(row.pancake_token)}`,
+                        { headers: { Accept: 'application/json' } },
+                    );
+                    if (resp.ok) {
+                        const body = await resp.json().catch(() => ({}));
+                        const list = body.categorized?.activated || body.data || body.pages || [];
+                        const match = list.find((p) => String(p.id) === String(row.page_id));
+                        if (match?.name) {
+                            name = match.name;
+                            db.query(
+                                'UPDATE pancake_page_access_tokens SET page_name = $1 WHERE page_id = $2',
+                                [name, row.page_id],
+                            ).catch(() => {});
+                        }
+                    }
+                } catch {
+                    // resolution is best-effort
+                }
+            }
+            pages.push({
+                id: row.page_id,
+                fb_page_id: row.page_id,
+                name: name || row.page_id,
+                has_fb_token: row.has_fb_token,
+                updated_at: row.updated_at,
+            });
+        }
         res.json({ success: true, data: { pages } });
     } catch (err) {
         handleError(res, err, 'pages list failed');
@@ -150,6 +180,75 @@ router.delete('/fb-tokens/:pageId', async (req, res) => {
  * Hits FB Graph directly using the stored page_access_token.
  * Returns recent live_videos for that page.
  */
+/**
+ * Try Pancake Public API v1 for recent posts of a page.
+ * Pancake's page_access_token is stored in pancake_page_access_tokens
+ * and is long-lived (never expires unless revoked).
+ *
+ * Endpoint: GET https://pages.fm/api/public_api/v1/pages/{page_id}/posts
+ * Filters client-side for live video posts.
+ */
+async function fetchPancakeLivePosts(db, pageId) {
+    const tokRow = await db.query(
+        'SELECT token FROM pancake_page_access_tokens WHERE page_id = $1 LIMIT 1',
+        [pageId],
+    );
+    const pageAccessToken = tokRow.rows[0]?.token;
+    if (!pageAccessToken) return { videos: [], hint: 'no_pancake_token' };
+
+    const qs = new URLSearchParams({
+        page_access_token: pageAccessToken,
+        page_number: '1',
+    });
+    const url = `https://pages.fm/api/public_api/v1/pages/${encodeURIComponent(pageId)}/posts?${qs.toString()}`;
+
+    const resp = await fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        },
+    });
+    if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        return { videos: [], hint: 'pancake_api_failed', details: text.slice(0, 300) };
+    }
+    const body = await resp.json().catch(() => ({}));
+    const posts = body.posts || body.data || [];
+
+    // Recognize live-video posts across a few Pancake field shapes.
+    const liveFlags = ['live_video', 'live', 'LIVE', 'live_stream'];
+    const lives = posts.filter((p) => {
+        const ls = p.live_status || p.status || p.type || p.status_type || '';
+        if (liveFlags.some((f) => String(ls).toLowerCase().includes(f))) return true;
+        if (p.is_live === true || p.live_stream === true) return true;
+        return false;
+    });
+
+    // Fallback: if we couldn't detect live, show the 20 most recent posts anyway
+    // — user can still pick the relevant one.
+    const chosen = lives.length > 0 ? lives : posts.slice(0, 20);
+
+    const videos = chosen.map((p) => {
+        const postId = p.id || p.post_id || p.fbid || p.facebook_post_id;
+        return {
+            id: String(postId || ''),
+            fb_post_id: String(postId || ''),
+            fb_live_id: String(p.live_video_id || p.live_id || postId || ''),
+            title: p.message || p.title || p.description || `Post ${postId}`,
+            status: p.live_status || p.status || '',
+            created_time: p.inserted_at || p.created_time || p.updated_at,
+            permalink_url: p.link || p.permalink_url || '',
+            page_name: '',
+            is_live: !!(lives.length > 0 && lives.includes(p)),
+        };
+    }).filter((v) => v.id);
+
+    return {
+        videos,
+        hint: videos.length > 0 ? (lives.length > 0 ? 'pancake_live' : 'pancake_recent') : 'pancake_empty',
+    };
+}
+
 router.get('/live-videos', async (req, res) => {
     const db = req.app.locals.chatDb;
     const pageId = req.query.page_id;
@@ -157,55 +256,59 @@ router.get('/live-videos', async (req, res) => {
     if (!pageId) return res.status(400).json({ success: false, error: 'page_id required' });
 
     try {
-        // Prefer a real FB Graph token from live_sale_fb_tokens.
-        // Pancake JWTs (pancake_page_access_tokens) are NOT valid for graph.facebook.com —
-        // FB will reject them with OAuthException code 190 / "Bad signature".
+        // Preferred path: real FB Graph token (manually set via /fb-tokens/:id).
         const fbRow = await db.query(
             'SELECT access_token FROM live_sale_fb_tokens WHERE fb_page_id = $1 LIMIT 1',
             [pageId],
         );
         const fbToken = fbRow.rows[0]?.access_token;
 
-        if (!fbToken) {
-            // No FB Graph token configured for this page. Don't fail the UI —
-            // tell the frontend to show a "paste post ID" input instead.
+        if (fbToken) {
+            const fields = 'id,title,description,status,permalink_url,creation_time,embed_html';
+            const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/live_videos?fields=${fields}&limit=20&access_token=${encodeURIComponent(fbToken)}`;
+            const resp = await fetch(fbUrl);
+            if (resp.ok) {
+                const body = await resp.json();
+                const videos = (body.data || []).map((v) => ({
+                    id: v.id,
+                    fb_post_id: v.id,
+                    fb_live_id: v.id,
+                    title: v.title || v.description || `Live ${v.id}`,
+                    status: v.status,
+                    created_time: v.creation_time,
+                    permalink_url: v.permalink_url,
+                    page_name: '',
+                    is_live: true,
+                }));
+                return res.json({ success: true, data: { videos }, source: 'fb_graph' });
+            }
+            // Fall through to Pancake on FB failure.
+            console.warn('[LIVE-SALE] FB Graph failed, falling back to Pancake');
+        }
+
+        // Fallback: use Pancake Public API (page_access_token from pancake_page_access_tokens).
+        const pancakeResult = await fetchPancakeLivePosts(db, pageId);
+        if (pancakeResult.videos.length > 0) {
             return res.json({
                 success: true,
-                data: { videos: [] },
-                hint: 'no_fb_token',
-                message: 'Chưa có FB Graph token cho page này. Dán Post ID thủ công hoặc set token qua PUT /api/v2/live-sale/fb-tokens/:page_id.',
+                data: { videos: pancakeResult.videos },
+                source: 'pancake',
+                hint: pancakeResult.hint,
             });
         }
 
-        const fields = 'id,title,description,status,permalink_url,creation_time,embed_html';
-        const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/live_videos?fields=${fields}&limit=20&access_token=${encodeURIComponent(fbToken)}`;
-
-        const resp = await fetch(fbUrl);
-        if (!resp.ok) {
-            const text = await resp.text().catch(() => '');
-            // Graceful fallback — return empty list with a hint so UI stays usable.
-            return res.json({
-                success: true,
-                data: { videos: [] },
-                hint: 'fb_graph_failed',
-                message: `FB Graph trả lỗi ${resp.status}. Token có thể đã hết hạn — cập nhật qua PUT /api/v2/live-sale/fb-tokens/:page_id.`,
-                details: text.slice(0, 300),
-            });
-        }
-        const body = await resp.json();
-        const videos = (body.data || []).map((v) => ({
-            id: v.id,
-            fb_post_id: v.id,
-            fb_live_id: v.id,
-            title: v.title || v.description || `Live ${v.id}`,
-            status: v.status,
-            created_time: v.creation_time,
-            permalink_url: v.permalink_url,
-            page_name: '',
-        }));
-        res.json({ success: true, data: { videos } });
+        // Nothing worked — keep UI alive, nudge user to paste post id manually.
+        return res.json({
+            success: true,
+            data: { videos: [] },
+            hint: pancakeResult.hint || 'no_tokens',
+            message:
+                pancakeResult.hint === 'no_pancake_token'
+                    ? 'Chưa có Pancake/FB token cho page này. Dán Post ID thủ công bên phải.'
+                    : 'Không tìm thấy live/post từ Pancake. Dán Post ID thủ công bên phải.',
+            details: pancakeResult.details,
+        });
     } catch (err) {
-        // Last-resort soft-fail: keep UI alive with empty list + error info
         console.warn('[LIVE-SALE] live-videos fetch failed:', err.message);
         res.json({
             success: true,
