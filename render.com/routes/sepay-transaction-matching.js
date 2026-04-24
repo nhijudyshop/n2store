@@ -1256,8 +1256,14 @@ function registerRoutes(router, helpers) {
 
         try {
             // 1. Get pending match details
+            // Accept both 'pending' and 'skipped' — the UI renders the
+            // dropdown for skipped rows too (so users can re-select), so the
+            // resolve endpoint must accept them. Rows already 'resolved' or
+            // 'rejected' are rejected below with a specific message so the
+            // frontend can self-heal by reloading.
             const matchResult = await db.query(
                 `SELECT
+                    pcm.status,
                     pcm.transaction_id,
                     pcm.extracted_phone,
                     pcm.matched_customers,
@@ -1265,7 +1271,7 @@ function registerRoutes(router, helpers) {
                     bh.content
                  FROM pending_customer_matches pcm
                  INNER JOIN balance_history bh ON pcm.transaction_id = bh.id
-                 WHERE pcm.id = $1 AND pcm.status = 'pending'`,
+                 WHERE pcm.id = $1`,
                 [id]
             );
 
@@ -1273,6 +1279,15 @@ function registerRoutes(router, helpers) {
                 return res.status(404).json({
                     success: false,
                     error: 'Pending match not found or already resolved'
+                });
+            }
+
+            const currentStatus = matchResult.rows[0].status;
+            if (currentStatus !== 'pending' && currentStatus !== 'skipped') {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Pending match not found or already resolved',
+                    current_status: currentStatus
                 });
             }
 

@@ -121,10 +121,29 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         } else {
             console.error('[RESOLVE-MATCH] Error response:', result);
             const errorMsg = result.message || result.error || 'Khong the luu';
-            showNotification(`Loi: ${errorMsg}`, 'error');
-            selectElement.disabled = false;
-            selectElement.style.opacity = '1';
-            selectElement.value = '';
+
+            // Stale-state: pending match was already resolved/skipped/deleted by
+            // another session, webhook, or phone-edit flow. Refresh silently so
+            // the row reflects the current DB state instead of leaving the user
+            // stuck on a dead dropdown.
+            const isStale =
+                response.status === 404 ||
+                /not found|already resolved/i.test(errorMsg);
+
+            if (isStale) {
+                showNotification(
+                    'Giao dich da duoc xu ly, dang lam moi danh sach...',
+                    'warning'
+                );
+                setTimeout(async () => {
+                    await loadData();
+                }, 300);
+            } else {
+                showNotification(`Loi: ${errorMsg}`, 'error');
+                selectElement.disabled = false;
+                selectElement.style.opacity = '1';
+                selectElement.value = '';
+            }
         }
     } catch (error) {
         console.error('[RESOLVE-MATCH] Network error:', error);

@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [balance-history][pending-match] Fix 404 "Pending match not found or already resolved" khi chọn KH từ dropdown
+| | |
+|---|---|
+| **Files** | MODIFIED: [balance-history/js/balance-verification.js](../balance-history/js/balance-verification.js) (hàm `resolvePendingMatch`, ~line 121-147) — phát hiện stale-state (HTTP 404 hoặc error match `/not found\|already resolved/i`) thì show warning "Giao dich da duoc xu ly, dang lam moi danh sach..." và tự `loadData()` thay vì báo lỗi đỏ đứng im. MODIFIED: [render.com/routes/sepay-transaction-matching.js](../render.com/routes/sepay-transaction-matching.js) (endpoint `POST /api/sepay/pending-matches/:id/resolve`, line ~1257-1292) — loại bỏ filter `AND pcm.status = 'pending'` trong SELECT, chuyển sang check `status IN ('pending','skipped')` sau khi fetch → cho phép resolve row đã skip (vì UI vẫn render dropdown cho skipped row); chỉ reject với 404 khi row đã `resolved`/`rejected` để frontend self-heal. |
+| **Chi tiết** | **Bug**: User thấy dropdown "Chọn KH" trên row giao dịch, chọn 1 KH → toast đỏ `Loi: Pending match not found or already resolved`. Server log: `POST /api/sepay/pending-matches/198/resolve 404`. **Root cause**: Endpoint resolve cũ có `WHERE pcm.id=$1 AND pcm.status='pending'`, nhưng [balance-table.js:316-340](../balance-history/js/balance-table.js#L316-L340) render dropdown cho cả `pending` **và** `skipped` rows (để user re-select sau khi skip) — click trên skipped row luôn 404. Thêm race condition: `POST /api/sepay/transaction-phone-update` (line 606 `sepay-wallet-operations.js`) DELETE toàn bộ pcm rows khi edit phone → UI còn cached `pending_match_id` cũ sẽ 404. SSE live-mode reload sau 500ms cũng chưa đủ nhanh nếu user click trong lúc đang stale. **Fix 2 lớp**: (1) Server: relax điều kiện — accept cả `pending` lẫn `skipped` (skipped nghĩa là user cũ đã bỏ qua, giờ muốn select lại thì cho), chỉ block `resolved`/`rejected`. (2) Frontend: detect 404 hoặc error text match stale-state → show warning (không phải error) + `loadData()` để refresh. User không còn stuck ở dropdown "chết". |
+| **Status** | ✅ Code done. Verify: (a) click dropdown trên row pending bình thường → vẫn resolve OK như cũ; (b) skip 1 row xong click lại dropdown select KH → server accept (trước đây 404); (c) mô phỏng race — mở 2 tab, tab 1 resolve xong, tab 2 click dropdown cùng row → toast warning + list tự refresh, không còn error đỏ. |
+
 ### [orders][chotdon-panel] Bulk-assign subtag "KHÔNG ĐỂ HÀNG" theo STT — nút "+" trên row trong panel Chốt Đơn
 | | |
 |---|---|
