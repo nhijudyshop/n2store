@@ -126,15 +126,10 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
             // another session, webhook, or phone-edit flow. Refresh silently so
             // the row reflects the current DB state instead of leaving the user
             // stuck on a dead dropdown.
-            const isStale =
-                response.status === 404 ||
-                /not found|already resolved/i.test(errorMsg);
+            const isStale = response.status === 404 || /not found|already resolved/i.test(errorMsg);
 
             if (isStale) {
-                showNotification(
-                    'Giao dich da duoc xu ly, dang lam moi danh sach...',
-                    'warning'
-                );
+                showNotification('Giao dich da duoc xu ly, dang lam moi danh sach...', 'warning');
                 setTimeout(async () => {
                     await loadData();
                 }, 300);
