@@ -93,6 +93,9 @@
                 <button onclick="KPICommission.refreshData()" class="btn-secondary ds-btn ds-btn-ghost">
                     <i data-lucide="refresh-cw"></i> Làm mới
                 </button>
+                <button id="btnToggleDisplayMode" onclick="KPICommission.toggleDisplayMode()" class="btn-secondary ds-btn ds-btn-ghost" title="Chuyển đổi giữa xem đầy đủ (cả SP chưa tick KPI) và chỉ xem SP có KPI">
+                    <i data-lucide="eye"></i> <span id="displayModeLabel">Chỉ có KPI</span>
+                </button>
                 <button id="btnRecomputeAllKPI" onclick="KPICommission.recomputeAllKPI()" class="btn-warning ds-btn ds-btn-ghost" title="Tính lại toàn bộ KPI theo logic biến thể mới (chạy lâu)">
                     <i data-lucide="calculator"></i> Tính lại KPI toàn bộ
                 </button>
@@ -321,7 +324,6 @@
                                     <th>Thêm</th>
                                     <th>Xóa</th>
                                     <th>NET Qty</th>
-                                    <th title="Được sale tick là SP bán hàng để tính KPI">KPI</th>
                                     <th>KPI (VNĐ)</th>
                                 </tr>
                             </thead>

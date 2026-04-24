@@ -33,6 +33,13 @@ const KPICommission = {
         currentEmployeeUserId: null,
         isLoading: false,
         employeeNameCache: {}, // Cache for resolved employee names (Bug #4 fix)
+        // 'simple' = chỉ hiển thị đơn/user có KPI > 0 (default, hành vi cũ).
+        // 'full'   = hiển thị TẤT CẢ đơn gồm cả đơn chưa tick KPI (KPI = 0).
+        // Persist localStorage per-user để giữ giữa session.
+        displayMode: (() => {
+            try { return localStorage.getItem('kpiDisplayMode') || 'simple'; }
+            catch (e) { return 'simple'; }
+        })(),
     },
 
     KPI_PER_PRODUCT: 5000,
@@ -338,6 +345,9 @@ const KPICommission = {
             // Auto-select campaign from parent window's active campaign
             this.syncCampaignFromParent();
 
+            // Sync nút toggle mode với state đã khôi phục từ localStorage
+            this.updateDisplayModeLabel();
+
             await this.applyFilters();
             this.reinitIcons();
         } catch (error) {
@@ -511,6 +521,35 @@ const KPICommission = {
     // ========================================
     // APPLY FILTERS (12.4)
     // ========================================
+    /**
+     * Toggle giữa 2 chế độ hiển thị:
+     *   - 'simple' (default): ẩn đơn/user có KPI = 0 (chỉ xem KPI có giá trị).
+     *   - 'full': hiển thị TẤT CẢ đơn kể cả chưa tick — giúp sale review lại SP nào chưa được đánh dấu.
+     * Persist localStorage, re-apply filters sau khi đổi.
+     */
+    toggleDisplayMode() {
+        const next = this.state.displayMode === 'simple' ? 'full' : 'simple';
+        this.state.displayMode = next;
+        try { localStorage.setItem('kpiDisplayMode', next); } catch (e) {}
+        this.updateDisplayModeLabel();
+        // Re-apply filter + render với mode mới
+        this.applyFilters();
+    },
+
+    /** Update label + icon trên nút toggle dựa trên state hiện tại. */
+    updateDisplayModeLabel() {
+        const label = document.getElementById('displayModeLabel');
+        const btn = document.getElementById('btnToggleDisplayMode');
+        if (!label || !btn) return;
+        if (this.state.displayMode === 'full') {
+            label.textContent = 'Hiển thị đầy đủ';
+            btn.title = 'Đang xem TẤT CẢ đơn (gồm cả chưa tick KPI). Click để chỉ xem đơn có KPI.';
+        } else {
+            label.textContent = 'Chỉ có KPI';
+            btn.title = 'Đang ẩn đơn không có KPI. Click để xem đầy đủ (bao gồm đơn chưa tick).';
+        }
+    },
+
     async applyFilters() {
         // Read filter values
         this.state.filters.campaign =
@@ -579,12 +618,16 @@ const KPICommission = {
         let totalNet = 0;
         let totalKPI = 0;
 
+        const fullMode = this.state.displayMode === 'full';
+
         for (const emp of filteredData) {
             let empHasValidOrders = false;
             for (const order of emp.orders) {
-                // Exclude stale orders and orders with no KPI from summary
+                // Exclude stale orders regardless of mode.
                 if (order._stale) continue;
-                if ((order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) continue;
+                // Simple mode: bỏ qua đơn KPI = 0. Full mode: đếm hết.
+                const hasKpi = (order.netProducts || 0) > 0 || (order.kpi || 0) > 0;
+                if (!fullMode && !hasKpi) continue;
                 empHasValidOrders = true;
                 totalOrders++;
                 totalNet += order.netProducts || 0;
@@ -841,14 +884,24 @@ const KPICommission = {
         const tbody = document.getElementById('kpiTableBody');
         if (!tbody) return;
 
+        const fullMode = this.state.displayMode === 'full';
         let html = '';
         aggregated.forEach((emp, idx) => {
             const invoiceSummaryHtml = this.renderKPIInvoiceStatusSummary(emp.orders);
 
+            // "SỐ ĐƠN" column:
+            //   Simple mode → chỉ đếm đơn có KPI > 0 (hành vi cũ).
+            //   Full mode   → đếm TẤT CẢ đơn không stale (bao gồm đơn KPI = 0).
+            const orderCount = emp.orders.filter((o) => {
+                if (o._stale) return false;
+                if (fullMode) return true;
+                return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
+            }).length;
+
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
-                <td>${emp.orders.filter((o) => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)).length}</td>
+                <td>${orderCount}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
                 <td>${invoiceSummaryHtml}</td>
@@ -1150,8 +1203,7 @@ const KPICommission = {
             let totalAdded = 0,
                 totalRemoved = 0,
                 totalNet = 0,
-                totalKPI = 0,
-                totalChecked = 0;
+                totalKPI = 0;
             let html = '';
 
             products.forEach((p, idx) => {
@@ -1159,12 +1211,10 @@ const KPICommission = {
                 totalRemoved += p.removed;
                 totalNet += p.net;
                 totalKPI += p.kpi;
-                if (p.isSaleChecked) totalChecked++;
 
-                const rowClass = p.isSaleChecked ? 'kpi-row-checked' : '';
-                const checkIcon = p.isSaleChecked
-                    ? '<span class="kpi-check-yes" title="Đã tick là SP bán hàng">✓</span>'
-                    : '<span class="kpi-check-no" title="Chưa tick — không tính KPI">—</span>';
+                // Row tô xanh nhạt khi thực sự đóng góp KPI (p.kpi > 0).
+                // Đồng bộ visual với cột "KPI (VNĐ)": row có tiền → xanh; row 0đ → trắng.
+                const rowClass = p.kpi > 0 ? 'kpi-row-checked' : '';
 
                 html += `<tr class="${rowClass}">
                     <td>${idx + 1}</td>
@@ -1173,7 +1223,6 @@ const KPICommission = {
                     <td class="action-add">+${p.added}</td>
                     <td class="action-remove">-${p.removed}</td>
                     <td><strong>${p.net}</strong></td>
-                    <td style="text-align:center;">${checkIcon}</td>
                     <td>${this.formatCurrency(p.kpi)}</td>
                 </tr>`;
             });
@@ -1186,7 +1235,6 @@ const KPICommission = {
                     <td class="action-add"><strong>+${totalAdded}</strong></td>
                     <td class="action-remove"><strong>-${totalRemoved}</strong></td>
                     <td><strong>${totalNet}</strong></td>
-                    <td style="text-align:center;"><strong>${totalChecked}/${products.length}</strong></td>
                     <td><strong>${this.formatCurrency(totalKPI)}</strong></td>
                 </tr>`;
             }
