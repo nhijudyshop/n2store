@@ -573,6 +573,64 @@ router.get('/kpi-base/list-codes', async (req, res) => {
 });
 
 /**
+ * GET /api/realtime/kpi-base/list-meta
+ * List all kpi_base rows with full metadata (user, campaign, stt, created_at)
+ * EXCEPT products[] — for dashboards/full mode display where we need to know
+ * which orders have a BASE but may be missing from kpi_statistics (KPI=0).
+ * Optional: ?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD&campaign=...
+ * IMPORTANT: Must be registered BEFORE /:orderCode routes
+ */
+router.get('/kpi-base/list-meta', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const { dateFrom, dateTo, campaign } = req.query;
+        const clauses = [];
+        const params = [];
+        if (dateFrom) {
+            params.push(dateFrom);
+            clauses.push(`created_at::date >= $${params.length}`);
+        }
+        if (dateTo) {
+            params.push(dateTo);
+            clauses.push(`created_at::date <= $${params.length}`);
+        }
+        if (campaign) {
+            params.push(campaign);
+            clauses.push(`campaign_name = $${params.length}`);
+        }
+        const where = clauses.length ? ' WHERE ' + clauses.join(' AND ') : '';
+        const query = `
+            SELECT order_code, order_id, campaign_id, campaign_name,
+                   user_id, user_name, stt, created_at
+            FROM kpi_base
+            ${where}
+            ORDER BY created_at DESC
+        `;
+
+        const result = await pool.query(query, params);
+
+        res.json({
+            bases: result.rows.map(r => ({
+                orderCode: r.order_code,
+                orderId: r.order_id,
+                campaignId: r.campaign_id,
+                campaignName: r.campaign_name,
+                userId: r.user_id,
+                userName: r.user_name,
+                stt: r.stt,
+                createdAt: r.created_at
+            })),
+            count: result.rows.length
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-base/list-meta error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/kpi-base/:orderCode
  * Get KPI base data by order code
  */

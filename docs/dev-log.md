@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][kpi] Fix "Hiển thị đầy đủ" mode không thực sự show đơn chưa tick
+| | |
+|---|---|
+| **Files** | NEW endpoint: [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js) — `GET /api/realtime/kpi-base/list-meta` (registered TRƯỚC `/:orderCode` để không bị Express match nhầm route param). Trả `[{orderCode, orderId, campaignId, campaignName, userId, userName, stt, createdAt}]` cho MỌI row `kpi_base`, không bao gồm `products[]` (giảm response size). Optional filter `?dateFrom=&dateTo=&campaign=` — WHERE trực tiếp trên `created_at::date` + `campaign_name`. MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — `applyFilters()` khi `displayMode='full'` gọi thêm `mergeBaseOnlyOrders(filtered)`. Hàm mới `mergeBaseOnlyOrders()`: GET `/kpi-base/list-meta` với query params match filter hiện tại → với mỗi base, check nếu `(userId, orderCode)` chưa có trong `filtered` → append synthetic order `{netProducts:0, kpi:0, _fromBaseOnly:true, ...}`. User chưa có trong `filtered` → thêm entry mới. Mutate in-place. |
+| **Chi tiết** | **User report** sau commit `14925d56`: nút "Hiển thị đầy đủ" vẫn chỉ show 1 đơn (đơn đã có tick KPI), không hiện các đơn chưa tick. **Root cause**: `statsData` load từ `kpi_statistics`, mà bảng này chỉ chứa orders có KPI > 0 (khi `recalculateAndSaveKPI` tính ra 0 → DELETE row). Nên đơn chưa tick SP nào = KPI 0 → không có trong `statsData` → toggle filter của Task 3 cũ chỉ tác động trên orders đã tồn tại trong `statsData`, không "tạo" ra đơn chưa tick được. **Fix**: data source thứ 2 là `kpi_base` — mọi order đã tạo BASE snapshot đều có row ở đây (immutable sau khi bulk send xong). Full mode sẽ MERGE 2 nguồn: `kpi_statistics` (đơn có KPI) + `kpi_base` (đơn chỉ có BASE). Đơn chỉ có BASE → synthetic entry với kpi=0, hiển thị để sale review, user có thể click vào xem chi tiết + tick SP cần tính KPI. **Performance**: endpoint list-meta không trả `products` (JSONB có thể lớn) → response nhẹ, 300 orders ~ 60KB. **Lưu ý deploy**: cần restart Render server để endpoint mới hoạt động; frontend fail-safe `try/catch` nếu endpoint chưa available → chỉ hiện đơn có KPI như cũ. |
+| **Status** | ✅ Code done, syntax check pass. Cần deploy Render server. Verify: (1) Bật "Hiển thị đầy đủ" → "Tổng đơn có BASE" tăng lên bằng tổng số đơn có kpi_base (vd. 303 thay vì 3); (2) Bảng KPI theo nhân viên hiện đầy đủ user có base (kể cả user chưa có KPI nào); (3) Click user → modal "Chi tiết KPI - [tên]" show cả đơn chưa tick (kpi=0, SP NET=0); (4) Tắt toggle → về simple mode, chỉ hiện đơn có KPI > 0 như cũ. |
+
 ### [orders][kpi] Tab KPI: bỏ cột KPI icon + toggle "Chỉ có KPI / Hiển thị đầy đủ"
 | | |
 |---|---|

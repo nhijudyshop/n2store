@@ -602,11 +602,93 @@ const KPICommission = {
             }
         }
 
+        // FULL MODE: bổ sung đơn có BASE nhưng chưa có entry trong kpi_statistics
+        // (KPI = 0 do sale chưa tick SP nào). Fetch kpi_base metadata và merge vào.
+        if (this.state.displayMode === 'full') {
+            try {
+                await this.mergeBaseOnlyOrders(filtered);
+            } catch (e) {
+                console.warn('[KPI Tab] mergeBaseOnlyOrders failed:', e?.message);
+            }
+        }
+
         this.state.filteredData = filtered;
 
         // Update UI
         this.updateSummaryCards(filtered);
         await this.renderKPITable(filtered);
+    },
+
+    /**
+     * Fetch kpi_base metadata qua REST endpoint /kpi-base/list-meta + merge
+     * những đơn chưa có entry trong kpi_statistics vào mảng filtered (full mode).
+     *
+     * Mutates `filtered` in-place:
+     *   - đơn đã có trong statsData → skip (giữ dữ liệu KPI thật)
+     *   - đơn có BASE chưa có trong statsData → thêm synthetic order (kpi=0, netProducts=0)
+     *   - user không có trong filtered nhưng có BASE → thêm user mới với orders synthetic
+     */
+    async mergeBaseOnlyOrders(filtered) {
+        const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
+        const { campaign, employee, dateFrom, dateTo } = this.state.filters;
+
+        const qs = new URLSearchParams();
+        if (dateFrom) qs.append('dateFrom', dateFrom);
+        if (dateTo) qs.append('dateTo', dateTo);
+        if (campaign) qs.append('campaign', campaign);
+        const url = `${KPI_API}/kpi-base/list-meta${qs.toString() ? '?' + qs.toString() : ''}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const bases = data.bases || [];
+
+        // Index filtered by userId + orderCode set để check nhanh
+        const byUser = new Map();
+        for (const emp of filtered) {
+            const orderCodes = new Set(emp.orders.map((o) => o.orderCode));
+            byUser.set(emp.userId, { emp, orderCodes });
+        }
+
+        for (const b of bases) {
+            // Respect employee filter (đã filter qua campaign + date ở backend).
+            if (employee && b.userId !== employee) continue;
+
+            const synthetic = {
+                orderCode: b.orderCode,
+                orderId: b.orderId,
+                stt: b.stt,
+                campaignName: b.campaignName,
+                netProducts: 0,
+                kpi: 0,
+                hasDiscrepancy: false,
+                details: {},
+                date: b.createdAt
+                    ? new Date(b.createdAt).toISOString().substring(0, 10)
+                    : '',
+                _fromBaseOnly: true,
+            };
+
+            const entry = byUser.get(b.userId);
+            if (!entry) {
+                // User chưa có trong filtered → thêm mới
+                const newEmp = {
+                    userId: b.userId,
+                    userName: b.userName || b.userId,
+                    orders: [synthetic],
+                };
+                filtered.push(newEmp);
+                byUser.set(b.userId, {
+                    emp: newEmp,
+                    orderCodes: new Set([b.orderCode]),
+                });
+            } else if (!entry.orderCodes.has(b.orderCode)) {
+                // User đã có nhưng chưa có đơn này → append synthetic
+                entry.emp.orders.push(synthetic);
+                entry.orderCodes.add(b.orderCode);
+            }
+            // else: đơn đã có KPI thật trong statsData → không override
+        }
     },
 
     // ========================================
