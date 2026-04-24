@@ -45,6 +45,16 @@ async function withTransaction(pool, fn) {
     if (!pool || typeof pool.connect !== 'function') {
         throw new Error('withTransaction: first argument must be a pg.Pool');
     }
+    // A PoolClient also has .connect() (it's the legacy raw Client API), so
+    // we additionally check for .release which only exists on checked-out
+    // clients. Calling client.connect() twice throws "Client has already been
+    // connected" — catching it here gives a clearer error at the call site.
+    if (typeof pool.release === 'function') {
+        throw new Error(
+            'withTransaction: received a PoolClient (has .release). Pass the Pool, ' +
+            'or call your queries directly on the client you already have.'
+        );
+    }
     if (typeof fn !== 'function') {
         throw new Error('withTransaction: second argument must be an async function');
     }
