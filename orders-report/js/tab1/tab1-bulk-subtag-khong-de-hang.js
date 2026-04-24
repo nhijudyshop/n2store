@@ -50,8 +50,7 @@
             if (key && !seen.has(key)) seen.set(key, o);
         };
         // 1. displayedData trước (đơn user đang nhìn trong bảng).
-        const list =
-            (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
+        const list = (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
         list.filter(matches).forEach(add);
         // 2. OrderStore.getAll() — quét toàn bộ dataset để thấy mọi STT trùng.
         if (window.OrderStore && typeof window.OrderStore.getAll === 'function') {
@@ -203,9 +202,10 @@
                     const dupBadge = p.isDuplicate
                         ? `<span class="bulk-kdh-dup-badge" title="Có nhiều đơn cùng STT — hãy chọn đơn đúng">trùng STT</span>`
                         : '';
-                    const inViewBadge = p.isDuplicate && p.inDisplayed
-                        ? `<span class="bulk-kdh-inview-badge" title="Đơn này đang hiện trong bảng">trong bảng</span>`
-                        : '';
+                    const inViewBadge =
+                        p.isDuplicate && p.inDisplayed
+                            ? `<span class="bulk-kdh-inview-badge" title="Đơn này đang hiện trong bảng">trong bảng</span>`
+                            : '';
                     return `<label class="bulk-kdh-row bulk-kdh-row--ok ${checked ? '' : 'bulk-kdh-row--unchecked'}">
                         <input type="checkbox" class="bulk-kdh-row-cb" ${checked} data-key="${escapeAttr(p.key)}" />
                         <span class="bulk-kdh-stt">STT ${p.stt}</span>
