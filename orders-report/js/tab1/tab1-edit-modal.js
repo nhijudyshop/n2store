@@ -1020,12 +1020,19 @@ function cancelProductDetail() {
  * Use this instead of switchEditTab("products") for in-tab data changes.
  */
 function refreshProductsTableOnly() {
-    const tbody = document.getElementById('productsTableBody');
-    if (!tbody || !currentEditOrderData) return;
-
+    if (!currentEditOrderData) return;
     const data = currentEditOrderData;
+
+    // Giỏ rỗng → full re-render để show empty state
     if (!data.Details || data.Details.length === 0) {
-        // No products left - need full re-render to show empty state
+        switchEditTab('products');
+        return;
+    }
+
+    // Empty → non-empty transition: tbody chưa tồn tại (đang ở empty state)
+    // → full re-render để dựng table + tbody lần đầu
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) {
         switchEditTab('products');
         return;
     }

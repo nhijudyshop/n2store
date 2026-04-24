@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][edit-modal] Fix thêm SP vào giỏ rỗng không hiện trong "Danh sách sản phẩm"
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `refreshProductsTableOnly()` line 1022-1038: đảo thứ tự điều kiện. Trước: check `tbody` trước → early-return khi không có tbody → không bao giờ chạm nhánh `switchEditTab('products')`. Sau: check `currentEditOrderData` → check `Details.length === 0` (rỗng → full re-render empty state) → check `tbody` (không có = empty→non-empty transition → full re-render table). |
+| **Chi tiết** | **User report**: modal "Sửa đơn hàng" tab "Sản phẩm", khi giỏ rỗng ("Chưa có sản phẩm"), click "+ Thêm" trên search result → SP không xuất hiện trong danh sách phía dưới. Khi giỏ đã có SP thì thêm OK. **Root cause**: `renderProductsTab()` (line 300-301) khi `Details.length===0` chỉ render `.empty-state` (không có `<tbody id="productsTableBody">`). Sau khi `addProductToOrderFromInline` push SP (line 1646) rồi gọi `refreshProductsTableOnly()` (line 1668), hàm này early-return ngay ở `if (!tbody) return` vì empty state không có tbody → không bao giờ tới nhánh `switchEditTab('products')` fallback. Data đã đúng (badge "SL:1" hiện trên kết quả search nhờ `updateProductItemUI` ở line 1657), chỉ lỗi render bảng. **Fix**: đảo thứ tự check — xử lý empty `Details` trước (full re-render empty state), rồi mới đến check tbody; nếu tbody thiếu nhưng Details có data → full re-render để dựng table lần đầu. |
+| **Status** | ✅ Done. Cần test: (1) mở đơn rỗng → search + click "+ Thêm" → SP hiện ngay trong danh sách (1), tổng đúng; (2) thêm SP thứ 2 → (2), update đúng; (3) click "+ Thêm" lại SP đã có → qty tăng (không duplicate); (4) xóa hết SP → về empty state → thêm lại vẫn OK (vòng lặp); (5) lưu thay đổi → TPOS nhận đúng. |
+
 ### [orders][ptag] Mở rộng dropdown gán Tag XL 3x + tách pills vs list rõ ràng, không che lấp
 | | |
 |---|---|
