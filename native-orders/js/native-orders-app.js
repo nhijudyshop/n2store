@@ -18,6 +18,7 @@
         editingCode: null,
         loading: false,
         filterVisible: true,
+        expandedOrders: new Set(), // codes of rows currently expanded
     };
 
     // ---------- DOM ----------
@@ -114,6 +115,72 @@
     }
 
     // ---------- Render ----------
+    function _renderExpandRow(o) {
+        const lines = Array.isArray(o.products) ? o.products : [];
+        if (!lines.length) {
+            return `
+                <tr class="expand-row" data-for="${escapeHtml(o.code)}">
+                    <td colspan="11">
+                        <div class="expand-empty">
+                            <i data-lucide="package-x"></i>
+                            Đơn chưa có sản phẩm —
+                            <a href="#" onclick="event.preventDefault();event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">Bấm Sửa để thêm →</a>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+        const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+        const totalAmt = lines.reduce(
+            (s, l) => s + (Number(l.quantity) || 0) * (Number(l.price) || 0),
+            0
+        );
+        const rows = lines.map((l, i) => {
+            const qty = Number(l.quantity) || 0;
+            const price = Number(l.price) || 0;
+            const amount = qty * price;
+            const img = l.imageUrl
+                ? `<img src="${escapeHtml(l.imageUrl)}" class="expand-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+                   <span class="expand-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
+                : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
+            return `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${img}</td>
+                    <td>
+                        <div class="expand-name">${escapeHtml(l.name || '—')}</div>
+                        <div class="expand-code">${escapeHtml(l.productCode || '')}</div>
+                    </td>
+                    <td class="expand-qty">${qty}</td>
+                    <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>
+                    <td class="expand-amount">${amount.toLocaleString('vi-VN')}đ</td>
+                </tr>`;
+        }).join('');
+        return `
+            <tr class="expand-row" data-for="${escapeHtml(o.code)}">
+                <td colspan="11">
+                    <div class="expand-wrap">
+                        <div class="expand-header">
+                            <span class="expand-title"><i data-lucide="package"></i>Sản phẩm trong đơn ${escapeHtml(o.code)}</span>
+                            <span class="expand-totals">${totalQty} SP · ${totalAmt.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                        <table class="expand-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">#</th>
+                                    <th style="width:56px;">ẢNH</th>
+                                    <th>SẢN PHẨM</th>
+                                    <th style="width:60px;">SL</th>
+                                    <th style="width:120px;">ĐƠN GIÁ</th>
+                                    <th style="width:130px;">THÀNH TIỀN</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>`;
+    }
+
     function renderRows() {
         const orders = STATE.orders;
         if (!orders.length) {
@@ -128,29 +195,40 @@
                 const fbShort = o.fbUserId
                     ? `${o.fbUserId.slice(0, 6)}…${o.fbUserId.slice(-4)}`
                     : '';
-                return `
-                <tr data-code="${escapeHtml(o.code)}">
-                    <td class="col-check"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
-                    <td class="col-actions">
+                const isExpanded = STATE.expandedOrders.has(o.code);
+                const lineCount = Array.isArray(o.products) ? o.products.length : 0;
+                const lineBadge = lineCount > 0
+                    ? `<span class="line-count-badge">${lineCount}</span>`
+                    : '';
+                // Row is clickable to toggle expand — inner interactive elements stopPropagation.
+                const mainRow = `
+                <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
+                    onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
+                    <td class="col-check" onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
+                    <td class="col-actions" onclick="event.stopPropagation();">
                         <div class="row-actions">
-                            <button class="btn-action act-edit" title="Sửa" onclick="NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
+                            <button class="btn-action act-edit" title="Sửa" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil"></i>
                             </button>
-                            <button class="btn-action act-confirm" title="Xác nhận" onclick="NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','confirmed')">
+                            <button class="btn-action act-confirm" title="Xác nhận" onclick="event.stopPropagation();NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','confirmed')">
                                 <i data-lucide="check-circle"></i>
                             </button>
-                            <button class="btn-action act-cancel" title="Hủy" onclick="NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','cancelled')">
+                            <button class="btn-action act-cancel" title="Hủy" onclick="event.stopPropagation();NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','cancelled')">
                                 <i data-lucide="x-circle"></i>
                             </button>
-                            <button class="btn-action act-delete" title="Xóa" onclick="NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
+                            <button class="btn-action act-delete" title="Xóa" onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </div>
                     </td>
                     <td>
-                        <span class="code-badge" title="Click để copy" onclick="NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">
-                            <i data-lucide="package-open"></i>${escapeHtml(o.code)}
-                        </span>
+                        <div class="expand-caret-wrap">
+                            <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="expand-caret"></i>
+                            <span class="code-badge" title="Click để copy" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">
+                                <i data-lucide="package-open"></i>${escapeHtml(o.code)}
+                            </span>
+                            ${lineBadge}
+                        </div>
                     </td>
                     <td class="stt-cell">${o.sessionIndex ?? '—'}</td>
                     <td>
@@ -162,7 +240,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="phone-cell">${
+                    <td class="phone-cell" onclick="event.stopPropagation();">${
                         o.phone
                             ? `<a href="tel:${escapeHtml(o.phone)}" title="Gọi">${escapeHtml(o.phone)}</a>`
                             : '—'
@@ -176,9 +254,16 @@
                     </td>
                     <td class="creator-cell" title="${escapeHtml(o.createdBy || '')}">${escapeHtml(o.createdByName || o.createdBy || '—')}</td>
                 </tr>`;
+                return isExpanded ? mainRow + _renderExpandRow(o) : mainRow;
             })
             .join('');
         if (window.lucide) lucide.createIcons();
+    }
+
+    function toggleExpand(code) {
+        if (STATE.expandedOrders.has(code)) STATE.expandedOrders.delete(code);
+        else STATE.expandedOrders.add(code);
+        renderRows();
     }
 
     function renderPagination() {
@@ -736,6 +821,7 @@
         copyCode,
         goPage,
         toggleFilter,
+        toggleExpand,
         // Product picker + line management (inline onclicks)
         addLineFromPicker,
         changeLineQty,

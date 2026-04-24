@@ -813,6 +813,163 @@ body { display: flex; flex-direction: column; }
 /* Control bar hidden by default (like orders-report) */
 .search-section.hidden { display: none; }
 
+/* ========== EXPAND ROW (click đơn → show sản phẩm) ========== */
+.order-row.is-expanded td {
+    background: #f5f3ff;
+    border-bottom-color: #e9d5ff;
+}
+.order-row:hover { background: #f8faff; }
+
+.expand-caret-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.expand-caret {
+    width: 14px; height: 14px;
+    color: var(--gray-500);
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+.order-row.is-expanded .expand-caret {
+    color: var(--native-text);
+}
+.line-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--native);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+.expand-row td {
+    padding: 0 !important;
+    background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+    border-bottom: 2px solid var(--native-bg) !important;
+}
+.expand-wrap {
+    padding: 12px 20px 16px;
+    border-left: 3px solid var(--native);
+    margin: 0 12px 8px;
+    background: white;
+    border-radius: 0 8px 8px 0;
+    box-shadow: var(--shadow-sm);
+    animation: expandSlide 0.2s ease-out;
+}
+@keyframes expandSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.expand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.expand-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--native-text);
+}
+.expand-title i { width: 16px; height: 16px; }
+.expand-totals {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray-700);
+    background: var(--native-bg);
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+.expand-empty {
+    padding: 24px 20px;
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.expand-empty i { width: 18px; height: 18px; color: var(--gray-400); }
+.expand-empty a { color: var(--primary); font-weight: 600; text-decoration: none; margin-left: 4px; }
+
+.expand-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.expand-table thead { background: var(--gray-50); }
+.expand-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+}
+.expand-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--gray-100);
+    background: white !important;    /* override .order-row.is-expanded td */
+    vertical-align: middle;
+}
+.expand-table tr:last-child td { border-bottom: none; }
+
+.expand-img, .expand-img-ph {
+    width: 40px; height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--gray-100);
+    display: inline-block;
+}
+.expand-img-ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-400);
+}
+.expand-img-ph i { width: 16px; height: 16px; }
+
+.expand-name {
+    font-weight: 600;
+    color: var(--gray-900);
+    font-size: 13px;
+}
+.expand-code {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    margin-top: 2px;
+}
+.expand-qty {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-weight: 700;
+    text-align: center;
+    color: var(--gray-900);
+}
+.expand-price, .expand-amount {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-weight: 600;
+}
+.expand-amount { color: var(--native-text); font-weight: 700; }
+
 /* ========== PRODUCTS SECTION (edit modal) ========== */
 .products-section {
     margin-top: 18px;
