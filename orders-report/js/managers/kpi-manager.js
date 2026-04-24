@@ -554,6 +554,11 @@
             // Orders sau cutoff → strict: SP chưa check flag sẽ không tính KPI.
             // Orders trước cutoff → legacy: bỏ qua flag (tính như cũ).
             const baseCreated = base.createdAt ? new Date(base.createdAt) : null;
+            if (base.createdAt == null) {
+                console.warn(
+                    `[KPI] base.createdAt thiếu cho orderCode=${orderCode} → fallback legacy mode`
+                );
+            }
             const strictMode = baseCreated && baseCreated >= new Date(KPI_SALE_FLAG_EFFECTIVE_FROM);
 
             let flagMap = null;

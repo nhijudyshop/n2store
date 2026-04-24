@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][kpi] Audit fix — KPI sale flag checkbox: 2 bug + 1 race condition
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js) — sửa typo `window.KPIManager` → `window.kpiManager` (4 vị trí: line 13, 116, 162, 164). MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `updateModalWithData` chuyển thành `async`, `await KpiSaleFlagStore.load(data.Code)` TRƯỚC `switchEditTab()` (thay vì fire-and-forget non-blocking); caller `fetchOrderData()` thêm `await` khi gọi `updateModalWithData`. MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — thêm `console.warn` khi `base.createdAt == null` để dễ debug nếu upstream save thiếu timestamp. |
+| **Chi tiết** | **Audit phát hiện sau commit `fcaa0504` + `936df83e`**: (1) **Bug #1 CRITICAL** — store gọi `window.KPIManager.recalculateAndSaveKPI()` (uppercase) nhưng kpi-manager.js:1033 export là `window.kpiManager` (lowercase). Guard `if (window.KPIManager && ...)` fail silent → **auto-recalc không bao giờ chạy**. Tick/bỏ tick checkbox: cache + DB row OK nhưng `kpi_statistics` không recompute, badge KPI trên bảng không refresh đến khi F5. Đây là bản chất feature "auto recalc on toggle". Repo còn lại (20+ callsites) đều dùng `window.kpiManager` (lowercase) → typo do tôi viết store. (2) **Bug #2 Race condition** — `updateModalWithData` pre-load flags non-blocking rồi `switchEditTab('info')` chạy ngay. Nếu user click tab "Sản phẩm" trước khi GET flags trả về (< 50ms), `renderProductsTab()` đọc `store.get()` đồng bộ → trả false → checkbox render unchecked DÙ DB có row TRUE. Chat modal [chat-products-ui.js:170-176](../orders-report/js/chat/chat-products-ui.js) dùng `await` nên không dính. Fix: chuyển hàm thành async, await load trước switchEditTab. (3) **Warn #4** — nếu `base.createdAt` null → strictMode=false im lặng → legacy mode. Low risk vì DB có DEFAULT CURRENT_TIMESTAMP, nhưng thêm warn để dễ debug nếu upstream bug. **Gap #3 (event không ai listen) giữ nguyên** — scenario 2 modal cùng order hiếm, không fix để tránh scope creep. |
+| **Status** | ✅ Code done, syntax check pass. Verify sau deploy: (1) tick checkbox KPI trong modal → console KHÔNG còn "recalc trigger failed" warn + Network tab có POST `/kpi-statistics` + badge row update; (2) mở order có flag TRUE trong DB → click tab "Sản phẩm" nhanh ngay khi modal mở → checkbox render CHECKED ngay lần đầu; (3) query `SELECT SUM(total_kpi) FROM kpi_statistics` tăng đúng sau mỗi tick. |
+
 ### [native-orders][ui] Redesign trang Đơn Web theo phong cách orders-report
 | | |
 |---|---|

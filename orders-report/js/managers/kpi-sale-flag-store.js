@@ -10,7 +10,7 @@
  *
  * Cache: in-memory per orderCode để UI không phải GET lại mỗi lần render.
  * Sau mỗi set thành công: emit event 'kpi-sale-flag-changed' để UI refresh
- * và tự trigger window.KPIManager.recalculateAndSaveKPI(orderCode).
+ * và tự trigger window.kpiManager.recalculateAndSaveKPI(orderCode).
  */
 
 (function () {
@@ -113,7 +113,7 @@
      * Upsert flag cho (orderCode, productId). Optimistic cache update,
      * roll back nếu server lỗi. Sau khi thành công:
      *   1. emit event 'kpi-sale-flag-changed' với detail {orderCode, productId, isSale}
-     *   2. auto-trigger window.KPIManager.recalculateAndSaveKPI(orderCode)
+     *   2. auto-trigger window.kpiManager.recalculateAndSaveKPI(orderCode)
      *
      * @param {string} orderCode
      * @param {number} productId
@@ -159,9 +159,9 @@
 
         // Auto recalc KPI cho order này
         try {
-            if (window.KPIManager && typeof window.KPIManager.recalculateAndSaveKPI === 'function') {
+            if (window.kpiManager && typeof window.kpiManager.recalculateAndSaveKPI === 'function') {
                 // Không await — UI không phải chờ recalc. Recalc sẽ update statistics + badge async.
-                window.KPIManager.recalculateAndSaveKPI(orderCode).catch((err) => {
+                window.kpiManager.recalculateAndSaveKPI(orderCode).catch((err) => {
                     console.warn('[KPI-SaleFlag] recalc after toggle failed:', err?.message);
                 });
             }

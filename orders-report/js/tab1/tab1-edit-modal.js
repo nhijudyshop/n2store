@@ -60,20 +60,25 @@ async function fetchOrderData(orderId) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     currentEditOrderData = await response.json();
-    updateModalWithData(currentEditOrderData);
+    await updateModalWithData(currentEditOrderData);
 }
 
-function updateModalWithData(data) {
+async function updateModalWithData(data) {
     document.getElementById('modalOrderCode').textContent = data.Code || '';
     document.getElementById('lastUpdated').textContent = new Date(data.LastUpdated).toLocaleString(
         'vi-VN'
     );
     document.getElementById('editProductCount').textContent = data.Details?.length || 0;
 
-    // Pre-load KPI sale flags cho order này (non-blocking). Cache sẽ sẵn sàng
-    // trước khi user switch sang tab "Sản phẩm".
+    // Load KPI sale flags trước khi renderProductsTab() đọc cache đồng bộ.
+    // Cần await để tránh race: user click tab "Sản phẩm" trước khi GET flags trả về
+    // → checkbox render unchecked dù DB có flag TRUE.
     if (data.Code && window.KpiSaleFlagStore) {
-        window.KpiSaleFlagStore.load(data.Code).catch(() => {});
+        try {
+            await window.KpiSaleFlagStore.load(data.Code);
+        } catch (e) {
+            console.warn('[EditModal] load KPI sale flags failed:', e?.message);
+        }
     }
 
     switchEditTab('info');
