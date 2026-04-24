@@ -8,6 +8,20 @@
 
 ## 2026-04-24
 
+### [orders] Tắt đồng bộ Web → TPOS (giữ reverse sync TPOS → Web)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tag-sync.js](../orders-report/js/tab1/tab1-tag-sync.js) `syncXLToTPOS()` — early return + log `[XL→TPOS] DISABLED`, body cũ giữ nguyên bên dưới để dễ revert. MODIFIED: [orders-report/js/tab1/tab1-empty-cart-auto-sync.js](../orders-report/js/tab1/tab1-empty-cart-auto-sync.js) `_removeGioTrongTagTPOS()` — early return `false` + log `Web→TPOS removal DISABLED`, body cũ giữ nguyên. |
+| **Chi tiết** | **User request**: "bỏ phần đồng bộ Web → TPOS, giữ lại TPOS → Web". Scope được diễn giải là auto-sync tự động trigger theo state change của web: (1) `syncXLToTPOS` auto-push category/flag/T-tag từ Tag XL panel lên TPOS (gọi từ tab1-processing-tags.js khi user tương tác panel Chốt Đơn), (2) `_removeGioTrongTagTPOS` auto-gỡ tag GIỎ TRỐNG lỡ bị gắn. Cả hai hàm chuyển thành no-op nhưng giữ function signature + expose `window.syncXLToTPOS` để backward compat — 6 call sites trong `tab1-processing-tags.js` (category/flag/T-tag add/remove/bill-created/bill-cancelled) và `batchEmptyCartSync` trong `tab1-search.js` vẫn gọi được nhưng không còn đẩy API lên TPOS. **Giữ nguyên** các action user click trực tiếp: `quickAssignTag` (tab1-tags.js), bulk-tags modal (tab1-bulk-tags.js), fast-sale-workflow (tạo/hủy hóa đơn) — đây là "user thao tác" không phải "đồng bộ". **Reverse sync TPOS → Web**: `handleTPOSTagsChanged` + `tab1-tpos-realtime.js` WebSocket listener còn nguyên → mọi thay đổi tag trên TPOS vẫn sync về web real-time. |
+| **Status** | ✅ Done. Vòng kiểm kế tiếp: chờ user verify trên nhijudyshop.github.io/n2store/orders-report/main.html — click TAG XL panel, thay đổi flag/category/T-tag → console phải thấy log `[TAG-SYNC-V3] [XL→TPOS] DISABLED`, TPOS không nhận tag mới. Ngược lại thay đổi tag trên TPOS → web phải tự cập nhật. |
+
+### [render][oncallcx] Lới lỏng hasRecording check — thử download cả khi portal không flag connected=yes
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/services/oncall-portal-client.js](../render.com/services/oncall-portal-client.js) `listCalls()` — `hasRecording` bỏ điều kiện `/yes/i.test(connected)`, giờ chỉ check `duration != 00:00:00`. MODIFIED: [scripts/oncallcx-sync-daemon.js](../scripts/oncallcx-sync-daemon.js) — thêm `noRecordingRowKeys` vào state, `MIN_DURATION_SEC=5`, error match `NO_RECORDING_PATTERNS` → mark as no-recording (không retry), wav < 1024B → coi empty. Log thêm `[no-rec]` / `[skip]`. |
+| **Chi tiết** | **User chọn option 1** sau khi thấy phone 0363954281 chỉ có 1/3 recordings. **Trước**: `hasRecording = connected=yes && duration > 0` — portal flag `connected=no` trên 1 số calls có ghi âm (15:14 + 15:18 cho 0363954281) → daemon skip → UI hiện "Ghi âm 1". **Sau**: chỉ cần duration ≥ 5s là thử download; portal trả file → sync OK; trả 404/"Download URL not found" → cache rowKey vào `noRecordingRowKeys` để không retry. Tách biệt với `syncedRowKeys`. Sau daemon chạy lần kế (launchd 5 phút) → 15:14 + 15:18 nếu portal có file sẽ sync về, UI auto hiện thêm. |
+| **Status** | ✅ Code done. Đợi daemon ~5 phút hoặc chạy manual: `MAX=50 node scripts/oncallcx-sync-daemon.js`. |
+
 ### [revert] Xóa toàn bộ trang `live-sale/` và backend `/api/v2/live-sale/*` theo yêu cầu user
 | | |
 |---|---|

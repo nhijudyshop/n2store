@@ -63,24 +63,33 @@ function debug(msg) {
 
 function loadState() {
     try {
-        if (!fs.existsSync(STATE_FILE)) return { syncedRowKeys: [], lastSyncAt: 0 };
+        if (!fs.existsSync(STATE_FILE)) {
+            return { syncedRowKeys: [], noRecordingRowKeys: [], lastSyncAt: 0 };
+        }
         const raw = fs.readFileSync(STATE_FILE, 'utf8');
         const s = JSON.parse(raw);
         return {
             syncedRowKeys: Array.isArray(s.syncedRowKeys) ? s.syncedRowKeys : [],
+            noRecordingRowKeys: Array.isArray(s.noRecordingRowKeys)
+                ? s.noRecordingRowKeys
+                : [],
             lastSyncAt: s.lastSyncAt || 0,
         };
     } catch (e) {
         log(`[state] load error: ${e.message} — starting fresh`);
-        return { syncedRowKeys: [], lastSyncAt: 0 };
+        return { syncedRowKeys: [], noRecordingRowKeys: [], lastSyncAt: 0 };
     }
 }
 
 function saveState(state) {
     fs.mkdirSync(STATE_DIR, { recursive: true });
-    // Keep only last STATE_CAP rowKeys (FIFO)
+    // Keep only last STATE_CAP rowKeys (FIFO) per list
     if (state.syncedRowKeys.length > STATE_CAP) {
         state.syncedRowKeys = state.syncedRowKeys.slice(-STATE_CAP);
+    }
+    if (!Array.isArray(state.noRecordingRowKeys)) state.noRecordingRowKeys = [];
+    if (state.noRecordingRowKeys.length > STATE_CAP) {
+        state.noRecordingRowKeys = state.noRecordingRowKeys.slice(-STATE_CAP);
     }
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
@@ -183,7 +192,8 @@ async function main() {
 
     const state = loadState();
     const syncedSet = new Set(state.syncedRowKeys);
-    debug(`State: ${syncedSet.size} already synced`);
+    const noRecSet = new Set(state.noRecordingRowKeys);
+    debug(`State: ${syncedSet.size} synced, ${noRecSet.size} known-no-recording`);
 
     // 1. Login + fetch CDR
     await client.login();
@@ -192,9 +202,19 @@ async function main() {
     const { calls } = await client.listCalls({ page: 1 });
     log(`Fetched ${calls.length} CDR rows`);
 
-    // 2. Filter eligible (has recording + not synced)
-    const eligible = calls.filter((c) => c.hasRecording && !syncedSet.has(c.rowKey));
-    log(`Eligible for sync: ${eligible.length} (new with recording)`);
+    // 2. Filter eligible: hasRecording (duration > 0s) + not synced + not
+    // permanently flagged no-recording. `hasRecording` đã loose hơn (bỏ
+    // connected=yes check) — ta cố download, nếu portal từ chối thì ghi nhận
+    // vào noRecSet để lần sau skip thay vì retry forever.
+    const MIN_DURATION_SEC = 5;
+    const eligible = calls.filter(
+        (c) =>
+            c.hasRecording &&
+            parseDurationSec(c.duration) >= MIN_DURATION_SEC &&
+            !syncedSet.has(c.rowKey) &&
+            !noRecSet.has(c.rowKey)
+    );
+    log(`Eligible for sync: ${eligible.length} (duration ≥ ${MIN_DURATION_SEC}s, not cached)`);
     if (!eligible.length) {
         state.lastSyncAt = Date.now();
         saveState(state);
@@ -202,9 +222,22 @@ async function main() {
         return;
     }
 
-    // 3. For each: download + upload
+    // 3. For each: download + upload. Portal có thể trả 200 + empty / 404 /
+    // "Download URL not found in response" khi call không có ghi âm thật
+    // (blind transfer, voicemail-only, portal flag sai). Phân biệt error đó
+    // với error tạm thời để quyết định retry.
+    const NO_RECORDING_PATTERNS = [
+        /Download URL not found/i,
+        /no recording/i,
+        /404/,
+        /Select row failed: status 40/,
+        /Trigger download failed: status 40/,
+    ];
+    const isNoRecordingError = (msg) => NO_RECORDING_PATTERNS.some((re) => re.test(msg));
+
     let synced = 0,
-        failed = 0;
+        failed = 0,
+        noRecording = 0;
     const toProcess = eligible.slice(0, MAX);
     for (const call of toProcess) {
         const tag = `${call.start} ${call.from}->${call.outboundPublicNumber || call.to} rk=${call.rowKey}`;
@@ -221,14 +254,22 @@ async function main() {
             const wav = Buffer.concat(chunks);
             debug(`Got ${wav.length}B`);
 
+            if (wav.length < 1024) {
+                // File quá nhỏ → portal trả empty wav (no actual recording)
+                noRecSet.add(call.rowKey);
+                state.noRecordingRowKeys.push(call.rowKey);
+                noRecording++;
+                log(`[skip] ${tag} — empty audio (${wav.length}B), marked no-recording`);
+                saveState(state);
+                continue;
+            }
+
             // Prepare metadata
             // OUTBOUND portal CDR:
             //   from = '102' (ext)
             //   to = '0363954281' (customer dialed)
             //   outboundPublicNumber = '0994325426' (company SIP line ~ caller ID)
-            // Trước đây dùng `outboundPublicNumber || to` cho phone → ghi đè mọi
-            // recording thành số line công ty, frontend không thể match theo phone
-            // khách. Đổi sang `to || outboundPublicNumber` để giữ số khách thật.
+            // Phone luôn dùng `to` (số khách) cho outbound, tránh ghi số line công ty.
             const direction = detectDirection(call);
             const phone = direction === 'out' ? call.to || call.outboundPublicNumber : call.from;
             const ext = direction === 'out' ? call.from : call.to;
@@ -245,18 +286,29 @@ async function main() {
             state.syncedRowKeys.push(call.rowKey);
             synced++;
             log(`[ok] synced ${tag} (${wav.length}B, ${meta.duration}s)`);
-            // Save after each successful sync (crash-safe)
             saveState(state);
         } catch (err) {
-            failed++;
-            log(`[err] ${tag} — ${err.message}`);
+            if (isNoRecordingError(err.message)) {
+                // Portal xác nhận không có ghi âm cho call này — ghi nhận để
+                // không retry mỗi 5 phút. State riêng (noRecordingRowKeys) để
+                // phân biệt với synced thành công.
+                noRecSet.add(call.rowKey);
+                state.noRecordingRowKeys.push(call.rowKey);
+                noRecording++;
+                log(`[no-rec] ${tag} — ${err.message.slice(0, 80)}`);
+                saveState(state);
+            } else {
+                failed++;
+                log(`[err] ${tag} — ${err.message}`);
+            }
         }
     }
+    if (noRecording) log(`[info] ${noRecording} call không có ghi âm (cached)`);
 
     state.lastSyncAt = Date.now();
     saveState(state);
     log(
-        `=== Done: synced=${synced}, failed=${failed}, skipped=${eligible.length - toProcess.length}, state=${syncedSet.size} tracked ===`
+        `=== Done: synced=${synced}, noRec=${noRecording}, failed=${failed}, remaining=${eligible.length - toProcess.length}, state=${syncedSet.size} synced + ${noRecSet.size} no-rec ===`
     );
 }
 

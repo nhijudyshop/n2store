@@ -279,7 +279,11 @@ class OnCallPortalClient {
                 connected: /yes/i.test(c[6] || ''),
                 duration: c[7] || '',
                 sipStatus: c[8] || '',
-                hasRecording: /yes/i.test(c[6] || '') && c[7] && c[7] !== '00:00:00',
+                // `hasRecording` heuristic: portal's Connected flag đôi khi
+                // false dù call có ghi âm (eg abandoned-but-answered, blind
+                // transfer). Dùng duration > 0 làm proxy — daemon sẽ attempt
+                // download + graceful skip nếu portal từ chối.
+                hasRecording: !!(c[7] && c[7] !== '00:00:00'),
             };
         });
         return { headers, total: calls.length, calls, page };
