@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][tag-t] Fix redirect gán Tag T đơn gộp xoá mất tag `Gộp X Y Z` trên đơn nguồn
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `transferProcessingTags()` line 1325+: phân loại `sourceTTags` thành `transferableTTags` (non-marker) và `markerTTags` (id match `/^GOP_\d+(_\d+)*$/`). Chỉ transfer `transferableTTags` sang target; source giữ lại `markerTTags` thay vì clear về `[]`. |
+| **Chi tiết** | **User report**: Đơn 589 trước gộp có tag `Gộp 589 655` (merge marker tTag `GOP_589_655`). Khi user gán Tag T vào STT 589 qua modal "Quản Lý Tag T Chờ Hàng", logic redirect chuyển tag T sang STT 655 + gọi `transferProcessingTags(589, 655)` để chuyển flags/tTags. Trước fix, line 1374-1376 wipe sạch `sourceData.tTags = []` → đơn 589 mất tag `Gộp 589 655`, vi phạm invariant của commit 2238c8f2 ("source giữ nguyên mọi tTag GOP_* sau khi gộp"). **Fix**: merge marker tag (id dạng `GOP_<digits>(_<digits>)*`) là tag tracking cụm gộp, PHẢI stay trên source. Trong transfer: (a) không đẩy marker sang target (target đã có từ lần merge gốc); (b) khi clear source, gán `sourceData.tTags = markerTTags` thay vì `[]`. Regex khớp chính xác convention ở tab1-merge.js line 2200. |
+| **Status** | ✅ Done. Cần test: (a) gộp 2 đơn 589+655 → cả 2 có tag `Gộp 589 655`, 589 thêm sub-tag `DA_GOP_KHONG_CHOT`; (b) mở "Quản Lý Tag T" → gán tag T cho STT 589 → tag redirect sang 655; (c) verify 589 VẪN có `Gộp 589 655` + `DA_GOP_KHONG_CHOT`; (d) nếu 589 trước đó có tag T khác (non-marker), các tag đó sẽ transfer sang 655 như cũ. |
+
 ### [inventory] Modal "Thêm Đợt Hàng Mới": không đóng khi click overlay + fix paste ảnh nhân bản N lần
 | | |
 |---|---|

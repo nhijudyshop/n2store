@@ -1332,8 +1332,17 @@
             return { transferred: false, reason: 'nothing_to_transfer' };
         }
 
+        // Merge marker tTags (id dạng GOP_<digits>...) track cụm đơn đã gộp, PHẢI giữ lại trên source.
+        // Khớp convention của tab1-merge.js (commit 2238c8f2): source luôn giữ mọi tTag GOP_*
+        const isMergeMarker = (t) => {
+            const id = _ptagTTagId(t);
+            return typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id);
+        };
+        const transferableTTags = sourceTTags.filter((t) => !isMergeMarker(t));
+        const markerTTags = sourceTTags.filter(isMergeMarker);
+
         console.log(
-            `${PTAG_LOG} Transferring processing tags from ${sourceOrderCode} to ${targetOrderCode} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`
+            `${PTAG_LOG} Transferring processing tags from ${sourceOrderCode} to ${targetOrderCode} (flags: ${sourceFlags.length}, tTags: ${transferableTTags.length}, markers kept on source: ${markerTTags.length})`
         );
 
         // Get or create target data
@@ -1353,10 +1362,10 @@
         const newFlags = sourceFlags.filter((f) => !targetFlagIds.has(_ptagFlagId(f)));
         targetData.flags = [...targetFlags, ...newFlags];
 
-        // Union merge tTags by ID
+        // Union merge tTags (excluding merge markers) by ID
         const targetTTags = targetData.tTags || [];
         const targetTTagIds = new Set(targetTTags.map((t) => _ptagTTagId(t)));
-        const newTTags = sourceTTags.filter((t) => !targetTTagIds.has(_ptagTTagId(t)));
+        const newTTags = transferableTTags.filter((t) => !targetTTagIds.has(_ptagTTagId(t)));
         targetData.tTags = [...targetTTags, ...newTTags];
 
         // Auto subState for category 1 CHO_DI_DON when tTags added
@@ -1371,9 +1380,9 @@
         _ptagAddHistory(targetOrderCode, 'TRANSFER_IN', sourceOrderCode);
         _ptagAddHistory(sourceOrderCode, 'TRANSFER_OUT', targetOrderCode);
 
-        // Clear source flags + tTags (keep category untouched)
+        // Clear source flags + non-marker tTags; GIỮ merge markers (GOP_*) để tracking cụm đơn đã gộp
         sourceData.flags = [];
-        sourceData.tTags = [];
+        sourceData.tTags = markerTTags;
         ProcessingTagState.setOrderData(sourceOrderCode, sourceData);
 
         // Save both to API
