@@ -655,9 +655,7 @@
                 if (order) {
                     // Date-range filter: giống handleNewOrder, tránh thêm đơn ngoài scope.
                     if (!isWithinActiveDateRange(order)) {
-                        console.log(
-                            `[TPOS-RT] Gap fill skip ${code}: outside active date range`
-                        );
+                        console.log(`[TPOS-RT] Gap fill skip ${code}: outside active date range`);
                         continue;
                     }
                     addOrderToTable(order);
