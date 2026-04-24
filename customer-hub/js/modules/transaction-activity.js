@@ -301,15 +301,23 @@ export class TransactionActivityModule {
                         ${statusBadge}
                     </td>
                     <td class="px-6 py-4">
-                        <button class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all">
-                            <span class="material-symbols-outlined text-xl">more_vert</span>
-                        </button>
+                        ${(window.TxEvidence && typeof window.TxEvidence.renderEyeButton === 'function')
+                            ? (window.TxEvidence.renderEyeButton(tx) ||
+                                `<button class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all">
+                                    <span class="material-symbols-outlined text-xl">more_vert</span>
+                                </button>`)
+                            : `<button class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all">
+                                <span class="material-symbols-outlined text-xl">more_vert</span>
+                            </button>`}
                     </td>
                 </tr>
             `;
         });
 
         this.tableBody.innerHTML = html;
+        if (window.TxEvidence && typeof window.TxEvidence.bindHandlers === 'function') {
+            window.TxEvidence.bindHandlers(this.tableBody);
+        }
         this.updatePagination(this.totalItems);
     }
 

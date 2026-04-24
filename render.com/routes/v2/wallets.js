@@ -750,15 +750,20 @@ router.get('/:customerId/transactions', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        let query = `SELECT id, phone, wallet_id, type, amount,
-            balance_before, balance_after, virtual_balance_before, virtual_balance_after,
-            source, reference_type, reference_id, note, created_by,
-            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
-            FROM wallet_transactions WHERE phone = $1`;
+        let query = `SELECT wt.id, wt.phone, wt.wallet_id, wt.type, wt.amount,
+            wt.balance_before, wt.balance_after, wt.virtual_balance_before, wt.virtual_balance_after,
+            wt.source, wt.reference_type, wt.reference_id, wt.note, wt.created_by,
+            (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            bh.verification_image_url AS sepay_image_url
+            FROM wallet_transactions wt
+            LEFT JOIN balance_history bh
+              ON wt.reference_type = 'balance_history'
+             AND wt.reference_id = bh.id::text
+            WHERE wt.phone = $1`;
         const params = [phone];
 
         if (type) {
-            query += ' AND type = $2';
+            query += ' AND wt.type = $2';
             params.push(type);
         }
 
@@ -768,10 +773,27 @@ router.get('/:customerId/transactions', async (req, res) => {
         const total = parseInt(countResult.rows[0].count);
 
         // Add pagination
-        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        query += ` ORDER BY wt.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
 
-        const result = await db.query(query, params);
+        let result;
+        try {
+            result = await db.query(query, params);
+        } catch (queryError) {
+            // Fallback: balance_history.verification_image_url column may not exist in older environments
+            if (queryError.message && queryError.message.includes('verification_image_url')) {
+                const fallbackQuery = query.replace(
+                    ',\n            bh.verification_image_url AS sepay_image_url',
+                    ''
+                ).replace(
+                    /LEFT JOIN balance_history bh[\s\S]*?AND wt\.reference_id = bh\.id::text\s*/,
+                    ''
+                );
+                result = await db.query(fallbackQuery, params);
+            } else {
+                throw queryError;
+            }
+        }
 
         // Enrich ADJUSTMENT rows with wallet_adjustments metadata (Node-side, no SQL cast).
         try {

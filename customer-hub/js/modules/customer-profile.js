@@ -915,11 +915,14 @@ export class CustomerProfileModule {
 
                                 const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
                                 const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
+                                const eyeBtn = (window.TxEvidence && typeof window.TxEvidence.renderEyeButton === 'function')
+                                    ? window.TxEvidence.renderEyeButton(tx) : '';
                                 return `
                                 <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
                                     <span style="font-size:17px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
                                     <span style="flex:1; font-size:15px; font-weight:700; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
                                     ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
+                                    ${eyeBtn}
                                     <span style="font-size:16px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>
                             `;
@@ -1010,6 +1013,10 @@ export class CustomerProfileModule {
                 ${activitiesHtml}
             </div>
         `;
+
+        if (window.TxEvidence && typeof window.TxEvidence.bindHandlers === 'function') {
+            window.TxEvidence.bindHandlers(container);
+        }
     }
 
     _formatProducts(products) {

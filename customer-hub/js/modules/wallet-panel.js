@@ -723,6 +723,10 @@ export class WalletPanelModule {
             const close = () => modal.remove();
             modal.querySelector('.close-btn').onclick = close;
             modal.onclick = e => e.target === modal && close();
+
+            if (window.TxEvidence && typeof window.TxEvidence.bindHandlers === 'function') {
+                window.TxEvidence.bindHandlers(modal);
+            }
         } catch (err) {
             alert(`Lỗi: ${err.message}`);
         }
@@ -770,6 +774,9 @@ export class WalletPanelModule {
                 : '';
         }
 
+        const eyeBtn = (window.TxEvidence && typeof window.TxEvidence.renderEyeButton === 'function')
+            ? window.TxEvidence.renderEyeButton(tx) : '';
+
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
                 <div class="flex-1">
@@ -777,6 +784,7 @@ export class WalletPanelModule {
                     ${descBlock}
                     <p class="text-xs text-slate-400">${date}${expiry}${createdBy}</p>
                 </div>
+                ${eyeBtn}
                 <p class="font-bold ${color}">${isCredit ? '+' : '-'}${this._formatCurrency(Math.abs(tx.amount))}</p>
             </div>`;
     }
