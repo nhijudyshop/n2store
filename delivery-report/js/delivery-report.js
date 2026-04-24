@@ -216,7 +216,8 @@
     }
 
     // =====================================================
-    // CỘT CÔNG NỢ: click toggle filter "Công nợ < Tổng tiền"
+    // CỘT CÔNG NỢ: click toggle partition "Công nợ < Tổng tiền" lên đầu
+    // Giữ toàn bộ đơn, đơn đầu tiên của phần còn lại tô đỏ làm boundary.
     // =====================================================
     function bindFilterableHeaders() {
         const th = document.querySelector('.dr-table thead th[data-col="cashOnDelivery"]');
@@ -243,20 +244,32 @@
         if (!icon) return;
         if (DeliveryReportState.filter.debtLessThanTotal) {
             icon.style.color = '#4f46e5';
-            th.title = 'Đang lọc: Công nợ < Tổng tiền (click để bỏ lọc)';
+            th.title = 'Đơn Công nợ < Tổng tiền đang được đưa lên đầu (click để bỏ)';
         } else {
             icon.style.color = '';
-            th.title = 'Click để lọc: Công nợ < Tổng tiền';
+            th.title = 'Click để đưa đơn Công nợ < Tổng tiền lên đầu';
         }
     }
 
-    function applyDebtFilter(data) {
-        if (!DeliveryReportState.filter.debtLessThanTotal) return data;
-        return data.filter((item) => {
+    // Trả về { data: [...], boundaryIndex: index của đơn đầu tiên KHÔNG thoả điều kiện
+    // trong mảng đã sắp xếp, hoặc -1 nếu không cần highlight }.
+    function applyDebtSort(data) {
+        if (!DeliveryReportState.filter.debtLessThanTotal) {
+            return { data, boundaryIndex: -1 };
+        }
+        const matching = [];
+        const rest = [];
+        data.forEach((item) => {
             const cod = Number(item.CashOnDelivery) || 0;
             const total = Number(item.AmountTotal) || 0;
-            return cod < total;
+            if (cod < total) matching.push(item);
+            else rest.push(item);
         });
+        const combined = matching.concat(rest);
+        // Không highlight nếu không có đơn nào match hoặc tất cả đều match
+        const boundaryIndex =
+            matching.length === 0 || rest.length === 0 ? -1 : matching.length;
+        return { data: combined, boundaryIndex };
     }
 
     function applyColumnVisibility() {
@@ -451,7 +464,7 @@
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
 
-        const allData = applyDebtFilter(getFilteredData());
+        const { data: allData, boundaryIndex } = applyDebtSort(getFilteredData());
         DeliveryReportState.totalCount = allData.length;
         updateFilterIndicators();
 
@@ -478,8 +491,9 @@
 
             const shipStatusClass = getShipStatusClass(item.ShipStatus);
             const forControlText = getForControlText(item);
+            const rowClass = startIndex + i === boundaryIndex ? ' class="dr-debt-boundary"' : '';
 
-            html += `<tr>
+            html += `<tr${rowClass}>
                 <td data-col="index">${startIndex + i + 1}</td>
                 <td data-col="number">${escapeHtml(item.Number || '')}</td>
                 <td data-col="customer" data-phone="${escapeHtml(item.Phone || '')}">

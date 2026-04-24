@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [delivery-report] Click cột Công nợ: đưa đơn "Công nợ < Tổng tiền" lên đầu + tô đỏ đơn ranh giới
+| | |
+|---|---|
+| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — đổi `applyDebtFilter` → `applyDebtSort(data)` return `{ data, boundaryIndex }`. Phân đơn thành `matching` (Công nợ < Tổng tiền) + `rest` → concat `[...matching, ...rest]`. `boundaryIndex = matching.length` (index đơn đầu tiên trong `rest` thuộc mảng combined); trả `-1` khi `matching.length === 0` hoặc `rest.length === 0` (không cần highlight vì không có đường ranh giới thực sự). `renderTable()` destruct `{ data: allData, boundaryIndex }`, khi render mỗi `<tr>`: nếu `startIndex + i === boundaryIndex` → thêm class `dr-debt-boundary`. Tooltip đổi "đang lọc" → "đưa lên đầu". MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm `.dr-table tbody tr.dr-debt-boundary { background:#fee2e2; border-top:2px solid #dc2626 }` + hover #fecaca. |
+| **Chi tiết** | **User request**: "khi bấm lọc vẫn hiển thị toàn bộ đầy đủ đơn, các đơn Công nợ < Tổng tiền hiển thị trên đầu, các đơn còn lại hiển thị xuống dưới cùng, đơn đầu tiên khi hết lọc sẽ tô đỏ để đánh dấu đã hết phần của đơn công nợ nhỏ hơn tổng tiền". Thay filter (giảm data) bằng partition sort (giữ full data). Footer totals không đổi (vẫn tính toàn bộ `allData`). Pagination tiếp tục hoạt động — boundary có thể nằm ở trang giữa. Case `matching.length === 0`: tất cả đơn không match → không highlight (tránh tô đơn đầu tiên một cách sai lệch). Case `rest.length === 0`: toàn bộ đều match → không có đường ranh giới. |
+| **Status** | ✅ Code done. Test: (1) có đơn vừa Công nợ < Tổng tiền vừa Công nợ ≥ Tổng tiền; (2) click header Công nợ lần 1 → đơn Công nợ < Tổng tiền dồn lên đầu, đơn đầu tiên của phần còn lại tô đỏ `#fee2e2` + border top đỏ `#dc2626`; (3) click lần 2 → thứ tự về ban đầu, không còn row đỏ; (4) case all-match / all-rest: không có row đỏ; (5) tổng footer giữ nguyên. |
+
 ### [native-orders][web2-products] Kho SP Web 2.0 + product picker trong edit modal
 | | |
 |---|---|

@@ -461,6 +461,15 @@
     background: #f8fafc;
 }
 
+/* Đánh dấu ranh giới: đơn đầu tiên sau nhóm Công nợ < Tổng tiền */
+.dr-table tbody tr.dr-debt-boundary {
+    background: #fee2e2;
+    border-top: 2px solid #dc2626;
+}
+.dr-table tbody tr.dr-debt-boundary:hover {
+    background: #fecaca;
+}
+
 .dr-table tbody td {
     padding: 10px 12px;
     vertical-align: top;
