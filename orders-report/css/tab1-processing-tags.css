@@ -188,14 +188,16 @@
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.16);
-    width: 320px;
-    max-height: 520px;
+    width: 960px;
+    max-width: calc(100vw - 16px);
+    max-height: 600px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
 }
 
 /* TPOS-style input container with pills + search input */
+/* Cap height so many selected pills scroll instead of pushing & covering the tag list below */
 .ptag-dd-input-container {
     display: flex;
     flex-wrap: wrap;
@@ -205,9 +207,12 @@
     border: 1px solid #d1d5db;
     border-radius: 6px;
     min-height: 42px;
-    margin: 8px;
-    background: #fff;
+    max-height: 140px;
+    overflow-y: auto;
+    margin: 8px 8px 4px 8px;
+    background: #fafbfc;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .ptag-dd-input-container:focus-within {
@@ -259,40 +264,64 @@
 
 .ptag-dd-list {
     overflow-y: auto;
-    max-height: 340px;
-    padding: 4px 0;
+    max-height: 440px;
+    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
 }
 
-/* TPOS-style flat tag list */
+/* TPOS-style flat tag list — category label full width, items wrap as pills */
 .ptag-dd-cat-label {
-    padding: 6px 16px;
+    flex: 0 0 100%;
+    padding: 8px 8px 4px 8px;
+    margin-top: 4px;
     font-size: 11px;
     font-weight: 700;
     color: #6b7280;
     background: #f9fafb;
+    border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
+.ptag-dd-cat-label:first-child {
+    margin-top: 0;
+}
+
 .ptag-dd-tag-item {
-    padding: 10px 16px;
+    flex: 0 0 auto;
+    padding: 6px 12px;
     cursor: pointer;
-    font-size: 14px;
-    border-bottom: 1px solid #f9fafb;
-    transition: background 0.1s;
+    font-size: 13px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    transition: all 0.1s;
     color: #1f2937;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ptag-dd-tag-item:hover {
     background: #f9fafb;
+    border-color: #d1d5db;
 }
 
 .ptag-dd-tag-item.highlighted {
     background: #e5e7eb;
+    border-color: #9ca3af;
 }
 
 .ptag-dd-tag-item.selected {
-    color: #3b82f6;
+    color: #fff;
+    background: #3b82f6;
+    border-color: #2563eb;
     font-weight: 600;
 }
 

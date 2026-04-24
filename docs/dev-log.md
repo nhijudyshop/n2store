@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][ptag] Mở rộng dropdown gán Tag XL 3x + tách pills vs list rõ ràng, không che lấp
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.ptag-dropdown` width 320px → 960px (max-width `calc(100vw - 16px)`), max-height 520 → 600. `.ptag-dd-input-container` thêm `max-height:140px; overflow-y:auto; flex-shrink:0` + background nhạt để tách visual. `.ptag-dd-list` đổi sang flex wrap (gap 6px, padding 8px, border-top separator). `.ptag-dd-cat-label` `flex:0 0 100%` full-row. `.ptag-dd-tag-item` thành pill `border+radius`, `flex:0 0 auto`, `white-space:nowrap` — nhiều pill/dòng, selected state nền xanh. |
+| **Chi tiết** | **User report**: Gán tag ở cột XL, khung dropdown chỉ 320px, khi đơn có nhiều pills (KHÁCH HỦY, TRỪ CÔNG NỢ, CK, nhiều T-tag...) → pills wrap chiếm hết chiều cao, che luôn khung tag list bên dưới, user không click chọn được. Yêu cầu: mở rộng 3x ngang + list hiển thị nhiều tag/dòng + tách pill đã chọn ra khỏi danh sách tag chờ chọn. **Giải pháp CSS-only**: (1) width 320→960, (2) cap `max-height:140px` + scroll riêng cho container pills — không "đẩy" list xuống khuất, (3) list dùng flex-wrap + pill-style items → 1 dòng chứa 4-8 tag thay vì 1 tag/dòng, (4) border-top trên list tạo ranh giới rõ với ô pills. Không đụng JS — `_ptagFilterDropdown` set `display:''/'none'` vẫn hoạt động với flex children. |
+| **Status** | ✅ Done. Test: (a) mở đơn nhiều pills (>15 tags) ở cột XL → pills scroll nội bộ trong khung 140px, input search & list vẫn visible; (b) list hiển thị pill horizontal, category label full-row; (c) click chọn/toggle hoạt động bình thường; (d) dropdown tự reposition khi gần mép phải màn hình (JS có sẵn). |
+
 ### [docs][tpos-pancake] Rebuild guide 18-phase để dựng lại trang 100% từ đầu
 | | |
 |---|---|
