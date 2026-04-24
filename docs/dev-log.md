@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][chotdon-panel] Bulk-KDH thêm checkbox chọn từng STT + select-all
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) — thêm `selected:true` cho mỗi parsed STT, `toggleRow()`, `toggleSelectAll()`, `updateSelectAllCheckbox()` (indeterminate khi chọn 1 phần), `updateSummaryAndConfirm()` (tách khỏi renderPreview); preview render `<label>` thay `<div>` với checkbox; nút Xác nhận hiện count "(N)"; `executeAssign` chỉ chạy đơn được tick. MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<div class="bulk-kdh-toolbar">` với checkbox "Chọn tất cả" + summary, ẩn mặc định, hiện khi có STT. MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.bulk-kdh-toolbar` (xám nhạt + space-between), `.bulk-kdh-select-all` (label flex), `.bulk-kdh-row-cb` (16px indigo accent), `.bulk-kdh-row--unchecked` (opacity 0.45 + line-through name/STT), label.bulk-kdh-row hover effect. |
+| **Chi tiết** | **User request**: "có thể cho nhiều STT nhưng cho chọn" — sau khi nhập danh sách STT, user muốn tick/bỏ tick từng đơn trước khi confirm thay vì gán tất cả. **Logic**: parse input vẫn không đổi, mỗi entry giờ thêm `selected:true` mặc định. Re-input giữ trạng thái `selected` cũ qua `prevSel` Map (gõ thêm STT mới vẫn checked, không reset toàn bộ). Toolbar ẩn khi list rỗng. Checkbox row gắn listener trực tiếp qua `querySelectorAll` sau render — toggle visual `bulk-kdh-row--unchecked` và update summary live. Select-all checkbox dùng `indeterminate` khi mixed (tick 1 phần). Footer button "Xác nhận gán (N)" với N = số đã chọn, disable khi N=0. Row error (STT không tồn tại) không có checkbox — chỉ hiển thị warning. |
+| **Status** | ✅ Done. Verify: nhập "311, 312, 313, 314, 99999" → toolbar hiện, 4 row OK đều checked, 1 row err (99999) đỏ; bỏ tick STT 312 → row mờ + line-through, summary đổi "3/4 chọn", button "Xác nhận gán (3)"; tick lại → "4/4 chọn", button "Xác nhận gán (4)"; uncheck "Chọn tất cả" → 4 row mờ hết, button disabled. |
+
 ### [orders][chotdon-panel] Fix bulk-KDH lookup STT — ưu tiên `displayedData` thay vì `OrderStore` toàn cục
 | | |
 |---|---|

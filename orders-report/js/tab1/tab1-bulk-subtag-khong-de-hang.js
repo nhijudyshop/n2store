@@ -42,7 +42,9 @@
         // OrderStore index toàn bộ dataset có thể trùng SessionIndex giữa các session live.
         const list = (typeof window.displayedData !== 'undefined' && window.displayedData) || [];
         const fromDisplayed =
-            list.find((o) => o && (o.SessionIndex === stt || String(o.SessionIndex) === String(stt))) || null;
+            list.find(
+                (o) => o && (o.SessionIndex === stt || String(o.SessionIndex) === String(stt))
+            ) || null;
         if (fromDisplayed) return fromDisplayed;
         // Fallback: OrderStore (chỉ khi không có gì trong bảng hiện tại).
         if (window.OrderStore && typeof window.OrderStore.getBySTT === 'function') {
@@ -77,44 +79,85 @@
     function onInputChange() {
         const raw = (document.getElementById('bulkKdhSttInput') || {}).value || '';
         const stts = parseSTTInput(raw);
+        // Giữ trạng thái selected của STT đã có (khi user gõ thêm/bớt) — default true cho row mới.
+        const prevSel = new Map(parsedSTTs.map((p) => [p.stt, p.selected !== false]));
         parsedSTTs = stts.map((stt) => {
             const order = findOrderBySTT(stt);
             return {
                 stt,
                 order,
                 error: order ? null : 'STT không tồn tại trong danh sách hiện tại',
+                selected: prevSel.has(stt) ? prevSel.get(stt) : true,
             };
         });
         renderPreview();
     }
 
-    function renderPreview() {
-        const previewEl = document.getElementById('bulkKdhPreview');
+    function toggleRow(stt, checked) {
+        const row = parsedSTTs.find((p) => p.stt === stt);
+        if (row) {
+            row.selected = !!checked;
+            updateSummaryAndConfirm();
+            updateSelectAllCheckbox();
+        }
+    }
+
+    function toggleSelectAll(checked) {
+        parsedSTTs.forEach((p) => {
+            if (p.order) p.selected = !!checked;
+        });
+        renderPreview(); // Re-render để cập nhật checkbox
+    }
+
+    function updateSelectAllCheckbox() {
+        const cb = document.getElementById('bulkKdhSelectAllCb');
+        if (!cb) return;
+        const valid = parsedSTTs.filter((p) => p.order);
+        const sel = valid.filter((p) => p.selected).length;
+        cb.checked = valid.length > 0 && sel === valid.length;
+        cb.indeterminate = sel > 0 && sel < valid.length;
+    }
+
+    function updateSummaryAndConfirm() {
         const summaryEl = document.getElementById('bulkKdhSummary');
         const confirmBtn = document.getElementById('bulkKdhConfirmBtn');
-        if (!previewEl || !summaryEl || !confirmBtn) return;
+        if (!summaryEl || !confirmBtn) return;
+        const valid = parsedSTTs.filter((p) => p.order);
+        const selected = valid.filter((p) => p.selected).length;
+        const errorCount = parsedSTTs.length - valid.length;
+        summaryEl.innerHTML =
+            `<span class="bulk-kdh-count-ok">${selected}/${valid.length} chọn</span>` +
+            (errorCount > 0 ? ` · <span class="bulk-kdh-count-err">${errorCount} lỗi</span>` : '');
+        confirmBtn.disabled = selected === 0;
+        confirmBtn.innerHTML = `<i class="fas fa-check"></i> Xác nhận gán${selected > 0 ? ` (${selected})` : ''}`;
+    }
 
-        const validCount = parsedSTTs.filter((p) => p.order).length;
-        const errorCount = parsedSTTs.length - validCount;
+    function renderPreview() {
+        const previewEl = document.getElementById('bulkKdhPreview');
+        const toolbarEl = document.getElementById('bulkKdhToolbar');
+        if (!previewEl) return;
 
         if (parsedSTTs.length === 0) {
             previewEl.innerHTML = `<div class="bulk-kdh-empty"><i class="fas fa-inbox"></i><p>Nhập STT để xem trước đơn hàng sẽ được gán tag.</p></div>`;
-            summaryEl.textContent = '';
-            confirmBtn.disabled = true;
+            if (toolbarEl) toolbarEl.style.display = 'none';
+            updateSummaryAndConfirm();
             return;
         }
+
+        if (toolbarEl) toolbarEl.style.display = '';
 
         const rowsHtml = parsedSTTs
             .map((p) => {
                 if (p.order) {
                     const name = p.order.Name || p.order.PartnerName || '(không tên)';
                     const code = p.order.Code || '';
-                    return `<div class="bulk-kdh-row bulk-kdh-row--ok">
+                    const checked = p.selected !== false ? 'checked' : '';
+                    return `<label class="bulk-kdh-row bulk-kdh-row--ok ${checked ? '' : 'bulk-kdh-row--unchecked'}">
+                        <input type="checkbox" class="bulk-kdh-row-cb" ${checked} data-stt="${p.stt}" />
                         <span class="bulk-kdh-stt">STT ${p.stt}</span>
                         <span class="bulk-kdh-name">${escapeHtml(name)}</span>
                         <span class="bulk-kdh-code">${escapeHtml(code)}</span>
-                        <i class="fas fa-check-circle bulk-kdh-ok-icon"></i>
-                    </div>`;
+                    </label>`;
                 }
                 return `<div class="bulk-kdh-row bulk-kdh-row--err">
                     <span class="bulk-kdh-stt">STT ${p.stt}</span>
@@ -124,8 +167,19 @@
             .join('');
         previewEl.innerHTML = rowsHtml;
 
-        summaryEl.innerHTML = `<span class="bulk-kdh-count-ok">${validCount} hợp lệ</span>${errorCount > 0 ? ` · <span class="bulk-kdh-count-err">${errorCount} lỗi</span>` : ''}`;
-        confirmBtn.disabled = validCount === 0;
+        // Wire checkbox listeners (event delegation lite — query rồi attach)
+        previewEl.querySelectorAll('.bulk-kdh-row-cb').forEach((cb) => {
+            cb.addEventListener('change', (e) => {
+                const stt = parseInt(cb.getAttribute('data-stt'), 10);
+                toggleRow(stt, e.target.checked);
+                // Update visual unchecked state
+                const row = cb.closest('.bulk-kdh-row');
+                if (row) row.classList.toggle('bulk-kdh-row--unchecked', !e.target.checked);
+            });
+        });
+
+        updateSelectAllCheckbox();
+        updateSummaryAndConfirm();
     }
 
     function escapeHtml(s) {
@@ -144,8 +198,9 @@
 
     // ===== Apply =====
     async function executeAssign() {
-        const valid = parsedSTTs.filter((p) => p.order);
-        if (valid.length === 0) return;
+        // Chỉ gán những row được chọn (selected !== false) và có order hợp lệ.
+        const targets = parsedSTTs.filter((p) => p.order && p.selected !== false);
+        if (targets.length === 0) return;
 
         if (typeof window.assignOrderCategory !== 'function') {
             const msg = 'window.assignOrderCategory chưa sẵn sàng — vui lòng tải lại trang.';
@@ -164,7 +219,7 @@
         let failed = 0;
         const errors = [];
 
-        for (const p of valid) {
+        for (const p of targets) {
             try {
                 await window.assignOrderCategory(p.order.Code, CATEGORY, {
                     subTag: SUBTAG_KEY,
@@ -184,7 +239,7 @@
         }
 
         const msg =
-            `Đã gán "KHÔNG ĐỂ HÀNG" cho ${success}/${valid.length} đơn` +
+            `Đã gán "KHÔNG ĐỂ HÀNG" cho ${success}/${targets.length} đơn` +
             (failed > 0 ? ` (${failed} lỗi)` : '');
         if (window.notificationManager) {
             // Gọi trực tiếp trên object để giữ `this` — ternary rồi call() sẽ mất context.
@@ -213,6 +268,11 @@
         if (ta && !ta._bulkKdhWired) {
             ta.addEventListener('input', onInputChange);
             ta._bulkKdhWired = true;
+        }
+        const selectAllCb = document.getElementById('bulkKdhSelectAllCb');
+        if (selectAllCb && !selectAllCb._bulkKdhWired) {
+            selectAllCb.addEventListener('change', (e) => toggleSelectAll(e.target.checked));
+            selectAllCb._bulkKdhWired = true;
         }
     }
 
