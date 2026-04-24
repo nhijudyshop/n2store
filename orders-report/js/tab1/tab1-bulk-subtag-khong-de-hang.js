@@ -124,13 +124,17 @@
     }
 
     function escapeHtml(s) {
-        return String(s || '').replace(/[&<>"']/g, (c) => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;',
-        })[c]);
+        return String(s || '').replace(
+            /[&<>"']/g,
+            (c) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                })[c]
+        );
     }
 
     // ===== Apply =====
@@ -174,11 +178,13 @@
             confirmBtn.innerHTML = '<i class="fas fa-check"></i> Xác nhận gán';
         }
 
-        const msg = `Đã gán "KHÔNG ĐỂ HÀNG" cho ${success}/${valid.length} đơn` +
+        const msg =
+            `Đã gán "KHÔNG ĐỂ HÀNG" cho ${success}/${valid.length} đơn` +
             (failed > 0 ? ` (${failed} lỗi)` : '');
         if (window.notificationManager) {
             (failed > 0 ? window.notificationManager.warning : window.notificationManager.success)(
-                msg, 4000
+                msg,
+                4000
             );
         } else {
             alert(msg + (errors.length ? '\n\n' + errors.slice(0, 5).join('\n') : ''));
@@ -187,7 +193,11 @@
         if (success > 0) {
             // Refresh panel để cập nhật count
             if (typeof window.renderPanelContent === 'function') {
-                try { window.renderPanelContent(); } catch (e) { /* noop */ }
+                try {
+                    window.renderPanelContent();
+                } catch (e) {
+                    /* noop */
+                }
             }
             closeModal();
         }
