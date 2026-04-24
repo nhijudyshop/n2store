@@ -289,8 +289,7 @@ function _applyFiltersExceptProcessingTag() {
 
     // Apply Call History Filter — dựa vào PhoneHistoryBadges cache
     // (call-history + call-recordings từ Render DB, refresh mỗi 2 phút)
-    const callHistoryFilter =
-        document.getElementById('callHistoryFilter')?.value || 'all';
+    const callHistoryFilter = document.getElementById('callHistoryFilter')?.value || 'all';
     if (callHistoryFilter !== 'all' && window.PhoneHistoryBadges?.getStats) {
         tempData = tempData.filter((order) => {
             const phone = String(order.Telephone || '').replace(/[^\d+]/g, '');
