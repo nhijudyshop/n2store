@@ -16,7 +16,11 @@
             headers: { Accept: 'application/json', ...(options.headers || {}) },
         });
         let data = null;
-        try { data = await res.json(); } catch { /* non-json */ }
+        try {
+            data = await res.json();
+        } catch {
+            /* non-json */
+        }
         if (!res.ok) {
             const msg = data?.error || `HTTP ${res.status}`;
             throw new Error(msg);
