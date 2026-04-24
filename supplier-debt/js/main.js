@@ -1776,9 +1776,7 @@ function applyCustomRowOrder(rows, supplierCode) {
         }
     });
 
-    known.sort(
-        (a, b) => orderMap.get(a.MoveName || '') - orderMap.get(b.MoveName || '')
-    );
+    known.sort((a, b) => orderMap.get(a.MoveName || '') - orderMap.get(b.MoveName || ''));
 
     return [...known, ...unknown];
 }
