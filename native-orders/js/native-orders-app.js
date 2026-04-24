@@ -134,15 +134,16 @@
             (s, l) => s + (Number(l.quantity) || 0) * (Number(l.price) || 0),
             0
         );
-        const rows = lines.map((l, i) => {
-            const qty = Number(l.quantity) || 0;
-            const price = Number(l.price) || 0;
-            const amount = qty * price;
-            const img = l.imageUrl
-                ? `<img src="${escapeHtml(l.imageUrl)}" class="expand-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
+        const rows = lines
+            .map((l, i) => {
+                const qty = Number(l.quantity) || 0;
+                const price = Number(l.price) || 0;
+                const amount = qty * price;
+                const img = l.imageUrl
+                    ? `<img src="${escapeHtml(l.imageUrl)}" class="expand-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                    <span class="expand-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
-                : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
-            return `
+                    : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
+                return `
                 <tr>
                     <td>${i + 1}</td>
                     <td>${img}</td>
@@ -154,7 +155,8 @@
                     <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>
                     <td class="expand-amount">${amount.toLocaleString('vi-VN')}đ</td>
                 </tr>`;
-        }).join('');
+            })
+            .join('');
         return `
             <tr class="expand-row" data-for="${escapeHtml(o.code)}">
                 <td colspan="11">
@@ -197,9 +199,8 @@
                     : '';
                 const isExpanded = STATE.expandedOrders.has(o.code);
                 const lineCount = Array.isArray(o.products) ? o.products.length : 0;
-                const lineBadge = lineCount > 0
-                    ? `<span class="line-count-badge">${lineCount}</span>`
-                    : '';
+                const lineBadge =
+                    lineCount > 0 ? `<span class="line-count-badge">${lineCount}</span>` : '';
                 // Row is clickable to toggle expand — inner interactive elements stopPropagation.
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
@@ -261,9 +262,39 @@
     }
 
     function toggleExpand(code) {
-        if (STATE.expandedOrders.has(code)) STATE.expandedOrders.delete(code);
-        else STATE.expandedOrders.add(code);
-        renderRows();
+        // Surgical DOM update — don't re-render the whole tbody (that would
+        // destroy avatar <img> elements and cause a visible flicker while
+        // they reload from cache). Only touch the one row + its expand sibling.
+        const tb = tbody();
+        const mainRow = tb?.querySelector(`tr.order-row[data-code="${CSS.escape(code)}"]`);
+        if (!mainRow) return;
+
+        const isExpanded = STATE.expandedOrders.has(code);
+        const caret = mainRow.querySelector('.expand-caret');
+
+        const swapCaret = (name) => {
+            if (!caret) return;
+            const next = document.createElement('i');
+            next.setAttribute('data-lucide', name);
+            next.className = 'expand-caret';
+            caret.replaceWith(next);
+        };
+
+        if (isExpanded) {
+            STATE.expandedOrders.delete(code);
+            mainRow.classList.remove('is-expanded');
+            swapCaret('chevron-right');
+            tb.querySelector(`tr.expand-row[data-for="${CSS.escape(code)}"]`)?.remove();
+        } else {
+            STATE.expandedOrders.add(code);
+            mainRow.classList.add('is-expanded');
+            swapCaret('chevron-down');
+            const order = STATE.orders.find((x) => x.code === code);
+            if (order) mainRow.insertAdjacentHTML('afterend', _renderExpandRow(order));
+        }
+        // Convert the newly inserted <i data-lucide> nodes only — existing
+        // SVGs (avatars, status icons, etc.) in other rows stay untouched.
+        if (window.lucide) lucide.createIcons();
     }
 
     function renderPagination() {
