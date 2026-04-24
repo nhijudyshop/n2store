@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [docs][tpos-pancake] Rebuild guide 18-phase để dựng lại trang 100% từ đầu
+| | |
+|---|---|
+| **Files** | NEW: [docs/guides/tpos-pancake/README.md](guides/tpos-pancake/README.md) + 8 file guide (01-html-css-shell, 02-shared-and-layout, 03-tpos-column, 04-pancake-column, 05-wiring-and-verify, 06-css-item-styles, 07-tpos-action-handlers, 99-appendix). Tổng ~4500 dòng MD, tự chứa, mỗi phase có goal → files → code → verify. |
+| **Chi tiết** | User yêu cầu: "viết chi tiết cách code lại 100% → tôi đọc và code lại giống 100% dễ dàng; tự suy nghĩ, tự debug, commit/push, tự xem lại vòng lặp đến khi ok". Phương pháp: (1) 2 Explore agent song song thu thập HTML/CSS + JS architecture; (2) tổng hợp thành 7 file theo phase 0-18; (3) self-review sửa endpoint URL sai (loadSessionIndex → `/facebook/comment-orders`, hideComment/replyToComment signature, chatomni path-based thay vì query); (4) vòng 2 bổ sung CSS conversation card đầy đủ + action handlers còn thiếu (renderComments, status dropdown, save SĐT/address, v.v.); (5) verify mọi file path và endpoint đều tồn tại thật (grep backend + CF Worker + repo tree). Commits `5a013432` (v1), `7944ee8a` (v2). |
+| **Status** | ✅ Done. Test: đọc `docs/guides/tpos-pancake/README.md` rồi theo phase 0-18 → dựng được trang y hệt bản gốc không cần `git grep`. |
+
 ### [orders][realtime] Fix bỏ qua đơn mới khi bảng load nhiều campaign (HOUSE + STORE)
 | | |
 |---|---|
