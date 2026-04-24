@@ -3006,6 +3006,10 @@
             for (const [key, st] of subtags) {
                 const fk = 'subtag_' + key;
                 const icon = PTAG_SUBTAG_ICONS[key] || '📋';
+                // Bulk-assign button — chỉ hiện ở KHÔNG ĐỂ HÀNG (gán thủ công bằng STT)
+                const bulkBtn = key === 'KHONG_DE_HANG'
+                    ? `<button class="ptag-row-bulk-btn" onclick="window.openBulkSubtagKhongDeHangModal(); event.stopPropagation();" title="Gán KHÔNG ĐỂ HÀNG hàng loạt theo STT"><i class="fas fa-plus"></i></button>`
+                    : '';
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(st.label)}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:${catColors.border};">
                         <span style="font-size:12px;">${icon}</span>
@@ -3014,6 +3018,7 @@
                         <div class="ptag-panel-card-name">${st.label}</div>
                         <div class="ptag-panel-card-count">${subTagCounts[key] || 0} đơn hàng</div>
                     </div>
+                    ${bulkBtn}
                     ${_rowHistoryBtnHtml('subtag', key)}
                     ${_tooltipHtml(fk)}
                 </div>`;
