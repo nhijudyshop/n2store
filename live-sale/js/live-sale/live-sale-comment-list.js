@@ -98,7 +98,9 @@ const LiveSaleCommentList = {
         // Direct id patterns
         const compound = s.match(/(\d{6,})[_/](\d{6,})/);
         if (compound) return `${compound[1]}_${compound[2]}`;
-        const urlMatch = s.match(/(?:posts|videos|live|permalink\.php\?story_fbid=|v=)\/?([0-9]{6,})/i);
+        const urlMatch = s.match(
+            /(?:posts|videos|live|permalink\.php\?story_fbid=|v=)\/?([0-9]{6,})/i
+        );
         if (urlMatch) return urlMatch[1];
         const numeric = s.match(/^[0-9]{6,}$/);
         if (numeric) return s;
@@ -133,12 +135,14 @@ const LiveSaleCommentList = {
             list.length === 0 && state?.liveVideosHint === 'no_fb_token'
                 ? '— Dán Post ID bên phải —'
                 : list.length === 0 && state?.liveVideosHint
-                    ? '— Không có live, dán Post ID —'
-                    : '— Chọn live —';
+                  ? '— Không có live, dán Post ID —'
+                  : '— Chọn live —';
         const opts = [`<option value="">${escapeForAttr(placeholder)}</option>`];
         for (const c of list) {
             const prefix = c._manual ? '📎 ' : '';
-            opts.push(`<option value="${escapeForAttr(c.Id)}">${prefix}${escapeForAttr(c.Name)}</option>`);
+            opts.push(
+                `<option value="${escapeForAttr(c.Id)}">${prefix}${escapeForAttr(c.Name)}</option>`
+            );
         }
         sel.innerHTML = opts.join('');
         if (state?.liveVideosMessage && list.length === 0) {
