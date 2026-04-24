@@ -173,6 +173,34 @@
                 return iah.call(this, position, rewriteHtmlString(html));
             };
         }
+        // Also hook HTMLImageElement.src setter — catches `img.src = raw` before browser loads.
+        const imgDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+        if (imgDesc && imgDesc.set && imgDesc.configurable !== false) {
+            Object.defineProperty(HTMLImageElement.prototype, 'src', {
+                ...imgDesc,
+                set(v) {
+                    const s = typeof v === 'string' ? v : '';
+                    if (s && TPOS_CDN_PATTERN.test(s) && !PROXIED_PATTERN.test(s)) {
+                        return imgDesc.set.call(this, proxyImageUrl(s));
+                    }
+                    return imgDesc.set.call(this, v);
+                },
+            });
+        }
+        // Hook setAttribute for img src / srcset
+        const setAttr = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function (name, value) {
+            if (
+                this instanceof HTMLImageElement &&
+                (name === 'src' || name === 'srcset') &&
+                typeof value === 'string' &&
+                TPOS_CDN_PATTERN.test(value) &&
+                !PROXIED_PATTERN.test(value)
+            ) {
+                return setAttr.call(this, name, proxyImageUrl(value));
+            }
+            return setAttr.call(this, name, value);
+        };
     } catch (_) {
         // Best-effort — if prototype hardening blocks redefine, MutationObserver still catches.
     }
