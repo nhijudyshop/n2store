@@ -16,9 +16,7 @@ const LiveSaleTokenManager = {
         // Fallbacks that may exist in this codebase
         try {
             return (
-                localStorage.getItem('n2_auth_token') ||
-                localStorage.getItem('auth_token') ||
-                ''
+                localStorage.getItem('n2_auth_token') || localStorage.getItem('auth_token') || ''
             );
         } catch {
             return '';
@@ -44,7 +42,9 @@ const LiveSaleTokenManager = {
             if (window.authManager?.getUsername) {
                 return window.authManager.getUsername() || '';
             }
-        } catch { /* noop */ }
+        } catch {
+            /* noop */
+        }
         return 'web';
     },
 };

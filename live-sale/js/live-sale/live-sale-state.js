@@ -19,10 +19,10 @@ const LiveSaleState = {
     containerId: null,
 
     // Pages & sessions (replacement for CRM Teams / live campaigns)
-    allPages: [],            // [{ id, name, fb_page_id, access_token? }]
+    allPages: [], // [{ id, name, fb_page_id, access_token? }]
     selectedPage: null,
     selectedPages: [],
-    liveSessions: [],        // [{ id, fb_post_id, fb_live_id, title, started_at }]
+    liveSessions: [], // [{ id, fb_post_id, fb_live_id, title, started_at }]
     selectedSession: null,
     selectedSessionIds: new Set(),
 
@@ -36,7 +36,7 @@ const LiveSaleState = {
     sessionIndexMap: new Map(),
 
     // Partner / customer cache — keyed by fb_user_id
-    partnerCache: null,      // SharedCache (init in initialize)
+    partnerCache: null, // SharedCache (init in initialize)
     partnerFetchPromises: new Map(),
 
     // Saved-to-livesale list (replacement for tposSavedIds on Pancake side)
@@ -66,7 +66,8 @@ const LiveSaleState = {
 
     _loadSettings() {
         try {
-            const raw = localStorage.getItem(LS_LOCAL.SETTINGS_KEY) || localStorage.getItem('tposSettings');
+            const raw =
+                localStorage.getItem(LS_LOCAL.SETTINGS_KEY) || localStorage.getItem('tposSettings');
             if (raw) {
                 const s = JSON.parse(raw);
                 if (typeof s.showDebt === 'boolean') this.showDebt = s.showDebt;
@@ -80,7 +81,9 @@ const LiveSaleState = {
     // ---- Persistence helpers ----------------------------------------------
 
     getSavedPageSelection() {
-        return localStorage.getItem(LS_LOCAL.PAGE_KEY) || localStorage.getItem('tpos_selected_page');
+        return (
+            localStorage.getItem(LS_LOCAL.PAGE_KEY) || localStorage.getItem('tpos_selected_page')
+        );
     },
 
     savePageSelection(value) {
@@ -89,9 +92,15 @@ const LiveSaleState = {
     },
 
     getSavedSessionSelection() {
-        const raw = localStorage.getItem(LS_LOCAL.SESSION_KEY) || localStorage.getItem('tpos_selected_campaigns');
+        const raw =
+            localStorage.getItem(LS_LOCAL.SESSION_KEY) ||
+            localStorage.getItem('tpos_selected_campaigns');
         if (!raw) return null;
-        try { return JSON.parse(raw); } catch { return null; }
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return null;
+        }
     },
 
     saveSessionSelection() {
@@ -112,9 +121,12 @@ const LiveSaleState = {
 
     startCacheCleanup() {
         if (this._cleanupTimer) return;
-        this._cleanupTimer = setInterval(() => {
-            if (this.partnerCache?.cleanup) this.partnerCache.cleanup();
-        }, 5 * 60 * 1000);
+        this._cleanupTimer = setInterval(
+            () => {
+                if (this.partnerCache?.cleanup) this.partnerCache.cleanup();
+            },
+            5 * 60 * 1000
+        );
     },
 
     stopCacheCleanup() {

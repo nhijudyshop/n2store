@@ -9,7 +9,8 @@ const LiveSaleRealtime = {
     _streams: new Map(), // key = `${pageId}:${postId}` → EventSource
 
     _buildStreamUrl(fbPageId, fbPostId) {
-        const base = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const base =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const qs = new URLSearchParams({ pageid: fbPageId, postId: fbPostId });
         return `${base}/facebook/comments/stream?${qs.toString()}`;
     },
@@ -55,7 +56,11 @@ const LiveSaleRealtime = {
 
     stopSSE() {
         for (const [key, es] of this._streams) {
-            try { es.close(); } catch { /* noop */ }
+            try {
+                es.close();
+            } catch {
+                /* noop */
+            }
             this._streams.delete(key);
         }
         window.dispatchEvent(new CustomEvent('tposRealtimeDisconnected'));
@@ -64,7 +69,9 @@ const LiveSaleRealtime = {
     /**
      * No-op placeholders kept for API compatibility with tpos-realtime.js.
      */
-    disconnectWebSocket() { /* not used in LiveSale */ },
+    disconnectWebSocket() {
+        /* not used in LiveSale */
+    },
 };
 
 if (typeof window !== 'undefined') {

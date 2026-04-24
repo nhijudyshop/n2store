@@ -52,7 +52,10 @@ const LiveSaleCustomerPanel = {
             ['Trạng thái', p.StatusText],
         ]
             .filter(([, v]) => v)
-            .map(([k, v]) => `<div class="kv"><span>${escape(k)}</span><strong>${escape(v)}</strong></div>`)
+            .map(
+                ([k, v]) =>
+                    `<div class="kv"><span>${escape(k)}</span><strong>${escape(v)}</strong></div>`
+            )
             .join('');
         host.innerHTML = `<div class="ls-partner-card">${lines || '<em>Không có dữ liệu</em>'}</div>`;
     },
@@ -62,8 +65,12 @@ const LiveSaleCustomerPanel = {
         if (modal) modal.style.display = 'none';
     },
 
-    toggleStatusDropdown() { /* Phase 4 */ },
-    selectStatus() { /* Phase 4 */ },
+    toggleStatusDropdown() {
+        /* Phase 4 */
+    },
+    selectStatus() {
+        /* Phase 4 */
+    },
 };
 
 function escape(v) {

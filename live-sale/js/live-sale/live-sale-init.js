@@ -92,13 +92,15 @@ const LiveSaleColumnManager = {
         const [, pageRaw] = value.split(':');
         const pageId = pageRaw;
         state.selectedPage = state.allPages.find(
-            (p) => String(p.id) === String(pageId) || p.fb_page_id === pageId,
+            (p) => String(p.id) === String(pageId) || p.fb_page_id === pageId
         );
         state.selectedPages = state.selectedPage ? [state.selectedPage] : [];
         state.savePageSelection(value);
 
         if (state.selectedPage) {
-            await window.LiveSaleApi?.loadLiveCampaigns(state.selectedPage.fb_page_id || state.selectedPage.Facebook_PageId);
+            await window.LiveSaleApi?.loadLiveCampaigns(
+                state.selectedPage.fb_page_id || state.selectedPage.Facebook_PageId
+            );
             window.LiveSaleCommentList?.renderLiveCampaignOptions();
         }
     },
@@ -114,7 +116,9 @@ const LiveSaleColumnManager = {
             return;
         }
         state.clearAllCaches();
-        state.selectedCampaign = (state.liveCampaigns || []).find((c) => String(c.Id) === String(campaignId));
+        state.selectedCampaign = (state.liveCampaigns || []).find(
+            (c) => String(c.Id) === String(campaignId)
+        );
         if (state.selectedCampaign) await this.loadComments();
     },
 
@@ -139,9 +143,14 @@ const LiveSaleColumnManager = {
 
         try {
             const pageId = state.selectedPage.fb_page_id || state.selectedPage.Facebook_PageId;
-            const postId = state.selectedCampaign.Facebook_LiveId || state.selectedCampaign.fb_post_id;
+            const postId =
+                state.selectedCampaign.Facebook_LiveId || state.selectedCampaign.fb_post_id;
 
-            const result = await window.LiveSaleApi.loadComments(pageId, postId, append ? state.nextPageCursor : null);
+            const result = await window.LiveSaleApi.loadComments(
+                pageId,
+                postId,
+                append ? state.nextPageCursor : null
+            );
             const fetched = result.comments || [];
 
             state.comments = append ? [...state.comments, ...fetched] : fetched;
@@ -151,7 +160,11 @@ const LiveSaleColumnManager = {
             window.LiveSaleCommentList?.renderComments();
 
             if (!append) {
-                window.LiveSaleRealtime?.startSSE(pageId, postId, state.selectedCampaign.Facebook_UserName || '');
+                window.LiveSaleRealtime?.startSSE(
+                    pageId,
+                    postId,
+                    state.selectedCampaign.Facebook_UserName || ''
+                );
             }
         } catch (err) {
             console.error('[LiveSale] loadComments error:', err);
@@ -171,7 +184,9 @@ const LiveSaleColumnManager = {
         const state = window.LiveSaleState;
         if (state?.selectedCampaign) return this.loadComments();
         if (state?.selectedPage) {
-            await window.LiveSaleApi?.loadLiveCampaigns(state.selectedPage.fb_page_id || state.selectedPage.Facebook_PageId);
+            await window.LiveSaleApi?.loadLiveCampaigns(
+                state.selectedPage.fb_page_id || state.selectedPage.Facebook_PageId
+            );
             window.LiveSaleCommentList?.renderLiveCampaignOptions();
             return;
         }
@@ -231,17 +246,30 @@ if (typeof window !== 'undefined') {
             toggleHideComment: (id, hide) => cm.toggleHideComment(id, hide),
             toggleStatusDropdown: () => window.LiveSaleCustomerPanel.toggleStatusDropdown(),
             selectStatus: (v, t) => window.LiveSaleCustomerPanel.selectStatus(v, t),
-            toggleInlineStatusDropdown: (id) => window.LiveSaleCommentList.toggleInlineStatusDropdown(id),
-            selectInlineStatus: (id, v, t) => window.LiveSaleCommentList.selectInlineStatus(id, v, t),
+            toggleInlineStatusDropdown: (id) =>
+                window.LiveSaleCommentList.toggleInlineStatusDropdown(id),
+            selectInlineStatus: (id, v, t) =>
+                window.LiveSaleCommentList.selectInlineStatus(id, v, t),
             saveInlinePhone: (id, inp) => window.LiveSaleCommentList.saveInlinePhone(id, inp),
             saveInlineAddress: (id, inp) => window.LiveSaleCommentList.saveInlineAddress(id, inp),
             setDebtDisplaySettings: (a, b) => cm.setDebtDisplaySettings(a, b),
-            updateSaveButtonToCheckmark: (id) => window.LiveSaleCommentList.updateSaveButtonToCheckmark?.(id),
-            get comments() { return window.LiveSaleState.comments; },
-            get selectedPage() { return window.LiveSaleState.selectedPage; },
-            get selectedCampaign() { return window.LiveSaleState.selectedCampaign; },
-            get savedToTposIds() { return window.LiveSaleState.savedToTposIds; },
-            get sessionIndexMap() { return window.LiveSaleState.sessionIndexMap; },
+            updateSaveButtonToCheckmark: (id) =>
+                window.LiveSaleCommentList.updateSaveButtonToCheckmark?.(id),
+            get comments() {
+                return window.LiveSaleState.comments;
+            },
+            get selectedPage() {
+                return window.LiveSaleState.selectedPage;
+            },
+            get selectedCampaign() {
+                return window.LiveSaleState.selectedCampaign;
+            },
+            get savedToTposIds() {
+                return window.LiveSaleState.savedToTposIds;
+            },
+            get sessionIndexMap() {
+                return window.LiveSaleState.sessionIndexMap;
+            },
             getCacheStats: () => window.LiveSaleState.getCacheStats(),
         };
     }

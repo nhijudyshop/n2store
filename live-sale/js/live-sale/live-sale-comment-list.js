@@ -111,9 +111,7 @@ const LiveSaleCommentList = {
             return;
         }
         // Phase 1 minimal render — rich cards come in Phase 4.
-        host.innerHTML = items
-            .map((c) => this._renderCommentRow(c))
-            .join('');
+        host.innerHTML = items.map((c) => this._renderCommentRow(c)).join('');
         if (window.lucide?.createIcons) window.lucide.createIcons();
     },
 
@@ -150,9 +148,15 @@ const LiveSaleCommentList = {
         if (txt) txt.textContent = connected ? 'Live' : 'Offline';
     },
 
-    updateLoadMoreIndicator() { /* no-op in Phase 1 */ },
-    updateSavedBadges() { /* no-op in Phase 1 */ },
-    updateDebtBadges() { /* no-op in Phase 1 */ },
+    updateLoadMoreIndicator() {
+        /* no-op in Phase 1 */
+    },
+    updateSavedBadges() {
+        /* no-op in Phase 1 */
+    },
+    updateDebtBadges() {
+        /* no-op in Phase 1 */
+    },
 
     // ---- stubs for the backward-compat surface exposed by tpos-init --------
     toggleInlineStatusDropdown() {},
@@ -167,8 +171,13 @@ const LiveSaleCommentList = {
         state.showDebt = !!showDebt;
         state.showZeroDebt = !!showZeroDebt;
         try {
-            localStorage.setItem('liveSaleSettings', JSON.stringify({ showDebt: state.showDebt, showZeroDebt: state.showZeroDebt }));
-        } catch { /* noop */ }
+            localStorage.setItem(
+                'liveSaleSettings',
+                JSON.stringify({ showDebt: state.showDebt, showZeroDebt: state.showZeroDebt })
+            );
+        } catch {
+            /* noop */
+        }
         this.renderComments();
     },
 };

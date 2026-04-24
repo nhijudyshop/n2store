@@ -11,7 +11,9 @@ const LS_BASE = (() => {
     try {
         if (window.API_CONFIG?.RENDER_BASE) return window.API_CONFIG.RENDER_BASE;
         if (window.API_CONFIG?.WORKER_URL) return window.API_CONFIG.WORKER_URL;
-    } catch { /* noop */ }
+    } catch {
+        /* noop */
+    }
     return 'https://chatomni-proxy.nhijudyshop.workers.dev';
 })();
 
@@ -71,7 +73,7 @@ const LiveSaleApi = {
                 {
                     Id: 0,
                     Name: 'N2Store',
-                    Childs: pages.map(p => ({
+                    Childs: pages.map((p) => ({
                         Id: p.id,
                         Facebook_PageId: p.fb_page_id,
                         Name: p.name,
@@ -88,13 +90,15 @@ const LiveSaleApi = {
      */
     async loadLiveCampaigns(fbPageId) {
         try {
-            const data = await lsFetch(`/api/v2/live-sale/live-videos?page_id=${encodeURIComponent(fbPageId)}`);
+            const data = await lsFetch(
+                `/api/v2/live-sale/live-videos?page_id=${encodeURIComponent(fbPageId)}`
+            );
             const list = data?.data?.videos || data?.videos || [];
             const state = window.LiveSaleState;
             if (state) {
                 state.liveSessions = list;
                 // Back-compat: keep a `liveCampaigns` alias shaped like TPOS data.
-                state.liveCampaigns = list.map(v => ({
+                state.liveCampaigns = list.map((v) => ({
                     Id: v.id || v.fb_live_id || v.fb_post_id,
                     Name: v.title || `Live ${v.fb_post_id}`,
                     Facebook_UserId: fbPageId,
@@ -118,7 +122,7 @@ const LiveSaleApi = {
         const state = window.LiveSaleState;
         if (!state) return [];
         const results = await Promise.all(
-            (state.allPages || []).map(p => this.loadLiveCampaigns(p.fb_page_id).catch(() => []))
+            (state.allPages || []).map((p) => this.loadLiveCampaigns(p.fb_page_id).catch(() => []))
         );
         const flat = results.flat();
         state.liveCampaigns = flat;
@@ -158,7 +162,9 @@ const LiveSaleApi = {
      */
     async loadSessionIndex(fbPostId) {
         try {
-            const data = await lsFetch(`/api/v2/live-sale/comment-orders?post_id=${encodeURIComponent(fbPostId)}`);
+            const data = await lsFetch(
+                `/api/v2/live-sale/comment-orders?post_id=${encodeURIComponent(fbPostId)}`
+            );
             const obj = data?.data || data || {};
             const map = new Map();
             for (const [k, v] of Object.entries(obj)) {
@@ -178,7 +184,9 @@ const LiveSaleApi = {
      */
     async getPartnerInfo(_crmTeamId, fbUserId) {
         try {
-            const data = await lsFetch(`/api/v2/live-sale/partners/${encodeURIComponent(fbUserId)}`);
+            const data = await lsFetch(
+                `/api/v2/live-sale/partners/${encodeURIComponent(fbUserId)}`
+            );
             return data?.data || data || null;
         } catch {
             return null;
@@ -208,7 +216,10 @@ const LiveSaleApi = {
      */
     async createOrder(payload) {
         try {
-            const data = await lsFetch('/api/v2/live-sale/orders', { method: 'POST', body: payload });
+            const data = await lsFetch('/api/v2/live-sale/orders', {
+                method: 'POST',
+                body: payload,
+            });
             return data?.data || data;
         } catch (err) {
             console.warn('[LiveSale API] createOrder stub:', err.message);

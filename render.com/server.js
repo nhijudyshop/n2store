@@ -121,6 +121,10 @@ chatDbPool.query('SELECT NOW()')
         if (typeof ensurePhoneManagementTables === 'function') {
             ensurePhoneManagementTables(chatDbPool).catch(() => {});
         }
+        // Auto-create live-sale schema (idempotent)
+        if (typeof ensureLiveSaleSchema === 'function') {
+            ensureLiveSaleSchema(chatDbPool).catch(() => {});
+        }
     })
     .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
@@ -315,6 +319,7 @@ const facebookRoutes = require('./routes/facebook.routes');
 const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
 const customer360Routes = require('./routes/customer-360');
 const v2Router = require('./routes/v2');  // Unified API v2
+const { ensureLiveSaleSchema } = require('./routes/v2/live-sale');
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');

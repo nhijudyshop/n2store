@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [live-sale][render] Phase 2 — backend Postgres schema + routes `/api/v2/live-sale/*`
+| | |
+|---|---|
+| **Files** | ADDED: [render.com/migrations/060_live_sale_schema.sql](../render.com/migrations/060_live_sale_schema.sql) — 5 tables `live_sale_products`, `live_sale_orders`, `live_sale_order_lines`, `live_sale_live_sessions`, `live_sale_comment_orders` + adds `customers.facebook_id`; idempotent `CREATE TABLE IF NOT EXISTS`; triggers cho `updated_at` + auto-recompute `orders.total` khi lines thay đổi. ADDED: [render.com/routes/v2/live-sale.js](../render.com/routes/v2/live-sale.js) — 15 endpoints: `GET /pages`, `GET /live-videos`, `POST/GET /live-sessions`, `GET/POST/PATCH /products`, `GET/POST/PATCH /orders`, `POST /orders/:id/{confirm,cancel}`, `GET /comment-orders`, `GET /partners/:fbUserId`; export `ensureLiveSaleSchema(pool)` để chạy migration trên startup. MODIFIED: [render.com/routes/v2/index.js](../render.com/routes/v2/index.js) — mount `/live-sale` router; MODIFIED: [render.com/server.js](../render.com/server.js) — require `ensureLiveSaleSchema` + gọi trong DB-ready handler (pattern giống `ensurePhoneManagementTables`). |
+| **Chi tiết** | **Scope**: backend cho LiveSale column (thay TPOS OData). **Reuse** `pancake_page_access_tokens` table đã có để lấy FB page + access_token → không tạo table token FB mới. `/pages` query trực tiếp từ table này; `/live-videos` dùng token gọi FB Graph `/{page}/live_videos` lấy 20 live gần nhất. Orders: code auto-generate `LS-YYYYMMDD-NNNN`, transaction wrap create-order + lines + comment_order_map (SessionIndex equivalent). Triggers Postgres tự recompute total khi lines thay đổi. Partners endpoint query `customers.facebook_id` → return shape `{Partner, Order}` giống TPOS để frontend customer-panel không cần đổi format. **CF Worker**: đã có catch-all `/api/v2/*` → Render fallback, nên không cần sửa Worker. **Auth**: endpoints chưa enforce JWT — để Phase 3 khi wire auth middleware (tuỳ thuộc pattern users route đang dùng). **Verify**: `node -e "require('./routes/v2/live-sale')"` load OK, `require('./routes/v2')` cũng OK (v2 index mount thành công). Sau deploy, `GET https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/health` sẽ list `'live-sale'` trong modules. |
+| **Status** | ✅ Phase 2 Done. Render auto-deploy sau push; khi DB connect OK, `ensureLiveSaleSchema` sẽ chạy migration tự động. Next: Phase 3 wire frontend gọi các endpoints này. |
+
 ### [live-sale] Phase 1 — scaffold trang `live-sale/` clone của `tpos-pancake` với cột TPOS web-native
 | | |
 |---|---|
