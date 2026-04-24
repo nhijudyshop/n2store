@@ -8,6 +8,13 @@
 
 ## 2026-04-24
 
+### [orders][chotdon-panel] Fix `Cannot read properties of undefined (reading 'show')` sau khi gán KDH
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) line 184-190 — thay ternary `(failed>0 ? nm.warning : nm.success)(msg, 4000)` bằng `if/else` gọi trực tiếp trên object. |
+| **Chi tiết** | **Bug**: sau khi click "Xác nhận gán" và `assignOrderCategory` chạy xong, console báo `TypeError: Cannot read properties of undefined (reading 'show')` ở `notification-system.js:248` (success method). **Root cause**: ternary `(cond ? obj.a : obj.b)(args)` unwrap method khỏi object → call site không có receiver → `this` bên trong method = `undefined` → `this.show(...)` crash. **Fix**: gọi trực tiếp `window.notificationManager.warning(msg, 4000)` / `.success(msg, 4000)` để giữ `this` = notificationManager. Trong JavaScript chỉ `obj.method()` mới bind `this`; lấy reference rồi call mất context. |
+| **Status** | ✅ Fixed. Verify: mở modal KDH → nhập STT hợp lệ → Xác nhận → không còn lỗi console, toast xanh "Đã gán KHÔNG ĐỂ HÀNG cho X/X đơn" hiện đúng. |
+
 ### [balance-history][pending-match] Fix 404 "Pending match not found or already resolved" khi chọn KH từ dropdown
 | | |
 |---|---|

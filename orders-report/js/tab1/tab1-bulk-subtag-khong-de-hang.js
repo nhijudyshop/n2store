@@ -182,10 +182,9 @@
             `Đã gán "KHÔNG ĐỂ HÀNG" cho ${success}/${valid.length} đơn` +
             (failed > 0 ? ` (${failed} lỗi)` : '');
         if (window.notificationManager) {
-            (failed > 0 ? window.notificationManager.warning : window.notificationManager.success)(
-                msg,
-                4000
-            );
+            // Gọi trực tiếp trên object để giữ `this` — ternary rồi call() sẽ mất context.
+            if (failed > 0) window.notificationManager.warning(msg, 4000);
+            else window.notificationManager.success(msg, 4000);
         } else {
             alert(msg + (errors.length ? '\n\n' + errors.slice(0, 5).join('\n') : ''));
         }
