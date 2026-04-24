@@ -2158,8 +2158,10 @@ async function assignTagsAfterMerge(cluster) {
  *   - Add tTag động `Gộp X Y Z` (id = `GOP_<sttList>`, name = `Gộp <sttList>`).
  *
  * SOURCE (đơn nguồn):
- *   - Reset sạch: flags = [], tTags = [], category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT.
- *   - KHÔNG gắn tTag `Gộp X Y Z` vào source (chỉ TARGET có marker gộp).
+ *   - Reset flags = [], category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT.
+ *   - GIỮ NGUYÊN mọi tTag dạng `GOP_<digits>...` hiện có của source (gồm merge tag cũ lẫn mới).
+ *     Source KHÔNG mất "Gộp X Y Z" của chính nó sau khi gộp.
+ *   - Add tTag `Gộp X Y Z` của lần merge hiện tại (dedup — nếu đã có thì giữ nguyên).
  *
  * Tất cả call đều dùng `{ suppressSync: true }` — không trigger XL→TPOS sync.
  */
@@ -2277,22 +2279,41 @@ async function assignTagXLAfterMerge(cluster) {
             console.error(`[MERGE-PTAG] Failed to add merge tag to target ${targetCode}:`, e);
         }
 
-        // ===== SOURCES: reset sạch, KHÔNG gắn merge tag (chỉ target mới có "Gộp X Y Z") =====
+        // ===== SOURCES: reset cat/flags, giữ NGUYÊN mọi tTag GOP_* của source + add marker mới =====
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
             try {
+                const prev = window.ProcessingTagState.getOrderData(sourceCode);
+                // Giữ lại mọi tTag dạng GOP_<digits>... của source (kể cả merge tag cũ)
+                // → user muốn "Gộp X Y Z" ở đơn nguồn vẫn còn, không bị mất khi gộp.
+                const preservedMergeTTags = (prev?.tTags || []).filter(t => {
+                    const tId = _mergeXLId(t);
+                    if (!tId || typeof tId !== 'string') return false;
+                    return /^GOP_\d+(_\d+)*$/.test(tId);
+                });
+                const mergedTTagMap = new Map();
+                preservedMergeTTags.forEach(t => {
+                    const tId = _mergeXLId(t);
+                    if (tId) mergedTTagMap.set(tId, t);
+                });
+                // Dedup: nếu source đã có merge tag trùng mergeTagId thì giữ nguyên, không thêm lại
+                if (!mergedTTagMap.has(mergeTagId)) {
+                    mergedTTagMap.set(mergeTagId, { id: mergeTagId, name: mergeTagName });
+                }
+                const sourceTTags = Array.from(mergedTTagMap.values());
+
                 await window.resetOrderTagsForMerge(
                     sourceCode,
                     {
                         category: 3,
                         subTag: 'DA_GOP_KHONG_CHOT',
                         flags: [],
-                        tTags: [],
+                        tTags: sourceTTags,
                     },
                     'Hệ thống (gộp đơn)'
                 );
                 console.log(
-                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT`
+                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${sourceTTags.length} GOP_* tTag(s)`
                 );
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
