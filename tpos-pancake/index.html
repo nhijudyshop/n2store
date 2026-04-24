@@ -49,10 +49,83 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../shared/css/typography.css" />
+
+    <!-- Web 2.0 shared tab navigation (inline so nothing else is affected) -->
+    <style>
+        .web2-tab-nav {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .web2-tab-nav .tab-button {
+            padding: 12px 18px;
+            background: none;
+            border: none;
+            color: #6b7280;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: color 150ms ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .web2-tab-nav .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            right: 50%;
+            height: 2px;
+            background: #3b82f6;
+            border-radius: 2px 2px 0 0;
+            transition: left 0.25s ease, right 0.25s ease;
+        }
+        .web2-tab-nav .tab-button:hover { color: #3b82f6; background: #f9fafb; }
+        .web2-tab-nav .tab-button:hover::after { left: 20%; right: 20%; }
+        .web2-tab-nav .tab-button.active { color: #3b82f6; font-weight: 600; }
+        .web2-tab-nav .tab-button.active::after { left: 0; right: 0; }
+        .web2-tab-nav .tab-icon { width: 16px; height: 16px; }
+        .web2-tab-nav .tab-spacer { flex: 1; }
+        .web2-tab-nav .source-pill {
+            padding: 4px 10px;
+            background: #ede9fe;
+            color: #6d28d9;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', 'Menlo', monospace;
+            letter-spacing: -0.02em;
+        }
+    </style>
 </head>
 
 <body>
     <main class="main-content">
+        <!-- Web 2.0 tab navigation — đồng bộ với native-orders + web2-products -->
+        <div class="web2-tab-nav">
+            <a class="tab-button" data-tab="native-orders" href="../native-orders/index.html">
+                <i data-lucide="package-open" class="tab-icon"></i>
+                Đơn Web
+            </a>
+            <a class="tab-button active" data-tab="tpos-pancake" href="#">
+                <i data-lucide="shopping-cart" class="tab-icon"></i>
+                TPOS × Pancake
+            </a>
+            <a class="tab-button" data-tab="web2-products" href="../web2-products/index.html">
+                <i data-lucide="box" class="tab-icon"></i>
+                Kho SP
+            </a>
+            <div class="tab-spacer"></div>
+            <span class="source-pill">Web 2.0</span>
+        </div>
+
         <!-- Top Bar — TPOS selectors (left) + Pancake page selector (right) -->
         <header class="top-bar" style="gap:8px;">
             <!-- TPOS side: logo + page select + campaign select + Live + refresh -->
