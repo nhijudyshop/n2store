@@ -13,7 +13,10 @@
     R.register('/rooms', V.viewRooms, { title: 'Căn hộ', section: 'Danh mục dữ liệu' });
     R.register('/beds', V.viewBeds, { title: 'Giường', section: 'Danh mục dữ liệu' });
     R.register('/fees', V.viewFees, { title: 'Dịch vụ', section: 'Danh mục dữ liệu' });
-    R.register('/inventory/assets', V.viewAssets, { title: 'Tài sản', section: 'Danh mục dữ liệu' });
+    R.register('/inventory/assets', V.viewAssets, {
+        title: 'Tài sản',
+        section: 'Danh mục dữ liệu',
+    });
 
     R.register('/leads', V.viewLeads, { title: 'Khách hẹn', section: 'Khách hàng' });
     R.register('/reservations', V.viewReservations, { title: 'Đặt cọc', section: 'Khách hàng' });
@@ -29,11 +32,20 @@
     R.register('/tasks/all', V.viewTasks, { title: 'Tất cả công việc', section: 'Công việc' });
     R.register('/tasks', V.viewMyTasks, { title: 'Việc của tôi', section: 'Công việc' });
 
-    R.register('/report/real-estate', V.viewRealEstateReport, { title: 'Báo cáo bất động sản', section: 'Báo cáo' });
-    R.register('/report/finance', V.viewFinanceReport, { title: 'Báo cáo tài chính', section: 'Báo cáo' });
+    R.register('/report/real-estate', V.viewRealEstateReport, {
+        title: 'Báo cáo bất động sản',
+        section: 'Báo cáo',
+    });
+    R.register('/report/finance', V.viewFinanceReport, {
+        title: 'Báo cáo tài chính',
+        section: 'Báo cáo',
+    });
 
     R.register('/general-setting', V.viewSettings, { title: 'Cài đặt chung', section: 'Khác' });
-    R.register('/data-catalog', V.viewStub('Danh mục khác'), { title: 'Danh mục khác', section: 'Khác' });
+    R.register('/data-catalog', V.viewStub('Danh mục khác'), {
+        title: 'Danh mục khác',
+        section: 'Khác',
+    });
     R.register('/templates', V.viewStub('Mẫu biểu'), { title: 'Mẫu biểu', section: 'Khác' });
     R.register('/staff', V.viewStub('Nhân viên'), { title: 'Nhân viên', section: 'Khác' });
     R.register('/changelog', V.viewChangelog, { title: 'Catalog API', section: 'Khác' });
@@ -81,7 +93,9 @@
         const tab = e.target.closest('[data-tab]');
         if (tab) {
             // status tabs — toggle UI active immediately (data filter sẽ là phần real impl)
-            tab.parentElement.querySelectorAll('.status-tab').forEach((t) => t.classList.remove('active'));
+            tab.parentElement
+                .querySelectorAll('.status-tab')
+                .forEach((t) => t.classList.remove('active'));
             tab.classList.add('active');
         }
         const trig = e.target.closest('[data-action-trigger]');
@@ -91,8 +105,13 @@
             menu.style.left = Math.min(r.right - 180, window.innerWidth - 200) + 'px';
             menu.style.top = r.bottom + 4 + 'px';
             menu.hidden = false;
-            const close = () => { menu.hidden = true; document.removeEventListener('click', closeOutside); };
-            const closeOutside = (ev) => { if (!menu.contains(ev.target)) close(); };
+            const close = () => {
+                menu.hidden = true;
+                document.removeEventListener('click', closeOutside);
+            };
+            const closeOutside = (ev) => {
+                if (!menu.contains(ev.target)) close();
+            };
             setTimeout(() => document.addEventListener('click', closeOutside), 0);
         }
     });
@@ -107,7 +126,11 @@
         if (me) {
             document.getElementById('user-name').textContent = me.name || '—';
             document.getElementById('user-email').textContent = me.email || '—';
-            document.getElementById('user-avatar').textContent = (me.name || '?').split(' ').pop().charAt(0).toUpperCase();
+            document.getElementById('user-avatar').textContent = (me.name || '?')
+                .split(' ')
+                .pop()
+                .charAt(0)
+                .toUpperCase();
         }
         const tot = await RData.myTasks();
         const tasksTotal = tot?.total ?? 0;

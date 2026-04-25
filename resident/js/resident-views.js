@@ -5,30 +5,47 @@
  */
 (function () {
     const H = window.RHelpers;
-    const { fmt, money, esc, kpi, tagFromStatus, filterBar, statusTabs, tableView, pageActions } = H;
+    const { fmt, money, esc, kpi, tagFromStatus, filterBar, statusTabs, tableView, pageActions } =
+        H;
 
     /* ============== DASHBOARD ============== */
     async function viewDashboard(body) {
-        const [re, room, contract, invoice, lead, reservation, task, rating, line, top] = await Promise.all([
-            RData.realEstateReport(),
-            RData.realEstateRoomReport(),
-            RData.contractOverview(),
-            RData.invoiceOverview(),
-            RData.leadOverview(),
-            RData.reservationOverview(),
-            RData.taskOverview(),
-            RData.customerRating(),
-            RData.incomeExpenseLineChart(),
-            RData.taskTopValues(),
-        ]);
+        const [re, room, contract, invoice, lead, reservation, task, rating, line, top] =
+            await Promise.all([
+                RData.realEstateReport(),
+                RData.realEstateRoomReport(),
+                RData.contractOverview(),
+                RData.invoiceOverview(),
+                RData.leadOverview(),
+                RData.reservationOverview(),
+                RData.taskOverview(),
+                RData.customerRating(),
+                RData.incomeExpenseLineChart(),
+                RData.taskTopValues(),
+            ]);
 
         const fb = await filterBar({ location: true, apartment: true });
 
         const kpis = [
             kpi('Toà nhà', fmt(re?.totalActiveApartments), '', 'k-primary'),
-            kpi('Phòng đang hoạt động', fmt(re?.totalActiveRooms), 'Tỉ lệ lấp đầy: ' + (re?.occupancyRate ?? 0) + '%', 'k-info'),
-            kpi('Hợp đồng đang hoạt động', fmt(contract?.activeContracts), 'Mới tháng này: ' + fmt(contract?.newContractThisMonth), 'k-accent'),
-            kpi('Doanh thu tháng', money(invoice?.totalThisMonth), 'Đã thu: ' + money(invoice?.paidThisMonth), 'k-primary'),
+            kpi(
+                'Phòng đang hoạt động',
+                fmt(re?.totalActiveRooms),
+                'Tỉ lệ lấp đầy: ' + (re?.occupancyRate ?? 0) + '%',
+                'k-info'
+            ),
+            kpi(
+                'Hợp đồng đang hoạt động',
+                fmt(contract?.activeContracts),
+                'Mới tháng này: ' + fmt(contract?.newContractThisMonth),
+                'k-accent'
+            ),
+            kpi(
+                'Doanh thu tháng',
+                money(invoice?.totalThisMonth),
+                'Đã thu: ' + money(invoice?.paidThisMonth),
+                'k-primary'
+            ),
             kpi('HĐ sắp hết hạn', fmt(contract?.expireSoonContracts), '', 'k-warn'),
             kpi('Lead mới tháng', fmt(lead?.newLeadThisMonth), '', 'k-info'),
         ].join('');
@@ -126,7 +143,21 @@
     async function viewApartments(body) {
         const [list, an] = await Promise.all([RData.apartments(), RData.apartmentAnalytics()]);
         const items = list?.items || [];
-        const fb = await filterBar({ location: true, search: 'Tìm tòa nhà...', extras: [{ key: 'active', label: 'Trạng thái', options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Ngừng' }] }] });
+        const fb = await filterBar({
+            location: true,
+            search: 'Tìm tòa nhà...',
+            extras: [
+                {
+                    key: 'active',
+                    label: 'Trạng thái',
+                    options: [
+                        { value: '', label: 'Tất cả' },
+                        { value: 'true', label: 'Hoạt động' },
+                        { value: 'false', label: 'Ngừng' },
+                    ],
+                },
+            ],
+        });
         body.innerHTML = `
       ${fb}
       <div class="kpi-grid">
@@ -144,7 +175,14 @@
               { key: 'fullAddress', label: 'Địa chỉ' },
               { key: 'numberRooms', label: 'Số phòng', render: (it) => fmt(it.numberRooms) },
               { key: 'paymentDay', label: 'Ngày thu', render: (it) => fmt(it.paymentDay) || '—' },
-              { key: 'active', label: 'Trạng thái', render: (it) => (it.active ? '<span class="tag t-success">Hoạt động</span>' : '<span class="tag t-muted">Ngừng</span>') },
+              {
+                  key: 'active',
+                  label: 'Trạng thái',
+                  render: (it) =>
+                      it.active
+                          ? '<span class="tag t-success">Hoạt động</span>'
+                          : '<span class="tag t-muted">Ngừng</span>',
+              },
           ],
       })}
     `;
@@ -178,8 +216,16 @@
               { key: 'name', label: 'Tên' },
               { key: 'apartment', label: 'Tòa', render: (it) => esc(it.apartment?.name) },
               { key: 'floor', label: 'Tầng', render: (it) => esc(it.floor?.name) },
-              { key: 'price', label: 'Giá thuê', render: (it) => '<span class="money">' + money(it.price) + '</span>' },
-              { key: 'deposit', label: 'Cọc', render: (it) => '<span class="money">' + money(it.deposit) + '</span>' },
+              {
+                  key: 'price',
+                  label: 'Giá thuê',
+                  render: (it) => '<span class="money">' + money(it.price) + '</span>',
+              },
+              {
+                  key: 'deposit',
+                  label: 'Cọc',
+                  render: (it) => '<span class="money">' + money(it.deposit) + '</span>',
+              },
               { key: 'size', label: 'DT', render: (it) => fmt(it.size) + ' m²' },
               { key: 'maxTenants', label: 'Sức chứa' },
               { key: 'status', label: 'Trạng thái', render: (it) => tagFromStatus(it.status) },
@@ -276,10 +322,18 @@
           items,
           columns: [
               { key: 'code', label: 'Mã' },
-              { key: 'tenant', label: 'Khách', render: (it) => esc(it.tenant?.name || it.mainTenant?.name) },
+              {
+                  key: 'tenant',
+                  label: 'Khách',
+                  render: (it) => esc(it.tenant?.name || it.mainTenant?.name),
+              },
               { key: 'room', label: 'Phòng', render: (it) => esc(it.room?.name) },
               { key: 'depositMoney', label: 'Tiền cọc', render: (it) => money(it.depositMoney) },
-              { key: 'reservationDate', label: 'Ngày đặt', render: (it) => esc((it.reservationDate || '').substring(0, 10)) },
+              {
+                  key: 'reservationDate',
+                  label: 'Ngày đặt',
+                  render: (it) => esc((it.reservationDate || '').substring(0, 10)),
+              },
               { key: 'status', label: 'Trạng thái', render: (it) => tagFromStatus(it.status) },
           ],
       })}`;
@@ -311,13 +365,33 @@
           items,
           columns: [
               { key: 'code', label: 'Mã HĐ' },
-              { key: 'tenant', label: 'Khách', render: (it) => esc(it.name || it.mainTenant?.name) },
+              {
+                  key: 'tenant',
+                  label: 'Khách',
+                  render: (it) => esc(it.name || it.mainTenant?.name),
+              },
               { key: 'room', label: 'Phòng', render: (it) => esc(it.room?.name) },
               { key: 'price', label: 'Tiền thuê', render: (it) => money(it.price) },
-              { key: 'startDate', label: 'Bắt đầu', render: (it) => esc((it.startDate || '').substring(0, 10)) },
-              { key: 'endDate', label: 'Kết thúc', render: (it) => esc((it.endDate || '').substring(0, 10)) },
-              { key: 'remainDays', label: 'Còn lại', render: (it) => (it.remainDays != null ? it.remainDays + ' ngày' : '—') },
-              { key: 'statusObject', label: 'Trạng thái', render: (it) => tagFromStatus(it.statusObject) },
+              {
+                  key: 'startDate',
+                  label: 'Bắt đầu',
+                  render: (it) => esc((it.startDate || '').substring(0, 10)),
+              },
+              {
+                  key: 'endDate',
+                  label: 'Kết thúc',
+                  render: (it) => esc((it.endDate || '').substring(0, 10)),
+              },
+              {
+                  key: 'remainDays',
+                  label: 'Còn lại',
+                  render: (it) => (it.remainDays != null ? it.remainDays + ' ngày' : '—'),
+              },
+              {
+                  key: 'statusObject',
+                  label: 'Trạng thái',
+                  render: (it) => tagFromStatus(it.statusObject),
+              },
           ],
       })}`;
     }
@@ -378,7 +452,24 @@
     async function viewInvoices(body) {
         const [list, an] = await Promise.all([RData.invoices(), RData.invoiceAnalytics()]);
         const items = list?.items || [];
-        const fb = await filterBar({ location: true, apartment: true, room: true, daterange: true, extras: [{ key: 'paid', label: 'Trạng thái', options: [{ value: '', label: 'Tất cả' }, { value: 'paid', label: 'Đã thu' }, { value: 'unpaid', label: 'Chưa thu' }, { value: 'partial', label: 'Thu một phần' }] }] });
+        const fb = await filterBar({
+            location: true,
+            apartment: true,
+            room: true,
+            daterange: true,
+            extras: [
+                {
+                    key: 'paid',
+                    label: 'Trạng thái',
+                    options: [
+                        { value: '', label: 'Tất cả' },
+                        { value: 'paid', label: 'Đã thu' },
+                        { value: 'unpaid', label: 'Chưa thu' },
+                        { value: 'partial', label: 'Thu một phần' },
+                    ],
+                },
+            ],
+        });
         body.innerHTML = `
       ${fb}
       <div class="kpi-grid">
@@ -392,7 +483,11 @@
           items,
           columns: [
               { key: 'code', label: 'Mã' },
-              { key: 'tenant', label: 'Khách', render: (it) => esc(it.mainTenant?.name || it.tenant?.name) },
+              {
+                  key: 'tenant',
+                  label: 'Khách',
+                  render: (it) => esc(it.mainTenant?.name || it.tenant?.name),
+              },
               { key: 'room', label: 'Phòng', render: (it) => esc(it.room?.name) },
               { key: 'totalAmount', label: 'Tổng', render: (it) => money(it.totalAmount) },
               { key: 'paidAmount', label: 'Đã thu', render: (it) => money(it.paidAmount) },
@@ -404,9 +499,17 @@
 
     /* ============== Income-Expense ============== */
     async function viewIncomeExpense(body) {
-        const [list, an] = await Promise.all([RData.incomeExpenses(), RData.incomeExpenseAnalytics()]);
+        const [list, an] = await Promise.all([
+            RData.incomeExpenses(),
+            RData.incomeExpenseAnalytics(),
+        ]);
         const items = list?.items || [];
-        const fb = await filterBar({ daterange: true, location: true, apartment: true, room: true });
+        const fb = await filterBar({
+            daterange: true,
+            location: true,
+            apartment: true,
+            room: true,
+        });
         body.innerHTML = `
       ${fb}
       <div class="kpi-grid">
@@ -433,7 +536,21 @@
         const [cb, ie] = await Promise.all([RData.cashbook(), RData.incomeExpenseLineChart()]);
         const cashbooks = cb?.items || [];
         const totalBalance = cashbooks.reduce((s, c) => s + (c.balance || 0), 0);
-        const fb = await filterBar({ daterange: true, location: true, apartment: true, extras: [{ key: 'cashbook', label: 'Chọn sổ quỹ', options: [{ value: '', label: 'Tất cả sổ' }, ...cashbooks.map((c) => ({ value: c.id, label: c.name }))] }] });
+        const fb = await filterBar({
+            daterange: true,
+            location: true,
+            apartment: true,
+            extras: [
+                {
+                    key: 'cashbook',
+                    label: 'Chọn sổ quỹ',
+                    options: [
+                        { value: '', label: 'Tất cả sổ' },
+                        ...cashbooks.map((c) => ({ value: c.id, label: c.name })),
+                    ],
+                },
+            ],
+        });
 
         const labels = ie?.labels || [];
         const inc = ie?.incomeSeries || [];
@@ -472,9 +589,20 @@
           items: cashbooks,
           columns: [
               { key: 'name', label: 'Sổ quỹ' },
-              { key: 'balance', label: 'Số dư hiện tại', render: (it) => '<span class="money">' + money(it.balance) + '</span>' },
+              {
+                  key: 'balance',
+                  label: 'Số dư hiện tại',
+                  render: (it) => '<span class="money">' + money(it.balance) + '</span>',
+              },
               { key: 'type', label: 'Loại', render: (it) => esc(it.type?.name || it.type) },
-              { key: 'active', label: 'Trạng thái', render: (it) => (it.active ? '<span class="tag t-success">Hoạt động</span>' : '<span class="tag t-muted">Ngừng</span>') },
+              {
+                  key: 'active',
+                  label: 'Trạng thái',
+                  render: (it) =>
+                      it.active
+                          ? '<span class="tag t-success">Hoạt động</span>'
+                          : '<span class="tag t-muted">Ngừng</span>',
+              },
           ],
       })}</div>`;
     }
@@ -502,7 +630,12 @@
     async function viewMeterLogs(body) {
         const [list, an] = await Promise.all([RData.meterLogs(), RData.meterLogAnalytics()]);
         const items = list?.items || [];
-        const fb = await filterBar({ location: true, apartment: true, room: true, daterange: true });
+        const fb = await filterBar({
+            location: true,
+            apartment: true,
+            room: true,
+            daterange: true,
+        });
         body.innerHTML = `
       ${fb}
       <div class="kpi-grid">
@@ -517,11 +650,19 @@
               { key: 'code', label: 'Mã' },
               { key: 'apartment', label: 'Tòa', render: (it) => esc(it.apartment?.name) },
               { key: 'room', label: 'Phòng', render: (it) => esc(it.room?.name) },
-              { key: 'meterType', label: 'Loại đồng hồ', render: (it) => esc(it.meterType?.name || it.type) },
+              {
+                  key: 'meterType',
+                  label: 'Loại đồng hồ',
+                  render: (it) => esc(it.meterType?.name || it.type),
+              },
               { key: 'beforeIndex', label: 'Chỉ số trước' },
               { key: 'afterIndex', label: 'Chỉ số sau' },
               { key: 'used', label: 'Tiêu thụ', render: (it) => fmt(it.usedQuantity || it.used) },
-              { key: 'logDate', label: 'Ngày', render: (it) => esc((it.logDate || '').substring(0, 10)) },
+              {
+                  key: 'logDate',
+                  label: 'Ngày',
+                  render: (it) => esc((it.logDate || '').substring(0, 10)),
+              },
           ],
       })}`;
     }
@@ -562,7 +703,11 @@
               { key: 'code', label: 'Mã' },
               { key: 'name', label: 'Tên khu vực' },
               { key: 'numberApartments', label: 'Số tòa' },
-              { key: 'created_at', label: 'Tạo lúc', render: (it) => esc((it.created_at || '').substring(0, 10)) },
+              {
+                  key: 'created_at',
+                  label: 'Tạo lúc',
+                  render: (it) => esc((it.created_at || '').substring(0, 10)),
+              },
           ],
       })}`;
     }
@@ -603,8 +748,16 @@
             apartment: true,
             room: true,
             extras: [
-                { key: 'group', label: 'Nhóm công việc', options: [{ value: '', label: 'Tất cả nhóm' }] },
-                { key: 'type', label: 'Loại công việc', options: [{ value: '', label: 'Tất cả loại' }] },
+                {
+                    key: 'group',
+                    label: 'Nhóm công việc',
+                    options: [{ value: '', label: 'Tất cả nhóm' }],
+                },
+                {
+                    key: 'type',
+                    label: 'Loại công việc',
+                    options: [{ value: '', label: 'Tất cả loại' }],
+                },
             ],
         });
         body.innerHTML = `
@@ -625,14 +778,20 @@
               { key: 'taskType', label: 'Loại', render: (it) => esc(it.taskType?.name) },
               { key: 'apartment', label: 'Tòa', render: (it) => esc(it.apartment?.name) },
               { key: 'room', label: 'Phòng', render: (it) => esc(it.room?.name) },
-              { key: 'performer', label: 'Người làm', render: (it) => esc(it.performer?.name || it.assignee?.name) },
+              {
+                  key: 'performer',
+                  label: 'Người làm',
+                  render: (it) => esc(it.performer?.name || it.assignee?.name),
+              },
               { key: 'priority', label: 'Ưu tiên', render: (it) => tagFromStatus(it.priority) },
               { key: 'status', label: 'Trạng thái', render: (it) => tagFromStatus(it.status) },
           ],
       })}`;
     }
 
-    async function viewMyTasks(body, params) { return viewTasks(body, params, { tab: 'mine' }); }
+    async function viewMyTasks(body, params) {
+        return viewTasks(body, params, { tab: 'mine' });
+    }
 
     /* ============== Notifications ============== */
     async function viewNotifications(body) {
@@ -650,10 +809,27 @@
           items,
           columns: [
               { key: 'code', label: 'Mã' },
-              { key: 'content', label: 'Nội dung thông báo', render: (it) => esc((it.content || it.title || '').slice(0, 80)) },
-              { key: 'recipientCount', label: 'Số khách hàng nhận', render: (it) => fmt(it.recipientCount || 1) },
-              { key: 'channel', label: 'Hình thức gửi', render: (it) => esc(it.channel?.name || it.type?.name || it.type) },
-              { key: 'createdAt', label: 'Thời gian', render: (it) => esc((it.createdAt || it.created_at || '').substring(0, 19).replace('T', ' ')) },
+              {
+                  key: 'content',
+                  label: 'Nội dung thông báo',
+                  render: (it) => esc((it.content || it.title || '').slice(0, 80)),
+              },
+              {
+                  key: 'recipientCount',
+                  label: 'Số khách hàng nhận',
+                  render: (it) => fmt(it.recipientCount || 1),
+              },
+              {
+                  key: 'channel',
+                  label: 'Hình thức gửi',
+                  render: (it) => esc(it.channel?.name || it.type?.name || it.type),
+              },
+              {
+                  key: 'createdAt',
+                  label: 'Thời gian',
+                  render: (it) =>
+                      esc((it.createdAt || it.created_at || '').substring(0, 19).replace('T', ' ')),
+              },
               { key: 'status', label: 'Trạng thái', render: (it) => tagFromStatus(it.status) },
           ],
       })}`;
@@ -661,7 +837,11 @@
 
     /* ============== Settings — 6 tabs ============== */
     async function viewSettings(body, params, opts = {}) {
-        const [me, perm, conf] = await Promise.all([RData.userMe(), RData.permission(), RData.userConfig()]);
+        const [me, perm, conf] = await Promise.all([
+            RData.userMe(),
+            RData.permission(),
+            RData.userConfig(),
+        ]);
         const tabs = [
             { key: 'basic', label: '⚙️ Cài đặt cơ bản' },
             { key: 'contract', label: '📄 Hợp đồng' },
@@ -671,7 +851,12 @@
             { key: 'integration', label: '🔌 Tích hợp' },
         ];
         const active = opts.tab || 'basic';
-        const tabsHtml = tabs.map((t) => `<button class="stab ${t.key === active ? 'active' : ''}" data-stab="${esc(t.key)}">${esc(t.label)}</button>`).join('');
+        const tabsHtml = tabs
+            .map(
+                (t) =>
+                    `<button class="stab ${t.key === active ? 'active' : ''}" data-stab="${esc(t.key)}">${esc(t.label)}</button>`
+            )
+            .join('');
 
         let main = '';
         if (active === 'basic') {
@@ -757,7 +942,10 @@
         <table class="t">
           <thead><tr><th>Method</th><th>Path</th><th>Size</th><th>File</th></tr></thead>
           <tbody>${(cat || [])
-              .map((c) => `<tr><td>${esc(c.method)}</td><td><code>${esc(c.path)}</code></td><td>${fmt(c.size)} B</td><td><code>${esc(c.file)}</code></td></tr>`)
+              .map(
+                  (c) =>
+                      `<tr><td>${esc(c.method)}</td><td><code>${esc(c.path)}</code></td><td>${fmt(c.size)} B</td><td><code>${esc(c.file)}</code></td></tr>`
+              )
               .join('')}</tbody>
         </table>
       </div>`;
@@ -791,17 +979,22 @@
     }
 
     async function viewFinanceReport(body) {
-        const [invoice, ie] = await Promise.all([RData.invoiceOverview(), RData.incomeExpenseLineChart()]);
+        const [invoice, ie] = await Promise.all([
+            RData.invoiceOverview(),
+            RData.incomeExpenseLineChart(),
+        ]);
         const fb = await filterBar({ daterange: true, location: true, apartment: true });
         const labels = ie?.labels || [];
         const inc = ie?.incomeSeries || [];
         const exp = ie?.expenseSeries || [];
         const max = Math.max(...inc, ...exp, 1);
-        const barsHtml = labels.map((lab, i) => {
-            const hi = ((inc[i] || 0) / max) * 100;
-            const he = ((exp[i] || 0) / max) * 100;
-            return `<div class="bar"><div style="display:flex;gap:2px;align-items:flex-end;height:140px"><div class="bar-fill" style="width:10px;height:${hi}%"></div><div class="bar-fill" style="width:10px;height:${he}%;background:linear-gradient(180deg,#ef4444,#fca5a5)"></div></div><div class="bar-label">${lab}</div></div>`;
-        }).join('');
+        const barsHtml = labels
+            .map((lab, i) => {
+                const hi = ((inc[i] || 0) / max) * 100;
+                const he = ((exp[i] || 0) / max) * 100;
+                return `<div class="bar"><div style="display:flex;gap:2px;align-items:flex-end;height:140px"><div class="bar-fill" style="width:10px;height:${hi}%"></div><div class="bar-fill" style="width:10px;height:${he}%;background:linear-gradient(180deg,#ef4444,#fca5a5)"></div></div><div class="bar-label">${lab}</div></div>`;
+            })
+            .join('');
         body.innerHTML = `
       ${fb}
       <h3 class="section-title">Báo cáo tài chính tháng này</h3>
