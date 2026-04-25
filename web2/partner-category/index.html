@@ -1,0 +1,31 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhóm khách hàng — Web 2.0</title>
+    <script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head>
+<body>
+<script>
+    Web2Shell.bootstrap({
+        slug: 'partnercategory',
+        title: 'Nhóm khách hàng',
+        breadcrumb: ['App', 'Khách hàng'],
+        columns: [
+            { key: 'code',           label: 'Mã',         width: 140, align: 'center' },
+            { key: 'name',           label: 'Tên nhóm',   align: 'left' },
+            { key: 'data.parentCode',label: 'Nhóm cha',   width: 160, align: 'left' },
+            { key: 'data.note',      label: 'Ghi chú',    align: 'left' },
+        ],
+        fields: [
+            { key: 'code',           label: 'Mã',                type: 'text',     required: true,  placeholder: 'VD: NKH001' },
+            { key: 'name',           label: 'Tên nhóm',          type: 'text',     required: true,  placeholder: 'VIP, Thường, ...' },
+            { key: 'data.parentCode',label: 'Nhóm cha (Mã)',     type: 'text' },
+            { key: 'data.note',      label: 'Ghi chú',           type: 'textarea' },
+        ],
+    });
+</script>
+</body>
+</html>

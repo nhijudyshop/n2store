@@ -1,0 +1,28 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ký quỹ — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'accountdeposit', title: 'Ký quỹ', breadcrumb: ['App', 'Tài chính'],
+    columns: [
+        { key: 'code', label: 'Số phiếu', width: 150, align: 'center' },
+        { key: 'name', label: 'Diễn giải', align: 'left' },
+        { key: 'data.partnerCode', label: 'Đối tác (Mã)', width: 150, align: 'center' },
+        { key: 'data.amount', label: 'Số tiền ký quỹ', width: 150, align: 'right' },
+        { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: DEP001' },
+        { key: 'name', label: 'Diễn giải', type: 'text', required: true },
+        { key: 'data.partnerCode', label: 'Mã đối tác', type: 'text', required: true },
+        { key: 'data.amount', label: 'Số tiền ký quỹ', type: 'number', required: true },
+        { key: 'data.date', label: 'Ngày (YYYY-MM-DD)', type: 'text' },
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

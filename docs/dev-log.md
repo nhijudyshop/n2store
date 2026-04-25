@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][page] Phase C.4-C.6 — Đối tác (4) + Tài chính/Kế toán (9) = 13 trang
+| | |
+|---|---|
+| **Files** | NEW (13 trang dùng `Web2Shell.bootstrap`): [web2/partner-category](../web2/partner-category/index.html), [web2/partner-customer](../web2/partner-customer/index.html), [web2/partner-supplier](../web2/partner-supplier/index.html), [web2/delivery-carrier](../web2/delivery-carrier/index.html), [web2/account-thu](../web2/account-thu/index.html), [web2/account-chi](../web2/account-chi/index.html), [web2/account-list](../web2/account-list/index.html), [web2/account-journal](../web2/account-journal/index.html), [web2/tag](../web2/tag/index.html), [web2/account-payment-thu](../web2/account-payment-thu/index.html), [web2/account-payment-chi](../web2/account-payment-chi/index.html), [web2/account-inventory](../web2/account-inventory/index.html), [web2/account-deposit](../web2/account-deposit/index.html). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 13 item thêm `our:` field. |
+| **Chi tiết** | **Đối tác (4)**: partnercategory (Nhóm KH), partner-customer (Khách hàng — code/name/phone/email/category/address/taxCode), partner-supplier (NCC — + bankAccount), deliverycarrier (Hãng VC — + fee + apiKey). **Kế toán (5)**: accountaccount-thu (Loại thu), accountaccount-chi (Loại chi), accountaccount (TKKT — + kind asset/liability/equity/revenue/expense + parent), accountjournal (Sổ nhật ký — + type cash/bank/sale/purchase/general), tag (Nhãn — + colorHex). **Tài chính (4)**: accountpayment-thu/-chi (Phiếu thu/chi — code/payerCode/amount/date/journalCode), accountinventory (Điều chỉnh công nợ — partnerCode/delta/note), accountdeposit (Ký quỹ — partnerCode/amount/date). **Trade-off**: phiếu thu/chi/điều chỉnh hiện CRUD đơn giản, chưa có workflow duyệt — đủ cho list view. Logic phức tạp (ledger entry, dual-entry) sẽ tạo bảng riêng nếu cần. |
+| **Status** | ✅ Code done. Total Phase C done: 4+4+9 = 17 trang. Verify: backend tự auto-create entity_slug records mỗi lần page load lần đầu, sidebar 13 link mới hoạt động. |
+
 ### [web2][page] Phase C.2-C.3 — productuom + productuomcateg + productattribute + productattributevalue
 | | |
 |---|---|
