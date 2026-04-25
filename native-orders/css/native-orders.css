@@ -472,10 +472,12 @@ body { display: flex; flex-direction: column; }
     border-bottom: 1px solid var(--tpos-border);
     color: var(--tpos-text);
     vertical-align: middle;
-    background: var(--tpos-bg-cell-head);
+    background: transparent;          /* TPOS body td bg = transparent */
 }
-.data-table tr:hover td { background: #e8e6e6; }
+.data-table tr:hover td { background: rgba(0, 0, 0, 0.025); }
 .data-table tr:last-child td { border-bottom: 1px solid var(--tpos-border); }
+/* TPOS first th has top-left rounded corner */
+.data-table thead th:first-child { border-radius: 3px 0 0 0; }
 
 /* Column widths */
 .col-check   { width: 40px; }

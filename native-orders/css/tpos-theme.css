@@ -40,6 +40,7 @@
     display: inline-block;
     padding: 5px 10px;
     font-size: 12px;
+    font-family: inherit;             /* MUST inherit Segoe UI from body */
     font-weight: 500;
     line-height: 1.42857;
     color: var(--tpos-text-3);

@@ -183,25 +183,26 @@
             </tr>`;
     }
 
-    // TPOS-style status text (column "Trạng thái")
+    // TPOS renders status as a Bootstrap pill (.label.label-primary), NOT plain text.
+    // Default = label-primary blue; cancelled = label-danger red; delivered = label-success.
     function tposStatusText(s) {
         const map = {
-            draft:     { label: 'Nháp',        cls: '' },
-            confirmed: { label: 'Đơn hàng',    cls: 'confirmed' },
-            cancelled: { label: 'Huỷ bỏ',      cls: 'cancelled' },
-            delivered: { label: 'Đã giao',     cls: 'delivered' },
+            draft:     { label: 'Nháp',     cls: 'tpos-label-primary' },
+            confirmed: { label: 'Đơn hàng', cls: 'tpos-label-info' },
+            cancelled: { label: 'Huỷ bỏ',   cls: 'tpos-label-danger' },
+            delivered: { label: 'Đã giao',  cls: 'tpos-label-success' },
         };
-        const m = map[s] || { label: s || '—', cls: '' };
-        return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;
+        const m = map[s] || { label: s || '—', cls: 'tpos-label-default' };
+        return `<span class="tpos-label ${m.cls}">${m.label}</span>`;
     }
 
     // VN phone carrier prefix → label
     const CARRIER_PREFIXES = {
-        Viettel:    /^(086|096|097|098|032|033|034|035|036|037|038|039)/,
-        Mobifone:   /^(089|090|093|070|079|077|076|078)/,
-        Vinaphone:  /^(088|091|094|083|084|085|081|082)/,
-        Vietnamobile:/^(092|056|058)/,
-        Gmobile:    /^(099|059)/,
+        Viettel: /^(086|096|097|098|032|033|034|035|036|037|038|039)/,
+        Mobifone: /^(089|090|093|070|079|077|076|078)/,
+        Vinaphone: /^(088|091|094|083|084|085|081|082)/,
+        Vietnamobile: /^(092|056|058)/,
+        Gmobile: /^(099|059)/,
     };
     function detectCarrier(phone) {
         if (!phone) return '';
@@ -227,20 +228,25 @@
                 const carrier = detectCarrier(o.phone);
                 const status = (o.partnerStatus || '').trim();
                 const statusPill =
-                    status === 'Bom hàng' ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
-                  : status === 'Cảnh báo' ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
-                  : status === 'Nguy hiểm' ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
-                  : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
-                const tagBadges = (o.tags || []).map((t) => {
-                    const txt = typeof t === 'string' ? t : (t.name || t.label || '');
-                    if (!txt) return '';
-                    const upper = txt.toUpperCase();
-                    let cls = 'tpos-label-default';
-                    if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
-                    else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
-                    else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
-                    return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
-                }).join('');
+                    status === 'Bom hàng'
+                        ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
+                        : status === 'Cảnh báo'
+                          ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
+                          : status === 'Nguy hiểm'
+                            ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
+                            : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
+                const tagBadges = (o.tags || [])
+                    .map((t) => {
+                        const txt = typeof t === 'string' ? t : t.name || t.label || '';
+                        if (!txt) return '';
+                        const upper = txt.toUpperCase();
+                        let cls = 'tpos-label-default';
+                        if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
+                        else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
+                        else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
+                        return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
+                    })
+                    .join('');
                 const total = Number(o.totalAmount || 0).toLocaleString('vi-VN');
                 const qty = Number(o.totalQuantity || 0);
                 const campaignName = o.liveCampaignName || '';
@@ -251,7 +257,7 @@
                     <td onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
                     <td onclick="event.stopPropagation();">
                         <div class="tpos-row-actions">
-                            <button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Sửa"
+                            <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
@@ -286,12 +292,16 @@
                         </div>
                     </td>
                     <td class="tpos-cell-center" onclick="event.stopPropagation();">
-                        ${o.phone ? `
+                        ${
+                            o.phone
+                                ? `
                           <div class="tpos-phone-cell" style="align-items:center;">
                             <a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link">${escapeHtml(o.phone)}</a>
-                            ${carrier ? `<span class="tpos-carrier">${carrier}</span>` : ''}
+                            ${carrier ? `<span class="tpos-label tpos-label-primary">${carrier}</span>` : ''}
                           </div>
-                        ` : '—'}
+                        `
+                                : '—'
+                        }
                     </td>
                     <td>${escapeHtml(o.address || '')}</td>
                     <td class="tpos-cell-money">${total}</td>
