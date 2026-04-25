@@ -275,8 +275,8 @@
                             ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td class="tpos-cell-center">
-                        <div class="tpos-channel-cell" style="align-items:center;">
+                    <td>
+                        <div class="tpos-channel-cell">
                             <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
                             ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
                         </div>
@@ -306,7 +306,7 @@
                     <td>${escapeHtml(o.address || '')}</td>
                     <td class="tpos-cell-money">${total}</td>
                     <td class="tpos-cell-center">${qty || ''}</td>
-                    <td class="tpos-cell-center">${tposStatusText(o.status)}</td>
+                    <td>${tposStatusText(o.status)}</td>
                     <td>${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
                     <td class="tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
                         ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
