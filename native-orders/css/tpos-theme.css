@@ -198,7 +198,7 @@
 /* ------- Channel cell ------- */
 .tpos-channel-cell { display: flex; flex-direction: column; gap: 2px; }
 .tpos-channel-name { color: var(--tpos-text); font-weight: 400; font-size: 14px; }
-.tpos-channel-link { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; font-size: 14px; }
+.tpos-channel-link { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; font-size: 14px; text-align: start; }
 
 /* ------- Customer name cell (name + small icons + status pill) ------- */
 .tpos-customer-cell { display: flex; flex-direction: column; gap: 4px; }
