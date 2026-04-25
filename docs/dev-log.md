@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [orders][ui] Tag XL "KHÔNG ĐỂ HÀNG" — thêm nút × để xóa
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js#L1773-L1786) — branch render Cat 2/3/4 subtag badge: nếu `data.subTag === 'KHONG_DE_HANG'` thì append `<button.ptag-badge-remove>×</button>` gọi `window.clearProcessingTag(orderCode)`, span dùng class `ptag-badge ptag-badge-removable`. Các subtag khác giữ nguyên (CHUA_PHAN_HOI, BAN_HANG, DA_GOP_KHONG_CHOT, NCC_HET_HANG, KHACH_HUY_DON…) — chưa có x. |
+| **Chi tiết** | **Trigger**: user screenshot row STT 469 — TAG XL có "KHÔNG ĐỂ HÀNG" nhưng không có nút × như các tag khác (THẺ KHÁCH LẠ, CHƯA CỌC). **Approach**: dùng `Set(['KHONG_DE_HANG'])` để dễ mở rộng sau, tận dụng CSS `.ptag-badge-removable` + `.ptag-badge-remove` (đã định nghĩa ở [tab1-processing-tags.css:1238-1265](../orders-report/css/tab1-processing-tags.css#L1238-L1265)). `clearProcessingTag` đã giữ flags + tTags khi xóa category/subTag → THẺ KHÁCH LẠ, CHƯA CỌC… vẫn còn sau khi xóa KHÔNG ĐỂ HÀNG. |
+| **Status** | ✅ Done. |
+
 ### [tpos-pancake][ui] Wrap Web 2.0 sidebar shell — đồng bộ giao diện với web2/*
 | | |
 |---|---|

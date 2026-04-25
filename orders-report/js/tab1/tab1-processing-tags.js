@@ -2185,9 +2185,18 @@
         }
 
         // Final clamps
-        top = Math.max(MARGIN, Math.min(top, window.innerHeight - Math.min(ddRect.height, window.innerHeight - MARGIN * 2) - MARGIN));
+        top = Math.max(
+            MARGIN,
+            Math.min(
+                top,
+                window.innerHeight -
+                    Math.min(ddRect.height, window.innerHeight - MARGIN * 2) -
+                    MARGIN
+            )
+        );
         let left = rect.left;
-        if (left + ddRect.width > window.innerWidth) left = window.innerWidth - ddRect.width - MARGIN;
+        if (left + ddRect.width > window.innerWidth)
+            left = window.innerWidth - ddRect.width - MARGIN;
         ddEl.style.top = top + 'px';
         ddEl.style.left = Math.max(MARGIN, left) + 'px';
 
