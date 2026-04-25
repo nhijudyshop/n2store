@@ -483,7 +483,8 @@ window.applyOrderMembershipFlip = function (orderCode, orderId, passesNow) {
                 const newRow = tmp.firstElementChild;
                 if (newRow) {
                     const rows = tbody.querySelectorAll('tr[data-order-id]');
-                    const refRow = rows[insertIdxDisp] || tbody.querySelector('#table-spacer') || null;
+                    const refRow =
+                        rows[insertIdxDisp] || tbody.querySelector('#table-spacer') || null;
                     tbody.insertBefore(newRow, refRow);
                     renderedCount++;
                 }
@@ -2228,7 +2229,11 @@ function handleSelectAll() {
 // để không bắt nhầm checkbox trong modal Sửa đơn hàng (.kpi-sale-check)
 // hay chat panel (.chat-kpi-check).
 document.addEventListener('change', function (e) {
-    if (e.target.matches('#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]')) {
+    if (
+        e.target.matches(
+            '#tableBody input[type="checkbox"], .employee-section tbody input[type="checkbox"]'
+        )
+    ) {
         const orderId = e.target.value;
         if (e.target.checked) {
             selectedOrderIds.add(orderId);
