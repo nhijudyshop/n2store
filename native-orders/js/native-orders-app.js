@@ -183,8 +183,8 @@
             </tr>`;
     }
 
-    // TPOS renders status as a Bootstrap pill (.label.label-primary), NOT plain text.
-    // Default = label-primary blue; cancelled = label-danger red; delivered = label-success.
+    // TPOS uses .label.label-cs.label-primary (bigger pill) for status column.
+    // .label-cs override: fs 12px / padding 5px / radius 3px.
     function tposStatusText(s) {
         const map = {
             draft:     { label: 'Nháp',     cls: 'tpos-label-primary' },
@@ -193,7 +193,7 @@
             delivered: { label: 'Đã giao',  cls: 'tpos-label-success' },
         };
         const m = map[s] || { label: s || '—', cls: 'tpos-label-default' };
-        return `<span class="tpos-label ${m.cls}">${m.label}</span>`;
+        return `<span class="tpos-label tpos-label-cs ${m.cls}">${m.label}</span>`;
     }
 
     // VN phone carrier prefix → label
@@ -275,8 +275,8 @@
                             ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td>
-                        <div class="tpos-channel-cell">
+                    <td class="tpos-cell-center">
+                        <div class="tpos-channel-cell" style="align-items:center;">
                             <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
                             ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
                         </div>
@@ -297,7 +297,7 @@
                                 ? `
                           <div class="tpos-phone-cell" style="align-items:center;">
                             <a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link">${escapeHtml(o.phone)}</a>
-                            ${carrier ? `<span class="tpos-label tpos-label-primary">${carrier}</span>` : ''}
+                            ${carrier ? `<span class="tpos-label tpos-label-cs tpos-label-primary">${carrier}</span>` : ''}
                           </div>
                         `
                                 : '—'

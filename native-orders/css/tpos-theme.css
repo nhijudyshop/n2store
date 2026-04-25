@@ -31,6 +31,14 @@
 .tpos-label-coc     { background: var(--tpos-label-tag-coc); }   /* CỌC 200K */
 .tpos-label-boom    { background: var(--tpos-label-tag-boom); }  /* KHÁCH BOOM */
 
+/* TPOS .label-cs override: bigger label used for carriers + status pills.
+ * Crawled values: fs 12px, padding 5px, radius 3px. */
+.tpos-label-cs {
+    font-size: 12px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
 /* Margin helper used by TPOS to space adjacent labels */
 .m-r-xs { margin-right: 5px; }
 .m-l-xs { margin-left: 5px; }
