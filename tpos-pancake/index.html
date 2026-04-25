@@ -69,6 +69,11 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            /* navigation-modern injects `.main-content { margin-left: 260px }` for its
+               own legacy sidebar — must zero it out since we use web2-aside (flex sibling). */
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            transition: none !important;
         }
         /* Hide legacy navigation-modern sidebar/topbar/bottomnav — we use web2-aside instead.
            navigation-modern.js still loads for SePay billing banner (which lives inside
