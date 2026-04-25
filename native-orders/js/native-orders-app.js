@@ -120,7 +120,7 @@
         if (!lines.length) {
             return `
                 <tr class="expand-row" data-for="${escapeHtml(o.code)}">
-                    <td colspan="11">
+                    <td colspan="13">
                         <div class="expand-empty">
                             <i data-lucide="package-x"></i>
                             Đơn chưa có sản phẩm —
@@ -159,7 +159,7 @@
             .join('');
         return `
             <tr class="expand-row" data-for="${escapeHtml(o.code)}">
-                <td colspan="11">
+                <td colspan="13">
                     <div class="expand-wrap">
                         <div class="expand-header">
                             <span class="expand-title"><i data-lucide="package"></i>Sản phẩm trong đơn ${escapeHtml(o.code)}</span>
@@ -183,10 +183,39 @@
             </tr>`;
     }
 
+    // TPOS-style status text (column "Trạng thái")
+    function tposStatusText(s) {
+        const map = {
+            draft:     { label: 'Nháp',        cls: '' },
+            confirmed: { label: 'Đơn hàng',    cls: 'confirmed' },
+            cancelled: { label: 'Huỷ bỏ',      cls: 'cancelled' },
+            delivered: { label: 'Đã giao',     cls: 'delivered' },
+        };
+        const m = map[s] || { label: s || '—', cls: '' };
+        return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;
+    }
+
+    // VN phone carrier prefix → label
+    const CARRIER_PREFIXES = {
+        Viettel:    /^(086|096|097|098|032|033|034|035|036|037|038|039)/,
+        Mobifone:   /^(089|090|093|070|079|077|076|078)/,
+        Vinaphone:  /^(088|091|094|083|084|085|081|082)/,
+        Vietnamobile:/^(092|056|058)/,
+        Gmobile:    /^(099|059)/,
+    };
+    function detectCarrier(phone) {
+        if (!phone) return '';
+        const p = String(phone).replace(/\D/g, '');
+        for (const [name, re] of Object.entries(CARRIER_PREFIXES)) {
+            if (re.test(p)) return name;
+        }
+        return '';
+    }
+
     function renderRows() {
         const orders = STATE.orders;
         if (!orders.length) {
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="13" class="empty-row">
                 Không có đơn nào khớp bộ lọc
             </td></tr>`;
             return;
@@ -194,66 +223,84 @@
         tbody().innerHTML = orders
             .map((o) => {
                 const time = formatTimeSplit(o.createdAt);
-                const fbShort = o.fbUserId
-                    ? `${o.fbUserId.slice(0, 6)}…${o.fbUserId.slice(-4)}`
-                    : '';
                 const isExpanded = STATE.expandedOrders.has(o.code);
-                const lineCount = Array.isArray(o.products) ? o.products.length : 0;
-                const lineBadge =
-                    lineCount > 0 ? `<span class="line-count-badge">${lineCount}</span>` : '';
-                // Row is clickable to toggle expand — inner interactive elements stopPropagation.
+                const carrier = detectCarrier(o.phone);
+                const status = (o.partnerStatus || '').trim();
+                const statusPill =
+                    status === 'Bom hàng' ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
+                  : status === 'Cảnh báo' ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
+                  : status === 'Nguy hiểm' ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
+                  : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
+                const tagBadges = (o.tags || []).map((t) => {
+                    const txt = typeof t === 'string' ? t : (t.name || t.label || '');
+                    if (!txt) return '';
+                    const upper = txt.toUpperCase();
+                    let cls = 'tpos-label-default';
+                    if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
+                    else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
+                    else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
+                    return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
+                }).join('');
+                const total = Number(o.totalAmount || 0).toLocaleString('vi-VN');
+                const qty = Number(o.totalQuantity || 0);
+                const campaignName = o.liveCampaignName || '';
+
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
-                    <td class="col-check" onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
-                    <td class="col-actions" onclick="event.stopPropagation();">
-                        <div class="row-actions">
-                            <button class="btn-action act-edit" title="Sửa" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
-                                <i data-lucide="pencil"></i>
+                    <td onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
+                    <td onclick="event.stopPropagation();">
+                        <div class="tpos-row-actions">
+                            <button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Sửa"
+                                onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
+                                <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
-                            <button class="btn-action act-confirm" title="Xác nhận" onclick="event.stopPropagation();NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','confirmed')">
-                                <i data-lucide="check-circle"></i>
-                            </button>
-                            <button class="btn-action act-cancel" title="Hủy" onclick="event.stopPropagation();NativeOrdersApp.quickStatus('${escapeHtml(o.code)}','cancelled')">
-                                <i data-lucide="x-circle"></i>
-                            </button>
-                            <button class="btn-action act-delete" title="Xóa" onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
-                                <i data-lucide="trash-2"></i>
+                            <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
+                                onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
+                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
                             </button>
                         </div>
                     </td>
-                    <td>
-                        <div class="expand-caret-wrap">
-                            <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="expand-caret"></i>
-                            <span class="code-badge" title="Click để copy" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">
-                                <i data-lucide="package-open"></i>${escapeHtml(o.code)}
-                            </span>
-                            ${lineBadge}
+                    <td class="tpos-cell-center">${o.sessionIndex ?? ''}</td>
+                    <td class="tpos-cell-center">
+                        <div class="tpos-code-cell" style="align-items:center;">
+                            <span class="tpos-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
+                            ${campaignName ? `<span class="tpos-code-sub">${escapeHtml(campaignName)}</span>` : ''}
+                            ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td class="stt-cell">${o.sessionIndex ?? '—'}</td>
                     <td>
-                        <div class="customer-cell">
-                            ${renderAvatar(o)}
-                            <div class="cust-info">
-                                <div class="cust-name">${escapeHtml(o.customerName || '—')}</div>
-                                ${o.fbUserId ? `<div class="cust-sub"><i data-lucide="facebook"></i>${fbShort}</div>` : ''}
+                        <div class="tpos-channel-cell">
+                            <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
+                            ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="tpos-customer-cell">
+                            <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
+                            <div class="tpos-customer-row2">
+                                ${o.phone ? `<span class="tpos-mini-icon tpos-mini-phone" title="${escapeHtml(o.phone)}"><i data-lucide="phone" style="width:9px;height:9px;"></i></span>` : ''}
+                                <span class="tpos-mini-icon tpos-mini-person" title="Khách"><i data-lucide="user" style="width:9px;height:9px;"></i></span>
+                                ${statusPill}
                             </div>
                         </div>
                     </td>
-                    <td class="phone-cell" onclick="event.stopPropagation();">${
-                        o.phone
-                            ? `<a href="tel:${escapeHtml(o.phone)}" title="Gọi">${escapeHtml(o.phone)}</a>`
-                            : '—'
-                    }</td>
-                    <td><div class="address-cell" title="${escapeHtml(o.address || '')}">${escapeHtml(o.address || '—')}</div></td>
-                    <td><div class="note-cell" title="${escapeHtml(o.note || '')}">${escapeHtml(o.note || '—')}</div></td>
-                    <td>${statusBadge(o.status)}</td>
-                    <td class="time-cell" title="${escapeHtml(formatFullTime(o.createdAt))}">
-                        <span class="time-date">${time.date}</span>
-                        <span class="time-hour"> ${time.hour}</span>
+                    <td class="tpos-cell-center" onclick="event.stopPropagation();">
+                        ${o.phone ? `
+                          <div class="tpos-phone-cell" style="align-items:center;">
+                            <a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link">${escapeHtml(o.phone)}</a>
+                            ${carrier ? `<span class="tpos-carrier">${carrier}</span>` : ''}
+                          </div>
+                        ` : '—'}
                     </td>
-                    <td class="creator-cell" title="${escapeHtml(o.createdBy || '')}">${escapeHtml(o.createdByName || o.createdBy || '—')}</td>
+                    <td>${escapeHtml(o.address || '')}</td>
+                    <td class="tpos-cell-money">${total}</td>
+                    <td class="tpos-cell-center">${qty || ''}</td>
+                    <td class="tpos-cell-center">${tposStatusText(o.status)}</td>
+                    <td>${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
+                    <td class="tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
+                        ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
+                    </td>
                 </tr>`;
                 return isExpanded ? mainRow + _renderExpandRow(o) : mainRow;
             })

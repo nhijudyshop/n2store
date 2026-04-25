@@ -11,7 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/native-orders.css?v=20260424k">
+    <link rel="stylesheet" href="css/native-orders.css?v=20260425a">
+    <link rel="stylesheet" href="css/tpos-theme.css?v=20260425a">
 
     <!-- Lucide icons -->
     <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -26,7 +27,7 @@
     <script src="../shared/js/shared-auth-manager.js"></script>
     <script src="../shared/js/notification-system.js"></script>
 </head>
-<body>
+<body class="tpos-theme">
 
 <main class="main-content">
     <!-- Tab Navigation -->
@@ -135,21 +136,23 @@
             <table class="data-table" id="ordersTable">
                 <thead>
                     <tr>
-                        <th class="col-check"><input type="checkbox" id="checkAll"></th>
-                        <th class="col-actions">THAO TÁC</th>
-                        <th class="col-code">MÃ ĐƠN</th>
-                        <th class="col-stt">STT</th>
-                        <th class="col-customer">KHÁCH HÀNG</th>
-                        <th class="col-phone">SĐT</th>
-                        <th class="col-address">ĐỊA CHỈ</th>
-                        <th class="col-note">GHI CHÚ</th>
-                        <th class="col-status">TRẠNG THÁI</th>
-                        <th class="col-time">TẠO LÚC</th>
-                        <th class="col-creator">NGƯỜI TẠO</th>
+                        <th class="col-check" style="width:30px;"><input type="checkbox" id="checkAll"></th>
+                        <th class="col-actions" style="width:90px;">Thao tác</th>
+                        <th class="col-stt" style="width:50px;text-align:center;">STT</th>
+                        <th class="col-code" style="width:170px;text-align:center;">Mã</th>
+                        <th class="col-channel" style="min-width:160px;">Kênh</th>
+                        <th class="col-customer" style="min-width:170px;">Tên</th>
+                        <th class="col-phone" style="width:130px;text-align:center;">Điện thoại</th>
+                        <th class="col-address" style="min-width:240px;">Địa chỉ</th>
+                        <th class="col-money" style="width:110px;text-align:right;">Tổng tiền</th>
+                        <th class="col-qty" style="width:90px;text-align:center;">Tổng số lượng</th>
+                        <th class="col-status" style="width:110px;text-align:center;">Trạng thái</th>
+                        <th class="col-employee" style="width:120px;">Nhân viên</th>
+                        <th class="col-time" style="width:120px;text-align:center;">Ngày tạo</th>
                     </tr>
                 </thead>
                 <tbody id="ordersTbody">
-                    <tr><td colspan="11" class="loading-row">
+                    <tr><td colspan="13" class="loading-row">
                         <div class="spinner"></div> Đang tải dữ liệu...
                     </td></tr>
                 </tbody>
@@ -183,7 +186,7 @@
 </div>
 
 <!-- App Scripts -->
-<script src="js/native-orders-api.js?v=20260424k"></script>
-<script src="js/native-orders-app.js?v=20260424k"></script>
+<script src="js/native-orders-api.js?v=20260425a"></script>
+<script src="js/native-orders-app.js?v=20260425a"></script>
 </body>
 </html>

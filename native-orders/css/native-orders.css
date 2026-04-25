@@ -1,36 +1,77 @@
-/* ===== Native Orders — styled to match orders-report ===== */
+/* ===== Native Orders — TPOS-clone palette =====
+ * Crawled from https://tomato.tpos.vn/#/app/saleOnline/order/list (2026-04-25).
+ * Source stylesheets: vendor.min.css + app.min.css.
+ * All colors / spacings extracted from computed styles via Playwright.
+ * Goal: bảng giống 100% TPOS — font Segoe UI, palette flat-purple-cyan-green.
+ */
 
 :root {
-    --primary: #3b82f6;
-    --primary-dark: #2563eb;
-    --accent: #8b5cf6;
-    --accent-dark: #7c3aed;
-    --native-bg: #ede9fe;
-    --native-text: #6d28d9;
-    --success: #10b981;
-    --success-dark: #059669;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-300: #d1d5db;
-    --gray-400: #9ca3af;
-    --gray-500: #6b7280;
-    --gray-600: #4b5563;
-    --gray-700: #374151;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
-    --surface: #ffffff;
-    --bg: #f9fafb;
-    --border: var(--gray-200);
+    /* TPOS-derived palette */
+    --tpos-bg-app:        #f0f3f4;       /* html background */
+    --tpos-bg-cell-head:  #f0eeee;       /* th + td background */
+    --tpos-bg-light:      #edf1f2;       /* search input bg */
+    --tpos-text:          #333;          /* body cell text */
+    --tpos-text-2:        #4c4c4c;       /* body default text */
+    --tpos-text-3:        #58666e;       /* button default text + secondary */
+    --tpos-text-faded:    #808080;       /* "Nháp" status text */
+    --tpos-border:        #cccccc;       /* cell border-bottom */
+    --tpos-border-btn:    #dee5e7;       /* default button border */
+
+    /* TPOS button colors */
+    --tpos-primary:       #7266ba;       /* btn-primary (F10) — purple */
+    --tpos-primary-hover: #5e51ac;
+    --tpos-success:       #27c24c;       /* btn-success (F9) — green */
+    --tpos-success-hover: #20a73e;
+    --tpos-info:          #23b7e5;       /* btn-info (Cập nhật) — cyan */
+    --tpos-info-hover:    #1ba0cb;
+    --tpos-warning:       #fad733;       /* btn-warning */
+    --tpos-danger:        #f05050;       /* btn-danger / delete */
+    --tpos-danger-hover:  #e23b3b;
+
+    /* Bootstrap blue (used for phone link + carrier label) */
+    --tpos-link:          #337ab7;
+    --tpos-link-hover:    #245a8c;
+    --tpos-binhluan:      #3824e5;       /* "Bình luận" link purple-blue */
+
+    /* Status pill colors (.label classes) */
+    --tpos-label-success: #5cb85c;       /* "Bình thường" */
+    --tpos-label-danger:  #d9534f;       /* "Bom hàng" */
+    --tpos-label-warning: #f0ad4e;       /* "Cảnh báo" */
+    --tpos-label-tag-coc: #da532c;       /* "CỌC 200K" orange-red */
+    --tpos-label-tag-boom:#ad2121;       /* "KHÁCH BOOM" deep red */
+
+    /* Legacy aliases for backward compat with existing classes */
+    --primary:        var(--tpos-primary);
+    --primary-dark:   var(--tpos-primary-hover);
+    --accent:         var(--tpos-primary);
+    --accent-dark:    var(--tpos-primary-hover);
+    --native:         var(--tpos-primary);
+    --native-bg:      #ede9fe;
+    --native-text:    var(--tpos-primary);
+    --success:        var(--tpos-success);
+    --success-dark:   var(--tpos-success-hover);
+    --danger:         var(--tpos-danger);
+    --warning:        var(--tpos-warning);
+    --gray-50:        var(--tpos-bg-light);
+    --gray-100:       var(--tpos-bg-cell-head);
+    --gray-200:       var(--tpos-border-btn);
+    --gray-300:       var(--tpos-border);
+    --gray-400:       #9ca3af;
+    --gray-500:       var(--tpos-text-3);
+    --gray-600:       var(--tpos-text-3);
+    --gray-700:       var(--tpos-text);
+    --gray-800:       var(--tpos-text);
+    --gray-900:       #000;
+    --surface:        #ffffff;
+    --bg:             var(--tpos-bg-app);
+    --border:         var(--tpos-border-btn);
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.06);
+    --shadow:    0 1px 3px 0 rgb(0 0 0 / 0.1);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 
-    --tab-nav-h: 52px;
+    --tab-nav-h: 48px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -40,10 +81,11 @@ html, body {
     padding: 0;
     height: 100%;
     overflow: hidden;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 13px;
-    color: var(--gray-900);
-    background: var(--bg);
+    /* MATCH TPOS exactly */
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    color: var(--tpos-text-2);
+    background: var(--tpos-bg-app);
 }
 
 body { display: flex; flex-direction: column; }
@@ -397,37 +439,43 @@ body { display: flex; flex-direction: column; }
     box-shadow: var(--shadow-sm);
 }
 
+/* TPOS-clone table: th bg #f0eeee fw 600 black, td bg same fw 400, both 1px bot border #ccc */
 .data-table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 13px;
+    font-size: 14px;
+    color: var(--tpos-text);
 }
 .data-table thead {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: var(--gray-50);
+    background: var(--tpos-bg-cell-head);
 }
 .data-table th {
     text-align: left;
-    padding: 10px 12px;
-    font-weight: 700;
-    color: var(--gray-600);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--border);
+    padding: 7px 8.4px 5.6px 8.4px;
+    font-weight: 600;
+    color: #000;
+    font-size: 14px;
+    background: var(--tpos-bg-cell-head);
+    border-bottom: 1px solid var(--tpos-border);
+    border-right: 1px solid var(--tpos-border);
     white-space: nowrap;
+    text-transform: none;
+    letter-spacing: 0;
 }
+.data-table th:last-child { border-right: none; }
 .data-table td {
-    padding: 12px;
-    border-bottom: 1px solid var(--gray-100);
-    color: var(--gray-800);
+    padding: 5.6px 8.4px;
+    border-bottom: 1px solid var(--tpos-border);
+    color: var(--tpos-text);
     vertical-align: middle;
+    background: var(--tpos-bg-cell-head);
 }
-.data-table tr:hover td { background: #f8faff; }
-.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #e8e6e6; }
+.data-table tr:last-child td { border-bottom: 1px solid var(--tpos-border); }
 
 /* Column widths */
 .col-check   { width: 40px; }

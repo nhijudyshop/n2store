@@ -1,0 +1,253 @@
+/* ===== TPOS-clone classes for native-orders =====
+ * Mimics Bootstrap 3-style classes used in TPOS:
+ *   .label, .label-success, .label-warning, .label-danger
+ *   .btn, .btn-default, .btn-primary, .btn-success, .btn-info, .btn-danger
+ *   .text-primary, .text-muted
+ * Loaded AFTER native-orders.css so its rules override our generic ones.
+ */
+
+/* ------- Bootstrap 3 .label clone (status pill) ------- */
+.tpos-label {
+    display: inline-block;
+    padding: 2.1px 6.3px 3.15px 6.3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 2.625px;
+    background: var(--tpos-text-3);
+    text-transform: none;
+    letter-spacing: 0;
+}
+.tpos-label-default { background: var(--tpos-text-3); }
+.tpos-label-success { background: var(--tpos-label-success); }    /* Bình thường */
+.tpos-label-info    { background: var(--tpos-info); }
+.tpos-label-warning { background: var(--tpos-label-warning); color: #fff; }   /* Cảnh báo */
+.tpos-label-danger  { background: var(--tpos-label-danger); }    /* Bom hàng */
+.tpos-label-primary { background: var(--tpos-link); }            /* Mobifone/Viettel/Vinaphone */
+.tpos-label-coc     { background: var(--tpos-label-tag-coc); }   /* CỌC 200K */
+.tpos-label-boom    { background: var(--tpos-label-tag-boom); }  /* KHÁCH BOOM */
+
+/* Margin helper used by TPOS to space adjacent labels */
+.m-r-xs { margin-right: 5px; }
+.m-l-xs { margin-left: 5px; }
+
+/* ------- Bootstrap 3 .btn clone (toolbar buttons) ------- */
+.tpos-btn {
+    display: inline-block;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.42857;
+    color: var(--tpos-text-3);
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid var(--tpos-border-btn);
+    border-radius: 2px;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    text-decoration: none;
+    user-select: none;
+}
+.tpos-btn:hover {
+    background: #f5f7f8;
+    border-color: #b0bcc1;
+    color: var(--tpos-text);
+}
+.tpos-btn:active { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08); }
+.tpos-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+.tpos-btn i { margin-right: 4px; }
+
+.tpos-btn-default { background: #fff; color: var(--tpos-text-3); border-color: var(--tpos-border-btn); }
+.tpos-btn-primary { background: var(--tpos-primary); color: #fff; border-color: var(--tpos-primary); }
+.tpos-btn-primary:hover { background: var(--tpos-primary-hover); border-color: var(--tpos-primary-hover); color: #fff; }
+.tpos-btn-success { background: var(--tpos-success); color: #fff; border-color: var(--tpos-success); }
+.tpos-btn-success:hover { background: var(--tpos-success-hover); border-color: var(--tpos-success-hover); color: #fff; }
+.tpos-btn-info    { background: var(--tpos-info); color: #fff; border-color: var(--tpos-info); }
+.tpos-btn-info:hover { background: var(--tpos-info-hover); border-color: var(--tpos-info-hover); color: #fff; }
+.tpos-btn-danger  { background: var(--tpos-danger); color: #fff; border-color: var(--tpos-danger); }
+.tpos-btn-danger:hover { background: var(--tpos-danger-hover); border-color: var(--tpos-danger-hover); color: #fff; }
+
+/* btn-xs (used for action buttons in row) — TPOS spec: padding 1px 5px, size ~25x22 */
+.tpos-btn-xs {
+    padding: 1px 5px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 2px;
+    min-width: 25px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.tpos-btn-xs i { margin: 0; }
+
+/* btn-sm */
+.tpos-btn-sm { padding: 5px 10px; font-size: 12px; line-height: 1.5; border-radius: 2px; }
+
+/* ------- Text utilities ------- */
+.tpos-text-primary { color: var(--tpos-link); }
+.tpos-text-muted   { color: var(--tpos-text-3); }
+.tpos-text-faded   { color: var(--tpos-text-faded); }
+.tpos-text-binhluan { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; }
+.tpos-text-binhluan:hover { text-decoration: underline; }
+.tpos-text-bold    { font-weight: 700; }
+
+/* ------- Phone link (text-primary in TPOS) ------- */
+.data-table a[href^="tel:"],
+.data-table .tpos-phone {
+    color: var(--tpos-link);
+    text-decoration: none;
+    font-weight: 400;
+    cursor: pointer;
+}
+.data-table a[href^="tel:"]:hover { text-decoration: underline; }
+
+/* ------- Table cell helpers used by TPOS template ------- */
+.tpos-cell-center  { text-align: center; }
+.tpos-cell-right   { text-align: right; }
+.tpos-cell-money {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    color: var(--tpos-text);
+}
+
+/* ------- Search/filter bar (TPOS uses bg-light no-border input) ------- */
+.tpos-search-input {
+    background: var(--tpos-bg-light);
+    color: var(--tpos-text-3);
+    font-size: 12px;
+    padding: 5px 15px;
+    border: none;
+    border-radius: 0;
+    height: 30px;
+    outline: none;
+    width: 100%;
+}
+.tpos-search-input:focus { background: #fff; }
+
+.tpos-magnifier-btn {
+    background: var(--tpos-bg-light);
+    color: var(--tpos-text-3);
+    font-size: 12px;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 0 500px 500px 0;
+    height: 30px;
+    cursor: pointer;
+}
+.tpos-magnifier-btn:hover { background: #dde3e5; }
+
+/* ------- Row action bar (TPOS uses btn-info cyan + btn-danger red) ------- */
+.tpos-row-actions {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+/* ------- Code cell (mã đơn + campaign subtitle + tag bar) ------- */
+.tpos-code-cell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.tpos-code-main {
+    font-weight: 700;
+    color: var(--tpos-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+.tpos-code-main:hover { color: var(--tpos-link); text-decoration: underline; }
+.tpos-code-sub {
+    color: var(--tpos-text-3);
+    font-size: 12px;
+    font-weight: 400;
+}
+.tpos-code-tags {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+/* Tag icon button — small clickable circle/square for opening tag editor */
+.tpos-tag-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: var(--tpos-link);
+    color: #fff;
+    border-radius: 2px;
+    border: none;
+    cursor: pointer;
+}
+.tpos-tag-trigger i { font-size: 11px; }
+
+/* ------- Channel cell ------- */
+.tpos-channel-cell { display: flex; flex-direction: column; gap: 2px; }
+.tpos-channel-name { color: var(--tpos-text); font-weight: 400; font-size: 14px; }
+.tpos-channel-link { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; font-size: 14px; }
+
+/* ------- Customer name cell (name + small icons + status pill) ------- */
+.tpos-customer-cell { display: flex; flex-direction: column; gap: 4px; }
+.tpos-customer-name { color: var(--tpos-text); font-weight: 400; font-size: 14px; }
+.tpos-customer-row2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Phone/Person icon bubbles (small green + small purple from TPOS) */
+.tpos-mini-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    color: #fff;
+    font-size: 9px;
+    cursor: pointer;
+}
+.tpos-mini-phone   { background: var(--tpos-success); }
+.tpos-mini-person  { background: var(--tpos-primary); }
+
+/* ------- Phone column ------- */
+.tpos-phone-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; }
+.tpos-phone-link {
+    color: var(--tpos-link);
+    font-size: 14px;
+    text-decoration: none;
+    font-weight: 400;
+}
+.tpos-phone-link:hover { text-decoration: underline; }
+.tpos-carrier {
+    color: var(--tpos-link);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* ------- Date cell ------- */
+.tpos-date-cell { font-size: 14px; color: var(--tpos-text); white-space: nowrap; }
+.tpos-date-cell.center { text-align: center; }
+
+/* ------- Status text in column (e.g. "Nháp" gray bold) ------- */
+.tpos-status-text {
+    font-weight: 700;
+    color: var(--tpos-text-faded);
+    font-size: 14px;
+}
+.tpos-status-text.confirmed { color: var(--tpos-link); }
+.tpos-status-text.cancelled { color: var(--tpos-danger); }
+.tpos-status-text.delivered { color: var(--tpos-success); }
+
+/* Body baseline override — applies to whole native-orders page */
+body.tpos-theme,
+body.tpos-theme .data-table,
+body.tpos-theme .data-table td,
+body.tpos-theme .data-table th {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
