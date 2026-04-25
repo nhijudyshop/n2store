@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][verify] Browser test 86/86 trang web2/* — 0 fetch error, 0 console error
+| | |
+|---|---|
+| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-fetch-errors.js` — Playwright iterate qua mọi folder trong `/web2/*`, page event listeners: `console` (filter type=error), `pageerror`, `requestfailed`, `response` (status >= 400 từ chatomni-proxy hoặc nhijudyshop.github.io). Dump report `/tmp/verify-fetch-report.json`. **Found + fixed**: 2 trang dùng slug có chữ HOA → SLUG_RE backend reject 400: `liveCampaign` → `livecampaign`, `saleOnline-facebook` → `saleonline-facebook` (regex `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/`). |
+| **Chi tiết** | **Trigger**: user yêu cầu kiểm tra fetch error từng trang. **First run**: 84/86 PASS, 2 FAIL với `400 chatomni-proxy.../api/web2/liveCampaign/list?page=1&limit=200`. **Root cause**: SLUG_RE chỉ chấp nhận lowercase + dash, không có camelCase. **Fix**: lowercase 2 slug trong file HTML. **Re-run**: **86/86 PASS, 0 errors**. Toàn bộ network calls qua chatomni-proxy worker đều 200 OK; không có console error, không có pageerror, không có failed request. |
+| **Status** | ✅ Tất cả trang web2/* tải sạch không lỗi fetch/console. |
+
 ### [web2][verify] Phase E linking PASS — autocomplete + cell link hoạt động
 | | |
 |---|---|
