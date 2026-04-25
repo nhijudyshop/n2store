@@ -102,37 +102,18 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     const frame = page.frames().find((f) => /tab1-orders\.html/.test(f.url())) || page.mainFrame();
     log('Working on frame:', frame.url());
 
-    // Switch Tag XL filter -> "ĐƠN CHƯA PHẢN HỒI"
+    // Switch Tag XL filter -> "ĐƠN CHƯA PHẢN HỒI" via public API (matches sidebar click)
     const trySetFilter = async () => {
-        // The filter UI uses a custom dropdown labeled "Tag XL". From screenshot, when active it shows "ĐƠN CHƯA PHẢN HỒI" pill.
-        // Strategy: find a button/select whose text matches "Tag XL" near a pill, click it, then click the option.
-        return await frame.evaluate(async () => {
-            const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toUpperCase();
-            const label = [...document.querySelectorAll('*')].find(
-                (el) => norm(el.textContent) === 'TAG XL:' && el.children.length === 0
-            );
-            // Find dropdown container after label
-            let host = label?.parentElement;
-            let trigger = host?.querySelector(
-                'button, [role="combobox"], select, .dropdown-toggle, [data-toggle]'
-            );
-            if (!trigger) {
-                // Fallback: any element on page that already shows ĐƠN CHƯA PHẢN HỒI as selected
-                const cur = [...document.querySelectorAll('*')].find((el) =>
-                    norm(el.textContent).includes('ĐƠN CHƯA PHẢN HỒI')
-                );
-                trigger = cur;
+        return await frame.evaluate(() => {
+            try {
+                if (typeof window._ptagSetFilter !== 'function') {
+                    return { ok: false, reason: '_ptagSetFilter not available' };
+                }
+                window._ptagSetFilter('subtag_CHUA_PHAN_HOI');
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, reason: e.message };
             }
-            if (!trigger) return { ok: false, reason: 'trigger not found' };
-            trigger.scrollIntoView({ block: 'center' });
-            trigger.click();
-            await new Promise((r) => setTimeout(r, 400));
-            const opt = [...document.querySelectorAll('*')].find(
-                (el) => norm(el.textContent) === 'ĐƠN CHƯA PHẢN HỒI' && el.children.length === 0
-            );
-            if (!opt) return { ok: false, reason: 'option not found' };
-            opt.click();
-            return { ok: true };
         });
     };
 
