@@ -34,6 +34,15 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_products_name    ON web2_products(name);
             CREATE INDEX IF NOT EXISTS idx_web2_products_active  ON web2_products(is_active);
             CREATE INDEX IF NOT EXISTS idx_web2_products_created ON web2_products(created_at DESC);
+
+            -- Migration 067: extend with original_price, barcode, category
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS original_price NUMERIC(14,2) DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS barcode        VARCHAR(60),
+                ADD COLUMN IF NOT EXISTS category       VARCHAR(80);
+
+            CREATE INDEX IF NOT EXISTS idx_web2_products_barcode  ON web2_products(barcode);
+            CREATE INDEX IF NOT EXISTS idx_web2_products_category ON web2_products(category);
         `);
         _tablesCreated = true;
         console.log('[WEB2-PRODUCTS] Tables created/verified');
@@ -60,6 +69,10 @@ function mapRow(row) {
         createdBy: row.created_by,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
+        // Migration 067
+        originalPrice: Number(row.original_price || 0),
+        barcode: row.barcode,
+        category: row.category,
     };
 }
 
@@ -165,8 +178,12 @@ router.post('/', async (req, res) => {
         try {
             const r = await pool.query(
                 `INSERT INTO web2_products
-                 (code, name, price, image_url, stock, note, tags, is_active, created_by, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9, $9)
+                 (code, name, price, image_url, stock, note, tags, is_active,
+                  original_price, barcode, category,
+                  created_by, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, true,
+                         $8, $9, $10,
+                         $11, $12, $12)
                  RETURNING *`,
                 [
                     b.code.trim(),
@@ -176,6 +193,9 @@ router.post('/', async (req, res) => {
                     Number.isFinite(Number(b.stock)) ? Number(b.stock) : 0,
                     b.note || null,
                     JSON.stringify(Array.isArray(b.tags) ? b.tags : []),
+                    Number(b.originalPrice) || 0,
+                    b.barcode ? b.barcode.trim() : null,
+                    b.category ? b.category.trim() : null,
                     b.createdBy || null,
                     now,
                 ]
@@ -209,6 +229,10 @@ router.patch('/:code', async (req, res) => {
             note: 'note',
             tags: 'tags',
             isActive: 'is_active',
+            // Migration 067
+            originalPrice: 'original_price',
+            barcode: 'barcode',
+            category: 'category',
         };
         const sets = [];
         const params = [];

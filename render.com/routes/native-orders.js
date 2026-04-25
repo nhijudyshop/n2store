@@ -64,9 +64,28 @@ async function ensureTables(pool) {
             CREATE UNIQUE INDEX IF NOT EXISTS uq_native_orders_comment
                 ON native_orders(fb_comment_id)
                 WHERE fb_comment_id IS NOT NULL;
+
+            -- Migration 067: extend with TPOS-style fields (idempotent ADD IF NOT EXISTS)
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS assigned_employee_id   VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS assigned_employee_name VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS live_campaign_id       VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS live_campaign_name     VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS deposit                NUMERIC(14,2) DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS partner_status         VARCHAR(50),
+                ADD COLUMN IF NOT EXISTS warehouse_id           INTEGER,
+                ADD COLUMN IF NOT EXISTS reversed_code          VARCHAR(40),
+                ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0;
+
+            CREATE INDEX IF NOT EXISTS idx_native_orders_live_campaign
+                ON native_orders(live_campaign_id);
+            CREATE INDEX IF NOT EXISTS idx_native_orders_assigned
+                ON native_orders(assigned_employee_id);
+            CREATE INDEX IF NOT EXISTS idx_native_orders_reversed_code
+                ON native_orders(reversed_code);
         `);
         _tablesCreated = true;
-        console.log('[NATIVE-ORDERS] Tables created/verified');
+        console.log('[NATIVE-ORDERS] Tables created/verified (migration 067 applied)');
     } catch (error) {
         console.error('[NATIVE-ORDERS] Table creation error:', error.message);
     }
@@ -101,6 +120,16 @@ function mapRowToOrder(row) {
         createdByName: row.created_by_name,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
+        // Migration 067 — TPOS-style fields
+        assignedEmployeeId: row.assigned_employee_id,
+        assignedEmployeeName: row.assigned_employee_name,
+        liveCampaignId: row.live_campaign_id,
+        liveCampaignName: row.live_campaign_name,
+        deposit: Number(row.deposit || 0),
+        partnerStatus: row.partner_status,
+        warehouseId: row.warehouse_id,
+        reversedCode: row.reversed_code,
+        printCount: Number(row.print_count || 0),
     };
 }
 
@@ -348,6 +377,16 @@ router.patch('/:code', async (req, res) => {
             totalAmount: 'total_amount',
             status: 'status',
             tags: 'tags',
+            // Migration 067 — TPOS-style fields editable via PATCH
+            assignedEmployeeId: 'assigned_employee_id',
+            assignedEmployeeName: 'assigned_employee_name',
+            liveCampaignId: 'live_campaign_id',
+            liveCampaignName: 'live_campaign_name',
+            deposit: 'deposit',
+            partnerStatus: 'partner_status',
+            warehouseId: 'warehouse_id',
+            reversedCode: 'reversed_code',
+            printCount: 'print_count',
         };
         const sets = [];
         const params = [];
