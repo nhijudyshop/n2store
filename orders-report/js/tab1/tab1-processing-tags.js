@@ -956,7 +956,13 @@
             const isInDom = !!row;
             // passes && in-dom → stays visible; !passes && !in-dom → stays hidden → skip re-filter
             if (passesNow === isInDom) return;
-            // Dùng shared debouncer để coalesce với các burst sources khác (WS, Firebase…)
+            // Surgical insert/remove single row — avoids full <tbody> rebuild that causes column
+            // width recalc and visible jitter when SSE stream is busy. Falls back to full re-render
+            // when employee view or sort column is active (those need re-grouping).
+            if (typeof window.applyOrderMembershipFlip === 'function') {
+                if (window.applyOrderMembershipFlip(orderCode, orderId, passesNow)) return;
+            }
+            // Fallback: schedule full re-render with shared debouncer.
             if (typeof window.schedulePerformTableSearch === 'function') {
                 window.schedulePerformTableSearch(300);
             } else if (typeof window.performTableSearch === 'function') {

@@ -85,6 +85,9 @@ downloads/resident-crawl/
 downloads/resident-clone-smoke/
 downloads/resident-deep-compare/
 
+# n2store jitter monitor — contains cookies + storage state
+downloads/n2store-jitter/
+
 # Resident clone mock data — contains customer PII from owner's account
 resident/data/*.json
 !resident/data/README.md

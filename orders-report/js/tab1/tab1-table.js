@@ -410,6 +410,103 @@ function renderAllOrders() {
 }
 
 // =====================================================
+// SURGICAL ROW INSERT/REMOVE on filter membership flip
+// Avoids rebuilding entire <tbody> when SSE bursts only flip a few orders.
+// Returns true if handled surgically; caller falls back to full re-render on false.
+// =====================================================
+function _refreshSpacer(tbody) {
+    const spacer = tbody.querySelector('#table-spacer');
+    if (!spacer) {
+        if (renderedCount < displayedData.length) {
+            const s = document.createElement('tr');
+            s.id = 'table-spacer';
+            s.innerHTML = `<td colspan="19" style="text-align: center; padding: 20px; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})</td>`;
+            tbody.appendChild(s);
+        }
+        return;
+    }
+    if (renderedCount >= displayedData.length) {
+        spacer.remove();
+        return;
+    }
+    const cell = spacer.querySelector('td');
+    if (cell) {
+        cell.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})`;
+    }
+}
+
+window.applyOrderMembershipFlip = function (orderCode, orderId, passesNow) {
+    // Bail when complex layouts are active — full re-render is required.
+    if (employeeViewMode) return false;
+    if (currentSortColumn) return false;
+
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return false;
+
+    const order =
+        (orderId && (window.OrderStore?.get?.(orderId) || allData.find((o) => o.Id === orderId))) ||
+        (orderCode && allData.find((o) => o.Code === orderCode));
+    if (!order) return false;
+
+    const existingRow = orderId ? tbody.querySelector(`tr[data-order-id="${orderId}"]`) : null;
+    const isInDom = !!existingRow;
+    if (passesNow === isInDom) return true; // nothing to do; treat as handled
+
+    if (passesNow && !isInDom) {
+        // INSERT: keep server order — index in allData decides position
+        const allIdx = allData.indexOf(order);
+        if (allIdx < 0) return false;
+
+        let insertIdxFilt = filteredData.length;
+        for (let i = 0; i < filteredData.length; i++) {
+            if (allData.indexOf(filteredData[i]) > allIdx) {
+                insertIdxFilt = i;
+                break;
+            }
+        }
+        let insertIdxDisp = displayedData.length;
+        for (let i = 0; i < displayedData.length; i++) {
+            if (allData.indexOf(displayedData[i]) > allIdx) {
+                insertIdxDisp = i;
+                break;
+            }
+        }
+        filteredData.splice(insertIdxFilt, 0, order);
+        displayedData.splice(insertIdxDisp, 0, order);
+
+        // Insert <tr> only if within currently rendered window
+        if (insertIdxDisp < renderedCount) {
+            const html = createRowHTML(order);
+            if (html) {
+                const tmp = document.createElement('tbody');
+                tmp.innerHTML = html;
+                const newRow = tmp.firstElementChild;
+                if (newRow) {
+                    const rows = tbody.querySelectorAll('tr[data-order-id]');
+                    const refRow = rows[insertIdxDisp] || tbody.querySelector('#table-spacer') || null;
+                    tbody.insertBefore(newRow, refRow);
+                    renderedCount++;
+                }
+            }
+        }
+    } else if (!passesNow && isInDom) {
+        // REMOVE
+        const idxFilt = filteredData.indexOf(order);
+        if (idxFilt >= 0) filteredData.splice(idxFilt, 1);
+        const idxDisp = displayedData.indexOf(order);
+        if (idxDisp >= 0) {
+            displayedData.splice(idxDisp, 1);
+            if (idxDisp < renderedCount) renderedCount--;
+        }
+        existingRow.remove();
+    }
+
+    _refreshSpacer(tbody);
+    if (typeof updateStats === 'function') updateStats();
+    return true;
+};
+
+// =====================================================
 // UPDATE CHAT COLUMNS ONLY - DEPRECATED
 // Message/comment columns are now simplified (just placeholders)
 // Badges are set by new-messages-notifier.js from pending_customers database

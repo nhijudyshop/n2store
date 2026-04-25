@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [orders][perf] Tab1 — fix bảng giật khi filter "ĐƠN CHƯA PHẢN HỒI" idle (SSE flood → full tbody rebuild)
+| | |
+|---|---|
+| **Files** | NEW: [scripts/n2store-jitter-monitor.js](../scripts/n2store-jitter-monitor.js) — Playwright crawler login + lưu cookies/storage + monitor MutationObserver + hook performTableSearch/renderTable/schedulePerformTableSearch để bắt stack trace caller. MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — thêm `window.applyOrderMembershipFlip(orderCode, orderId, passesNow)` + helper `_refreshSpacer`: surgical insert/remove 1 `<tr>` thay vì `tbody.innerHTML = ...` rebuild khi filter membership của 1 đơn flip. Bail khi `employeeViewMode` hoặc `currentSortColumn` active (cần re-group). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ptagRefreshRow` thử gọi `applyOrderMembershipFlip` trước, fallback `schedulePerformTableSearch(300)` nếu surgical handler không xử lý được. |
+| **Chi tiết** | **Repro**: Playwright login bằng admin/admin@@, vào `orders-report/main.html`, set Tag XL = ĐƠN CHƯA PHẢN HỒI, idle 90s. Run đầu: 13 burst × ~116-120 mutations, mỗi 5-7s. Run có hook: 3 burst × 310 mutations, renderTable 2 lần, performTableSearch 4 lần. **Stack trace**: `performTableSearch ← schedulePerformTableSearch ← _ptagRefreshRow ← EventSource 'update' (processing_tags_global SSE)`. **Root cause**: SSE `processing_tags_global` (chatomni-proxy) push event mỗi vài giây khi LIVE active. Mỗi event mà membership của order flip → `schedulePerformTableSearch(300)` → `renderTable()` → `tbody.innerHTML = batch.map(createRowHTML).join('')` rebuild 50 row × 19 col → column auto-resize → giật ngang. **Fix**: Surgical row insert/remove. Insert: tính position từ `allData.indexOf(order)` (giữ thứ tự server), splice `filteredData`/`displayedData`, `tbody.insertBefore` nếu trong rendered window. Remove: splice + `row.remove()`. Cuối cùng `_refreshSpacer` + `updateStats()`. Chỉ dùng đường full re-render khi employee view hoặc cột sort active. |
+| **Status** | ✅ Implemented. Test logs: [downloads/n2store-jitter/jitter-log.json](../downloads/n2store-jitter/jitter-log.json). Cookies + storage: `downloads/n2store-jitter/{cookies,storage-state}.json`. Cần re-test sau khi push lên GitHub Pages. |
+
 ### [resident][feat] Clone v2 — deep-compare + UI overhaul (sidebar groups, filter bar, tabs, action menu)
 | | |
 |---|---|
