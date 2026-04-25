@@ -50,7 +50,7 @@
     color: #58666e;
     font-size: 12px;
     padding: 5px 15px;
-    border: 0;
+    border: 0px solid transparent;
     border-radius: 0;
     height: 30px;
     outline: none;
@@ -107,13 +107,13 @@
     color: #000000;
     font-size: 14px;
     font-weight: 600;
-    padding: 7px 8px 6px;
+    padding: 0.5em 0.6em 0.4em;        /* 7px 8.4px 5.6px @ 14px font */
     border-bottom: 1px solid #dddddd;
     text-transform: none;
     letter-spacing: 0;
 }
 .web2-shell .data-table tbody td {
-    padding: 6px 8px;
+    padding: 0.4em 0.6em;              /* 5.6px 8.4px @ 14px font */
     border-bottom: 1px solid #dddddd;
     font-size: 14px;
     color: #333333;
