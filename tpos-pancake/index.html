@@ -70,6 +70,15 @@
             flex-direction: column;
             overflow: hidden;
         }
+        /* Hide legacy navigation-modern sidebar/topbar/bottomnav — we use web2-aside instead.
+           navigation-modern.js still loads for SePay billing banner (which lives inside
+           .main-content, not inside #sidebar), but its own sidebar/topbar must not show. */
+        body > aside#sidebar,
+        body > aside.sidebar,
+        body > .nav-topbar,
+        body > .nav-bottom,
+        body > .mobile-topbar,
+        body > .mobile-bottom-nav { display: none !important; }
         /* Modals + popovers anchored to body — keep above shell */
         .pk-modal-overlay { z-index: 9999; }
     </style>
