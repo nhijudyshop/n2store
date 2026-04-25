@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][bug] Fix sidebar 404 khi click từ /web2/<slug>/ sang trang khác (path /web2/web2/)
+| | |
+|---|---|
+| **Files** | MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — thêm `resolveOur(rawHref)` helper detect `pathname /web2/<slug>/<file>` → prepend `../../`; ngược lại prepend `../`. Áp dụng vào `renderItem` + `renderGroup.single`. Active match dùng `/^(\.\.\/)+/` regex thay vì `/^\.\.\//` cố định 1 segment. |
+| **Chi tiết** | **Bug**: User click "Đơn hàng (POS)" từ trang `/n2store/web2/pos-order/index.html` → URL = `web2/web2/pos-order/index.html` → 404. **Root cause**: NAV item `our: '../web2/X/index.html'` chỉ đúng khi caller ở depth 1 (vd. `/native-orders/`). Caller ở depth 2 (`/web2/Y/`) → cần `../../web2/X/`. **Fix**: regex `/\/web2\/[^/]+\/[^/]*$/` detect web2 page → adjust prefix. **Test cases verified**: `/n2store/native-orders/` → `../web2/X/` ✓, `/n2store/web2/Y/` → `../../web2/X/` ✓, `/n2store/web2-products/` → `../web2/X/` ✓. **Asset version**: bump v→m. |
+| **Status** | ✅ Code done. Verify sau push: click bất kỳ link sidebar từ trang `/web2/pos-order/`, `/web2/account-thu/`, ... → đều load đúng trang đích, không 404. |
+
 ### [web2][page] Phase C.12-C.21 — Bulk gen 51 trang còn lại (POS/Sales/Stock/Reports/Configs)
 | | |
 |---|---|

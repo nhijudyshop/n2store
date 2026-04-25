@@ -341,10 +341,29 @@
         return Boolean(item.our);
     }
 
+    /**
+     * Resolve `our` path relative to current page location.
+     * NAV stores paths as `../web2/X/index.html` assuming caller is at depth 1
+     * from project root (e.g. /native-orders/, /web2-products/, /tpos-pancake/).
+     * For pages inside /web2/<slug>/ (depth 2), prepend an extra `../` so the
+     * link resolves to /web2/X/ instead of broken /web2/web2/X/.
+     */
+    function resolveOur(rawHref) {
+        if (!rawHref || rawHref === '#') return rawHref;
+        const projectRel = rawHref.replace(/^(\.\.\/)+/, '');
+        const pn = window.location.pathname || '';
+        // Caller is inside /web2/<slug>/ → depth 2 from project root
+        if (/\/web2\/[^/]+\/[^/]*$/.test(pn)) {
+            return '../../' + projectRel;
+        }
+        // Default: caller at depth 1 (native-orders/, web2-products/, tpos-pancake/, web2/)
+        return '../' + projectRel;
+    }
+
     function renderItem(item, activeUrl) {
         const isImpl = isOurRoute(item);
-        const href = isImpl ? item.our : '#';
-        const isActive = isImpl && activeUrl && activeUrl.endsWith(item.our.replace(/^\.\.\//, ''));
+        const href = isImpl ? resolveOur(item.our) : '#';
+        const isActive = isImpl && activeUrl && activeUrl.endsWith(item.our.replace(/^(\.\.\/)+/, ''));
         const cls = `web2-nav-sub-link${isActive ? ' active' : ''}`;
         const onclick = isImpl
             ? ''
@@ -356,9 +375,9 @@
     function renderGroup(g, activeUrl) {
         if (g.single) {
             const isImpl = isOurRoute(g);
-            const href = isImpl ? g.our : '#';
+            const href = isImpl ? resolveOur(g.our) : '#';
             const isActive =
-                isImpl && activeUrl && activeUrl.endsWith(g.our.replace(/^\.\.\//, ''));
+                isImpl && activeUrl && activeUrl.endsWith(g.our.replace(/^(\.\.\/)+/, ''));
             const cls = `web2-nav-link${isActive ? ' active' : ''}`;
             const onclick = isImpl
                 ? ''
@@ -370,7 +389,7 @@
         }
         const hasOurChild = (g.children || []).some(isOurRoute);
         const open = (g.children || []).some(
-            (c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^\.\.\//, ''))
+            (c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^(\.\.\/)+/, ''))
         );
         return `
             <div class="web2-nav-group${open ? ' is-open' : ''}">
