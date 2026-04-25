@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [tpos-pancake][ui] Wrap Web 2.0 sidebar shell — đồng bộ giao diện với web2/*
+| | |
+|---|---|
+| **Files** | MODIFIED: [tpos-pancake/index.html](../tpos-pancake/index.html) — bỏ inline tab-nav (3 tab cũ), thêm `<link>` tpos-sidebar.css + `<script>` tpos-sidebar.js + Web2Sidebar.mount activeRoute='tpos-pancake', wrap `<main.main-content>` trong `<div.web2-shell><aside.web2-aside id="web2Aside"></aside><main>...</main></div>`. Body class `tpos-theme`. CSS local: body flex, aside flex-shrink:0, main flex:1. |
+| **Chi tiết** | **Trigger**: user "Tpos-pancake cho vào menu web luôn → chuyển giao diện về giống web 100% → các chức năng vẫn giữ nguyên". **Approach**: minimal-invasive — chỉ wrap layout, KHÔNG động đến top-bar TPOS/Pancake selectors, dual-column TPOS+Pancake, modals (Pancake settings/TPOS settings/Customer info/Column settings). All JS init scripts (tpos-init, pancake-init, app-init) load đúng thứ tự cũ. **Static HTML check** (auth-protected nên Playwright không browse được): 14/14 element/script/structure correct → wrap thành công, top-bar/tpos column/pancake column/refresh/settings/columns buttons đều có. **Sidebar item "TPOS × Pancake"** đã có sẵn trong NAV (Sale Online group, our: '../tpos-pancake/index.html') — sẽ active khi user truy cập. |
+| **Status** | ✅ Code done. User mở thực tế trên trình duyệt đã login để verify visual + functional. |
+
 ### [web2][verify] Browser test 86/86 trang web2/* — 0 fetch error, 0 console error
 | | |
 |---|---|
