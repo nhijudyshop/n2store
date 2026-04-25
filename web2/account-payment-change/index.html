@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "accountpayment-change",
+  "title": "Tiền thối POS",
+  "breadcrumb": [
+    "App",
+    "Tài chính"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số phiếu",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Diễn giải",
+      "align": "left"
+    },
+    {
+      "key": "data.posSession",
+      "label": "Phiên POS",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.amount",
+      "label": "Số tiền thối",
+      "width": 140,
+      "align": "right"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "width": 120,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số phiếu",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Diễn giải",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.posSession",
+      "label": "Mã phiên POS",
+      "type": "text"
+    },
+    {
+      "key": "data.amount",
+      "label": "Số tiền thối",
+      "type": "number"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

@@ -1,0 +1,106 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "irmailserver",
+  "title": "Cấu hình Mail Server",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên server",
+      "align": "left"
+    },
+    {
+      "key": "data.host",
+      "label": "Host",
+      "width": 200
+    },
+    {
+      "key": "data.port",
+      "label": "Port",
+      "width": 90,
+      "align": "right"
+    },
+    {
+      "key": "data.user",
+      "label": "User",
+      "width": 200
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên server",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.host",
+      "label": "Host (vd: smtp.gmail.com)",
+      "type": "text"
+    },
+    {
+      "key": "data.port",
+      "label": "Port",
+      "type": "number",
+      "placeholder": "587"
+    },
+    {
+      "key": "data.user",
+      "label": "Username",
+      "type": "text"
+    },
+    {
+      "key": "data.password",
+      "label": "Password",
+      "type": "password"
+    },
+    {
+      "key": "data.encryption",
+      "label": "Mã hóa",
+      "type": "select",
+      "options": [
+        {
+          "value": "none",
+          "label": "Không"
+        },
+        {
+          "value": "tls",
+          "label": "TLS"
+        },
+        {
+          "value": "ssl",
+          "label": "SSL"
+        }
+      ]
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

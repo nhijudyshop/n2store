@@ -1,0 +1,89 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "callcenter-config",
+  "title": "Tích hợp Callcenter",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên cấu hình",
+      "align": "left"
+    },
+    {
+      "key": "data.provider",
+      "label": "Provider",
+      "width": 160,
+      "align": "center"
+    },
+    {
+      "key": "data.apiKey",
+      "label": "API key (rút gọn)",
+      "width": 180
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.provider",
+      "label": "Provider",
+      "type": "select",
+      "options": [
+        {
+          "value": "stringee",
+          "label": "Stringee"
+        },
+        {
+          "value": "omicall",
+          "label": "OmiCall"
+        },
+        {
+          "value": "voip24h",
+          "label": "VoIP24H"
+        },
+        {
+          "value": "other",
+          "label": "Khác"
+        }
+      ]
+    },
+    {
+      "key": "data.apiKey",
+      "label": "API Key",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

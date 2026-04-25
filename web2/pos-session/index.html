@@ -1,0 +1,115 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "possession",
+  "title": "Phiên bán hàng",
+  "breadcrumb": [
+    "App",
+    "Bán Hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số phiên",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên phiên",
+      "align": "left"
+    },
+    {
+      "key": "data.posConfigCode",
+      "label": "Điểm bán",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.userCode",
+      "label": "Nhân viên",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.openedAt",
+      "label": "Mở lúc",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.closedAt",
+      "label": "Đóng lúc",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.status",
+      "label": "TT",
+      "width": 100,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số phiên",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên phiên",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.posConfigCode",
+      "label": "Mã điểm bán",
+      "type": "text"
+    },
+    {
+      "key": "data.userCode",
+      "label": "Username NV",
+      "type": "text"
+    },
+    {
+      "key": "data.openedAt",
+      "label": "Mở lúc (datetime)",
+      "type": "text"
+    },
+    {
+      "key": "data.closedAt",
+      "label": "Đóng lúc (datetime)",
+      "type": "text"
+    },
+    {
+      "key": "data.status",
+      "label": "Trạng thái",
+      "type": "select",
+      "options": [
+        {
+          "value": "open",
+          "label": "Đang mở"
+        },
+        {
+          "value": "closed",
+          "label": "Đã đóng"
+        }
+      ]
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

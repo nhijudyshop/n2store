@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "fastpurchaseorder-invoice",
+  "title": "Mua hàng",
+  "breadcrumb": [
+    "App",
+    "Mua hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số HĐ",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "align": "left"
+    },
+    {
+      "key": "data.supplierCode",
+      "label": "NCC",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng tiền",
+      "width": 140,
+      "align": "right"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "width": 120,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số HĐ mua",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.supplierCode",
+      "label": "Mã NCC",
+      "type": "text"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng tiền",
+      "type": "number"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

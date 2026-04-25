@@ -1,0 +1,92 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "product",
+  "title": "Biến thể sản phẩm",
+  "breadcrumb": [
+    "App",
+    "Sản phẩm"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã BT",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên biến thể",
+      "align": "left"
+    },
+    {
+      "key": "data.templateCode",
+      "label": "SP gốc",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.attribute",
+      "label": "Thuộc tính",
+      "width": 200
+    },
+    {
+      "key": "data.barcode",
+      "label": "Barcode",
+      "width": 140
+    },
+    {
+      "key": "data.price",
+      "label": "Giá",
+      "width": 120,
+      "align": "right"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã biến thể",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên biến thể",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.templateCode",
+      "label": "Mã SP gốc",
+      "type": "text"
+    },
+    {
+      "key": "data.attribute",
+      "label": "Thuộc tính (vd: Size=M, Màu=Đỏ)",
+      "type": "text"
+    },
+    {
+      "key": "data.barcode",
+      "label": "Mã vạch",
+      "type": "text"
+    },
+    {
+      "key": "data.price",
+      "label": "Giá bán biến thể",
+      "type": "number"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

@@ -1,0 +1,96 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "exportfile",
+  "title": "Tác vụ xuất file",
+  "breadcrumb": [
+    "App",
+    "Cấu hình kế toán"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã tác vụ",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "align": "left"
+    },
+    {
+      "key": "data.kind",
+      "label": "Loại",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.fileUrl",
+      "label": "URL file",
+      "align": "left"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "width": 120,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã tác vụ",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.kind",
+      "label": "Loại",
+      "type": "select",
+      "options": [
+        {
+          "value": "excel",
+          "label": "Excel"
+        },
+        {
+          "value": "pdf",
+          "label": "PDF"
+        },
+        {
+          "value": "csv",
+          "label": "CSV"
+        }
+      ]
+    },
+    {
+      "key": "data.fileUrl",
+      "label": "URL file kết quả",
+      "type": "text"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày tạo",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

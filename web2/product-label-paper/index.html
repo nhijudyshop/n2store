@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "productlabelpaper",
+  "title": "Giấy in mã vạch",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên giấy",
+      "align": "left"
+    },
+    {
+      "key": "data.size",
+      "label": "Kích thước",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.cols",
+      "label": "Số cột",
+      "width": 100,
+      "align": "right"
+    },
+    {
+      "key": "data.rows",
+      "label": "Số dòng",
+      "width": 100,
+      "align": "right"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên giấy",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.size",
+      "label": "Kích thước (vd: A4)",
+      "type": "text"
+    },
+    {
+      "key": "data.cols",
+      "label": "Số cột nhãn",
+      "type": "number"
+    },
+    {
+      "key": "data.rows",
+      "label": "Số dòng nhãn",
+      "type": "number"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

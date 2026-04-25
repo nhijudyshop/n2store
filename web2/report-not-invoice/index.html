@@ -1,0 +1,87 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "report-not-invoice",
+  "title": "KH chưa phát sinh HĐ",
+  "breadcrumb": [
+    "App",
+    "Báo cáo"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã báo cáo",
+      "width": 160,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên báo cáo",
+      "align": "left"
+    },
+    {
+      "key": "data.dateFrom",
+      "label": "Từ",
+      "width": 120,
+      "align": "center"
+    },
+    {
+      "key": "data.dateTo",
+      "label": "Đến",
+      "width": 120,
+      "align": "center"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng",
+      "width": 140,
+      "align": "right"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã báo cáo",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.dateFrom",
+      "label": "Từ ngày",
+      "type": "text"
+    },
+    {
+      "key": "data.dateTo",
+      "label": "Đến ngày",
+      "type": "text"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng tiền",
+      "type": "number"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

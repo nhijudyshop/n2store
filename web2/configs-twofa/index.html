@@ -1,0 +1,96 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "configs-twofa",
+  "title": "Xác thực 2FA",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Username",
+      "width": 180,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Họ tên",
+      "align": "left"
+    },
+    {
+      "key": "data.method",
+      "label": "Phương thức",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.enabled",
+      "label": "Trạng thái",
+      "width": 130,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Username",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Họ tên",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.method",
+      "label": "Phương thức 2FA",
+      "type": "select",
+      "options": [
+        {
+          "value": "totp",
+          "label": "TOTP (Google Authenticator)"
+        },
+        {
+          "value": "sms",
+          "label": "SMS"
+        },
+        {
+          "value": "email",
+          "label": "Email"
+        }
+      ]
+    },
+    {
+      "key": "data.enabled",
+      "label": "Trạng thái",
+      "type": "select",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "Đã bật"
+        },
+        {
+          "value": "disabled",
+          "label": "Chưa bật"
+        }
+      ]
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

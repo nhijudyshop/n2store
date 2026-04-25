@@ -1,0 +1,60 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "configs-general",
+  "title": "Cấu hình chung",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Key",
+      "width": 200,
+      "align": "left"
+    },
+    {
+      "key": "name",
+      "label": "Tên cấu hình",
+      "align": "left"
+    },
+    {
+      "key": "data.value",
+      "label": "Giá trị"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Key",
+      "type": "text",
+      "required": true,
+      "placeholder": "VD: company.taxRate"
+    },
+    {
+      "key": "name",
+      "label": "Tên cấu hình",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.value",
+      "label": "Giá trị",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

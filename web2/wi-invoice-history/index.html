@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "wiinvoice-history",
+  "title": "HĐĐT lịch sử",
+  "breadcrumb": [
+    "App",
+    "Bán Hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã LS",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Hành động",
+      "align": "left"
+    },
+    {
+      "key": "data.invoiceCode",
+      "label": "Số HĐĐT",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "data.userCode",
+      "label": "NV",
+      "width": 130,
+      "align": "center"
+    },
+    {
+      "key": "data.date",
+      "label": "Lúc",
+      "width": 140,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã LS",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Hành động",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.invoiceCode",
+      "label": "Số HĐĐT",
+      "type": "text"
+    },
+    {
+      "key": "data.userCode",
+      "label": "Username NV",
+      "type": "text"
+    },
+    {
+      "key": "data.date",
+      "label": "Lúc (datetime)",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

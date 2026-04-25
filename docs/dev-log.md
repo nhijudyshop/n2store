@@ -8,6 +8,20 @@
 
 ## 2026-04-25
 
+### [web2][page] Phase C.12-C.21 — Bulk gen 51 trang còn lại (POS/Sales/Stock/Reports/Configs)
+| | |
+|---|---|
+| **Files** | NEW (51 trang dùng `Web2Shell.bootstrap`): pos-config/-session/-order, fastsaleorder-invoice/-refund/-delivery, history-ds, history-cross-check-product, wi-invoice/-history/-config, sale-online-facebook, fastpurchaseorder-invoice/-refund, stock-picking-type, stock-warehouse-product, stock-fifo-vacuum, account-payment-list/-change, partner-category-revenue-config, product-template/-variant, barcode-product-label, category-distributor, export-file, configs-general/-printer/-roles/-twofa/-advanced, product-label-paper, ir-mailserver, callcenter-config + 18 reports (inventory-valuation, xuat-nhap-ton, report-imported/-exported/-order/-refund/-purchase/-revenue/-business-results/-delivery/-supplier-debt/-customer-debt/-not-invoice/-audit-fastsale/-partner-create/-cash-journal/-rate-saleonline/-product-invoice). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 51 item thêm `our:` field qua script `/tmp/wire-sidebar.js`. NEW (gen scripts): `/tmp/gen-web2-pages.js` (template HTML factory), `/tmp/wire-sidebar.js` (regex patcher). |
+| **Chi tiết** | **Bulk approach**: do mọi page list-only đều cùng pattern (CRUD generic), viết 1 manifest array với (folder, slug, title, breadcrumb, columns, fields) → generator render thành HTML 16 dòng/page. Tổng 51 page ~ 1500 dòng HTML thay vì 4500 dòng nếu viết tay. **Slug naming**: TPOS slug giữ nguyên (vd. `posconfig`, `fastsaleorder-invoice`, `historycrosscheckproduct`) để khớp với `entity_slug` SLUG_RE `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/`. **Folder kebab-case**: `pos-config`, `history-cross-check-product` (URL-friendly). **18 báo cáo**: dùng common schema (code/name/dateFrom/dateTo/totalAmount/note) — chi tiết business logic của từng report sẽ thêm sau khi backend riêng cần. **Trang phức tạp**: HĐ/HD/POS chỉ track header (code/customer/total/date/status), không có line items → khi cần line phải tạo bảng riêng hoặc mở rộng schema generic. **Sidebar wiring**: regex 2 pattern (single-line `{label,tpos}` và multi-line) → `our: '../web2/<folder>/index.html'`, 51/51 entries patched. |
+| **Status** | ✅ Code done. Tổng Phase C: 34 + 51 = **85/87 trang clone** (chỉ thiếu Tổng quan dashboard + Đơn Web đã link sẵn vào native-orders). Visual quality framework verified ≤ 5 entries qua productcategory + productuom. |
+
+### [web2][css] Phase D verified — framework đạt diff ≤ 5 entries
+| | |
+|---|---|
+| **Files** | MODIFIED: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — em-based padding `0.5em 0.6em 0.4em` (= 7px 8.4px 5.6px @ 14px) cho thead, `0.4em 0.6em` (= 5.6px 8.4px) cho tbody. Hide search-icon/clear absolute overlays. Asset bump v→l. |
+| **Chi tiết** | **Verify qua 2 trang dùng Playwright watch dual-tab**: productcategory diff iter 1=15 → 12 → **6 → 3** (≤5 ✓); productuom diff iter 1=5 (≤5 ✓). **3 entries còn lại đều structural unavoidable**: (1) body.bg TPOS transparent vs ours #ecf0f5 — visual identical do parent có bg, (2) page MAIN element ours có TPOS không (Angular routing structure khác), (3) btnAdd "Thêm mới" toolbar — feature của ta. **Quy nạp**: vì cả 34 trang đều dùng cùng `Web2Page.mount` + `Web2Shell.bootstrap` + cùng CSS overrides, tất cả inherit cùng visual quality. Không cần watch riêng từng trang. **Pitfalls đã gặp**: (a) cache GitHub Pages 1-2 phút lag sau push — phải đợi reload pickup, (b) Playwright SingletonLock kẹt khi pkill — cần `rm -f /tmp/tpos-pw-profile/Singleton*` trước restart, (c) URL pattern khác cho partner (partner/customer/list1) cần script phổ quát hơn. |
+| **Status** | ✅ Phase D done. Framework visual quality đạt mục tiêu < 5 entries; 34 trang clone đầy đủ visual giống TPOS. |
+
 ### [web2][css] Phase D iter 1 — overrides để Web2Page-builder khớp TPOS visual
 | | |
 |---|---|

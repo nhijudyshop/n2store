@@ -1,0 +1,123 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "fastsaleorder-delivery",
+  "title": "Phiếu giao hàng",
+  "breadcrumb": [
+    "App",
+    "Bán Hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số phiếu",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "align": "left"
+    },
+    {
+      "key": "data.invoiceCode",
+      "label": "HĐ",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.customerCode",
+      "label": "KH",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.carrierCode",
+      "label": "Hãng VC",
+      "width": 130,
+      "align": "center"
+    },
+    {
+      "key": "data.fee",
+      "label": "Phí ship",
+      "width": 120,
+      "align": "right"
+    },
+    {
+      "key": "data.status",
+      "label": "TT",
+      "width": 130,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số phiếu",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.invoiceCode",
+      "label": "Số HĐ",
+      "type": "text"
+    },
+    {
+      "key": "data.customerCode",
+      "label": "Mã KH",
+      "type": "text"
+    },
+    {
+      "key": "data.carrierCode",
+      "label": "Mã hãng VC",
+      "type": "text"
+    },
+    {
+      "key": "data.fee",
+      "label": "Phí ship",
+      "type": "number"
+    },
+    {
+      "key": "data.status",
+      "label": "Trạng thái",
+      "type": "select",
+      "options": [
+        {
+          "value": "pending",
+          "label": "Chờ giao"
+        },
+        {
+          "value": "shipping",
+          "label": "Đang giao"
+        },
+        {
+          "value": "delivered",
+          "label": "Đã giao"
+        },
+        {
+          "value": "returned",
+          "label": "Hoàn"
+        }
+      ]
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

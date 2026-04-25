@@ -1,0 +1,99 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "producttemplate",
+  "title": "Sản phẩm",
+  "breadcrumb": [
+    "App",
+    "Sản phẩm"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã SP",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên SP",
+      "align": "left"
+    },
+    {
+      "key": "data.categoryCode",
+      "label": "Nhóm SP",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.uom",
+      "label": "ĐVT",
+      "width": 100,
+      "align": "center"
+    },
+    {
+      "key": "data.price",
+      "label": "Giá bán",
+      "width": 130,
+      "align": "right"
+    },
+    {
+      "key": "data.cost",
+      "label": "Giá vốn",
+      "width": 130,
+      "align": "right"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã SP",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên SP",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.categoryCode",
+      "label": "Mã nhóm SP",
+      "type": "text"
+    },
+    {
+      "key": "data.uom",
+      "label": "Mã đơn vị tính",
+      "type": "text"
+    },
+    {
+      "key": "data.price",
+      "label": "Giá bán",
+      "type": "number"
+    },
+    {
+      "key": "data.cost",
+      "label": "Giá vốn",
+      "type": "number"
+    },
+    {
+      "key": "data.barcode",
+      "label": "Mã vạch",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

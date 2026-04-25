@@ -1,0 +1,88 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "wiinvoice",
+  "title": "Hóa đơn điện tử",
+  "breadcrumb": [
+    "App",
+    "Bán Hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số HĐĐT",
+      "width": 150,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "align": "left"
+    },
+    {
+      "key": "data.customerCode",
+      "label": "KH",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng",
+      "width": 140,
+      "align": "right"
+    },
+    {
+      "key": "data.signedAt",
+      "label": "Ký lúc",
+      "width": 140,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số HĐĐT",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.customerCode",
+      "label": "Mã KH",
+      "type": "text"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng tiền",
+      "type": "number"
+    },
+    {
+      "key": "data.signedAt",
+      "label": "Ký lúc (datetime)",
+      "type": "text"
+    },
+    {
+      "key": "data.fileUrl",
+      "label": "URL file XML",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

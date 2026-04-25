@@ -1,0 +1,90 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "configs-printer",
+  "title": "Máy in",
+  "breadcrumb": [
+    "App",
+    "Cấu hình"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên máy in",
+      "align": "left"
+    },
+    {
+      "key": "data.driver",
+      "label": "Driver",
+      "width": 160,
+      "align": "center"
+    },
+    {
+      "key": "data.paperSize",
+      "label": "Khổ giấy",
+      "width": 130,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã máy in",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên máy in",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.driver",
+      "label": "Driver",
+      "type": "text"
+    },
+    {
+      "key": "data.paperSize",
+      "label": "Khổ giấy",
+      "type": "select",
+      "options": [
+        {
+          "value": "A4",
+          "label": "A4"
+        },
+        {
+          "value": "A5",
+          "label": "A5"
+        },
+        {
+          "value": "k80",
+          "label": "K80 (giấy nhiệt)"
+        },
+        {
+          "value": "k58",
+          "label": "K58 (giấy nhiệt)"
+        }
+      ]
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "historyds",
+  "title": "Lịch sử đối soát",
+  "breadcrumb": [
+    "App",
+    "Bán Hàng"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Số đối soát",
+      "width": 160,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "align": "left"
+    },
+    {
+      "key": "data.carrierCode",
+      "label": "Hãng VC",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng",
+      "width": 140,
+      "align": "right"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "width": 120,
+      "align": "center"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Số đối soát",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tiêu đề",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.carrierCode",
+      "label": "Mã hãng VC",
+      "type": "text"
+    },
+    {
+      "key": "data.totalAmount",
+      "label": "Tổng tiền",
+      "type": "number"
+    },
+    {
+      "key": "data.date",
+      "label": "Ngày",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>

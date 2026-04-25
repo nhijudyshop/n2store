@@ -1,0 +1,65 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undefined — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425l"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+  "slug": "category-ext-distributor",
+  "title": "Danh mục khác",
+  "breadcrumb": [
+    "App",
+    "Sản phẩm"
+  ],
+  "columns": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "name",
+      "label": "Tên",
+      "align": "left"
+    },
+    {
+      "key": "data.kind",
+      "label": "Loại",
+      "width": 140,
+      "align": "center"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú"
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Mã",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "name",
+      "label": "Tên",
+      "type": "text",
+      "required": true
+    },
+    {
+      "key": "data.kind",
+      "label": "Loại danh mục",
+      "type": "text"
+    },
+    {
+      "key": "data.note",
+      "label": "Ghi chú",
+      "type": "textarea"
+    }
+  ]
+});
+</script>
+</body></html>
