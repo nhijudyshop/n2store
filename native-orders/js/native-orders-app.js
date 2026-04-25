@@ -275,8 +275,8 @@
                             ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td>
-                        <div class="tpos-channel-cell">
+                    <td class="tpos-cell-center">
+                        <div class="tpos-channel-cell" style="align-items:center;">
                             <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
                             ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
                         </div>
