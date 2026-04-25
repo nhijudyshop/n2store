@@ -302,6 +302,7 @@ const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
 const nativeOrdersRoutes = require('./routes/native-orders');
 const web2ProductsRoutes = require('./routes/web2-products');
+const web2GenericRoutes  = require('./routes/web2-generic');
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
@@ -402,6 +403,7 @@ app.use('/api/order-notes', orderNotesRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/native-orders', nativeOrdersRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
+app.use('/api/web2', web2GenericRoutes);
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsRoutes);

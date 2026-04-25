@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][framework] Phase B — Generic entity backend + Web2Page page-builder framework + guide
+| | |
+|---|---|
+| **Files** | NEW: [render.com/migrations/068_web2_generic_entities.sql](../render.com/migrations/068_web2_generic_entities.sql) — 2 bảng `web2_entities` + `web2_records` (entity_slug, code, name, data JSONB) + 7 indexes incl. unique `(entity_slug, code)`. NEW: [render.com/routes/web2-generic.js](../render.com/routes/web2-generic.js) — REST `/api/web2/:entity/(health\|list\|get/:code\|create\|update/:code\|delete/:code)` với SLUG_RE validate + auto `ensureTables()`. MODIFIED: [render.com/server.js](../render.com/server.js) — mount `app.use('/api/web2', web2GenericRoutes)`. MODIFIED: [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) — pattern `WEB2_GENERIC: '/api/web2/*'` + matcher. MODIFIED: [cloudflare-worker/worker.js](../cloudflare-worker/worker.js) — case `WEB2_GENERIC` → `handleCustomer360Proxy`. NEW: [web2-shared/web2-api.js](../web2-shared/web2-api.js) — `Web2Api.forEntity(slug)` thin client. NEW: [web2-shared/page-builder.js](../web2-shared/page-builder.js) — `Web2Page.mount(rootSel, config)` factory: header + breadcrumb + filter (search/active/limit) + toolbar (Tải lại/Áp dụng/Xóa lọc/Thêm mới) + table với TPOS classes + pagination + create/edit modal driven by `fields` config (text/textarea/select/checkbox), dot-path `data.X` qua getPath/setPath. NEW: [docs/guides/web2-builder/](../docs/guides/web2-builder/) — 8 file guide (README + 01-architecture, 02-backend, 03-cloudflare, 04-frontend, 05-theme, 06-cookbook, 07-sidebar, 08-diff-loop, 99-appendix) — đọc xong code lại được toàn bộ Web 2.0. |
+| **Chi tiết** | **Goal**: clone 87 trang TPOS list-CRUD bằng 1 schema generic + 1 page-builder. **Schema EAV-light**: cột cố định (`code`, `name`, `is_active`) cho index nhanh, JSONB `data` cho field tùy entity. Unique partial index `(entity_slug, code) WHERE code IS NOT NULL` cho phép entity có code = null mà vẫn unique trong scope. **API envelope**: `{success, records[], total, page, limit, hasMore}`. **Validate `:entity`**: regex `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/` chặn injection dù đã prepared-statement. **Page-builder dot-path**: `'data.note'` → `getPath(record, 'data.note')` đọc, `setPath(payload, 'data.note', val)` ghi. Form field types: text/textarea/select/checkbox/number/email/tel/password. Edit mode `disable code field`. ESC + click X đóng modal (KHÔNG đóng khi click overlay — feedback từ user). **Quy ước phân chia**: trang đơn giản (chỉ CRUD) → dùng generic; trang phức tạp (đơn hàng, kho, hóa đơn) → tạo bảng riêng (đã có `native_orders`, `web2_products`). **Guide đầy đủ**: 8 file trong `docs/guides/web2-builder/` — đọc xong có thể code lại từ A-Z, biết khi nào dùng generic vs bảng riêng, cookbook tạo trang mới <5 phút. |
+| **Status** | ✅ Code done. Verify after deploy: (1) `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/productcategory/health` → `{"ok":true,"count":0}`. (2) Tạo trang đầu tiên `web2/product-category/index.html` dùng `Web2Page.mount` ở Phase C.1 (sau commit này). |
+
 ### [customer-hub][wallet] Thêm icon 👁 xem bằng chứng giao dịch ví (CK Sepay + Ticket)
 | | |
 |---|---|
@@ -1398,143 +1405,6 @@
 | **Files** | `purchase-orders/js/lib/tpos-product-creator.js` |
 | **Chi tiết** | **Vấn đề:** Trước đây chỉ dựa vào TPOS trả `400` để phát hiện duplicate — tốn thêm 1 round-trip + không 100% đáng tin. **Fix:** Thêm `checkProductExists(productCode)` — GET `Product?$filter=startswith(DefaultCode,'{code}')` + regex filter `^{code}[A-Z0-9]{0,4}$` (tránh false-positive Q13 match Q130). Match cả sản phẩm cha (Q130) lẫn biến thể (Q130T, Q130D1). Trong `processGroup`: gọi precheck TRƯỚC khi POST InsertV2 — nếu tồn tại: skip upload + build productData từ variants có sẵn → `matchVariantBarcodes` như flow "already exists" cũ. Giữ 400-fallback của `createTPOSProduct` như safety net. Export thêm `checkProductExists`. |
 | **Status** | ✅ Done |
-
-## 2026-04-17
-
-### [customer-hub][render] Giao dịch Nạp Tay: hiện rút tay thủ công + lưu người thực hiện
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/wallets.js`, `render.com/services/wallet-event-processor.js` |
-| **Chi tiết** | **Bug 1:** Tab "Giao dịch Nạp Tay" chỉ hiện Nạp tiền, không thấy Rút tiền thủ công. Nguyên nhân: SQL function `wallet_withdraw_fifo` (dùng chung cho COD flow) hardcode `source='ORDER_PAYMENT'`, trong khi endpoint `/manual-transactions` filter loại trừ source này. **Fix:** nới filter SELECT để include rows có `reference_id='MANUAL'` (cờ do route `/withdraw` gán khi `order_id` null) — không đụng SQL function, không mutate data đã lưu. **Bug 2:** Cột "Người thực hiện" rỗng cho mọi giao dịch thủ công. Nguyên nhân: `processWalletEvent` không insert `created_by`, `wallet_withdraw_fifo` không nhận param người tạo. **Fix:** (A) thêm optional param `createdBy` vào `processWalletEvent` → insert cột `created_by` (cột đã có trong schema từ migration 001); (B) `processManualDeposit` + `issueVirtualCredit` nhận/truyền `createdBy`; (C) routes `/deposit`, `/credit` truyền `created_by` xuống processor; (D) route `/withdraw` sau khi FIFO chạy xong, UPDATE `wallet_transactions.created_by` cho rows phone+reference_id='MANUAL'+`type IN (WITHDRAW,VIRTUAL_DEBIT)` trong 5 giây gần nhất — chỉ metadata, zero ảnh hưởng tính toán số dư/KPI. |
-| **Status** | ✅ Done |
-
-### [soluong-live] Thêm cột CỌC vào soluong-list + toggle Ẩn/Hiện + Firebase sync
-| | |
-|---|---|
-| **Files** | `soluong-live/soluong-list.html`, `soluong-live/js/soluong-list.js`, `soluong-live/firebase-helpers.js`, `soluong-live/firebase-helpers-global.js` |
-| **Chi tiết** | Thêm cột **💰 CỌC** giữa BÁN và CÒN trên trang soluong-list. Click số để nhập inline (Enter commit, Esc hủy). Nút toggle "💰 Hiện cọc" đặt bên trái "Đang gộp" (`left: calc(50% - 300px)`), mặc định **ẨN**. Layout: khi CỌC hiện → TỔNG/BÁN/CỌC mỗi cột `flex: 0.667`, CÒN giữ `flex: 1` ⇒ CÒN vẫn chiếm 1/3 width (không đổi kích thước). Mirror CHÍNH XÁC pattern soldQty cho Firebase sync: node mới `soluongProductsCoc/{key}` (~20 bytes, song song với `soluongProductsQty`), helper mới `updateProductCocInFirebase` ghi parallel cả 2 node, `loadAllProductsFromFirebase` merge thêm cocQty, `setupFirebaseChildListeners` thêm `cocRef` listener (`child_changed`/`child_added`) + cleanup detach. Các batch op (remove/cleanup/clearAll) đều xóa đồng bộ node coc. `child_changed` trên productsRef preserve `cocQty` giống `soldQty`. Toggle Ẩn/Hiện cọc sync qua `soluongIsHideCocColumn` giữa các máy livestream (giống `soluongIsMergeVariants`). Merged variants: mỗi variant có `cocQtyList` riêng, click inline-edit từng variant. CỌC là số độc lập, KHÔNG trừ vào CÒN (cọc chưa chốt đơn). |
-| **Status** | ✅ Done |
-
-### [orders] KPI: không tính KPI khi khách đổi biến thể cùng template/cùng loại
-| | |
-|---|---|
-| **Files** | `orders-report/js/managers/kpi-manager.js`, `shared/js/attribute-values-loader.js` (new), `shared/js/warehouse-api.js`, `orders-report/tab-kpi-commission.html`, `orders-report/tab1-orders.html`, `orders-report/js/tab-kpi-commission.js` |
-| **Chi tiết** | **Bug:** `calculateNetKPI()` chỉ match theo `ProductId` — khi khách đổi biến thể (B1118T → B1118N) hoặc đổi SP cùng loại khác màu (B1473 → B1474), SP mới được tính thêm +1 KPI sai. **Fix:** Mở rộng filter 2 lớp mới: (A) match `tpos_template_id` qua `WarehouseAPI.getTemplateIdMap()` → cover biến thể cùng template; (B) match tên đã normalize (strip prefix `[CODE]`, trailing `(...)`, `SIZE`, token ∈ {màu, size}) → cover 2 SP khác template nhưng tên chỉ khác màu/size cuối. Màu + size load từ `purchase-orders/product_attribute_values_rows.csv` qua shared loader mới `AttributeValuesLoader` (có fallback hardcode). **Backfill:** Thêm nút "Tính lại KPI toàn bộ" trong tab KPI-Hoa Hồng → loop qua orderCodes trong kpi_statistics (theo dateFrom/dateTo filter) → gọi `recalculateAndSaveKPI` từng đơn để áp logic mới. |
-| **Status** | ✅ Done |
-
-### [inventory] Fix parser NCC thuần số + schema `inventory_product_images` split theo đợt + silence Firestore probe
-| | |
-|---|---|
-| **Files** | `inventory-tracking/js/modal-shipment.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/table-renderer.js`, `render.com/migrations/057_fix_stt_ncc_10_on_2026_04_12.sql`, `render.com/migrations/058_product_images_by_date_dot.sql`, `render.com/routes/v2/inventory-tracking.js`, `shared/js/token-manager.js`, `shared/js/navigation-modern.js` |
-| **Chi tiết** | **1. Parser NCC:** regex cũ `^(\\d+)\\s+(.+)$` yêu cầu "số + space + tên", user gõ `"10"` fail → auto-assign stt=901 → không map ảnh. Đổi `^(\\d+)(?:\\s+(.+))?$`: `"10"` → stt=10 tenNCC=""; `"10 NCC"` → stt=10 tenNCC="NCC"; `"ABC"` → auto 900+. **2. Migration 057:** fix row bad data cụ thể `dot_mo2y25w3_i2igci` (stt=901 ten="10") → stt=10 ten=NULL + upsert supplier stt=10. **3. Migration 058:** schema `inventory_product_images` thêm `ngay_di_hang DATE NOT NULL`, `dot_so INT NOT NULL`, unique key `(ngay_di_hang, dot_so, ncc)` thay vì chỉ `ncc`. Backfill tất cả rows hiện tại về `(2026-04-10, 1)` theo user directive. **4. API `PUT /product-images`:** nhận optional `ngay_di_hang`, `dot_so` → scoped delete+insert per batch; legacy clients không pass → default `(2026-04-10, 1)`. **5. Client `getProductImagesForNcc(ncc, ngay, dot)`:** exact-batch first, fallback any-batch nếu không có (giữ compat khi UI batch-selector chưa có). Table truyền `shipment.ngayDiHang + shipment.dotSo` xuống `_renderImageCell`. **6. Firestore probe silence:** `shared/js/token-manager.js` + `navigation-modern.js` short-circuit nếu `typeof window.firebase === 'undefined'` — không log warning trên các trang Firebase-free (inventory-tracking) nữa. |
-| **Status** | ✅ Done — batch-scoped UI selector chưa build (scope lần sau) |
-
-### [inventory][render] Default đợt = MAX hiện có (không +1) — merge-by-default UX
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/modal-shipment.js` |
-| **Chi tiết** | Đổi default đợt khi thêm NCC mới cho ngày đã có đợt: trước là `MAX+1` (luôn tạo đợt mới), giờ là `MAX` (mặc định merge vào đợt hiện có). User muốn đợt mới → tự gõ +1. Áp dụng cho: `GET /shipments/next-dot-so` (`COALESCE(MAX, 1)`), POST fallback resolve, và client-side `_computeDefaultDotSo`. Endpoint name giữ nguyên để tương thích. |
-| **Status** | ✅ Done |
-
-### [inventory][render] Gộp NCC trùng (ngày + đợt + tên NCC) — migration 056 + dedupe POST
-| | |
-|---|---|
-| **Files** | `render.com/migrations/056_merge_duplicate_ncc_in_same_shipment.sql`, `render.com/routes/v2/inventory-tracking.js` |
-| **Chi tiết** | **Migration 056:** với mỗi group `(ngay_di_hang, dot_so, LOWER(TRIM(ten_ncc)))` có >1 row và tenNCC ≠ rỗng → keep earliest-created row, append `san_pham` (jsonb_array_elements + UNION), sum `tong_tien_hd`/`tong_mon`/`so_mon_thieu`, union `anh_hoa_don`, concat `ghi_chu`/`ghi_chu_thieu` (delimiter ` \| `), delete còn lại. Đã gộp 2 rows `LAY THEM` trên 2026-04-10 đợt 1 (stt=1 + stt=901) → 1 row stt=1 với 5 products, tong=2373/59. **POST /shipments dedupe:** trước INSERT check same (date, dot, LOWER(TRIM(ten_ncc))) đã tồn tại (ten_ncc non-empty) → UPDATE merge thay vì INSERT: append san_pham, sum totals, union anh_hoa_don, giữ kien_hang của row đầu (hoặc dùng từ request nếu rỗng), concat ghi_chu. Trả `merged: true` trong response. |
-| **Status** | ✅ Done — merge 2→1 LAY THEM đã apply, còn lại 9 rows distinct |
-
-### [inventory][render] Migration 055: shift 9 legacy rows về 2026-04-10 (ý định gốc)
-| | |
-|---|---|
-| **Files** | `render.com/migrations/055_shift_9_legacy_shipments_to_vn_date.sql` |
-| **Chi tiết** | 9 rows saved với `ngay_di_hang = 2026-04-11` bằng old client code dùng `new Date().toISOString().split('T')[0]` (UTC date) — thực chất user tạo vào tối 10/4 VN = UTC Apr 10 1x:xx. Chạy UPDATE có guard (`EXCEPTION` nếu count ≠ 9) đổi 9 rows này về `2026-04-10`. Kết quả API: tất cả 10 shipments → `2026-04-10`. Reversible ghi rõ trong comment migration. |
-| **Status** | ✅ Done — API verified (10 rows on 2026-04-10) |
-
-### [render] Fix pg DATE (OID 1082) parser — trả raw 'YYYY-MM-DD' string
-| | |
-|---|---|
-| **Files** | `render.com/server.js`, `render.com/db/pool.js` |
-| **Chi tiết** | **Bug:** DB lưu DATE `2026-04-11` nhưng API JSON trả `"2026-04-10T17:00:00.000Z"` — client split('T')[0] → `"2026-04-10"` → display `10/4` (lệch -1 ngày). **Nguyên nhân:** pg-node default DATE parser dùng `new Date(year, month-1, day)` tạo Date ở LOCAL midnight; Render server TZ = VN (UTC+7) → Date object = `2026-04-11 00:00 +0700` = UTC `2026-04-10T17:00:00Z`. JSON.stringify ra chuỗi UTC, làm client hiểu sai ngày. **Fix:** `types.setTypeParser(1082, val => val)` — trả raw 'YYYY-MM-DD' string, không roundtrip qua Date. Áp dụng cho cả `server.js` và `db/pool.js`. Không cần sửa schema hay client. Tác động: mọi DATE column (`ngay_di_hang`, `ngay_dat_hang`, `ngay`) đều trả về string khớp DB. |
-| **Status** | ✅ Done |
-
-### [inventory] Chuyển toàn bộ date logic sang GMT+7 (Vietnam)
-| | |
-|---|---|
-| **Files** | `inventory-tracking/js/main.js`, `modal-shipment.js`, `modal-prepayment.js`, `modal-other-expense.js`, `modal-order-booking.js`, `export.js`, `filters.js` |
-| **Chi tiết** | **1. Thêm helper trong main.js:** `todayVN()` + `dateToVNStr(date)` dùng `Intl.DateTimeFormat` với `timeZone: 'Asia/Ho_Chi_Minh'` — luôn trả YYYY-MM-DD theo lịch VN bất kể browser timezone. **2. formatDateDisplay:** parse YYYY-MM-DD bằng regex (không qua `new Date` tránh UTC midnight shift trong timezone âm), fallback dùng `toLocaleDateString` với VN timezone. **3. Replace toàn bộ `new Date().toISOString().split('T')[0]` → `todayVN()`/`dateToVNStr()` ở 8+ chỗ:** `modal-shipment`, `modal-prepayment`, `modal-other-expense`, `modal-order-booking`, `export`, `filters` (default range, quick range, single day, navigate, reset 30 days), `main.InventoryTracking.formatDate`. **Kết quả:** mọi "hôm nay", mọi format YYYY-MM-DD từ Date object đều là lịch VN — user ở bất kỳ timezone nào cũng thấy ngày VN đồng nhất với DB. |
-| **Status** | ✅ Done |
-
-### [orders] Cột Mã SP hiển thị mã GỐC + lưu parentProductCode sau khi upload TPOS
-| | |
-|---|---|
-| **Files** | `purchase-orders/js/table-renderer.js`, `purchase-orders/js/main.js` |
-| **Chi tiết** | **Bug:** Sau khi upload TPOS, `item.productCode` bị thay bằng variant code (Q130 → Q130T). Khi user copy đơn + upload lại, TPOS ghép tên biến thể vào mã đã có biến thể → Q130TT, Q130DD (sai). **Fix 1 (`table-renderer.js`):** cột "Mã SP" render `parentProductCode || productCode` — hiển thị mã gốc là chính (không còn dòng parent xám nhỏ phía trên). **Fix 2 (`main.js`):** sau khi tạo PO TPOS thành công, khi update `productCode = barcode`, LƯU `parentProductCode = productCode cũ` — để table render đúng + để `POST /:id/copy` server-side dùng `parentProductCode || productCode` tạo đơn mới với mã gốc. Order cũ không có `parentProductCode` vẫn fallback sang `productCode` (không break). |
-| **Status** | ✅ Done |
-
-### [orders] Purchase Orders: hiển thị lỗi TPOS giống TPOS khi Xuất Excel / Tạo đơn
-| | |
-|---|---|
-| **Files** | `purchase-orders/js/lib/tpos-purchase.js`, `purchase-orders/js/main.js` |
-| **Chi tiết** | **1. `tpos-purchase.js`:** export thêm `validateExcel(workbook, ncc)` — dry-run `PurchaseByExcel` (TPOS không tạo PO, chỉ trả `{OrderLines, Errors}`). **2. `createFromExcel`:** block nếu `errors.length > 0` — trả `{success:false, tposErrors: [...], orderLines}` thay vì tạo PO thiếu dòng. **3. `main.js` `showTposErrorsModal(errors, {title, onContinue})`:** modal đỏ liệt kê lỗi theo format TPOS (`"Dòng N: Mã sản phẩm X không tồn tại trong dữ liệu"`) — optional nút "Tiếp tục" để tải file dù có lỗi. **4. `btnExportExcel`:** build workbook → nếu NCC có `tposId` → `validateExcel` → show modal nếu có lỗi (cho phép "Tải xuống vẫn") → download. **5. `btnSubmitTPOS`:** khi `tposResult.tposErrors` → show modal (block, không cho tiếp tục). **6. Capture format:** qua snippet `_tpos_capture_error.js` paste vào DevTools TPOS (dùng `localStorage.accessToken` + Bearer header). |
-| **Status** | ✅ Done |
-
-### [inventory][render] Bỏ Firebase khỏi inventory-tracking: permissions + deleteImage qua Render API
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/permission-helper.js`, `inventory-tracking/js/image-upload.js`, `inventory-tracking/js/config.js`, `inventory-tracking/index.html`, `render.com/scripts/cleanup-inventory-firestore.js` |
-| **Chi tiết** | **1. API mới:** `GET /api/v2/inventory-tracking/user-permissions/:username` đọc từ `app_users.detailed_permissions` (Render Postgres) — trả slice `inventoryTracking` + `isAdmin`. **2. permission-helper.js:** thay `usersRef.doc().get()` bằng fetch tới API trên. **3. image-upload.js deleteImage:** gọi `DELETE /api/upload/image` thay vì `storage.refFromURL().delete()` (server-side dùng Firebase Admin SDK). **4. config.js:** bỏ `firebase.initializeApp`, `firestore()`, `storage()`, `usersRef`, `COLLECTIONS`. **5. index.html:** bỏ 3 script tags `firebase-app-compat`, `firebase-firestore-compat`, `firebase-storage-compat` + `firebase-config.js`. Module inventory-tracking không còn init Firebase client-side. **6. cleanup script:** `scripts/cleanup-inventory-firestore.js` (dry-run default, `--execute` để xóa) xóa `inventory_tracking`, `inventory_prepayments`, `inventory_other_expenses`, và `edit_history` filter theo `entity_type ∈ ('orderBooking','shipment','prepayment','otherExpense')`. Chưa chạy — cần user confirm. |
-| **Status** | ✅ Done — cleanup đã chạy: xóa 10/10 docs `inventory_tracking` Firestore; các collection khác đã rỗng sẵn |
-
-### [inventory][render] Đợt (batch number) per-date cho shipment — DB + API + UI
-| | |
-|---|---|
-| **Files** | `render.com/migrations/053_add_dot_so_to_inventory_shipments.sql`, `render.com/migrations/054_consolidate_dot_so.sql`, `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/data-loader.js`, `inventory-tracking/js/modal-shipment.js`, `inventory-tracking/js/crud-operations.js`, `inventory-tracking/js/table-renderer.js` |
-| **Chi tiết** | **1. Migration 053:** thêm cột `dot_so INT NOT NULL DEFAULT 1` + backfill theo `ROW_NUMBER() PARTITION BY ngay_di_hang ORDER BY created_at/min` + backfill `ten_ncc` từ `inventory_suppliers` + index `(ngay_di_hang, dot_so)`. **2. Migration 054:** consolidate tất cả rows về `dot_so=1` (migration 053 backfill quá granular do NCCs tạo rải rác qua boundary phút — user sẽ chia đợt lại qua edit modal nếu cần). **3. API:** thêm `GET /shipments/next-dot-so?date=X` trả max+1; `POST`/`PUT /shipments` nhận `dot_so` (auto-compute nếu thiếu). **4. UI modal:** input "Đợt" song song "Ngày Đi Hàng", auto-fill từ API khi đổi ngày; fallback tính local từ `globalState.shipments`. **5. Grouping:** `getAllDotHangAsShipments()` nhóm theo `(ngayDiHang, dotSo)` thay vì chỉ ngày → 1 ngày có thể có nhiều đợt hiển thị riêng. **6. Table:** header hiển thị badge "Đợt N" giữa ngày và số kiện. |
-| **Status** | ✅ Done |
-
-### [delivery] ĐƠN 0đ: filter tab, visual styling, scan sound, exclude from TOMATO
-| | |
-|---|---|
-| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/css/delivery-report.css`, `delivery-report/index.html` |
-| **Chi tiết** | **1. Exclude 0đ from TOMATO:** `assignTomatoNap()` luôn đẩy đơn 0đ (CashOnDelivery=0) vào NAP, không bao giờ vào TOMATO. **2. Visual styling:** Items 0đ có nền vàng nhạt + viền trái cam + badge "0đ" để phân biệt. **3. Scan sound:** Quét đơn 0đ phát 2 beep ngắn tần số cao (Web Audio API), feedback toast màu cam. **4. Filter tab "ĐƠN 0đ":** Tab mới trong tra soát bar, lọc chỉ hiển thị đơn 0đ across all groups. **5. Scan filter tabs:** Chuyển dropdown "Đã quét"/"Chưa quét" thành 2 nút tab-style. |
-| **Status** | ✅ Done |
-
-### [orders][render] KPI review round 2: fix 5 issues từ audit
-| | |
-|---|---|
-| **Files** | `orders-report/js/managers/kpi-manager.js`, `orders-report/js/chat/chat-products-actions.js`, `render.com/routes/campaigns.js`, `render.com/cron/scheduler.js` |
-| **Chi tiết** | **Fix 1:** KPI mode 'value' — lấy giá từ TPOS thay vì audit log (audit log không có cột price). **Fix 2:** Held product delete dùng source phù hợp (chat_from_dropped/chat_confirm_held thay vì chat_decrease). **Fix 3:** Range validation thêm check STT âm và from > to. **Fix 4:** Data retention chỉ xóa audit logs không còn BASE (bảo toàn data recalculate được). **Fix 5:** Reconcile cron chỉ check audit logs SAU BASE creation, log chi tiết foreign userId. |
-| **Status** | ✅ Done |
-
-### [orders][render] KPI chống gian lận + 6 cải thiện hệ thống
-| | |
-|---|---|
-| **Files** | `render.com/cron/scheduler.js`, `render.com/routes/campaigns.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/chat/chat-products-actions.js` |
-| **Chi tiết** | **1. Auto-reconcile:** Cron 6AM hàng ngày kiểm tra KPI 7 ngày gần nhất. **2. Cross-check userId:** Flag khi người thao tác ≠ NV phụ trách STT range. **3. KPI theo giá trị:** Thêm mode 'value' tính KPI theo giá SP thực tế (mặc định vẫn 'fixed' 5000đ/SP). **4. Held product audit:** Log khi xóa hoặc sửa qty SP giữ — đóng lỗ hổng audit trail. **5. Data retention:** Cron 5AM xóa audit logs > 90 ngày. **6. Range validation:** Server-side validate overlap khi PUT employee-ranges — trả lỗi 400 nếu STT trùng. |
-| **Status** | ✅ Done |
-
-### [warehouse][render] Real-time image sync: product-warehouse → soluong-live & order-management
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/web-warehouse.js`, `product-warehouse/js/main.js`, `soluong-live/js/soluong-list.js`, `order-management/js/order-list.js` |
-| **Chi tiết** | **Tính năng:** Khi product-warehouse cập nhật hình ảnh sản phẩm → soluong-live và order-management tự động cập nhật hình real-time. **Cách hoạt động:** (1) Render server: thêm `POST /api/v2/web-warehouse/notify-image-update` endpoint broadcast SSE event `image_update`. (2) product-warehouse: sau khi save ảnh mới lên TPOS → gọi notify endpoint. (3) soluong-live & order-management: thêm SSE `EventSource` listener, khi nhận `image_update` → re-fetch ảnh từ Render DB → update local state + Firebase RTDB + cache-bust URL → re-render grid. |
-| **Status** | ✅ Done |
-
-### [orders][render] Fix delivery group badges (THÀNH PHỐ/TOMATO/NAP) không hiện trong cột Phiếu Bán Hàng
-| | |
-|---|---|
-| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`, `render.com/routes/v2/delivery-assignments.js` |
-| **Chi tiết** | **Root cause:** orders-report đọc delivery group từ Firestore `delivery_report/province_groups`, nhưng delivery-report đã migrate sang PostgreSQL `delivery_assignments` — KHÔNG CÓ code nào viết vào Firestore nữa → data stale, badge hiện không đúng. **Fix:** (1) Thêm endpoint `POST /api/v2/delivery-assignments/lookup-batch` query theo order numbers từ PostgreSQL. (2) Thay Firestore listener bằng debounced batch API call. (3) Thêm support group 'city' → badge THÀNH PHỐ. (4) Giữ CarrierName fallback cho invoices chưa có trong DB. |
-| **Status** | ✅ Done |
-
-### [orders] KPI Hoa Hồng: fix 6 bugs phân tích sâu + implement đối soát
-| | |
-|---|---|
-| **Files** | `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab1/tab1-edit-modal.js`, `orders-report/js/tab-kpi-commission.js` |
-| **Chi tiết** | **Bug A (CRITICAL):** Đơn tính KPI trùng cross-day — dùng BASE creation date thay vì today. **Bug B:** ProductId=null → Number(null)=0 gây false match — thêm null check. **Bug C:** Input qty trực tiếp (không dùng +/-) không log audit — tính delta từ oldQty→newQty. **Bug D:** Nút "Đối soát" không hoạt động vì thiếu reconcileKPI() — implement so sánh audit logs vs TPOS thực tế. **Bug E:** out_of_range flag bị bỏ qua khi tính KPI — filter ra khỏi calculation. **Bug F:** Stale orders đếm không nhất quán giữa summary/table/modal/export — thống nhất `_stale` check. |
-| **Status** | ✅ Done |
-
----
 
 <!--
 HƯỚNG DẪN THÊM ENTRY MỚI:

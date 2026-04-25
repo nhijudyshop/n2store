@@ -109,6 +109,9 @@ export const ROUTES = {
     // Web 2.0 Products — kho sản phẩm cho native_orders
     WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
 
+    // Web 2.0 Generic — universal entity CRUD for 87 TPOS-clone pages
+    WEB2_GENERIC: { pattern: '/api/web2/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -183,6 +186,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
     if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products') return 'WEB2_PRODUCTS';
+    if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
