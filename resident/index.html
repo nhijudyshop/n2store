@@ -1,0 +1,97 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resident — Quản lý BĐS &amp; Cư dân số</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/resident.css">
+</head>
+<body class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">R</div>
+    <div class="brand-text">
+      <div class="brand-name">Resident</div>
+      <div class="brand-sub">Quản lý BĐS</div>
+    </div>
+  </div>
+  <nav class="nav" id="nav">
+    <div class="nav-section">Tổng quan</div>
+    <a class="nav-item" data-route="/" data-icon="🏠"><span class="nic">🏠</span><span>Bảng điều khiển</span></a>
+    <a class="nav-item" data-route="/notifications" data-icon="🔔"><span class="nic">🔔</span><span>Thông báo</span><span class="badge" id="badge-notif">0</span></a>
+    <a class="nav-item" data-route="/tasks" data-icon="✓"><span class="nic">✓</span><span>Việc của tôi</span><span class="badge" id="badge-tasks">0</span></a>
+    <a class="nav-item" data-route="/tasks/all" data-icon="📋"><span class="nic">📋</span><span>Tất cả công việc</span></a>
+
+    <div class="nav-section">Bất động sản</div>
+    <a class="nav-item" data-route="/apartments" data-icon="🏢"><span class="nic">🏢</span><span>Toà nhà</span></a>
+    <a class="nav-item" data-route="/rooms" data-icon="🚪"><span class="nic">🚪</span><span>Phòng</span></a>
+    <a class="nav-item" data-route="/beds" data-icon="🛏️"><span class="nic">🛏️</span><span>Giường</span></a>
+    <a class="nav-item" data-route="/apartment-layout" data-icon="🗺️"><span class="nic">🗺️</span><span>Sơ đồ toà nhà</span></a>
+    <a class="nav-item" data-route="/locations" data-icon="📍"><span class="nic">📍</span><span>Khu vực</span></a>
+
+    <div class="nav-section">Khách thuê</div>
+    <a class="nav-item" data-route="/leads" data-icon="🎯"><span class="nic">🎯</span><span>Lead khách</span></a>
+    <a class="nav-item" data-route="/reservations" data-icon="📅"><span class="nic">📅</span><span>Đặt cọc</span></a>
+    <a class="nav-item" data-route="/contracts" data-icon="📄"><span class="nic">📄</span><span>Hợp đồng</span></a>
+    <a class="nav-item" data-route="/tenants/active" data-icon="👥"><span class="nic">👥</span><span>Cư dân</span></a>
+    <a class="nav-item" data-route="/vehicles" data-icon="🚗"><span class="nic">🚗</span><span>Phương tiện</span></a>
+
+    <div class="nav-section">Tài chính</div>
+    <a class="nav-item" data-route="/invoices" data-icon="🧾"><span class="nic">🧾</span><span>Hoá đơn</span></a>
+    <a class="nav-item" data-route="/income-expenses" data-icon="💰"><span class="nic">💰</span><span>Thu chi</span></a>
+    <a class="nav-item" data-route="/finance/cash-flow" data-icon="📊"><span class="nic">📊</span><span>Dòng tiền</span></a>
+    <a class="nav-item" data-route="/fees" data-icon="💵"><span class="nic">💵</span><span>Khoản thu</span></a>
+    <a class="nav-item" data-route="/meter-logs" data-icon="⚡"><span class="nic">⚡</span><span>Chỉ số đồng hồ</span></a>
+
+    <div class="nav-section">Khác</div>
+    <a class="nav-item" data-route="/inventory/assets" data-icon="📦"><span class="nic">📦</span><span>Tài sản</span></a>
+    <a class="nav-item" data-route="/general-setting" data-icon="⚙️"><span class="nic">⚙️</span><span>Cài đặt</span></a>
+    <a class="nav-item" data-route="/changelog" data-icon="📝"><span class="nic">📝</span><span>Changelog</span></a>
+  </nav>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger" aria-label="menu">☰</button>
+    <div class="search">
+      <input type="search" placeholder="Tìm khách, hợp đồng, hoá đơn..." />
+    </div>
+    <div class="actions">
+      <button class="icon-btn" title="Thông báo">🔔<span class="dot" id="dot-notif"></span></button>
+      <button class="icon-btn" title="Tin nhắn">💬</button>
+      <div class="user-card" id="user-card">
+        <div class="avatar" id="user-avatar">?</div>
+        <div class="user-meta">
+          <div class="user-name" id="user-name">—</div>
+          <div class="user-email" id="user-email">—</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="route-header">
+      <h1 class="route-title" id="route-title">Bảng điều khiển</h1>
+      <div class="breadcrumb" id="breadcrumb">Resident · Tổng quan</div>
+    </div>
+    <div class="route-body" id="route-body">
+      <div class="skeleton">Đang tải…</div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>© Resident clone (n2store) · build từ data crawl ngày <span id="build-date"></span></span>
+    <a href="../docs/resident/ARCHITECTURE.md">Architecture</a>
+  </footer>
+</main>
+
+<script src="js/resident-data.js"></script>
+<script src="js/resident-router.js"></script>
+<script src="js/resident-views.js"></script>
+<script src="js/resident-app.js"></script>
+</body>
+</html>

@@ -79,3 +79,14 @@ docs/oncallcx-page-*.html
 docs/oncallcx/*.html
 docs/oncallcx/*.json
 !docs/oncallcx/portal-map.json
+
+# Resident.vn crawl artifacts — contains auth tokens (localStorage) + private data
+downloads/resident-crawl/
+downloads/resident-clone-smoke/
+
+# Resident clone mock data — contains customer PII from owner's account
+resident/data/*.json
+!resident/data/README.md
+
+# Scheduled tasks lock
+.claude/scheduled_tasks.lock
