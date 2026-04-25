@@ -1,0 +1,30 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Công ty — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'company', title: 'Công ty', breadcrumb: ['App', 'Cấu hình'],
+    columns: [
+        { key: 'code', label: 'Mã', width: 140, align: 'center' },
+        { key: 'name', label: 'Tên công ty', align: 'left' },
+        { key: 'data.taxCode', label: 'MST', width: 150, align: 'center' },
+        { key: 'data.phone', label: 'SĐT', width: 130, align: 'center' },
+        { key: 'data.address', label: 'Địa chỉ' },
+    ],
+    fields: [
+        { key: 'code', label: 'Mã công ty', type: 'text', required: true, placeholder: 'VD: CT001' },
+        { key: 'name', label: 'Tên công ty', type: 'text', required: true },
+        { key: 'data.taxCode', label: 'Mã số thuế', type: 'text' },
+        { key: 'data.phone', label: 'SĐT', type: 'tel' },
+        { key: 'data.email', label: 'Email', type: 'email' },
+        { key: 'data.address', label: 'Địa chỉ', type: 'textarea' },
+        { key: 'data.bankAccount', label: 'TK ngân hàng', type: 'text' },
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

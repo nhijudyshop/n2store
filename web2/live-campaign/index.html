@@ -1,0 +1,38 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chiến dịch Live — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'liveCampaign', title: 'Chiến dịch Live', breadcrumb: ['App', 'Sale Online'],
+    columns: [
+        { key: 'code', label: 'Mã CD', width: 140, align: 'center' },
+        { key: 'name', label: 'Tên chiến dịch', align: 'left' },
+        { key: 'data.platform', label: 'Nền tảng', width: 130, align: 'center' },
+        { key: 'data.dateStart', label: 'Bắt đầu', width: 130, align: 'center' },
+        { key: 'data.dateEnd', label: 'Kết thúc', width: 130, align: 'center' },
+        { key: 'data.status', label: 'Trạng thái', width: 130, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Mã chiến dịch', type: 'text', required: true, placeholder: 'VD: LIVE2025' },
+        { key: 'name', label: 'Tên chiến dịch', type: 'text', required: true },
+        { key: 'data.platform', label: 'Nền tảng', type: 'select', options: [
+            { value: 'facebook', label: 'Facebook' },
+            { value: 'tiktok', label: 'TikTok' },
+            { value: 'shopee', label: 'Shopee Live' },
+        ]},
+        { key: 'data.dateStart', label: 'Ngày bắt đầu', type: 'text' },
+        { key: 'data.dateEnd', label: 'Ngày kết thúc', type: 'text' },
+        { key: 'data.status', label: 'Trạng thái', type: 'select', options: [
+            { value: 'draft', label: 'Nháp' },
+            { value: 'live', label: 'Đang live' },
+            { value: 'ended', label: 'Đã kết thúc' },
+        ]},
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

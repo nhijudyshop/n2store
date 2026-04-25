@@ -1,0 +1,35 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chương trình khuyến mãi — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'promotionprogram', title: 'Chương trình khuyến mãi', breadcrumb: ['App', 'Khuyến mãi'],
+    columns: [
+        { key: 'code', label: 'Mã CT', width: 140, align: 'center' },
+        { key: 'name', label: 'Tên CT', align: 'left' },
+        { key: 'data.discountKind', label: 'Kiểu giảm', width: 130, align: 'center' },
+        { key: 'data.value', label: 'Giá trị', width: 120, align: 'right' },
+        { key: 'data.dateFrom', label: 'Từ ngày', width: 120, align: 'center' },
+        { key: 'data.dateTo', label: 'Đến ngày', width: 120, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Mã chương trình', type: 'text', required: true, placeholder: 'VD: KM2025' },
+        { key: 'name', label: 'Tên chương trình', type: 'text', required: true },
+        { key: 'data.discountKind', label: 'Kiểu giảm', type: 'select', options: [
+            { value: 'percent', label: 'Phần trăm (%)' },
+            { value: 'fixed', label: 'Số tiền cố định' },
+            { value: 'gift', label: 'Tặng kèm' },
+        ]},
+        { key: 'data.value', label: 'Giá trị giảm', type: 'number', placeholder: '10' },
+        { key: 'data.dateFrom', label: 'Từ ngày (YYYY-MM-DD)', type: 'text' },
+        { key: 'data.dateTo', label: 'Đến ngày (YYYY-MM-DD)', type: 'text' },
+        { key: 'data.minOrderAmount', label: 'Đơn tối thiểu', type: 'number' },
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

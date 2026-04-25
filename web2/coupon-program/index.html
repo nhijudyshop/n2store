@@ -1,0 +1,34 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coupon — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'couponprogram', title: 'Coupon', breadcrumb: ['App', 'Khuyến mãi'],
+    columns: [
+        { key: 'code', label: 'Mã coupon', width: 160, align: 'center' },
+        { key: 'name', label: 'Tên', align: 'left' },
+        { key: 'data.discountValue', label: 'Giảm', width: 120, align: 'right' },
+        { key: 'data.usageLimit', label: 'Số lần dùng', width: 120, align: 'right' },
+        { key: 'data.dateFrom', label: 'Từ', width: 120, align: 'center' },
+        { key: 'data.dateTo', label: 'Đến', width: 120, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Mã coupon', type: 'text', required: true, placeholder: 'VD: SUMMER2025' },
+        { key: 'name', label: 'Tên', type: 'text', required: true },
+        { key: 'data.discountKind', label: 'Kiểu giảm', type: 'select', options: [
+            { value: 'percent', label: 'Phần trăm (%)' },
+            { value: 'fixed', label: 'Số tiền' },
+        ]},
+        { key: 'data.discountValue', label: 'Giá trị giảm', type: 'number' },
+        { key: 'data.usageLimit', label: 'Số lần dùng tối đa', type: 'number' },
+        { key: 'data.dateFrom', label: 'Từ ngày', type: 'text' },
+        { key: 'data.dateTo', label: 'Đến ngày', type: 'text' },
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

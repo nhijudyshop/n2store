@@ -1,0 +1,28 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSD đầu kỳ NCC — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'revenuebegan-supplier', title: 'DSD đầu kỳ Nhà cung cấp', breadcrumb: ['App', 'Khách hàng'],
+    columns: [
+        { key: 'code', label: 'Số phiếu', width: 140, align: 'center' },
+        { key: 'name', label: 'Diễn giải', align: 'left' },
+        { key: 'data.supplierCode', label: 'NCC (Mã)', width: 140, align: 'center' },
+        { key: 'data.amount', label: 'Số dư đầu', width: 140, align: 'right' },
+        { key: 'data.period', label: 'Kỳ', width: 120, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: DSD-NCC-2025' },
+        { key: 'name', label: 'Diễn giải', type: 'text', required: true },
+        { key: 'data.supplierCode', label: 'Mã NCC', type: 'text', required: true },
+        { key: 'data.amount', label: 'Số dư công nợ đầu kỳ', type: 'number', required: true },
+        { key: 'data.period', label: 'Kỳ (YYYY-MM)', type: 'text' },
+        { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>

@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][page] Phase C.7-C.11 — Khuyến mãi (4) + Sales (3) + Stock (3) + Live/DSD (3) + Configs (4) = 17 trang
+| | |
+|---|---|
+| **Files** | NEW (17 trang dùng `Web2Shell.bootstrap`): [promotion-program](../web2/promotion-program/index.html), [coupon-program](../web2/coupon-program/index.html), [loyalty-program](../web2/loyalty-program/index.html), [offer-program](../web2/offer-program/index.html), [sales-channel](../web2/sales-channel/index.html), [sale-quotation](../web2/sale-quotation/index.html), [sale-order](../web2/sale-order/index.html), [stock-location](../web2/stock-location/index.html), [stock-move](../web2/stock-move/index.html), [stock-inventory](../web2/stock-inventory/index.html), [live-campaign](../web2/live-campaign/index.html), [revenue-began-customer](../web2/revenue-began-customer/index.html), [revenue-began-supplier](../web2/revenue-began-supplier/index.html), [application-user](../web2/application-user/index.html), [company](../web2/company/index.html), [res-currency](../web2/res-currency/index.html), [mail-template](../web2/mail-template/index.html). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 17 item thêm `our:` field. |
+| **Chi tiết** | **Khuyến mãi**: promotionprogram (kiểu: %, số tiền, tặng kèm + dateFrom/To + minOrder), couponprogram (+ usageLimit), loyaltyprogram (pointPerThousand + minOrder), offerprogram (kiểu: free_shipping/gift/cashback). **Sales**: salechannel (platform: facebook/pancake/shopee/tiktok/web/pos), salequotation (status: draft/sent/accepted/rejected/expired), saleorder (status: draft/confirmed/partial/done/cancelled). **Stock**: stocklocation (parent), stockmove (from/to/product/qty), stockinventory (real vs system + reason). **Live/DSD**: liveCampaign (platform + status), revenuebegan + revenuebegan-supplier (đầu kỳ KH/NCC). **Configs**: applicationuser (role: admin/manager/sale/accountant/warehouse/shipper), company (taxCode/bankAccount), rescurrency (ISO + symbol + rate), mailtemplate (kind: order_confirmation/shipping/invoice/welcome/other + subject + body HTML). **Trade-off**: salequotation/saleorder/stockmove là list-only — không có line items (nếu cần line, tạo bảng riêng). Generic chỉ track header info. |
+| **Status** | ✅ Code done. Total Phase C done: 17 + 17 = 34/87 trang. Đã clone đầy đủ các trang đơn giản (CRUD list); các trang phức tạp còn lại (POS/HĐ/Stock multi-line, FB integration, Reports) cần backend riêng. |
+
 ### [web2][page] Phase C.4-C.6 — Đối tác (4) + Tài chính/Kế toán (9) = 13 trang
 | | |
 |---|---|

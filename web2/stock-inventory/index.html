@@ -1,0 +1,32 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Điều chỉnh tồn kho — Web 2.0</title>
+<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head><body>
+<script>
+Web2Shell.bootstrap({
+    slug: 'stockinventory', title: 'Điều chỉnh tồn kho', breadcrumb: ['App', 'Kho hàng'],
+    columns: [
+        { key: 'code', label: 'Số phiếu', width: 150, align: 'center' },
+        { key: 'name', label: 'Tiêu đề', align: 'left' },
+        { key: 'data.locationCode', label: 'Kho', width: 140, align: 'center' },
+        { key: 'data.productCode', label: 'SP (Mã)', width: 140, align: 'center' },
+        { key: 'data.realQty', label: 'Tồn thực tế', width: 130, align: 'right' },
+        { key: 'data.systemQty', label: 'Tồn hệ thống', width: 140, align: 'right' },
+        { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
+    ],
+    fields: [
+        { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: INV00001' },
+        { key: 'name', label: 'Tiêu đề', type: 'text', required: true },
+        { key: 'data.locationCode', label: 'Mã kho', type: 'text', required: true },
+        { key: 'data.productCode', label: 'Mã sản phẩm', type: 'text', required: true },
+        { key: 'data.realQty', label: 'Tồn thực tế', type: 'number', required: true },
+        { key: 'data.systemQty', label: 'Tồn hệ thống (lúc kiểm)', type: 'number' },
+        { key: 'data.date', label: 'Ngày kiểm', type: 'text' },
+        { key: 'data.note', label: 'Lý do', type: 'textarea' },
+    ],
+});
+</script>
+</body></html>
