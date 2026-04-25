@@ -55,17 +55,23 @@
 
     <!-- Web 2.0 shell layout — sidebar on the left, main content on the right -->
     <style>
+        html, body { height: 100%; }
         body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #ecf0f5; }
-        .web2-shell { display: flex; min-height: 100vh; }
+        .web2-shell { display: flex; min-height: 100vh; height: 100vh; width: 100vw; overflow: hidden; }
         .web2-aside { flex-shrink: 0; }
-        body > main.main-content {
-            flex: 1;
+        .web2-shell > main.main-content {
+            flex: 1 1 auto;
             min-width: 0;
+            width: auto;
+            max-width: none;
             height: 100vh;
+            max-height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
+        /* Modals + popovers anchored to body — keep above shell */
+        .pk-modal-overlay { z-index: 9999; }
     </style>
 </head>
 
