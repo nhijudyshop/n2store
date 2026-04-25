@@ -21,36 +21,69 @@
   </div>
   <nav class="nav" id="nav">
     <div class="nav-section">Tổng quan</div>
-    <a class="nav-item" data-route="/" data-icon="🏠"><span class="nic">🏠</span><span>Bảng điều khiển</span></a>
-    <a class="nav-item" data-route="/notifications" data-icon="🔔"><span class="nic">🔔</span><span>Thông báo</span><span class="badge" id="badge-notif">0</span></a>
-    <a class="nav-item" data-route="/tasks" data-icon="✓"><span class="nic">✓</span><span>Việc của tôi</span><span class="badge" id="badge-tasks">0</span></a>
-    <a class="nav-item" data-route="/tasks/all" data-icon="📋"><span class="nic">📋</span><span>Tất cả công việc</span></a>
+    <a class="nav-item" data-route="/"><span class="nic">🏠</span><span>Bảng điều khiển</span></a>
+    <a class="nav-item" data-route="/apartment-layout"><span class="nic">🗺️</span><span>Sơ đồ căn hộ</span></a>
+    <a class="nav-item" data-route="/notifications"><span class="nic">🔔</span><span>Thông báo</span><span class="badge" id="badge-notif">0</span></a>
 
-    <div class="nav-section">Bất động sản</div>
-    <a class="nav-item" data-route="/apartments" data-icon="🏢"><span class="nic">🏢</span><span>Toà nhà</span></a>
-    <a class="nav-item" data-route="/rooms" data-icon="🚪"><span class="nic">🚪</span><span>Phòng</span></a>
-    <a class="nav-item" data-route="/beds" data-icon="🛏️"><span class="nic">🛏️</span><span>Giường</span></a>
-    <a class="nav-item" data-route="/apartment-layout" data-icon="🗺️"><span class="nic">🗺️</span><span>Sơ đồ toà nhà</span></a>
-    <a class="nav-item" data-route="/locations" data-icon="📍"><span class="nic">📍</span><span>Khu vực</span></a>
+    <div class="nav-section nav-group" data-group="data">
+      <span>Danh mục dữ liệu</span><span class="caret">▾</span>
+    </div>
+    <div class="nav-children" data-children="data">
+      <a class="nav-item" data-route="/locations"><span class="nic">📍</span><span>Khu vực</span></a>
+      <a class="nav-item" data-route="/apartments"><span class="nic">🏢</span><span>Tòa nhà</span></a>
+      <a class="nav-item" data-route="/rooms"><span class="nic">🚪</span><span>Căn hộ</span></a>
+      <a class="nav-item" data-route="/beds"><span class="nic">🛏️</span><span>Giường</span></a>
+      <a class="nav-item" data-route="/fees"><span class="nic">💵</span><span>Dịch vụ</span></a>
+      <a class="nav-item" data-route="/inventory/assets"><span class="nic">📦</span><span>Tài sản</span></a>
+    </div>
 
-    <div class="nav-section">Khách thuê</div>
-    <a class="nav-item" data-route="/leads" data-icon="🎯"><span class="nic">🎯</span><span>Lead khách</span></a>
-    <a class="nav-item" data-route="/reservations" data-icon="📅"><span class="nic">📅</span><span>Đặt cọc</span></a>
-    <a class="nav-item" data-route="/contracts" data-icon="📄"><span class="nic">📄</span><span>Hợp đồng</span></a>
-    <a class="nav-item" data-route="/tenants/active" data-icon="👥"><span class="nic">👥</span><span>Cư dân</span></a>
-    <a class="nav-item" data-route="/vehicles" data-icon="🚗"><span class="nic">🚗</span><span>Phương tiện</span></a>
+    <div class="nav-section nav-group" data-group="customer">
+      <span>Khách hàng</span><span class="caret">▾</span>
+    </div>
+    <div class="nav-children" data-children="customer">
+      <a class="nav-item" data-route="/leads"><span class="nic">🎯</span><span>Khách hẹn</span></a>
+      <a class="nav-item" data-route="/reservations"><span class="nic">📅</span><span>Đặt cọc</span></a>
+      <a class="nav-item" data-route="/contracts"><span class="nic">📄</span><span>Hợp đồng</span></a>
+      <a class="nav-item" data-route="/tenants/active"><span class="nic">👥</span><span>Khách hàng</span></a>
+      <a class="nav-item" data-route="/vehicles"><span class="nic">🚗</span><span>Phương tiện</span></a>
+    </div>
 
-    <div class="nav-section">Tài chính</div>
-    <a class="nav-item" data-route="/invoices" data-icon="🧾"><span class="nic">🧾</span><span>Hoá đơn</span></a>
-    <a class="nav-item" data-route="/income-expenses" data-icon="💰"><span class="nic">💰</span><span>Thu chi</span></a>
-    <a class="nav-item" data-route="/finance/cash-flow" data-icon="📊"><span class="nic">📊</span><span>Dòng tiền</span></a>
-    <a class="nav-item" data-route="/fees" data-icon="💵"><span class="nic">💵</span><span>Khoản thu</span></a>
-    <a class="nav-item" data-route="/meter-logs" data-icon="⚡"><span class="nic">⚡</span><span>Chỉ số đồng hồ</span></a>
+    <div class="nav-section nav-group" data-group="finance">
+      <span>Tài chính</span><span class="caret">▾</span>
+    </div>
+    <div class="nav-children" data-children="finance">
+      <a class="nav-item" data-route="/meter-logs"><span class="nic">⚡</span><span>Ghi chỉ số</span></a>
+      <a class="nav-item" data-route="/invoices"><span class="nic">🧾</span><span>Hóa đơn</span></a>
+      <a class="nav-item" data-route="/income-expenses"><span class="nic">💰</span><span>Thu chi</span></a>
+      <a class="nav-item" data-route="/finance/cash-flow"><span class="nic">📊</span><span>Dòng tiền</span></a>
+    </div>
 
-    <div class="nav-section">Khác</div>
-    <a class="nav-item" data-route="/inventory/assets" data-icon="📦"><span class="nic">📦</span><span>Tài sản</span></a>
-    <a class="nav-item" data-route="/general-setting" data-icon="⚙️"><span class="nic">⚙️</span><span>Cài đặt</span></a>
-    <a class="nav-item" data-route="/changelog" data-icon="📝"><span class="nic">📝</span><span>Changelog</span></a>
+    <div class="nav-section nav-group" data-group="task">
+      <span>Công việc</span><span class="caret">▾</span><span class="badge" id="badge-tasks">0</span>
+    </div>
+    <div class="nav-children" data-children="task">
+      <a class="nav-item" data-route="/tasks/all"><span class="nic">📋</span><span>Tất cả công việc</span></a>
+      <a class="nav-item" data-route="/tasks"><span class="nic">✓</span><span>Việc của tôi</span></a>
+    </div>
+
+    <div class="nav-section nav-group" data-group="report">
+      <span>Báo cáo</span><span class="caret">▾</span>
+    </div>
+    <div class="nav-children" data-children="report">
+      <a class="nav-item" data-route="/report/real-estate"><span class="nic">📈</span><span>Báo cáo bất động sản</span></a>
+      <a class="nav-item" data-route="/report/finance"><span class="nic">📉</span><span>Báo cáo tài chính</span></a>
+    </div>
+
+    <div class="nav-section nav-group" data-group="other">
+      <span>Khác</span><span class="caret">▾</span>
+    </div>
+    <div class="nav-children" data-children="other">
+      <a class="nav-item" data-route="/general-setting"><span class="nic">⚙️</span><span>Cài đặt chung</span></a>
+      <a class="nav-item" data-route="/data-catalog"><span class="nic">🗂️</span><span>Danh mục khác</span></a>
+      <a class="nav-item" data-route="/templates"><span class="nic">📑</span><span>Mẫu biểu</span></a>
+      <a class="nav-item" data-route="/staff"><span class="nic">👤</span><span>Nhân viên</span></a>
+      <a class="nav-item" data-route="/changelog"><span class="nic">📝</span><span>Catalog API</span></a>
+    </div>
   </nav>
 </aside>
 
@@ -63,6 +96,7 @@
     <div class="actions">
       <button class="icon-btn" title="Thông báo">🔔<span class="dot" id="dot-notif"></span></button>
       <button class="icon-btn" title="Tin nhắn">💬</button>
+      <button class="btn primary" id="btn-add-quick">＋ Tạo mới</button>
       <div class="user-card" id="user-card">
         <div class="avatar" id="user-avatar">?</div>
         <div class="user-meta">
@@ -75,8 +109,11 @@
 
   <div class="content">
     <div class="route-header">
-      <h1 class="route-title" id="route-title">Bảng điều khiển</h1>
-      <div class="breadcrumb" id="breadcrumb">Resident · Tổng quan</div>
+      <div>
+        <h1 class="route-title" id="route-title">Bảng điều khiển</h1>
+        <div class="breadcrumb" id="breadcrumb">Resident · Tổng quan</div>
+      </div>
+      <div class="route-actions" id="route-actions"></div>
     </div>
     <div class="route-body" id="route-body">
       <div class="skeleton">Đang tải…</div>
@@ -89,8 +126,17 @@
   </footer>
 </main>
 
+<!-- Action menu portal -->
+<div id="action-menu" class="action-menu" hidden>
+  <button class="action-menu-item" data-action="view">👁 Xem chi tiết</button>
+  <button class="action-menu-item" data-action="edit">✏️ Chỉnh sửa</button>
+  <button class="action-menu-item" data-action="duplicate">📋 Nhân bản</button>
+  <button class="action-menu-item" data-action="delete">🗑️ Xóa</button>
+</div>
+
 <script src="js/resident-data.js"></script>
 <script src="js/resident-router.js"></script>
+<script src="js/resident-views-helpers.js"></script>
 <script src="js/resident-views.js"></script>
 <script src="js/resident-app.js"></script>
 </body>
