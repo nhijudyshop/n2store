@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DSD đầu kỳ KH — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,14 +11,14 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số phiếu', width: 140, align: 'center' },
         { key: 'name', label: 'Diễn giải', align: 'left' },
-        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center' },
+        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center', link: 'partner-customer' },
         { key: 'data.amount', label: 'Số dư đầu', width: 140, align: 'right' },
         { key: 'data.period', label: 'Kỳ', width: 120, align: 'center' },
     ],
     fields: [
         { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: DSD-KH-2025' },
         { key: 'name', label: 'Diễn giải', type: 'text', required: true },
-        { key: 'data.customerCode', label: 'Mã khách hàng', type: 'text', required: true },
+        { key: 'data.customerCode', label: 'Mã khách hàng', type: 'ref', ref: 'partner-customer', required: true, link: 'partner-customer' },
         { key: 'data.amount', label: 'Số dư công nợ đầu kỳ', type: 'number', required: true },
         { key: 'data.period', label: 'Kỳ (YYYY-MM)', type: 'text', placeholder: '2025-01' },
         { key: 'data.note', label: 'Ghi chú', type: 'textarea' },

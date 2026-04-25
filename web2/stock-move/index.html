@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dịch chuyển kho — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,18 +11,18 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số phiếu', width: 150, align: 'center' },
         { key: 'name', label: 'Tiêu đề', align: 'left' },
-        { key: 'data.fromCode', label: 'Từ kho', width: 130, align: 'center' },
-        { key: 'data.toCode', label: 'Tới kho', width: 130, align: 'center' },
-        { key: 'data.productCode', label: 'SP (Mã)', width: 140, align: 'center' },
+        { key: 'data.fromCode', label: 'Từ kho', width: 130, align: 'center', link: 'stock-location' },
+        { key: 'data.toCode', label: 'Tới kho', width: 130, align: 'center', link: 'stock-location' },
+        { key: 'data.productCode', label: 'SP (Mã)', width: 140, align: 'center', link: 'product-template' },
         { key: 'data.qty', label: 'Số lượng', width: 110, align: 'right' },
         { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
     ],
     fields: [
         { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: MV00001' },
         { key: 'name', label: 'Tiêu đề', type: 'text', required: true },
-        { key: 'data.fromCode', label: 'Mã kho nguồn', type: 'text', required: true },
-        { key: 'data.toCode', label: 'Mã kho đích', type: 'text', required: true },
-        { key: 'data.productCode', label: 'Mã sản phẩm', type: 'text', required: true },
+        { key: 'data.fromCode', label: 'Mã kho nguồn', type: 'ref', ref: 'stocklocation', required: true, link: 'stock-location' },
+        { key: 'data.toCode', label: 'Mã kho đích', type: 'ref', ref: 'stocklocation', required: true, link: 'stock-location' },
+        { key: 'data.productCode', label: 'Mã sản phẩm', type: 'ref', ref: 'producttemplate', required: true, link: 'product-template' },
         { key: 'data.qty', label: 'Số lượng', type: 'number', required: true },
         { key: 'data.date', label: 'Ngày', type: 'text' },
         { key: 'data.note', label: 'Ghi chú', type: 'textarea' },

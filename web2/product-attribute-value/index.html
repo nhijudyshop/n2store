@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
     <title>Giá trị thuộc tính — Web 2.0</title>
-    <script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+    <script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head>
 <body>
 <script>
@@ -17,14 +17,14 @@
         columns: [
             { key: 'code',                label: 'Mã',          width: 140, align: 'center' },
             { key: 'name',                label: 'Giá trị',     align: 'left' },
-            { key: 'data.attributeCode',  label: 'Thuộc tính',  width: 160, align: 'center' },
+            { key: 'data.attributeCode',  label: 'Thuộc tính',  width: 160, align: 'center', link: 'product-attribute' },
             { key: 'data.colorHex',       label: 'Màu',         width: 100, align: 'center' },
             { key: 'data.note',           label: 'Ghi chú',     align: 'left' },
         ],
         fields: [
             { key: 'code',                label: 'Mã',                  type: 'text', required: true,  placeholder: 'VD: M, L, XL, RED' },
             { key: 'name',                label: 'Tên giá trị',         type: 'text', required: true,  placeholder: 'M / Đỏ / 38' },
-            { key: 'data.attributeCode',  label: 'Mã thuộc tính',       type: 'text', required: true,  placeholder: 'Code từ Thuộc tính, vd. SIZE_CHU' },
+            { key: 'data.attributeCode',  label: 'Mã thuộc tính',       type: 'ref', ref: 'productattribute', required: true,  placeholder: 'Code từ Thuộc tính, vd. SIZE_CHU', link: 'product-attribute' },
             { key: 'data.colorHex',       label: 'Mã màu (HEX)',        type: 'text', placeholder: '#FF0000 (chỉ khi attribute kind=color)' },
             { key: 'data.note',           label: 'Ghi chú',             type: 'textarea' },
         ],

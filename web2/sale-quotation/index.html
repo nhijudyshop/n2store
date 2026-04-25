@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Báo giá — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,7 +11,7 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số BG', width: 150, align: 'center' },
         { key: 'name', label: 'Tiêu đề', align: 'left' },
-        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center' },
+        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center', link: 'partner-customer' },
         { key: 'data.totalAmount', label: 'Tổng tiền', width: 140, align: 'right' },
         { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
         { key: 'data.expiredAt', label: 'HSD', width: 120, align: 'center' },
@@ -20,7 +20,7 @@ Web2Shell.bootstrap({
     fields: [
         { key: 'code', label: 'Số báo giá', type: 'text', required: true, placeholder: 'VD: BG00001' },
         { key: 'name', label: 'Tiêu đề', type: 'text', required: true },
-        { key: 'data.customerCode', label: 'Mã khách hàng', type: 'text' },
+        { key: 'data.customerCode', label: 'Mã khách hàng', type: 'ref', ref: 'partner-customer', link: 'partner-customer' },
         { key: 'data.totalAmount', label: 'Tổng tiền', type: 'number', placeholder: '0' },
         { key: 'data.date', label: 'Ngày báo giá', type: 'text' },
         { key: 'data.expiredAt', label: 'Hết hạn', type: 'text' },

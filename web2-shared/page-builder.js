@@ -221,6 +221,15 @@
                                       : getPath(r, c.key);
                             const txt = raw == null ? '—' : String(raw);
                             const align = c.align || 'left';
+                            // If column references another entity, render code as a link
+                            // that opens that entity's list page (so user can verify / edit)
+                            if (c.link && raw) {
+                                const folder = String(c.link).replace(/[_]/g, '-');
+                                const href = inferRefPageUrl(folder);
+                                return `<td style="text-align:${align};${c.mono ? 'font-family:monospace;' : ''}" title="${escapeHtml(txt)}">
+                                    <a class="web2-cell-link" href="${escapeHtml(href)}" target="_blank">${escapeHtml(txt)}</a>
+                                </td>`;
+                            }
                             return `<td style="text-align:${align};${c.mono ? 'font-family:monospace;' : ''}" title="${escapeHtml(txt)}">${escapeHtml(txt)}</td>`;
                         })
                         .join('');
@@ -421,12 +430,131 @@
                         </label>
                     </div>`;
                     }
+                    if (f.type === 'ref') {
+                        // Ref autocomplete picker — fetches records from referenced entity
+                        const refSlug = f.ref || f.refSlug;
+                        if (!refSlug) {
+                            console.warn('[page-builder] ref field missing `ref` slug:', f.key);
+                        }
+                        return `<div class="field-row web2-ref-row" data-ref-slug="${escapeHtml(refSlug || '')}" data-ref-key="${escapeHtml(f.key)}">
+                        <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
+                        <div class="web2-ref-wrapper">
+                            <input type="text" id="${id}" class="web2-ref-input" value="${escapeHtml(val)}" placeholder="${escapeHtml(f.placeholder || 'Gõ để tìm...')}" autocomplete="off" ${disabled} data-ref-slug="${escapeHtml(refSlug || '')}">
+                            <a class="web2-ref-open" target="_blank" title="Mở danh sách ${escapeHtml(refSlug || '')}" tabindex="-1">
+                                <i data-lucide="external-link"></i>
+                            </a>
+                            <div class="web2-ref-dropdown" id="${id}_dropdown" hidden></div>
+                        </div>
+                        <span class="web2-ref-hint" id="${id}_hint"></span>
+                    </div>`;
+                    }
                     return `<div class="field-row">
                     <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
                     <input type="${f.type || 'text'}" id="${id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off" ${disabled}>
                 </div>`;
                 })
                 .join('');
+
+            // Wire ref pickers (autocomplete + open-link)
+            body.querySelectorAll('.web2-ref-row').forEach((row) => {
+                const slug = row.dataset.refSlug;
+                if (!slug) return;
+                const input = row.querySelector('.web2-ref-input');
+                const dropdown = row.querySelector('.web2-ref-dropdown');
+                const hint = row.querySelector('.web2-ref-hint');
+                const openLink = row.querySelector('.web2-ref-open');
+                if (openLink) {
+                    // Resolve target page via slug → folder mapping is approximate (replace _ → -)
+                    // Best-effort: open list of that entity by deriving folder name.
+                    const folder = slug.replace(/[_]/g, '-');
+                    openLink.href = inferRefPageUrl(folder);
+                }
+                let timer = null;
+                let lastFetched = null;
+                const refApi = window.Web2Api?.forEntity ? window.Web2Api.forEntity(slug) : null;
+
+                async function loadName(code) {
+                    if (!refApi || !code) {
+                        hint.textContent = '';
+                        return;
+                    }
+                    try {
+                        const r = await refApi.get(code);
+                        if (r?.record?.name) {
+                            hint.textContent = `→ ${r.record.name}`;
+                            hint.classList.remove('error');
+                        } else {
+                            hint.textContent = `(không tìm thấy)`;
+                            hint.classList.add('error');
+                        }
+                    } catch {
+                        hint.textContent = `(không tìm thấy)`;
+                        hint.classList.add('error');
+                    }
+                }
+
+                async function showDropdown(query) {
+                    if (!refApi) return;
+                    try {
+                        const resp = await refApi.list({ search: query || undefined, limit: 20 });
+                        const records = resp.records || [];
+                        if (records.length === 0) {
+                            dropdown.innerHTML = `<div class="web2-ref-empty">Không có kết quả${query ? ` cho "${escapeHtml(query)}"` : ''}.</div>`;
+                        } else {
+                            dropdown.innerHTML = records
+                                .map((r) =>
+                                    `<div class="web2-ref-item" data-code="${escapeHtml(r.code || '')}">
+                                        <span class="web2-ref-item-code">${escapeHtml(r.code || '—')}</span>
+                                        <span class="web2-ref-item-name">${escapeHtml(r.name || '')}</span>
+                                    </div>`
+                                )
+                                .join('');
+                        }
+                        dropdown.hidden = false;
+                        dropdown.querySelectorAll('.web2-ref-item').forEach((item) => {
+                            item.addEventListener('mousedown', (e) => {
+                                e.preventDefault();
+                                input.value = item.dataset.code;
+                                hint.textContent = `→ ${item.querySelector('.web2-ref-item-name')?.textContent || ''}`;
+                                hint.classList.remove('error');
+                                dropdown.hidden = true;
+                            });
+                        });
+                    } catch (e) {
+                        dropdown.innerHTML = `<div class="web2-ref-empty error">Lỗi: ${escapeHtml(e.message)}</div>`;
+                        dropdown.hidden = false;
+                    }
+                }
+
+                input.addEventListener('focus', () => showDropdown(input.value.trim()));
+                input.addEventListener('input', () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => showDropdown(input.value.trim()), 220);
+                });
+                input.addEventListener('blur', () => {
+                    setTimeout(() => { dropdown.hidden = true; }, 180);
+                    if (input.value.trim() && input.value.trim() !== lastFetched) {
+                        lastFetched = input.value.trim();
+                        loadName(lastFetched);
+                    }
+                });
+                // Initial hint
+                if (input.value.trim()) {
+                    lastFetched = input.value.trim();
+                    loadName(input.value.trim());
+                }
+            });
+        }
+
+        // Best-effort URL builder for "open list" link from a ref slug.
+        // Maps entity slug (e.g. "productcategory") → page folder (e.g. "product-category").
+        function inferRefPageUrl(folder) {
+            // Caller is currently at /web2/<X>/index.html → sibling is /web2/<folder>/index.html
+            const here = window.location.pathname;
+            if (/\/web2\/[^/]+\/[^/]*$/.test(here)) {
+                return `../${folder}/index.html`;
+            }
+            return `../web2/${folder}/index.html`;
         }
         async function saveModal() {
             const editing = !!STATE.editingCode;

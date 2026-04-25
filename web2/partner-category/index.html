@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nhóm khách hàng — Web 2.0</title>
-    <script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+    <script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head>
 <body>
 <script>
@@ -16,13 +16,13 @@
         columns: [
             { key: 'code',           label: 'Mã',         width: 140, align: 'center' },
             { key: 'name',           label: 'Tên nhóm',   align: 'left' },
-            { key: 'data.parentCode',label: 'Nhóm cha',   width: 160, align: 'left' },
+            { key: 'data.parentCode',label: 'Nhóm cha',   width: 160, align: 'left', link: 'partner-category' },
             { key: 'data.note',      label: 'Ghi chú',    align: 'left' },
         ],
         fields: [
             { key: 'code',           label: 'Mã',                type: 'text',     required: true,  placeholder: 'VD: NKH001' },
             { key: 'name',           label: 'Tên nhóm',          type: 'text',     required: true,  placeholder: 'VIP, Thường, ...' },
-            { key: 'data.parentCode',label: 'Nhóm cha (Mã)',     type: 'text' },
+            { key: 'data.parentCode',label: 'Nhóm cha (Mã)',     type: 'ref', ref: 'partnercategory', link: 'partner-category' },
             { key: 'data.note',      label: 'Ghi chú',           type: 'textarea' },
         ],
     });

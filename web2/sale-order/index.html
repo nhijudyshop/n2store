@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Đơn đặt hàng — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,7 +11,7 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số đơn', width: 150, align: 'center' },
         { key: 'name', label: 'Tiêu đề', align: 'left' },
-        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center' },
+        { key: 'data.customerCode', label: 'KH (Mã)', width: 140, align: 'center', link: 'partner-customer' },
         { key: 'data.totalAmount', label: 'Tổng tiền', width: 140, align: 'right' },
         { key: 'data.date', label: 'Ngày đặt', width: 120, align: 'center' },
         { key: 'data.status', label: 'Trạng thái', width: 130, align: 'center' },
@@ -19,7 +19,7 @@ Web2Shell.bootstrap({
     fields: [
         { key: 'code', label: 'Số đơn', type: 'text', required: true, placeholder: 'VD: SO00001' },
         { key: 'name', label: 'Tiêu đề', type: 'text', required: true },
-        { key: 'data.customerCode', label: 'Mã KH', type: 'text' },
+        { key: 'data.customerCode', label: 'Mã KH', type: 'ref', ref: 'partner-customer', link: 'partner-customer' },
         { key: 'data.totalAmount', label: 'Tổng tiền', type: 'number' },
         { key: 'data.date', label: 'Ngày đặt', type: 'text' },
         { key: 'data.deliveryDate', label: 'Ngày giao dự kiến', type: 'text' },

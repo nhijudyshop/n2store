@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][feat] Phase E — Inter-page linking (autocomplete picker + clickable cell links)
+| | |
+|---|---|
+| **Files** | MODIFIED: [web2-shared/page-builder.js](../web2-shared/page-builder.js) — thêm field `type: 'ref'` (autocomplete dropdown fetch entity được tham chiếu, hiển thị code+name), `column.link` (cell render thành `<a target="_blank">` mở list trang đích), helper `inferRefPageUrl(folder)` resolve đúng prefix `'../'` vs `'../../'` tuỳ depth caller. NEW CSS: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — `.web2-ref-wrapper`, `.web2-ref-input`, `.web2-ref-dropdown`, `.web2-ref-item-code/name`, `.web2-ref-hint`, `.web2-cell-link`. MODIFIED: 17 trang web2/* — fields có FK đổi từ `type: 'text'` → `type: 'ref', ref: 'slug'`, columns có FK code thêm `link: 'folder'`. Asset bump v→n. |
+| **Chi tiết** | **Trigger**: user hỏi "có logic liên kết giữa các trang như TPOS chưa?" — chưa có. **Entity refs đã wire** (37 mapping): product-category.parentCode, product-uom.uomCateg, product-attribute-value.attributeCode, product-template.categoryCode/uom, product-variant.templateCode, partner-customer.partnerCategory, sale-quotation/sale-order.customerCode, fastsaleorder-invoice/refund/delivery.customerCode/invoiceCode/carrierCode, fastpurchaseorder.supplierCode, pos-session.posConfigCode/userCode, pos-order.sessionCode/customerCode, history-ds.carrierCode, account-payment-thu.payerCode/accountCode/journalCode, account-payment-chi.payeeCode/accountCode/journalCode, account-inventory/-deposit.partnerCode, account-list.parentCode, partner-category.parentCode, stock-location.parentCode, stock-move.fromCode/toCode/productCode, stock-inventory.locationCode/productCode, revenue-began-customer.customerCode, revenue-began-supplier.supplierCode. **UX behaviors**: (a) Click field → fetch list 20 record từ refSlug → dropdown hiện code+name → click chọn → set value. (b) Type → debounce 220ms → tìm kiếm. (c) Blur → fetch tên record để hiện hint `→ Tên KH` dưới input. (d) Cell trong table có FK code → render link → click target=_blank mở list của entity đó. (e) Open icon `<i lucide=external-link>` cạnh input → mở list page entity tham chiếu. **Pitfall đã fix**: regex script đầu thiếu closing quote trên `ref: 'X` → 17 file syntax error → fix-up script `/tmp/fix-ref-quotes.js` thêm `'` đóng. **86/86 file syntax validated** qua `new Function('return ' + cfgBlock)`. |
+| **Status** | ✅ Code done, syntax OK. Verify sau push: open `/web2/account-payment-thu/`, click thêm mới → input "Mã người nộp" có dropdown KH; click code KH ở table → mở partner-customer page. |
+
 ### [web2][verify] Functional test 0 issues — Web 2.0 độc lập 100% với TPOS
 | | |
 |---|---|

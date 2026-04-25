@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tài khoản kế toán — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -12,7 +12,7 @@ Web2Shell.bootstrap({
         { key: 'code', label: 'Mã TK', width: 140, align: 'center' },
         { key: 'name', label: 'Tên tài khoản', align: 'left' },
         { key: 'data.kind', label: 'Loại', width: 120, align: 'center' },
-        { key: 'data.parentCode', label: 'TK cha', width: 140, align: 'center' },
+        { key: 'data.parentCode', label: 'TK cha', width: 140, align: 'center', link: 'account-list' },
         { key: 'data.note', label: 'Ghi chú' },
     ],
     fields: [
@@ -25,7 +25,7 @@ Web2Shell.bootstrap({
             { value: 'revenue', label: 'Doanh thu' },
             { value: 'expense', label: 'Chi phí' },
         ]},
-        { key: 'data.parentCode', label: 'Mã TK cha', type: 'text' },
+        { key: 'data.parentCode', label: 'Mã TK cha', type: 'ref', ref: 'accountaccount', link: 'account-list' },
         { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
     ],
 });

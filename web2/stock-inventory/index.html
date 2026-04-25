@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Điều chỉnh tồn kho — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,8 +11,8 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số phiếu', width: 150, align: 'center' },
         { key: 'name', label: 'Tiêu đề', align: 'left' },
-        { key: 'data.locationCode', label: 'Kho', width: 140, align: 'center' },
-        { key: 'data.productCode', label: 'SP (Mã)', width: 140, align: 'center' },
+        { key: 'data.locationCode', label: 'Kho', width: 140, align: 'center', link: 'stock-location' },
+        { key: 'data.productCode', label: 'SP (Mã)', width: 140, align: 'center', link: 'product-template' },
         { key: 'data.realQty', label: 'Tồn thực tế', width: 130, align: 'right' },
         { key: 'data.systemQty', label: 'Tồn hệ thống', width: 140, align: 'right' },
         { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
@@ -20,8 +20,8 @@ Web2Shell.bootstrap({
     fields: [
         { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: INV00001' },
         { key: 'name', label: 'Tiêu đề', type: 'text', required: true },
-        { key: 'data.locationCode', label: 'Mã kho', type: 'text', required: true },
-        { key: 'data.productCode', label: 'Mã sản phẩm', type: 'text', required: true },
+        { key: 'data.locationCode', label: 'Mã kho', type: 'ref', ref: 'stocklocation', required: true, link: 'stock-location' },
+        { key: 'data.productCode', label: 'Mã sản phẩm', type: 'ref', ref: 'producttemplate', required: true, link: 'product-template' },
         { key: 'data.realQty', label: 'Tồn thực tế', type: 'number', required: true },
         { key: 'data.systemQty', label: 'Tồn hệ thống (lúc kiểm)', type: 'number' },
         { key: 'data.date', label: 'Ngày kiểm', type: 'text' },

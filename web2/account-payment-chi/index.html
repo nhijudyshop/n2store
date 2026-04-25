@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phiếu chi — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,19 +11,19 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Số phiếu', width: 150, align: 'center' },
         { key: 'name', label: 'Diễn giải', align: 'left' },
-        { key: 'data.payeeCode', label: 'Người nhận (Mã)', width: 140, align: 'center' },
+        { key: 'data.payeeCode', label: 'Người nhận (Mã)', width: 140, align: 'center', link: 'partner-supplier' },
         { key: 'data.amount', label: 'Số tiền', width: 140, align: 'right' },
         { key: 'data.date', label: 'Ngày', width: 120, align: 'center' },
-        { key: 'data.journalCode', label: 'Sổ', width: 100, align: 'center' },
+        { key: 'data.journalCode', label: 'Sổ', width: 100, align: 'center', link: 'account-journal' },
     ],
     fields: [
         { key: 'code', label: 'Số phiếu', type: 'text', required: true, placeholder: 'VD: PC00001' },
         { key: 'name', label: 'Diễn giải', type: 'text', required: true },
-        { key: 'data.payeeCode', label: 'Mã người nhận', type: 'text' },
+        { key: 'data.payeeCode', label: 'Mã người nhận', type: 'ref', ref: 'partner-supplier', link: 'partner-supplier' },
         { key: 'data.amount', label: 'Số tiền', type: 'number', required: true, placeholder: '0' },
         { key: 'data.date', label: 'Ngày (YYYY-MM-DD)', type: 'text' },
-        { key: 'data.journalCode', label: 'Mã sổ nhật ký', type: 'text' },
-        { key: 'data.accountCode', label: 'Mã loại chi', type: 'text' },
+        { key: 'data.journalCode', label: 'Mã sổ nhật ký', type: 'ref', ref: 'accountjournal', link: 'account-journal' },
+        { key: 'data.accountCode', label: 'Mã loại chi', type: 'ref', ref: 'accountaccount-chi', link: 'account-chi' },
         { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
     ],
 });

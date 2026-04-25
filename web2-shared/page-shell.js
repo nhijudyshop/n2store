@@ -28,7 +28,7 @@
 (function (global) {
     'use strict';
 
-    const ASSET_VERSION = 'v=20260425m';
+    const ASSET_VERSION = 'v=20260425n';
 
     // CSS files cần load
     const CSS_FILES = [

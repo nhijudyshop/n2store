@@ -3,7 +3,7 @@
 <html lang="vi"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vị trí kho — Web 2.0</title>
-<script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+<script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head><body>
 <script>
 Web2Shell.bootstrap({
@@ -11,13 +11,13 @@ Web2Shell.bootstrap({
     columns: [
         { key: 'code', label: 'Mã kho', width: 140, align: 'center' },
         { key: 'name', label: 'Tên kho', align: 'left' },
-        { key: 'data.parentCode', label: 'Kho cha', width: 140 },
+        { key: 'data.parentCode', label: 'Kho cha', width: 140, link: 'stock-location' },
         { key: 'data.address', label: 'Địa chỉ' },
     ],
     fields: [
         { key: 'code', label: 'Mã kho', type: 'text', required: true, placeholder: 'VD: K001' },
         { key: 'name', label: 'Tên kho', type: 'text', required: true },
-        { key: 'data.parentCode', label: 'Mã kho cha', type: 'text' },
+        { key: 'data.parentCode', label: 'Mã kho cha', type: 'ref', ref: 'stocklocation', link: 'stock-location' },
         { key: 'data.address', label: 'Địa chỉ', type: 'textarea' },
         { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
     ],

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Khách hàng — Web 2.0</title>
-    <script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+    <script src="../../web2-shared/page-shell.js?v=20260425n"></script>
 </head>
 <body>
 <script>
@@ -18,7 +18,7 @@
             { key: 'name',                label: 'Tên KH',    align: 'left' },
             { key: 'data.phone',          label: 'SĐT',       width: 120, align: 'center' },
             { key: 'data.email',          label: 'Email',     width: 200 },
-            { key: 'data.partnerCategory',label: 'Nhóm KH',   width: 140, align: 'center' },
+            { key: 'data.partnerCategory',label: 'Nhóm KH',   width: 140, align: 'center', link: 'partner-category' },
             { key: 'data.address',        label: 'Địa chỉ' },
         ],
         fields: [
@@ -26,7 +26,7 @@
             { key: 'name',                label: 'Tên KH',         type: 'text',     required: true },
             { key: 'data.phone',          label: 'Số điện thoại',  type: 'tel',      placeholder: '0901234567' },
             { key: 'data.email',          label: 'Email',          type: 'email' },
-            { key: 'data.partnerCategory',label: 'Mã nhóm KH',     type: 'text',     placeholder: 'Code từ Nhóm khách hàng' },
+            { key: 'data.partnerCategory',label: 'Mã nhóm KH',     type: 'ref', ref: 'partnercategory',     placeholder: 'Code từ Nhóm khách hàng', link: 'partner-category' },
             { key: 'data.address',        label: 'Địa chỉ',        type: 'textarea' },
             { key: 'data.taxCode',        label: 'Mã số thuế',     type: 'text' },
             { key: 'data.note',           label: 'Ghi chú',        type: 'textarea' },
