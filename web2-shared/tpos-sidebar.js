@@ -34,17 +34,61 @@
             label: 'Bán Hàng',
             icon: 'shopping-bag',
             children: [
-                { label: 'Điểm bán hàng', tpos: '#/app/posconfig/kanban', our: '../web2/pos-config/index.html' },
-                { label: 'Phiên bán hàng', tpos: '#/app/possession/list', our: '../web2/pos-session/index.html' },
-                { label: 'Đơn hàng (POS)', tpos: '#/app/posorder/list', our: '../web2/pos-order/index.html' },
-                { label: 'Bán hàng (HĐ)', tpos: '#/app/fastsaleorder/invoicelist', our: '../web2/fastsaleorder-invoice/index.html' },
-                { label: 'Trả hàng', tpos: '#/app/fastsaleorder/refundlist', our: '../web2/fastsaleorder-refund/index.html' },
-                { label: 'Phiếu giao hàng', tpos: '#/app/fastsaleorder/deliveryinvoice', our: '../web2/fastsaleorder-delivery/index.html' },
-                { label: 'Lịch sử đối soát', tpos: '#/app/historyds/list', our: '../web2/history-ds/index.html' },
-                { label: 'Đối soát SP', tpos: '#/app/fastsaleorder/historycrosscheckproduct', our: '../web2/history-cross-check-product/index.html' },
-                { label: 'Hóa đơn điện tử', tpos: '#/app/wiinvoice/list', our: '../web2/wi-invoice/index.html' },
-                { label: 'HĐ điện tử lịch sử', tpos: '#/app/wiinvoice/listhistory', our: '../web2/wi-invoice-history/index.html' },
-                { label: 'HĐ điện tử cấu hình', tpos: '#/app/wiinvoice/config', our: '../web2/wi-invoice-config/index.html' },
+                {
+                    label: 'Điểm bán hàng',
+                    tpos: '#/app/posconfig/kanban',
+                    our: '../web2/pos-config/index.html',
+                },
+                {
+                    label: 'Phiên bán hàng',
+                    tpos: '#/app/possession/list',
+                    our: '../web2/pos-session/index.html',
+                },
+                {
+                    label: 'Đơn hàng (POS)',
+                    tpos: '#/app/posorder/list',
+                    our: '../web2/pos-order/index.html',
+                },
+                {
+                    label: 'Bán hàng (HĐ)',
+                    tpos: '#/app/fastsaleorder/invoicelist',
+                    our: '../web2/fastsaleorder-invoice/index.html',
+                },
+                {
+                    label: 'Trả hàng',
+                    tpos: '#/app/fastsaleorder/refundlist',
+                    our: '../web2/fastsaleorder-refund/index.html',
+                },
+                {
+                    label: 'Phiếu giao hàng',
+                    tpos: '#/app/fastsaleorder/deliveryinvoice',
+                    our: '../web2/fastsaleorder-delivery/index.html',
+                },
+                {
+                    label: 'Lịch sử đối soát',
+                    tpos: '#/app/historyds/list',
+                    our: '../web2/history-ds/index.html',
+                },
+                {
+                    label: 'Đối soát SP',
+                    tpos: '#/app/fastsaleorder/historycrosscheckproduct',
+                    our: '../web2/history-cross-check-product/index.html',
+                },
+                {
+                    label: 'Hóa đơn điện tử',
+                    tpos: '#/app/wiinvoice/list',
+                    our: '../web2/wi-invoice/index.html',
+                },
+                {
+                    label: 'HĐ điện tử lịch sử',
+                    tpos: '#/app/wiinvoice/listhistory',
+                    our: '../web2/wi-invoice-history/index.html',
+                },
+                {
+                    label: 'HĐ điện tử cấu hình',
+                    tpos: '#/app/wiinvoice/config',
+                    our: '../web2/wi-invoice-config/index.html',
+                },
                 {
                     label: 'Báo giá',
                     tpos: '#/app/salequotation/quotationlist',
@@ -72,7 +116,11 @@
                     tpos: '#/app/saleOnline/order/list',
                 },
                 { label: 'TPOS × Pancake', our: '../tpos-pancake/index.html' },
-                { label: 'Facebook', tpos: '#/app/saleOnline/facebook', our: '../web2/sale-online-facebook/index.html' },
+                {
+                    label: 'Facebook',
+                    tpos: '#/app/saleOnline/facebook',
+                    our: '../web2/sale-online-facebook/index.html',
+                },
             ],
         },
         {
@@ -90,15 +138,27 @@
             label: 'Mua hàng',
             icon: 'shopping-cart',
             children: [
-                { label: 'Mua hàng', tpos: '#/app/fastpurchaseorder/invoicelist', our: '../web2/fastpurchaseorder-invoice/index.html' },
-                { label: 'Trả hàng mua', tpos: '#/app/fastpurchaseorder/refundlist', our: '../web2/fastpurchaseorder-refund/index.html' },
+                {
+                    label: 'Mua hàng',
+                    tpos: '#/app/fastpurchaseorder/invoicelist',
+                    our: '../web2/fastpurchaseorder-invoice/index.html',
+                },
+                {
+                    label: 'Trả hàng mua',
+                    tpos: '#/app/fastpurchaseorder/refundlist',
+                    our: '../web2/fastpurchaseorder-refund/index.html',
+                },
             ],
         },
         {
             label: 'Kho hàng',
             icon: 'box',
             children: [
-                { label: 'Tất cả hoạt động', tpos: '#/app/stockpickingtype/overview', our: '../web2/stock-picking-type/index.html' },
+                {
+                    label: 'Tất cả hoạt động',
+                    tpos: '#/app/stockpickingtype/overview',
+                    our: '../web2/stock-picking-type/index.html',
+                },
                 { label: 'Vị trí kho', our: '../web2/stock-location/index.html' },
                 {
                     label: 'Điều chỉnh tồn kho',
@@ -110,16 +170,32 @@
                     tpos: '#/app/stockmove/list',
                     our: '../web2/stock-move/index.html',
                 },
-                { label: 'Cấu hình SP kho', tpos: '#/app/stockwarehouseproduct/form', our: '../web2/stock-warehouse-product/index.html' },
-                { label: 'Điều chỉnh giá vốn', tpos: '#/app/stockmove/fifovacuum', our: '../web2/stock-fifo-vacuum/index.html' },
+                {
+                    label: 'Cấu hình SP kho',
+                    tpos: '#/app/stockwarehouseproduct/form',
+                    our: '../web2/stock-warehouse-product/index.html',
+                },
+                {
+                    label: 'Điều chỉnh giá vốn',
+                    tpos: '#/app/stockmove/fifovacuum',
+                    our: '../web2/stock-fifo-vacuum/index.html',
+                },
             ],
         },
         {
             label: 'Tài chính',
             icon: 'dollar-sign',
             children: [
-                { label: 'Thanh toán bán hàng', tpos: '#/app/accountpayment/list', our: '../web2/account-payment-list/index.html' },
-                { label: 'Tiền thối POS', tpos: '#/app/accountpayment/changelist', our: '../web2/account-payment-change/index.html' },
+                {
+                    label: 'Thanh toán bán hàng',
+                    tpos: '#/app/accountpayment/list',
+                    our: '../web2/account-payment-list/index.html',
+                },
+                {
+                    label: 'Tiền thối POS',
+                    tpos: '#/app/accountpayment/changelist',
+                    our: '../web2/account-payment-change/index.html',
+                },
                 {
                     label: 'Điều chỉnh công nợ',
                     tpos: '#/app/accountinventory/list',
@@ -154,7 +230,7 @@
                 {
                     label: 'Cấu hình nhóm doanh số',
                     tpos: '#/app/partnercategory_revenueconfig/list',
-                our: '../web2/partner-category-revenue-config/index.html',
+                    our: '../web2/partner-category-revenue-config/index.html',
                 },
                 {
                     label: 'Khách hàng',
@@ -193,9 +269,21 @@
                     tpos: '#/app/productcategory/list',
                     our: '../web2/product-category/index.html',
                 },
-                { label: 'Sản phẩm', tpos: '#/app/producttemplate/list', our: '../web2/product-template/index.html' },
-                { label: 'Biến thể SP', tpos: '#/app/product/list', our: '../web2/product-variant/index.html' },
-                { label: 'In mã vạch', tpos: '#/app/barcodeproductlabel/printbarcode', our: '../web2/barcode-product-label/index.html' },
+                {
+                    label: 'Sản phẩm',
+                    tpos: '#/app/producttemplate/list',
+                    our: '../web2/product-template/index.html',
+                },
+                {
+                    label: 'Biến thể SP',
+                    tpos: '#/app/product/list',
+                    our: '../web2/product-variant/index.html',
+                },
+                {
+                    label: 'In mã vạch',
+                    tpos: '#/app/barcodeproductlabel/printbarcode',
+                    our: '../web2/barcode-product-label/index.html',
+                },
                 {
                     label: 'Thuộc tính',
                     tpos: '#/app/productattribute/list',
@@ -216,7 +304,11 @@
                     tpos: '#/app/productuom/list',
                     our: '../web2/product-uom/index.html',
                 },
-                { label: 'Danh mục khác', tpos: '#/app/category_ext/distributor/list', our: '../web2/category-distributor/index.html' },
+                {
+                    label: 'Danh mục khác',
+                    tpos: '#/app/category_ext/distributor/list',
+                    our: '../web2/category-distributor/index.html',
+                },
             ],
         },
         {
@@ -270,61 +362,169 @@
                     our: '../web2/account-journal/index.html',
                 },
                 { label: 'Nhãn', tpos: '#/app/tag/list', our: '../web2/tag/index.html' },
-                { label: 'Tác vụ xuất', tpos: '#/app/exportfile/list', our: '../web2/export-file/index.html' },
+                {
+                    label: 'Tác vụ xuất',
+                    tpos: '#/app/exportfile/list',
+                    our: '../web2/export-file/index.html',
+                },
             ],
         },
         {
             label: 'Báo cáo',
             icon: 'bar-chart-3',
             children: [
-                { label: 'Giá trị tồn kho', tpos: '#/app/product/inventoryvaluation', our: '../web2/inventory-valuation/index.html' },
-                { label: 'Nhập-Xuất-Tồn', tpos: '#/app/stockreport/xuatnhapton', our: '../web2/xuat-nhap-ton/index.html' },
-                { label: 'Thống kê nhập kho', tpos: '#/app/report/reportImported', our: '../web2/report-imported/index.html' },
-                { label: 'Thống kê xuất kho', tpos: '#/app/report/reportExported', our: '../web2/report-exported/index.html' },
-                { label: 'Thống kê hóa đơn', tpos: '#/app/report/reportOrder/index', our: '../web2/report-order/index.html' },
-                { label: 'Thống kê trả hàng', tpos: '#/app/report/reportRefund/index', our: '../web2/report-refund/index.html' },
-                { label: 'Thống kê mua hàng', tpos: '#/app/report/reportPurchase/index', our: '../web2/report-purchase/index.html' },
-                { label: 'Thống kê doanh thu', tpos: '#/app/report/reportRevenue/index', our: '../web2/report-revenue/index.html' },
-                { label: 'Kết quả kinh doanh', tpos: '#/app/report/businessResults/index', our: '../web2/report-business-results/index.html' },
-                { label: 'Thống kê giao hàng', tpos: '#/app/fastsaleorder/deliveryreport/index', our: '../web2/report-delivery/index.html' },
-                { label: 'Công nợ NCC', tpos: '#/app/report/supplierDept/index', our: '../web2/report-supplier-debt/index.html' },
-                { label: 'Công nợ KH', tpos: '#/app/report/customerDept/index', our: '../web2/report-customer-debt/index.html' },
-                { label: 'KH chưa phát sinh HĐ', tpos: '#/app/report/accountnotinvoice', our: '../web2/report-not-invoice/index.html' },
-                { label: 'Audit log PBH', tpos: '#/app/report/auditlogfastsaleorder', our: '../web2/report-audit-fastsale/index.html' },
-                { label: 'Nguồn tạo KH', tpos: '#/app/report/partnerCreate', our: '../web2/report-partner-create/index.html' },
-                { label: 'Sổ tiền mặt', tpos: '#/app/accountcashprintjournal/report', our: '../web2/report-cash-journal/index.html' },
-                { label: 'Tỷ lệ lên đơn SO', tpos: '#/app/report/rateinvoicefromsaleonline', our: '../web2/report-rate-saleonline/index.html' },
-                { label: 'SP HĐ nháp/xác nhận', tpos: '#/app/report/productinvoice', our: '../web2/report-product-invoice/index.html' },
+                {
+                    label: 'Giá trị tồn kho',
+                    tpos: '#/app/product/inventoryvaluation',
+                    our: '../web2/inventory-valuation/index.html',
+                },
+                {
+                    label: 'Nhập-Xuất-Tồn',
+                    tpos: '#/app/stockreport/xuatnhapton',
+                    our: '../web2/xuat-nhap-ton/index.html',
+                },
+                {
+                    label: 'Thống kê nhập kho',
+                    tpos: '#/app/report/reportImported',
+                    our: '../web2/report-imported/index.html',
+                },
+                {
+                    label: 'Thống kê xuất kho',
+                    tpos: '#/app/report/reportExported',
+                    our: '../web2/report-exported/index.html',
+                },
+                {
+                    label: 'Thống kê hóa đơn',
+                    tpos: '#/app/report/reportOrder/index',
+                    our: '../web2/report-order/index.html',
+                },
+                {
+                    label: 'Thống kê trả hàng',
+                    tpos: '#/app/report/reportRefund/index',
+                    our: '../web2/report-refund/index.html',
+                },
+                {
+                    label: 'Thống kê mua hàng',
+                    tpos: '#/app/report/reportPurchase/index',
+                    our: '../web2/report-purchase/index.html',
+                },
+                {
+                    label: 'Thống kê doanh thu',
+                    tpos: '#/app/report/reportRevenue/index',
+                    our: '../web2/report-revenue/index.html',
+                },
+                {
+                    label: 'Kết quả kinh doanh',
+                    tpos: '#/app/report/businessResults/index',
+                    our: '../web2/report-business-results/index.html',
+                },
+                {
+                    label: 'Thống kê giao hàng',
+                    tpos: '#/app/fastsaleorder/deliveryreport/index',
+                    our: '../web2/report-delivery/index.html',
+                },
+                {
+                    label: 'Công nợ NCC',
+                    tpos: '#/app/report/supplierDept/index',
+                    our: '../web2/report-supplier-debt/index.html',
+                },
+                {
+                    label: 'Công nợ KH',
+                    tpos: '#/app/report/customerDept/index',
+                    our: '../web2/report-customer-debt/index.html',
+                },
+                {
+                    label: 'KH chưa phát sinh HĐ',
+                    tpos: '#/app/report/accountnotinvoice',
+                    our: '../web2/report-not-invoice/index.html',
+                },
+                {
+                    label: 'Audit log PBH',
+                    tpos: '#/app/report/auditlogfastsaleorder',
+                    our: '../web2/report-audit-fastsale/index.html',
+                },
+                {
+                    label: 'Nguồn tạo KH',
+                    tpos: '#/app/report/partnerCreate',
+                    our: '../web2/report-partner-create/index.html',
+                },
+                {
+                    label: 'Sổ tiền mặt',
+                    tpos: '#/app/accountcashprintjournal/report',
+                    our: '../web2/report-cash-journal/index.html',
+                },
+                {
+                    label: 'Tỷ lệ lên đơn SO',
+                    tpos: '#/app/report/rateinvoicefromsaleonline',
+                    our: '../web2/report-rate-saleonline/index.html',
+                },
+                {
+                    label: 'SP HĐ nháp/xác nhận',
+                    tpos: '#/app/report/productinvoice',
+                    our: '../web2/report-product-invoice/index.html',
+                },
             ],
         },
         {
             label: 'Cấu hình',
             icon: 'settings',
             children: [
-                { label: 'Cấu hình', tpos: '#/app/configs/general/index', our: '../web2/configs-general/index.html' },
+                {
+                    label: 'Cấu hình',
+                    tpos: '#/app/configs/general/index',
+                    our: '../web2/configs-general/index.html',
+                },
                 { label: 'Công ty', tpos: '#/app/company/list', our: '../web2/company/index.html' },
-                { label: 'Máy in', tpos: '#/app/configs/printer/config', our: '../web2/configs-printer/index.html' },
-                { label: 'Giấy in mã vạch', tpos: '#/app/productlabelpaper/list', our: '../web2/product-label-paper/index.html' },
+                {
+                    label: 'Máy in',
+                    tpos: '#/app/configs/printer/config',
+                    our: '../web2/configs-printer/index.html',
+                },
+                {
+                    label: 'Giấy in mã vạch',
+                    tpos: '#/app/productlabelpaper/list',
+                    our: '../web2/product-label-paper/index.html',
+                },
                 {
                     label: 'Người dùng',
                     tpos: '#/app/applicationuser/list',
                     our: '../web2/application-user/index.html',
                 },
-                { label: 'Phân quyền', tpos: '#/app/configs/roles', our: '../web2/configs-roles/index.html' },
-                { label: 'Xác thực 2FA', tpos: '#/app/configs/twofa', our: '../web2/configs-twofa/index.html' },
+                {
+                    label: 'Phân quyền',
+                    tpos: '#/app/configs/roles',
+                    our: '../web2/configs-roles/index.html',
+                },
+                {
+                    label: 'Xác thực 2FA',
+                    tpos: '#/app/configs/twofa',
+                    our: '../web2/configs-twofa/index.html',
+                },
                 {
                     label: 'Đơn vị tiền tệ',
                     tpos: '#/app/rescurrency/list',
                     our: '../web2/res-currency/index.html',
                 },
-                { label: 'Cấu hình Mail', tpos: '#/app/irmailserver/list', our: '../web2/ir-mailserver/index.html' },
+                {
+                    label: 'Cấu hình Mail',
+                    tpos: '#/app/irmailserver/list',
+                    our: '../web2/ir-mailserver/index.html',
+                },
                 {
                     label: 'Mail template',
                     tpos: '#/app/mailtemplate/list',
                     our: '../web2/mail-template/index.html',
                 },
-                { label: 'Nâng cao', tpos: '#/app/configs/advanced', our: '../web2/configs-advanced/index.html' },
-                { label: 'Tích hợp', tpos: '#/app/callcenter/config', our: '../web2/callcenter-config/index.html' },
+                {
+                    label: 'Nâng cao',
+                    tpos: '#/app/configs/advanced',
+                    our: '../web2/configs-advanced/index.html',
+                },
+                {
+                    label: 'Tích hợp',
+                    tpos: '#/app/callcenter/config',
+                    our: '../web2/callcenter-config/index.html',
+                },
             ],
         },
     ];
@@ -363,7 +563,8 @@
     function renderItem(item, activeUrl) {
         const isImpl = isOurRoute(item);
         const href = isImpl ? resolveOur(item.our) : '#';
-        const isActive = isImpl && activeUrl && activeUrl.endsWith(item.our.replace(/^(\.\.\/)+/, ''));
+        const isActive =
+            isImpl && activeUrl && activeUrl.endsWith(item.our.replace(/^(\.\.\/)+/, ''));
         const cls = `web2-nav-sub-link${isActive ? ' active' : ''}`;
         const onclick = isImpl
             ? ''
