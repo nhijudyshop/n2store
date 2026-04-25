@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][css] Phase D iter 1 — overrides để Web2Page-builder khớp TPOS visual
+| | |
+|---|---|
+| **Files** | NEW: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — overrides scoped `.web2-shell` cho header/search/table/modal: bg `#edf1f2` cho search, `#f5f5f5` cho thead, fontSize 12px, padding 5px 15px, no radius (TPOS dùng panel-heading flat). MODIFIED: [web2-shared/page-shell.js](../web2-shared/page-shell.js) — add `page-builder-tpos.css` vào CSS_FILES + bump asset_version v→j. MODIFIED: 3 page Phase C.1-C.2 (inline boilerplate) load thêm CSS file mới + bump cache buster. NEW: [/tmp/tpos-crawl-manual/watch-web2.js](#) — generic watcher nhận 2 slug arg (TPOS slug, our slug) so sánh body/header/search/table snapshot. |
+| **Chi tiết** | **Diff iter 1** = 15 entries từ watch productcategory → product-category: search bg/color/fontSize/padding/border/radius; header bg/color/padding/radius; thead bg. **Strategy**: scope override dưới `.web2-shell` để KHÔNG đụng native-orders/web2-products (cũng dùng class này nhưng không load page-builder-tpos.css). **TPOS palette dùng**: bg light `#edf1f2`, text `#58666e`, border `#dee5e7`, thead `#f5f5f5`, primary `#3c8dbc`. **Native overrides reusable** cho 30+ trang còn lại. **Asset version bump**: v=20260425j cache-bust GitHub Pages. |
+| **Status** | ✅ Code done. Iter 2 verify: chạy lại watch sau push để đếm lại diff entries. |
+
 ### [web2][page] Phase C.7-C.11 — Khuyến mãi (4) + Sales (3) + Stock (3) + Live/DSD (3) + Configs (4) = 17 trang
 | | |
 |---|---|

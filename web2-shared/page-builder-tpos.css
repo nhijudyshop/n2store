@@ -1,0 +1,191 @@
+/* ===== TPOS-clone overrides for Web2Page-builder pages =====
+ * Loaded ONLY by page-shell.js, not by native-orders/web2-products.
+ * Goal: match TPOS visual diff < 5 entries.
+ */
+
+/* Page header / breadcrumb panel — TPOS panel-heading look */
+.web2-shell .web2-main-header {
+    background: #edf1f2;
+    color: #58666e;
+    padding: 10px 15px;
+    border-radius: 2px 2px 0 0;
+    border: 1px solid #dee5e7;
+    border-bottom: 0;
+    margin-bottom: 0;
+    font-size: 13px;
+    text-align: left;
+}
+.web2-shell .web2-main-header .counter-pill {
+    background: transparent;
+    color: #58666e;
+    border: 0;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 400;
+}
+.web2-shell .web2-breadcrumb,
+.web2-shell .web2-breadcrumb-current,
+.web2-shell .web2-breadcrumb-item {
+    color: #58666e;
+    font-weight: 400;
+    font-size: 13px;
+}
+.web2-shell .web2-breadcrumb-current { font-weight: 600; }
+
+/* Search/filter section — TPOS search bar look (no border, gray bg, sharp corners) */
+.web2-shell .search-section {
+    background: #ffffff;
+    border: 1px solid #dee5e7;
+    border-top: 0;
+    padding: 8px 12px;
+}
+.web2-shell .search-wrapper {
+    background: #edf1f2;
+    border-radius: 0;
+    max-width: 320px;
+    min-width: 240px;
+}
+.web2-shell .search-input {
+    background: #edf1f2;
+    color: #58666e;
+    font-size: 12px;
+    padding: 5px 30px 5px 30px;
+    border: 0;
+    border-radius: 0;
+    height: 30px;
+    outline: none;
+    box-shadow: none;
+}
+.web2-shell .search-input:focus {
+    background: #ffffff;
+    border: 0;
+    box-shadow: none;
+}
+.web2-shell .search-icon { color: #58666e; }
+.web2-shell .search-clear { color: #58666e; }
+
+/* Filter chip area — flatten to TPOS toolbar look */
+.web2-shell .filter-chip-group { gap: 4px; }
+.web2-shell .chip-label {
+    color: #58666e;
+    font-size: 12px;
+    font-weight: 400;
+    text-transform: none;
+}
+.web2-shell .chip-select {
+    background: #ffffff;
+    border: 1px solid #dee5e7;
+    border-radius: 2px;
+    color: #58666e;
+    font-size: 12px;
+    padding: 4px 24px 4px 8px;
+    height: 28px;
+}
+
+/* Search info bar (Tải lại, Áp dụng, Thêm mới) — flat TPOS row */
+.web2-shell .search-info {
+    background: #ffffff;
+    padding: 6px 12px;
+    border: 1px solid #dee5e7;
+    border-top: 0;
+    font-size: 12px;
+    color: #58666e;
+}
+
+/* Data table — TPOS thead darker gray + flat */
+.web2-shell .table-section {
+    background: #ffffff;
+    border: 1px solid #dee5e7;
+    border-top: 0;
+    border-radius: 0 0 2px 2px;
+}
+.web2-shell .data-table thead th {
+    background: #f5f5f5;
+    color: #333333;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 6px;
+    border-bottom: 1px solid #dddddd;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.web2-shell .data-table tbody td {
+    padding: 6px 6px;
+    border-bottom: 1px solid #dddddd;
+    font-size: 13px;
+    color: #333333;
+}
+.web2-shell .data-table tbody tr:hover td { background: #f9fafb; }
+
+/* Pagination — TPOS flat */
+.web2-shell .pagination {
+    background: #ffffff;
+    padding: 8px 12px;
+    border: 1px solid #dee5e7;
+    border-top: 0;
+}
+.web2-shell .page-btn {
+    background: #ffffff;
+    border: 1px solid #dee5e7;
+    color: #58666e;
+    border-radius: 2px;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+.web2-shell .page-btn.active {
+    background: #3c8dbc;
+    border-color: #3c8dbc;
+    color: #ffffff;
+}
+
+/* Modal — keep but flatten radius */
+.web2-shell .modal-content {
+    border-radius: 3px;
+    border: 1px solid #dee5e7;
+}
+.web2-shell .modal-header {
+    background: #f5f5f5;
+    border-bottom: 1px solid #dddddd;
+    padding: 10px 15px;
+    font-size: 14px;
+    color: #58666e;
+}
+.web2-shell .modal-body { padding: 15px; }
+.web2-shell .modal-footer {
+    background: #ffffff;
+    border-top: 1px solid #dddddd;
+    padding: 10px 15px;
+}
+
+/* Form fields inside modal */
+.web2-shell .field-row { margin-bottom: 10px; }
+.web2-shell .field-row label {
+    font-size: 12px;
+    color: #58666e;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+}
+.web2-shell .field-row input[type="text"],
+.web2-shell .field-row input[type="number"],
+.web2-shell .field-row input[type="email"],
+.web2-shell .field-row input[type="tel"],
+.web2-shell .field-row select,
+.web2-shell .field-row textarea {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #dee5e7;
+    border-radius: 2px;
+    color: #333333;
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+    font-family: inherit;
+}
+.web2-shell .field-row input:focus,
+.web2-shell .field-row select:focus,
+.web2-shell .field-row textarea:focus {
+    border-color: #3c8dbc;
+    box-shadow: none;
+}
+.web2-shell .field-row textarea { min-height: 64px; resize: vertical; }

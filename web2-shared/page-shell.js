@@ -28,13 +28,14 @@
 (function (global) {
     'use strict';
 
-    const ASSET_VERSION = 'v=20260425i';
+    const ASSET_VERSION = 'v=20260425j';
 
     // CSS files cần load
     const CSS_FILES = [
         '../../web2-shared/tpos-sidebar.css',
         '../../native-orders/css/native-orders.css',
         '../../native-orders/css/tpos-theme.css',
+        '../../web2-shared/page-builder-tpos.css',
     ];
 
     // Script tags cần load TRƯỚC khi mount (theo thứ tự)
@@ -60,7 +61,10 @@
         const links = [
             { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
             { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-            { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap' },
+            {
+                rel: 'stylesheet',
+                href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap',
+            },
         ];
         for (const cfg of links) {
             const l = document.createElement('link');
@@ -139,7 +143,9 @@
 
         // 2. Wait for body
         if (!document.body) {
-            await new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }));
+            await new Promise((r) =>
+                document.addEventListener('DOMContentLoaded', r, { once: true })
+            );
         }
 
         // 3. Inject body shell
@@ -171,7 +177,9 @@
 
         // 8. Re-init lucide for any deferred icons
         if (window.lucide) {
-            try { window.lucide.createIcons(); } catch {}
+            try {
+                window.lucide.createIcons();
+            } catch {}
         }
     }
 
