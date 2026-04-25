@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][verify] Functional test 0 issues — Web 2.0 độc lập 100% với TPOS
+| | |
+|---|---|
+| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-functional.js` — comprehensive Playwright test 3 step. **STEP 1**: Network independence — visit 8 page mẫu, intercept mọi `request`, đảm bảo 0 calls `tomato.tpos.vn` / `tpos.vn/api` / `tposapp`. **STEP 2**: CRUD end-to-end trên 3 entity sample (productcategory, accountaccount-thu, salechannel) — create → list visible → update → delete → verify 404. **STEP 3**: Page-shell bootstrap — kiểm tra `.web2-shell + .web2-aside .web2-nav + #pageRoot .web2-main-header + table.data-table + .modal-overlay + #w2pSearch + #w2pAdd + window.Web2Api/Web2Page/Web2Sidebar` đều có. |
+| **Chi tiết** | **Trigger**: user yêu cầu xác minh "tất cả chức năng, logic đều hoạt động — riêng lẻ không dùng request/server TPOS". **Step 1 result**: 8/8 trang `worker=1 tpos=0 other=0` (chỉ gọi chatomni-proxy.nhijudyshop.workers.dev). **Step 2 result**: 3/3 entities CREATE/LIST/UPDATE/DELETE đầy đủ — DB persist OK qua chuỗi browser → CF Worker → Render → PostgreSQL. **Step 3 result**: 8/8 trang bootstrap đầy đủ 9 element/window object. **Total**: 0 issues. **Allowed external hosts**: unpkg/gstatic/googleapis/github/jsdelivr (CDN cho lucide/firebase/fonts) — KHÔNG phải TPOS. |
+| **Status** | ✅ Web 2.0 hoàn toàn standalone. Mọi data flow qua DB riêng (`web2_records`), 0 phụ thuộc TPOS API. CRUD vòng đầy đủ. Sidebar điều hướng không 404. |
+
 ### [web2][verify] Browser test 90/90 trang PASS qua Playwright headless
 | | |
 |---|---|
