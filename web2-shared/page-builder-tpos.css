@@ -12,7 +12,7 @@
     border: 1px solid #dee5e7;
     border-bottom: 0;
     margin-bottom: 0;
-    font-size: 13px;
+    font-size: 14px;
     text-align: left;
 }
 .web2-shell .web2-main-header .counter-pill {
@@ -49,13 +49,16 @@
     background: #edf1f2;
     color: #58666e;
     font-size: 12px;
-    padding: 5px 30px 5px 30px;
+    padding: 5px 15px;
     border: 0;
     border-radius: 0;
     height: 30px;
     outline: none;
     box-shadow: none;
 }
+/* Hide search-icon + search-clear absolute overlays (TPOS doesn't use them) */
+.web2-shell .search-wrapper > .search-icon,
+.web2-shell .search-wrapper > .search-clear { display: none; }
 .web2-shell .search-input:focus {
     background: #ffffff;
     border: 0;
@@ -101,18 +104,18 @@
 }
 .web2-shell .data-table thead th {
     background: #f5f5f5;
-    color: #333333;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 8px 6px;
+    color: #000000;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 7px 8px 6px;
     border-bottom: 1px solid #dddddd;
     text-transform: none;
     letter-spacing: 0;
 }
 .web2-shell .data-table tbody td {
-    padding: 6px 6px;
+    padding: 6px 8px;
     border-bottom: 1px solid #dddddd;
-    font-size: 13px;
+    font-size: 14px;
     color: #333333;
 }
 .web2-shell .data-table tbody tr:hover td { background: #f9fafb; }
