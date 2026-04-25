@@ -183,17 +183,17 @@
             </tr>`;
     }
 
-    // TPOS uses .label.label-cs.label-primary (bigger pill) for status column.
-    // .label-cs override: fs 12px / padding 5px / radius 3px.
+    // TPOS Trạng thái column uses PLAIN TEXT (not pill). Color varies by status:
+    // draft → gray #808080, others → blue/red as appropriate. fw 700, fs 14px.
     function tposStatusText(s) {
         const map = {
-            draft:     { label: 'Nháp',     cls: 'tpos-label-primary' },
-            confirmed: { label: 'Đơn hàng', cls: 'tpos-label-info' },
-            cancelled: { label: 'Huỷ bỏ',   cls: 'tpos-label-danger' },
-            delivered: { label: 'Đã giao',  cls: 'tpos-label-success' },
+            draft:     { label: 'Nháp',     cls: '' },
+            confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
+            cancelled: { label: 'Huỷ bỏ',   cls: 'cancelled' },
+            delivered: { label: 'Đã giao',  cls: 'delivered' },
         };
-        const m = map[s] || { label: s || '—', cls: 'tpos-label-default' };
-        return `<span class="tpos-label tpos-label-cs ${m.cls}">${m.label}</span>`;
+        const m = map[s] || { label: s || '—', cls: '' };
+        return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;
     }
 
     // VN phone carrier prefix → label
@@ -297,7 +297,7 @@
                                 ? `
                           <div class="tpos-phone-cell" style="align-items:center;">
                             <a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link">${escapeHtml(o.phone)}</a>
-                            ${carrier ? `<span class="tpos-label tpos-label-cs tpos-label-primary">${carrier}</span>` : ''}
+                            ${carrier ? `<span class="tpos-carrier">${carrier}</span>` : ''}
                           </div>
                         `
                                 : '—'
