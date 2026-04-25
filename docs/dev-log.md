@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][page] Phase C.1 — Trang Nhóm sản phẩm (productcategory) dùng Web2Page.mount
+| | |
+|---|---|
+| **Files** | NEW: [web2/product-category/index.html](../web2/product-category/index.html) — page đầu tiên dùng framework Phase B; mount sidebar + Web2Page với 4 cột (Mã/Tên nhóm/Nhóm cha/Ghi chú) + 4 fields modal. MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — item "Nhóm sản phẩm" thêm `our: '../web2/product-category/index.html'` để click → trang nội bộ. |
+| **Chi tiết** | **Verify Phase B end-to-end**: `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/productcategory/health` → 200 `{ok:true, count:0}`. POST create test record TEST001 → success, id=1. **Schema cho productcategory**: `code` (Mã, unique), `name` (Tên nhóm), `data.parentCode` (Nhóm cha — code reference), `data.note`. **Layout match TPOS conventions**: code center 140px, name flex left, parentCode 160px, note flex. **Workflow đăng ký**: 1 file HTML mới + 1 dòng `our:` trong sidebar = đủ. Không cần migration / không cần restart server. |
+| **Status** | ✅ Code done. Verify: open https://nhijudyshop.github.io/web2/product-category/index.html → bảng "Chưa có dữ liệu — bấm Thêm mới"; click "Thêm mới" → modal hiện 4 field; lưu record mới → row xuất hiện; pagination + search hoạt động. Verify sidebar: click "Sản phẩm > Nhóm sản phẩm" từ trang web2-products → navigate sang. |
+
 ### [web2][framework] Phase B — Generic entity backend + Web2Page page-builder framework + guide
 | | |
 |---|---|

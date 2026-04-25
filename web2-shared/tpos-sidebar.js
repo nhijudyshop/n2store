@@ -120,7 +120,7 @@
             icon: 'package',
             children: [
                 { label: 'Kho SP Web 2.0', our: '../web2-products/index.html' },
-                { label: 'Nhóm sản phẩm', tpos: '#/app/productcategory/list' },
+                { label: 'Nhóm sản phẩm', tpos: '#/app/productcategory/list', our: '../web2/product-category/index.html' },
                 { label: 'Sản phẩm', tpos: '#/app/producttemplate/list' },
                 { label: 'Biến thể SP', tpos: '#/app/product/list' },
                 { label: 'In mã vạch', tpos: '#/app/barcodeproductlabel/printbarcode' },
