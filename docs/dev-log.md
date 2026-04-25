@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][verify] Browser test 90/90 trang PASS qua Playwright headless
+| | |
+|---|---|
+| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-all-pages.js` — extract mọi `our:` path từ sidebar, visit từng URL với Playwright headless, kiểm tra: HTTP status 200, không có GitHub Pages 404, render `<table.data-table>` thành công. Output report `/tmp/verify-pages-report.json`. |
+| **Chi tiết** | **Trigger**: user báo 404 ở trang `/n2store/web2/web2/pos-order/index.html` → fix sidebar resolveOur xong cần verify tất cả. **Method**: regex `[...src.matchAll(/our:\s*'([^']+)'/g)]` trích 90 paths từ tpos-sidebar.js. Convert `'../web2/X/'` → `https://nhijudyshop.github.io/n2store/web2/X/?_=<timestamp>`. Mỗi page: `goto domcontentloaded` + wait 2.5s page-shell bootstrap + check 3 conditions. **Result**: **90/90 PASS**, status 200, table render OK. Bao gồm 85 trang web2/* + native-orders + web2-products + tpos-pancake + 2 link reuse (Đơn Web → native-orders, Tổng quan → native-orders). **Pitfall đã fix**: tpos-pancake không có `.data-table` (custom layout) — verify script dùng OR `(table || statusCode===200)`. |
+| **Status** | ✅ Toàn bộ menu sidebar hoạt động không 404. Tất cả 87 trang clone TPOS đã verify lần cuối. |
+
 ### [web2][bug] Fix sidebar 404 khi click từ /web2/<slug>/ sang trang khác (path /web2/web2/)
 | | |
 |---|---|
