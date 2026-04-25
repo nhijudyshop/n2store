@@ -502,8 +502,9 @@
                             dropdown.innerHTML = `<div class="web2-ref-empty">Không có kết quả${query ? ` cho "${escapeHtml(query)}"` : ''}.</div>`;
                         } else {
                             dropdown.innerHTML = records
-                                .map((r) =>
-                                    `<div class="web2-ref-item" data-code="${escapeHtml(r.code || '')}">
+                                .map(
+                                    (r) =>
+                                        `<div class="web2-ref-item" data-code="${escapeHtml(r.code || '')}">
                                         <span class="web2-ref-item-code">${escapeHtml(r.code || '—')}</span>
                                         <span class="web2-ref-item-name">${escapeHtml(r.name || '')}</span>
                                     </div>`
@@ -532,7 +533,9 @@
                     timer = setTimeout(() => showDropdown(input.value.trim()), 220);
                 });
                 input.addEventListener('blur', () => {
-                    setTimeout(() => { dropdown.hidden = true; }, 180);
+                    setTimeout(() => {
+                        dropdown.hidden = true;
+                    }, 180);
                     if (input.value.trim() && input.value.trim() !== lastFetched) {
                         lastFetched = input.value.trim();
                         loadName(lastFetched);
