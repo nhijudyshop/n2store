@@ -1775,7 +1775,14 @@
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
                 if (label) {
-                    badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}</span>`;
+                    // KHÔNG ĐỂ HÀNG: cho phép xóa bằng nút × (clearProcessingTag giữ flags/tTags)
+                    const removableSubtags = new Set(['KHONG_DE_HANG']);
+                    if (removableSubtags.has(data.subTag)) {
+                        const removeBtn = `<button class="ptag-badge-remove" onclick="window.clearProcessingTag('${oc}'); event.stopPropagation();" title="Xóa tag ${label}">&times;</button>`;
+                        badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}${removeBtn}</span>`;
+                    } else {
+                        badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}</span>`;
+                    }
                 }
             }
         }
