@@ -63,8 +63,15 @@
     function fmtTime(ms) {
         if (!ms) return '';
         const d = new Date(Number(ms));
-        return [d.getDate(), d.getMonth() + 1, d.getFullYear()].map(n => String(n).padStart(2, '0')).join('/')
-             + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return (
+            [d.getDate(), d.getMonth() + 1, d.getFullYear()]
+                .map((n) => String(n).padStart(2, '0'))
+                .join('/') +
+            ' ' +
+            String(d.getHours()).padStart(2, '0') +
+            ':' +
+            String(d.getMinutes()).padStart(2, '0')
+        );
     }
 
     // -------- Mount --------
@@ -75,14 +82,23 @@
 
         const api = Web2Api.forEntity(config.slug);
         const STATE = {
-            records: [], total: 0, page: 1, limit: 200,
-            search: '', activeOnly: false, loading: false,
+            records: [],
+            total: 0,
+            page: 1,
+            limit: 200,
+            search: '',
+            activeOnly: false,
+            loading: false,
             editingCode: null,
         };
 
         // Render skeleton
-        const breadcrumbHtml = (config.breadcrumb || []).map((c) =>
-            `<span class="web2-breadcrumb-item">${escapeHtml(c)}</span><span class="web2-breadcrumb-sep">/</span>`).join('');
+        const breadcrumbHtml = (config.breadcrumb || [])
+            .map(
+                (c) =>
+                    `<span class="web2-breadcrumb-item">${escapeHtml(c)}</span><span class="web2-breadcrumb-sep">/</span>`
+            )
+            .join('');
 
         root.innerHTML = `
             <header class="web2-main-header">
@@ -148,9 +164,12 @@
                             <tr>
                                 <th style="width:30px;"><input type="checkbox" id="w2pCheckAll"></th>
                                 <th style="width:90px;">Thao tác</th>
-                                ${(config.columns || []).map((c) =>
-                                    `<th style="${c.width ? `width:${c.width}px;` : 'min-width:180px;'}text-align:${c.align || 'left'};">${escapeHtml(c.label)}</th>`
-                                ).join('')}
+                                ${(config.columns || [])
+                                    .map(
+                                        (c) =>
+                                            `<th style="${c.width ? `width:${c.width}px;` : 'min-width:180px;'}text-align:${c.align || 'left'};">${escapeHtml(c.label)}</th>`
+                                    )
+                                    .join('')}
                                 <th style="width:120px;text-align:center;">Ngày tạo</th>
                                 <th style="width:90px;text-align:center;">Trạng thái</th>
                             </tr>
@@ -190,17 +209,25 @@
                 tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row">Chưa có dữ liệu — bấm "Thêm mới" ở trên</td></tr>`;
                 return;
             }
-            tb.innerHTML = STATE.records.map((r) => {
-                const cells = (config.columns || []).map((c) => {
-                    const raw = c.key === 'code' ? r.code : (c.key === 'name' ? r.name : getPath(r, c.key));
-                    const txt = raw == null ? '—' : String(raw);
-                    const align = c.align || 'left';
-                    return `<td style="text-align:${align};${c.mono ? 'font-family:monospace;' : ''}" title="${escapeHtml(txt)}">${escapeHtml(txt)}</td>`;
-                }).join('');
-                const status = r.isActive
-                    ? `<span class="tpos-status-text confirmed">Đang dùng</span>`
-                    : `<span class="tpos-status-text cancelled">Tạm dừng</span>`;
-                return `
+            tb.innerHTML = STATE.records
+                .map((r) => {
+                    const cells = (config.columns || [])
+                        .map((c) => {
+                            const raw =
+                                c.key === 'code'
+                                    ? r.code
+                                    : c.key === 'name'
+                                      ? r.name
+                                      : getPath(r, c.key);
+                            const txt = raw == null ? '—' : String(raw);
+                            const align = c.align || 'left';
+                            return `<td style="text-align:${align};${c.mono ? 'font-family:monospace;' : ''}" title="${escapeHtml(txt)}">${escapeHtml(txt)}</td>`;
+                        })
+                        .join('');
+                    const status = r.isActive
+                        ? `<span class="tpos-status-text confirmed">Đang dùng</span>`
+                        : `<span class="tpos-status-text cancelled">Tạm dừng</span>`;
+                    return `
                     <tr data-code="${escapeHtml(r.code || '')}">
                         <td onclick="event.stopPropagation();"><input type="checkbox" class="w2p-row-check" value="${escapeHtml(r.code || '')}"></td>
                         <td>
@@ -217,14 +244,15 @@
                         <td class="tpos-cell-center">${fmtTime(r.createdAt)}</td>
                         <td class="tpos-cell-center">${status}</td>
                     </tr>`;
-            }).join('');
+                })
+                .join('');
             if (window.lucide) lucide.createIcons();
             // Wire row buttons
             tb.querySelectorAll('button[data-act]').forEach((b) => {
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const code = b.dataset.code;
-                    if (b.dataset.act === 'edit')   openEdit(code);
+                    if (b.dataset.act === 'edit') openEdit(code);
                     if (b.dataset.act === 'delete') removeRecord(code);
                 });
             });
@@ -235,7 +263,9 @@
             const cur = STATE.page;
             const pag = root.querySelector('#w2pPagination');
             const html = [];
-            html.push(`<button class="page-btn" ${cur === 1 ? 'disabled' : ''} data-go="${cur - 1}">‹</button>`);
+            html.push(
+                `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} data-go="${cur - 1}">‹</button>`
+            );
             const start = Math.max(1, cur - 2);
             const end = Math.min(totalPages, start + 4);
             if (start > 1) {
@@ -243,14 +273,22 @@
                 if (start > 2) html.push(`<span class="page-info">…</span>`);
             }
             for (let p = start; p <= end; p++) {
-                html.push(`<button class="page-btn ${p === cur ? 'active' : ''}" data-go="${p}">${p}</button>`);
+                html.push(
+                    `<button class="page-btn ${p === cur ? 'active' : ''}" data-go="${p}">${p}</button>`
+                );
             }
             if (end < totalPages) {
                 if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
-                html.push(`<button class="page-btn" data-go="${totalPages}">${totalPages}</button>`);
+                html.push(
+                    `<button class="page-btn" data-go="${totalPages}">${totalPages}</button>`
+                );
             }
-            html.push(`<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} data-go="${cur + 1}">›</button>`);
-            html.push(`<span class="page-info">${STATE.total.toLocaleString('vi-VN')} bản ghi — trang ${cur}/${totalPages}</span>`);
+            html.push(
+                `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} data-go="${cur + 1}">›</button>`
+            );
+            html.push(
+                `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} bản ghi — trang ${cur}/${totalPages}</span>`
+            );
             pag.innerHTML = html.join('');
             pag.querySelectorAll('button[data-go]').forEach((b) => {
                 b.addEventListener('click', () => goPage(parseInt(b.dataset.go, 10)));
@@ -279,7 +317,9 @@
                 });
                 STATE.records = resp.records || [];
                 STATE.total = resp.total || 0;
-                renderRows(); renderPagination(); renderCounters();
+                renderRows();
+                renderPagination();
+                renderCounters();
             } catch (e) {
                 tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row" style="color:#f05050;">Lỗi: ${escapeHtml(e.message)}</td></tr>`;
                 notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -299,7 +339,10 @@
             root.querySelector('#w2pSearch').value = '';
             root.querySelector('#w2pActiveFilter').value = 'all';
             root.querySelector('#w2pLimit').value = '200';
-            STATE.search = ''; STATE.activeOnly = false; STATE.limit = 200; STATE.page = 1;
+            STATE.search = '';
+            STATE.activeOnly = false;
+            STATE.limit = 200;
+            STATE.page = 1;
             load();
         }
         function goPage(p) {
@@ -311,17 +354,27 @@
         // ---- Modal ----
         function openCreate() {
             STATE.editingCode = null;
-            root.querySelector('#w2pModalTitle').innerHTML = `<i data-lucide="plus"></i><span>Thêm ${escapeHtml(config.title.toLowerCase())}</span>`;
+            root.querySelector('#w2pModalTitle').innerHTML =
+                `<i data-lucide="plus"></i><span>Thêm ${escapeHtml(config.title.toLowerCase())}</span>`;
             renderForm({});
             root.querySelector('#w2pModal').classList.add('active');
             if (window.lucide) lucide.createIcons();
-            setTimeout(() => root.querySelector(`#w2pField_${(config.fields[0]?.key || '').replace(/\./g, '_')}`)?.focus(), 50);
+            setTimeout(
+                () =>
+                    root
+                        .querySelector(
+                            `#w2pField_${(config.fields[0]?.key || '').replace(/\./g, '_')}`
+                        )
+                        ?.focus(),
+                50
+            );
         }
         function openEdit(code) {
             const r = STATE.records.find((x) => x.code === code);
             if (!r) return;
             STATE.editingCode = code;
-            root.querySelector('#w2pModalTitle').innerHTML = `<i data-lucide="pencil"></i><span>Sửa ${escapeHtml(code)}</span>`;
+            root.querySelector('#w2pModalTitle').innerHTML =
+                `<i data-lucide="pencil"></i><span>Sửa ${escapeHtml(code)}</span>`;
             renderForm(r, /*editing*/ true);
             root.querySelector('#w2pModal').classList.add('active');
             if (window.lucide) lucide.createIcons();
@@ -332,44 +385,53 @@
         }
         function renderForm(record, editing = false) {
             const body = root.querySelector('#w2pModalBody');
-            body.innerHTML = (config.fields || []).map((f) => {
-                const id = `w2pField_${f.key.replace(/\./g, '_')}`;
-                const val = f.key === 'code' ? (record.code || '')
-                          : f.key === 'name' ? (record.name || '')
-                          : (getPath(record, f.key) ?? '');
-                const disabled = (editing && f.key === 'code') ? 'disabled' : '';
-                if (f.type === 'textarea') {
-                    return `<div class="field-row">
+            body.innerHTML = (config.fields || [])
+                .map((f) => {
+                    const id = `w2pField_${f.key.replace(/\./g, '_')}`;
+                    const val =
+                        f.key === 'code'
+                            ? record.code || ''
+                            : f.key === 'name'
+                              ? record.name || ''
+                              : (getPath(record, f.key) ?? '');
+                    const disabled = editing && f.key === 'code' ? 'disabled' : '';
+                    if (f.type === 'textarea') {
+                        return `<div class="field-row">
                         <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
                         <textarea id="${id}" placeholder="${escapeHtml(f.placeholder || '')}" ${disabled}>${escapeHtml(val)}</textarea>
                     </div>`;
-                }
-                if (f.type === 'select') {
-                    const opts = (f.options || []).map((o) =>
-                        `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(val) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
-                    return `<div class="field-row">
+                    }
+                    if (f.type === 'select') {
+                        const opts = (f.options || [])
+                            .map(
+                                (o) =>
+                                    `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(val) ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+                            )
+                            .join('');
+                        return `<div class="field-row">
                         <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
                         <select id="${id}" ${disabled}>${opts}</select>
                     </div>`;
-                }
-                if (f.type === 'checkbox') {
-                    return `<div class="field-row">
+                    }
+                    if (f.type === 'checkbox') {
+                        return `<div class="field-row">
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                             <input type="checkbox" id="${id}" ${val ? 'checked' : ''} ${disabled}>
                             ${escapeHtml(f.label)}
                         </label>
                     </div>`;
-                }
-                return `<div class="field-row">
+                    }
+                    return `<div class="field-row">
                     <label>${escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
                     <input type="${f.type || 'text'}" id="${id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off" ${disabled}>
                 </div>`;
-            }).join('');
+                })
+                .join('');
         }
         async function saveModal() {
             const editing = !!STATE.editingCode;
             const payload = { code: null, name: null, data: {} };
-            for (const f of (config.fields || [])) {
+            for (const f of config.fields || []) {
                 const el = root.querySelector(`#w2pField_${f.key.replace(/\./g, '_')}`);
                 if (!el) continue;
                 let v;
@@ -410,21 +472,28 @@
         root.querySelector('#w2pApply').addEventListener('click', applyFilters);
         root.querySelector('#w2pClear').addEventListener('click', clearFilters);
         root.querySelector('#w2pAdd').addEventListener('click', openCreate);
-        root.querySelector('#w2pSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+        root.querySelector('#w2pSearch').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyFilters();
+        });
         root.querySelector('#w2pSearchClear').addEventListener('click', () => {
             root.querySelector('#w2pSearch').value = '';
-            STATE.search = ''; STATE.page = 1; load();
+            STATE.search = '';
+            STATE.page = 1;
+            load();
         });
         root.querySelector('#w2pActiveFilter').addEventListener('change', applyFilters);
         root.querySelector('#w2pLimit').addEventListener('change', applyFilters);
         root.querySelector('#w2pCheckAll').addEventListener('change', (e) => {
-            root.querySelectorAll('.w2p-row-check').forEach((c) => { c.checked = e.target.checked; });
+            root.querySelectorAll('.w2p-row-check').forEach((c) => {
+                c.checked = e.target.checked;
+            });
         });
         root.querySelector('#w2pModalClose').addEventListener('click', closeModal);
         root.querySelector('#w2pModalCancel').addEventListener('click', closeModal);
         root.querySelector('#w2pModalSave').addEventListener('click', saveModal);
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && root.querySelector('#w2pModal')?.classList.contains('active')) closeModal();
+            if (e.key === 'Escape' && root.querySelector('#w2pModal')?.classList.contains('active'))
+                closeModal();
         });
 
         // First load

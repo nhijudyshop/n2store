@@ -19,7 +19,11 @@
             headers: { Accept: 'application/json', ...(options.headers || {}) },
         });
         let data = null;
-        try { data = await res.json(); } catch { /* non-json */ }
+        try {
+            data = await res.json();
+        } catch {
+            /* non-json */
+        }
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         return data;
     }
@@ -38,19 +42,22 @@
                 return _fetchJson(`${base}/list?${qs}`);
             },
             get: (code) => _fetchJson(`${base}/get/${encodeURIComponent(code)}`),
-            create: (payload) => _fetchJson(`${base}/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload || {}),
-            }),
-            update: (code, fields) => _fetchJson(`${base}/update/${encodeURIComponent(code)}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(fields || {}),
-            }),
-            remove: (code) => _fetchJson(`${base}/delete/${encodeURIComponent(code)}`, {
-                method: 'DELETE',
-            }),
+            create: (payload) =>
+                _fetchJson(`${base}/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload || {}),
+                }),
+            update: (code, fields) =>
+                _fetchJson(`${base}/update/${encodeURIComponent(code)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fields || {}),
+                }),
+            remove: (code) =>
+                _fetchJson(`${base}/delete/${encodeURIComponent(code)}`, {
+                    method: 'DELETE',
+                }),
         };
     }
 
