@@ -24,11 +24,15 @@
     // Routes not yet implemented (placeholder): `our: null` — clicking shows "Coming soon".
     const NAV = [
         {
-            label: 'Tổng quan', icon: 'home', single: true,
-            our: '../native-orders/index.html', tpos: '#/app/dashboard',
+            label: 'Tổng quan',
+            icon: 'home',
+            single: true,
+            our: '../native-orders/index.html',
+            tpos: '#/app/dashboard',
         },
         {
-            label: 'Bán Hàng', icon: 'shopping-bag',
+            label: 'Bán Hàng',
+            icon: 'shopping-bag',
             children: [
                 { label: 'Điểm bán hàng', tpos: '#/app/posconfig/kanban' },
                 { label: 'Phiên bán hàng', tpos: '#/app/possession/list' },
@@ -46,29 +50,35 @@
             ],
         },
         {
-            label: 'Sale Online', icon: 'globe',
+            label: 'Sale Online',
+            icon: 'globe',
             children: [
                 { label: 'Chiến dịch Live', tpos: '#/app/saleOnline/liveCampaign/list' },
-                { label: 'Đơn Web', our: '../native-orders/index.html', tpos: '#/app/saleOnline/order/list' },
+                {
+                    label: 'Đơn Web',
+                    our: '../native-orders/index.html',
+                    tpos: '#/app/saleOnline/order/list',
+                },
                 { label: 'TPOS × Pancake', our: '../tpos-pancake/index.html' },
                 { label: 'Facebook', tpos: '#/app/saleOnline/facebook' },
             ],
         },
         {
-            label: 'Kênh bán', icon: 'layers',
-            children: [
-                { label: 'Danh sách kênh', tpos: '#/app/salechannel/list' },
-            ],
+            label: 'Kênh bán',
+            icon: 'layers',
+            children: [{ label: 'Danh sách kênh', tpos: '#/app/salechannel/list' }],
         },
         {
-            label: 'Mua hàng', icon: 'shopping-cart',
+            label: 'Mua hàng',
+            icon: 'shopping-cart',
             children: [
                 { label: 'Mua hàng', tpos: '#/app/fastpurchaseorder/invoicelist' },
                 { label: 'Trả hàng mua', tpos: '#/app/fastpurchaseorder/refundlist' },
             ],
         },
         {
-            label: 'Kho hàng', icon: 'box',
+            label: 'Kho hàng',
+            icon: 'box',
             children: [
                 { label: 'Tất cả hoạt động', tpos: '#/app/stockpickingtype/overview' },
                 { label: 'Điều chỉnh tồn kho', tpos: '#/app/stockinventory/list' },
@@ -78,7 +88,8 @@
             ],
         },
         {
-            label: 'Tài chính', icon: 'dollar-sign',
+            label: 'Tài chính',
+            icon: 'dollar-sign',
             children: [
                 { label: 'Thanh toán bán hàng', tpos: '#/app/accountpayment/list' },
                 { label: 'Tiền thối POS', tpos: '#/app/accountpayment/changelist' },
@@ -89,10 +100,14 @@
             ],
         },
         {
-            label: 'Khách hàng', icon: 'users',
+            label: 'Khách hàng',
+            icon: 'users',
             children: [
                 { label: 'Nhóm khách hàng', tpos: '#/app/partnercategory/list' },
-                { label: 'Cấu hình nhóm doanh số', tpos: '#/app/partnercategory_revenueconfig/list' },
+                {
+                    label: 'Cấu hình nhóm doanh số',
+                    tpos: '#/app/partnercategory_revenueconfig/list',
+                },
                 { label: 'Khách hàng', tpos: '#/app/partner/customer/list1' },
                 { label: 'Nhà cung cấp', tpos: '#/app/partner/supplier/list1' },
                 { label: 'DSD đầu kỳ KH', tpos: '#/app/revenuebegan/list' },
@@ -101,7 +116,8 @@
             ],
         },
         {
-            label: 'Sản phẩm', icon: 'package',
+            label: 'Sản phẩm',
+            icon: 'package',
             children: [
                 { label: 'Kho SP Web 2.0', our: '../web2-products/index.html' },
                 { label: 'Nhóm sản phẩm', tpos: '#/app/productcategory/list' },
@@ -116,7 +132,8 @@
             ],
         },
         {
-            label: 'Khuyến mãi', icon: 'gift',
+            label: 'Khuyến mãi',
+            icon: 'gift',
             children: [
                 { label: 'Chương trình khuyến mãi', tpos: '#/app/promotionprogram/list' },
                 { label: 'Coupon', tpos: '#/app/couponprogram/list' },
@@ -125,7 +142,8 @@
             ],
         },
         {
-            label: 'Kế toán', icon: 'book',
+            label: 'Kế toán',
+            icon: 'book',
             children: [
                 { label: 'Loại thu', tpos: '#/app/accountaccount/thulist' },
                 { label: 'Loại chi', tpos: '#/app/accountaccount/chilist' },
@@ -136,7 +154,8 @@
             ],
         },
         {
-            label: 'Báo cáo', icon: 'bar-chart-3',
+            label: 'Báo cáo',
+            icon: 'bar-chart-3',
             children: [
                 { label: 'Giá trị tồn kho', tpos: '#/app/product/inventoryvaluation' },
                 { label: 'Nhập-Xuất-Tồn', tpos: '#/app/stockreport/xuatnhapton' },
@@ -159,7 +178,8 @@
             ],
         },
         {
-            label: 'Cấu hình', icon: 'settings',
+            label: 'Cấu hình',
+            icon: 'settings',
             children: [
                 { label: 'Cấu hình', tpos: '#/app/configs/general/index' },
                 { label: 'Công ty', tpos: '#/app/company/list' },
@@ -205,16 +225,21 @@
         if (g.single) {
             const isImpl = isOurRoute(g);
             const href = isImpl ? g.our : '#';
-            const isActive = isImpl && activeUrl && activeUrl.endsWith(g.our.replace(/^\.\.\//, ''));
+            const isActive =
+                isImpl && activeUrl && activeUrl.endsWith(g.our.replace(/^\.\.\//, ''));
             const cls = `web2-nav-link${isActive ? ' active' : ''}`;
-            const onclick = isImpl ? '' : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}','${escapeHtml(g.tpos || '')}')"`;
+            const onclick = isImpl
+                ? ''
+                : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}','${escapeHtml(g.tpos || '')}')"`;
             return `<a href="${escapeHtml(href)}" class="${cls}" ${onclick}>
                 <i data-lucide="${g.icon}" class="icon"></i>
                 <span class="label">${escapeHtml(g.label)}</span>
             </a>`;
         }
         const hasOurChild = (g.children || []).some(isOurRoute);
-        const open = (g.children || []).some((c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^\.\.\//, '')));
+        const open = (g.children || []).some(
+            (c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^\.\.\//, ''))
+        );
         return `
             <div class="web2-nav-group${open ? ' is-open' : ''}">
                 <div class="web2-nav-group-head" onclick="this.parentElement.classList.toggle('is-open')">
