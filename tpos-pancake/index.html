@@ -5,7 +5,9 @@
 <head>
     <meta charset="UTF-8" />
     <title>Tpos - Pancake</title>
-    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- CSS: Design tokens + Layout + Components + Module styles -->
@@ -83,7 +85,12 @@
         body > .nav-topbar,
         body > .nav-bottom,
         body > .mobile-topbar,
-        body > .mobile-bottom-nav { display: none !important; }
+        body > .mobile-bottom-nav,
+        body > .sidebar-toggle-fixed { display: none !important; }
+        /* Defensive — navigation-modern injects '.main-content { margin-left:260px }'
+           via injectSidebarStyles(). Force-kill margin on any main.main-content
+           regardless of wrapper, to catch stale cache scenarios. */
+        main.main-content { margin: 0 !important; transition: none !important; }
         /* Modals + popovers anchored to body — keep above shell */
         .pk-modal-overlay { z-index: 9999; }
     </style>
