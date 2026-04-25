@@ -8,6 +8,13 @@
 
 ## 2026-04-25
 
+### [web2][verify] Phase E linking PASS — autocomplete + cell link hoạt động
+| | |
+|---|---|
+| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-linking.js` — 2-step Playwright test: (1) seed VIP+NORMAL parents, mở partner-customer modal, click ref input → expect dropdown 2 items → click chọn → expect input value + hint name set; (2) tạo customer REF_TEST với data.partnerCategory=VIP, reload page → expect cell trong row có `<a.web2-cell-link>` href chứa partner-category. |
+| **Chi tiết** | **Test result**: 4/4 PASS step 1 (modal/dropdown/select/hint), 1/1 PASS step 2 (cell link href). Verified: ref picker fetch entity được tham chiếu (KHÔNG phải TPOS), populate dropdown 20 record, click chọn set value đúng, blur tải tên hiển thị hint `→ Tên KH`, cell có FK code render `<a>` mở list trang đích `target="_blank"`. **Cleanup**: REF_TEST + 2 seeded VIP/NORMAL partners được xóa sau test. |
+| **Status** | ✅ Phase E DONE. Logic liên kết giữa các trang hoạt động giống TPOS (autocomplete picker + click code mở entity). |
+
 ### [web2][feat] Phase E — Inter-page linking (autocomplete picker + clickable cell links)
 | | |
 |---|---|
