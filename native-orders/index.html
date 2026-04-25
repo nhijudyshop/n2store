@@ -11,8 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/native-orders.css?v=20260425g">
-    <link rel="stylesheet" href="css/tpos-theme.css?v=20260425g">
+    <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260425h">
+    <link rel="stylesheet" href="css/native-orders.css?v=20260425h">
+    <link rel="stylesheet" href="css/tpos-theme.css?v=20260425h">
 
     <!-- Lucide icons -->
     <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -29,7 +30,9 @@
 </head>
 <body class="tpos-theme">
 
-<main class="main-content">
+<div class="web2-shell">
+<aside class="web2-aside" id="web2Aside"></aside>
+<main class="main-content" style="overflow:auto;height:100vh;">
     <!-- Tab Navigation -->
     <div class="tab-navigation">
         <div class="tab-nav-content">
@@ -162,6 +165,10 @@
         <div class="pagination" id="pagination"></div>
     </section>
 </main>
+</div><!-- /.web2-shell -->
+
+<script src="../web2-shared/tpos-sidebar.js?v=20260425h"></script>
+<script>document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));</script>
 
 <!-- Edit Modal -->
 <div class="modal-overlay" id="editModal">
@@ -186,7 +193,7 @@
 </div>
 
 <!-- App Scripts -->
-<script src="js/native-orders-api.js?v=20260425g"></script>
-<script src="js/native-orders-app.js?v=20260425g"></script>
+<script src="js/native-orders-api.js?v=20260425h"></script>
+<script src="js/native-orders-app.js?v=20260425h"></script>
 </body>
 </html>

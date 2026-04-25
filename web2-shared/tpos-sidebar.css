@@ -1,0 +1,179 @@
+/* TPOS-clone sidebar — dark rail with collapsible groups.
+ * Crawled from tomato.tpos.vn /#/app/dashboard (2026-04-25):
+ *   bg #1c2b36 (dark navy), color #7793a7 (desat blue-gray), 260px wide.
+ * Submenu pops white #fff, dark text #333, link padding 5px 25px.
+ */
+
+.web2-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #4c4c4c;
+    background: #f0f3f4;
+}
+
+/* Sidebar rail */
+.web2-aside {
+    background: #1c2b36;
+    color: #7793a7;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
+}
+.web2-aside::-webkit-scrollbar { width: 6px; }
+.web2-aside::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Brand row */
+.web2-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 20px;
+    background: #131e26;
+    color: #fff;
+}
+.web2-brand-logo {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #27c24c, #7266ba);
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+}
+.web2-brand-text { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+.web2-brand-sub  { font-size: 11px; color: #7793a7; margin-left: auto; }
+
+/* Group heading */
+.web2-nav { padding: 8px 0; }
+.web2-nav-heading {
+    padding: 10px 20px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4f6878;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Group toggle (top-level link with submenu) */
+.web2-nav-group {
+    margin: 0;
+}
+.web2-nav-group-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    color: #b1c1cd;
+    cursor: pointer;
+    user-select: none;
+    border-left: 3px solid transparent;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.web2-nav-group-head:hover {
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+}
+.web2-nav-group.is-open > .web2-nav-group-head {
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border-left-color: #27c24c;
+}
+.web2-nav-group-head .icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+.web2-nav-group-head .label { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.web2-nav-group-head .caret {
+    width: 12px; height: 12px;
+    transition: transform 0.15s;
+    opacity: 0.6;
+}
+.web2-nav-group.is-open > .web2-nav-group-head .caret { transform: rotate(90deg); opacity: 1; }
+
+/* Submenu items (nested links) */
+.web2-nav-sub {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.2s;
+}
+.web2-nav-group.is-open > .web2-nav-sub { max-height: 1000px; }
+.web2-nav-sub li { margin: 0; }
+.web2-nav-sub a {
+    display: block;
+    padding: 7px 20px 7px 50px;
+    color: #98aab8;
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.web2-nav-sub a:hover {
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+}
+.web2-nav-sub a.active {
+    background: rgba(39, 194, 76, 0.08);
+    color: #fff;
+    border-left-color: #27c24c;
+}
+
+/* Top-level link without submenu */
+.web2-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    color: #b1c1cd;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: background 0.12s, color 0.12s;
+}
+.web2-nav-link:hover { background: rgba(255,255,255,0.04); color: #fff; }
+.web2-nav-link.active {
+    background: rgba(39, 194, 76, 0.08);
+    color: #fff;
+    border-left-color: #27c24c;
+}
+.web2-nav-link .icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+.web2-nav-link .label { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Coming-soon badge for placeholder routes */
+.web2-nav-soon {
+    background: rgba(245, 80, 80, 0.18);
+    color: #ff8a8a;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 2px;
+    text-transform: uppercase;
+}
+
+/* Main content area */
+.web2-main {
+    overflow: auto;
+    background: #f0f3f4;
+}
+.web2-main-header {
+    background: #fff;
+    border-bottom: 1px solid #dee5e7;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.web2-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #58666e;
+    font-size: 13px;
+}
+.web2-breadcrumb-item { color: #58666e; }
+.web2-breadcrumb-sep { color: #b0bcc1; }
+.web2-breadcrumb-current { color: #333; font-weight: 600; }

@@ -87,7 +87,9 @@ html, body {
     color: var(--tpos-text-2);
 }
 html { background: var(--tpos-bg-app); }
-body { background: transparent; }     /* TPOS spec: html bg, body transparent */
+body { background: transparent; }
+/* When .web2-shell is the root layout, body uses block (web2-shell does the grid). */
+body:has(.web2-shell) { display: block !important; flex-direction: initial; }
 
 body { display: flex; flex-direction: column; }
 

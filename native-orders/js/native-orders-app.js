@@ -187,10 +187,10 @@
     // draft → gray #808080, others → blue/red as appropriate. fw 700, fs 14px.
     function tposStatusText(s) {
         const map = {
-            draft:     { label: 'Nháp',     cls: '' },
+            draft: { label: 'Nháp', cls: '' },
             confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
-            cancelled: { label: 'Huỷ bỏ',   cls: 'cancelled' },
-            delivered: { label: 'Đã giao',  cls: 'delivered' },
+            cancelled: { label: 'Huỷ bỏ', cls: 'cancelled' },
+            delivered: { label: 'Đã giao', cls: 'delivered' },
         };
         const m = map[s] || { label: s || '—', cls: '' };
         return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;

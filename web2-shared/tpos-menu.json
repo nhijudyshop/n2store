@@ -1,0 +1,440 @@
+{
+  "source": "tomato.tpos.vn /#/app/dashboard sidebar (crawled 2026-04-25)",
+  "items": [
+    {
+      "href": "#/app/dashboard",
+      "text": "Tổng quan",
+      "icon": "glyphicon glyphicon-home"
+    },
+    {
+      "href": "#/app/posconfig/kanban",
+      "text": "Điểm bán hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/possession/list",
+      "text": "Phiên bán hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/posorder/list",
+      "text": "Đơn hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastsaleorder/invoicelist",
+      "text": "Bán hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastsaleorder/refundlist",
+      "text": "Trả hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastsaleorder/deliveryinvoice",
+      "text": "Phiếu giao hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/historyds/list",
+      "text": "Lịch sử đối soát",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastsaleorder/historycrosscheckproduct",
+      "text": "Lịch sử đối soát sản phẩm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/wiinvoice/list",
+      "text": "Hóa đơn điện tử",
+      "icon": ""
+    },
+    {
+      "href": "#/app/wiinvoice/listhistory",
+      "text": "Lịch sử",
+      "icon": ""
+    },
+    {
+      "href": "#/app/wiinvoice/config",
+      "text": "Cấu hình",
+      "icon": ""
+    },
+    {
+      "href": "#/app/salequotation/quotationlist",
+      "text": "Báo giá",
+      "icon": "glyphicon glyphicon-list-alt"
+    },
+    {
+      "href": "#/app/saleorder/list2",
+      "text": "Đơn đặt hàng",
+      "icon": "fa fa-ticket"
+    },
+    {
+      "href": "#/app/saleOnline/liveCampaign/list",
+      "text": "Chiến dịch Live",
+      "icon": ""
+    },
+    {
+      "href": "#/app/saleOnline/order/list",
+      "text": "Đơn hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/saleOnline/facebook",
+      "text": "Facebook",
+      "icon": "fa fa-facebook-square text-info-lter"
+    },
+    {
+      "href": "#/app/salechannel/list",
+      "text": "Danh sách",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastpurchaseorder/invoicelist",
+      "text": "Mua hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastpurchaseorder/refundlist",
+      "text": "Trả hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockpickingtype/overview",
+      "text": "Tất cả hoạt động",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockinventory/list",
+      "text": "Điều chỉnh tồn kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockmove/list",
+      "text": "Dịch chuyển kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountpayment/list",
+      "text": "Thanh toán bán hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountpayment/changelist",
+      "text": "Tiền thối POS",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountinventory/list",
+      "text": "Điều chỉnh công nợ",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountdeposit/list",
+      "text": "Ký quỹ",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountpayment/thulist",
+      "text": "Phiếu thu",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountpayment/chilist",
+      "text": "Phiếu chi",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockwarehouseproduct/form",
+      "text": "Cấu hình sản phẩm kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockmove/fifovacuum",
+      "text": "Chạy điều chỉnh giá vốn hàng bán",
+      "icon": ""
+    },
+    {
+      "href": "#/app/partnercategory/list",
+      "text": "Nhóm khách hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/partnercategory_revenueconfig/list",
+      "text": "Cấu hình nhóm doanh số",
+      "icon": ""
+    },
+    {
+      "href": "#/app/partner/customer/list1",
+      "text": "Khách hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/partner/supplier/list1",
+      "text": "Nhà cung cấp",
+      "icon": ""
+    },
+    {
+      "href": "#/app/revenuebegan/list",
+      "text": "Doanh số đầu kỳ khách hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/revenuebegan/list_supplier",
+      "text": "Doanh số đầu kỳ nhà cung cấp",
+      "icon": ""
+    },
+    {
+      "href": "#/app/deliverycarrier/list",
+      "text": "Đối tác giao hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productcategory/list",
+      "text": "Nhóm sản phẩm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/producttemplate/list",
+      "text": "Sản phẩm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/product/list",
+      "text": "Biến thể sản phẩm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/barcodeproductlabel/printbarcode",
+      "text": "In mã vạch sản phẩm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productattribute/list",
+      "text": "Thuộc tính",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productattributevalue/list",
+      "text": "Giá trị thuộc tính",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productuomcateg/list",
+      "text": "Nhóm đơn vị tính",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productuom/list",
+      "text": "Đơn vị tính",
+      "icon": ""
+    },
+    {
+      "href": "#/app/category_ext/distributor/list",
+      "text": "Danh mục khác",
+      "icon": ""
+    },
+    {
+      "href": "#/app/promotionprogram/list",
+      "text": "Chương trình khuyến mãi",
+      "icon": ""
+    },
+    {
+      "href": "#/app/couponprogram/list",
+      "text": "Chương trình coupon",
+      "icon": ""
+    },
+    {
+      "href": "#/app/loyaltyprogram/list",
+      "text": "Chương trình tích điểm",
+      "icon": ""
+    },
+    {
+      "href": "#/app/offerprogram/list",
+      "text": "Chương trình ưu đãi",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountaccount/thulist",
+      "text": "Loại thu",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountaccount/chilist",
+      "text": "Loại chi",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountaccount/list",
+      "text": "Tài khoản kế toán",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountjournal/list",
+      "text": "Sổ nhật ký",
+      "icon": ""
+    },
+    {
+      "href": "#/app/tag/list",
+      "text": "Nhãn",
+      "icon": ""
+    },
+    {
+      "href": "#/app/exportfile/list",
+      "text": "Các tác vụ xuất đang chờ/xử lý",
+      "icon": ""
+    },
+    {
+      "href": "#/app/product/inventoryvaluation",
+      "text": "Giá trị tồn kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/stockreport/xuatnhapton",
+      "text": "Nhập - Xuất - Tồn",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportImported",
+      "text": "Thống kê nhập kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportExported",
+      "text": "Thống kê xuất kho",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportOrder/index",
+      "text": "Thống kê hóa đơn",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportRefund/index",
+      "text": "Thống kê trả hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportPurchase/index",
+      "text": "Thống kê mua hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/reportRevenue/index",
+      "text": "Thống kê doanh thu",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/businessResults/index",
+      "text": "Kết quả kinh doanh",
+      "icon": ""
+    },
+    {
+      "href": "#/app/fastsaleorder/deliveryreport/index",
+      "text": "Thống kê giao hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/supplierDept/index",
+      "text": "Công nợ nhà cung cấp",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/customerDept/index",
+      "text": "Công nợ khách hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/accountnotinvoice",
+      "text": "KH chưa phát sinh hóa đơn",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/auditlogfastsaleorder",
+      "text": "Báo cáo thao tác PBH theo nhân viên",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/partnerCreate",
+      "text": "Báo cáo nguồn tạo khách hàng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/accountcashprintjournal/report",
+      "text": "Báo cáo sổ tiền mặt",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/rateinvoicefromsaleonline",
+      "text": "Tỷ lệ lên đơn từ SaleOnline",
+      "icon": ""
+    },
+    {
+      "href": "#/app/report/productinvoice",
+      "text": "Báo cáo sản phẩm hóa đơn nháp/đã xác nhận",
+      "icon": ""
+    },
+    {
+      "href": "#/app/configs/general/index",
+      "text": "Cấu hình",
+      "icon": ""
+    },
+    {
+      "href": "#/app/company/list",
+      "text": "Công ty",
+      "icon": ""
+    },
+    {
+      "href": "#/app/configs/printer/config",
+      "text": "Máy in",
+      "icon": ""
+    },
+    {
+      "href": "#/app/productlabelpaper/list",
+      "text": "Giấy in mã vạch",
+      "icon": ""
+    },
+    {
+      "href": "#/app/applicationuser/list",
+      "text": "Người dùng",
+      "icon": ""
+    },
+    {
+      "href": "#/app/configs/roles",
+      "text": "Phân quyền",
+      "icon": ""
+    },
+    {
+      "href": "#/app/configs/twofa",
+      "text": "Xác thực 2 yếu tố (2FA)",
+      "icon": ""
+    },
+    {
+      "href": "#/app/rescurrency/list",
+      "text": "Đơn vị tiền tệ",
+      "icon": ""
+    },
+    {
+      "href": "#/app/irmailserver/list",
+      "text": "Cấu hình Mail",
+      "icon": ""
+    },
+    {
+      "href": "#/app/mailtemplate/list",
+      "text": "Mail template",
+      "icon": ""
+    },
+    {
+      "href": "#/app/configs/advanced",
+      "text": "Nâng cao",
+      "icon": ""
+    },
+    {
+      "href": "#/app/callcenter/config",
+      "text": "Tích hợp",
+      "icon": ""
+    }
+  ]
+}
