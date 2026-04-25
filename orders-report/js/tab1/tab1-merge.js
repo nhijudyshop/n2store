@@ -2125,6 +2125,43 @@ function _mergeXLId(item) {
 }
 
 /**
+ * #Note: Đăng ký custom flag definition cho "Gộp X Y Z" — idempotent.
+ * Custom flag được lưu trong `customFlagDefs` (Postgres) qua `saveCustomFlagDefinitions`.
+ * Khác `ensureMergeCustomFlag` của tab1-processing-tags.js (dedup theo label
+ * → id mỗi lần khác nhau), hàm này dùng id cố định = `GOP_<sttList>` để
+ * cùng cluster gộp lại sẽ trùng id, không tạo def trùng.
+ *
+ * @param {string} flagId - vd "GOP_589_655"
+ * @param {string} label - vd "GỘP 589 655" (uppercase)
+ */
+async function _ensureMergeFlagDef(flagId, label) {
+    if (!window.ProcessingTagState || typeof window.saveCustomFlagDefinitions !== 'function') {
+        console.warn('[MERGE-PTAG] customFlagDefs API not available, skip ensure flag def');
+        return;
+    }
+    const defs = window.ProcessingTagState.getCustomFlagDefs() || [];
+    const existing = defs.find((d) => d.id === flagId);
+    if (existing) return;
+    const palette = window.PTAG_FLAG_COLOR_PALETTE || ['#f59e0b'];
+    const color = palette[Math.abs(_mergeFlagHash(flagId)) % palette.length];
+    const newDef = { id: flagId, label, color, createdAt: Date.now() };
+    defs.push(newDef);
+    window.ProcessingTagState.setCustomFlagDefs(defs);
+    try {
+        const savedColors = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
+        savedColors[flagId] = color;
+        localStorage.setItem('ptag_flag_colors', JSON.stringify(savedColors));
+    } catch {}
+    await window.saveCustomFlagDefinitions();
+}
+
+function _mergeFlagHash(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return h;
+}
+
+/**
  * #Note: Wrapper mỏng để nuôi call-site cũ trong merge flow.
  * Toàn bộ thao tác gán tag sau khi gộp đơn CHỈ ghi vào Tag XL (web / Postgres).
  * KHÔNG gọi TPOS tag API (theo yêu cầu: merge không được thay đổi tag bên TPOS —
@@ -2154,14 +2191,18 @@ async function assignTagsAfterMerge(cluster) {
  * TARGET (đơn đích):
  *   - KHÔNG đụng category/subTag → giữ nguyên state hiện tại.
  *   - Merge flags + tTags từ toàn bộ cluster (dedup theo id).
- *   - Loại bỏ tTag cũ `GOP_DON` và mọi tTag dạng `GOP_<digits>...` từ lần merge trước.
- *   - Add tTag động `Gộp X Y Z` (id = `GOP_<sttList>`, name = `Gộp <sttList>`).
+ *   - Loại bỏ tTag cũ `GOP_DON` và mọi flag `GOP_<digits>...` từ lần merge trước.
+ *   - Add custom flag (đặc điểm) `Gộp X Y Z` (id = `GOP_<sttList>`, label = `GỘP X Y Z`).
  *
  * SOURCE (đơn nguồn):
- *   - Reset flags = [], category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT.
- *   - GIỮ NGUYÊN mọi tTag dạng `GOP_<digits>...` hiện có của source (gồm merge tag cũ lẫn mới).
+ *   - Reset category = 3 (KHÔNG CẦN CHỐT), subTag = DA_GOP_KHONG_CHOT, tTags = [].
+ *   - GIỮ NGUYÊN mọi flag dạng `GOP_<digits>...` hiện có của source (gồm merge flag cũ lẫn mới).
  *     Source KHÔNG mất "Gộp X Y Z" của chính nó sau khi gộp.
- *   - Add tTag `Gộp X Y Z` của lần merge hiện tại (dedup — nếu đã có thì giữ nguyên).
+ *   - Add custom flag `Gộp X Y Z` của lần merge hiện tại (dedup — nếu đã có thì giữ nguyên).
+ *
+ * #Note: "Gộp X Y Z" được lưu dạng **custom flag** (đặc điểm đơn) trong
+ * `data.flags`, KHÔNG phải tTag (chờ hàng) — đây là tag mô tả đặc điểm đơn,
+ * thuộc cùng nhóm với CK / TRỪ CÔNG NỢ / KHÁCH BOOM.
  *
  * Tất cả call đều dùng `{ suppressSync: true }` — không trigger XL→TPOS sync.
  */
@@ -2192,14 +2233,14 @@ async function assignTagXLAfterMerge(cluster) {
         }
         const mergeTagId = 'GOP_' + allSTTs.join('_');
         const mergeTagName = 'Gộp ' + allSTTs.join(' ');
+        const mergeTagLabel = mergeTagName.toUpperCase(); // "GỘP X Y Z" — convention của custom flag
 
-        // Lọc các tTag merge cũ: GOP_DON, GOP_<digits>... (từ lần merge trước đó)
-        const isOldMergeTTag = (id) => {
-            if (!id) return false;
-            if (id === 'GOP_DON') return true;
-            if (typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id)) return true;
-            return false;
-        };
+        // Helpers phân loại id:
+        // - merge flag (đặc điểm): GOP_<digits>... — vd GOP_589_655
+        // - tTag merge cũ (chờ hàng): GOP_DON
+        const isMergeFlag = (id) =>
+            typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id);
+        const isOldMergeTTag = (id) => id === 'GOP_DON' || isMergeFlag(id);
 
         // ===== TARGET: merge flags/tTags từ cluster =====
         const targetCode = String(cluster.targetOrder.Code);
@@ -2212,12 +2253,16 @@ async function assignTagXLAfterMerge(cluster) {
             if (!ptagData) continue;
             (ptagData.flags || []).forEach((f) => {
                 const fId = _mergeXLId(f);
-                if (fId != null && !allFlags.has(fId)) allFlags.set(fId, f);
+                if (fId == null) return;
+                // Bỏ qua merge flag cũ (GOP_<digits>...) khi gom từ source về target
+                // — target sẽ tự sinh merge flag mới của lần gộp này.
+                if (isMergeFlag(fId)) return;
+                if (!allFlags.has(fId)) allFlags.set(fId, f);
             });
             (ptagData.tTags || []).forEach((t) => {
                 const tId = _mergeXLId(t);
                 if (tId == null) return;
-                if (isOldMergeTTag(tId)) return; // bỏ GOP_DON + merge tag cũ
+                if (isOldMergeTTag(tId)) return; // bỏ GOP_DON + bất kỳ GOP_* tTag legacy
                 if (!allTTags.has(tId)) allTTags.set(tId, t);
             });
         }
@@ -2262,58 +2307,60 @@ async function assignTagXLAfterMerge(cluster) {
             }
         }
 
-        // Add tTag động "Gộp X Y Z" vào target
+        // Add custom flag (đặc điểm) "Gộp X Y Z" vào target
+        // — đăng ký def trong customFlagDefs (idempotent qua ensureMergeCustomFlag wrapper)
+        // — sau đó toggle flag vào order
         try {
+            await _ensureMergeFlagDef(mergeTagId, mergeTagLabel);
             const curTarget = window.ProcessingTagState.getOrderData(targetCode);
-            const hasMergeTag = (curTarget?.tTags || []).some((t) => _mergeXLId(t) === mergeTagId);
-            if (!hasMergeTag) {
-                await window.assignTTagToOrder(targetCode, mergeTagId, 'Hệ thống (gộp đơn)', {
-                    tagName: mergeTagName,
+            const hasMergeFlag = (curTarget?.flags || []).some((f) => _mergeXLId(f) === mergeTagId);
+            if (!hasMergeFlag) {
+                await window.toggleOrderFlag(targetCode, mergeTagId, 'Hệ thống (gộp đơn)', {
                     suppressSync: true,
                 });
             }
             console.log(
-                `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +${mergeTagName}`
+                `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +flag ${mergeTagLabel}`
             );
         } catch (e) {
-            console.error(`[MERGE-PTAG] Failed to add merge tag to target ${targetCode}:`, e);
+            console.error(`[MERGE-PTAG] Failed to add merge flag to target ${targetCode}:`, e);
         }
 
-        // ===== SOURCES: reset cat/flags, giữ NGUYÊN mọi tTag GOP_* của source + add marker mới =====
+        // ===== SOURCES: reset cat/tTags, giữ NGUYÊN mọi flag GOP_* của source + add marker mới =====
+        await _ensureMergeFlagDef(mergeTagId, mergeTagLabel);
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
             try {
                 const prev = window.ProcessingTagState.getOrderData(sourceCode);
-                // Giữ lại mọi tTag dạng GOP_<digits>... của source (kể cả merge tag cũ)
+                // Giữ lại mọi flag dạng GOP_<digits>... của source (kể cả merge flag cũ)
                 // → user muốn "Gộp X Y Z" ở đơn nguồn vẫn còn, không bị mất khi gộp.
-                const preservedMergeTTags = (prev?.tTags || []).filter(t => {
-                    const tId = _mergeXLId(t);
-                    if (!tId || typeof tId !== 'string') return false;
-                    return /^GOP_\d+(_\d+)*$/.test(tId);
+                const preservedMergeFlags = (prev?.flags || []).filter((f) => {
+                    const fId = _mergeXLId(f);
+                    return isMergeFlag(fId);
                 });
-                const mergedTTagMap = new Map();
-                preservedMergeTTags.forEach(t => {
-                    const tId = _mergeXLId(t);
-                    if (tId) mergedTTagMap.set(tId, t);
+                const mergedFlagMap = new Map();
+                preservedMergeFlags.forEach((f) => {
+                    const fId = _mergeXLId(f);
+                    if (fId) mergedFlagMap.set(fId, f);
                 });
-                // Dedup: nếu source đã có merge tag trùng mergeTagId thì giữ nguyên, không thêm lại
-                if (!mergedTTagMap.has(mergeTagId)) {
-                    mergedTTagMap.set(mergeTagId, { id: mergeTagId, name: mergeTagName });
+                // Dedup: nếu source đã có merge flag trùng mergeTagId thì giữ nguyên, không add lại
+                if (!mergedFlagMap.has(mergeTagId)) {
+                    mergedFlagMap.set(mergeTagId, { id: mergeTagId, name: mergeTagLabel });
                 }
-                const sourceTTags = Array.from(mergedTTagMap.values());
+                const sourceFlags = Array.from(mergedFlagMap.values());
 
                 await window.resetOrderTagsForMerge(
                     sourceCode,
                     {
                         category: 3,
                         subTag: 'DA_GOP_KHONG_CHOT',
-                        flags: [],
-                        tTags: sourceTTags,
+                        flags: sourceFlags,
+                        tTags: [],
                     },
                     'Hệ thống (gộp đơn)'
                 );
                 console.log(
-                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${sourceTTags.length} GOP_* tTag(s)`
+                    `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${sourceFlags.length} GOP_* flag(s)`
                 );
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
