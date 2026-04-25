@@ -83,6 +83,7 @@ docs/oncallcx/*.json
 # Resident.vn crawl artifacts — contains auth tokens (localStorage) + private data
 downloads/resident-crawl/
 downloads/resident-clone-smoke/
+downloads/resident-deep-compare/
 
 # Resident clone mock data — contains customer PII from owner's account
 resident/data/*.json

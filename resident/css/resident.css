@@ -370,7 +370,7 @@ body.app {
   border-radius: 50%;
   background: var(--accent-tint, rgba(36,143,85,.08));
 }
-.kpi .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.kpi .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 0; font-weight: 600; }
 .kpi .kpi-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
 .kpi .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .kpi.k-primary { --accent-tint: rgba(36,143,85,.10); }
