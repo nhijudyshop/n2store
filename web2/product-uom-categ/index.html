@@ -1,0 +1,78 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+    <title>Nhóm đơn vị tính — Web 2.0</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css?v=20260425i">
+    <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260425i">
+    <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260425i">
+
+    <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <script src="../../shared/js/firebase-config.js"></script>
+    <script src="../../shared/js/shared-auth-manager.js"></script>
+    <script src="../../shared/js/notification-system.js"></script>
+
+    <style>
+        body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #ecf0f5; }
+        .web2-shell { display: flex; min-height: 100vh; }
+        .web2-aside { flex-shrink: 0; }
+        .main-content { flex: 1; overflow: auto; height: 100vh; }
+        #pageRoot { padding: 12px 16px 32px; }
+        .web2-main-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .web2-breadcrumb { font-size: 13px; color: #777; flex: 1; }
+        .web2-breadcrumb-sep { margin: 0 6px; color: #ccc; }
+        .web2-breadcrumb-current { color: #444; font-weight: 600; }
+    </style>
+</head>
+<body class="tpos-theme">
+
+<div class="web2-shell">
+    <aside class="web2-aside" id="web2Aside"></aside>
+    <main class="main-content">
+        <div id="pageRoot"></div>
+    </main>
+</div>
+
+<script src="../../web2-shared/tpos-sidebar.js?v=20260425i"></script>
+<script src="../../web2-shared/web2-api.js?v=20260425i"></script>
+<script src="../../web2-shared/page-builder.js?v=20260425i"></script>
+<script>
+    if (window.Web2Sidebar) {
+        Web2Sidebar.mount('#web2Aside', { activeRoute: 'productuomcateg' });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide) lucide.createIcons();
+    });
+
+    Web2Page.mount('#pageRoot', {
+        slug: 'productuomcateg',
+        title: 'Nhóm đơn vị tính',
+        breadcrumb: ['App', 'Sản phẩm'],
+        columns: [
+            { key: 'code',      label: 'Mã',          width: 140, align: 'center' },
+            { key: 'name',      label: 'Tên nhóm',    align: 'left' },
+            { key: 'data.note', label: 'Ghi chú',     align: 'left' },
+        ],
+        fields: [
+            { key: 'code',      label: 'Mã',         type: 'text',     required: true,  placeholder: 'VD: NDVT001' },
+            { key: 'name',      label: 'Tên nhóm',   type: 'text',     required: true,  placeholder: 'Trọng lượng, Chiều dài, ...' },
+            { key: 'data.note', label: 'Ghi chú',    type: 'textarea' },
+        ],
+    });
+</script>
+
+</body>
+</html>

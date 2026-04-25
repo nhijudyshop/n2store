@@ -8,6 +8,20 @@
 
 ## 2026-04-25
 
+### [web2][page] Phase C.2-C.3 — productuom + productuomcateg + productattribute + productattributevalue
+| | |
+|---|---|
+| **Files** | NEW: [web2/product-uom-categ/index.html](../web2/product-uom-categ/index.html), [web2/product-uom/index.html](../web2/product-uom/index.html) — dùng inline boilerplate (trước khi có page-shell). NEW: [web2/product-attribute/index.html](../web2/product-attribute/index.html), [web2/product-attribute-value/index.html](../web2/product-attribute-value/index.html) — dùng `Web2Shell.bootstrap` (~25 dòng/page). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 4 item thêm field `our:` để click → trang nội bộ. |
+| **Chi tiết** | **productuomcateg** (Nhóm ĐVT): code/name/note. **productuom** (Đơn vị tính): + factor (number) + uomCateg (ref code). **productattribute** (Thuộc tính): + kind select (select/multi/color/number). **productattributevalue** (Giá trị thuộc tính): + attributeCode (ref) + colorHex (chỉ dùng khi kind=color). Reference từ child → parent qua text code (vd. uomCateg = code của nhóm). FK toàn vẹn không enforce ở DB layer (do schema generic) — chỉ ràng buộc qua UX. **page-shell test**: 2 page C.3 verify shell load đúng, sidebar + builder mount, không lỗi 404. |
+| **Status** | ✅ Code done. Verify after deploy: 4 trang load, CRUD work, sidebar highlight active item. |
+
+### [web2][framework] page-shell.js — DRY helper cho page mới (Phase C.3+)
+| | |
+|---|---|
+| **Files** | NEW: [web2-shared/page-shell.js](../web2-shared/page-shell.js) — `Web2Shell.bootstrap(config)` tự inject CSS preconnect/3 stylesheet/local style + body shell `.web2-shell > aside.web2-aside + main.web2-main > #pageRoot` + load 7 preload scripts (lucide, firebase, shared/*) + 3 mount scripts (sidebar/api/page-builder) sequential, sau đó mount sidebar + Web2Page. |
+| **Chi tiết** | **Vấn đề**: mỗi page Phase C.1-C.2 tốn ~85 dòng HTML boilerplate (head links + body shell + scripts) chỉ để gọi `Web2Page.mount`. Với 80+ page kế tiếp → 6800 dòng lặp. **Giải pháp**: shell helper inject hết, page mới chỉ cần `<script src=".../page-shell.js"></script>` ở head + `Web2Shell.bootstrap({slug, title, breadcrumb, columns, fields})` ở body — total ~25 dòng thay vì 85. **Asset version**: hard-code `v=20260425i` cho mọi page (1 nơi đổi). **Sequential load**: lucide → firebase compat trio → shared utils → sidebar/api/page-builder để tránh race. **Backward compat**: 3 page Phase C.1-C.2 đã dùng inline boilerplate, giữ nguyên (sẽ refactor sau khi xong C.* nếu cần). |
+| **Status** | ✅ Code done. Verify khi tạo page Phase C.3+ — load nhanh, không lỗi 404 script, sidebar + builder mount đúng. |
+
 ### [web2][page] Phase C.1 — Trang Nhóm sản phẩm (productcategory) dùng Web2Page.mount
 | | |
 |---|---|

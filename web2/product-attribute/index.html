@@ -1,0 +1,37 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+    <title>Thuộc tính sản phẩm — Web 2.0</title>
+    <script src="../../web2-shared/page-shell.js?v=20260425i"></script>
+</head>
+<body>
+<script>
+    Web2Shell.bootstrap({
+        slug: 'productattribute',
+        title: 'Thuộc tính',
+        breadcrumb: ['App', 'Sản phẩm'],
+        columns: [
+            { key: 'code',         label: 'Mã',          width: 140, align: 'center' },
+            { key: 'name',         label: 'Tên thuộc tính', align: 'left' },
+            { key: 'data.kind',    label: 'Kiểu',        width: 120, align: 'center' },
+            { key: 'data.note',    label: 'Ghi chú',     align: 'left' },
+        ],
+        fields: [
+            { key: 'code',      label: 'Mã',         type: 'text', required: true,  placeholder: 'VD: SIZE_CHU' },
+            { key: 'name',      label: 'Tên',        type: 'text', required: true,  placeholder: 'Size chữ, Màu sắc, ...' },
+            { key: 'data.kind', label: 'Kiểu',       type: 'select', options: [
+                { value: 'select', label: 'Chọn 1 (select)' },
+                { value: 'multi',  label: 'Chọn nhiều (multi)' },
+                { value: 'color',  label: 'Mã màu (color)' },
+                { value: 'number', label: 'Số (number)' },
+            ]},
+            { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+        ],
+    });
+</script>
+</body>
+</html>
