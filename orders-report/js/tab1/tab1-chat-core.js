@@ -741,15 +741,13 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         // VERIFY identity bằng cách match `recent_phone_numbers` của conv với SĐT đã biết:
         //   - cùng tên + cùng SĐT → cùng người, nhận
         //   - cùng tên + khác SĐT → homonym, từ chối
-        const _normPhone = (p) =>
-            p == null ? '' : String(p).replace(/\D/g, '').replace(/^0/, '');
+        const _normPhone = (p) => (p == null ? '' : String(p).replace(/\D/g, '').replace(/^0/, ''));
         const customerPhoneNorm = _normPhone(customerPhone);
         const _convHasPhone = (c) => {
             if (!customerPhoneNorm) return null;
             const pool = [].concat(c.recent_phone_numbers || []).concat(c.phone_numbers || []);
             for (const item of pool) {
-                const raw =
-                    typeof item === 'string' ? item : item?.phone_number || item?.captured;
+                const raw = typeof item === 'string' ? item : item?.phone_number || item?.captured;
                 if (_normPhone(raw) === customerPhoneNorm) return true;
             }
             return false;
