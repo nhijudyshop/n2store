@@ -263,7 +263,46 @@ function createRouter() {
     });
 
     // TURN server configuration (served to browser)
-    router.get('/turn-config', (req, res) => {
+    // Strategy: fetch directly from metered.live API using TURN_API_KEY (multiple URLs +
+    // fresh credentials + TCP/443 fallback). Cache 30 min in-memory. Fallback xuống env vars
+    // (TURN_URL/TURN_USERNAME/TURN_CREDENTIAL) hoặc STUN-only nếu cả 2 đều thiếu.
+    let _meteredCache = null; // { iceServers, fetchedAt }
+    const _METERED_TTL_MS = 30 * 60 * 1000; // 30 min
+
+    async function _fetchMeteredIceServers() {
+        const apiKey = process.env.TURN_API_KEY;
+        const domain = process.env.TURN_DOMAIN || 'n2store.metered.live';
+        if (!apiKey) return null;
+        if (
+            _meteredCache &&
+            Date.now() - _meteredCache.fetchedAt < _METERED_TTL_MS
+        ) {
+            return _meteredCache.iceServers;
+        }
+        try {
+            const url = `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`;
+            const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+            if (!r.ok) return null;
+            const data = await r.json();
+            if (!Array.isArray(data) || data.length === 0) return null;
+            const iceServers = [
+                { urls: 'stun:stun.l.google.com:19302' },
+                ...data,
+            ];
+            _meteredCache = { iceServers, fetchedAt: Date.now() };
+            return iceServers;
+        } catch (e) {
+            console.warn('[turn-config] metered fetch failed:', e.message);
+            return null;
+        }
+    }
+
+    router.get('/turn-config', async (req, res) => {
+        // Try metered.live first
+        const metered = await _fetchMeteredIceServers();
+        if (metered) return res.json({ iceServers: metered });
+
+        // Fallback to env-configured single TURN
         const turnUrl = process.env.TURN_URL || '';
         const turnUsername = process.env.TURN_USERNAME || '';
         const turnCredential = process.env.TURN_CREDENTIAL || '';

@@ -145,7 +145,40 @@ const PhoneWidget = (() => {
     function getWsUrl() {
         return dbConfig?.ws_url || DEFAULTS.ws_url;
     }
+    // ICE servers cache. Populated by fetchIceServersFromRender() on init; falls back to STUN only.
+    let _iceServersCache = null;
+    let _iceServersFetchedAt = 0;
+    const ICE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — TURN credentials thường rotate sau ~vài giờ
+
+    async function fetchIceServersFromRender() {
+        // Reuse cache nếu còn fresh — tránh hit /turn-config mỗi cuộc gọi
+        if (
+            _iceServersCache &&
+            Date.now() - _iceServersFetchedAt < ICE_CACHE_TTL_MS
+        ) {
+            return _iceServersCache;
+        }
+        try {
+            const url = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/turn-config';
+            const res = await fetch(url, { signal: AbortSignal.timeout?.(5000) });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data?.iceServers) && data.iceServers.length > 0) {
+                    _iceServersCache = data.iceServers;
+                    _iceServersFetchedAt = Date.now();
+                    addLog(`ICE: loaded ${data.iceServers.length} server(s) including TURN`);
+                    return _iceServersCache;
+                }
+            }
+        } catch (err) {
+            addLog(`ICE fetch failed: ${err.message} — fallback STUN only`, 'error');
+        }
+        return null;
+    }
+
     function getIceServers() {
+        // Sync getter — return cached (incl. TURN) if available, else STUN-only fallback.
+        if (_iceServersCache && _iceServersCache.length > 0) return _iceServersCache;
         return [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
@@ -1288,6 +1321,10 @@ const PhoneWidget = (() => {
         } catch {}
         if (!config.wsUrl) config.wsUrl = getWsUrl();
         createWidget();
+        // Fetch ICE servers (incl. TURN) — non-blocking; falls back to STUN if Render env
+        // chưa cấu hình TURN_URL. Without TURN, audio fails behind symmetric NAT/firewall
+        // → user phải gọi 2 lần mới nghe + bắt máy không được.
+        fetchIceServersFromRender().catch(() => {});
         try {
             addLog('Connecting...');
             setStatus('calling', 'Đang kết nối tổng đài...');
@@ -1410,7 +1447,7 @@ const PhoneWidget = (() => {
         });
     }
 
-    function acceptIncoming() {
+    async function acceptIncoming() {
         if (!incomingSession) return;
         stopIncomingRing();
         hideIncomingBanner();
@@ -1426,10 +1463,13 @@ const PhoneWidget = (() => {
         document.getElementById('pwName').textContent = callerName || 'Đang trả lời...';
         document.getElementById('pwDialInput').value = formatVNPhone(caller);
         handleSession(incomingSession);
+        // Pre-warm TURN config trước khi answer — nếu chưa cache, fetch ngay (timeout 5s).
+        // Symmetric NAT cần TURN cho cả answer side.
+        await fetchIceServersFromRender().catch(() => {});
         try {
             incomingSession.answer({
                 mediaConstraints: { audio: true, video: false },
-                pcConfig: { iceServers: getIceServers() },
+                pcConfig: { iceServers: getIceServers(), iceTransportPolicy: 'all' },
             });
         } catch (err) {
             addLog(`Answer error: ${err.message}`, 'error');
@@ -1534,6 +1574,8 @@ const PhoneWidget = (() => {
             return;
         }
         const target = pendingCall.phone;
+        // Đảm bảo ICE/TURN config đã load trước khi tạo offer — nếu cache đã có thì return ngay.
+        await fetchIceServersFromRender().catch(() => {});
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             stream.getTracks().forEach((t) => t.stop());
