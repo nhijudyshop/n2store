@@ -152,10 +152,7 @@ const PhoneWidget = (() => {
 
     async function fetchIceServersFromRender() {
         // Reuse cache nếu còn fresh — tránh hit /turn-config mỗi cuộc gọi
-        if (
-            _iceServersCache &&
-            Date.now() - _iceServersFetchedAt < ICE_CACHE_TTL_MS
-        ) {
+        if (_iceServersCache && Date.now() - _iceServersFetchedAt < ICE_CACHE_TTL_MS) {
             return _iceServersCache;
         }
         try {
@@ -1449,9 +1446,10 @@ const PhoneWidget = (() => {
 
     async function acceptIncoming() {
         if (!incomingSession) return;
+        const sessionToAnswer = incomingSession; // capture ref nếu state reset trong async gap
         stopIncomingRing();
         hideIncomingBanner();
-        const caller = incomingSession.remote_identity.uri.user || '';
+        const caller = sessionToAnswer.remote_identity.uri.user || '';
         const callerName = lookupCustomerName(caller);
         activeCallMeta = {
             phone: caller,
@@ -1462,14 +1460,34 @@ const PhoneWidget = (() => {
         };
         document.getElementById('pwName').textContent = callerName || 'Đang trả lời...';
         document.getElementById('pwDialInput').value = formatVNPhone(caller);
-        handleSession(incomingSession);
-        // Pre-warm TURN config trước khi answer — nếu chưa cache, fetch ngay (timeout 5s).
-        // Symmetric NAT cần TURN cho cả answer side.
-        await fetchIceServersFromRender().catch(() => {});
+
+        // Pre-test mic TRƯỚC khi answer — outgoing đã làm, incoming thiếu → JsSIP gọi
+        // getUserMedia trong answer() và fail im với "WebRTC Error" nếu mic chưa grant
+        // (lần đầu vào page chưa request mic bao giờ).
         try {
-            incomingSession.answer({
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach((t) => t.stop());
+        } catch (err) {
+            addLog(`Mic bị chặn: ${err.message}. Cho phép Microphone trong trình duyệt`, 'error');
+            setStatus('error', 'Mic bị chặn');
+            try {
+                sessionToAnswer.terminate({ status_code: 480, reason_phrase: 'Mic blocked' });
+            } catch {}
+            incomingSession = null;
+            return;
+        }
+
+        // Pre-warm TURN config nếu chưa cache (timeout 5s)
+        await fetchIceServersFromRender().catch(() => {});
+
+        // Register UI listeners + audio attach AFTER mic OK
+        handleSession(sessionToAnswer);
+        try {
+            sessionToAnswer.answer({
                 mediaConstraints: { audio: true, video: false },
                 pcConfig: { iceServers: getIceServers(), iceTransportPolicy: 'all' },
+                rtcOfferConstraints: { offerToReceiveAudio: true },
+                sessionTimersExpires: 120,
             });
         } catch (err) {
             addLog(`Answer error: ${err.message}`, 'error');
