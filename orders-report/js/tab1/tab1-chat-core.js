@@ -640,7 +640,57 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     const cached = window._pageConvCache.get(cacheKey);
     if (cached) {
         conv = cached;
-    } else if (!allowDrift) {
+    }
+
+    // ─── PRIMARY (2026-04-26 v4): Phone-as-query Pancake search on target page ───
+    // SĐT là khoá unique nhất xuyên page. Dùng `searchConversationsOnPage(pageId, phone)`
+    // → Pancake tự match `recent_phone_numbers` → trả đúng conversation của customer.
+    // Áp dụng cả initial open (allowDrift=true) và explicit switch (allowDrift=false).
+    const _phoneNorm = (p) => (p == null ? '' : String(p).replace(/\D/g, '').replace(/^0/, ''));
+    const _convHasPhoneVerify = (c, phoneN) => {
+        if (!phoneN) return null;
+        const pool = [].concat(c.recent_phone_numbers || []).concat(c.phone_numbers || []);
+        for (const item of pool) {
+            const raw = typeof item === 'string' ? item : item?.phone_number || item?.captured;
+            if (_phoneNorm(raw) === phoneN) return true;
+        }
+        return false;
+    };
+
+    if (!conv) {
+        const phone = _phoneNorm(window.currentChatPhone);
+        if (phone && pdm.searchConversationsOnPage) {
+            try {
+                const phoneSearchRes = await pdm.searchConversationsOnPage(pageId, phone, {
+                    signal: opts?.signal,
+                });
+                if (_isStale()) return;
+                const matched = (phoneSearchRes.conversations || []).filter(
+                    (c) =>
+                        String(c.page_id) === String(pageId) &&
+                        _convHasPhoneVerify(c, phone) === true
+                );
+                matched.sort((a, b) => {
+                    if (a.type === 'INBOX' && b.type !== 'INBOX') return -1;
+                    if (a.type !== 'INBOX' && b.type === 'INBOX') return 1;
+                    return (
+                        new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime() -
+                        new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime()
+                    );
+                });
+                if (matched.length > 0) {
+                    conv = matched.find((c) => c.type === type) || matched[0];
+                    if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
+                    window._pageConvPickerCache.set(pageId, { convs: matched, loadToken });
+                }
+            } catch (e) {
+                if (e?.name === 'AbortError') throw e;
+                console.warn('[Chat-Core] phone-search failed:', e?.message);
+            }
+        }
+    }
+
+    if (!conv && !allowDrift) {
         // Explicit page switch: PSID is page-specific (different per page).
         // Use DB lookup chain to find exact customer fb_id on target page.
         const customerName = window.currentCustomerName;
