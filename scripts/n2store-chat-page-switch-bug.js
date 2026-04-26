@@ -32,8 +32,24 @@ const ts = () => new Date().toISOString();
 const log = (...a) => console.log(`[${ts()}]`, ...a);
 
 (async () => {
-    const browser = await chromium.launch({ headless: false });
-    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const browser = await chromium.launch({
+        headless: false,
+        args: ['--disable-application-cache', '--disk-cache-size=0', '--media-cache-size=0'],
+    });
+    const ctx = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        bypassCSP: true,
+    });
+    // Force no-cache on all JS to ensure latest deployed fix
+    await ctx.route('**/*.js', (route) => {
+        route.continue({
+            headers: {
+                ...route.request().headers(),
+                'cache-control': 'no-cache, no-store, must-revalidate',
+                pragma: 'no-cache',
+            },
+        });
+    });
     const page = await ctx.newPage();
 
     // Capture network requests for chat APIs
@@ -43,7 +59,12 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
         if (/by-phone|fb-global-id|fetchConversations|search|conversations|messages/i.test(u)) {
             try {
                 const json = await res.json().catch(() => null);
-                netLog.push({ t: ts(), status: res.status(), url: u.slice(0, 250), body: json ? JSON.stringify(json).slice(0, 500) : null });
+                netLog.push({
+                    t: ts(),
+                    status: res.status(),
+                    url: u.slice(0, 250),
+                    body: json ? JSON.stringify(json).slice(0, 500) : null,
+                });
             } catch (_) {}
         }
     });
@@ -54,10 +75,14 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     await page.fill('#username', ARGS.user);
     await page.fill('#password', ARGS.pass);
     await page.locator('#password').press('Enter');
-    await page.waitForFunction(
-        () => !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) || !!localStorage.getItem('loginindex_auth'),
-        { timeout: 30_000 }
-    ).catch(() => {});
+    await page
+        .waitForFunction(
+            () =>
+                !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) ||
+                !!localStorage.getItem('loginindex_auth'),
+            { timeout: 30_000 }
+        )
+        .catch(() => {});
     await page.waitForTimeout(2_000);
 
     log('Goto orders');
@@ -93,7 +118,9 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     await page.waitForTimeout(3_500);
 
     // Diagnostic: how many rows visible?
-    const rowsCount = await frame.evaluate(() => document.querySelectorAll('#tableBody tr[data-order-id]').length);
+    const rowsCount = await frame.evaluate(
+        () => document.querySelectorAll('#tableBody tr[data-order-id]').length
+    );
     log(`Visible rows after search: ${rowsCount}`);
 
     log('Open chat modal — find any chat-trigger element');
@@ -111,9 +138,20 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
             '[onclick*="openChat"], [onclick*="openInbox"], [onclick*="showChat"], [onclick*="Inbox"], .chat-trigger, .messages-cell, [data-column="messages"], [data-column="comments"]'
         );
         if (trigger) {
-            try { trigger.click(); return { ok: true, clicked: trigger.tagName + '.' + (trigger.className || '').split(' ')[0] }; } catch (_) {}
+            try {
+                trigger.click();
+                return {
+                    ok: true,
+                    clicked: trigger.tagName + '.' + (trigger.className || '').split(' ')[0],
+                };
+            } catch (_) {}
         }
-        return { ok: false, reason: 'no chat trigger', rowOuterHtml: row.outerHTML.slice(0, 1500), clickables };
+        return {
+            ok: false,
+            reason: 'no chat trigger',
+            rowOuterHtml: row.outerHTML.slice(0, 1500),
+            clickables,
+        };
     });
     log('Open result:', JSON.stringify(opened, null, 2).slice(0, 2000));
     await page.waitForTimeout(3_000);
@@ -126,8 +164,15 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
         currentCustomerName: window.currentCustomerName,
         currentConversationId: window.currentConversationId,
         currentConversationType: window.currentConversationType,
-        pages: (window.pancakeDataManager?.pages || []).map((p) => ({ id: String(p.id), name: p.name })),
-        firstMessages: Array.from(document.querySelectorAll('#chatMessages .chat-message-text, #chatMessages .chat-msg, #chatMessages [class*="message"]'))
+        pages: (window.pancakeDataManager?.pages || []).map((p) => ({
+            id: String(p.id),
+            name: p.name,
+        })),
+        firstMessages: Array.from(
+            document.querySelectorAll(
+                '#chatMessages .chat-message-text, #chatMessages .chat-msg, #chatMessages [class*="message"]'
+            )
+        )
             .slice(0, 6)
             .map((el) => el.textContent.slice(0, 120)),
     }));
@@ -141,7 +186,9 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     }
 
     // Find an alternate page to switch to
-    const altPage = (initial.pages || []).find((p) => String(p.id) !== String(initial.currentChatChannelId));
+    const altPage = (initial.pages || []).find(
+        (p) => String(p.id) !== String(initial.currentChatChannelId)
+    );
     log('Switching to alternate page:', altPage);
 
     if (!altPage) {
@@ -171,7 +218,10 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
                 }
                 return r;
             } catch (e) {
-                window.__bug.events.push({ url: (url || '').slice(0, 200), error: String(e).slice(0, 100) });
+                window.__bug.events.push({
+                    url: (url || '').slice(0, 200),
+                    error: String(e).slice(0, 100),
+                });
                 throw e;
             }
         };
@@ -187,7 +237,11 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
         currentChatPhone: window.currentChatPhone,
         currentCustomerName: window.currentCustomerName,
         currentConversationId: window.currentConversationId,
-        firstMessages: Array.from(document.querySelectorAll('#chatMessages .chat-message-text, #chatMessages .chat-msg, #chatMessages [class*="message"]'))
+        firstMessages: Array.from(
+            document.querySelectorAll(
+                '#chatMessages .chat-message-text, #chatMessages .chat-msg, #chatMessages [class*="message"]'
+            )
+        )
             .slice(0, 8)
             .map((el) => el.textContent.slice(0, 120)),
         bugEvents: window.__bug?.events || [],
@@ -206,7 +260,8 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     log('Report →', REPORT);
 
     // Compare: did conversation belong to same person?
-    const sameCustomer = initial.currentChatPhone === afterSwitch.currentChatPhone &&
+    const sameCustomer =
+        initial.currentChatPhone === afterSwitch.currentChatPhone &&
         initial.currentCustomerName === afterSwitch.currentCustomerName;
     const convChanged = initial.currentConversationId !== afterSwitch.currentConversationId;
     log('\n=== VERDICT ===');
@@ -216,4 +271,7 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
     log('  after first msg:  ', afterSwitch.firstMessages?.[0]?.slice(0, 80));
 
     await browser.close();
-})().catch((e) => { console.error('FATAL', e); process.exit(1); });
+})().catch((e) => {
+    console.error('FATAL', e);
+    process.exit(1);
+});

@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-26
+
+### [chat][bug] Switch page chat modal load nhầm conversation của khách trùng tên
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — thêm cờ `dbLookupDone` (true khi có ít nhất 1 DB call thành công) + `customerAbsentOnTargetPage = dbLookupDone && !targetFbId && foundConvs.length === 0`. Khi true → skip name search fallback + source-PSID fallback. NEW: [scripts/n2store-chat-page-switch-bug.js](../scripts/n2store-chat-page-switch-bug.js) — Playwright repro: search SĐT, mở chat, switch page, hook `fetch` để bắt strategy. |
+| **Chi tiết** | **Repro**: SĐT `0914495309` (Trần Nhi). DB lookup `customers/by-phone` trả `pancake_data.page_fb_ids = {"270136663390370": "..."}` — khách CHỈ có fb_id trên page NhiJudy Store. Switch sang page khác (Nhi Judy Nè / Nhi Judy House) → `fb-global-id/by-global?pageId=<target>` → `{found:false}` (đúng — khách thật sự không có trên page đó). **Bug**: code fallback sang `pancake/conversations/search?q=Trần Nhi` → match 1 customer KHÁC cùng tên ("Trần Nhi" rất phổ biến) với `from_psid=7798798720179856` trên page đích → load conversation người LẠ. Người dùng thấy chat của khách khác. **Fix**: name search + source-PSID fallback đều giả định "có thể PSID/name dẫn đến đúng người". Nhưng PSID là page-scoped (collision khả năng cao trên page khác) và name không unique. Khi DB đã xác nhận khách không có fb_id → trả null, show empty state "Không tìm thấy cuộc hội thoại trên page này". |
+| **Status** | ✅ Verified end-to-end (commit 9cdccc14). Trước fix: 5 fetch calls, kết thúc bằng load conversation HOMONYM. Sau fix: 3 fetch calls (by-phone + 2 fb-global-id), dừng đúng ở empty state. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). |
+
 ## 2026-04-25
 
 ### [orders][perf] Tab1 — fix bảng giật khi filter "ĐƠN CHƯA PHẢN HỒI" idle (SSE flood → full tbody rebuild)
