@@ -1442,9 +1442,13 @@ function _renderPageSelectorItems() {
             const pageId = item.dataset.pageId;
             _closePageDropdown();
             if (pageId && String(pageId) !== String(window.currentChatChannelId)) {
+                // Gọi switchChatPage TRƯỚC — phần đầu (sync) của async function set
+                // window.currentChatChannelId = pageId ngay lập tức. Nhờ đó
+                // `_renderPageSelectorItems` đọc giá trị mới và đặt checkmark đúng item.
+                // Trước đây gọi sau → render đọc giá trị OLD → label và checkmark lệch nhau.
+                window.switchChatPage(pageId);
                 _updatePageSelectorLabel(pageId);
                 _renderPageSelectorItems();
-                window.switchChatPage(pageId);
             }
         });
     });
