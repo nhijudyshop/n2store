@@ -8,6 +8,13 @@
 
 ## 2026-04-26
 
+### [chat][refactor] Bỏ psid cache lookup khi có phone — 1 customer = 1 globalId
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — đổi từ Promise.all([cacheRes, custRes]) sang if/else: có phone → CHỈ gọi `customers/by-phone`. Không phone → fallback `fb-global-id?psid=...` (như cũ). |
+| **Chi tiết** | **User feedback**: "mỗi khách chỉ có 1 globalid mà?" — chuẩn. SĐT là khoá duy nhất, by-phone trả `global_id` authoritative. Psid→globalId cache (`fb_global_id_cache`) là phụ trợ cho case không có phone, và có thể bị nhân viên merge nhầm khi resolve homonym (vd: psid của Trần Nhi GỐC bị map sang globalId của Trần Nhi-homonym, resolvedBy=hanh). **Trước**: chạy parallel cả 2 calls → tốn round-trip + có thể hit poisoned data. **Sau**: 2 calls (by-phone + by-global) → 1 globalId verified, dùng đúng cho mọi page lookup. **Verify** (commit ab252bca) switch sang Nhi Judy House: bugEvents giờ đúng 2 entries: `by-phone` returns `global_id=100080729143290` + `by-global?globalUserId=100080729143290&pageId=117267091364524` returns `{found:false}` → trigger `customerAbsentOnTargetPage` → empty state. |
+| **Status** | ✅ Verified end-to-end. **3 fix progressively**: (1) 9cdccc14 gate name/PSID fallback khi DB confirms absent, (2) 300bd28d phone globalId thắng psid cache, (3) ab252bca bỏ luôn psid call khi có phone. Calls giảm 5→2. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). **TODO**: cleanup `fb_global_id_cache` rows poisoned (resolvedBy manual merge sai). |
+
 ### [chat][bug-layer2] DB cache `fb_global_id_cache` bị poisoned — by-phone globalId phải win
 | | |
 |---|---|
