@@ -136,7 +136,11 @@ const log = (...a) => {
     };
 
     // ── REPL ─────────────────────────────────────────────────────
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
+    });
     rl.on('line', async (raw) => {
         const line = raw.trim();
         if (!line) return;
@@ -203,7 +207,9 @@ const log = (...a) => {
             await safe(
                 () =>
                     getFrame().evaluate((q) => {
-                        const inp = document.querySelector('#searchInput, input[placeholder*="Tìm"]');
+                        const inp = document.querySelector(
+                            '#searchInput, input[placeholder*="Tìm"]'
+                        );
                         if (!inp) return { ok: false };
                         inp.focus();
                         inp.value = q;
@@ -244,8 +250,16 @@ const log = (...a) => {
                     getFrame().evaluate((needle) => {
                         const pages = window.pancakeDataManager?.pages || [];
                         let p = pages.find((x) => String(x.id) === needle);
-                        if (!p) p = pages.find((x) => (x.name || '').toLowerCase().includes(needle.toLowerCase()));
-                        if (!p) return { ok: false, reason: 'no match', pages: pages.map((x) => ({ id: x.id, name: x.name })) };
+                        if (!p)
+                            p = pages.find((x) =>
+                                (x.name || '').toLowerCase().includes(needle.toLowerCase())
+                            );
+                        if (!p)
+                            return {
+                                ok: false,
+                                reason: 'no match',
+                                pages: pages.map((x) => ({ id: x.id, name: x.name })),
+                            };
                         if (typeof window.switchChatPage !== 'function')
                             return { ok: false, reason: 'no switchChatPage' };
                         window.switchChatPage(p.id);
