@@ -8,6 +8,13 @@
 
 ## 2026-04-26
 
+### [orders][bug] Tạo phiếu bán hàng dùng products cũ sau khi user edit (stale cached orderLines)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/utils/sale-modal-common.js](../orders-report/js/utils/sale-modal-common.js) — `populateSaleModalWithOrder` bỏ branch `if (order.orderLines && order.orderLines.length > 0)`, luôn dùng `order.Details` làm initial paint. MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — sau `updateOrderInTable`, `delete _cachedOrder.orderLines` để clear stale cache. |
+| **Chi tiết** | **Bug**: User edit order rồi click "Tạo phiếu bán hàng" → modal hiển thị products CŨ (pre-edit). Nếu user confirm trước khi `fetchOrderDetailsForSale` async load fresh data → PBH tạo với products SAI. **Root cause**: `populateSaleOrderLinesFromAPI` mutate `currentSaleOrderData.orderLines = orderLines`. Vì `currentSaleOrderData = order` trỏ trực tiếp tới object trong OrderStore, OrderStore object có thêm field `.orderLines` cached sau khi modal đóng. User edit qua edit-modal → fetchOrderData trả SaleOnline_Order không có field `orderLines` → `Object.assign` không clear → stale `.orderLines` còn nguyên trên OrderStore. Lần mở sale modal sau → `populateSaleModalWithOrder` check `order.orderLines` TRƯỚC `order.Details` → dùng STALE. **Fix**: (1) bỏ branch `order.orderLines` trong populate — luôn dùng `Details` (refreshed bởi edit-modal). (2) Defensive: clear `.orderLines` cached trên OrderStore khi edit save. |
+| **Status** | ✅ Commit 71d29f1e pushed. |
+
 ### [chat][refactor] Bỏ psid cache lookup khi có phone — 1 customer = 1 globalId
 | | |
 |---|---|
