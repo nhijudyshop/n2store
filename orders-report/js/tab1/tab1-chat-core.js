@@ -690,19 +690,24 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                         : null,
                 ]);
 
-                let globalId = null;
-                if (cacheRes) {
-                    const cacheData = await cacheRes.json().catch(() => null);
-                    if (cacheData?.found) globalId = cacheData.globalUserId;
-                    dbLookupDone = true;
-                }
+                // Authoritative: phone → globalId (verified via SĐT in customers table).
+                // Psid → globalId cache CAN be manually mis-resolved (e.g. staff merged
+                // a homonym), so trust phone-derived globalId when present.
+                let phoneGlobalId = null;
+                let psidGlobalId = null;
                 if (custRes) {
                     const custData = await custRes.json().catch(() => null);
-                    if (!globalId) globalId = custData?.global_id || null;
+                    phoneGlobalId = custData?.global_id || null;
                     const pageFbIds = custData?.pancake_data?.page_fb_ids;
                     if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
                     dbLookupDone = true;
                 }
+                if (cacheRes) {
+                    const cacheData = await cacheRes.json().catch(() => null);
+                    if (cacheData?.found) psidGlobalId = cacheData.globalUserId;
+                    dbLookupDone = true;
+                }
+                const globalId = phoneGlobalId || psidGlobalId;
 
                 if (_isStale()) return;
 
