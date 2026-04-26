@@ -654,6 +654,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         // P3 optimization: Step A (psid→globalId) + Step B (phone→globalId) run in PARALLEL,
         // since they're independent. Step C depends on globalId → still sequential.
         // Warm: 500ms → best-of(A,B) ≈ 500ms, saves one round-trip.
+        // dbLookupDone flips to true when at least one DB call succeeded — used to gate name
+        // fallback (which can match a homonym on target page when the real customer is absent).
+        let dbLookupDone = false;
         if (customerPhone || psid) {
             try {
                 const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -691,12 +694,14 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 if (cacheRes) {
                     const cacheData = await cacheRes.json().catch(() => null);
                     if (cacheData?.found) globalId = cacheData.globalUserId;
+                    dbLookupDone = true;
                 }
                 if (custRes) {
                     const custData = await custRes.json().catch(() => null);
                     if (!globalId) globalId = custData?.global_id || null;
                     const pageFbIds = custData?.pancake_data?.page_fb_ids;
                     if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
+                    dbLookupDone = true;
                 }
 
                 if (_isStale()) return;
@@ -711,6 +716,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     if (targetRes) {
                         const targetData = await targetRes.json().catch(() => null);
                         if (targetData?.found) targetFbId = targetData.psid;
+                        dbLookupDone = true;
                     }
                 }
             } catch (e) {
@@ -729,8 +735,15 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             );
         }
 
+        // BUG FIX (2026-04-26): if DB lookup definitively says customer has NO fb_id on target
+        // page, do NOT fall back to name search or source-PSID — both can pull a homonym /
+        // unrelated customer on target page. Better to show empty state.
+        // Reason: customers with common names (e.g., "Trần Nhi") collide on name search,
+        // and PSID is page-scoped so reusing source PSID against target page returns wrong person.
+        const customerAbsentOnTargetPage = dbLookupDone && !targetFbId && foundConvs.length === 0;
+
         // Fallback: name search (v1 POST — cross-page, confirmed working)
-        if (foundConvs.length === 0 && customerName) {
+        if (foundConvs.length === 0 && customerName && !customerAbsentOnTargetPage) {
             const _strip = (s) =>
                 s
                     ?.normalize('NFD')
@@ -752,7 +765,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
 
         // Last fallback: page-specific API with original PSID
-        if (foundConvs.length === 0) {
+        // Skip when DB confirmed customer absent on target page — original PSID is from source
+        // page and would collide with an unrelated customer on target page.
+        if (foundConvs.length === 0 && !customerAbsentOnTargetPage) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, {
                 signal: opts?.signal,
             });
