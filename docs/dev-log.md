@@ -8,6 +8,13 @@
 
 ## 2026-04-26
 
+### [orders][feat] Auto-tag ĐÃ RA ĐƠN — đổi từ "theo cột PBH" sang 4 mode user chọn
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — thêm `_autoHoanTatMode` state ('single' / 'bulk' / 'all' / 'manual'), `_shouldAutoFlipForSource(source)` gate, `setAutoHoanTatMode(mode)` API, persist qua userStorageManager. `onPtagBillCreated(saleOnlineId, source)` thêm param source, gate qua mode. **Bỏ** reconcileTagsWithInvoices auto-call trong loadProcessingTags. MODIFIED: [tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — `storeFromApiResult(apiResult, source)` thêm param, propagate xuống `onPtagBillCreated(soId, source)`. Wrapper `showFastSaleResultsModal` gọi với `'bulk'`. MODIFIED: [tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) — single sale gọi `storeFromApiResult(result, 'single')` + 2 social-order callers truyền `'single'`. MODIFIED: [tab1-orders.html](../orders-report/tab1-orders.html) — thêm dropdown "Auto ĐÃ RA ĐƠN: PBH lẻ / PBH hàng loạt / Tất cả PBH / Chỉ gắn tay" cạnh Auto T toggle. |
+| **Chi tiết** | **User feedback**: "Bỏ logic gắn tag ĐÃ RA ĐƠN theo cột phiếu bán hàng → đổi thành 4 cách: PBH lẻ / hàng loạt / tất cả / gắn tay". Trước đây: tag được auto-flip dựa `InvoiceStatusStore.getAll(orderId).some(active)` — bao gồm reconcile khi load page → đơn của session khác hoặc PBH vừa được sync về cũng bị flip không kiểm soát. **Giải pháp**: chỉ flip khi user CHỦ ĐỘNG tạo PBH ở session hiện tại; truyền source param qua chuỗi `storeFromApiResult → onPtagBillCreated`; mode setting per-user filter source. Default 'all' giữ behavior gần như cũ trừ reconcile. **Không còn** passive auto-tag khi load page hay khi PBH được sync từ thiết bị khác. |
+| **Status** | ✅ Commit 69b222cb pushed. Mode dropdown UI ở filter bar. Manual click vẫn hoạt động bình thường (bypass mode). |
+
 ### [orders][bug] Tạo phiếu bán hàng dùng products cũ sau khi user edit (stale cached orderLines)
 | | |
 |---|---|
