@@ -735,15 +735,28 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             );
         }
 
-        // BUG FIX (2026-04-26): if DB lookup definitively says customer has NO fb_id on target
-        // page, do NOT fall back to name search or source-PSID — both can pull a homonym /
-        // unrelated customer on target page. Better to show empty state.
-        // Reason: customers with common names (e.g., "Trần Nhi") collide on name search,
-        // and PSID is page-scoped so reusing source PSID against target page returns wrong person.
-        const customerAbsentOnTargetPage = dbLookupDone && !targetFbId && foundConvs.length === 0;
+        // BUG FIX (2026-04-26 v3): DB `customers/by-phone.pancake_data.page_fb_ids` đôi khi
+        // INCOMPLETE — chỉ có 1 page binding mặc dù khách thật sự có conv trên nhiều page với
+        // psid khác nhau. Empty state che mất conversation hợp lệ. Thay vì gate fallback, ta
+        // VERIFY identity bằng cách match `recent_phone_numbers` của conv với SĐT đã biết:
+        //   - cùng tên + cùng SĐT → cùng người, nhận
+        //   - cùng tên + khác SĐT → homonym, từ chối
+        const _normPhone = (p) =>
+            p == null ? '' : String(p).replace(/\D/g, '').replace(/^0/, '');
+        const customerPhoneNorm = _normPhone(customerPhone);
+        const _convHasPhone = (c) => {
+            if (!customerPhoneNorm) return null;
+            const pool = [].concat(c.recent_phone_numbers || []).concat(c.phone_numbers || []);
+            for (const item of pool) {
+                const raw =
+                    typeof item === 'string' ? item : item?.phone_number || item?.captured;
+                if (_normPhone(raw) === customerPhoneNorm) return true;
+            }
+            return false;
+        };
 
-        // Fallback: name search (v1 POST — cross-page, confirmed working)
-        if (foundConvs.length === 0 && customerName && !customerAbsentOnTargetPage) {
+        // Fallback: name search + phone verification
+        if (foundConvs.length === 0 && customerName) {
             const _strip = (s) =>
                 s
                     ?.normalize('NFD')
@@ -756,18 +769,45 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 const searchResult = await pdm.searchConversations(customerName, {
                     signal: opts?.signal,
                 });
-                foundConvs = (searchResult.conversations || []).filter(
+                const onTargetPage = (searchResult.conversations || []).filter(
                     (c) =>
                         String(c.page_id) === String(pageId) &&
                         _nameMatch(c.from?.name, customerName)
                 );
+                if (customerPhoneNorm) {
+                    // Strict: phone must match (loại homonym). Search meta có thể chưa load
+                    // phone → fetch chi tiết qua fetchConversationsByCustomerFbId để verify.
+                    const verified = [];
+                    for (const c of onTargetPage) {
+                        if (_convHasPhone(c) === true) {
+                            verified.push(c);
+                            continue;
+                        }
+                        const fbId = c.from_psid || c.from?.id;
+                        if (!fbId) continue;
+                        try {
+                            const detailRes = await pdm.fetchConversationsByCustomerFbId(
+                                pageId,
+                                fbId,
+                                { signal: opts?.signal }
+                            );
+                            const detail = (detailRes.conversations || []).find(
+                                (d) => String(d.id) === String(c.id)
+                            );
+                            if (detail && _convHasPhone(detail) === true) verified.push(detail);
+                        } catch (_) {}
+                    }
+                    foundConvs = verified;
+                } else {
+                    // No phone — best-effort name match only
+                    foundConvs = onTargetPage;
+                }
             }
         }
 
-        // Last fallback: page-specific API with original PSID
-        // Skip when DB confirmed customer absent on target page — original PSID is from source
-        // page and would collide with an unrelated customer on target page.
-        if (foundConvs.length === 0 && !customerAbsentOnTargetPage) {
+        // Last fallback: page-specific API with source PSID — only when we have no phone to
+        // verify (otherwise phone-verified path above is the only safe lookup).
+        if (foundConvs.length === 0 && !customerPhoneNorm) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid, {
                 signal: opts?.signal,
             });
