@@ -670,44 +670,39 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                             return null;
                         }
                     });
-                const srcPageId = window.currentChatChannelId || pageId;
 
-                // Parallel Step A + Step B
-                const [cacheRes, custRes] = await Promise.all([
-                    psid
-                        ? _fetch(
-                              `${renderUrl}/api/fb-global-id?pageId=${srcPageId}&psid=${psid}`,
-                              { signal: opts?.signal },
-                              6000
-                          )
-                        : null,
-                    customerPhone
-                        ? _fetch(
-                              `${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`,
-                              { signal: opts?.signal },
-                              6000
-                          )
-                        : null,
-                ]);
-
-                // Authoritative: phone → globalId (verified via SĐT in customers table).
-                // Psid → globalId cache CAN be manually mis-resolved (e.g. staff merged
-                // a homonym), so trust phone-derived globalId when present.
-                let phoneGlobalId = null;
-                let psidGlobalId = null;
-                if (custRes) {
-                    const custData = await custRes.json().catch(() => null);
-                    phoneGlobalId = custData?.global_id || null;
-                    const pageFbIds = custData?.pancake_data?.page_fb_ids;
-                    if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
-                    dbLookupDone = true;
+                // Strategy: 1 customer = 1 globalId. Khi có SĐT → by-phone trả global authoritative.
+                // Psid→globalId cache (`fb_global_id_cache`) có thể bị nhân viên merge nhầm khi xử
+                // lý homonym (resolvedBy=<nv>) → KHÔNG trust khi đã có phone. Chỉ fallback sang
+                // psid lookup khi customer không có phone.
+                let globalId = null;
+                if (customerPhone) {
+                    const custRes = await _fetch(
+                        `${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`,
+                        { signal: opts?.signal },
+                        6000
+                    );
+                    if (custRes) {
+                        const custData = await custRes.json().catch(() => null);
+                        globalId = custData?.global_id || null;
+                        const pageFbIds = custData?.pancake_data?.page_fb_ids;
+                        if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
+                        dbLookupDone = true;
+                    }
+                } else if (psid) {
+                    // No phone — fallback to psid cache (best-effort, may be poisoned)
+                    const srcPageId = window.currentChatChannelId || pageId;
+                    const cacheRes = await _fetch(
+                        `${renderUrl}/api/fb-global-id?pageId=${srcPageId}&psid=${psid}`,
+                        { signal: opts?.signal },
+                        6000
+                    );
+                    if (cacheRes) {
+                        const cacheData = await cacheRes.json().catch(() => null);
+                        if (cacheData?.found) globalId = cacheData.globalUserId;
+                        dbLookupDone = true;
+                    }
                 }
-                if (cacheRes) {
-                    const cacheData = await cacheRes.json().catch(() => null);
-                    if (cacheData?.found) psidGlobalId = cacheData.globalUserId;
-                    dbLookupDone = true;
-                }
-                const globalId = phoneGlobalId || psidGlobalId;
 
                 if (_isStale()) return;
 
