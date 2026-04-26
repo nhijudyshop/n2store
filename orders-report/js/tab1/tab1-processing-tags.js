@@ -2717,6 +2717,16 @@
                 <div class="ptag-panel-search">
                     <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
                 </div>
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:4px 12px 0;font-size:11px;color:#6b7280;">
+                    <span title="Quy tắc tự động gắn tag ĐÃ RA ĐƠN khi tạo phiếu bán hàng">Auto ĐÃ RA ĐƠN:</span>
+                    <select id="autoHoanTatModeSelect" onchange="window.setAutoHoanTatMode?.(this.value)"
+                        style="border:1px solid #d1d5db;background:#f9fafb;font-size:11px;color:#374151;cursor:pointer;border-radius:6px;padding:2px 6px;font-weight:600;">
+                        <option value="single">PBH lẻ</option>
+                        <option value="bulk">PBH hàng loạt</option>
+                        <option value="all">Tất cả PBH</option>
+                        <option value="manual">Chỉ gắn tay</option>
+                    </select>
+                </div>
             </div>
             <div class="ptag-panel-body" id="ptag-panel-body"></div>
         `;
