@@ -9,11 +9,12 @@ const { chromium } = require('playwright');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
-    const out = { user: '', pass: '', phone: '0914495309' };
+    const out = { user: '', pass: '', phone: '0914495309', targetPage: '' };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
         else if (a[i] === '--pass') out.pass = a[++i];
         else if (a[i] === '--phone') out.phone = a[++i];
+        else if (a[i] === '--targetPage') out.targetPage = a[++i];
     }
     return out;
 })();
@@ -185,10 +186,22 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
         process.exit(2);
     }
 
-    // Find an alternate page to switch to
-    const altPage = (initial.pages || []).find(
-        (p) => String(p.id) !== String(initial.currentChatChannelId)
-    );
+    // Find an alternate page to switch to.
+    // Prefer --targetPage match by id or name substring; otherwise first alt.
+    const findAlt = () => {
+        const cur = String(initial.currentChatChannelId);
+        const tp = ARGS.targetPage;
+        if (tp) {
+            const byId = (initial.pages || []).find((p) => String(p.id) === tp);
+            if (byId && String(byId.id) !== cur) return byId;
+            const byName = (initial.pages || []).find(
+                (p) => String(p.id) !== cur && (p.name || '').toLowerCase().includes(tp.toLowerCase())
+            );
+            if (byName) return byName;
+        }
+        return (initial.pages || []).find((p) => String(p.id) !== cur);
+    };
+    const altPage = findAlt();
     log('Switching to alternate page:', altPage);
 
     if (!altPage) {
