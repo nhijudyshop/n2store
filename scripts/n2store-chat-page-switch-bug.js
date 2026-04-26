@@ -195,7 +195,8 @@ const log = (...a) => console.log(`[${ts()}]`, ...a);
             const byId = (initial.pages || []).find((p) => String(p.id) === tp);
             if (byId && String(byId.id) !== cur) return byId;
             const byName = (initial.pages || []).find(
-                (p) => String(p.id) !== cur && (p.name || '').toLowerCase().includes(tp.toLowerCase())
+                (p) =>
+                    String(p.id) !== cur && (p.name || '').toLowerCase().includes(tp.toLowerCase())
             );
             if (byName) return byName;
         }

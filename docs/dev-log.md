@@ -8,6 +8,13 @@
 
 ## 2026-04-26
 
+### [chat][bug-layer2] DB cache `fb_global_id_cache` bị poisoned — by-phone globalId phải win
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — đảo thứ tự: chạy `custRes` (by-phone) TRƯỚC, set `phoneGlobalId`. Sau đó nếu `cacheRes` (psid lookup) có giá trị → set `psidGlobalId`. Cuối cùng `globalId = phoneGlobalId || psidGlobalId` — by-phone luôn ưu tiên. |
+| **Chi tiết** | **Repro layer 2**: switch sang page `Nhi Judy House` (117267091364524) — fix trước đó (commit 9cdccc14) chỉ cover trường hợp DB trả `{found:false}`. Nhưng cache có entry POISONED: psid `6295284583881853` (Trần Nhi GỐC trên Store) bị map sang `globalUserId=100013390776008` (Trần Nhi-homonym), `resolvedBy=hanh`, `resolvedAt=2026-04-25 09:05:23`, `useCount=8`. Nhân viên Hạnh đã merge nhầm 2 customer cùng tên. Code cũ ưu tiên `globalId` từ Step A (psid cache, có poisoned data) → Step C tìm psid trên target page bằng global SAI → trả psid của homonym → load chat sai. **Verify**: bugEvents giờ chỉ 3 calls, by-global dùng global từ phone (`100080729143290`) → returns `{found:false}` → empty state đúng. |
+| **Status** | ✅ Verified (commit 300bd28d). 2 lớp fix: (1) gate name fallback khi DB confirms absent; (2) by-phone globalId thắng psid cache poisoned. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). **Cần làm tiếp**: cleanup cache poisoned entries trên Render DB (`fb_global_id_cache` rows resolvedBy=hanh có thể bị merge nhầm). |
+
 ### [chat][bug] Switch page chat modal load nhầm conversation của khách trùng tên
 | | |
 |---|---|
