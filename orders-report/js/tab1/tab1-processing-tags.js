@@ -23,24 +23,10 @@
     const AUTO_T_CLEAR_KEY = 'auto_t_clear_on_bill';
     let _autoTClearEnabled = true;
 
-    // Auto-tag ĐÃ RA ĐƠN mode — quyết định khi nào auto flip sang HOAN_TAT.
+    // Auto-tag ĐÃ RA ĐƠN: LUÔN BẬT khi user tạo PBH thành công (single hoặc bulk).
     // Trước (≤ 2026-04-26): auto-tag dựa trên cột PBH (InvoiceStatusStore active) →
     // gồm cả reconcile khi load page → có thể bất ngờ flip đơn của session khác.
-    // Sau: chỉ auto-tag khi USER CHỦ ĐỘNG tạo PBH ở session hiện tại.
-    //   - 'single': chỉ khi tạo PBH lẻ (1 đơn qua sale modal)
-    //   - 'bulk':   chỉ khi tạo PBH hàng loạt (fast-sale modal)
-    //   - 'all':    cả hai (default)
-    //   - 'manual': không bao giờ auto, chỉ user click thủ công
-    const AUTO_HOAN_TAT_MODE_KEY = 'auto_hoan_tat_mode';
-    const AUTO_HOAN_TAT_MODES = ['single', 'bulk', 'all', 'manual'];
-    let _autoHoanTatMode = 'all';
-    function _shouldAutoFlipForSource(source) {
-        // source: 'single' | 'bulk' | undefined (legacy callers — treat as 'all'-eligible)
-        if (_autoHoanTatMode === 'manual') return false;
-        if (_autoHoanTatMode === 'all') return true;
-        if (!source) return true; // unknown source → behave như 'all' để không miss event hợp pháp
-        return _autoHoanTatMode === source;
-    }
+    // Sau: chỉ auto-tag khi USER CHỦ ĐỘNG tạo PBH ở session hiện tại; không cần toggle.
 
     // Cache orders có SL=0 (TotalQuantity === 0) — dùng cho filter "GIỎ TRỐNG"
     // (từ 2026-04-18 tag GIỎ TRỐNG không còn gắn; filter chuyển sang lọc theo SL)
@@ -1432,17 +1418,8 @@
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
-    // source = 'single' | 'bulk' | undefined — quyết định auto-tag có chạy không (theo
-    // setting _autoHoanTatMode). Manual click trong panel KHÔNG gọi hàm này (bypass mode).
+    // source = 'single' | 'bulk' (logging only — luôn auto-tag, không gate)
     async function onPtagBillCreated(saleOnlineId, source) {
-        // Mode gate: 'manual' → never auto; 'single'/'bulk' → chỉ match source; 'all' → both.
-        if (!_shouldAutoFlipForSource(source)) {
-            console.log(
-                `${PTAG_LOG} onPtagBillCreated skip ${saleOnlineId} — mode=${_autoHoanTatMode} không match source=${source || 'unknown'}`
-            );
-            return;
-        }
-
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
         let data =
             ProcessingTagState.getOrderData(orderCode) ||
@@ -2716,16 +2693,6 @@
             <div id="ptag-panel-summary">
                 <div class="ptag-panel-search">
                     <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
-                </div>
-                <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:4px 12px 0;font-size:11px;color:#6b7280;">
-                    <span title="Quy tắc tự động gắn tag ĐÃ RA ĐƠN khi tạo phiếu bán hàng">Auto ĐÃ RA ĐƠN:</span>
-                    <select id="autoHoanTatModeSelect" onchange="window.setAutoHoanTatMode?.(this.value)"
-                        style="border:1px solid #d1d5db;background:#f9fafb;font-size:11px;color:#374151;cursor:pointer;border-radius:6px;padding:2px 6px;font-weight:600;">
-                        <option value="single">PBH lẻ</option>
-                        <option value="bulk">PBH hàng loạt</option>
-                        <option value="all">Tất cả PBH</option>
-                        <option value="manual">Chỉ gắn tay</option>
-                    </select>
                 </div>
             </div>
             <div class="ptag-panel-body" id="ptag-panel-body"></div>
@@ -6966,64 +6933,4 @@
         }
     })();
 
-    // =====================================================
-    // AUTO ĐÃ-RA-ĐƠN MODE — chọn nguồn trigger auto-tag
-    // =====================================================
-
-    const AUTO_HOAN_TAT_MODE_LABELS = {
-        single: 'PBH lẻ',
-        bulk: 'PBH hàng loạt',
-        all: 'Tất cả PBH',
-        manual: 'Chỉ gắn tay',
-    };
-
-    function _updateAutoHoanTatModeUI() {
-        const sel = document.getElementById('autoHoanTatModeSelect');
-        if (sel) sel.value = _autoHoanTatMode;
-        const label = document.getElementById('autoHoanTatModeLabel');
-        if (label) label.textContent = AUTO_HOAN_TAT_MODE_LABELS[_autoHoanTatMode] || 'Tất cả PBH';
-    }
-
-    function _loadAutoHoanTatModeSetting() {
-        if (window.userStorageManager) {
-            const v = window.userStorageManager.loadFromLocalStorage(AUTO_HOAN_TAT_MODE_KEY);
-            if (v && AUTO_HOAN_TAT_MODES.includes(v)) {
-                _autoHoanTatMode = v;
-            }
-            _updateAutoHoanTatModeUI();
-            return true;
-        }
-        _updateAutoHoanTatModeUI();
-        return false;
-    }
-
-    function setAutoHoanTatMode(mode) {
-        if (!AUTO_HOAN_TAT_MODES.includes(mode)) {
-            console.warn(`${PTAG_LOG} Invalid auto-hoan-tat mode:`, mode);
-            return;
-        }
-        _autoHoanTatMode = mode;
-        _updateAutoHoanTatModeUI();
-        if (window.userStorageManager) {
-            window.userStorageManager.saveToLocalStorage(AUTO_HOAN_TAT_MODE_KEY, mode);
-        }
-        console.log(`${PTAG_LOG} Auto ĐÃ RA ĐƠN mode:`, mode);
-    }
-
-    window.setAutoHoanTatMode = setAutoHoanTatMode;
-    window.getAutoHoanTatMode = () => _autoHoanTatMode;
-
-    (function _initAutoHoanTatMode() {
-        let attempts = 0;
-        const maxAttempts = 20;
-        const tryLoad = () => {
-            if (_loadAutoHoanTatModeSetting()) return;
-            if (++attempts < maxAttempts) setTimeout(tryLoad, 200);
-        };
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', tryLoad);
-        } else {
-            tryLoad();
-        }
-    })();
 })();
