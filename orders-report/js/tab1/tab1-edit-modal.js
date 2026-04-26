@@ -1186,6 +1186,14 @@ async function saveAllOrderChanges() {
         // 🔄 CẬP NHẬT BẢNG CHÍNH VỚI DỮ LIỆU MỚI
         updateOrderInTable(currentEditOrderId, currentEditOrderData);
 
+        // BUG FIX (2026-04-26): clear stale `orderLines` cache trên OrderStore object —
+        // field này được sale modal mutate vào trong session trước. Nếu không clear,
+        // lần mở sale modal kế tiếp sẽ dùng products cũ (Pre-edit) thay vì Details mới.
+        const _cachedOrder = window.OrderStore?.get?.(currentEditOrderId);
+        if (_cachedOrder && _cachedOrder.orderLines) {
+            delete _cachedOrder.orderLines;
+        }
+
         // 🔄 Refresh inline search UI after save and reload
         refreshInlineSearchUI();
 

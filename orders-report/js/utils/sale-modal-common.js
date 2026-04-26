@@ -870,10 +870,13 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleDeliveryDate').value = formatDateTimeLocal(now);
     document.getElementById('saleInvoiceDate').textContent = formatDateTimeDisplay(now);
 
-    // Convert Details to orderLines format if needed, then use shared display
-    if (order.orderLines && order.orderLines.length > 0) {
-        populateSaleOrderLinesFromAPI(order.orderLines);
-    } else if (order.Details && order.Details.length > 0) {
+    // BUG FIX (2026-04-26): KHÔNG đọc `order.orderLines` cached — field này có thể STALE
+    // từ session sale modal trước (populateSaleOrderLinesFromAPI mutate object OrderStore).
+    // Sau khi user edit-modal save → fetchOrderData trả SaleOnline_Order không có field
+    // `orderLines` → Object.assign không clear → stale cache. Luôn ưu tiên `order.Details`
+    // (refreshed bởi edit-modal) làm initial paint; sau đó `fetchOrderDetailsForSale` sẽ
+    // overlay với fresh API data.
+    if (order.Details && order.Details.length > 0) {
         const orderLines = order.Details.map((detail) => ({
             ProductId: detail.ProductId || 0,
             Product: null,
