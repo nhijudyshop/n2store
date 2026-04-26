@@ -307,13 +307,12 @@ function renderProductsTab(data) {
     }
 
     const orderCode = data.Code || '';
-    const productsHTML = data.Details.map(
-        (p, i) => {
-            const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
-                ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
-                : false);
-            const disabled = !p.ProductId || !orderCode;
-            return `
+    const productsHTML = data.Details.map((p, i) => {
+        const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+            ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+            : false);
+        const disabled = !p.ProductId || !orderCode;
+        return `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
             <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
@@ -325,8 +324,7 @@ function renderProductsTab(data) {
             <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
         </tr>`;
-        }
-    ).join('');
+    }).join('');
 
     return `
         <div class="info-card">
@@ -359,9 +357,7 @@ async function handleKpiSaleToggle(orderCode, productId, checked) {
             window.notificationManager.error(`Không lưu được đánh dấu KPI: ${e?.message || e}`);
         }
         // Revert checkbox state về giá trị cũ
-        const cb = document.querySelector(
-            `.kpi-sale-check[data-product-id="${productId}"]`
-        );
+        const cb = document.querySelector(`.kpi-sale-check[data-product-id="${productId}"]`);
         if (cb) cb.checked = !checked;
     }
 }
@@ -1043,13 +1039,12 @@ function refreshProductsTableOnly() {
     }
 
     const orderCode = data.Code || '';
-    tbody.innerHTML = data.Details.map(
-        (p, i) => {
-            const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
-                ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
-                : false);
-            const disabled = !p.ProductId || !orderCode;
-            return `
+    tbody.innerHTML = data.Details.map((p, i) => {
+        const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+            ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+            : false);
+        const disabled = !p.ProductId || !orderCode;
+        return `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
             <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
@@ -1061,8 +1056,7 @@ function refreshProductsTableOnly() {
             <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
         </tr>`;
-        }
-    ).join('');
+    }).join('');
 
     // Update product count header
     const h4 = tbody.closest('.info-card')?.querySelector('h4');
