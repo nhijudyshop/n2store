@@ -484,6 +484,18 @@
                         <span id="autoTDot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;transition:background .3s;"></span>
                         <span>Auto T</span>
                     </button>
+                    <label
+                        title="Auto ĐÃ RA ĐƠN: chọn nguồn trigger gắn tag tự động. PBH lẻ = chỉ khi tạo PBH single. PBH hàng loạt = chỉ khi tạo PBH bulk. Tất cả PBH = cả hai. Chỉ gắn tay = không bao giờ auto, chỉ user click."
+                        style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;border:1px solid #d1d5db;background:#f9fafb;font-size:11px;color:#6b7280;">
+                        <span>Auto ĐÃ RA ĐƠN:</span>
+                        <select id="autoHoanTatModeSelect" onchange="window.setAutoHoanTatMode?.(this.value)"
+                            style="border:none;background:transparent;font-size:11px;color:#374151;cursor:pointer;outline:none;font-weight:600;">
+                            <option value="single">PBH lẻ</option>
+                            <option value="bulk">PBH hàng loạt</option>
+                            <option value="all" selected>Tất cả PBH</option>
+                            <option value="manual">Chỉ gắn tay</option>
+                        </select>
+                    </label>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>

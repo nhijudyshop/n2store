@@ -709,8 +709,10 @@
         /**
          * Store multiple invoice results from API response
          * @param {Object} apiResult - Response from InsertListOrderModel API
+         * @param {string} [source] - 'single' | 'bulk' — propagate to onPtagBillCreated
+         *                            để mode 'single' / 'bulk' chỉ auto-tag đúng nguồn.
          */
-        storeFromApiResult(apiResult) {
+        storeFromApiResult(apiResult, source) {
             if (!apiResult) return;
 
             // Batch mode: set() will skip individual API saves, we batch at the end
@@ -854,9 +856,10 @@
                             this.set(soId, order, originalOrder);
                             // Save NJD mapping to DB
                             _saveNjdToDb(soId, order.Reference, order);
-                            // Auto-tag ĐÃ RA ĐƠN — nguồn DUY NHẤT, chỉ chạy khi user tạo PBH thành công
+                            // Auto-tag ĐÃ RA ĐƠN — chỉ chạy khi user tạo PBH thành công.
+                            // Truyền `source` để mode 'single' / 'bulk' filter đúng nguồn.
                             if (typeof window.onPtagBillCreated === 'function') {
-                                window.onPtagBillCreated(soId);
+                                window.onPtagBillCreated(soId, source);
                             }
                         });
                     }
@@ -3748,8 +3751,8 @@
         }
 
         window.showFastSaleResultsModal = function (result) {
-            // Store invoice data
-            InvoiceStatusStore.storeFromApiResult(result);
+            // Store invoice data — source='bulk' (fast-sale modal hàng loạt)
+            InvoiceStatusStore.storeFromApiResult(result, 'bulk');
 
             // Call original function
             original.call(this, result);

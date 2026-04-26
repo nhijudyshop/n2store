@@ -1114,7 +1114,8 @@ async function confirmAndPrintSale() {
         // Store invoice status to localStorage + Firebase
         if (window.InvoiceStatusStore) {
             console.log('[SALE-CONFIRM] Storing invoice status...');
-            window.InvoiceStatusStore.storeFromApiResult(result);
+            // source='single' → mode 'single' / 'all' sẽ auto-tag ĐÃ RA ĐƠN.
+            window.InvoiceStatusStore.storeFromApiResult(result, 'single');
 
             // Tính đúng PaymentAmount = min(wallet, COD) thay vì lưu toàn bộ wallet balance
             const saleCodForStore = parseFloat(document.getElementById('saleCOD')?.value) || 0;
@@ -1135,9 +1136,9 @@ async function confirmAndPrintSale() {
                     orderData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(socialId, orderData, currentSaleOrderData);
                     console.log('[SALE-CONFIRM] Stored invoice for social order:', socialId);
-                    // Auto-tag ĐÃ RA ĐƠN cho social order (storeFromApiResult skip orders không có SaleOnlineIds)
+                    // Auto-tag ĐÃ RA ĐƠN — single sale (social order path)
                     if (typeof window.onPtagBillCreated === 'function') {
-                        window.onPtagBillCreated(socialId);
+                        window.onPtagBillCreated(socialId, 'single');
                     }
                 }
             }
@@ -1321,9 +1322,9 @@ async function confirmAndPrintSale() {
                     'Number:',
                     createResult.Number
                 );
-                // Auto-tag ĐÃ RA ĐƠN cho social order (storeFromApiResult skip orders không có SaleOnlineIds)
+                // Auto-tag ĐÃ RA ĐƠN — single sale (social order path)
                 if (typeof window.onPtagBillCreated === 'function') {
-                    window.onPtagBillCreated(socialOrderId);
+                    window.onPtagBillCreated(socialOrderId, 'single');
                 }
             }
 

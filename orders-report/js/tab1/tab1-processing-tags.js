@@ -23,6 +23,25 @@
     const AUTO_T_CLEAR_KEY = 'auto_t_clear_on_bill';
     let _autoTClearEnabled = true;
 
+    // Auto-tag ĐÃ RA ĐƠN mode — quyết định khi nào auto flip sang HOAN_TAT.
+    // Trước (≤ 2026-04-26): auto-tag dựa trên cột PBH (InvoiceStatusStore active) →
+    // gồm cả reconcile khi load page → có thể bất ngờ flip đơn của session khác.
+    // Sau: chỉ auto-tag khi USER CHỦ ĐỘNG tạo PBH ở session hiện tại.
+    //   - 'single': chỉ khi tạo PBH lẻ (1 đơn qua sale modal)
+    //   - 'bulk':   chỉ khi tạo PBH hàng loạt (fast-sale modal)
+    //   - 'all':    cả hai (default)
+    //   - 'manual': không bao giờ auto, chỉ user click thủ công
+    const AUTO_HOAN_TAT_MODE_KEY = 'auto_hoan_tat_mode';
+    const AUTO_HOAN_TAT_MODES = ['single', 'bulk', 'all', 'manual'];
+    let _autoHoanTatMode = 'all';
+    function _shouldAutoFlipForSource(source) {
+        // source: 'single' | 'bulk' | undefined (legacy callers — treat as 'all'-eligible)
+        if (_autoHoanTatMode === 'manual') return false;
+        if (_autoHoanTatMode === 'all') return true;
+        if (!source) return true; // unknown source → behave như 'all' để không miss event hợp pháp
+        return _autoHoanTatMode === source;
+    }
+
     // Cache orders có SL=0 (TotalQuantity === 0) — dùng cho filter "GIỎ TRỐNG"
     // (từ 2026-04-18 tag GIỎ TRỐNG không còn gắn; filter chuyển sang lọc theo SL)
     let _slZeroCodes = new Set();
@@ -577,12 +596,13 @@
                 window._applyWalletAutoTags();
             }
 
-            // Reconcile tag XL với invoice store: nếu đơn có PBH active mà tag vẫn
-            // là CHO_DI_DON (do creation không đi qua storeFromApiResult hoặc
-            // session khác), auto-flip sang HOAN_TAT. Fire-and-forget.
-            reconcileTagsWithInvoices().catch((e) => {
-                console.warn(`${PTAG_LOG} reconcileTagsWithInvoices failed:`, e);
-            });
+            // 2026-04-26: BỎ reconcileTagsWithInvoices ở đây.
+            // Trước: auto-flip CHO_DI_DON → HOAN_TAT cho đơn đã có PBH active trong store.
+            // Hệ quả: tag bị flip không kiểm soát khi load page (đơn của session khác,
+            // hoặc PBH vừa được sync về). User chỉ muốn auto-tag khi CHỦ ĐỘNG tạo PBH.
+            // Hàm reconcileTagsWithInvoices vẫn còn (window.reconcileTagsWithInvoices)
+            // nhưng không tự gọi lúc load — nếu cần reconcile thủ công có thể trigger
+            // qua console hoặc nút riêng.
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
         }
@@ -1412,7 +1432,17 @@
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
-    async function onPtagBillCreated(saleOnlineId) {
+    // source = 'single' | 'bulk' | undefined — quyết định auto-tag có chạy không (theo
+    // setting _autoHoanTatMode). Manual click trong panel KHÔNG gọi hàm này (bypass mode).
+    async function onPtagBillCreated(saleOnlineId, source) {
+        // Mode gate: 'manual' → never auto; 'single'/'bulk' → chỉ match source; 'all' → both.
+        if (!_shouldAutoFlipForSource(source)) {
+            console.log(
+                `${PTAG_LOG} onPtagBillCreated skip ${saleOnlineId} — mode=${_autoHoanTatMode} không match source=${source || 'unknown'}`
+            );
+            return;
+        }
+
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
         let data =
             ProcessingTagState.getOrderData(orderCode) ||
@@ -1436,24 +1466,9 @@
             };
         }
 
-        // Guard: chỉ set HOAN_TAT khi thực sự còn invoice active trong InvoiceStatusStore.
-        // Entry active = StateCode ∉ {cancel, IsMergeCancel} và IsMergeCancel !== true.
-        // Guard này vẫn hữu ích để chặn re-tag oan khi onPtagBillCreated bị gọi 2 lần
-        // (edge case: PBH vừa tạo xong thì user hủy ngay, nhưng call đã on queue).
-        const invStore = window.InvoiceStatusStore;
-        if (invStore && typeof invStore.getAll === 'function') {
-            const entries = invStore.getAll(saleOnlineId) || [];
-            const hasActive = entries.some((inv) => {
-                const sc = inv.StateCode || 'None';
-                return !inv.IsMergeCancel && sc !== 'cancel' && sc !== 'IsMergeCancel';
-            });
-            if (!hasActive) {
-                console.log(
-                    `${PTAG_LOG} onPtagBillCreated skip ${orderCode} — không có invoice active trong store (${entries.length} entries)`
-                );
-                return;
-            }
-        }
+        // Idempotency guard: nếu onPtagBillCreated được gọi 2 lần liên tiếp cùng saleOnlineId
+        // (edge case khi cả storeFromApiResult và direct call), skip lần 2 ở line bên dưới
+        // qua check category === HOAN_TAT.
 
         // Idempotency: already in ĐÃ RA ĐƠN → skip (tránh snapshot đè lên chính snapshot)
         if (data.category === PTAG_CATEGORIES.HOAN_TAT) return;
@@ -6932,6 +6947,67 @@
         const maxAttempts = 20;
         const tryLoad = () => {
             if (_loadAutoTClearSetting()) return;
+            if (++attempts < maxAttempts) setTimeout(tryLoad, 200);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryLoad);
+        } else {
+            tryLoad();
+        }
+    })();
+
+    // =====================================================
+    // AUTO ĐÃ-RA-ĐƠN MODE — chọn nguồn trigger auto-tag
+    // =====================================================
+
+    const AUTO_HOAN_TAT_MODE_LABELS = {
+        single: 'PBH lẻ',
+        bulk: 'PBH hàng loạt',
+        all: 'Tất cả PBH',
+        manual: 'Chỉ gắn tay',
+    };
+
+    function _updateAutoHoanTatModeUI() {
+        const sel = document.getElementById('autoHoanTatModeSelect');
+        if (sel) sel.value = _autoHoanTatMode;
+        const label = document.getElementById('autoHoanTatModeLabel');
+        if (label) label.textContent = AUTO_HOAN_TAT_MODE_LABELS[_autoHoanTatMode] || 'Tất cả PBH';
+    }
+
+    function _loadAutoHoanTatModeSetting() {
+        if (window.userStorageManager) {
+            const v = window.userStorageManager.loadFromLocalStorage(AUTO_HOAN_TAT_MODE_KEY);
+            if (v && AUTO_HOAN_TAT_MODES.includes(v)) {
+                _autoHoanTatMode = v;
+            }
+            _updateAutoHoanTatModeUI();
+            return true;
+        }
+        _updateAutoHoanTatModeUI();
+        return false;
+    }
+
+    function setAutoHoanTatMode(mode) {
+        if (!AUTO_HOAN_TAT_MODES.includes(mode)) {
+            console.warn(`${PTAG_LOG} Invalid auto-hoan-tat mode:`, mode);
+            return;
+        }
+        _autoHoanTatMode = mode;
+        _updateAutoHoanTatModeUI();
+        if (window.userStorageManager) {
+            window.userStorageManager.saveToLocalStorage(AUTO_HOAN_TAT_MODE_KEY, mode);
+        }
+        console.log(`${PTAG_LOG} Auto ĐÃ RA ĐƠN mode:`, mode);
+    }
+
+    window.setAutoHoanTatMode = setAutoHoanTatMode;
+    window.getAutoHoanTatMode = () => _autoHoanTatMode;
+
+    (function _initAutoHoanTatMode() {
+        let attempts = 0;
+        const maxAttempts = 20;
+        const tryLoad = () => {
+            if (_loadAutoHoanTatModeSetting()) return;
             if (++attempts < maxAttempts) setTimeout(tryLoad, 200);
         };
         if (document.readyState === 'loading') {
