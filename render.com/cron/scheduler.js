@@ -171,11 +171,11 @@ cron.schedule('0 2 * * *', async () => {
     }
 });
 
-// Chạy mỗi ngày lúc 9AM để kiểm tra tickets RETURN_SHIPPER quá 20 ngày chưa nhận hàng
+// Chạy mỗi ngày lúc 9AM để kiểm tra tickets RETURN_SHIPPER quá 10 ngày chưa nhận hàng
 cron.schedule('0 9 * * *', async () => {
     console.log('[CRON] Running expired RETURN_SHIPPER tickets checker...');
     try {
-        // Find RETURN_SHIPPER tickets that are older than 20 days and not completed
+        // Find RETURN_SHIPPER tickets that are older than 10 days and not completed
         const result = await db.query(`
             WITH expired_tickets AS (
                 SELECT
@@ -185,14 +185,14 @@ cron.schedule('0 9 * * *', async () => {
                 FROM customer_tickets
                 WHERE type = 'RETURN_SHIPPER'
                   AND status NOT IN ('COMPLETED', 'CANCELLED')
-                  AND created_at <= NOW() - INTERVAL '20 days'
+                  AND created_at <= NOW() - INTERVAL '10 days'
             )
             INSERT INTO customer_activities (phone, activity_type, title, description, icon, color, metadata)
             SELECT
                 phone,
                 'TICKET_OVERDUE',
-                'Ticket hoàn hàng quá hạn 20 ngày',
-                'Ticket ' || ticket_code || ' (đơn ' || COALESCE(order_id, 'N/A') || ') đã quá 20 ngày chưa nhận hàng. Cần kiểm tra và xử lý.',
+                'Ticket hoàn hàng quá hạn 10 ngày',
+                'Ticket ' || ticket_code || ' (đơn ' || COALESCE(order_id, 'N/A') || ') đã quá 10 ngày chưa nhận hàng. Cần kiểm tra và xử lý.',
                 'alert-triangle',
                 'orange',
                 jsonb_build_object(

@@ -2274,8 +2274,8 @@ function renderDashboard(tabName, searchTerm = '') {
 
     // Filter by Tab
     if (tabName === 'overdue') {
-        // Special filter: Show only overdue RETURN_SHIPPER tickets (20+ days old)
-        const OVERDUE_DAYS = 20;
+        // Special filter: Show only overdue RETURN_SHIPPER tickets (10+ days old)
+        const OVERDUE_DAYS = 10;
         const overdueThreshold = Date.now() - OVERDUE_DAYS * 24 * 60 * 60 * 1000;
         filtered = filtered.filter(
             (t) =>
@@ -2684,16 +2684,16 @@ function updateStats() {
         badgeCancelled.textContent = cancelled > 0 ? cancelled : '';
     }
 
-    // Check for overdue RETURN_SHIPPER tickets (20 days old)
+    // Check for overdue RETURN_SHIPPER tickets (10 days old)
     checkOverdueTickets();
 }
 
 /**
  * Check for overdue RETURN_SHIPPER tickets and show alert banner
- * Overdue = created more than 20 days ago and not COMPLETED/CANCELLED
+ * Overdue = created more than 10 days ago and not COMPLETED/CANCELLED
  */
 function checkOverdueTickets() {
-    const OVERDUE_DAYS = 20;
+    const OVERDUE_DAYS = 10;
     const now = new Date();
     const overdueThreshold = now.getTime() - OVERDUE_DAYS * 24 * 60 * 60 * 1000;
 
