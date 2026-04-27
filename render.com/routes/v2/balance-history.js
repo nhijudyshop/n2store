@@ -526,7 +526,7 @@ router.get('/stats', async (req, res) => {
  */
 router.get('/verification-queue', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { page = 1, limit = 20, status = 'PENDING_VERIFICATION', startDate, endDate, search } = req.query;
+    const { page = 1, limit = 20, status = 'PENDING_VERIFICATION', startDate, endDate, search, overdueOnly } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
@@ -544,6 +544,12 @@ router.get('/verification-queue', async (req, res) => {
         }
 
         whereConditions.push("transfer_type = 'in'");
+
+        // Overdue filter (>24h) — must match accountant/stats pendingOverdue logic
+        const isOverdueOnly = overdueOnly === 'true' || overdueOnly === '1';
+        if (isOverdueOnly) {
+            whereConditions.push("bh.created_at < NOW() - INTERVAL '24 hours'");
+        }
 
         // Date filter
         if (startDate && endDate) {
@@ -603,7 +609,7 @@ router.get('/verification-queue', async (req, res) => {
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN pending_customer_matches pcm ON pcm.transaction_id = bh.id
             ${whereClause}
-            ORDER BY bh.transaction_date DESC
+            ORDER BY bh.transaction_date ${isOverdueOnly ? 'ASC' : 'DESC'}
             LIMIT $${paramCount++} OFFSET $${paramCount++}
         `;
 

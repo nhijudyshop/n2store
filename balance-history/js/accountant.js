@@ -39,7 +39,7 @@
             approved: { page: 1, totalPages: 1, total: 0 }
         },
         filters: {
-            pending: { startDate: '', endDate: '', search: '', source: '' },
+            pending: { startDate: '', endDate: '', search: '', source: '', overdueOnly: false },
             approved: { startDate: '', endDate: '', search: '', source: '', verifier: '', checked: '', adjusted: '' }
         },
         stats: {
@@ -502,8 +502,10 @@
         const end = elements[`${tab}EndDate`]?.value;
         const search = elements[`${tab}Search`]?.value?.trim();
 
-        // Update state
-        state.filters[tab] = { startDate: start, endDate: end, search: search };
+        // Merge to preserve other filter fields (e.g. overdueOnly)
+        state.filters[tab].startDate = start;
+        state.filters[tab].endDate = end;
+        state.filters[tab].search = search;
 
         // Read source filter for pending tab
         if (tab === 'pending') {
@@ -665,7 +667,7 @@
             showLoading(elements.pendingTableBody);
         }
 
-        const { startDate, endDate, search } = state.filters.pending;
+        const { startDate, endDate, search, overdueOnly } = state.filters.pending;
         const query = new URLSearchParams({
             page: page,
             limit: CONFIG.PAGE_SIZE,
@@ -673,6 +675,9 @@
             endDate: endDate || '',
             search: search || ''
         });
+        if (overdueOnly) {
+            query.set('overdueOnly', 'true');
+        }
 
         try {
             const response = await fetch(
@@ -705,6 +710,7 @@
 
             renderPendingQueue();
             updatePagination('pending');
+            updateOverdueChip();
 
             // Clear selection on page change
             state.selectedIds.clear();
@@ -716,6 +722,32 @@
         } finally {
             state.isLoading = false;
         }
+    }
+
+    /**
+     * Activated by alert "Xem ngay" — show only pending tx overdue >24h.
+     * Backend filters by created_at < NOW() - 24h and sorts oldest first.
+     */
+    function viewOverdue() {
+        state.filters.pending.overdueOnly = true;
+        if (state.currentSubTab !== 'pending') {
+            switchSubTab('pending'); // triggers loadPendingQueue
+        } else {
+            loadPendingQueue(1);
+        }
+        updateOverdueChip();
+    }
+
+    function clearOverdueFilter() {
+        state.filters.pending.overdueOnly = false;
+        loadPendingQueue(1);
+        updateOverdueChip();
+    }
+
+    function updateOverdueChip() {
+        const chip = document.getElementById('accOverdueChip');
+        if (!chip) return;
+        chip.classList.toggle('hidden', !state.filters.pending.overdueOnly);
     }
 
     function renderPendingQueue() {
@@ -3044,6 +3076,8 @@
         stopAutoRefresh,
         setFilterPreset,
         handleFilterChange,
+        viewOverdue,
+        clearOverdueFilter,
         // Approve modal functions
         showApproveModal,
         confirmApprove,

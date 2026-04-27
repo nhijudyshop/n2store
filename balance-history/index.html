@@ -559,7 +559,7 @@
                         <span class="alert-icon">⚠️</span>
                         <span class="alert-text">3 giao dịch chờ duyệt > 24h</span>
                     </div>
-                    <button class="alert-action" onclick="AccountantModule.switchSubTab('pending')">Xem ngay</button>
+                    <button class="alert-action" onclick="AccountantModule.viewOverdue()">Xem ngay</button>
                 </div>
 
                 <!-- Alert Bar: Wallet Adjustment Requests -->
@@ -671,6 +671,13 @@
                         </div>
                         <button class="acc-btn acc-btn-primary"
                             onclick="AccountantModule.loadPendingQueue(1)">Xem</button>
+                    </div>
+
+                    <!-- Active filter chip: overdue only -->
+                    <div class="acc-active-filter-chip hidden" id="accOverdueChip">
+                        <span class="chip-icon">🔴</span>
+                        <span class="chip-text">Đang lọc: chỉ hiển thị giao dịch quá 24h</span>
+                        <button class="chip-clear" onclick="AccountantModule.clearOverdueFilter()" title="Bỏ lọc">×</button>
                     </div>
 
                     <!-- Pending Queue Table -->

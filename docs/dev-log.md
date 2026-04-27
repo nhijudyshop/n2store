@@ -8,6 +8,13 @@
 
 ## 2026-04-27
 
+### [balance-history][bug] Alert "Xem ngay" chờ duyệt >24h không filter — vẫn hiện toàn bộ giao dịch
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/v2/balance-history.js:529](../render.com/routes/v2/balance-history.js#L529) — `/verification-queue` nhận thêm query `overdueOnly`; thêm where `bh.created_at < NOW() - INTERVAL '24 hours'` (khớp logic count `pendingOverdue` ở `accountant/stats`); ORDER BY chuyển ASC khi overdueOnly để tx cũ nhất hiện đầu. MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) — `state.filters.pending.overdueOnly`; `loadPendingQueue` truyền query `overdueOnly=true`; thêm `viewOverdue()`/`clearOverdueFilter()`/`updateOverdueChip()`; `handleFilterChange` chuyển sang merge để giữ flag; export public API. MODIFIED: [balance-history/index.html:562](../balance-history/index.html#L562) — alert `onclick="…switchSubTab('pending')"` → `viewOverdue()`; thêm `#accOverdueChip` chip "Đang lọc: chỉ hiển thị giao dịch quá 24h" với nút bỏ lọc. MODIFIED: [balance-history/css/accountant.css](../balance-history/css/accountant.css) — `.acc-active-filter-chip` styles. |
+| **Chi tiết** | **Bug user**: bấm "Xem ngay" trong alert "1 giao dịch chờ duyệt > 24h" vẫn hiển thị toàn bộ pending. **Root cause**: handler chỉ gọi `switchSubTab('pending')` không apply filter; thêm nữa `verification-queue` ORDER BY `transaction_date DESC` nên tx cũ nhất (overdue) nằm ở trang cuối → client-side filter không khả dụng do paginated. **Giải pháp**: thêm server filter `overdueOnly=true` (cùng logic `created_at < NOW()-24h` với count overdue), lật ASC để overdue lên trang 1; UI chip chủ động hiển thị trạng thái filter để user dễ dismiss. |
+| **Status** | ✅ Done. |
+
 ### [issue-tracking] Đổi ngưỡng cảnh báo ticket Thu về quá hạn: 20 → 10 ngày
 | | |
 |---|---|
