@@ -2651,7 +2651,18 @@ function renderActionButtons(ticket) {
         </div>
     `;
 
-    return `<div style="display:flex;align-items:center;">${mainAction}${iconButtons}</div>`;
+    // Processing note (admin/staff free-text reminder about ticket handling)
+    const processingNote = ticket.processingNote || '';
+    const escNote = processingNote
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const noteHtml = processingNote
+        ? `<div class="ticket-processing-note" title="Ghi chú xử lý" style="margin-top:6px;padding:6px 8px;background:#fef9c3;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#78350f;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-width:240px;">📝 ${escNote}</div>`
+        : '';
+
+    return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0;"><div style="display:flex;align-items:center;">${mainAction}${iconButtons}</div>${noteHtml}</div>`;
 }
 
 // Helper: Toggle Guide
@@ -2833,7 +2844,7 @@ function translateStatus(s) {
 }
 
 /**
- * Edit ticket
+ * Edit ticket — mở modal nhập/sửa ghi chú xử lý (processingNote)
  */
 window.editTicket = function (firebaseId) {
     const ticket = TICKETS.find((t) => t.firebaseId === firebaseId);
@@ -2841,11 +2852,79 @@ window.editTicket = function (firebaseId) {
         alert('Không tìm thấy phiếu');
         return;
     }
-
-    // TODO: Implement edit modal
-    // For now, just show alert
-    alert(`Chức năng sửa phiếu #${firebaseId.slice(-4)} đang được phát triển`);
+    openProcessingNoteModal(ticket);
 };
+
+function openProcessingNoteModal(ticket) {
+    // Cleanup previous instance
+    const existing = document.getElementById('processing-note-modal');
+    if (existing) existing.remove();
+
+    const displayCode = ticket.ticketCode || `#${(ticket.firebaseId || '').slice(-4)}`;
+    const currentNote = ticket.processingNote || '';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'processing-note-modal';
+    overlay.style.cssText =
+        'position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:10px;padding:20px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <h3 style="margin:0;font-size:16px;color:#0f172a;">📝 Ghi chú xử lý — ${displayCode}</h3>
+                <button id="pn-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">×</button>
+            </div>
+            <p style="margin:0 0 8px;font-size:12px;color:#64748b;">Ghi nhớ tình trạng xử lý của phiếu (ví dụ: đã liên hệ khách, đang chờ shipper trả, hẹn ngày đối soát…)</p>
+            <textarea id="pn-text" rows="5" placeholder="Nhập ghi chú…" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+                <button id="pn-cancel" style="padding:8px 14px;border:1px solid #e2e8f0;background:white;border-radius:6px;cursor:pointer;color:#475569;">Hủy</button>
+                <button id="pn-clear" style="padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;border-radius:6px;cursor:pointer;color:#b91c1c;">Xóa ghi chú</button>
+                <button id="pn-save" style="padding:8px 14px;border:none;background:#2563eb;color:white;border-radius:6px;cursor:pointer;font-weight:500;">Lưu</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const textarea = overlay.querySelector('#pn-text');
+    textarea.value = currentNote;
+    setTimeout(() => textarea.focus(), 50);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#pn-close').onclick = close;
+    overlay.querySelector('#pn-cancel').onclick = close;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+    });
+
+    const save = async (note) => {
+        try {
+            await ApiService.updateTicket(ticket.firebaseId, {
+                processingNote: note,
+                processingNoteUpdatedAt: Date.now(),
+                processingNoteUpdatedBy: window.authManager?.getCurrentUser?.()?.username || null,
+            });
+            // Optimistic local update — Firestore listener sẽ refresh sau, nhưng repaint ngay cho mượt
+            ticket.processingNote = note;
+            close();
+            const activeBtn = document.querySelector('.tab-btn.active');
+            const activeTab = activeBtn?.dataset.tab || 'all';
+            renderDashboard(activeTab);
+            if (window.notificationManager?.success) {
+                window.notificationManager.success(
+                    note ? 'Đã lưu ghi chú' : 'Đã xóa ghi chú',
+                    2500,
+                    'Ghi chú xử lý'
+                );
+            }
+        } catch (err) {
+            console.error('[ProcessingNote] save failed:', err);
+            alert('Lỗi khi lưu ghi chú: ' + (err.message || err));
+        }
+    };
+
+    overlay.querySelector('#pn-save').onclick = () => save(textarea.value.trim());
+    overlay.querySelector('#pn-clear').onclick = () => {
+        if (confirm('Xóa ghi chú xử lý của phiếu này?')) save('');
+    };
+}
 
 /**
  * Cancel ticket (requires 'delete' permission)

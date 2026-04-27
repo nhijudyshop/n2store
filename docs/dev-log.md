@@ -8,6 +8,13 @@
 
 ## 2026-04-27
 
+### [issue-tracking] Nút bút sửa → modal nhập ghi chú xử lý, hiển thị ngay dưới nút action
+| | |
+|---|---|
+| **Files** | MODIFIED: [issue-tracking/js/script.js](../issue-tracking/js/script.js) — `renderActionButtons()`: sau cụm action button, render thêm `<div.ticket-processing-note>` (background vàng nhạt, border-left cam) hiển thị `ticket.processingNote` ngay dưới nút Thanh toán/Nhận hàng. Inline escape HTML. `editTicket()`: bỏ alert "đang phát triển", gọi `openProcessingNoteModal(ticket)` — modal overlay với textarea, 3 nút (Lưu / Xóa ghi chú / Hủy). Save qua `ApiService.updateTicket(firebaseId, {processingNote, processingNoteUpdatedAt, processingNoteUpdatedBy})` + optimistic repaint qua `renderDashboard(activeTab)`. |
+| **Chi tiết** | **Trigger**: user "khi bấm vào cây bút sửa hiện modal điền ghi chú để ghi nhớ tình trạng xử lý của phiếu" + "hiện ghi chú ngay dưới nút hành động (thanh toán, nhận hàng) luôn". **Field mới**: `processingNote` (string), `processingNoteUpdatedAt` (timestamp), `processingNoteUpdatedBy` (username) — append-only, không động endpoint TPOS/KPI. **UX**: note hiển thị inline trong cell HÀNH ĐỘNG → vừa nhìn ticket vừa thấy lý do/trạng thái nội bộ; click ✏️ → modal popup compact 480px. ESC/click overlay/nút Hủy đều đóng. Nút "Xóa ghi chú" có confirm. Firestore listener sẽ tự sync giữa các tab. |
+| **Status** | ✅ Done. |
+
 ### [balance-history][bug] Alert "Xem ngay" chờ duyệt >24h không filter — vẫn hiện toàn bộ giao dịch
 | | |
 |---|---|
