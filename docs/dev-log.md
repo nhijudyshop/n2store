@@ -89,6 +89,13 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [delivery-report][bugfix] Hover bill: srcdoc bị truncate ở `"` đầu + resize false-hide
+| | |
+|---|---|
+| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `showBill()`: bỏ template `srcdoc="${escapeHtml(srcdoc)}"`, đổi sang `document.createElement('iframe')` + set `ifr.srcdoc=...` qua DOM property + `pop.appendChild(ifr)`. Bỏ luôn `window.addEventListener('resize')` hide handler. |
+| **Chi tiết** | **Root cause #1 (truncated srcdoc)**: project's `escapeHtml(str)` dùng `div.textContent=str; return div.innerHTML` — chỉ escape `<>&` (textContent context không cần escape `"`). Khi inject `srcdoc="${escapeHtml(srcdoc)}"`, dấu `"` trong inner `<meta charset="utf-8">` không bị escape thành `&quot;` → browser parse attribute và **truncate srcdoc tại `"` đầu tiên** → iframe rỗng (verify: `srcdocLen: 41`, `bodyTxtLen: 0`). **Fix**: set `ifr.srcdoc` qua DOM property — browser engine handle escaping nội bộ, immune to attr-quote issue. **Root cause #2 (false-hide)**: `resize` handler ẩn popover → trigger ngầm khi Playwright fullPage screenshot tạm resize viewport (popover biến mất khỏi screenshot dù visible trong eval). Bỏ resize-hide; popover chỉ ẩn qua mouseleave hoặc Escape. **Verify localhost** (`python3 -m http.server 8765`, browser-session FIFO): bill iframe popH=624px, ifrW=318px, bodyTxtLen=16439 chars, render đầy đủ barcode + PHIẾU BÁN HÀNG + chi tiết SP + tổng tiền; customer popover hiển thị tên KH + 3 stat cards; page bodyWidth giữ 1440 (no style leak từ TPOS `html,body{width:80mm}`). |
+| **Status** | ✅ Done. Bộ 3 commit: 67df4b15 (iframe sandbox + bỏ scroll-hide) → fix này (srcdoc property + bỏ resize-hide). |
+
 ### [delivery-report][feat] Hover preview: invoice number → bill TPOS, customer cell → ví khách
 | | |
 |---|---|

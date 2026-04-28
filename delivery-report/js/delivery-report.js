@@ -2473,12 +2473,17 @@
                 const pop = ensurePopover();
                 // Sandbox bill HTML in iframe — TPOS print HTML ships its own <style>
                 // (e.g. `html, body { width: 80mm }`) that would leak to the parent page.
-                const srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
                 pop.innerHTML = `
                     <div class="dr-hp-header">
                         <span class="dr-hp-title"><i class="fas fa-receipt"></i> ${escapeHtml(number)}</span>
-                    </div>
-                    <iframe class="dr-hp-bill-frame" sandbox="allow-same-origin" srcdoc="${escapeHtml(srcdoc)}"></iframe>`;
+                    </div>`;
+                const ifr = document.createElement('iframe');
+                ifr.className = 'dr-hp-bill-frame';
+                ifr.sandbox = 'allow-same-origin';
+                // Set srcdoc via property (avoids attr-quote escaping pitfalls;
+                // the project's escapeHtml is textContent-based and doesn't escape ").
+                ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
+                pop.appendChild(ifr);
                 position(targetEl);
             } catch (e) {
                 if (activeKey !== key) return;
@@ -2662,12 +2667,10 @@
             const root = document.getElementById('drTableWrapper') || document.body;
             root.addEventListener('mouseover', onMouseEnter);
             root.addEventListener('mouseout', onMouseLeave);
-            // Hide on resize/escape. Scroll-hide removed — popover uses page coords
-            // so it stays anchored; auto-hiding on scroll caused dismissal during
-            // late table re-renders (rows pushing layout while popover was visible).
-            window.addEventListener('resize', () => {
-                if (popoverEl) popoverEl.style.display = 'none';
-            });
+            // Hide on Escape only. Scroll/resize-hide removed:
+            // - Scroll: popover uses page coords so it stays anchored.
+            // - Resize: caused false dismissal when window briefly resized
+            //   (e.g. Playwright fullPage screenshot, devtools toggle).
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && popoverEl) popoverEl.style.display = 'none';
             });
