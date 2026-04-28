@@ -158,7 +158,8 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 | **Vấn đề** | (1) Tab "Đã Duyệt" thiếu các giao dịch "Hoàn Tiền Hủy Đơn Công Nợ" (DEPOSIT + source=ORDER_CANCEL_REFUND) — chỉ có VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT trong wt UNION. (2) Cột Ghi chú render `wt.source` (vd 'VIRTUAL_CREDIT_ISSUE') thay vì `wt.note` (ghi chú thực user nhập, vd 'test_param_check'). |
 | **Backend fix** | (a) `/approved-today` UNION wt: thêm `(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')` vào whitelist. (b) Mirror filter cho count `approvedToday` cũng update tương tự. (c) SELECT wt rows: đổi `wt.source AS verification_note` → `COALESCE(NULLIF(TRIM(wt.note), ''), wt.source) AS verification_note` (ưu tiên ghi chú thực, fallback source). (d) Thêm `wt.source AS wt_source, wt.reference_id AS wt_reference_id` vào output để FE phân biệt sub-type. |
 | **Frontend fix** | `getMatchMethodBadge`: nhận biết `wtType=='DEPOSIT' && wtSource=='ORDER_CANCEL_REFUND'` → label "Hoàn tiền". Title tooltip ghi rõ `DEPOSIT/ORDER_CANCEL_REFUND`. |
-| **Status** | 🔄 Done code — chờ deploy Render + verify browser test |
+| **Live verify** | Browser test online sau Render deploy: tab Đã Duyệt 34 rows (tăng từ 31), 3 dòng Hoàn tiền (badge tím) cho NJD/2026/63945-63947 phone 0123456788 hiện đầy đủ. Note column: "Công Nợ Ảo Từ Thu Về (NJD/2026/63950) - thu ve giam gia 3 mon" thay vì "VIRTUAL_CREDIT_ISSUE" thô. Mirror count card cũng update đúng 34. ✅ |
+| **Status** | ✅ Done — deploy + verify browser test |
 
 ### [customer-hub][tickets][feat] Hoàn Về + Khách Gửi — display label chuyên dụng + createdBy đầy đủ
 | | |
