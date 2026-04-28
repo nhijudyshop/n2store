@@ -624,8 +624,14 @@
             }
         })();
 
-        // Load report on page load
-        loadReport();
+        // Load report on page load — đợi firebase-helpers-global.js module load xong
+        // (nó là ES module, parse async sau classic script). Smoke test 2026-04-28 phát
+        // hiện gọi trực tiếp → getSalesLogByDate is not defined.
+        if (typeof window.getSalesLogByDate === 'function') {
+            loadReport();
+        } else {
+            window.addEventListener('firebaseHelpersReady', loadReport, { once: true });
+        }
     </script>
     <!-- Note: notification-system.js is loaded by compat.js ES Module -->
 </body>

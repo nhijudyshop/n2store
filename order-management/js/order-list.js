@@ -275,10 +275,14 @@ async function loadSettings() {
 }
 
 function applySettings() {
+    // Smoke test 2026-04-28: productGrid có thể null ở 1 số state (load trước render).
+    // Guard để tránh "Cannot read properties of null (reading 'style')".
     const productGrid = document.getElementById('productGrid');
-    productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
-    productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
-    productGrid.style.gap = `${displaySettings.gap}px`;
+    if (productGrid) {
+        productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
+        productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
+        productGrid.style.gap = `${displaySettings.gap}px`;
+    }
 
     // Apply Frame Layout CSS Variables
     document.documentElement.style.setProperty(
@@ -365,7 +369,9 @@ async function loadProducts() {
 }
 
 function showEmptyState() {
+    // Guard null DOM (smoke test 2026-04-28).
     const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
     mainContent.innerHTML = `
                 <div class="empty-state">
                     <h2>📦 Chưa có sản phẩm nào</h2>
@@ -479,6 +485,7 @@ function mergeProductsByTemplate(products) {
 
 function updateProductGrid() {
     const productGrid = document.getElementById('productGrid');
+    if (!productGrid) return; // Guard null DOM (smoke test 2026-04-28)
     const pageInfo = document.getElementById('pageInfo');
     const btnPrev = document.getElementById('btnPrev');
     const btnNext = document.getElementById('btnNext');

@@ -339,7 +339,9 @@ async function loadProducts() {
 }
 
 function showEmptyState() {
+    // Guard null DOM (smoke test 2026-04-28).
     const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
     mainContent.innerHTML = `
                 <div class="empty-state">
                     <h2>📦 Chưa có sản phẩm nào đã ẩn</h2>
@@ -431,6 +433,7 @@ function mergeProductsByTemplate(products) {
 
 function updateProductGrid() {
     const productGrid = document.getElementById('productGrid');
+    if (!productGrid) return; // Guard null DOM (smoke test 2026-04-28)
     const pageInfo = document.getElementById('pageInfo');
     const btnPrev = document.getElementById('btnPrev');
     const btnNext = document.getElementById('btnNext');

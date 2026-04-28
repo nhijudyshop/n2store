@@ -64,3 +64,8 @@ Object.assign(window, {
 });
 
 console.log('✅ Firebase helpers loaded and exposed to global scope');
+
+// Notify pages that classic scripts depend on these helpers (module loads async after classic).
+// Smoke test 2026-04-28 phát hiện sales-report.html gọi loadReport() ngay khi parse →
+// getSalesLogByDate chưa exposed. Listen 'firebaseHelpersReady' thay vì gọi trực tiếp.
+window.dispatchEvent(new Event('firebaseHelpersReady'));

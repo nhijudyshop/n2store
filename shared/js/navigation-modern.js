@@ -6354,14 +6354,15 @@ setTimeout(() => {
     let basePath = '../shared/js/';
 
     // Handle different directory depths
+    // BUG FIX 2026-04-28: trước đây dùng `'js/'` → resolve sai cho subdir 2-level
+    // (vd `purchase-orders/goods-receiving/`) → 404. Phải là `'shared/js/'`.
     if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
-        // Find the depth from n2store root
         const parts = currentPath
             .split('/n2store/')[1]
             ?.split('/')
             .filter((p) => p && !p.includes('.html'));
         if (parts && parts.length > 1) {
-            basePath = '../'.repeat(parts.length) + 'js/';
+            basePath = '../'.repeat(parts.length) + 'shared/js/';
         }
     }
 
