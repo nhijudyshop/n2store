@@ -3,10 +3,15 @@
 // LOGIN SYSTEM - Render API Version
 // =====================================================
 
-const API_BASE_URL =
-    window.location.hostname === 'localhost'
-        ? 'http://localhost:3000/api/users'
-        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
+// Localhost dev: nếu set ?api=local hoặc localStorage 'login_api_local'='1' thì dùng Render local;
+// mặc định dùng Cloudflare Worker production để login được khi chỉ chạy `python3 -m http.server`.
+const __useLocalApi =
+    window.location.hostname === 'localhost' &&
+    (new URLSearchParams(location.search).get('api') === 'local' ||
+        localStorage.getItem('login_api_local') === '1');
+const API_BASE_URL = __useLocalApi
+    ? 'http://localhost:3000/api/users'
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/users';
 const LOGIN_API_URL = `${API_BASE_URL}/login`;
 
 document.addEventListener('DOMContentLoaded', function () {

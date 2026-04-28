@@ -115,6 +115,14 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [login][fix] Localhost login — fallback Cloudflare Worker khi Render local (port 3000) không chạy
+| | |
+|---|---|
+| **File** | `index/login.js` |
+| **Vì sao** | Khi chỉ chạy `python3 -m http.server 8080` để dev frontend (không chạy Render server), `login.js` hardcode trỏ `http://localhost:3000/api/users/login` → `ERR_CONNECTION_REFUSED` không login được. |
+| **Thay đổi** | Mặc định localhost dùng Cloudflare Worker production (`chatomni-proxy.nhijudyshop.workers.dev/api/users`). Chỉ trỏ Render local nếu thêm `?api=local` vào URL hoặc `localStorage.setItem('login_api_local','1')`. |
+| **Status** | ✅ Done — verified bằng persistent browser session login admin/admin@@ trên `http://localhost:8080` |
+
 ### [balance-history][feat] Đã Duyệt — thêm nút mắt 👁 mở ảnh duyệt CK trong lightbox
 | | |
 |---|---|
