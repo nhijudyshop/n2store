@@ -26,8 +26,34 @@ export async function handleImageProxy(request, url) {
 
     if (!imageUrl) {
         return errorResponse('Missing url parameter', 400, {
-            usage: '/api/image-proxy?url=<encoded_url>'
+            usage: '/api/image-proxy?url=<encoded_url>[&w=<px>][&q=<1-100>]'
         });
+    }
+
+    // Forward resize requests to Render (sharp lives there) — CF Workers can't
+    // re-encode JPEG without a paid Image Resizing plan, so we proxy through.
+    const wantResize = url.searchParams.has('w') || url.searchParams.has('q');
+    if (wantResize) {
+        const renderUrl = `https://n2store-fallback.onrender.com/api/image-proxy${url.search}`;
+        console.log('[IMAGE-PROXY] Forwarding resize to Render:', renderUrl);
+        try {
+            const upstream = await fetchWithRetry(renderUrl, { method: 'GET' }, 3, 1000, 30000);
+            if (!upstream.ok) {
+                return errorResponse(`Render image-proxy failed: ${upstream.status}`, upstream.status);
+            }
+            const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+            return new Response(upstream.body, {
+                status: 200,
+                headers: {
+                    'Content-Type': contentType,
+                    'Cache-Control': 'public, max-age=86400',
+                    ...CORS_HEADERS
+                }
+            });
+        } catch (error) {
+            console.error('[IMAGE-PROXY] Render forward error:', error.message);
+            return errorResponse('Render image-proxy error: ' + error.message, 500);
+        }
     }
 
     console.log('[IMAGE-PROXY] Fetching:', imageUrl);
