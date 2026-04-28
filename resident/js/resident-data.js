@@ -8,12 +8,17 @@
     const cache = new Map();
 
     // Mock data files (resident/data/*.json) chứa PII khách hàng nên gitignored.
-    // Trên GitHub Pages production → 404 27 lần khi load các key. Skip toàn bộ fetch
-    // nếu phát hiện không có catalog → trả null, không spam console + browser.
-    // Single in-flight promise — concurrent calls await cùng probe, không fire 27 lần.
+    // Trên prod GitHub Pages → 404. Heuristic: domain *.github.io → skip mọi fetch.
+    // Tránh ngay cả 1 probe HEAD (smoke test 2026-04-28 vẫn ghi nhận 1× 404).
+    const _isProdNoData = /github\.io|nhijudyshop\./i.test(window.location.hostname);
     let _probePromise = null;
 
     function _probeMockData() {
+        if (_isProdNoData) {
+            // Production: data files không deploy. Skip ngay không probe.
+            console.info('[resident-data] prod deploy — không có mock data, mọi load() return null');
+            return Promise.resolve(false);
+        }
         if (_probePromise) return _probePromise;
         _probePromise = (async () => {
             try {

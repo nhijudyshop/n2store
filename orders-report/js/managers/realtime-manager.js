@@ -117,7 +117,12 @@ class PancakePhoenixSocket {
                     }
                 } else if (payload?.status === 'error') {
                     const reason = payload?.response?.message || payload?.response?.reason || JSON.stringify(payload?.response);
-                    console.error(`[PHOENIX] ❌ Join FAILED: ${topic} — ${reason}`);
+                    // Downgrade to warn — "Gói cước hết hạn" là trạng thái backend bình thường
+                    // (page Pancake hết subscription); retry logic ở dưới đã xử lý. Smoke test
+                    // 2026-04-28: console.error spam khi 1+ page expired → giảm noise.
+                    const isExpiredSubscription = /Gói cước hết hạn|hết hạn|expired/i.test(reason);
+                    const fn = isExpiredSubscription ? console.warn : console.error;
+                    fn(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
 
                     // If multiple_pages join failed, retry removing one page at a time
                     if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
