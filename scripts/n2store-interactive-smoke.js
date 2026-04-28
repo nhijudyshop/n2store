@@ -170,33 +170,48 @@ const PROBE_AND_INTERACT = `
         }
     }
 
-    // 3. Buttons with onclick — click first 6 NON-DESTRUCTIVE
+    // 3. Buttons with onclick — click first 6 NON-DESTRUCTIVE & NON-NAVIGATING
     const isDestructive = (txt, oc) => {
         const s = (txt + ' ' + (oc || '')).toLowerCase();
         return /xóa|delete|remove|hủy|cancel|reject|đăng xuất|logout|reset|clear all|approve|confirm|tạo phiếu|insert|save|lưu|gửi|send|submit|export|in bill|print/.test(s);
+    };
+    const isNavigating = (oc) => {
+        const s = (oc || '').toLowerCase();
+        return /location\.href|window\.open|window\.location|navigate|gohome|goto/i.test(s) || s.includes('href=');
     };
     const btns = Array.from(document.querySelectorAll('button[onclick], [role=button][onclick]')).filter(b => {
         const txt = (b.textContent || '').trim();
         const oc = b.getAttribute('onclick') || '';
         if (!txt && !oc) return false;
         if (isDestructive(txt, oc)) return false;
-        // Skip hidden buttons
+        if (isNavigating(oc)) return false;
         const r = b.getBoundingClientRect();
         return r.width > 0 && r.height > 0;
     }).slice(0, 6);
+
+    // Track URL — abort all clicks if any navigation happens
+    const startUrl = location.href;
+    const isStillHere = () => location.href === startUrl;
     for (const b of btns) {
+        if (!isStillHere()) {
+            results.interactions.push({ label: 'navigation detected — abort remaining clicks', ok: false });
+            break;
+        }
         const txt = (b.textContent || '').trim().slice(0, 25);
         await safeClick(b, 'btn "' + txt + '"');
     }
 
     // 4. Tabs (any element with class containing "tab")
-    const tabs = Array.from(document.querySelectorAll('[class*=tab]:not(button), .tab-btn, [role=tab]')).filter(t => {
-        const r = t.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && (t.onclick || t.getAttribute('onclick'));
-    }).slice(0, 4);
-    for (const t of tabs) {
-        const txt = (t.textContent || '').trim().slice(0, 20);
-        await safeClick(t, 'tab "' + txt + '"');
+    if (isStillHere()) {
+        const tabs = Array.from(document.querySelectorAll('[class*=tab]:not(button), .tab-btn, [role=tab]')).filter(t => {
+            const r = t.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && (t.onclick || t.getAttribute('onclick'));
+        }).slice(0, 4);
+        for (const t of tabs) {
+            if (!isStillHere()) break;
+            const txt = (t.textContent || '').trim().slice(0, 20);
+            await safeClick(t, 'tab "' + txt + '"');
+        }
     }
 
     return {
@@ -254,8 +269,29 @@ async function testOne(ctx, urlPath) {
             );
         });
 
-        // Run interactions
-        const res = await page.evaluate(PROBE_AND_INTERACT);
+        // Run interactions — recover gracefully if context destroyed (button navigated)
+        let res;
+        try {
+            res = await page.evaluate(PROBE_AND_INTERACT);
+        } catch (evalErr) {
+            // Try to fetch __diag final state from new context
+            res = await page
+                .evaluate(() => ({
+                    interactionCount: 0,
+                    results: [],
+                    finalErrors: window.__diag?.errors?.length || 0,
+                    finalUnhandled: window.__diag?.unhandled?.length || 0,
+                    contextDestroyed: true,
+                    note: 'Một button gây navigation — không tính lỗi page',
+                }))
+                .catch(() => ({
+                    interactionCount: 0,
+                    finalErrors: 0,
+                    finalUnhandled: 0,
+                    contextDestroyed: true,
+                    evalError: String(evalErr.message || evalErr).slice(0, 200),
+                }));
+        }
         return { path: urlPath, ok: true, ...res };
     } catch (e) {
         return { path: urlPath, ok: false, fatal: e.message };
