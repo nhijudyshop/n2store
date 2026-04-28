@@ -52,12 +52,27 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_social_orders_phone ON social_orders(phone);
 
             CREATE TABLE IF NOT EXISTS social_tags (
-                id VARCHAR(50) PRIMARY KEY,
+                id VARCHAR(255) PRIMARY KEY,
                 name VARCHAR(255),
                 color VARCHAR(20),
                 image TEXT,
                 updated_at BIGINT
             );
+            -- Migration 2026-04-28: extend id từ VARCHAR(50) → VARCHAR(255).
+            -- Smoke test phát hiện "value too long for type character varying(50)" khi
+            -- client gửi id dài (composite key). DO IF: chỉ ALTER khi cột hiện ≤ 50.
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'social_tags'
+                      AND column_name = 'id'
+                      AND character_maximum_length = 50
+                ) THEN
+                    ALTER TABLE social_tags ALTER COLUMN id TYPE VARCHAR(255);
+                    RAISE NOTICE 'social_tags.id extended VARCHAR(50) -> VARCHAR(255)';
+                END IF;
+            END $$;
 
             CREATE TABLE IF NOT EXISTS social_orders_history (
                 id SERIAL PRIMARY KEY,
