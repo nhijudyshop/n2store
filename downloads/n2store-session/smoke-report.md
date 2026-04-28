@@ -1,9 +1,9 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-04-28T04:45:41.162Z
+Generated: 2026-04-28T05:03:02.500Z
 
-- ✅ Clean: **135**
-- ❌ Issues: **9**
+- ✅ Clean: **137**
+- ❌ Issues: **7**
 
 ## Pages with issues (sorted by severity)
 
@@ -12,39 +12,31 @@ Generated: 2026-04-28T04:45:41.162Z
 | `/` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 | `/inbox/index.html` | 200 | Inbox Chat - N2STORE | 1 | 0 |  | ✓ |  |
 | `/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/inventory-tracking/index.html` | 200 | Theo Dõi Nhập Hàng SL | 1 | 0 |  | ✓ |  |
-| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 165 | 0 |  | ✓ |  |
-| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 171 | 0 |  | ✓ |  |
+| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 266 | 0 |  | ✓ |  |
+| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 251 | 0 |  | ✓ |  |
 | `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 1 | 0 |  | ✓ |  |
 | `/quy-trinh/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/resident/index.html` | 200 | Resident — Quản lý BĐS & Cư dâ | 1 | 0 |  | ✓ |  |
 
 ## Top errors (first 3 per broken page)
 
 ### `/inbox/index.html`
 - err: [PHOENIX] Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
 
-### `/inventory-tracking/index.html`
-- err: Failed to load resource: the server responded with a status of 503 ()
-
 ### `/orders-report/main.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_FAILED
 
 ### `/orders-report/tab1-orders.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_FAILED
 
 ### `/product-warehouse/index.html`
 - err: Failed to load resource: the server responded with a status of 404 ()
 
-### `/resident/index.html`
-- err: Failed to load resource: the server responded with a status of 404 ()
 
-
-## Clean pages (135)
+## Clean pages (137)
 
 - `/AI/gemini.html`
 - `/balance-history/index.html`
@@ -57,6 +49,7 @@ Generated: 2026-04-28T04:45:41.162Z
 - `/fb-ads/index.html`
 - `/firebase-stats/index.html`
 - `/hanghoan/index.html`
+- `/inventory-tracking/index.html`
 - `/invoice-compare/index.html`
 - `/issue-tracking/index.html`
 - `/lichsuchinhsua/index.html`
@@ -79,6 +72,7 @@ Generated: 2026-04-28T04:45:41.162Z
 - `/purchase-orders/index.html`
 - `/purchase-orders/label-test.html`
 - `/render-data-manager/index.html`
+- `/resident/index.html`
 - `/service-costs/index.html`
 - `/soluong-live/hidden-soluong.html`
 - `/soluong-live/index.html`

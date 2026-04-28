@@ -28,8 +28,10 @@ class PancakePhoenixSocket {
         this.isConnected = false;
         this.joinedChannels = new Set();
 
-        this.clientSession = crypto.getRandomValues(new Uint8Array(32))
-            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '').slice(0, 64);
+        this.clientSession = crypto
+            .getRandomValues(new Uint8Array(32))
+            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '')
+            .slice(0, 64);
     }
 
     connect() {
@@ -49,7 +51,10 @@ class PancakePhoenixSocket {
 
     disconnect() {
         this._stopHeartbeat();
-        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         if (this.ws) {
             this.ws.onopen = null;
             this.ws.onclose = null;
@@ -69,17 +74,24 @@ class PancakePhoenixSocket {
 
         // Join user channel
         this._joinChannel(`users:${this.userId}`, {
-            accessToken: this.accessToken, userId: this.userId, platform: 'web'
+            accessToken: this.accessToken,
+            userId: this.userId,
+            platform: 'web',
         });
 
         // Join multi-page channel
-        console.log(`[PHOENIX] Joining channels for userId=${this.userId}, ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
+        console.log(
+            `[PHOENIX] Joining channels for userId=${this.userId}, ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`
+        );
         this._allPageIds = [...this.pageIds]; // Save for retry logic
         this._retryIndex = 0;
         this._retryExhausted = false;
         this._joinChannel(`multiple_pages:${this.userId}`, {
-            accessToken: this.accessToken, userId: this.userId,
-            clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
+            accessToken: this.accessToken,
+            userId: this.userId,
+            clientSession: this.clientSession,
+            pageIds: this.pageIds,
+            platform: 'web',
         });
 
         this._startHeartbeat();
@@ -103,7 +115,10 @@ class PancakePhoenixSocket {
             // Heartbeat reply
             if (event === 'phx_reply') {
                 if (topic === 'phoenix') {
-                    if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+                    if (this.heartbeatTimeout) {
+                        clearTimeout(this.heartbeatTimeout);
+                        this.heartbeatTimeout = null;
+                    }
                     return;
                 }
                 // Channel join reply
@@ -116,7 +131,10 @@ class PancakePhoenixSocket {
                         console.log('[PHOENIX] 🟢 Realtime READY — listening for messages');
                     }
                 } else if (payload?.status === 'error') {
-                    const reason = payload?.response?.message || payload?.response?.reason || JSON.stringify(payload?.response);
+                    const reason =
+                        payload?.response?.message ||
+                        payload?.response?.reason ||
+                        JSON.stringify(payload?.response);
                     // Downgrade to warn — "Gói cước hết hạn" là trạng thái backend bình thường
                     // (page Pancake hết subscription); retry logic ở dưới đã xử lý. Smoke test
                     // 2026-04-28: console.error spam khi 1+ page expired → giảm noise.
@@ -125,29 +143,46 @@ class PancakePhoenixSocket {
                     fn(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
 
                     // If multiple_pages join failed, retry removing one page at a time
-                    if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                    if (
+                        topic.startsWith('multiple_pages:') &&
+                        this._allPageIds &&
+                        !this._retryExhausted
+                    ) {
                         this._retryIndex = (this._retryIndex || 0) + 1;
                         if (this._retryIndex <= this._allPageIds.length) {
                             // Try without page at current retry index (0-based: skip index retryIndex-1)
                             const skipIdx = this._retryIndex - 1;
                             const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
-                            console.warn(`[PHOENIX] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                            console.warn(
+                                `[PHOENIX] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`
+                            );
                             this.pageIds = retryPages;
                             this._joinChannel(`multiple_pages:${this.userId}`, {
-                                accessToken: this.accessToken, userId: this.userId,
-                                clientSession: this.clientSession, pageIds: retryPages, platform: 'web'
+                                accessToken: this.accessToken,
+                                userId: this.userId,
+                                clientSession: this.clientSession,
+                                pageIds: retryPages,
+                                platform: 'web',
                             });
                         } else {
                             this._retryExhausted = true;
-                            console.error('[PHOENIX] ❌ All page combinations failed. Check Pancake subscription.');
+                            console.error(
+                                '[PHOENIX] ❌ All page combinations failed. Check Pancake subscription.'
+                            );
                         }
                     }
                 }
                 return;
             }
 
-            if (event === 'phx_error') { this.joinedChannels.delete(topic); return; }
-            if (event === 'phx_close') { this.joinedChannels.delete(topic); return; }
+            if (event === 'phx_error') {
+                this.joinedChannels.delete(topic);
+                return;
+            }
+            if (event === 'phx_close') {
+                this.joinedChannels.delete(topic);
+                return;
+            }
 
             // Dispatch real event
             if (this.onEvent) this.onEvent(event, payload);
@@ -180,8 +215,14 @@ class PancakePhoenixSocket {
     }
 
     _stopHeartbeat() {
-        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-        if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
+        if (this.heartbeatTimeout) {
+            clearTimeout(this.heartbeatTimeout);
+            this.heartbeatTimeout = null;
+        }
     }
 
     _scheduleReconnect() {
@@ -225,12 +266,14 @@ class RealtimeManager {
                 this.isConnected = connected;
 
                 // Dispatch status event for UI
-                window.dispatchEvent(new CustomEvent('realtimeStatusChanged', {
-                    detail: { connected }
-                }));
+                window.dispatchEvent(
+                    new CustomEvent('realtimeStatusChanged', {
+                        detail: { connected },
+                    })
+                );
 
                 // WebSocket status changed
-            }
+            },
         });
 
         this.socket.connect();
@@ -277,7 +320,10 @@ class RealtimeManager {
         // Log important events (skip noisy ones)
         if (event.includes('message') || event.includes('conversation')) {
             const snippet = payload?.conversation?.snippet || payload?.message?.message || '';
-            console.log(`[PHOENIX] 📨 Event: ${event}`, snippet ? `"${snippet.substring(0, 50)}"` : '');
+            console.log(
+                `[PHOENIX] 📨 Event: ${event}`,
+                snippet ? `"${snippet.substring(0, 50)}"` : ''
+            );
         }
 
         // Dispatch to registered handlers for exact event name
@@ -319,8 +365,7 @@ class RealtimeManager {
      * Initialize - called by tab1-init.js after page load
      * Sets up event listeners for chat realtime updates
      */
-    initialize() {
-    }
+    initialize() {}
 
     /**
      * Connect via server mode (legacy - polling endpoint removed)
@@ -348,7 +393,8 @@ if (!window.PancakePhoenixSocket) {
 if (typeof window !== 'undefined' && !window.__realtimeBeforeUnloadHooked) {
     window.__realtimeBeforeUnloadHooked = true;
     window.addEventListener('beforeunload', () => {
-        try { window.realtimeManager?.disconnect?.(); } catch (e) {}
+        try {
+            window.realtimeManager?.disconnect?.();
+        } catch (e) {}
     });
 }
-

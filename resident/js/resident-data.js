@@ -16,7 +16,9 @@
     function _probeMockData() {
         if (_isProdNoData) {
             // Production: data files không deploy. Skip ngay không probe.
-            console.info('[resident-data] prod deploy — không có mock data, mọi load() return null');
+            console.info(
+                '[resident-data] prod deploy — không có mock data, mọi load() return null'
+            );
             return Promise.resolve(false);
         }
         if (_probePromise) return _probePromise;

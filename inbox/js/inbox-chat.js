@@ -133,7 +133,11 @@ class PancakePhoenixSocket {
                         payload?.response?.message ||
                         payload?.response?.reason ||
                         JSON.stringify(payload?.response);
-                    console.error(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
+                    // Downgrade to warn — "Gói cước hết hạn" là backend state expected
+                    // (smoke test 2026-04-28). Retry logic dưới đã handle.
+                    const isExpiredSubscription = /Gói cước hết hạn|hết hạn|expired/i.test(reason);
+                    const fn = isExpiredSubscription ? console.warn : console.error;
+                    fn(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
 
                     // Retry multiple_pages by removing one page at a time
                     if (
