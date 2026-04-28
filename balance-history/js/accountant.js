@@ -2588,9 +2588,7 @@
         currentReviewTxId = txId;
 
         // Find transaction in state — txId là composite uid (bh:N | wt:N) hoặc legacy id thuần
-        const tx = state.approvedToday.find(
-            (t) => t.uid === txId || String(t.id) === String(txId)
-        );
+        const tx = state.approvedToday.find((t) => t.uid === txId || String(t.id) === String(txId));
         if (!tx) {
             showNotification('Không tìm thấy giao dịch', 'error');
             return;
