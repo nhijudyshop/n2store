@@ -30,7 +30,7 @@ import {
     // Sales log functions
     logSaleTransaction,
     getSalesLogByDate,
-    getAllSalesLogs
+    getAllSalesLogs,
 } from './firebase-helpers.js';
 
 // Expose all functions to global window object
@@ -60,7 +60,7 @@ Object.assign(window, {
     // Sales log functions
     logSaleTransaction,
     getSalesLogByDate,
-    getAllSalesLogs
+    getAllSalesLogs,
 });
 
 console.log('✅ Firebase helpers loaded and exposed to global scope');

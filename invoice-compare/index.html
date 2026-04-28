@@ -38,6 +38,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
+    <!-- Firebase config (initializeApp + FIRESTORE_COLLECTIONS) — bắt buộc trước khi
+         token-manager / version-checker gọi firebase.firestore(). Smoke test 2026-04-28
+         phát hiện "No Firebase App '[DEFAULT]'" do thiếu file này. -->
+    <script src="../shared/js/firebase-config.js"></script>
+
     <!-- API Keys are now managed securely on Render server -->
     <script>
         // API Keys are stored on Render server, no longer needed here

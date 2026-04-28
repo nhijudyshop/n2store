@@ -1,9 +1,9 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-04-28T02:11:25.607Z
+Generated: 2026-04-28T03:12:53.914Z
 
-- ✅ Clean: **27**
-- ❌ Issues: **117**
+- ✅ Clean: **33**
+- ❌ Issues: **111**
 
 ## Pages with issues (sorted by severity)
 
@@ -12,33 +12,27 @@ Generated: 2026-04-28T02:11:25.607Z
 | `/` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 | `/AI/gemini.html` | 200 | Gemini AI Assistant | 0 | 0 | 500 | RPD: 2K) | ✓ |  |
 | `/balance-history/index.html` | 200 | Lịch sử biến động số dư - Sepa | 0 | 0 | 500.000 đ	IBFT PHAM THI THU HUONG chuyen | ✓ |  |
-| `/bangkiemhang/index.html` | 200 | Quản Lý Kiểm Hàng | 2 | 2 | lỗi xảy ra trong xử lý dữ liệu. | ✓ |  |
 | `/delivery-report/index.html` | 200 | Thống Kê Giao Hàng - N2STORE | 0 | 0 | 500 | ✓ |  |
-| `/don-inbox/index.html` | 200 | Đơn Inbox - N2Store | 2 | 0 | 500537 | ✓ |  |
+| `/don-inbox/index.html` | 200 | Đơn Inbox - N2Store | 0 | 0 | 500537 | ✓ |  |
 | `/facebook-services/index.html` | 200 | Dịch Vụ Facebook - N2STORE | 0 | 0 | 500đ/1K) | ✓ |  |
-| `/firebase-stats/index.html` | 200 | Firebase Statistics - N2STORE | 0 | 1 |  | ✓ |  |
+| `/inbox/index.html` | 200 | Inbox Chat - N2STORE | 0 | 0 | lỗi đơn hàng. | ✓ |  |
 | `/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 | `/invoice-compare/index.html` | 200 | So Sánh Đơn Hàng | 2 | 0 |  | ✓ |  |
 | `/issue-tracking/index.html` | 200 | Quản lý Sự vụ & Điều phối sau  | 0 | 0 | LỖI | ✓ |  |
+| `/lichsuchinhsua/index.html` | 200 | Lịch Sử Chỉnh Sửa - Nhật Ký Ki | 0 | 0 | 404	24/04/2026 11:56:12	My	Customer 360° | ✓ |  |
 | `/native-orders/index.html` | 200 | Đơn Web — N2Store | 0 | 0 | 500 / trang | ✓ |  |
-| `/order-management/hidden-products.html` | 200 | Danh sách Sản phẩm đã ẩn - N2S | 0 | 1 |  | ✓ |  |
-| `/order-management/order-list.html` | 200 | Danh sách Order - N2STORE | 0 | 4 |  | ✓ |  |
-| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 181 | 0 |  | ✓ |  |
+| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 327 | 0 |  | ✓ |  |
 | `/orders-report/migration-kpi-per-user.html` | 200 | Migration: KPI per-user attrib | 0 | 0 | Lỗi: 0 Bỏ qua (no audit): 0 | ✓ |  |
 | `/orders-report/tab-pending-delete.html` | 200 | Bill Đã Xóa - N2Store | 0 | 0 | 4048479 | ✓ |  |
-| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 177 | 0 |  | ✓ |  |
-| `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 1 | 0 | 500	0,00	0,00	Cái	-				2026-04-28		 | ✓ |  |
-| `/purchase-orders/goods-receiving/index.html` | 200 | Kiểm hàng nhập - N2STORE | 1 | 0 |  | ✓ |  |
+| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 179 | 0 |  | ✓ |  |
+| `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 2 | 0 | 500	0,00	0,00	Cái	-				2026-04-28		 | ✓ |  |
 | `/quy-trinh/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 | `/resident/index.html` | 200 | Resident — Quản lý BĐS & Cư dâ | 27 | 0 |  | ✓ |  |
 | `/service-costs/index.html` | 200 | Chi Phí Dịch Vụ - N2STORE | 0 | 0 | 500 requests | ✓ |  |
-| `/soluong-live/hidden-soluong.html` | 200 | Danh sách Số lượng đã ẩn - N2S | 0 | 1 |  | ✓ |  |
-| `/soluong-live/sales-report.html` | 200 | Báo cáo bán hàng - N2STORE | 1 | 0 | Lỗi tải dữ liệu | ✓ |  |
-| `/soluong-live/social-sales.html` | 200 | Bán hàng Social - N2STORE | 1 | 1 |  | ✓ |  |
 | `/soquy/huong_dan_so_quy.html` | 200 | KiotViet - Phần mềm quản lý bá | 12 | 0 |  | ✓ |  |
+| `/soquy/index.html` | 200 | Sổ Quỹ - N2STORE | 0 | 0 | 500.000	-	Makeup cnhi 27/4 | ✓ |  |
 | `/stitch_customer/transaction-activity.html` | 200 | Transaction Activity Log | 0 | 0 | 500.00	Completed	more_vert | ✓ |  |
 | `/stitch_customer/Unlinked_Bank_Transactions.html` | 200 | Customer 360 Hub - Unlinked Tr | 0 | 0 | 500.00	 | ✓ |  |
-| `/supplier-debt/index.html` | 200 | Công nợ nhà cung cấp | 0 | 1 |  | ✓ |  |
 | `/web2-products/index.html` | 200 | Kho Sản Phẩm Web 2.0 — N2Store | 0 | 0 | 500 / trang | ✓ |  |
 | `/web2/account-chi/index.html` | 200 | Loại chi — Web 2.0 | 0 | 0 | 500 / trang | ✓ |  |
 | `/web2/account-deposit/index.html` | 200 | Ký quỹ — Web 2.0 | 0 | 0 | 500 / trang | ✓ |  |
@@ -129,22 +123,6 @@ Generated: 2026-04-28T02:11:25.607Z
 
 ## Top errors (first 3 per broken page)
 
-### `/bangkiemhang/index.html`
-- err: Global error: ReferenceError: invalidateCache is not defined
-    at https://nhijudyshop.github.io/n2store/bangkiemhang/js/main.js:98:5
-- err: Unhandled promise rejection: ReferenceError: getAuthState is not defined
-    at initializeInventorySystem (https://nhijudyshop.github.io/n2store/bangkiemhang/js/main.js:15:18)
-    at HTMLDocument.<anonymous> (https://nhijudyshop.github.io/n2store/bangkiemhang/js/main.js:87:5)
-- unh: invalidateCache is not defined
-- unh: getAuthState is not defined
-
-### `/don-inbox/index.html`
-- err: Failed to load resource: the server responded with a status of 500 ()
-- err: [SocialAPI] Error saving tags: value too long for type character varying(50)
-
-### `/firebase-stats/index.html`
-- unh: Identifier 'FIRESTORE_COLLECTIONS' has already been declared
-
 ### `/invoice-compare/index.html`
 - err: [TOKEN] Error initializing Firestore: FirebaseError: Firebase: No Firebase App '[DEFAULT]' has been created - call Firebase App.initializeApp() (app-compat/no-app).
     at o (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30736)
@@ -155,28 +133,18 @@ Generated: 2026-04-28T02:11:25.607Z
     at Object.e [as firestore] (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30261)
     at VersionChecker.waitForFireba
 
-### `/order-management/hidden-products.html`
-- unh: Cannot set properties of null (setting 'innerHTML')
-
-### `/order-management/order-list.html`
-- unh: Cannot read properties of null (reading 'style')
-- unh: Cannot read properties of null (reading 'style')
-- unh: Cannot set properties of null (setting 'innerHTML')
-
 ### `/orders-report/main.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
-- err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_FAILED
+- err: [PHOENIX] ❌ Join FAILED: multiple_pages:24ed43c8-7a0a-4191-b52f-97a13c598651 — Gói cước hết hạn
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
 ### `/orders-report/tab1-orders.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
+- err: [PHOENIX] ❌ Join FAILED: multiple_pages:24ed43c8-7a0a-4191-b52f-97a13c598651 — Gói cước hết hạn
 - err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 - err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
 ### `/product-warehouse/index.html`
 - err: Failed to load resource: the server responded with a status of 404 ()
-
-### `/purchase-orders/goods-receiving/index.html`
 - err: Failed to load resource: the server responded with a status of 404 ()
 
 ### `/resident/index.html`
@@ -184,40 +152,25 @@ Generated: 2026-04-28T02:11:25.607Z
 - err: Failed to load resource: the server responded with a status of 404 ()
 - err: Failed to load resource: the server responded with a status of 404 ()
 
-### `/soluong-live/hidden-soluong.html`
-- unh: AuthManager is not defined
-
-### `/soluong-live/sales-report.html`
-- err: ❌ Error loading logs: ReferenceError: getSalesLogByDate is not defined
-    at loadReport (https://nhijudyshop.github.io/n2store/soluong-live/sales-report.html?t=1777342101864:443:17)
-    at https://nhijudyshop.github.io/n2store/soluong-live/sales-report.html?t=1777342101864:630:9
-
-### `/soluong-live/social-sales.html`
-- err: ❌ Permission check error: ReferenceError: AuthManager is not defined
-    at checkPermissionAndRedirect (https://nhijudyshop.github.io/n2store/soluong-live/social-sales.html?t=1777342102644:719:37)
-    at https://nhijudyshop.github.io/n2store/soluong-live/social-sales.html?t=1777342102644:754:11
-- unh: AuthManager is not defined
-
 ### `/soquy/huong_dan_so_quy.html`
-- err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-solid-900.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+- err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-regular-400.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 - err: Failed to load resource: net::ERR_FAILED
 - err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-brands-400.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
-### `/supplier-debt/index.html`
-- unh: Identifier 'logger' has already been declared
 
+## Clean pages (33)
 
-## Clean pages (27)
-
+- `/bangkiemhang/index.html`
 - `/customer-hub/index.html`
 - `/doi-soat/index.html`
 - `/fb-ads/index.html`
+- `/firebase-stats/index.html`
 - `/hanghoan/index.html`
-- `/inbox/index.html`
 - `/inventory-tracking/index.html`
-- `/lichsuchinhsua/index.html`
 - `/nhanhang/index.html`
+- `/order-management/hidden-products.html`
 - `/order-management/index.html`
+- `/order-management/order-list.html`
 - `/orders-report/tab-kpi-commission.html`
 - `/orders-report/tab-live-ledger.html`
 - `/orders-report/tab-overview.html`
@@ -226,13 +179,17 @@ Generated: 2026-04-28T02:11:25.607Z
 - `/phone-management/monitor.html`
 - `/privacy-policy.html`
 - `/project-tracker/index.html`
+- `/purchase-orders/goods-receiving/index.html`
 - `/purchase-orders/index.html`
 - `/purchase-orders/label-test.html`
 - `/render-data-manager/index.html`
+- `/soluong-live/hidden-soluong.html`
 - `/soluong-live/index.html`
+- `/soluong-live/sales-report.html`
+- `/soluong-live/social-sales.html`
 - `/soluong-live/soluong-list.html`
 - `/soorder/index.html`
-- `/soquy/index.html`
 - `/stitch_customer/customer_search.html`
+- `/supplier-debt/index.html`
 - `/tpos-pancake/index.html`
 - `/user-management/index.html`
