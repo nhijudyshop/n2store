@@ -94,6 +94,8 @@
         }
 
         loadHiddenNumbers().finally(() => fetchData());
+
+        HoverPreview.init();
     }
 
     function setDefaultDates() {
@@ -495,8 +497,8 @@
 
             html += `<tr${rowClass}>
                 <td data-col="index">${startIndex + i + 1}</td>
-                <td data-col="number">${escapeHtml(item.Number || '')}</td>
-                <td data-col="customer" data-phone="${escapeHtml(item.Phone || '')}">
+                <td data-col="number" class="dr-hover-bill" data-id="${escapeHtml(String(item.Id || ''))}" data-number="${escapeHtml(item.Number || '')}">${escapeHtml(item.Number || '')}</td>
+                <td data-col="customer" class="dr-hover-customer" data-phone="${escapeHtml(item.Phone || '')}">
                     <div class="dr-customer-name">${escapeHtml(item.PartnerDisplayName || '')}</div>
                     <div class="dr-customer-phone">ĐT: ${escapeHtml(item.Phone || '')}</div>
                     <div class="dr-pancake-badge"></div>
@@ -2358,6 +2360,274 @@
             @page { size:landscape; margin:10mm; }
         `;
     }
+
+    // =====================================================
+    // HOVER PREVIEW — Bill (TPOS) + Customer Wallet
+    // =====================================================
+    const HoverPreview = (() => {
+        const HOVER_DELAY_MS = 350;
+        const HIDE_DELAY_MS = 180;
+        const billCache = new Map(); // id → html
+        const customerCache = new Map(); // phone → data
+        let popoverEl = null;
+        let showTimer = null;
+        let hideTimer = null;
+        let activeKey = null;
+
+        function ensurePopover() {
+            if (popoverEl) return popoverEl;
+            popoverEl = document.createElement('div');
+            popoverEl.className = 'dr-hover-popover';
+            popoverEl.style.display = 'none';
+            popoverEl.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+            popoverEl.addEventListener('mouseleave', scheduleHide);
+            document.body.appendChild(popoverEl);
+            return popoverEl;
+        }
+
+        function position(targetEl) {
+            const pop = ensurePopover();
+            const rect = targetEl.getBoundingClientRect();
+            const margin = 8;
+            // Show first to measure
+            pop.style.visibility = 'hidden';
+            pop.style.display = 'block';
+            const pw = pop.offsetWidth;
+            const ph = pop.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            // Prefer right of cell; fallback to left
+            let left = rect.right + margin;
+            if (left + pw > vw - 4) left = Math.max(4, rect.left - pw - margin);
+            let top = rect.top;
+            if (top + ph > vh - 4) top = Math.max(4, vh - ph - 4);
+            pop.style.left = left + window.scrollX + 'px';
+            pop.style.top = top + window.scrollY + 'px';
+            pop.style.visibility = '';
+        }
+
+        function scheduleHide() {
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(() => {
+                if (popoverEl) popoverEl.style.display = 'none';
+                activeKey = null;
+            }, HIDE_DELAY_MS);
+        }
+
+        function showLoading(targetEl, label) {
+            const pop = ensurePopover();
+            pop.innerHTML = `<div class="dr-hp-loading"><div class="dr-hp-spinner"></div><span>${label}</span></div>`;
+            position(targetEl);
+        }
+
+        function showError(targetEl, msg) {
+            const pop = ensurePopover();
+            pop.innerHTML = `<div class="dr-hp-error">${escapeHtml(msg)}</div>`;
+            position(targetEl);
+        }
+
+        async function fetchBillHtml(orderId) {
+            if (billCache.has(orderId)) return billCache.get(orderId);
+            const url = `${WORKER_URL}/api/fastsaleorder/print1?ids=${encodeURIComponent(orderId)}`;
+            const headers = { accept: 'application/json, text/javascript, */*; q=0.01' };
+            const token = await getToken().catch(() => null);
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const resp = await fetch(url, { method: 'GET', headers });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            if (!json.html) throw new Error('Không có dữ liệu bill');
+            billCache.set(orderId, json.html);
+            return json.html;
+        }
+
+        async function fetchCustomer(phone) {
+            if (customerCache.has(phone)) return customerCache.get(phone);
+            const resp = await fetch(`${RENDER_URL}/api/v2/customers/${encodeURIComponent(phone)}/quick-view`);
+            if (!resp.ok) {
+                if (resp.status === 404) {
+                    customerCache.set(phone, null);
+                    return null;
+                }
+                throw new Error(`HTTP ${resp.status}`);
+            }
+            const json = await resp.json();
+            const data = json.data || null;
+            customerCache.set(phone, data);
+            return data;
+        }
+
+        async function showBill(targetEl) {
+            const id = targetEl.dataset.id;
+            const number = targetEl.dataset.number || '';
+            const key = `bill:${id}`;
+            activeKey = key;
+            if (!id) { showError(targetEl, 'Không có ID hóa đơn'); return; }
+            showLoading(targetEl, `Đang tải bill ${number}…`);
+            try {
+                const html = await fetchBillHtml(id);
+                if (activeKey !== key) return;
+                const pop = ensurePopover();
+                pop.innerHTML = `
+                    <div class="dr-hp-header">
+                        <span class="dr-hp-title"><i class="fas fa-receipt"></i> ${escapeHtml(number)}</span>
+                    </div>
+                    <div class="dr-hp-bill-body">${html}</div>`;
+                position(targetEl);
+            } catch (e) {
+                if (activeKey !== key) return;
+                showError(targetEl, `Không tải được bill: ${e.message}`);
+            }
+        }
+
+        async function showCustomer(targetEl) {
+            const phone = targetEl.dataset.phone;
+            const key = `cust:${phone}`;
+            activeKey = key;
+            if (!phone) { showError(targetEl, 'Không có SĐT'); return; }
+            showLoading(targetEl, `Đang tải khách hàng ${phone}…`);
+            try {
+                const data = await fetchCustomer(phone);
+                if (activeKey !== key) return;
+                if (!data) { showError(targetEl, 'Khách chưa có trong hệ thống'); return; }
+                renderCustomer(data, phone);
+                position(targetEl);
+            } catch (e) {
+                if (activeKey !== key) return;
+                showError(targetEl, `Không tải được ví: ${e.message}`);
+            }
+        }
+
+        function fmtMoney(n) {
+            const v = parseFloat(n) || 0;
+            return new Intl.NumberFormat('vi-VN').format(Math.round(v));
+        }
+
+        function fmtDateTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d)) return iso;
+            return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function txConfig(tx) {
+            const t = tx.type;
+            const note = tx.note || '';
+            const amount = parseFloat(tx.amount) || 0;
+            const isCredit = amount >= 0;
+            let label = 'Khác';
+            switch (t) {
+                case 'DEPOSIT':
+                    label = /ORDER_CANCEL_REFUND|hoàn|hoan/i.test(tx.source || note) ? 'HOÀN' : 'Nạp tiền';
+                    break;
+                case 'WITHDRAW':
+                    label = /thanh\s*toán/i.test(note) ? 'Thanh toán' : 'Rút tiền';
+                    break;
+                case 'VIRTUAL_CREDIT': label = 'Cộng nợ ảo'; break;
+                case 'VIRTUAL_DEBIT': label = 'Trừ nợ ảo'; break;
+                case 'VIRTUAL_EXPIRE': label = 'Nợ hết hạn'; break;
+                case 'VIRTUAL_CANCEL': label = 'Thu hồi nợ'; break;
+                case 'ADJUSTMENT': label = 'Điều chỉnh'; break;
+                case 'FIX_COD': label = 'Sửa COD'; break;
+                case 'COD_ADJUSTMENT': label = 'Điều chỉnh COD'; break;
+                case 'BOOM': label = 'Boom hàng'; break;
+                case 'RETURN_SHIPPER': label = 'Thu về'; break;
+                case 'RETURN_CLIENT': label = 'Trả hàng'; break;
+            }
+            return { label, isCredit, amount };
+        }
+
+        function renderCustomer(data, phone) {
+            const c = data.customer || {};
+            const w = data.wallet || { balance: 0, virtual_balance: 0 };
+            const txs = (data.recent_transactions || []).slice(0, 5);
+            const pend = data.pending_deposits || { count: 0, total: 0 };
+            const status = c.status || '';
+            const tier = c.tier || '';
+            const totalOrders = c.total_orders || 0;
+            const totalSpent = parseFloat(c.total_spent) || 0;
+            const txHtml = txs.length === 0
+                ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
+                : txs.map((tx) => {
+                    const { label, isCredit, amount } = txConfig(tx);
+                    const sign = isCredit ? '+' : '';
+                    const cls = isCredit ? 'credit' : 'debit';
+                    const note = (tx.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                    const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                    return `
+                        <div class="dr-hp-tx ${cls}">
+                            <div class="dr-hp-tx-head">
+                                <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
+                                <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
+                                <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
+                            </div>
+                            ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
+                        </div>`;
+                }).join('');
+            const pop = ensurePopover();
+            pop.innerHTML = `
+                <div class="dr-hp-header">
+                    <span class="dr-hp-title"><i class="fas fa-user"></i> ${escapeHtml(c.name || phone)}</span>
+                    <span class="dr-hp-sub">${escapeHtml(phone)}${status ? ' · ' + escapeHtml(status) : ''}${tier && tier !== 'normal' ? ' · ' + escapeHtml(tier) : ''}</span>
+                </div>
+                <div class="dr-hp-wallet-grid">
+                    <div class="dr-hp-stat">
+                        <div class="dr-hp-stat-label">Số dư thật</div>
+                        <div class="dr-hp-stat-value ${(+w.balance) > 0 ? 'pos' : ''}">${fmtMoney(w.balance)}đ</div>
+                    </div>
+                    <div class="dr-hp-stat">
+                        <div class="dr-hp-stat-label">Công nợ ảo</div>
+                        <div class="dr-hp-stat-value ${(+w.virtual_balance) > 0 ? 'pos' : ''}">${fmtMoney(w.virtual_balance)}đ</div>
+                    </div>
+                    <div class="dr-hp-stat">
+                        <div class="dr-hp-stat-label">Đơn / Doanh thu</div>
+                        <div class="dr-hp-stat-value">${totalOrders} · ${fmtMoney(totalSpent)}đ</div>
+                    </div>
+                </div>
+                ${pend.count > 0 ? `<div class="dr-hp-pending"><i class="fas fa-clock"></i> ${pend.count} nạp chờ duyệt · ${fmtMoney(pend.total)}đ</div>` : ''}
+                <div class="dr-hp-section-title">Hoạt động gần đây</div>
+                <div class="dr-hp-tx-list">${txHtml}</div>
+            `;
+        }
+
+        let currentCell = null;
+
+        function onMouseEnter(e) {
+            const cell = e.target.closest('.dr-hover-bill, .dr-hover-customer');
+            if (!cell || cell === currentCell) return;
+            currentCell = cell;
+            clearTimeout(showTimer);
+            clearTimeout(hideTimer);
+            showTimer = setTimeout(() => {
+                if (cell.classList.contains('dr-hover-bill')) showBill(cell);
+                else showCustomer(cell);
+            }, HOVER_DELAY_MS);
+        }
+
+        function onMouseLeave(e) {
+            const cell = e.target.closest('.dr-hover-bill, .dr-hover-customer');
+            if (!cell || cell !== currentCell) return;
+            // Still inside same cell or moving into popover → don't hide
+            const rt = e.relatedTarget;
+            if (rt && (cell.contains(rt) || (popoverEl && popoverEl.contains(rt)))) return;
+            currentCell = null;
+            clearTimeout(showTimer);
+            scheduleHide();
+        }
+
+        function init() {
+            const root = document.getElementById('drTableWrapper') || document.body;
+            root.addEventListener('mouseover', onMouseEnter);
+            root.addEventListener('mouseout', onMouseLeave);
+            // Hide on scroll/resize/escape
+            window.addEventListener('scroll', () => { if (popoverEl) popoverEl.style.display = 'none'; }, true);
+            window.addEventListener('resize', () => { if (popoverEl) popoverEl.style.display = 'none'; });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && popoverEl) popoverEl.style.display = 'none';
+            });
+        }
+
+        return { init };
+    })();
 
     // =====================================================
     // PUBLIC API

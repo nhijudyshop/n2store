@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-28
+
+### [delivery-report][feat] Hover preview: invoice number → bill TPOS, customer cell → ví khách
+| | |
+|---|---|
+| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — render row: thêm class `dr-hover-bill` + `data-id` + `data-number` cho cell `data-col="number"`; class `dr-hover-customer` cho cell `data-col="customer"`. Module `HoverPreview` mới (~210 LOC, IIFE) trước public API: tạo singleton popover, debounce show 350ms, hide 180ms, cache `Map<id,html>` cho bill và `Map<phone,data>` cho customer. `fetchBillHtml(id)` gọi `${WORKER_URL}/api/fastsaleorder/print1?ids=${id}` kèm Bearer token từ `getToken()`. `fetchCustomer(phone)` gọi `${RENDER_URL}/api/v2/customers/${phone}/quick-view`. `renderCustomer()` build wallet grid (số dư thật / nợ ảo / đơn+doanh thu) + pending alert + danh sách 5 giao dịch gần nhất với màu credit/debit. Mouseover/mouseout delegated trên `#drTableWrapper`, check `relatedTarget` để tránh flicker khi di chuyển trong cell hoặc vào popover. Khởi tạo qua `HoverPreview.init()` trong `initDeliveryReport()`. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm block `.dr-hover-popover` (z-9999, max 460×70vh, shadow), `.dr-hp-header/title/sub`, `.dr-hp-loading/error/empty/spinner`, `.dr-hp-bill-body` (scroll, table reset), `.dr-hp-wallet-grid` (3 col stat cards), `.dr-hp-pending` (alert vàng), `.dr-hp-tx` (border-left + tint xanh/đỏ theo credit/debit), hover-cell highlight `dr-hover-bill:hover` (vàng) + `dr-hover-customer:hover` (tím). |
+| **Chi tiết** | **Trigger**: user "Hình 1 hover vào số 'NJD/2026/63929' hiện bill phiếu bán hàng hình 2, hover vào tên khách hàng/sđt hiện hoạt động ví hình 3". **API tái dùng**: TPOS print1 (đã dùng ở `bill-service.js:1683`) cho HTML bill — cần Bearer; quick-view endpoint trả gọn `customer + wallet + recent_transactions[3-5] + pending_deposits` (đã verify 200 OK với `0948138675`). **UX**: 350ms hover delay tránh trigger oan khi lướt chuột; popover position prefer right-of-cell, fallback left khi tràn viewport; ESC/scroll/resize đều ẩn; user có thể di chuột vào popover để đọc/scroll mà không bị mất. Cache theo `id`/`phone` cho session — không refetch khi quay lại cùng dòng. |
+| **Status** | ✅ Done. Syntax check pass. Endpoints smoke-tested: customer 200 (public), bill 401 không token (đúng mong đợi — token được attach lúc runtime qua `getToken()` từ tokenManager/localStorage). |
+
 ## 2026-04-27
 
 ### [issue-tracking] Nút bút sửa → modal nhập ghi chú xử lý, hiển thị ngay dưới nút action

@@ -1385,3 +1385,218 @@
         print-color-adjust: exact;
     }
 }
+
+/* =====================================================
+   HOVER PREVIEW — Bill + Customer Wallet
+   ===================================================== */
+.dr-hover-bill,
+.dr-hover-customer {
+    cursor: help;
+}
+.dr-hover-bill:hover {
+    background: #fef3c7;
+    color: #b45309;
+}
+.dr-hover-customer:hover {
+    background: #ede9fe;
+}
+
+.dr-hover-popover {
+    position: absolute;
+    z-index: 9999;
+    min-width: 320px;
+    max-width: 460px;
+    max-height: 70vh;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+    font-size: 13px;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+}
+
+.dr-hp-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #f8fafc, #eef2ff);
+    border-bottom: 1px solid #e5e7eb;
+}
+.dr-hp-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dr-hp-title i { color: #6366f1; }
+.dr-hp-sub {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.dr-hp-loading,
+.dr-hp-error,
+.dr-hp-empty {
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #6b7280;
+    font-size: 13px;
+}
+.dr-hp-error { color: #dc2626; }
+.dr-hp-empty { color: #9ca3af; font-style: italic; padding: 12px; }
+
+.dr-hp-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: dr-hp-spin 0.7s linear infinite;
+}
+@keyframes dr-hp-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Bill body — render TPOS print HTML scaled down */
+.dr-hp-bill-body {
+    overflow: auto;
+    max-height: calc(70vh - 50px);
+    padding: 10px 14px;
+    background: #ffffff;
+}
+.dr-hp-bill-body * {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.dr-hp-bill-body table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+}
+.dr-hp-bill-body td,
+.dr-hp-bill-body th {
+    padding: 2px 4px;
+}
+.dr-hp-bill-body img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Customer wallet content */
+.dr-hp-wallet-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    border-bottom: 1px solid #f1f5f9;
+}
+.dr-hp-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    text-align: center;
+}
+.dr-hp-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    font-weight: 600;
+}
+.dr-hp-stat-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+}
+.dr-hp-stat-value.pos { color: #16a34a; }
+
+.dr-hp-pending {
+    padding: 6px 14px;
+    background: #fffbeb;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #fde68a;
+}
+
+.dr-hp-section-title {
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+.dr-hp-tx-list {
+    padding: 0 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: auto;
+    max-height: 280px;
+}
+.dr-hp-tx {
+    padding: 6px 10px;
+    border-left: 3px solid;
+    border-radius: 4px;
+    background: #f9fafb;
+}
+.dr-hp-tx.credit {
+    border-left-color: #16a34a;
+    background: rgba(22, 163, 74, 0.06);
+}
+.dr-hp-tx.debit {
+    border-left-color: #dc2626;
+    background: rgba(220, 38, 38, 0.06);
+}
+.dr-hp-tx-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.dr-hp-tx-amount {
+    font-weight: 700;
+    min-width: 80px;
+}
+.dr-hp-tx.credit .dr-hp-tx-amount { color: #16a34a; }
+.dr-hp-tx.debit .dr-hp-tx-amount { color: #dc2626; }
+.dr-hp-tx-label {
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    font-size: 10px;
+    padding: 1px 6px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+.dr-hp-tx-time {
+    margin-left: auto;
+    font-size: 10px;
+    color: #9ca3af;
+}
+.dr-hp-tx-note {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #4b5563;
+    line-height: 1.4;
+    word-break: break-word;
+}
