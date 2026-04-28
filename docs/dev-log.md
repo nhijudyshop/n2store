@@ -126,6 +126,15 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][feat] DELETE /:id/manager-review — revert manager review (admin)
+| | |
+|---|---|
+| **File** | `render.com/routes/v2/balance-history.js` |
+| **Vì sao** | Cần revert dữ liệu test (wt:7544 Lương Ngọc Thoa 340k) sau live verify Bug 1. Không có endpoint unmark trước đây — phải hardcode SQL hoặc gọi DELETE/admin endpoint. |
+| **Endpoint** | `DELETE /api/v2/balance-history/:id/manager-review` — composite uid `bh:N` / `wt:N` / legacy bare int. wt branch: SET `manager_reviewed=FALSE, manager_review_note=NULL, reviewed_by=NULL, reviewed_at=NULL`. bh branch: thêm strip marker `[QL: ...]` khỏi `verification_note`. |
+| **Live test** | DELETE wt:7544 → 200 success. GET approved-today: `manager_reviewed=false, reviewed_by=null, manager_review_note=null, reviewed_at=null` ✅ |
+| **Status** | ✅ Done |
+
 ### [verify] Live test commit 78d09adc sau Render+GH Pages deploy
 | | |
 |---|---|
