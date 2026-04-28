@@ -36,6 +36,30 @@
    - Browser session: `echo "quit" > /tmp/n2store-session.fifo`
    - Local server (detached, sống tiếp sau script): `pkill -f "http.server 8080"`
 
+### 🛡️ Test ĐỤNG DATABASE — BẮT BUỘC tạo data test trước
+**KHÔNG dùng dữ liệu thật khi test write operations.**
+
+1. **Schema migration / DB write test** → pattern [`scripts/test-migration-social-tags.js`](../scripts/test-migration-social-tags.js):
+   ```bash
+   # CREATE local DB → schema cũ → INSERT fake → MIGRATE → verify → DROP DB
+   node scripts/test-migration-social-tags.js [--copy-prod]
+   ```
+   Helper template: tạo `scripts/test-migration-<feature>.js` cho mọi DB schema change.
+
+2. **Test customer/order browser flow** — dùng dữ liệu GIẢ:
+   - SĐT: `0900000000`, `0900000001`, ...
+   - Mã đơn / code: prefix `TEST-` (vd `TEST-20260428-001`)
+   - KHÔNG dùng SĐT/order/customer ID thật trong write tests.
+
+3. **Cleanup sau test** (BẮT BUỘC):
+   - Drop test DB
+   - `DELETE WHERE code LIKE 'TEST-%'` cho test orders/customers
+   - Verify cleanup không sót
+
+4. **Read prod data**: OK với `--copy-prod` flag pg_dump 5-10 row mẫu (filter PII), chỉ READ.
+
+5. **NEVER**: INSERT/UPDATE/DELETE prod DB trực tiếp từ script test. Không gửi SMS/notification vào SĐT khách thật.
+
 ### ⚡ Online test CHỈ khi cần verify deploy thật
 - Sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.
 
@@ -125,6 +149,15 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 ---
 
 ## 2026-04-28
+
+### [customer-hub][tickets][feat] Hoàn Về + Khách Gửi — display label chuyên dụng + createdBy đầy đủ
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js`, `render.com/routes/v2/tickets.js` |
+| **Mục tiêu** | Activity feed hiển thị Hoàn Về (RETURN_SHIPPER → VIRTUAL_CREDIT) và Khách Gửi (RETURN_CLIENT → DEPOSIT/RETURN_GOODS) với label chuyên dụng + đảm bảo `created_by` được propagate trong mọi flow tạo/hủy. |
+| **Customer-hub display** | Thêm 2 nhánh detection trong activity render: (1) `isReturnShipper`: tx.type='VIRTUAL_CREDIT' và source='VIRTUAL_CREDIT_ISSUE' (hoặc note match) → "Hoàn Về Cấp Công Nợ Ảo #orderCode - {internal_note}" + "Duyệt bởi {createdBy}". (2) `isReturnClient`: tx.type='DEPOSIT' và source='RETURN_GOODS' (hoặc note match TV-/Hoàn tiền từ ticket) → "Hoàn Tiền Khách Gửi #orderCode (TV-...)" + "Hoàn bởi {createdBy}". Cả hai set `__suppressOperator=true` để tránh duplicate label. |
+| **Backend tickets.js** | (a) `DELETE /:id` (delete ticket): nhận `performed_by` từ body/query, INSERT VIRTUAL_CANCEL wallet_transaction kèm `created_by=performedBy`. (b) `POST /:id/cancel` (cancel ticket): VIRTUAL_CANCEL insert thêm `created_by=performed_by`. Trước đây 2 INSERT này KHÔNG ghi `created_by` → khi hủy/xóa ticket Thu Về, dòng -tiền VIRTUAL_CANCEL không có operator info. |
+| **Status** | ✅ Done — commit + push |
 
 ### [balance-history][feat] DELETE /:id/manager-review — revert manager review (admin)
 | | |

@@ -163,6 +163,32 @@ Project có **4 scripts test dự án qua Playwright** (auto-login + capture err
   3. Sau mỗi `Edit` file → file saved → đẩy command vào FIFO test ngay: `echo "nav http://localhost:8080/<path>?t=$(date +%s)" > /tmp/n2store-session.fifo; echo "feval ..." > /tmp/n2store-session.fifo`
   4. **KHÔNG restart browser** giữa các iteration. Cache-bust HTML bằng `?t=...`. JS đã `cache-control: no-cache` sẵn trong route handler.
   5. Stop local server khi xong: `pkill -f "http.server 8080"` (server detached từ script test, sống tiếp khi script exit).
+
+### 🛡️ Quy tắc test ĐỤNG DATABASE (BẮT BUỘC)
+**KHÔNG dùng dữ liệu thật khi test write operations**. Quy trình:
+
+1. **Schema migration / DB write test** → dùng pattern [`scripts/test-migration-social-tags.js`](scripts/test-migration-social-tags.js):
+   - `CREATE DATABASE n2store_migration_test` (local Postgres) → schema cũ → INSERT fake → apply migration → verify → **`DROP DATABASE`** (cleanup hoàn toàn).
+   - KHÔNG đụng prod DB.
+
+2. **Test customer / order browser flow** → tạo dữ liệu giả:
+   - SĐT giả: `0900000000`, `0900000001`, ...
+   - Mã đơn / customer code: prefix `TEST-` để dễ filter cleanup sau (vd `TEST-20260428-001`)
+   - KHÔNG dùng SĐT/order ID khách thật trong write tests.
+
+3. **Sau test xong → cleanup ngay**:
+   - Drop test DB / test schema
+   - Xóa test customer/order qua API DELETE hoặc SQL `DELETE WHERE code LIKE 'TEST-%'`
+   - Verify cleanup không sót.
+
+4. **Read prod data OK** (cẩn thận PII):
+   - `--copy-prod` flag pg_dump 5-10 row mẫu (filter sạch PII: bỏ phone, name nếu nhạy cảm)
+   - Chỉ READ, không WRITE prod.
+
+5. **NEVER**:
+   - INSERT/UPDATE/DELETE trực tiếp prod DB từ script test
+   - Hardcode prod credentials trong test script (dùng `serect_dont_push.txt` qua env var)
+   - Dùng SĐT khách thật khi test gửi tin nhắn / tạo PBH
 - **Online test CHỈ khi cần verify deploy thật**: sau `git push origin main`, đợi GH Pages CI/CD ~2-4 phút, curl-verify path mới, rồi mới smoke với BASE mặc định.
 - Verify deploy xong: `curl -s "https://nhijudyshop.github.io/n2store/<path>" | grep "<expected change>"` trước khi smoke.
 
