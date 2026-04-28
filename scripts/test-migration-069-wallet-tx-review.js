@@ -72,14 +72,22 @@ async function run() {
             await c.query(`UPDATE wallet_transactions SET manager_reviewed = TRUE WHERE id = 1`);
             log('UNEXPECTED: pre-migrate UPDATE manager_reviewed succeeded');
         } catch (err) {
-            if (/column "manager_reviewed" of relation "wallet_transactions" does not exist|column .* does not exist/i.test(err.message)) {
+            if (
+                /column "manager_reviewed" of relation "wallet_transactions" does not exist|column .* does not exist/i.test(
+                    err.message
+                )
+            ) {
                 preFailed = true;
-                log('✅ PRE: UPDATE manager_reviewed FAILED as expected:', err.message.split('\n')[0]);
+                log(
+                    '✅ PRE: UPDATE manager_reviewed FAILED as expected:',
+                    err.message.split('\n')[0]
+                );
             } else {
                 throw err;
             }
         }
-        if (!preFailed) throw new Error('PRE-migrate check did not fail — schema may already have columns');
+        if (!preFailed)
+            throw new Error('PRE-migrate check did not fail — schema may already have columns');
 
         // Step 3: Run migration
         log('Running migration 069...');

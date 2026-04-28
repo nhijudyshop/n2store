@@ -10,20 +10,31 @@
 
 > 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.
 
-### ⚡ LIVE CODING workflow — vừa code vừa test luôn (recommended)
-1. Khởi động 1 lần: `python3 -m http.server 8080 &`
-2. Khởi động persistent browser session 1 lần (point sang localhost):
+### 🔥 LIVE CODING workflow (QUAN TRỌNG — ƯU TIÊN dùng)
+**Vừa code vừa test localhost — không restart browser, không đợi deploy.**
+
+1. **AUTO-START SERVER**: 3 script test (smoke / interactive / browser-session) tự dò port → nếu chưa listen sẽ `spawn python3 -m http.server 8080` từ project root (detached). **KHÔNG cần user pre-launch**. Helper: [`scripts/lib/ensure-local-server.js`](../scripts/lib/ensure-local-server.js).
+
+2. **Khởi động persistent browser session 1 LẦN** (script tự spawn server nếu chưa có):
    ```bash
-   mkfifo /tmp/n2store-session.fifo
+   mkfifo /tmp/n2store-session.fifo 2>/dev/null
    (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &
    ```
-3. Sau mỗi `Edit` file → đẩy command vào FIFO test NGAY (không restart browser):
+
+3. **Sau mỗi `Edit` file → test NGAY qua FIFO (không restart browser)**:
    ```bash
    echo "nav http://localhost:8080/orders-report/main.html?t=$(date +%s)" > /tmp/n2store-session.fifo
    echo "feval window.someFunction()" > /tmp/n2store-session.fifo
    echo "search 0914495309" > /tmp/n2store-session.fifo
+   echo "openchat" > /tmp/n2store-session.fifo
+   echo "chatstate" > /tmp/n2store-session.fifo
    ```
-4. JS auto-busted (`cache-control: no-cache` đã set trong route). HTML cần `?t=$(date +%s)` query string.
+
+4. **Cache busting**: JS đã `cache-control: no-cache` sẵn trong Playwright route. HTML cần `?t=$(date +%s)` query string khi `nav` lại.
+
+5. **Stop khi xong**:
+   - Browser session: `echo "quit" > /tmp/n2store-session.fifo`
+   - Local server (detached, sống tiếp sau script): `pkill -f "http.server 8080"`
 
 ### ⚡ Online test CHỈ khi cần verify deploy thật
 - Sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.

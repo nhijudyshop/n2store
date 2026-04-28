@@ -1883,10 +1883,9 @@
                 const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
 
                 // Row class - add reviewed class if applicable; wt rows có style riêng
-                const rowClass =
-                    [isReviewed ? 'acc-row-reviewed' : '', isWt ? 'acc-row-wt' : '']
-                        .filter(Boolean)
-                        .join(' ');
+                const rowClass = [isReviewed ? 'acc-row-reviewed' : '', isWt ? 'acc-row-wt' : '']
+                    .filter(Boolean)
+                    .join(' ');
 
                 // Dịch ghi chú
                 let note = tx.verification_note || '';
