@@ -1383,11 +1383,12 @@ router.get('/approved-today', async (req, res) => {
             walletTxTotal = parseInt(wtCountResult.rows[0].total);
 
             // Lấy hết wt rows (limit ~500 cho an toàn) rồi merge + sort + paginate Node-side.
+            // Convert created_at: treat as UTC → display in Asia/Ho_Chi_Minh (giống customer-hub).
             const wtDataResult = await db.query(
                 `SELECT wt.id, wt.note AS content, wt.amount,
-                        wt.created_at AS transaction_date,
+                        (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') AS transaction_date,
                         wt.phone AS linked_customer_phone,
-                        wt.created_at AS verified_at,
+                        (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') AS verified_at,
                         wt.created_by AS verified_by,
                         wt.source AS verification_note,
                         NULL::text AS verification_image_url,
