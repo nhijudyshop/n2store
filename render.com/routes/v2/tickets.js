@@ -733,9 +733,9 @@ router.post('/:id/cancel', async (req, res) => {
                                 INSERT INTO wallet_transactions (
                                     phone, wallet_id, type, amount,
                                     virtual_balance_before, virtual_balance_after,
-                                    source, reference_type, reference_id, note
+                                    source, reference_type, reference_id, note, created_by
                                 ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
-                                    'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
+                                    'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7, $8)
                             `, [
                                 ticket.phone,
                                 vc.wallet_id,
@@ -743,7 +743,8 @@ router.post('/:id/cancel', async (req, res) => {
                                 virtualBalanceBefore,
                                 virtualBalanceAfter,
                                 ticket.ticket_code,
-                                `Thu hồi công nợ ảo - Hủy phiếu ${ticket.ticket_code}`
+                                `Thu hồi công nợ ảo - Hủy phiếu ${ticket.ticket_code}`,
+                                performed_by || null
                             ]);
 
                             const walletAfterVerify = await client.query(
@@ -830,6 +831,7 @@ router.delete('/:id', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
     const { hard } = req.query;
+    const performedBy = req.body?.performed_by || req.query?.performed_by || null;
 
     try {
         // Find ticket
@@ -899,9 +901,9 @@ router.delete('/:id', async (req, res) => {
                         INSERT INTO wallet_transactions (
                             phone, wallet_id, type, amount,
                             virtual_balance_before, virtual_balance_after,
-                            source, reference_type, reference_id, note
+                            source, reference_type, reference_id, note, created_by
                         ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
-                            'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
+                            'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7, $8)
                     `, [
                         ticket.phone,
                         vc.wallet_id,
@@ -909,7 +911,8 @@ router.delete('/:id', async (req, res) => {
                         virtualBalanceBefore,
                         virtualBalanceAfter,
                         ticket.ticket_code,
-                        `Thu hồi công nợ ảo - Xóa phiếu ${ticket.ticket_code}`
+                        `Thu hồi công nợ ảo - Xóa phiếu ${ticket.ticket_code}`,
+                        performedBy
                     ]);
                     console.log(`[Tickets V2] Logged wallet transaction for virtual credit cancellation`);
                 }

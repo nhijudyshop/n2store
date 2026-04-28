@@ -837,6 +837,16 @@ export class CustomerProfileModule {
                                     const isCancelRefund =
                                         tx.type === 'DEPOSIT' &&
                                         tx.source === 'ORDER_CANCEL_REFUND';
+                                    // Thu Về (Hoàn về): VIRTUAL_CREDIT từ ticket RETURN_SHIPPER
+                                    const isReturnShipper =
+                                        tx.type === 'VIRTUAL_CREDIT' &&
+                                        (tx.source === 'VIRTUAL_CREDIT_ISSUE' ||
+                                            /Công Nợ Ảo Từ Thu Về|RETURN_SHIPPER/i.test(rawNote));
+                                    // Khách Gửi: DEPOSIT từ ticket RETURN_CLIENT (Hoàn tiền khi khách trả hàng)
+                                    const isReturnClient =
+                                        tx.type === 'DEPOSIT' &&
+                                        (tx.source === 'RETURN_GOODS' ||
+                                            /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(rawNote));
 
                                     if (isCodPayment) {
                                         // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
@@ -862,6 +872,40 @@ export class CustomerProfileModule {
                                         if (createdBy) {
                                             detailParts.push(
                                                 `<span style="color:#ef4444;font-weight:700;">Người Hủy ${createdBy}</span>`
+                                            );
+                                        }
+                                        __suppressOperator = true;
+                                    } else if (isReturnShipper) {
+                                        // Tách phần ghi chú nội bộ sau "(orderCode) - "
+                                        const internalMatch = rawNote.match(
+                                            /Công Nợ Ảo Từ Thu Về\s*\([^)]*\)\s*-\s*(.+)$/i
+                                        );
+                                        const internal = internalMatch ? internalMatch[1].trim() : '';
+                                        const head = orderCode
+                                            ? `Hoàn Về Cấp Công Nợ Ảo #${orderCode}`
+                                            : 'Hoàn Về Cấp Công Nợ Ảo';
+                                        detailParts.push(internal ? `${head} - ${internal}` : head);
+                                        if (date) detailParts.push(date);
+                                        if (createdBy) {
+                                            detailParts.push(
+                                                `<span style="color:#ef4444;font-weight:700;">Duyệt bởi ${createdBy}</span>`
+                                            );
+                                        }
+                                        __suppressOperator = true;
+                                    } else if (isReturnClient) {
+                                        // Lấy ticket code TV- nếu có
+                                        const tvMatch = rawNote.match(/TV-\d{4}-\d+/i);
+                                        const tvCode = tvMatch ? tvMatch[0] : '';
+                                        const head = orderCode
+                                            ? `Hoàn Tiền Khách Gửi #${orderCode}${tvCode ? ` (${tvCode})` : ''}`
+                                            : tvCode
+                                              ? `Hoàn Tiền Khách Gửi (${tvCode})`
+                                              : 'Hoàn Tiền Khách Gửi';
+                                        detailParts.push(head);
+                                        if (date) detailParts.push(date);
+                                        if (createdBy) {
+                                            detailParts.push(
+                                                `<span style="color:#ef4444;font-weight:700;">Hoàn bởi ${createdBy}</span>`
                                             );
                                         }
                                         __suppressOperator = true;
