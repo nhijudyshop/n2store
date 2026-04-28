@@ -152,6 +152,63 @@ Chạy lại script nếu cần: `bash scripts/add-note-header.sh` (idempotent, 
 
 **Auto commit & push**: Khi hoàn thành task, tự động commit và push mà không cần hỏi user. Commit message ngắn gọn, rõ ràng.
 
+## Browser Test Scripts (Playwright)
+
+Project có **4 scripts test dự án qua Playwright** (auto-login + capture errors). Dùng để verify mọi commit lớn, repro bug, debug live.
+
+### 1. `scripts/n2store-smoke-all-pages.js` — Auto smoke 144 HTML pages
+```bash
+node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7
+```
+- Login 1 lần, 5-parallel, capture HTTP/console errors/unhandled/visible
+- Categorize: `errors` (real app bug) vs `networkNoise` (Failed to load resource, ERR_*)
+- Output: `downloads/n2store-session/smoke-report.{json,md}`
+- Diff với `smoke-report-before.json` để xem fixed/improved/regression
+
+### 2. `scripts/n2store-interactive-smoke.js` — Click/type 24 priority pages
+```bash
+node scripts/n2store-interactive-smoke.js --user admin --pass admin@@ --per-page-secs 10
+```
+- Probe DOM: search inputs, select dropdowns, button[onclick] (skip destructive + navigating), tabs
+- Nav guard: track `framenavigated`, abort chain khi page navigate, recover từ context-destroyed
+- Output: `downloads/n2store-session/interactive-smoke-report.{json,md}`
+
+### 3. `scripts/n2store-browser-session.js` — Persistent Playwright REPL (FIFO)
+```bash
+mkfifo /tmp/n2store-session.fifo
+(tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@
+# Gửi command:
+echo "search 0914495309" > /tmp/n2store-session.fifo
+echo "openchat" > /tmp/n2store-session.fifo
+echo "switchpage Nhi Judy House" > /tmp/n2store-session.fifo
+echo "chatstate" > /tmp/n2store-session.fifo
+echo "quit" > /tmp/n2store-session.fifo
+```
+- Login 1 lần, browser visible, KHÔNG cần restart cho mỗi test
+- Commands: `nav`, `eval`, `feval`, `filter`, `flag`, `search`, `openchat`, `switchpage`, `chatstate`, `netlast [N]`, `clearnet`, `shot <path>`, `help`, `quit`
+
+### 4. `scripts/test-migration-social-tags.js` — DB schema test trên local DB riêng
+```bash
+brew services start postgresql@14   # nếu chưa chạy
+node scripts/test-migration-social-tags.js [--copy-prod]
+```
+- **Pattern bắt buộc cho mọi DB schema change**: CREATE local `n2store_migration_test` DB → schema cũ → INSERT FAIL → MIGRATE → INSERT OK → DROP DB.
+- KHÔNG đụng prod DB. `--copy-prod` chỉ READ pg_dump 5 row mẫu.
+- Test idempotency (re-run no-op) bắt buộc vì Render restart sẽ chạy migration block lần 2.
+
+### Khi nào dùng
+- **Sau commit lớn** → smoke 144 pages, diff baseline.
+- **Phát hiện bug user báo** → persistent REPL + `nav` + `eval/feval` + `chatstate` + `netlast`.
+- **Schema change DB** → test-migration template trước khi push.
+- **UI/UX thay đổi** → interactive smoke 24 priority pages.
+
+### Reports
+- `downloads/n2store-session/FINAL-CLEAN-REPORT.md` — kết quả gần nhất (144/144 clean, 0 app errors)
+- `downloads/n2store-session/PHASE-1-5-FINAL-REPORT.md` — chi tiết 6 nhóm bug đã fix
+- `downloads/n2store-session/test-history.md` — lịch sử mọi phiên debug + customer chạm
+
+
+
 ## Data Synchronization
 
 Project sử dụng pattern **Firebase as Source of Truth + Real-time Listener** - localStorage chỉ là cache.
