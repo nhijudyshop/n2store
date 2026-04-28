@@ -1,0 +1,336 @@
+[
+  {
+    "path": "/orders-report/main.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/order-management/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/order-management/order-list.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/order-management/hidden-products.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/inbox/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/don-inbox/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/soquy/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/soluong-live/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/customer-hub/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/inventory-tracking/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/tpos-pancake/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/web2-products/index.html",
+    "ok": true,
+    "interactionCount": 7,
+    "results": [
+      {
+        "label": "search \"Tìm theo mã SP hoặc tên...\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "select \"filterActive\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "select \"filterLimit\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "select \"pmIsActive\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"‹\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"1\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"›\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      }
+    ],
+    "finalErrors": 0,
+    "finalUnhandled": 0
+  },
+  {
+    "path": "/balance-history/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/native-orders/index.html",
+    "ok": true,
+    "interactionCount": 9,
+    "results": [
+      {
+        "label": "search \"Tìm theo SĐT, tên, mã đơn, ghi\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "select \"filterStatus\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "select \"filterLimit\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"Hiển thị bộ lọc\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      },
+      {
+        "label": "btn \"‹\"",
+        "ok": true,
+        "newErrors": 0,
+        "newUnhandled": 0
+      }
+    ],
+    "finalErrors": 0,
+    "finalUnhandled": 0
+  },
+  {
+    "path": "/firebase-stats/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/bangkiemhang/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/invoice-compare/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/supplier-debt/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/soluong-live/sales-report.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/soluong-live/social-sales.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/phone-management/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/fb-ads/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/delivery-report/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  },
+  {
+    "path": "/service-costs/index.html",
+    "ok": true,
+    "interactionCount": 0,
+    "results": [],
+    "finalErrors": 0,
+    "finalUnhandled": 0,
+    "contextDestroyed": true,
+    "note": "Một button gây navigation — không tính lỗi page"
+  }
+]

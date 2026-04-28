@@ -1,9 +1,9 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-04-28T03:12:53.914Z
+Generated: 2026-04-28T03:35:57.418Z
 
-- ✅ Clean: **33**
-- ❌ Issues: **111**
+- ✅ Clean: **37**
+- ❌ Issues: **107**
 
 ## Pages with issues (sorted by severity)
 
@@ -15,22 +15,18 @@ Generated: 2026-04-28T03:12:53.914Z
 | `/delivery-report/index.html` | 200 | Thống Kê Giao Hàng - N2STORE | 0 | 0 | 500 | ✓ |  |
 | `/don-inbox/index.html` | 200 | Đơn Inbox - N2Store | 0 | 0 | 500537 | ✓ |  |
 | `/facebook-services/index.html` | 200 | Dịch Vụ Facebook - N2STORE | 0 | 0 | 500đ/1K) | ✓ |  |
-| `/inbox/index.html` | 200 | Inbox Chat - N2STORE | 0 | 0 | lỗi đơn hàng. | ✓ |  |
 | `/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/invoice-compare/index.html` | 200 | So Sánh Đơn Hàng | 2 | 0 |  | ✓ |  |
 | `/issue-tracking/index.html` | 200 | Quản lý Sự vụ & Điều phối sau  | 0 | 0 | LỖI | ✓ |  |
-| `/lichsuchinhsua/index.html` | 200 | Lịch Sử Chỉnh Sửa - Nhật Ký Ki | 0 | 0 | 404	24/04/2026 11:56:12	My	Customer 360° | ✓ |  |
 | `/native-orders/index.html` | 200 | Đơn Web — N2Store | 0 | 0 | 500 / trang | ✓ |  |
-| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 327 | 0 |  | ✓ |  |
+| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 37 | 0 |  | ✓ |  |
 | `/orders-report/migration-kpi-per-user.html` | 200 | Migration: KPI per-user attrib | 0 | 0 | Lỗi: 0 Bỏ qua (no audit): 0 | ✓ |  |
 | `/orders-report/tab-pending-delete.html` | 200 | Bill Đã Xóa - N2Store | 0 | 0 | 4048479 | ✓ |  |
-| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 179 | 0 |  | ✓ |  |
+| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 171 | 0 |  | ✓ |  |
 | `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 2 | 0 | 500	0,00	0,00	Cái	-				2026-04-28		 | ✓ |  |
 | `/quy-trinh/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/resident/index.html` | 200 | Resident — Quản lý BĐS & Cư dâ | 27 | 0 |  | ✓ |  |
+| `/resident/index.html` | 200 | Resident — Quản lý BĐS & Cư dâ | 21 | 0 |  | ✓ |  |
 | `/service-costs/index.html` | 200 | Chi Phí Dịch Vụ - N2STORE | 0 | 0 | 500 requests | ✓ |  |
 | `/soquy/huong_dan_so_quy.html` | 200 | KiotViet - Phần mềm quản lý bá | 12 | 0 |  | ✓ |  |
-| `/soquy/index.html` | 200 | Sổ Quỹ - N2STORE | 0 | 0 | 500.000	-	Makeup cnhi 27/4 | ✓ |  |
 | `/stitch_customer/transaction-activity.html` | 200 | Transaction Activity Log | 0 | 0 | 500.00	Completed	more_vert | ✓ |  |
 | `/stitch_customer/Unlinked_Bank_Transactions.html` | 200 | Customer 360 Hub - Unlinked Tr | 0 | 0 | 500.00	 | ✓ |  |
 | `/web2-products/index.html` | 200 | Kho Sản Phẩm Web 2.0 — N2Store | 0 | 0 | 500 / trang | ✓ |  |
@@ -123,23 +119,13 @@ Generated: 2026-04-28T03:12:53.914Z
 
 ## Top errors (first 3 per broken page)
 
-### `/invoice-compare/index.html`
-- err: [TOKEN] Error initializing Firestore: FirebaseError: Firebase: No Firebase App '[DEFAULT]' has been created - call Firebase App.initializeApp() (app-compat/no-app).
-    at o (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30736)
-    at Object.e [as firestore] (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30261)
-    at TokenManager.initFirestore (https://
-- err: [VERSION] Error initializing version checker: FirebaseError: Firebase: No Firebase App '[DEFAULT]' has been created - call Firebase App.initializeApp() (app-compat/no-app).
-    at o (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30736)
-    at Object.e [as firestore] (https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js:1:30261)
-    at VersionChecker.waitForFireba
-
 ### `/orders-report/main.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:24ed43c8-7a0a-4191-b52f-97a13c598651 — Gói cước hết hạn
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_FAILED
+- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
 - err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
 ### `/orders-report/tab1-orders.html`
-- err: [PHOENIX] ❌ Join FAILED: multiple_pages:24ed43c8-7a0a-4191-b52f-97a13c598651 — Gói cước hết hạn
+- err: [PHOENIX] ❌ Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
 - err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 - err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
@@ -153,12 +139,12 @@ Generated: 2026-04-28T03:12:53.914Z
 - err: Failed to load resource: the server responded with a status of 404 ()
 
 ### `/soquy/huong_dan_so_quy.html`
-- err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-regular-400.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-- err: Failed to load resource: net::ERR_FAILED
 - err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-brands-400.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+- err: Failed to load resource: net::ERR_FAILED
+- err: Access to font at 'https://www.kiotviet.vn/wp-content/themes/kiotviet/css/font/fontawesome6/webfonts/fa-regular-400.woff2' from origin 'https://nhijudyshop.github.io' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 
-## Clean pages (33)
+## Clean pages (37)
 
 - `/bangkiemhang/index.html`
 - `/customer-hub/index.html`
@@ -166,7 +152,10 @@ Generated: 2026-04-28T03:12:53.914Z
 - `/fb-ads/index.html`
 - `/firebase-stats/index.html`
 - `/hanghoan/index.html`
+- `/inbox/index.html`
 - `/inventory-tracking/index.html`
+- `/invoice-compare/index.html`
+- `/lichsuchinhsua/index.html`
 - `/nhanhang/index.html`
 - `/order-management/hidden-products.html`
 - `/order-management/index.html`
@@ -189,6 +178,7 @@ Generated: 2026-04-28T03:12:53.914Z
 - `/soluong-live/social-sales.html`
 - `/soluong-live/soluong-list.html`
 - `/soorder/index.html`
+- `/soquy/index.html`
 - `/stitch_customer/customer_search.html`
 - `/supplier-debt/index.html`
 - `/tpos-pancake/index.html`
