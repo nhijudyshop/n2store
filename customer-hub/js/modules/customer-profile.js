@@ -846,7 +846,9 @@ export class CustomerProfileModule {
                                     const isReturnClient =
                                         tx.type === 'DEPOSIT' &&
                                         (tx.source === 'RETURN_GOODS' ||
-                                            /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(rawNote));
+                                            /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(
+                                                rawNote
+                                            ));
 
                                     if (isCodPayment) {
                                         // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
@@ -880,7 +882,9 @@ export class CustomerProfileModule {
                                         const internalMatch = rawNote.match(
                                             /Công Nợ Ảo Từ Thu Về\s*\([^)]*\)\s*-\s*(.+)$/i
                                         );
-                                        const internal = internalMatch ? internalMatch[1].trim() : '';
+                                        const internal = internalMatch
+                                            ? internalMatch[1].trim()
+                                            : '';
                                         const head = orderCode
                                             ? `Hoàn Về Cấp Công Nợ Ảo #${orderCode}`
                                             : 'Hoàn Về Cấp Công Nợ Ảo';
