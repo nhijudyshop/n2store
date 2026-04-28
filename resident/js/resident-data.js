@@ -7,8 +7,32 @@
 (function () {
     const cache = new Map();
 
+    // Mock data files (resident/data/*.json) chứa PII khách hàng nên gitignored.
+    // Trên GitHub Pages production → 404 27 lần khi load các key. Skip toàn bộ fetch
+    // nếu phát hiện không có catalog → trả null, không spam console + browser.
+    let _mockDataAvailable = null; // null = chưa probe, true = có, false = đã miss
+
+    async function _probeMockData() {
+        if (_mockDataAvailable !== null) return _mockDataAvailable;
+        try {
+            const r = await fetch('data/_catalog.json', { method: 'HEAD' });
+            _mockDataAvailable = r.ok;
+        } catch {
+            _mockDataAvailable = false;
+        }
+        if (!_mockDataAvailable) {
+            console.info('[resident-data] mock data files chưa deploy — skip tất cả fetch');
+        }
+        return _mockDataAvailable;
+    }
+
     async function load(key) {
         if (cache.has(key)) return cache.get(key);
+        // Probe 1 lần — nếu mock data không sẵn → return null không fetch nữa
+        if (!(await _probeMockData())) {
+            cache.set(key, null);
+            return null;
+        }
         const url = 'data/' + key + '.json';
         try {
             const r = await fetch(url);
@@ -17,6 +41,7 @@
             cache.set(key, json);
             return json;
         } catch (e) {
+            cache.set(key, null);
             console.warn('[data] miss', key, e.message);
             return null;
         }
