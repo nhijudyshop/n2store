@@ -1,42 +1,38 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-04-28T05:03:02.500Z
+Generated: 2026-04-28T05:40:23.630Z
 
-- ✅ Clean: **137**
-- ❌ Issues: **7**
+- ✅ Clean: **138**
+- ❌ Issues: **6**
 
 ## Pages with issues (sorted by severity)
 
 | Path | HTTP | Title | Errors | Unhandled | Visible | Body? | Notes |
 |---|---|---|---|---|---|---|---|
 | `/` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/inbox/index.html` | 200 | Inbox Chat - N2STORE | 1 | 0 |  | ✓ |  |
 | `/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 266 | 0 |  | ✓ |  |
-| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 251 | 0 |  | ✓ |  |
+| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 164 | 0 |  | ✓ |  |
+| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 170 | 0 |  | ✓ |  |
 | `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 1 | 0 |  | ✓ |  |
 | `/quy-trinh/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 
 ## Top errors (first 3 per broken page)
 
-### `/inbox/index.html`
-- err: [PHOENIX] Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn
-
 ### `/orders-report/main.html`
 - err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
 ### `/orders-report/tab1-orders.html`
 - err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_FAILED
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
 ### `/product-warehouse/index.html`
 - err: Failed to load resource: the server responded with a status of 404 ()
 
 
-## Clean pages (137)
+## Clean pages (138)
 
 - `/AI/gemini.html`
 - `/balance-history/index.html`
@@ -49,6 +45,7 @@ Generated: 2026-04-28T05:03:02.500Z
 - `/fb-ads/index.html`
 - `/firebase-stats/index.html`
 - `/hanghoan/index.html`
+- `/inbox/index.html`
 - `/inventory-tracking/index.html`
 - `/invoice-compare/index.html`
 - `/issue-tracking/index.html`

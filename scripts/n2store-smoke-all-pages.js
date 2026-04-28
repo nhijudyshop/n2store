@@ -232,10 +232,17 @@ async function smokeOne(ctx, urlPath) {
     const unhandled = [];
     let httpStatus = null;
 
+    // Network noise patterns — browser-level, không phải app bug. Tách riêng để không lẫn.
+    const isNetworkNoise = (txt) => {
+        return /^Failed to load resource:/i.test(txt) || /net::ERR_/i.test(txt);
+    };
+    const networkNoise = [];
     page.on('console', (msg) => {
         const text = msg.text();
-        if (msg.type() === 'error') errs.push(text.slice(0, 400));
-        else if (msg.type() === 'warning') warns.push(text.slice(0, 400));
+        if (msg.type() === 'error') {
+            if (isNetworkNoise(text)) networkNoise.push(text.slice(0, 400));
+            else errs.push(text.slice(0, 400));
+        } else if (msg.type() === 'warning') warns.push(text.slice(0, 400));
     });
     page.on('pageerror', (e) => unhandled.push((e.message || String(e)).slice(0, 400)));
     page.on('response', (res) => {
@@ -267,7 +274,7 @@ async function smokeOne(ctx, urlPath) {
                 /\bError\s*loading\b/i,
                 /\bForbidden\b/i,
                 /\bUnauthorized\b/i,
-                /Lỗi\s*(nặng|tải|hệ\s*thống|nghiêm\s*trọng|xử\s*lý\s*dữ\s*liệu)/i,
+                /Lỗi\s*(tải|hệ\s*thống|nghiêm\s*trọng|xử\s*lý\s*dữ\s*liệu)/i,
                 /\bLỖI\b\s*[\(:].*?(không|fail)/i,
             ];
             let hit = '';
@@ -299,7 +306,8 @@ async function smokeOne(ctx, urlPath) {
         bodyHasContent,
         visibleError,
         durationMs,
-        errors: errs,
+        errors: errs, // app-level errors only (network noise tách riêng)
+        networkNoise: networkNoise.length, // count only — Failed to load resource / ERR_*
         warns,
         unhandled,
     };

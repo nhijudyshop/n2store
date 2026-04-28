@@ -5,10 +5,10 @@
     "title": "Quy Trình Nghiệp Vụ — N2Store",
     "bodyHasContent": true,
     "visibleError": "lỗi nặng",
-    "durationMs": 7818,
+    "durationMs": 7941,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:30.105Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:35:55.702Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -18,10 +18,10 @@
     "title": "Gemini AI Assistant",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8675,
+    "durationMs": 8489,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:45.330Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:11.954Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -31,10 +31,10 @@
     "title": "Lịch sử biến động số dư - Sepay",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 15618,
+    "durationMs": 14796,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:51.141Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:17.233Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -44,10 +44,10 @@
     "title": "Quản Lý Kiểm Hàng",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8868,
+    "durationMs": 8659,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:53.488Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:18.305Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -57,10 +57,10 @@
     "title": "Customer 360 Hub",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9645,
+    "durationMs": 9551,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:53.554Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:18.501Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -70,10 +70,10 @@
     "title": "Thống Kê Giao Hàng - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14896,
+    "durationMs": 9041,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:53.882Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:19.748Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -83,10 +83,10 @@
     "title": "Quét Mã Đối Soát",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8793,
+    "durationMs": 8458,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:54.088Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:20.548Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -96,10 +96,10 @@
     "title": "Đơn Inbox - N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 15287,
+    "durationMs": 14895,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:02.476Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:36:27.131Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
       "[INVOICE-STATUS] FulfillmentData not available for sync",
       "[INVOICE-STATUS] showFastSaleResultsModal not found, will retry...",
       "[INVOICE-STATUS] showFastSaleResultsModal not found, will retry...",
@@ -113,7 +113,7 @@
     "title": "Dịch Vụ Facebook - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8732,
+    "durationMs": 8588,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -124,10 +124,10 @@
     "title": "Facebook Ads Manager - N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 10792,
+    "durationMs": 9846,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:03.198Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:29.303Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -137,10 +137,10 @@
     "title": "Firebase Statistics - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8503,
+    "durationMs": 8424,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:06.666Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:29.172Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -150,12 +150,10 @@
     "title": "Quản lý Hàng Hoàn",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8763,
+    "durationMs": 8526,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:08.890Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "<i data-lucide=\"cloud-download\"></i> icon name was not found in the provided icons object.",
-      "<i data-lucide=\"cloud-download\" class=\"sync-icon\"></i> icon name was not found in the provided icons object.",
+      "[2026-04-28T05:36:32.012Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
       "<i data-lucide=\"cloud-download\"></i> icon name was not found in the provided icons object.",
       "<i data-lucide=\"cloud-download\" class=\"sync-icon\"></i> icon name was not found in the provided icons object.",
       "<i data-lucide=\"cloud-download\"></i> icon name was not found in the provided icons object.",
@@ -177,16 +175,13 @@
     "title": "Inbox Chat - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8517,
-    "errors": [
-      "[PHOENIX] Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn"
-    ],
+    "durationMs": 8557,
+    "errors": [],
     "warns": [
-      "[2026-04-28T04:59:11.883Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[INBOX-API] Page 112678138086607: token error 105, regenerating...",
+      "[2026-04-28T05:36:37.069Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
       "[INBOX-API] Page 270136663390370: token error 105, regenerating...",
-      "[INBOX-API] Page 117267091364524: token error 105, regenerating...",
-      "[PHOENIX] Retry 1/4: without page 193642490509664 → [112678138086607, 117267091364524, 270136663390370]"
+      "[INBOX-API] Page 112678138086607: token error 105, regenerating...",
+      "[INBOX-API] Page 117267091364524: token error 105, regenerating..."
     ],
     "unhandled": []
   },
@@ -196,10 +191,10 @@
     "title": "Quy Trình Nghiệp Vụ — N2Store",
     "bodyHasContent": true,
     "visibleError": "lỗi nặng",
-    "durationMs": 8258,
+    "durationMs": 8757,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:30.152Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:35:56.079Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -209,7 +204,7 @@
     "title": "Theo Dõi Nhập Hàng SL",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 15012,
+    "durationMs": 14832,
     "errors": [],
     "warns": [
       "[VARIANT] No TPOS token, using defaults"
@@ -222,10 +217,10 @@
     "title": "So Sánh Đơn Hàng",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8718,
+    "durationMs": 8495,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:15.243Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:38.820Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -235,10 +230,10 @@
     "title": "Quản lý Sự vụ & Điều phối sau bán hàng",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 15271,
+    "durationMs": 15150,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:17.863Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:40.919Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -248,10 +243,10 @@
     "title": "Lịch Sử Chỉnh Sửa - Nhật Ký Kiểm Toán",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8683,
+    "durationMs": 8714,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:17.769Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:42.071Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -261,10 +256,10 @@
     "title": "Đơn Web — N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8318,
+    "durationMs": 8303,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:20.422Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:45.579Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -274,10 +269,10 @@
     "title": "Cân nặng hàng",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8586,
+    "durationMs": 8461,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:24.085Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:47.370Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -287,10 +282,10 @@
     "title": "Danh sách Sản phẩm đã ẩn - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8380,
+    "durationMs": 8270,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:29.132Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:53.793Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -300,10 +295,10 @@
     "title": "Quản lý Order - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8616,
+    "durationMs": 8486,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:26.435Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:50.765Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -313,10 +308,10 @@
     "title": "Danh sách Order - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14677,
+    "durationMs": 14656,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:28.671Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:52.406Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -326,111 +321,9 @@
     "title": "Hệ Thống Quản Lý - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 16924,
+    "durationMs": 15847,
     "errors": [
       "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
@@ -596,16 +489,16 @@
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM"
     ],
     "warns": [
-      "[2026-04-28T04:58:28.129Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:58:28.889Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:58:29.473Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:58:29.512Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:58:29.589Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:58:29.654Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:53.757Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:54.831Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:54.877Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:55.099Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:55.105Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:55.130Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
       "[INIT] ⚠️ UserStorageManager not available, creating fallback",
+      "[2026-04-28T05:35:56.922Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. ",
       "[PHOENIX] Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn",
-      "[PHOENIX] 🔄 Retry 1/4: without page 193642490509664 → [112678138086607, 117267091364524, 270136663390370]",
-      "[2026-04-28T04:58:32.324Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. "
+      "[PHOENIX] 🔄 Retry 1/4: without page 193642490509664 → [112678138086607, 117267091364524, 270136663390370]"
     ],
     "unhandled": []
   },
@@ -615,10 +508,10 @@
     "title": "Migration: KPI per-user attribution",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8084,
+    "durationMs": 8032,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:45.008Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:11.417Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -628,10 +521,10 @@
     "title": "KPI - Hoa Hồng Upselling",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8743,
+    "durationMs": 8951,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:36.066Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:02.531Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -641,7 +534,7 @@
     "title": "Sổ Sách - Live Order Tracking",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8266,
+    "durationMs": 8240,
     "errors": [],
     "warns": [
       "Error enabling offline persistence. Falling back to persistence disabled: FirebaseError: [code=failed-precondition]: A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear ",
@@ -655,10 +548,10 @@
     "title": "Báo Cáo Tổng Hợp",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9080,
+    "durationMs": 9437,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:35.690Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:01.744Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -668,10 +561,10 @@
     "title": "Bill Đã Xóa - N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14301,
+    "durationMs": 14269,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:36.083Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:02.386Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -681,90 +574,9 @@
     "title": "Quản lý đơn hàng",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 16902,
+    "durationMs": 15807,
     "errors": [
       "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_FAILED",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
-      "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM",
@@ -936,12 +748,12 @@
       "Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM"
     ],
     "warns": [
-      "[2026-04-28T04:58:28.547Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[INVOICE-STATUS] FulfillmentData not available for sync",
-      "[2026-04-28T04:58:32.164Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. ",
-      "[INVOICE-STATUS] FulfillmentData not available for sync",
+      "[2026-04-28T05:35:53.973Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:35:56.570Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. ",
       "[PHOENIX] Join FAILED: multiple_pages:c2177f20-4b9f-4a38-b97a-7de087116034 — Gói cước hết hạn",
-      "[PHOENIX] 🔄 Retry 1/4: without page 193642490509664 → [112678138086607, 117267091364524, 270136663390370]"
+      "[PHOENIX] 🔄 Retry 1/4: without page 193642490509664 → [112678138086607, 117267091364524, 270136663390370]",
+      "[INVOICE-STATUS] FulfillmentData not available for sync",
+      "[INVOICE-STATUS] FulfillmentData not available for sync"
     ],
     "unhandled": []
   },
@@ -951,10 +763,10 @@
     "title": "Gán Sản Phẩm - STT",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8541,
+    "durationMs": 8426,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:58:44.795Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[2026-04-28T05:36:09.616Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
       "[INIT] ⚠️ UserStorageManager not available, creating fallback"
     ],
     "unhandled": []
@@ -965,7 +777,7 @@
     "title": "Quản Lý Tổng Đài - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14901,
+    "durationMs": 14955,
     "errors": [],
     "warns": [
       "Error enabling offline persistence. Falling back to persistence disabled: FirebaseError: [code=failed-precondition]: A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear ",
@@ -979,7 +791,7 @@
     "title": "Monitor 10 Line - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8484,
+    "durationMs": 8532,
     "errors": [],
     "warns": [
       "Error enabling offline persistence. Falling back to persistence disabled: FirebaseError: [code=failed-precondition]: A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear ",
@@ -993,7 +805,7 @@
     "title": "Privacy Policy - N2Store Messenger Extension",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8245,
+    "durationMs": 8647,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -1004,12 +816,12 @@
     "title": "Kho Sản Phẩm - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14880,
+    "durationMs": 14848,
     "errors": [
       "Failed to load resource: the server responded with a status of 404 ()"
     ],
     "warns": [
-      "[2026-04-28T04:59:35.248Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:36:59.457Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1019,11 +831,11 @@
     "title": "Theo Dõi Dự Án - N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8785,
+    "durationMs": 8787,
     "errors": [],
     "warns": [
       "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation",
-      "[2026-04-28T04:59:37.841Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:02.474Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1033,10 +845,10 @@
     "title": "Kiểm hàng nhập - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8470,
+    "durationMs": 8413,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:43.623Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:07.320Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1046,10 +858,10 @@
     "title": "Quản lý Đặt hàng - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8742,
+    "durationMs": 8860,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:41.623Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:04.652Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1059,7 +871,7 @@
     "title": "",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8018,
+    "durationMs": 7872,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -1070,10 +882,10 @@
     "title": "Quy Trình Nghiệp Vụ — N2Store",
     "bodyHasContent": true,
     "visibleError": "lỗi nặng",
-    "durationMs": 8612,
+    "durationMs": 8197,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:47.749Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:10.916Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1083,7 +895,7 @@
     "title": "Data Manager",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8410,
+    "durationMs": 8405,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -1094,7 +906,7 @@
     "title": "Resident — Quản lý BĐS & Cư dân số",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8218,
+    "durationMs": 8220,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -1105,9 +917,12 @@
     "title": "Chi Phí Dịch Vụ - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14825,
+    "durationMs": 14860,
     "errors": [],
-    "warns": [],
+    "warns": [
+      "[AutoFB] Render server failed: Failed to solve captcha after 5 attempts",
+      "[AutoFB] CF Worker failed: Failed to solve captcha after 5 attempts"
+    ],
     "unhandled": []
   },
   {
@@ -1116,10 +931,10 @@
     "title": "Danh sách Số lượng đã ẩn - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 10925,
+    "durationMs": 9678,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:05.233Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:27.860Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1129,10 +944,10 @@
     "title": "Quản lý Số lượng Live - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14919,
+    "durationMs": 14994,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:54.555Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:18.821Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1142,11 +957,10 @@
     "title": "Báo cáo bán hàng - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8727,
+    "durationMs": 8353,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:56.283Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[2026-04-28T04:59:57.308Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"date\" at /soluongSalesLog to your security rules for better performance. "
+      "[2026-04-28T05:37:19.320Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1156,10 +970,10 @@
     "title": "Bán hàng Social - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8821,
+    "durationMs": 13531,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:58.676Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:21.914Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1169,10 +983,10 @@
     "title": "Danh sách Số lượng Live - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14837,
+    "durationMs": 14797,
     "errors": [],
     "warns": [
-      "[2026-04-28T04:59:58.839Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:22.642Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1182,10 +996,10 @@
     "title": "Sổ Order",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9103,
+    "durationMs": 8608,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:07.268Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:30.848Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1195,7 +1009,7 @@
     "title": "KiotViet - Phần mềm quản lý bán hàng Phổ Biến Nhất",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8942,
+    "durationMs": 8878,
     "errors": [],
     "warns": [
       "Failed to execute 'write' on 'Document': It isn't possible to write into a document from an asynchronously-loaded external script unless it is explicitly opened."
@@ -1208,10 +1022,10 @@
     "title": "Sổ Quỹ - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9412,
+    "durationMs": 9247,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:07.780Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:34.019Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1221,7 +1035,7 @@
     "title": "Customer 360 Hub - Customer Search",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8727,
+    "durationMs": 8521,
     "errors": [],
     "warns": [
       "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation"
@@ -1234,7 +1048,7 @@
     "title": "Transaction Activity Log",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8349,
+    "durationMs": 8314,
     "errors": [],
     "warns": [
       "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation"
@@ -1247,7 +1061,7 @@
     "title": "Customer 360 Hub - Unlinked Transactions",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8629,
+    "durationMs": 8603,
     "errors": [],
     "warns": [
       "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation"
@@ -1260,10 +1074,10 @@
     "title": "Công nợ nhà cung cấp",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9808,
+    "durationMs": 9525,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:13.869Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:37.688Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1273,12 +1087,12 @@
     "title": "Tpos - Pancake",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 14881,
+    "durationMs": 8569,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:16.418Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-      "[PK-API] Error 122 - finding working pages...",
-      "[PK-API] Page 193642490509664 has error 122, excluding"
+      "[2026-04-28T05:37:37.876Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+      "[PANCAKE-TOKEN] loadAccounts timed out, no local data",
+      "[PANCAKE-TOKEN] loadAccounts timed out, no local data"
     ],
     "unhandled": []
   },
@@ -1288,7 +1102,7 @@
     "title": "Quản Lý Tài Khoản - N2STORE",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8992,
+    "durationMs": 9007,
     "errors": [],
     "warns": [],
     "unhandled": []
@@ -1299,10 +1113,10 @@
     "title": "Kho Sản Phẩm Web 2.0 — N2Store",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8285,
+    "durationMs": 8383,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:17.262Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:43.447Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1312,10 +1126,10 @@
     "title": "Loại chi — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9275,
+    "durationMs": 9391,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:25.994Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:49.051Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1325,10 +1139,10 @@
     "title": "Ký quỹ — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8594,
+    "durationMs": 8619,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:27.804Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:52.069Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1338,10 +1152,10 @@
     "title": "Điều chỉnh công nợ — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8600,
+    "durationMs": 8513,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:31.413Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:53.383Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1351,10 +1165,10 @@
     "title": "Sổ nhật ký — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8681,
+    "durationMs": 8488,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:32.637Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:55.241Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1364,10 +1178,10 @@
     "title": "Tài khoản kế toán — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8588,
+    "durationMs": 8494,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:33.974Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:55.812Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1377,10 +1191,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8662,
+    "durationMs": 8631,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:35.214Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:37:58.311Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1390,10 +1204,10 @@
     "title": "Phiếu chi — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8648,
+    "durationMs": 8972,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:36.525Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:01.114Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1403,10 +1217,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8627,
+    "durationMs": 8535,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:40.108Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:01.990Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1416,10 +1230,10 @@
     "title": "Phiếu thu — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8625,
+    "durationMs": 8514,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:41.340Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:03.835Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1429,10 +1243,10 @@
     "title": "Loại thu — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8600,
+    "durationMs": 8510,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:42.666Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:04.395Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1442,10 +1256,10 @@
     "title": "Người dùng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8583,
+    "durationMs": 8516,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:43.892Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:06.900Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1455,10 +1269,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8596,
+    "durationMs": 8509,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:45.205Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:09.721Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1468,10 +1282,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8667,
+    "durationMs": 8516,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:48.878Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:10.600Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1481,10 +1295,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8602,
+    "durationMs": 8612,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:50.042Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:12.531Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1494,10 +1308,10 @@
     "title": "Công ty — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8574,
+    "durationMs": 8480,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:51.321Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:12.980Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1507,10 +1321,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8620,
+    "durationMs": 8623,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:52.568Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:15.609Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1520,10 +1334,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8646,
+    "durationMs": 8499,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:53.939Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:18.318Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1533,10 +1347,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9626,
+    "durationMs": 8497,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:57.975Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:19.170Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1546,10 +1360,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8607,
+    "durationMs": 8513,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:00:58.724Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:21.132Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1559,10 +1373,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8680,
+    "durationMs": 8502,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:00.076Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:21.550Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1572,10 +1386,10 @@
     "title": "Coupon — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8740,
+    "durationMs": 8522,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:01.414Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:24.217Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1585,10 +1399,10 @@
     "title": "Đối tác giao hàng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8626,
+    "durationMs": 8482,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:02.650Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:26.887Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1598,10 +1412,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8638,
+    "durationMs": 8495,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:07.302Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:27.759Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1611,10 +1425,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8578,
+    "durationMs": 8533,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:07.410Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:29.741Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1624,10 +1438,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8708,
+    "durationMs": 8522,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:08.876Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:30.156Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1637,10 +1451,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8725,
+    "durationMs": 8544,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:10.104Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:32.821Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1650,10 +1464,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8583,
+    "durationMs": 8601,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:11.326Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:35.570Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1663,10 +1477,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8689,
+    "durationMs": 8492,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:16.106Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:36.332Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1676,10 +1490,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8572,
+    "durationMs": 8512,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:16.068Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:38.334Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1689,10 +1503,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8624,
+    "durationMs": 8523,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:17.586Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:38.771Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1702,10 +1516,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8633,
+    "durationMs": 8537,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:18.902Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:41.454Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1715,10 +1529,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8637,
+    "durationMs": 8500,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:20.048Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:44.138Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1728,10 +1542,10 @@
     "title": "Chiến dịch Live — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8592,
+    "durationMs": 8509,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:24.736Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:44.927Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1741,10 +1555,10 @@
     "title": "Tích điểm — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8599,
+    "durationMs": 8542,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:24.773Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:46.949Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1754,10 +1568,10 @@
     "title": "Mẫu email — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8605,
+    "durationMs": 8488,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:26.291Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:47.350Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1767,10 +1581,10 @@
     "title": "Ưu đãi — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8613,
+    "durationMs": 8529,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:27.636Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:50.076Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1780,10 +1594,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8583,
+    "durationMs": 8494,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:33.410Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:53.494Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1793,10 +1607,10 @@
     "title": "Nhóm khách hàng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8613,
+    "durationMs": 8470,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:28.746Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:52.708Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1806,10 +1620,10 @@
     "title": "Khách hàng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8598,
+    "durationMs": 8516,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:33.475Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:55.555Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1819,10 +1633,10 @@
     "title": "Nhà cung cấp — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8629,
+    "durationMs": 8500,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:34.992Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:55.932Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1832,10 +1646,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8605,
+    "durationMs": 8522,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:36.344Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:38:58.676Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1845,10 +1659,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8611,
+    "durationMs": 9168,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:37.452Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:01.950Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1858,10 +1672,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8597,
+    "durationMs": 8513,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:42.083Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:02.098Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1871,10 +1685,10 @@
     "title": "Giá trị thuộc tính — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8625,
+    "durationMs": 8474,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:43.708Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:04.497Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1884,10 +1698,10 @@
     "title": "Thuộc tính sản phẩm — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8583,
+    "durationMs": 8517,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:42.172Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:04.131Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1897,10 +1711,10 @@
     "title": "Nhóm sản phẩm — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8131,
+    "durationMs": 8006,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:44.796Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:06.945Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1910,10 +1724,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8596,
+    "durationMs": 8493,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:46.141Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:10.528Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1923,10 +1737,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8666,
+    "durationMs": 8487,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:50.786Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:10.672Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1936,10 +1750,10 @@
     "title": "Nhóm đơn vị tính — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8030,
+    "durationMs": 8010,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:52.043Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:12.759Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1949,10 +1763,10 @@
     "title": "Đơn vị tính — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8010,
+    "durationMs": 8015,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:50.512Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:12.430Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1962,10 +1776,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8706,
+    "durationMs": 8619,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:53.347Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:15.473Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1975,10 +1789,10 @@
     "title": "Chương trình khuyến mãi — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8564,
+    "durationMs": 8510,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:54.795Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:19.101Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -1988,10 +1802,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8722,
+    "durationMs": 8518,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:59.069Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:19.265Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2001,10 +1815,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8526,
+    "durationMs": 8575,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:01:59.530Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:20.904Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2014,10 +1828,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8619,
+    "durationMs": 8540,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:00.501Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:21.214Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2027,10 +1841,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8644,
+    "durationMs": 8519,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:02.127Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:24.060Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2040,10 +1854,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8637,
+    "durationMs": 8523,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:03.573Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:27.712Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2053,10 +1867,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8647,
+    "durationMs": 8504,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:07.802Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:27.852Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2066,10 +1880,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8590,
+    "durationMs": 8508,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:08.136Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:29.495Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2079,10 +1893,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8650,
+    "durationMs": 8497,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:09.276Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:29.790Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2092,10 +1906,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8594,
+    "durationMs": 8498,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:10.755Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:32.651Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2105,10 +1919,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8626,
+    "durationMs": 8486,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:12.215Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:36.288Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2118,10 +1932,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8654,
+    "durationMs": 8482,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:16.554Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:36.412Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2131,10 +1945,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8603,
+    "durationMs": 8543,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:16.807Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:38.110Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2144,10 +1958,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8636,
+    "durationMs": 8510,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:17.969Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:38.383Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2157,10 +1971,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8628,
+    "durationMs": 8582,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:19.474Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:41.318Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2170,10 +1984,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8635,
+    "durationMs": 8504,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:20.911Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:44.869Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2183,10 +1997,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 9085,
+    "durationMs": 8484,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:25.732Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:44.986Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2196,10 +2010,10 @@
     "title": "Tiền tệ — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8612,
+    "durationMs": 8550,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:25.511Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:46.745Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2209,10 +2023,10 @@
     "title": "DSD đầu kỳ KH — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8591,
+    "durationMs": 8504,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:26.668Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:46.971Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2222,10 +2036,10 @@
     "title": "DSD đầu kỳ NCC — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8765,
+    "durationMs": 8492,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:28.275Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:49.896Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2235,10 +2049,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8708,
+    "durationMs": 8535,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:29.734Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:53.469Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2248,10 +2062,10 @@
     "title": "Đơn đặt hàng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8604,
+    "durationMs": 8497,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:34.212Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:53.559Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2261,10 +2075,10 @@
     "title": "Báo giá — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8580,
+    "durationMs": 8503,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:34.398Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:55.339Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2274,10 +2088,10 @@
     "title": "Kênh bán hàng — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8623,
+    "durationMs": 8503,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:35.379Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:55.553Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2287,10 +2101,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8690,
+    "durationMs": 8545,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:37.105Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:39:58.522Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2300,10 +2114,10 @@
     "title": "Điều chỉnh tồn kho — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8685,
+    "durationMs": 8511,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:38.514Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:02.071Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2313,10 +2127,10 @@
     "title": "Vị trí kho — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8649,
+    "durationMs": 8532,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:42.932Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:02.172Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2326,10 +2140,10 @@
     "title": "Dịch chuyển kho — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8602,
+    "durationMs": 8477,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:43.073Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:03.903Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2339,10 +2153,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8630,
+    "durationMs": 8491,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:44.105Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:04.136Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2352,10 +2166,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8729,
+    "durationMs": 8532,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:45.901Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:07.123Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2365,10 +2179,10 @@
     "title": "Nhãn — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8652,
+    "durationMs": 8508,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:47.239Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:10.665Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2378,10 +2192,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8598,
+    "durationMs": 8501,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:51.745Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:12.482Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2391,10 +2205,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8652,
+    "durationMs": 8477,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:52.844Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:12.698Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2404,10 +2218,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8612,
+    "durationMs": 8492,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:51.627Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:10.752Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   },
@@ -2417,10 +2231,10 @@
     "title": "undefined — Web 2.0",
     "bodyHasContent": true,
     "visibleError": "",
-    "durationMs": 8636,
+    "durationMs": 8601,
     "errors": [],
     "warns": [
-      "[2026-04-28T05:02:54.629Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+      "[2026-04-28T05:40:15.823Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
     ],
     "unhandled": []
   }

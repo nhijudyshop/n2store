@@ -439,7 +439,10 @@ async function loadCustomMenuNamesFromFirebase() {
     } catch (e) {
         // Downgrade error → warn: fallback localStorage hoạt động OK, không cần alert.
         // Smoke test 2026-04-28: console.error spam khi API rate-limit (ERR_HTTP2 refused).
-        console.warn('[Menu Names] Error loading from API (fallback localStorage):', e?.message || e);
+        console.warn(
+            '[Menu Names] Error loading from API (fallback localStorage):',
+            e?.message || e
+        );
         return getCustomMenuNames(); // Fallback to localStorage
     }
 }
