@@ -115,6 +115,14 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][feat] Đã Duyệt — thêm nút mắt 👁 mở ảnh duyệt CK trong lightbox
+| | |
+|---|---|
+| **Files** | `balance-history/js/accountant.js`, `balance-history/css/accountant.css`, `balance-history/index.html` |
+| **Vì sao** | Trong tab Kế Toán → Đã Duyệt, mỗi dòng đã có thumbnail ảnh CK ở cột Ghi chú với hover-zoom — nhưng cần 1 nút explicit ở cột Thao tác để giống pattern customer-hub Customer Profile (cột "Hoạt động gần đây" có nút mắt). |
+| **Thay đổi** | (1) `renderApprovedToday()`: render `acc-eye-btn` (Lucide icon `eye`) trước nút ✓ và ⚠️ Điều chỉnh, chỉ hiện khi `tx.verification_image_url` tồn tại; gọi `lucide.createIcons()` sau render. (2) Thêm `showImageLightbox(url)` — overlay full-screen, click ngoài hoặc Esc đóng. (3) Event delegation trong `setupEventListeners()` bắt `.acc-eye-btn` click → `showImageLightbox`. (4) CSS `.acc-eye-btn` style xanh dương 28×26px. (5) Bump `accountant.css?v=20260428a` cache-bust. |
+| **Status** | ✅ Done — sync với pattern customer-hub TxEvidence |
+
 ### [delivery-report][feat] Hover ví: nút mắt xem ảnh CK (compressed) + nút Duyệt cho tx pending
 | | |
 |---|---|
