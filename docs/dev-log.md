@@ -151,6 +151,15 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][feat] Tab Đã Duyệt — bổ sung Hoàn Tiền Hủy Đơn + sửa cột Ghi chú dùng wt.note thay wt.source
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js` |
+| **Vấn đề** | (1) Tab "Đã Duyệt" thiếu các giao dịch "Hoàn Tiền Hủy Đơn Công Nợ" (DEPOSIT + source=ORDER_CANCEL_REFUND) — chỉ có VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT trong wt UNION. (2) Cột Ghi chú render `wt.source` (vd 'VIRTUAL_CREDIT_ISSUE') thay vì `wt.note` (ghi chú thực user nhập, vd 'test_param_check'). |
+| **Backend fix** | (a) `/approved-today` UNION wt: thêm `(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')` vào whitelist. (b) Mirror filter cho count `approvedToday` cũng update tương tự. (c) SELECT wt rows: đổi `wt.source AS verification_note` → `COALESCE(NULLIF(TRIM(wt.note), ''), wt.source) AS verification_note` (ưu tiên ghi chú thực, fallback source). (d) Thêm `wt.source AS wt_source, wt.reference_id AS wt_reference_id` vào output để FE phân biệt sub-type. |
+| **Frontend fix** | `getMatchMethodBadge`: nhận biết `wtType=='DEPOSIT' && wtSource=='ORDER_CANCEL_REFUND'` → label "Hoàn tiền". Title tooltip ghi rõ `DEPOSIT/ORDER_CANCEL_REFUND`. |
+| **Status** | 🔄 Done code — chờ deploy Render + verify browser test |
+
 ### [customer-hub][tickets][feat] Hoàn Về + Khách Gửi — display label chuyên dụng + createdBy đầy đủ
 | | |
 |---|---|

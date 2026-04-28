@@ -1066,7 +1066,10 @@ router.get('/accountant/stats', async (req, res) => {
                 SELECT COUNT(*) as count
                 FROM wallet_transactions
                 WHERE amount > 0
-                  AND type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
+                  AND (
+                    type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
+                    OR (type = 'DEPOSIT' AND source = 'ORDER_CANCEL_REFUND')
+                  )
                   AND (reference_type IS DISTINCT FROM 'balance_history')
                   AND created_at >= $1
                   AND created_at < $2
@@ -1336,7 +1339,8 @@ router.get('/approved-today', async (req, res) => {
             let wtParamCount = 3;
             const wtConds = [
                 `wt.amount > 0`,
-                `wt.type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')`,
+                `(wt.type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
+                  OR (wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND'))`,
                 `(wt.reference_type IS DISTINCT FROM 'balance_history')`,
                 `wt.created_at >= $1`,
                 `wt.created_at < $2`,
@@ -1390,14 +1394,16 @@ router.get('/approved-today', async (req, res) => {
                         wt.phone AS linked_customer_phone,
                         (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') AS verified_at,
                         wt.created_by AS verified_by,
-                        wt.source AS verification_note,
+                        COALESCE(NULLIF(TRIM(wt.note), ''), wt.source) AS verification_note,
                         NULL::text AS verification_image_url,
                         'wallet_internal'::text AS match_method,
                         wt.manager_reviewed, wt.manager_review_note,
                         wt.reviewed_by, wt.reviewed_at,
                         c.name AS customer_name,
                         NULL::text AS adjusted_by,
-                        wt.type AS wt_type
+                        wt.type AS wt_type,
+                        wt.source AS wt_source,
+                        wt.reference_id AS wt_reference_id
                  FROM wallet_transactions wt
                  LEFT JOIN customers c ON c.phone = wt.phone
                  ${wtWhere}

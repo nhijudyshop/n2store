@@ -914,17 +914,22 @@
      * Get badge for match_method
      */
     function getMatchMethodBadge(tx) {
-        // Wallet internal +tiền (VIRTUAL_CREDIT, REFUND, RETURN_*) — không thuộc verification CK
+        // Wallet internal +tiền (VIRTUAL_CREDIT, REFUND, RETURN_*, ORDER_CANCEL_REFUND) — không thuộc verification CK
         if (tx && (tx.src === 'wt' || tx.match_method === 'wallet_internal')) {
             const wtType = tx.wt_type || '';
-            const wtLabel =
-                {
-                    VIRTUAL_CREDIT: 'Cộng nợ ảo',
-                    WALLET_REFUND: 'Hoàn ví',
-                    RETURN_SHIPPER: 'Thu về',
-                    RETURN_CLIENT: 'Trả khách',
-                }[wtType] || 'Ví nội bộ';
-            return `<span class="badge" style="background-color: #8b5cf6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;" title="Giao dịch +tiền nội bộ (${wtType})">${wtLabel}</span>`;
+            const wtSource = tx.wt_source || '';
+            // DEPOSIT + ORDER_CANCEL_REFUND → Hoàn tiền hủy đơn
+            const isCancelRefund = wtType === 'DEPOSIT' && wtSource === 'ORDER_CANCEL_REFUND';
+            const wtLabel = isCancelRefund
+                ? 'Hoàn tiền'
+                : {
+                      VIRTUAL_CREDIT: 'Cộng nợ ảo',
+                      WALLET_REFUND: 'Hoàn ví',
+                      RETURN_SHIPPER: 'Thu về',
+                      RETURN_CLIENT: 'Trả khách',
+                  }[wtType] || 'Ví nội bộ';
+            const titleSuffix = isCancelRefund ? `${wtType}/${wtSource}` : wtType;
+            return `<span class="badge" style="background-color: #8b5cf6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;" title="Giao dịch +tiền nội bộ (${titleSuffix})">${wtLabel}</span>`;
         }
 
         // Use global getStandardizedSourceGroup from main.js (loaded before accountant.js)
